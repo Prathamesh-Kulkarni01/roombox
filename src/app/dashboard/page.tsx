@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useMemo, useEffect } from "react"
@@ -30,22 +31,17 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
 
 import type { Guest, Bed, Room, PG, Floor } from "@/lib/types"
-import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Wallet, Home, LogOut, UserPlus, CalendarIcon, Calendar, Layers, DoorOpen, PlusCircle, Trash2, Pencil, Send, Copy } from "lucide-react"
+import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Home, UserPlus, CalendarIcon, Layers, DoorOpen, PlusCircle, Trash2, Pencil } from "lucide-react"
 import { differenceInDays, format, addMonths } from "date-fns"
 import { cn } from "@/lib/utils"
-import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
-import { useToast } from "@/hooks/use-toast"
 
 
 const addGuestSchema = z.object({
@@ -58,11 +54,6 @@ const addGuestSchema = z.object({
     kycDocument: z.any().optional()
 })
 
-const paymentSchema = z.object({
-  amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
-  paymentMethod: z.enum(['cash', 'upi', 'in-app']),
-});
-
 const floorSchema = z.object({ name: z.string().min(2, "Floor name must be at least 2 characters.") })
 const roomSchema = z.object({
   name: z.string().min(2, "Room name must be at least 2 characters."),
@@ -72,18 +63,11 @@ const roomSchema = z.object({
 const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is required.") })
 
 export default function DashboardPage() {
-  const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs, selectedPgId, updatePg } = useData();
-  const { toast } = useToast()
+  const { pgs, guests, complaints, isLoading, addGuest, updatePgs, selectedPgId, updatePg } = useData();
   
-  // States for guest/payment dialogs
+  // States for guest dialog
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
   const [selectedBedForGuestAdd, setSelectedBedForGuestAdd] = useState<{ bed: Bed; room: Room; pg: PG } | null>(null);
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [selectedGuestForPayment, setSelectedGuestForPayment] = useState<Guest | null>(null);
-  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
-  const [guestForReminder, setGuestForReminder] = useState<Guest | null>(null)
-  const [reminderMessage, setReminderMessage] = useState('')
-  const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
   
   // States for layout editing
   const [isEditMode, setIsEditMode] = useState(false);
@@ -98,7 +82,6 @@ export default function DashboardPage() {
   
   // Forms
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({ resolver: zodResolver(addGuestSchema) });
-  const paymentForm = useForm<z.infer<typeof paymentSchema>>({ resolver: zodResolver(paymentSchema), defaultValues: { paymentMethod: 'cash' } });
   const floorForm = useForm<z.infer<typeof floorSchema>>({ resolver: zodResolver(floorSchema), defaultValues: { name: '' } });
   const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema), defaultValues: { name: '', rent: 0, deposit: 0 } });
   const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } });
@@ -130,19 +113,6 @@ export default function DashboardPage() {
     if (guest.rentStatus === 'partial') return 'rent-partial'
     return 'occupied'
   }
-  
-  const getDaysLeft = (exitDate: string) => {
-    const days = differenceInDays(new Date(exitDate), new Date());
-    return days > 0 ? days : 0;
-  }
-  
-  const handleInitiateExit = (guestToUpdate: Guest) => {
-    if (guestToUpdate.exitDate) return;
-    const exitDate = new Date();
-    exitDate.setDate(exitDate.getDate() + guestToUpdate.noticePeriodDays);
-    const updatedGuest = { ...guestToUpdate, exitDate: format(exitDate, 'yyyy-MM-dd') };
-    updateGuest(updatedGuest);
-  };
   
   const handleOpenAddGuestDialog = (bed: Bed, room: Room, pg: PG) => {
     setSelectedBedForGuestAdd({ bed, room, pg });
@@ -176,50 +146,6 @@ export default function DashboardPage() {
     updatePgs(newPgs);
     setIsAddGuestDialogOpen(false);
   };
-
-  const handleOpenPaymentDialog = (guest: Guest) => {
-    setSelectedGuestForPayment(guest);
-    const amountDue = guest.rentAmount - (guest.rentPaidAmount || 0);
-    paymentForm.reset({ paymentMethod: 'cash', amountPaid: amountDue > 0 ? Number(amountDue.toFixed(2)) : 0 });
-    setIsPaymentDialogOpen(true);
-  };
-
-  const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
-    if (!selectedGuestForPayment) return;
-    const newTotalPaid = (selectedGuestForPayment.rentPaidAmount || 0) + values.amountPaid;
-    let updatedGuest: Guest;
-    if (newTotalPaid >= selectedGuestForPayment.rentAmount) {
-        updatedGuest = { ...selectedGuestForPayment, rentStatus: 'paid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(selectedGuestForPayment.dueDate), 1), 'yyyy-MM-dd') };
-    } else {
-        updatedGuest = { ...selectedGuestForPayment, rentStatus: 'partial', rentPaidAmount: newTotalPaid };
-    }
-    updateGuest(updatedGuest);
-    setIsPaymentDialogOpen(false);
-  };
-
-  const handleOpenReminderDialog = async (guest: Guest) => {
-    setGuestForReminder(guest)
-    setIsReminderDialogOpen(true)
-    setIsGeneratingReminder(true)
-    setReminderMessage('')
-
-    try {
-      const input: GenerateRentReminderInput = {
-        guestName: guest.name,
-        rentAmount: guest.rentAmount - (guest.rentPaidAmount || 0),
-        dueDate: format(new Date(guest.dueDate), "do MMMM yyyy"),
-        pgName: guest.pgName,
-      }
-      const result = await generateRentReminder(input)
-      setReminderMessage(result.reminderMessage)
-    } catch (error) {
-      console.error("Failed to generate reminder", error)
-      setReminderMessage("Sorry, we couldn't generate a reminder at this time. Please try again.")
-    } finally {
-      setIsGeneratingReminder(false)
-    }
-  }
-
 
   // Layout Editing Handlers
   const handleFloorSubmit = (pg: PG) => (values: z.infer<typeof floorSchema>) => {
@@ -342,12 +268,6 @@ export default function DashboardPage() {
     'notice-period': 'bg-blue-200 border-blue-400 text-blue-800 hover:bg-blue-300',
   };
 
-  const rentStatusBadgeColors: Record<Guest['rentStatus'], string> = {
-    paid: 'bg-green-100 text-green-800 border-green-300',
-    unpaid: 'bg-red-100 text-red-800 border-red-300',
-    partial: 'bg-orange-100 text-orange-800 border-orange-300',
-  };
-
   return (
     <>
     <div className="flex flex-col gap-6">
@@ -414,10 +334,19 @@ export default function DashboardPage() {
                               }
                               
                               return (
-                                <Popover key={bed.id}>
-                                  <div className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors ${bedStatusClasses[status]}`}><BedDouble className="w-8 h-8 mb-1" /><span className="font-bold text-sm">Bed {bed.name}</span><div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">{hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}{guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}{status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}</div><PopoverTrigger asChild><Button size="icon" variant="ghost" className="absolute bottom-1 right-1 h-6 w-6 rounded-full hover:bg-black/10"><Info className="h-4 w-4" /></Button></PopoverTrigger></div>
-                                  <PopoverContent className="w-64">{guest && (<div className="grid gap-4"><div className="flex items-center gap-3"><Avatar><AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} /><AvatarFallback>{guest.name.charAt(0)}</AvatarFallback></Avatar><div><p className="text-sm font-medium leading-none">{guest.name}</p><p className="text-sm text-muted-foreground">{guest.pgName}</p></div></div>{guest.exitDate ? (<Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 w-fit"><Clock className="w-3 h-3 mr-2" />Exiting in {getDaysLeft(guest.exitDate)} days</Badge>) : (<Badge variant="outline" className={cn("w-fit capitalize", rentStatusBadgeColors[guest.rentStatus])}>{guest.rentStatus}</Badge>)}<div className="text-sm space-y-2"><div className="flex items-center"><Wallet className="w-4 h-4 mr-2 text-muted-foreground"/><span>Rent: ₹{(guest.rentAmount - (guest.rentPaidAmount || 0)).toLocaleString('en-IN')} due</span></div><div className="flex items-center"><Calendar className="w-4 h-4 mr-2 text-muted-foreground"/><span>Due: {format(new Date(guest.dueDate), "do MMM, yyyy")}</span></div><div className="flex items-center"><Home className="w-4 h-4 mr-2 text-muted-foreground"/><span>Joined: {format(new Date(guest.moveInDate), "do MMM, yyyy")}</span></div></div><div className="flex flex-wrap gap-2">{(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (<Button size="sm" onClick={() => handleOpenPaymentDialog(guest)}><IndianRupee className="mr-2 h-4 w-4" /> Collect Rent</Button>)}{!isEditMode && <Button variant="outline" size="sm" onClick={() => handleInitiateExit(guest)} disabled={!!guest.exitDate}><LogOut className="mr-2 h-4 w-4" />{guest.exitDate ? 'Exit Initiated' : 'Initiate Exit'}</Button>}{(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (<Button size="sm" variant="secondary" onClick={() => handleOpenReminderDialog(guest)}><Send className="mr-2 h-4 w-4" />Send Reminder</Button>)}</div></div>)}</PopoverContent>
-                                </Popover>
+                                <div key={bed.id} className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2.5 text-center gap-1 transition-colors ${bedStatusClasses[status]}`}>
+                                    <BedDouble className="w-8 h-8 mb-1" />
+                                    <span className="font-bold text-sm">Bed {bed.name}</span>
+                                    <p className="text-xs w-full truncate">{guest.name}</p>
+                                    <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
+                                        {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
+                                        {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
+                                        {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
+                                    </div>
+                                    <Link href={`/dashboard/tenant-management/${guest.id}`} className="absolute bottom-1 right-1">
+                                      <Button size="icon" variant="ghost" className="h-6 w-6 rounded-full hover:bg-black/10"><Info className="h-4 w-4" /></Button>
+                                    </Link>
+                                </div>
                               );
                             })}
                              {isEditMode && (<button onClick={() => openAddBedDialog(floor.id, room.id)} className="min-h-[110px] w-full flex flex-col items-center justify-center p-2 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-6 h-6 mb-1" /><span className="text-sm font-medium text-center">Add Bed</span></button>)}
@@ -443,51 +372,7 @@ export default function DashboardPage() {
     
     {/* --- DIALOGS --- */}
     <Dialog open={isAddGuestDialogOpen} onOpenChange={setIsAddGuestDialogOpen}>
-        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90dvh]"><DialogHeader><DialogTitle>Onboard New Guest</DialogTitle><DialogDescription>Add a new guest to Bed {selectedBedForGuestAdd?.bed.name} in Room {selectedBedForGuestAdd?.room.name} at {selectedBedForGuestAdd?.pg.name}.</DialogDescription></DialogHeader><div className="flex-1 overflow-y-auto -mr-6 pr-6"><Form {...addGuestForm}><form onSubmit={addGuestForm.handleSubmit(handleAddGuestSubmit)} className="space-y-4" id="add-guest-form"><FormField control={addGuestForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Priya Sharma" {...field} /></FormControl><FormMessage /></FormItem>)} /><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={addGuestForm.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="e.g., priya@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={addGuestForm.control} name="rentAmount" render={({ field }) => (<FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="depositAmount" render={({ field }) => (<FormItem><FormLabel>Security Deposit</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><FormField control={addGuestForm.control} name="moveInDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Move-in Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><CalendarComponent mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="kycDocument" render={({ field }) => (<FormItem><FormLabel>KYC Document</FormLabel><FormControl><Input type="file" /></FormControl><FormDescription>Upload Aadhar, PAN, or other ID. This is for demo purposes.</FormDescription><FormMessage /></FormItem>)} /></form></Form></div><DialogFooter className="pt-4"><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="add-guest-form">Add Guest</Button></DialogFooter></DialogContent>
-    </Dialog>
-
-    <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-      <DialogContent className="sm:max-w-md">{selectedGuestForPayment && (<><DialogHeader><DialogTitle>Collect Rent Payment</DialogTitle><DialogDescription>Record a full or partial payment for {selectedGuestForPayment.name}.</DialogDescription></DialogHeader><Form {...paymentForm}><form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4"><div className="space-y-2 py-2"><p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{selectedGuestForPayment.rentAmount.toLocaleString('en-IN')}</span></p><p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{(selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0)).toLocaleString('en-IN')}</span></p></div><FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1"><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash" /></FormControl><FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl><FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="payment-form">Confirm Payment</Button></DialogFooter></>)}</DialogContent>
-    </Dialog>
-
-    <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
-        <DialogContent>
-            <DialogHeader>
-            <DialogTitle>Send Rent Reminder</DialogTitle>
-            <DialogDescription>
-                A reminder message has been generated for {guestForReminder?.name}. You can copy it or send it directly via WhatsApp.
-            </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-            {isGeneratingReminder ? (
-                <div className="space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                </div>
-            ) : (
-                <Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />
-            )}
-            </div>
-            <DialogFooter className="gap-2 sm:justify-end">
-                <Button variant="secondary" onClick={() => {
-                    navigator.clipboard.writeText(reminderMessage);
-                    toast({ title: "Copied!", description: "Reminder message copied to clipboard."})
-                }}>
-                    <Copy className="mr-2 h-4 w-4" /> Copy
-                </Button>
-                <a
-                    href={`https://wa.me/${guestForReminder?.phone}?text=${encodeURIComponent(reminderMessage)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full sm:w-auto"
-                >
-                    <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
-                        <MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp
-                    </Button>
-                </a>
-            </DialogFooter>
-        </DialogContent>
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90dvh]"><DialogHeader><DialogTitle>Onboard New Guest</DialogTitle><DialogDescription>Add a new guest to Bed {selectedBedForGuestAdd?.bed.name} in Room {selectedBedForGuestAdd?.room.name} at {selectedBedForGuestAdd?.pg.name}.</DialogDescription></DialogHeader><div className="flex-1 overflow-y-auto -mr-6 pr-6"><Form {...addGuestForm}><form onSubmit={addGuestForm.handleSubmit(handleAddGuestSubmit)} className="space-y-4" id="add-guest-form"><FormField control={addGuestForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Priya Sharma" {...field} /></FormControl><FormMessage /></FormItem>)} /><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={addGuestForm.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="e.g., priya@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={addGuestForm.control} name="rentAmount" render={({ field }) => (<FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="depositAmount" render={({ field }) => (<FormItem><FormLabel>Security Deposit</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><FormField control={addGuestForm.control} name="moveInDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Move-in Date</FormLabel><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button><CalendarComponent mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus /><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="kycDocument" render={({ field }) => (<FormItem><FormLabel>KYC Document</FormLabel><FormControl><Input type="file" /></FormControl><FormDescription>Upload Aadhar, PAN, or other ID. This is for demo purposes.</FormDescription><FormMessage /></FormItem>)} /></form></Form></div><DialogFooter className="pt-4"><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="add-guest-form">Add Guest</Button></DialogFooter></DialogContent>
     </Dialog>
     
     <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}><DialogContent><DialogHeader><DialogTitle>{floorToEdit ? 'Edit Floor' : 'Add New Floor'}</DialogTitle></DialogHeader><Form {...floorForm}><form onSubmit={floorForm.handleSubmit(handleFloorSubmit(pgsToDisplay[0]))} id="floor-form" className="space-y-4"><FormField control={floorForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Floor Name</FormLabel><FormControl><Input placeholder="e.g., First Floor" {...field} /></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="floor-form">{floorToEdit ? 'Save Changes' : 'Add Floor'}</Button></DialogFooter></DialogContent></Dialog>
@@ -496,3 +381,5 @@ export default function DashboardPage() {
     </>
   )
 }
+
+    

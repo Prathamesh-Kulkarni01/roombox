@@ -1,6 +1,8 @@
+
 'use client'
 
 import { useMemo } from 'react'
+import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -43,10 +45,6 @@ export default function GuestManagementPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col gap-8">
-                 <div>
-                    <Skeleton className="h-9 w-72 mb-2" />
-                    <Skeleton className="h-5 w-80" />
-                </div>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                        <div className="space-y-2">
@@ -110,7 +108,11 @@ export default function GuestManagementPage() {
                                     <TableBody>
                                         {filteredGuests.map((guest) => (
                                             <TableRow key={guest.id}>
-                                                <TableCell className="font-medium">{guest.name}</TableCell>
+                                                <TableCell className="font-medium">
+                                                    <Link href={`/dashboard/tenant-management/${guest.id}`} className="hover:underline text-primary">
+                                                        {guest.name}
+                                                    </Link>
+                                                </TableCell>
                                                 <TableCell>{guest.pgName}</TableCell>
                                                 <TableCell>
                                                     <Badge className={cn("capitalize border-transparent", rentStatusColors[guest.rentStatus])}>
@@ -133,12 +135,11 @@ export default function GuestManagementPage() {
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                            <DropdownMenuItem>Edit Guest</DropdownMenuItem>
-                                                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                            {guest.rentStatus === 'unpaid' && (
-                                                                <DropdownMenuItem>Send Rent Reminder</DropdownMenuItem>
-                                                            )}
-                                                            <DropdownMenuItem className="text-red-600">Remove Guest</DropdownMenuItem>
+                                                            <DropdownMenuItem asChild>
+                                                                <Link href={`/dashboard/tenant-management/${guest.id}`}>
+                                                                    <User className="mr-2 h-4 w-4" /> View Profile
+                                                                </Link>
+                                                            </DropdownMenuItem>
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -158,7 +159,11 @@ export default function GuestManagementPage() {
                                                 <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <p className="font-bold">{guest.name}</p>
+                                                <p className="font-bold">
+                                                  <Link href={`/dashboard/tenant-management/${guest.id}`} className="hover:underline text-primary">
+                                                      {guest.name}
+                                                  </Link>
+                                                </p>
                                                 <p className="text-sm text-muted-foreground">{guest.pgName}</p>
                                             </div>
                                         </div>
@@ -171,12 +176,11 @@ export default function GuestManagementPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem>Edit Guest</DropdownMenuItem>
-                                                    <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                    {guest.rentStatus === 'unpaid' && (
-                                                        <DropdownMenuItem>Send Rent Reminder</DropdownMenuItem>
-                                                    )}
-                                                    <DropdownMenuItem className="text-red-600">Remove Guest</DropdownMenuItem>
+                                                    <DropdownMenuItem asChild>
+                                                        <Link href={`/dashboard/tenant-management/${guest.id}`}>
+                                                            <User className="mr-2 h-4 w-4" /> View Profile
+                                                        </Link>
+                                                    </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                     </div>
@@ -205,3 +209,5 @@ export default function GuestManagementPage() {
         </div>
     )
 }
+
+    
