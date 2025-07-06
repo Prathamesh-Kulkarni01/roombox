@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { produce } from 'immer'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog'
@@ -208,8 +208,8 @@ export default function ManagePgPage() {
                           <CardContent className="flex-grow">
                              <div className="text-sm text-muted-foreground space-y-1 mb-4">
                                 <p><Badge variant="secondary">{room.beds.length}-Sharing</Badge></p>
-                                <p className="flex items-center gap-1"><IndianRupee className="w-4 h-4"/>Rent: {room.rent.toLocaleString('en-IN')}</p>
-                                <p className="flex items-center gap-1"><IndianRupee className="w-4 h-4"/>Deposit: {room.deposit.toLocaleString('en-IN')}</p>
+                                <p className="flex items-center gap-1"><IndianRupee className="w-4 h-4"/>Rent: {(room.rent || 0).toLocaleString('en-IN')}</p>
+                                <p className="flex items-center gap-1"><IndianRupee className="w-4 h-4"/>Deposit: {(room.deposit || 0).toLocaleString('en-IN')}</p>
                             </div>
                             <h4 className="font-semibold mb-2 text-sm">Beds</h4>
                             <div className="flex flex-col gap-2">
