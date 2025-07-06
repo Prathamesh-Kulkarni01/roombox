@@ -32,16 +32,16 @@ export default function DashboardBottomNav() {
   const pathname = usePathname();
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t z-50">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-sidebar-border z-50">
       <nav className="grid grid-cols-5 h-16 items-center">
         {mainNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors h-full',
+              'flex flex-col items-center justify-center gap-1 text-sidebar-foreground/70 transition-colors h-full',
               (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) 
-                ? 'text-primary bg-primary/10' 
+                ? 'text-primary bg-sidebar-accent' 
                 : 'hover:text-primary'
             )}
           >
@@ -52,7 +52,7 @@ export default function DashboardBottomNav() {
         
         <Sheet>
           <SheetTrigger asChild>
-            <button className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors h-full hover:text-primary">
+            <button className="flex flex-col items-center justify-center gap-1 text-sidebar-foreground/70 transition-colors h-full hover:text-primary">
               <MoreHorizontal className="h-5 w-5" />
               <span className="text-xs font-medium">More</span>
             </button>

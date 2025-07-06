@@ -24,7 +24,7 @@ export default function DashboardSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 flex-col border-r bg-background hidden md:flex">
+    <aside className="w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground hidden md:flex">
       <div className="flex-1 flex flex-col gap-y-2">
         <div className="p-4">
             <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
@@ -35,8 +35,8 @@ export default function DashboardSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-primary/10',
-                (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-primary/10 text-primary'
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent',
+                (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-sidebar-accent text-sidebar-primary'
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -46,7 +46,7 @@ export default function DashboardSidebar() {
         </nav>
       </div>
       <div className="p-4 mt-auto">
-        <Separator className="my-4" />
+        <Separator className="my-4 bg-sidebar-border" />
         <div className="flex items-center gap-3">
           <Avatar>
             <AvatarImage src="https://placehold.co/40x40.png" alt="Owner" />
@@ -54,7 +54,7 @@ export default function DashboardSidebar() {
           </Avatar>
           <div className='flex-1'>
             <p className="font-semibold text-sm">PG Owner</p>
-            <p className="text-xs text-muted-foreground">owner@example.com</p>
+            <p className="text-xs text-sidebar-foreground/70">owner@example.com</p>
           </div>
           <Button variant="ghost" size="icon" asChild>
             <Link href="/login">
