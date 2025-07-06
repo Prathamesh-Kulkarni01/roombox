@@ -1,6 +1,7 @@
 'use client'
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -25,7 +26,8 @@ const genderBadgeColor = {
 
 
 export default function PgManagementPage() {
-    const { pgs, isLoading } = useData();
+    const { pgs, isLoading, setSelectedPgId } = useData();
+    const router = useRouter();
 
     if (isLoading) {
         return (
@@ -59,6 +61,11 @@ export default function PgManagementPage() {
                 </Card>
             </div>
         )
+    }
+
+    const handleConfigureClick = (pgId: string) => {
+        setSelectedPgId(pgId);
+        router.push('/dashboard');
     }
     
     return (
@@ -119,10 +126,8 @@ export default function PgManagementPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem asChild>
-                                                      <Link href={`/dashboard/pg-management/${pg.id}`}>
-                                                        <Pencil className="mr-2 h-4 w-4" /> Edit
-                                                      </Link>
+                                                    <DropdownMenuItem onClick={() => handleConfigureClick(pg.id)}>
+                                                        <Pencil className="mr-2 h-4 w-4" /> Configure
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem>View Guests</DropdownMenuItem>
                                                     <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
@@ -155,10 +160,8 @@ export default function PgManagementPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem asChild>
-                                              <Link href={`/dashboard/pg-management/${pg.id}`}>
-                                                <Pencil className="mr-2 h-4 w-4" /> Edit
-                                              </Link>
+                                            <DropdownMenuItem onClick={() => handleConfigureClick(pg.id)}>
+                                              <Pencil className="mr-2 h-4 w-4" /> Configure
                                             </DropdownMenuItem>
                                             <DropdownMenuItem>View Guests</DropdownMenuItem>
                                             <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
