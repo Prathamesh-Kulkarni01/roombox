@@ -2,55 +2,35 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { ArrowRight, BedDouble, Check, IndianRupee, MessageCircle, PieChart, ShieldCheck, Users, Wand2, Zap } from 'lucide-react';
+import { ArrowRight, Check, IndianRupee, PieChart, Users, LayoutDashboard, FileText, BotMessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-
-const benefits = [
-  {
-    icon: <Zap className="h-8 w-8 text-primary" />,
-    title: 'Save Time & Reduce Errors',
-    description: 'Automate rent reminders, expense logging, and guest onboarding to reclaim your weekends and minimize manual mistakes.',
-  },
-  {
-    icon: <IndianRupee className="h-8 w-8 text-primary" />,
-    title: 'Increase Profitability',
-    description: 'Get paid faster with automated collections. Track every rupee spent and earned for a crystal-clear view of your finances.',
-  },
-  {
-    icon: <Users className="h-8 w-8 text-primary" />,
-    title: 'Enhance Tenant Happiness',
-    description: 'Resolve complaints faster, provide transparent communication, and offer a modern, professional experience that tenants love.',
-  },
-];
 
 const features = [
   {
-    value: "occupancy",
-    title: "Visual Occupancy Management",
-    description: "Ditch the confusing spreadsheets. Visually manage your entire PG layout, from floors and rooms to individual beds. See who's where, what's vacant, and manage move-ins/outs with a simple click.",
-    image: "https://placehold.co/1024x768.png",
-    imageHint: "PG layout management UI"
+    icon: <LayoutDashboard className="h-8 w-8 text-primary" />,
+    title: 'Visual Occupancy Dashboard',
+    description: 'Ditch spreadsheets. Manage floors, rooms, and beds visually. See vacancies and guest details at a glance.',
   },
   {
-    value: "finance",
-    title: "Automated Financial Dashboard",
-    description: "Get a real-time pulse on your business. Track monthly revenue, log expenses with ease, and understand your profitability without complex calculations. PGOasis does the heavy lifting for you.",
-    image: "https://placehold.co/1024x768.png",
-    imageHint: "finance dashboard chart"
+    icon: <PieChart className="h-8 w-8 text-primary" />,
+    title: 'Automated Finance Tracking',
+    description: 'Effortlessly log expenses and track monthly revenue. Get a clear, real-time view of your PG’s financial health.',
   },
   {
-    value: "communication",
-    title: "AI-Powered Smart Communication",
-    description: "Communicate like a pro, effortlessly. Use AI to generate polite but firm rent reminders, and create SEO-optimized listings to attract more tenants. It's like having a personal assistant.",
-    image: "https://placehold.co/1024x768.png",
-    imageHint: "chat interface notifications"
-  }
+    icon: <BotMessageSquare className="h-8 w-8 text-primary" />,
+    title: 'AI-Powered Communication',
+    description: 'Save time with AI-generated rent reminders and SEO-friendly listings to attract more high-quality tenants.',
+  },
+  {
+    icon: <FileText className="h-8 w-8 text-primary" />,
+    title: 'Centralized Management',
+    description: 'Handle guest onboarding, complaints, and staff management all from one unified, easy-to-use platform.',
+  },
 ];
+
 
 const faqs = [
     {
@@ -94,22 +74,11 @@ export default function Home() {
                 <Link href="#features">See Features <ArrowRight className="ml-2 h-5 w-5" /></Link>
               </Button>
             </div>
-             <div className="mt-16 animate-in fade-in zoom-in-95 duration-700 ease-out delay-300">
-                <Image
-                    src="https://placehold.co/1200x675.png"
-                    width={1200}
-                    height={675}
-                    alt="PGOasis Dashboard Mockup"
-                    className="rounded-t-xl border-2 border-border shadow-2xl mx-auto"
-                    data-ai-hint="SaaS dashboard screenshot"
-                    priority
-                />
-            </div>
           </div>
         </section>
 
-        {/* Benefits Section */}
-        <section className="py-16 md:py-24 bg-background">
+        {/* Features Section */}
+        <section id="features" className="py-16 md:py-24 bg-primary/5">
             <div className="container mx-auto px-4">
                 <div className="text-center mb-12 animate-in fade-in duration-500">
                     <h2 className="text-3xl md:text-4xl font-bold font-headline">Stop Managing, Start Growing</h2>
@@ -117,61 +86,20 @@ export default function Home() {
                         PGOasis is designed to solve the biggest headaches of PG management.
                     </p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {benefits.map((benefit, index) => (
-                        <div key={benefit.title} className="text-center p-6 animate-in fade-in zoom-in-95" style={{ animationDelay: `${index * 100}ms`}}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {features.map((feature, index) => (
+                        <div key={feature.title} className="text-center p-6 animate-in fade-in zoom-in-95" style={{ animationDelay: `${index * 100}ms`}}>
                              <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/10 mx-auto mb-6">
-                                {benefit.icon}
+                                {feature.icon}
                              </div>
-                            <h3 className="text-xl font-semibold mb-2">{benefit.title}</h3>
-                            <p className="text-muted-foreground">{benefit.description}</p>
+                            <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                            <p className="text-muted-foreground">{feature.description}</p>
                         </div>
                     ))}
                 </div>
             </div>
         </section>
         
-        {/* Features with Tabs Section */}
-        <section id="features" className="py-16 md:py-24 bg-primary/5">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12 animate-in fade-in duration-500">
-              <h2 className="text-3xl md:text-4xl font-bold font-headline">Everything You Need, All In One Place</h2>
-              <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-                Explore the powerful, intuitive features that give you complete control.
-              </p>
-            </div>
-             <Tabs defaultValue="occupancy" className="w-full animate-in fade-in duration-500 delay-200">
-              <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 max-w-2xl mx-auto h-auto">
-                {features.map(feature => (
-                    <TabsTrigger key={feature.value} value={feature.value} className="py-2.5 text-base whitespace-normal">{feature.title}</TabsTrigger>
-                ))}
-              </TabsList>
-              {features.map(feature => (
-                 <TabsContent key={feature.value} value={feature.value} className="mt-10">
-                    <Card className="overflow-hidden">
-                       <div className="grid md:grid-cols-2 items-center">
-                          <div className="p-8 md:p-12">
-                             <h3 className="text-2xl font-bold mb-4">{feature.title}</h3>
-                             <p className="text-muted-foreground text-lg">{feature.description}</p>
-                          </div>
-                          <div className="bg-muted h-full flex items-center justify-center p-8 md:p-0">
-                             <Image
-                                src={feature.image}
-                                alt={feature.title}
-                                width={1024}
-                                height={768}
-                                className="rounded-lg shadow-lg"
-                                data-ai-hint={feature.imageHint}
-                              />
-                          </div>
-                       </div>
-                    </Card>
-                 </TabsContent>
-              ))}
-            </Tabs>
-          </div>
-        </section>
-
         {/* Pricing Section */}
         <section id="pricing" className="py-16 md:py-24 bg-background">
             <div className="container mx-auto px-4">
@@ -264,7 +192,7 @@ export default function Home() {
               Join hundreds of other PG owners who have switched to a smarter way of working. Get started in minutes.
             </p>
             <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 px-8 animate-in fade-in zoom-in-95 duration-500 delay-200">
-              <Link href="/dashboard">Start Your Free Trial</Link>
+              <Link href="/dashboard">Start Your Free Trial Now</Link>
             </Button>
           </div>
         </section>
