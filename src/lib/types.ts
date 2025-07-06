@@ -65,9 +65,10 @@ export interface Guest {
   pgId: string;
   pgName: string;
   bedId: string;
-  rentStatus: 'paid' | 'unpaid';
+  rentStatus: 'paid' | 'unpaid' | 'partial';
   dueDate: string;
   rentAmount: number;
+  rentPaidAmount?: number;
   depositAmount?: number;
   kycStatus: 'verified' | 'pending' | 'rejected';
   kycDocUrl?: string;

@@ -17,11 +17,13 @@ import { cn } from "@/lib/utils"
 import { useData } from "@/context/data-provider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type { Guest } from '@/lib/types'
 
 
-const rentStatusColors = {
+const rentStatusColors: Record<Guest['rentStatus'], string> = {
   paid: 'bg-green-100 text-green-800',
   unpaid: 'bg-red-100 text-red-800',
+  partial: 'bg-orange-100 text-orange-800',
 };
 
 const kycStatusColors = {

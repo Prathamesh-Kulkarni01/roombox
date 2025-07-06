@@ -49,6 +49,7 @@ const addGuestSchema = z.object({
 })
 
 const paymentSchema = z.object({
+  amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
   paymentMethod: z.enum(['cash', 'upi', 'in-app']),
 });
 
@@ -80,6 +81,7 @@ export default function DashboardPage() {
     if (!guest) return 'available'
     if (guest.exitDate) return 'notice-period'
     if (guest.rentStatus === 'unpaid') return 'rent-pending'
+    if (guest.rentStatus === 'partial') return 'rent-partial'
     return 'occupied'
   }
 
@@ -87,6 +89,7 @@ export default function DashboardPage() {
     available: 'bg-yellow-200 border-yellow-400 text-yellow-800 hover:bg-yellow-300',
     occupied: 'bg-slate-200 border-slate-400 text-slate-800 hover:bg-slate-300',
     'rent-pending': 'bg-red-300 border-red-500 text-red-900 hover:bg-red-400',
+    'rent-partial': 'bg-orange-200 border-orange-400 text-orange-800 hover:bg-orange-300',
     'notice-period': 'bg-blue-200 border-blue-400 text-blue-800 hover:bg-blue-300',
   }
   
@@ -131,6 +134,7 @@ export default function DashboardPage() {
       pgName: pg.name,
       bedId: bed.id,
       rentStatus: 'unpaid',
+      rentPaidAmount: 0,
       dueDate: format(new Date(values.moveInDate).setDate(values.moveInDate.getDate() + 30), 'yyyy-MM-dd'),
       rentAmount: values.rentAmount,
       depositAmount: values.depositAmount,
@@ -169,20 +173,38 @@ export default function DashboardPage() {
 
   const handleOpenPaymentDialog = (guest: Guest) => {
     setSelectedGuestForPayment(guest);
-    paymentForm.reset({ paymentMethod: 'cash' });
+    const amountDue = guest.rentAmount - (guest.rentPaidAmount || 0);
+    paymentForm.reset({ 
+        paymentMethod: 'cash',
+        amountPaid: amountDue > 0 ? Number(amountDue.toFixed(2)) : 0,
+    });
     setIsPaymentDialogOpen(true);
   };
 
   const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
     if (!selectedGuestForPayment) return;
 
-    const nextDueDate = addMonths(new Date(selectedGuestForPayment.dueDate), 1);
+    const currentPaidAmount = selectedGuestForPayment.rentPaidAmount || 0;
+    const totalRent = selectedGuestForPayment.rentAmount;
+    const newTotalPaid = currentPaidAmount + values.amountPaid;
 
-    const updatedGuest: Guest = {
-      ...selectedGuestForPayment,
-      rentStatus: 'paid',
-      dueDate: format(nextDueDate, 'yyyy-MM-dd'),
-    };
+    let updatedGuest: Guest;
+
+    if (newTotalPaid >= totalRent) {
+        const nextDueDate = addMonths(new Date(selectedGuestForPayment.dueDate), 1);
+        updatedGuest = {
+            ...selectedGuestForPayment,
+            rentStatus: 'paid',
+            rentPaidAmount: 0, // Reset for next cycle
+            dueDate: format(nextDueDate, 'yyyy-MM-dd'),
+        };
+    } else {
+        updatedGuest = {
+            ...selectedGuestForPayment,
+            rentStatus: 'partial',
+            rentPaidAmount: newTotalPaid,
+        };
+    }
     
     updateGuest(updatedGuest);
     setIsPaymentDialogOpen(false);
@@ -252,6 +274,12 @@ export default function DashboardPage() {
             </Button>
         </div>
     )
+  }
+
+  const rentStatusBadgeColors: Record<Guest['rentStatus'], string> = {
+    paid: 'bg-green-100 text-green-800 border-green-300',
+    unpaid: 'bg-red-100 text-red-800 border-red-300',
+    partial: 'bg-orange-100 text-orange-800 border-orange-300',
   }
 
   return (
@@ -341,12 +369,14 @@ export default function DashboardPage() {
                                         Exiting in {getDaysLeft(guest.exitDate)} days
                                       </Badge>
                                     ) : (
-                                       <Badge variant={guest.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="w-fit capitalize">{guest.rentStatus}</Badge>
+                                       <Badge variant="outline" className={cn("w-fit capitalize", rentStatusBadgeColors[guest.rentStatus])}>
+                                        {guest.rentStatus}
+                                       </Badge>
                                     )}
                                     <div className="text-sm space-y-2">
                                         <div className="flex items-center">
                                             <Wallet className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                            <span>Rent: ₹{guest.rentAmount.toLocaleString('en-IN')}</span>
+                                            <span>Rent: ₹{(guest.rentAmount - (guest.rentPaidAmount || 0)).toLocaleString('en-IN')} due</span>
                                         </div>
                                         <div className="flex items-center">
                                             <Calendar className="w-4 h-4 mr-2 text-muted-foreground"/>
@@ -358,7 +388,7 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                        {guest.rentStatus === 'unpaid' && !guest.exitDate && (
+                                        {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
                                             <Button size="sm" onClick={() => handleOpenPaymentDialog(guest)}>
                                                 <IndianRupee className="mr-2 h-4 w-4" /> Collect Rent
                                             </Button>
@@ -452,15 +482,28 @@ export default function DashboardPage() {
         <DialogHeader>
           <DialogTitle>Collect Rent Payment</DialogTitle>
           <DialogDescription>
-            Confirm payment for {selectedGuestForPayment?.name}.
+            Record a full or partial payment for {selectedGuestForPayment?.name}.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2 py-2">
-            <p className="text-sm text-muted-foreground">Guest: <span className="font-medium text-foreground">{selectedGuestForPayment?.name}</span></p>
-            <p className="text-sm text-muted-foreground">Rent Amount: <span className="font-bold text-lg text-foreground">₹{selectedGuestForPayment?.rentAmount.toLocaleString('en-IN')}</span></p>
-        </div>
         <Form {...paymentForm}>
             <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4">
+                 <div className="space-y-2 py-2">
+                    <p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{selectedGuestForPayment?.rentAmount.toLocaleString('en-IN')}</span></p>
+                    <p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{(selectedGuestForPayment && (selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0))).toLocaleString('en-IN')}</span></p>
+                </div>
+                 <FormField
+                    control={paymentForm.control}
+                    name="amountPaid"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Amount to Collect</FormLabel>
+                        <FormControl>
+                            <Input type="number" placeholder="Enter amount" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
                 <FormField
                     control={paymentForm.control}
                     name="paymentMethod"
