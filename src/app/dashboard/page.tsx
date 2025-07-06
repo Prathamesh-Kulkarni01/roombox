@@ -106,7 +106,7 @@ export default function DashboardPage() {
   }, [floorToEdit, floorForm]);
 
   useEffect(() => {
-    if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: undefined, deposit: undefined });
+    if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: undefined, deposit: undefined });
   }, [roomToEdit, roomForm]);
 
   useEffect(() => {
