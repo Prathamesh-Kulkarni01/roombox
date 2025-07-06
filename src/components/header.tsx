@@ -9,6 +9,7 @@ import { Menu, HomeIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useData } from '@/context/data-provider';
 import { Skeleton } from './ui/skeleton';
+import NotificationsPopover from './notifications-popover';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -75,7 +76,8 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {isDashboard && <NotificationsPopover />}
           <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90">
             <Link href="/login">Login</Link>
           </Button>

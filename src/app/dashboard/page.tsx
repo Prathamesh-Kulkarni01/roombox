@@ -38,12 +38,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from "@/components/ui/skeleton"
 
 import type { Guest, Bed, Room, PG, Floor } from "@/lib/types"
-import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Wallet, Home, LogOut, UserPlus, CalendarIcon, Calendar, Layers, DoorOpen, PlusCircle, Trash2, Pencil } from "lucide-react"
+import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Wallet, Home, LogOut, UserPlus, CalendarIcon, Calendar, Layers, DoorOpen, PlusCircle, Trash2, Pencil, Send, Copy } from "lucide-react"
 import { differenceInDays, format, addMonths } from "date-fns"
 import { cn } from "@/lib/utils"
-import { Skeleton } from "@/components/ui/skeleton"
+import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
+import { useToast } from "@/hooks/use-toast"
+
 
 const addGuestSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -70,12 +73,17 @@ const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is require
 
 export default function DashboardPage() {
   const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs, selectedPgId, updatePg } = useData();
+  const { toast } = useToast()
   
   // States for guest/payment dialogs
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
   const [selectedBedForGuestAdd, setSelectedBedForGuestAdd] = useState<{ bed: Bed; room: Room; pg: PG } | null>(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedGuestForPayment, setSelectedGuestForPayment] = useState<Guest | null>(null);
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
+  const [guestForReminder, setGuestForReminder] = useState<Guest | null>(null)
+  const [reminderMessage, setReminderMessage] = useState('')
+  const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
   
   // States for layout editing
   const [isEditMode, setIsEditMode] = useState(false);
@@ -188,6 +196,30 @@ export default function DashboardPage() {
     updateGuest(updatedGuest);
     setIsPaymentDialogOpen(false);
   };
+
+  const handleOpenReminderDialog = async (guest: Guest) => {
+    setGuestForReminder(guest)
+    setIsReminderDialogOpen(true)
+    setIsGeneratingReminder(true)
+    setReminderMessage('')
+
+    try {
+      const input: GenerateRentReminderInput = {
+        guestName: guest.name,
+        rentAmount: guest.rentAmount - (guest.rentPaidAmount || 0),
+        dueDate: format(new Date(guest.dueDate), "do MMMM yyyy"),
+        pgName: guest.pgName,
+      }
+      const result = await generateRentReminder(input)
+      setReminderMessage(result.reminderMessage)
+    } catch (error) {
+      console.error("Failed to generate reminder", error)
+      setReminderMessage("Sorry, we couldn't generate a reminder at this time. Please try again.")
+    } finally {
+      setIsGeneratingReminder(false)
+    }
+  }
+
 
   // Layout Editing Handlers
   const handleFloorSubmit = (pg: PG) => (values: z.infer<typeof floorSchema>) => {
@@ -378,7 +410,7 @@ export default function DashboardPage() {
                               return (
                                 <Popover key={bed.id}>
                                   <div className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors ${bedStatusClasses[status]}`}><BedDouble className="w-8 h-8 mb-1" /><span className="font-bold text-sm">Bed {bed.name}</span><div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">{hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}{guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}{status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}</div><PopoverTrigger asChild><Button size="icon" variant="ghost" className="absolute bottom-1 right-1 h-6 w-6 rounded-full hover:bg-black/10"><Info className="h-4 w-4" /></Button></PopoverTrigger></div>
-                                  <PopoverContent className="w-64">{guest && (<div className="grid gap-4"><div className="flex items-center gap-3"><Avatar><AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} /><AvatarFallback>{guest.name.charAt(0)}</AvatarFallback></Avatar><div><p className="text-sm font-medium leading-none">{guest.name}</p><p className="text-sm text-muted-foreground">{guest.pgName}</p></div></div>{guest.exitDate ? (<Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 w-fit"><Clock className="w-3 h-3 mr-2" />Exiting in {getDaysLeft(guest.exitDate)} days</Badge>) : (<Badge variant="outline" className={cn("w-fit capitalize", rentStatusBadgeColors[guest.rentStatus])}>{guest.rentStatus}</Badge>)}<div className="text-sm space-y-2"><div className="flex items-center"><Wallet className="w-4 h-4 mr-2 text-muted-foreground"/><span>Rent: ₹{(guest.rentAmount - (guest.rentPaidAmount || 0)).toLocaleString('en-IN')} due</span></div><div className="flex items-center"><Calendar className="w-4 h-4 mr-2 text-muted-foreground"/><span>Due: {format(new Date(guest.dueDate), "do MMM, yyyy")}</span></div><div className="flex items-center"><Home className="w-4 h-4 mr-2 text-muted-foreground"/><span>Joined: {format(new Date(guest.moveInDate), "do MMM, yyyy")}</span></div></div><div className="flex flex-wrap gap-2">{(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (<Button size="sm" onClick={() => handleOpenPaymentDialog(guest)}><IndianRupee className="mr-2 h-4 w-4" /> Collect Rent</Button>)}{!isEditMode && <Button variant="outline" size="sm" onClick={() => handleInitiateExit(guest)} disabled={!!guest.exitDate}><LogOut className="mr-2 h-4 w-4" />{guest.exitDate ? 'Exit Initiated' : 'Initiate Exit'}</Button>}</div></div>)}</PopoverContent>
+                                  <PopoverContent className="w-64">{guest && (<div className="grid gap-4"><div className="flex items-center gap-3"><Avatar><AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} /><AvatarFallback>{guest.name.charAt(0)}</AvatarFallback></Avatar><div><p className="text-sm font-medium leading-none">{guest.name}</p><p className="text-sm text-muted-foreground">{guest.pgName}</p></div></div>{guest.exitDate ? (<Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 w-fit"><Clock className="w-3 h-3 mr-2" />Exiting in {getDaysLeft(guest.exitDate)} days</Badge>) : (<Badge variant="outline" className={cn("w-fit capitalize", rentStatusBadgeColors[guest.rentStatus])}>{guest.rentStatus}</Badge>)}<div className="text-sm space-y-2"><div className="flex items-center"><Wallet className="w-4 h-4 mr-2 text-muted-foreground"/><span>Rent: ₹{(guest.rentAmount - (guest.rentPaidAmount || 0)).toLocaleString('en-IN')} due</span></div><div className="flex items-center"><Calendar className="w-4 h-4 mr-2 text-muted-foreground"/><span>Due: {format(new Date(guest.dueDate), "do MMM, yyyy")}</span></div><div className="flex items-center"><Home className="w-4 h-4 mr-2 text-muted-foreground"/><span>Joined: {format(new Date(guest.moveInDate), "do MMM, yyyy")}</span></div></div><div className="flex flex-wrap gap-2">{(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (<Button size="sm" onClick={() => handleOpenPaymentDialog(guest)}><IndianRupee className="mr-2 h-4 w-4" /> Collect Rent</Button>)}{!isEditMode && <Button variant="outline" size="sm" onClick={() => handleInitiateExit(guest)} disabled={!!guest.exitDate}><LogOut className="mr-2 h-4 w-4" />{guest.exitDate ? 'Exit Initiated' : 'Initiate Exit'}</Button>}{(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (<Button size="sm" variant="secondary" onClick={() => handleOpenReminderDialog(guest)}><Send className="mr-2 h-4 w-4" />Send Reminder</Button>)}</div></div>)}</PopoverContent>
                                 </Popover>
                               );
                             })}
@@ -410,6 +442,46 @@ export default function DashboardPage() {
 
     <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
       <DialogContent className="sm:max-w-md">{selectedGuestForPayment && (<><DialogHeader><DialogTitle>Collect Rent Payment</DialogTitle><DialogDescription>Record a full or partial payment for {selectedGuestForPayment.name}.</DialogDescription></DialogHeader><Form {...paymentForm}><form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4"><div className="space-y-2 py-2"><p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{selectedGuestForPayment.rentAmount.toLocaleString('en-IN')}</span></p><p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{(selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0)).toLocaleString('en-IN')}</span></p></div><FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1"><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash" /></FormControl><FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl><FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="payment-form">Confirm Payment</Button></DialogFooter></>)}</DialogContent>
+    </Dialog>
+
+    <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+            <DialogTitle>Send Rent Reminder</DialogTitle>
+            <DialogDescription>
+                A reminder message has been generated for {guestForReminder?.name}. You can copy it or send it directly via WhatsApp.
+            </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+            {isGeneratingReminder ? (
+                <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                </div>
+            ) : (
+                <Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />
+            )}
+            </div>
+            <DialogFooter className="gap-2 sm:justify-end">
+                <Button variant="secondary" onClick={() => {
+                    navigator.clipboard.writeText(reminderMessage);
+                    toast({ title: "Copied!", description: "Reminder message copied to clipboard."})
+                }}>
+                    <Copy className="mr-2 h-4 w-4" /> Copy
+                </Button>
+                <a
+                    href={`https://wa.me/${guestForReminder?.phone}?text=${encodeURIComponent(reminderMessage)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto"
+                >
+                    <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
+                        <MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp
+                    </Button>
+                </a>
+            </DialogFooter>
+        </DialogContent>
     </Dialog>
     
     <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}><DialogContent><DialogHeader><DialogTitle>{floorToEdit ? 'Edit Floor' : 'Add New Floor'}</DialogTitle></DialogHeader><Form {...floorForm}><form onSubmit={floorForm.handleSubmit(handleFloorSubmit(pgsToDisplay[0]))} id="floor-form" className="space-y-4"><FormField control={floorForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Floor Name</FormLabel><FormControl><Input placeholder="e.g., First Floor" {...field} /></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="floor-form">{floorToEdit ? 'Save Changes' : 'Add Floor'}</Button></DialogFooter></DialogContent></Dialog>

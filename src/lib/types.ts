@@ -112,3 +112,14 @@ export interface Staff {
   pgId: string;
   pgName: string;
 }
+
+export interface Notification {
+  id: string;
+  type: 'rent-due' | 'checkout-soon' | 'new-complaint' | 'rent-overdue';
+  title: string;
+  message: string;
+  link: string;
+  date: string;
+  isRead: boolean;
+  targetId: string; // guestId or complaintId
+}

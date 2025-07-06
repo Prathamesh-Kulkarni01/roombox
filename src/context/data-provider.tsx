@@ -2,7 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, defaultMenu } from '@/lib/mock-data';
-import type { PG, Guest, Complaint, Expense, Menu, Staff } from '@/lib/types';
+import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification } from '@/lib/types';
+import { differenceInDays, parseISO, isPast, isFuture } from 'date-fns';
+
 
 // Helper functions for localStorage
 const getFromLocalStorage = <T,>(key: string, initialData: T): T => {
@@ -52,6 +54,9 @@ interface DataContextType {
   updateStaff: (updatedStaff: Staff) => void;
   deleteStaff: (staffId: string) => void;
   isLoading: boolean;
+  notifications: Notification[];
+  markNotificationAsRead: (notificationId: string) => void;
+  markAllAsRead: () => void;
 }
 
 // Create context
@@ -66,6 +71,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [selectedPgId, setSelectedPgId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
     const loadedPgs = getFromLocalStorage<PG[]>('pgs', initialPgs);
@@ -80,6 +86,104 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     
     setIsLoading(false);
   }, []);
+
+  // Notification Generation Logic
+  useEffect(() => {
+    if (isLoading) return;
+
+    const newNotifications: Notification[] = [];
+    
+    guests.forEach(guest => {
+        const dueDate = parseISO(guest.dueDate);
+        const daysUntilDue = differenceInDays(dueDate, new Date());
+
+        if (guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') {
+            if (isPast(dueDate)) {
+                newNotifications.push({
+                    id: `noti-rent-overdue-${guest.id}`,
+                    type: 'rent-overdue',
+                    title: `Rent Overdue: ${guest.name}`,
+                    message: `Rent was due on ${guest.dueDate}.`,
+                    link: '/dashboard/tenant-management',
+                    date: new Date().toISOString(),
+                    isRead: false,
+                    targetId: guest.id,
+                });
+            } else if (daysUntilDue <= 7) {
+                 newNotifications.push({
+                    id: `noti-rent-due-${guest.id}`,
+                    type: 'rent-due',
+                    title: `Rent Due Soon: ${guest.name}`,
+                    message: `Rent is due in ${daysUntilDue + 1} days.`,
+                    link: '/dashboard/tenant-management',
+                    date: new Date().toISOString(),
+                    isRead: false,
+                    targetId: guest.id,
+                });
+            }
+        }
+    });
+
+    guests.forEach(guest => {
+        if (guest.exitDate) {
+            const exitDate = parseISO(guest.exitDate);
+            const daysUntilExit = differenceInDays(exitDate, new Date());
+            if (daysUntilExit <= 15 && isFuture(exitDate)) {
+                 newNotifications.push({
+                    id: `noti-checkout-${guest.id}`,
+                    type: 'checkout-soon',
+                    title: `Checkout Soon: ${guest.name}`,
+                    message: `Scheduled to check out in ${daysUntilExit + 1} days.`,
+                    link: '/dashboard',
+                    date: new Date().toISOString(),
+                    isRead: false,
+                    targetId: guest.id,
+                });
+            }
+        }
+    });
+
+    complaints.forEach(complaint => {
+        if (complaint.status === 'open') {
+             newNotifications.push({
+                id: `noti-complaint-${complaint.id}`,
+                type: 'new-complaint',
+                title: `New Complaint: ${complaint.guestName}`,
+                message: `Category: ${complaint.category}.`,
+                link: '/dashboard/complaints',
+                date: new Date(complaint.date).toISOString(),
+                isRead: false,
+                targetId: complaint.id,
+            });
+        }
+    });
+    
+    const storedNotifications = getFromLocalStorage<Notification[]>('notifications', []);
+    const updatedNotifications = newNotifications.map(newNoti => {
+        const storedNoti = storedNotifications.find(sn => sn.id === newNoti.id);
+        return storedNoti ? { ...newNoti, isRead: storedNoti.isRead } : newNoti;
+    });
+
+    setNotifications(updatedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
+  }, [guests, complaints, isLoading]);
+
+  const markNotificationAsRead = useCallback((notificationId: string) => {
+    setNotifications(prev => {
+        const newNotifications = prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n);
+        saveToLocalStorage('notifications', newNotifications);
+        return newNotifications;
+    });
+  }, []);
+
+  const markAllAsRead = useCallback(() => {
+    setNotifications(prev => {
+        const newNotifications = prev.map(n => ({...n, isRead: true}));
+        saveToLocalStorage('notifications', newNotifications);
+        return newNotifications;
+    });
+  }, []);
+
   
   const handleSetSelectedPgId = useCallback((id: string | null) => {
     setSelectedPgId(id);
@@ -174,7 +278,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
 
-  const value = { pgs, guests, complaints, expenses, staff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addExpense, updatePgMenu, updateComplaint, addStaff, updateStaff, deleteStaff, isLoading };
+  const value = { pgs, guests, complaints, expenses, staff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addExpense, updatePgMenu, updateComplaint, addStaff, updateStaff, deleteStaff, isLoading, notifications, markNotificationAsRead, markAllAsRead };
 
   return (
     <DataContext.Provider value={value}>
