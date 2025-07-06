@@ -17,6 +17,9 @@ export interface Room {
   id: string;
   name: string;
   beds: Bed[];
+  rent: number;
+  deposit: number;
+  amenities?: Amenity[];
 }
 
 export interface Floor {

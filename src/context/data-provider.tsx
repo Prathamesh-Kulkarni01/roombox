@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses } from '@/lib/mock-data';
+import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, defaultMenu } from '@/lib/mock-data';
 import type { PG, Guest, Complaint, Expense, Menu } from '@/lib/types';
 
 // Helper functions for localStorage
@@ -43,6 +43,7 @@ interface DataContextType {
   updateGuest: (updatedGuest: Guest) => void;
   addGuest: (newGuest: Guest) => void;
   updatePgs: (updatedPgs: PG[]) => void;
+  updatePg: (updatedPg: PG) => void;
   addExpense: (newExpense: Omit<Expense, 'id'>) => void;
   updatePgMenu: (pgId: string, menu: Menu) => void;
   isLoading: boolean;
@@ -99,6 +100,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       saveToLocalStorage('pgs', updatedPgs);
   }, []);
 
+  const updatePg = useCallback((updatedPg: PG) => {
+    setPgs(prevPgs => {
+        const newPgs = prevPgs.map(pg => (pg.id === updatedPg.id ? updatedPg : pg));
+        saveToLocalStorage('pgs', newPgs);
+        return newPgs;
+    });
+  }, []);
+
   const addExpense = useCallback((newExpenseData: Omit<Expense, 'id'>) => {
     setExpenses(prevExpenses => {
         const newExpense: Expense = {
@@ -122,7 +131,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
 
-  const value = { pgs, guests, complaints, expenses, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, addExpense, updatePgMenu, isLoading };
+  const value = { pgs, guests, complaints, expenses, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addExpense, updatePgMenu, isLoading };
 
   return (
     <DataContext.Provider value={value}>

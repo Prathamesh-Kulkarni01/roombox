@@ -114,8 +114,8 @@ export default function DashboardPage() {
   const handleOpenAddGuestDialog = (bed: Bed, room: Room, pg: PG) => {
     setSelectedBedForGuestAdd({ bed, room, pg });
     addGuestForm.reset({
-      rentAmount: room.beds.length <= 2 ? pg.priceRange.max : pg.priceRange.min,
-      depositAmount: (room.beds.length <= 2 ? pg.priceRange.max : pg.priceRange.min) * 2,
+      rentAmount: room.rent,
+      depositAmount: room.deposit,
     });
     setIsAddGuestDialogOpen(true);
   };
@@ -135,7 +135,7 @@ export default function DashboardPage() {
       bedId: bed.id,
       rentStatus: 'unpaid',
       rentPaidAmount: 0,
-      dueDate: format(new Date(values.moveInDate).setDate(values.moveInDate.getDate() + 30), 'yyyy-MM-dd'),
+      dueDate: format(addMonths(new Date(values.moveInDate), 1), 'yyyy-MM-dd'),
       rentAmount: values.rentAmount,
       depositAmount: values.depositAmount,
       kycStatus: 'pending',
@@ -411,7 +411,7 @@ export default function DashboardPage() {
               </div>
             ))}
              {(!pg.floors || pg.floors.length === 0) && (
-                <div className="text-center text-muted-foreground p-8">No floors or rooms configured for this PG.</div>
+                <div className="text-center text-muted-foreground p-8">No floors or rooms configured for this PG. <Link href={`/dashboard/pg-management/${pg.id}`} className="text-primary underline">Configure now</Link>.</div>
              )}
           </CardContent>
         </Card>

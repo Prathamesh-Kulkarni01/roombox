@@ -1,10 +1,11 @@
 'use client'
 
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin } from "lucide-react"
+import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin, Pencil } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,7 +65,7 @@ export default function PgManagementPage() {
         <div className="flex flex-col gap-8">
             <div>
                 <h1 className="text-3xl font-bold font-headline">PG Management</h1>
-                <p className="text-muted-foreground">Add, edit, and manage your PG listings.</p>
+                <p className="text-muted-foreground">Add, edit, and manage your PG listings and configurations.</p>
             </div>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -72,7 +73,7 @@ export default function PgManagementPage() {
                         <CardTitle>Your PGs</CardTitle>
                         <CardDescription>You have {pgs.length} PGs.</CardDescription>
                     </div>
-                    {/* Add PG Sheet component will be triggered here */}
+                    {/* TODO: Implement Add PG Sheet component */}
                     <Button>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add New PG
                     </Button>
@@ -118,7 +119,11 @@ export default function PgManagementPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem>Edit</DropdownMenuItem>
+                                                    <DropdownMenuItem asChild>
+                                                      <Link href={`/dashboard/pg-management/${pg.id}`}>
+                                                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                                                      </Link>
+                                                    </DropdownMenuItem>
                                                     <DropdownMenuItem>View Guests</DropdownMenuItem>
                                                     <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
                                                 </DropdownMenuContent>
@@ -150,7 +155,11 @@ export default function PgManagementPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                              <Link href={`/dashboard/pg-management/${pg.id}`}>
+                                                <Pencil className="mr-2 h-4 w-4" /> Edit
+                                              </Link>
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem>View Guests</DropdownMenuItem>
                                             <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
                                         </DropdownMenuContent>
