@@ -479,67 +479,71 @@ export default function DashboardPage() {
 
     <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Collect Rent Payment</DialogTitle>
-          <DialogDescription>
-            Record a full or partial payment for {selectedGuestForPayment?.name}.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...paymentForm}>
-            <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4">
-                 <div className="space-y-2 py-2">
-                    <p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{selectedGuestForPayment?.rentAmount.toLocaleString('en-IN')}</span></p>
-                    <p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{(selectedGuestForPayment && (selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0))).toLocaleString('en-IN')}</span></p>
+        {selectedGuestForPayment && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Collect Rent Payment</DialogTitle>
+              <DialogDescription>
+                Record a full or partial payment for {selectedGuestForPayment.name}.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...paymentForm}>
+              <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4">
+                <div className="space-y-2 py-2">
+                  <p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{selectedGuestForPayment.rentAmount.toLocaleString('en-IN')}</span></p>
+                  <p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{(selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0)).toLocaleString('en-IN')}</span></p>
                 </div>
-                 <FormField
-                    control={paymentForm.control}
-                    name="amountPaid"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Amount to Collect</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="Enter amount" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
+                <FormField
+                  control={paymentForm.control}
+                  name="amountPaid"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount to Collect</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Enter amount" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
                 <FormField
-                    control={paymentForm.control}
-                    name="paymentMethod"
-                    render={({ field }) => (
-                        <FormItem className="space-y-3">
-                            <FormLabel>Payment Method</FormLabel>
-                            <FormControl>
-                                <RadioGroup
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                    className="flex gap-4 pt-1"
-                                >
-                                    <FormItem className="flex items-center space-x-2">
-                                        <FormControl><RadioGroupItem value="cash" id="cash" /></FormControl>
-                                        <FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel>
-                                    </FormItem>
-                                    <FormItem className="flex items-center space-x-2">
-                                        <FormControl><RadioGroupItem value="upi" id="upi" /></FormControl>
-                                        <FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel>
-                                    </FormItem>
-                                    <FormItem className="flex items-center space-x-2">
-                                        <FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl>
-                                        <FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel>
-                                    </FormItem>
-                                </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
+                  control={paymentForm.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>Payment Method</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex gap-4 pt-1"
+                        >
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl><RadioGroupItem value="cash" id="cash" /></FormControl>
+                            <FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl><RadioGroupItem value="upi" id="upi" /></FormControl>
+                            <FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl>
+                            <FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-            </form>
-        </Form>
-        <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-            <Button type="submit" form="payment-form">Confirm Payment</Button>
-        </DialogFooter>
+              </form>
+            </Form>
+            <DialogFooter>
+              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+              <Button type="submit" form="payment-form">Confirm Payment</Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
     </>
