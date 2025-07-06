@@ -1,4 +1,4 @@
-import type { PG, Guest, Complaint, Expense, Menu } from './types';
+import type { PG, Guest, Complaint, Expense, Menu, Staff } from './types';
 
 export const defaultMenu: Menu = {
   monday: { breakfast: 'Poha, Tea', lunch: 'Roti, Mixed Veg, Dal Tadka, Rice', dinner: 'Paneer Butter Masala, Roti, Salad' },
@@ -297,6 +297,7 @@ export const complaints: Complaint[] = [
     guestId: 't-2',
     guestName: 'Rohan Verma',
     pgId: 'pg-2',
+    pgName: 'Royal Comforts PG',
     category: 'wifi',
     description: 'The WiFi speed is very slow in my room (RC-205).',
     status: 'open',
@@ -307,6 +308,7 @@ export const complaints: Complaint[] = [
     guestId: 't-1',
     guestName: 'Priya Sharma',
     pgId: 'pg-1',
+    pgName: 'Sunshine Living',
     category: 'cleanliness',
     description: 'The common bathroom on the 1st floor has not been cleaned today.',
     status: 'in-progress',
@@ -317,6 +319,7 @@ export const complaints: Complaint[] = [
     guestId: 't-7',
     guestName: 'Vivaan Reddy',
     pgId: 'pg-1',
+    pgName: 'Sunshine Living',
     category: 'maintenance',
     description: 'My room lights are flickering.',
     status: 'open',
@@ -369,5 +372,44 @@ export const expenses: Expense[] = [
     description: 'Salary for cleaning staff',
     amount: 8000,
     date: '2024-07-31',
+  },
+];
+
+export const staff: Staff[] = [
+  {
+    id: 'staff-1',
+    name: 'Rajesh Kumar',
+    role: 'manager',
+    phone: '9988776655',
+    salary: 25000,
+    pgId: 'pg-1',
+    pgName: 'Sunshine Living',
+  },
+  {
+    id: 'staff-2',
+    name: 'Sita Devi',
+    role: 'cook',
+    phone: '9988776654',
+    salary: 15000,
+    pgId: 'pg-1',
+    pgName: 'Sunshine Living',
+  },
+  {
+    id: 'staff-3',
+    name: 'Ramu Kaka',
+    role: 'cleaner',
+    phone: '9988776653',
+    salary: 12000,
+    pgId: 'pg-1',
+    pgName: 'Sunshine Living',
+  },
+   {
+    id: 'staff-4',
+    name: 'Vijay Singh',
+    role: 'security',
+    phone: '9988776652',
+    salary: 18000,
+    pgId: 'pg-2',
+    pgName: 'Royal Comforts PG',
   },
 ];

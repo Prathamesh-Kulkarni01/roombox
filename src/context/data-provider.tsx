@@ -1,8 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, defaultMenu } from '@/lib/mock-data';
-import type { PG, Guest, Complaint, Expense, Menu } from '@/lib/types';
+import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, defaultMenu } from '@/lib/mock-data';
+import type { PG, Guest, Complaint, Expense, Menu, Staff } from '@/lib/types';
 
 // Helper functions for localStorage
 const getFromLocalStorage = <T,>(key: string, initialData: T): T => {
@@ -38,6 +38,7 @@ interface DataContextType {
   guests: Guest[];
   complaints: Complaint[];
   expenses: Expense[];
+  staff: Staff[];
   selectedPgId: string | null;
   setSelectedPgId: (id: string | null) => void;
   updateGuest: (updatedGuest: Guest) => void;
@@ -46,6 +47,10 @@ interface DataContextType {
   updatePg: (updatedPg: PG) => void;
   addExpense: (newExpense: Omit<Expense, 'id'>) => void;
   updatePgMenu: (pgId: string, menu: Menu) => void;
+  updateComplaint: (updatedComplaint: Complaint) => void;
+  addStaff: (newStaff: Omit<Staff, 'id'>) => void;
+  updateStaff: (updatedStaff: Staff) => void;
+  deleteStaff: (staffId: string) => void;
   isLoading: boolean;
 }
 
@@ -58,6 +63,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
   const [selectedPgId, setSelectedPgId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -67,6 +73,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setGuests(getFromLocalStorage<Guest[]>('guests', initialGuests));
     setComplaints(getFromLocalStorage<Complaint[]>('complaints', initialComplaints));
     setExpenses(getFromLocalStorage<Expense[]>('expenses', initialExpenses));
+    setStaff(getFromLocalStorage<Staff[]>('staff', initialStaff));
     
     const storedPgId = getFromLocalStorage<string | null>('selectedPgId', null);
     setSelectedPgId(storedPgId);
@@ -130,8 +137,44 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const updateComplaint = useCallback((updatedComplaint: Complaint) => {
+    setComplaints(prevComplaints => {
+      const newComplaints = prevComplaints.map(c => c.id === updatedComplaint.id ? updatedComplaint : c);
+      saveToLocalStorage('complaints', newComplaints);
+      return newComplaints;
+    });
+  }, []);
 
-  const value = { pgs, guests, complaints, expenses, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addExpense, updatePgMenu, isLoading };
+  const addStaff = useCallback((newStaffData: Omit<Staff, 'id'>) => {
+    setStaff(prevStaff => {
+        const newStaff: Staff = {
+            id: `staff-${new Date().getTime()}`,
+            ...newStaffData,
+        };
+        const newStaffList = [...prevStaff, newStaff];
+        saveToLocalStorage('staff', newStaffList);
+        return newStaffList;
+    });
+  }, []);
+
+  const updateStaff = useCallback((updatedStaff: Staff) => {
+    setStaff(prevStaff => {
+        const newStaffList = prevStaff.map(s => s.id === updatedStaff.id ? updatedStaff : s);
+        saveToLocalStorage('staff', newStaffList);
+        return newStaffList;
+    })
+  }, []);
+  
+  const deleteStaff = useCallback((staffId: string) => {
+      setStaff(prevStaff => {
+          const newStaffList = prevStaff.filter(s => s.id !== staffId);
+          saveToLocalStorage('staff', newStaffList);
+          return newStaffList;
+      })
+  }, []);
+
+
+  const value = { pgs, guests, complaints, expenses, staff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addExpense, updatePgMenu, updateComplaint, addStaff, updateStaff, deleteStaff, isLoading };
 
   return (
     <DataContext.Provider value={value}>

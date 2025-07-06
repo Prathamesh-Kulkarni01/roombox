@@ -90,6 +90,7 @@ export interface Complaint {
   description: string;
   status: 'open' | 'in-progress' | 'resolved';
   date: string;
+  pgName?: string;
 }
 
 export interface Expense {
@@ -100,4 +101,14 @@ export interface Expense {
   description: string;
   amount: number;
   date: string;
+}
+
+export interface Staff {
+  id: string;
+  name: string;
+  role: 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
+  phone: string;
+  salary: number;
+  pgId: string;
+  pgName: string;
 }

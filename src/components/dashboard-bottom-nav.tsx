@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Building, Users, Wallet, MoreHorizontal, UtensilsCrossed, Wand2, Settings } from 'lucide-react';
+import { Home, Building, Users, Wallet, MoreHorizontal, UtensilsCrossed, Wand2, Settings, MessageSquareWarning, Contact } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -16,14 +16,16 @@ import {
 const mainNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/dashboard/expense', label: 'Expenses', icon: Wallet },
+  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning },
   { href: '/dashboard/food', label: 'Food', icon: UtensilsCrossed },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
 const moreNavItems = [
   { href: '/dashboard/pg-management', label: 'PG Management', icon: Building },
   { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users },
+  { href: '/dashboard/staff', label: 'Staff Management', icon: Contact },
   { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2 },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 
 export default function DashboardBottomNav() {
