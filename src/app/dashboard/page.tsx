@@ -1,21 +1,52 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Users, IndianRupee, MessageSquareWarning, Building } from "lucide-react"
+'use client'
+
+import { useState } from "react"
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { pgs, tenants, complaints } from "@/lib/mock-data"
+import type { Tenant, Bed } from "@/lib/types"
+import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Settings, Home, Calendar, Wallet } from "lucide-react"
 
 export default function DashboardPage() {
+  const [selectedPg, setSelectedPg] = useState(pgs[0])
+
   const stats = [
-    { title: "Total Occupancy", value: "78%", icon: Users, change: "+5.2% from last month" },
-    { title: "Monthly Revenue", value: "₹2,45,600", icon: IndianRupee, change: "+12.1% from last month" },
-    { title: "Open Complaints", value: "3", icon: MessageSquareWarning, change: "-1 from yesterday" },
-    { title: "Total PGs", value: "4", icon: Building, change: "" },
+    { title: "Occupancy", value: `${selectedPg.occupancy}/${selectedPg.totalBeds}`, icon: Users },
+    { title: "Monthly Revenue", value: "₹2,45,600", icon: IndianRupee },
+    { title: "Open Complaints", value: complaints.filter(c => c.pgId === selectedPg.id && c.status === 'open').length, icon: MessageSquareWarning },
   ]
+  
+  const getBedStatus = (bed: Bed) => {
+    const tenant = tenants.find(t => t.id === bed.tenantId)
+    if (!tenant) return 'available'
+    if (tenant.rentStatus === 'unpaid') return 'rent-pending'
+    return 'occupied'
+  }
+
+  const bedStatusClasses = {
+    available: 'bg-yellow-200 border-yellow-400 text-yellow-800 hover:bg-yellow-300',
+    occupied: 'bg-slate-200 border-slate-400 text-slate-800 hover:bg-slate-300',
+    'rent-pending': 'bg-red-300 border-red-500 text-red-900 hover:bg-red-400',
+  }
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, here's a summary of your PGs.</p>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
+          <p className="text-muted-foreground">Real-time view of your PG operations.</p>
+        </div>
+        <Button variant="outline">
+            <Settings className="mr-2 h-4 w-4" />
+            Configure Rooms & Beds
+        </Button>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat, index) => (
           <Card key={index}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -24,29 +55,89 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              {stat.change && <p className="text-xs text-muted-foreground">{stat.change}</p>}
             </CardContent>
           </Card>
         ))}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card>
-              <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <p>Placeholder for recent tenant check-ins, rent payments, and new complaints.</p>
-              </CardContent>
-          </Card>
-          <Card>
-              <CardHeader>
-                  <CardTitle>Occupancy Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <p>Placeholder for a chart showing occupancy rates across different PGs.</p>
-              </CardContent>
-          </Card>
-      </div>
+
+      {/* Room Layout */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{selectedPg.name} - Room Layout</CardTitle>
+          <CardDescription>Visualize bed occupancy and statuses across all rooms.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {selectedPg.rooms?.map(room => (
+            <div key={room.id}>
+              <h3 className="font-semibold mb-3 text-lg">{room.name}</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                {room.beds.map(bed => {
+                  const tenant = tenants.find(t => t.id === bed.tenantId)
+                  const status = getBedStatus(bed)
+                  const hasComplaint = tenant && complaints.some(c => c.tenantId === tenant.id && c.status !== 'resolved')
+                  
+                  return (
+                    <Popover key={bed.id}>
+                      <div className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors ${bedStatusClasses[status]}`}>
+                        <BedDouble className="w-8 h-8 mb-1" />
+                        <span className="font-bold text-sm">Bed {bed.name}</span>
+                        
+                        <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
+                          {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
+                          {tenant?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
+                        </div>
+                        
+                        <PopoverTrigger asChild>
+                          <Button size="icon" variant="ghost" className="absolute bottom-1 right-1 h-6 w-6 rounded-full hover:bg-black/10">
+                            <Info className="h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                      </div>
+                      <PopoverContent className="w-64">
+                        {tenant ? (
+                          <div className="grid gap-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarImage src={`https://placehold.co/40x40.png?text=${tenant.name.charAt(0)}`} />
+                                <AvatarFallback>{tenant.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-medium leading-none">{tenant.name}</p>
+                                <p className="text-sm text-muted-foreground">{tenant.pgName}</p>
+                              </div>
+                            </div>
+                            <div className="text-sm space-y-2">
+                                <div className="flex items-center">
+                                    <Wallet className="w-4 h-4 mr-2 text-muted-foreground"/>
+                                    Rent: ₹{tenant.rentAmount}
+                                    <Badge variant={tenant.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="ml-auto">{tenant.rentStatus}</Badge>
+                                </div>
+                                <div className="flex items-center">
+                                    <Calendar className="w-4 h-4 mr-2 text-muted-foreground"/>
+                                    Due: {tenant.dueDate}
+                                </div>
+                                <div className="flex items-center">
+                                    <Home className="w-4 h-4 mr-2 text-muted-foreground"/>
+                                    Bed ID: {tenant.bedId}
+                                </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4">
+                            <p className="font-semibold">Bed Available</p>
+                            <p className="text-sm text-muted-foreground">This bed is currently unoccupied.</p>
+                            <Button size="sm" className="mt-4">Add Tenant</Button>
+                          </div>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   )
 }

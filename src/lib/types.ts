@@ -7,6 +7,18 @@ export type Amenity =
   | 'food'
   | 'parking';
 
+export interface Bed {
+  id: string; 
+  name: string; 
+  tenantId: string | null;
+}
+
+export interface Room {
+  id: string; 
+  name: string;
+  beds: Bed[];
+}
+
 export interface PG {
   id: string;
   name: string;
@@ -24,6 +36,7 @@ export interface PG {
   totalBeds: number;
   rules: string[];
   contact: string; // WhatsApp number
+  rooms?: Room[];
 }
 
 export interface Tenant {
@@ -37,10 +50,12 @@ export interface Tenant {
   rentAmount: number;
   kycStatus: 'verified' | 'pending' | 'rejected';
   kycDocUrl?: string;
+  hasMessage?: boolean;
 }
 
 export interface Complaint {
   id: string;
+  tenantId: string;
   tenantName: string;
   pgId: string;
   category: 'maintenance' | 'cleanliness' | 'wifi' | 'food' | 'other';
