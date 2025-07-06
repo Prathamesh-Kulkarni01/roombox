@@ -15,15 +15,15 @@ import {
 
 const mainNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/dashboard/pg-management', label: 'PGs', icon: Building },
-  { href: '/dashboard/tenant-management', label: 'Guests', icon: Users },
   { href: '/dashboard/expense', label: 'Expenses', icon: Wallet },
+  { href: '/dashboard/food', label: 'Food', icon: UtensilsCrossed },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
 const moreNavItems = [
-  { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed },
+  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building },
+  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users },
   { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2 },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
 
 export default function DashboardBottomNav() {
