@@ -1,3 +1,4 @@
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -122,4 +123,15 @@ export interface Notification {
   date: string;
   isRead: boolean;
   targetId: string; // guestId or complaintId
+}
+
+export type UserRole = 'owner' | 'manager' | 'cook' | 'cleaner' | 'security' | 'other';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  pgIds?: string[]; // PGs this user has access to. Undefined for owner (all access)
+  avatarUrl?: string;
 }

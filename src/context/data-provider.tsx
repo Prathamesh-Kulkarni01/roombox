@@ -1,8 +1,9 @@
+
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, defaultMenu } from '@/lib/mock-data';
-import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification } from '@/lib/types';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu } from '@/lib/mock-data';
+import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User } from '@/lib/types';
 import { differenceInDays, parseISO, isPast, isFuture } from 'date-fns';
 
 
@@ -57,6 +58,9 @@ interface DataContextType {
   notifications: Notification[];
   markNotificationAsRead: (notificationId: string) => void;
   markAllAsRead: () => void;
+  users: User[];
+  currentUser: User | null;
+  setCurrentUser: (user: User | null) => void;
 }
 
 // Create context
@@ -72,20 +76,72 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [selectedPgId, setSelectedPgId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
     const loadedPgs = getFromLocalStorage<PG[]>('pgs', initialPgs);
+    const loadedUsers = getFromLocalStorage<User[]>('users', initialUsers);
+
     setPgs(loadedPgs);
     setGuests(getFromLocalStorage<Guest[]>('guests', initialGuests));
     setComplaints(getFromLocalStorage<Complaint[]>('complaints', initialComplaints));
     setExpenses(getFromLocalStorage<Expense[]>('expenses', initialExpenses));
     setStaff(getFromLocalStorage<Staff[]>('staff', initialStaff));
+    setUsers(loadedUsers);
     
     const storedPgId = getFromLocalStorage<string | null>('selectedPgId', null);
     setSelectedPgId(storedPgId);
+
+    const storedUserId = getFromLocalStorage<string | null>('currentUserId', loadedUsers[0]?.id || null);
+    setCurrentUser(loadedUsers.find(u => u.id === storedUserId) || loadedUsers[0] || null);
     
     setIsLoading(false);
   }, []);
+
+  const handleSetCurrentUser = useCallback((user: User | null) => {
+    setCurrentUser(user);
+    saveToLocalStorage('currentUserId', user ? user.id : null);
+  }, []);
+
+  // Filter data based on current user's role and PG access
+  const visiblePgs = useMemo(() => {
+    if (isLoading || !currentUser) return [];
+    if (currentUser.role === 'owner') return pgs;
+    return pgs.filter(pg => currentUser.pgIds?.includes(pg.id));
+  }, [currentUser, pgs, isLoading]);
+
+  const visibleGuests = useMemo(() => {
+    if (isLoading || !currentUser) return [];
+    if (currentUser.role === 'owner') return guests;
+    return guests.filter(guest => currentUser.pgIds?.includes(guest.pgId));
+  }, [currentUser, guests, isLoading]);
+
+  const visibleComplaints = useMemo(() => {
+    if (isLoading || !currentUser) return [];
+    if (currentUser.role === 'owner') return complaints;
+    return complaints.filter(c => currentUser.pgIds?.includes(c.pgId));
+  }, [currentUser, complaints, isLoading]);
+
+  const visibleExpenses = useMemo(() => {
+    if (isLoading || !currentUser) return [];
+    if (currentUser.role === 'owner') return expenses;
+    return expenses.filter(exp => currentUser.pgIds?.includes(exp.pgId));
+  }, [currentUser, expenses, isLoading]);
+
+  const visibleStaff = useMemo(() => {
+    if (isLoading || !currentUser) return [];
+    if (currentUser.role === 'owner') return staff;
+    return staff.filter(s => currentUser.pgIds?.includes(s.pgId));
+  }, [currentUser, staff, isLoading]);
+
+  // Reset selectedPgId if the new user doesn't have access to it
+  useEffect(() => {
+    if (selectedPgId && visiblePgs.length > 0 && !visiblePgs.find(p => p.id === selectedPgId)) {
+      setSelectedPgId(null);
+    }
+  }, [visiblePgs, selectedPgId]);
+
 
   // Notification Generation Logic
   useEffect(() => {
@@ -93,7 +149,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     const newNotifications: Notification[] = [];
     
-    guests.forEach(guest => {
+    visibleGuests.forEach(guest => {
         const dueDate = parseISO(guest.dueDate);
         const daysUntilDue = differenceInDays(dueDate, new Date());
 
@@ -124,7 +180,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
     });
 
-    guests.forEach(guest => {
+    visibleGuests.forEach(guest => {
         if (guest.exitDate) {
             const exitDate = parseISO(guest.exitDate);
             const daysUntilExit = differenceInDays(exitDate, new Date());
@@ -143,7 +199,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
     });
 
-    complaints.forEach(complaint => {
+    visibleComplaints.forEach(complaint => {
         if (complaint.status === 'open') {
              newNotifications.push({
                 id: `noti-complaint-${complaint.id}`,
@@ -166,7 +222,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     setNotifications(updatedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
-  }, [guests, complaints, isLoading]);
+  }, [visibleGuests, visibleComplaints, isLoading]);
 
   const markNotificationAsRead = useCallback((notificationId: string) => {
     setNotifications(prev => {
@@ -278,7 +334,32 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
 
-  const value = { pgs, guests, complaints, expenses, staff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addExpense, updatePgMenu, updateComplaint, addStaff, updateStaff, deleteStaff, isLoading, notifications, markNotificationAsRead, markAllAsRead };
+  const value = { 
+    pgs: visiblePgs, 
+    guests: visibleGuests, 
+    complaints: visibleComplaints, 
+    expenses: visibleExpenses, 
+    staff: visibleStaff, 
+    selectedPgId, 
+    setSelectedPgId: handleSetSelectedPgId, 
+    updateGuest, 
+    addGuest, 
+    updatePgs, 
+    updatePg, 
+    addExpense, 
+    updatePgMenu, 
+    updateComplaint, 
+    addStaff, 
+    updateStaff, 
+    deleteStaff, 
+    isLoading, 
+    notifications, 
+    markNotificationAsRead, 
+    markAllAsRead,
+    users,
+    currentUser,
+    setCurrentUser: handleSetCurrentUser,
+  };
 
   return (
     <DataContext.Provider value={value}>

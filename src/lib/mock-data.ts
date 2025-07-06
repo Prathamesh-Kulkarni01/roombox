@@ -1,4 +1,5 @@
-import type { PG, Guest, Complaint, Expense, Menu, Staff } from './types';
+
+import type { PG, Guest, Complaint, Expense, Menu, Staff, User } from './types';
 
 export const defaultMenu: Menu = {
   monday: { breakfast: 'Poha, Tea', lunch: 'Roti, Mixed Veg, Dal Tadka, Rice', dinner: 'Paneer Butter Masala, Roti, Salad' },
@@ -9,6 +10,33 @@ export const defaultMenu: Menu = {
   saturday: { breakfast: 'Bread Omelette', lunch: 'Roti, Baingan Bharta, Arhar Dal, Rice', dinner: 'Pav Bhaji' },
   sunday: { breakfast: 'Puri Sabji', lunch: 'Special Thali (Chef\'s choice)', dinner: 'Noodles, Manchurian' },
 }
+
+export const users: User[] = [
+  {
+    id: 'user-1',
+    name: 'P. G. Owner',
+    email: 'owner@pgoasis.com',
+    role: 'owner',
+    avatarUrl: 'https://placehold.co/40x40.png?text=PO',
+  },
+  {
+    id: 'user-2',
+    name: 'Manoj Sharma',
+    email: 'manoj.s@pgoasis.com',
+    role: 'manager',
+    pgIds: ['pg-1'], // Manager for Sunshine Living
+    avatarUrl: 'https://placehold.co/40x40.png?text=MS',
+  },
+  {
+    id: 'user-3',
+    name: 'Sita Devi',
+    email: 'sita.d@pgoasis.com',
+    role: 'cook',
+    pgIds: ['pg-1'],
+    avatarUrl: 'https://placehold.co/40x40.png?text=SD',
+  }
+];
+
 
 export const guests: Guest[] = [
   {

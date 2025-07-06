@@ -1,12 +1,16 @@
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { HomeIcon, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact } from 'lucide-react';
+import { HomeIcon, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
+import { useData } from '@/context/data-provider';
+import { navPermissions } from '@/lib/permissions';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
@@ -22,6 +26,22 @@ const navItems = [
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
+  const { currentUser, users, setCurrentUser } = useData();
+
+  if (!currentUser) {
+    // or a loading skeleton
+    return (
+        <aside className="w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground hidden md:flex">
+             <div className="flex-1 flex flex-col gap-y-2 p-4">
+                <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
+             </div>
+        </aside>
+    );
+  }
+
+  const allowedRoutes = navPermissions[currentUser.role] || [];
+  const visibleNavItems = navItems.filter(item => allowedRoutes.includes(item.href));
+
 
   return (
     <aside className="w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground hidden md:flex">
@@ -30,7 +50,7 @@ export default function DashboardSidebar() {
             <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
         </div>
         <nav className="flex flex-col gap-1 px-4">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -47,21 +67,44 @@ export default function DashboardSidebar() {
       </div>
       <div className="p-4 mt-auto">
         <Separator className="my-4 bg-sidebar-border" />
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src="https://placehold.co/40x40.png" alt="Owner" />
-            <AvatarFallback>PO</AvatarFallback>
-          </Avatar>
-          <div className='flex-1'>
-            <p className="font-semibold text-sm">PG Owner</p>
-            <p className="text-xs text-sidebar-foreground/70">owner@example.com</p>
-          </div>
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/login">
-                <LogOut className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between h-auto px-2 py-1.5 text-left">
+                    <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                            <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+                            <AvatarFallback>{currentUser.name.slice(0,2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className='flex-1'>
+                            <p className="font-semibold text-sm truncate">{currentUser.name}</p>
+                            <p className="text-xs text-sidebar-foreground/70 capitalize">{currentUser.role}</p>
+                        </div>
+                    </div>
+                     <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/70 shrink-0" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 mb-2" align="end" forceMount>
+                <DropdownMenuLabel>Switch Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup value={currentUser.id} onValueChange={(id) => {
+                    const userToSwitch = users.find(u => u.id === id);
+                    if (userToSwitch) setCurrentUser(userToSwitch);
+                }}>
+                    {users.map(user => (
+                        <DropdownMenuRadioItem key={user.id} value={user.id}>
+                            {user.name} ({user.role})
+                        </DropdownMenuRadioItem>
+                    ))}
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                <Link href="/login">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                </Link>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
