@@ -30,9 +30,9 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Calendar } from "@/components/ui/calendar"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import type { Guest, Bed, Room, PG } from "@/lib/types"
-import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Wallet, Home, LogOut, UserPlus, CalendarIcon } from "lucide-react"
+import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Wallet, Home, LogOut, UserPlus, CalendarIcon, Calendar } from "lucide-react"
 import { differenceInDays, format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -304,20 +304,20 @@ export default function DashboardPage() {
                                         Exiting in {getDaysLeft(guest.exitDate)} days
                                       </Badge>
                                     ) : (
-                                       <Badge variant={guest.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="w-fit">{guest.rentStatus}</Badge>
+                                       <Badge variant={guest.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="w-fit capitalize">{guest.rentStatus}</Badge>
                                     )}
                                     <div className="text-sm space-y-2">
                                         <div className="flex items-center">
                                             <Wallet className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                            Rent: ₹{guest.rentAmount}
+                                            <span>Rent: ₹{guest.rentAmount.toLocaleString('en-IN')}</span>
                                         </div>
                                         <div className="flex items-center">
                                             <Calendar className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                            Due: {guest.dueDate}
+                                            <span>Due: {format(new Date(guest.dueDate), "do MMM, yyyy")}</span>
                                         </div>
                                         <div className="flex items-center">
                                             <Home className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                            Joined: {format(new Date(guest.moveInDate), "do MMM, yyyy")}
+                                            <span>Joined: {format(new Date(guest.moveInDate), "do MMM, yyyy")}</span>
                                         </div>
                                     </div>
                                     {!guest.exitDate && (
@@ -386,7 +386,7 @@ export default function DashboardPage() {
                                     </FormControl>
                                   </PopoverTrigger>
                                   <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus />
+                                    <CalendarComponent mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus />
                                   </PopoverContent>
                                 </Popover>
                              <FormMessage /></FormItem>
