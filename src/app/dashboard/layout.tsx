@@ -1,4 +1,5 @@
 import DashboardSidebar from "@/components/dashboard-sidebar";
+import DashboardHeader from "@/components/dashboard-header";
 import DashboardBottomNav from "@/components/dashboard-bottom-nav";
 import { DataProvider } from "@/context/data-provider";
 
@@ -11,9 +12,12 @@ export default function DashboardLayout({
     <DataProvider>
       <div className="flex min-h-[calc(100vh-56px)]">
         <DashboardSidebar />
-        <main className="flex-1 p-4 md:p-8 bg-muted/40 pb-20 md:pb-8">
-          {children}
-        </main>
+        <div className="flex flex-1 flex-col overflow-auto">
+          <DashboardHeader />
+          <main className="flex-1 p-4 md:p-8 bg-muted/40 pb-20 md:pb-8">
+            {children}
+          </main>
+        </div>
         <DashboardBottomNav />
       </div>
     </DataProvider>

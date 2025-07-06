@@ -15,8 +15,8 @@ import { differenceInDays, format } from "date-fns"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashboardPage() {
-  const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs, selectedPgId, setSelectedPgId } = useData();
-  const selectedPg = pgs.find(p => p.id === selectedPgId);
+  const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs, selectedPgId } = useData();
+  const selectedPg = selectedPgId ? pgs.find(p => p.id === selectedPgId) : null;
 
   const getBedStatus = (bed: Bed) => {
     const guest = guests.find(g => g.id === bed.guestId)
@@ -94,7 +94,7 @@ export default function DashboardPage() {
   };
 
 
-  if (isLoading || !selectedPg) {
+  if (isLoading) {
     return (
       <div className="flex flex-col gap-6 animate-pulse">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -129,6 +129,26 @@ export default function DashboardPage() {
     )
   }
   
+  if (!selectedPgId || !selectedPg) {
+    return (
+        <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <Building className="mx-auto h-16 w-16 text-muted-foreground" />
+            <h2 className="mt-6 text-2xl font-semibold">Welcome to Your Dashboard</h2>
+            <p className="mt-2 text-muted-foreground max-w-md">
+                {pgs.length > 0 
+                    ? "Please select a PG from the dropdown above to view its details, manage rooms, and track occupancy."
+                    : "You haven't added any PGs yet. Go to the PG Management section to add your first property."
+                }
+            </p>
+            {pgs.length === 0 && (
+                <Button asChild className="mt-6">
+                    <Link href="/dashboard/pg-management">Add PG</Link>
+                </Button>
+            )}
+        </div>
+    )
+  }
+  
   const stats = [
     { title: "Occupancy", value: `${selectedPg.occupancy}/${selectedPg.totalBeds}`, icon: Users },
     { title: "Monthly Revenue", value: "₹2,45,600", icon: IndianRupee },
@@ -137,40 +157,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-         <div className="flex items-center gap-4">
-            <div className="w-full sm:w-auto">
-                 <Select
-                    value={selectedPgId || ''}
-                    onValueChange={(pgId) => {
-                        if (setSelectedPgId) setSelectedPgId(pgId);
-                    }}
-                    >
-                    <SelectTrigger className="w-full sm:w-[280px]">
-                        <SelectValue placeholder="Select a PG to view dashboard" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {pgs.length > 0 ? (
-                            pgs.map((pg) => (
-                                <SelectItem key={pg.id} value={pg.id}>
-                                    {pg.name}
-                                </SelectItem>
-                            ))
-                        ) : (
-                            <SelectItem value="no-pg" disabled>No PGs found. Add one first.</SelectItem>
-                        )}
-                    </SelectContent>
-                </Select>
-            </div>
-        </div>
-        <Button asChild variant="outline">
-          <Link href="/dashboard/pg-management">
-            <Settings className="mr-2 h-4 w-4" />
-            Configure PG
-          </Link>
-        </Button>
-      </div>
-
       {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat, index) => (

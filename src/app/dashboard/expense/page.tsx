@@ -87,7 +87,7 @@ const quickAddItems: { label: string; icon: React.ElementType; category: Expense
 
 
 export default function ExpensePage() {
-    const { pgs, expenses, addExpense, isLoading, selectedPgId, setSelectedPgId } = useData()
+    const { pgs, expenses, addExpense, isLoading, selectedPgId } = useData()
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     const form = useForm<ExpenseFormValues>({
@@ -139,7 +139,7 @@ export default function ExpensePage() {
     }
     
     const filteredExpenses = useMemo(() => {
-        if (!selectedPgId) return expenses;
+        if (!selectedPgId) return [];
         return expenses.filter(exp => exp.pgId === selectedPgId);
     }, [expenses, selectedPgId]);
 
@@ -191,6 +191,18 @@ export default function ExpensePage() {
         </div>
        )
     }
+    
+    if (!selectedPgId) {
+        return (
+          <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                  <Wallet className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h2 className="mt-4 text-xl font-semibold">Expense Tracking</h2>
+                  <p className="mt-2 text-muted-foreground">Please select a PG to view and manage its expenses.</p>
+              </div>
+          </div>
+        )
+    }
 
     const stats = [
         { title: "Total Expenses (This Month)", value: totalExpenses, icon: Wallet },
@@ -208,24 +220,6 @@ export default function ExpensePage() {
                     </h1>
                     <p className="text-muted-foreground">Keep track of all your PG-related expenses.</p>
                 </div>
-                <Select
-                    value={selectedPgId || ''}
-                    onValueChange={(pgId) => {
-                        if (setSelectedPgId) setSelectedPgId(pgId === 'all' ? null : pgId);
-                    }}
-                    >
-                    <SelectTrigger className="w-full sm:w-[280px]">
-                        <SelectValue placeholder="Select a PG" />
-                    </SelectTrigger>
-                    <SelectContent>
-                         <SelectItem value="all">All PGs</SelectItem>
-                        {pgs.map((pg) => (
-                            <SelectItem key={pg.id} value={pg.id}>
-                                {pg.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
             </div>
 
 

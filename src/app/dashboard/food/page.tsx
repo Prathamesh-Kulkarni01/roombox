@@ -5,7 +5,6 @@ import { useData } from '@/context/data-provider'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ChefHat, Package } from "lucide-react"
@@ -34,7 +33,7 @@ const days: { key: DayOfWeek; label: string }[] = [
 ]
 
 export default function FoodPage() {
-    const { pgs, updatePgMenu, isLoading, selectedPgId, setSelectedPgId } = useData()
+    const { pgs, updatePgMenu, isLoading, selectedPgId } = useData()
     const [menu, setMenu] = useState<Menu>(initialMenu)
     const { toast } = useToast()
 
@@ -97,6 +96,18 @@ export default function FoodPage() {
         )
     }
 
+    if (!selectedPgId) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                    <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h2 className="mt-4 text-xl font-semibold">Food Management</h2>
+                    <p className="mt-2 text-muted-foreground">Please select a PG to plan its weekly menu.</p>
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="flex flex-col gap-8">
             <div>
@@ -108,26 +119,8 @@ export default function FoodPage() {
 
             <Card>
                 <CardHeader>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            <CardTitle>Weekly Menu Planner</CardTitle>
-                            <CardDescription>Select a PG and set the menu for each day of the week.</CardDescription>
-                        </div>
-                        {pgs.length > 0 ? (
-                             <Select value={selectedPgId || ''} onValueChange={(id) => setSelectedPgId && setSelectedPgId(id)}>
-                                <SelectTrigger className="w-full sm:w-[200px]">
-                                    <SelectValue placeholder="Select a PG" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {pgs.map(pg => (
-                                        <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        ) : (
-                           <p className="text-sm text-muted-foreground">No PGs found. Add a PG first.</p>
-                        )}
-                    </div>
+                    <CardTitle>Weekly Menu Planner</CardTitle>
+                    <CardDescription>Set the menu for each day of the week for the selected PG.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="monday" className="w-full">
