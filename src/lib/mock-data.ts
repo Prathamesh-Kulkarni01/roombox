@@ -1,5 +1,5 @@
 
-import type { PG, Guest, Complaint, Expense, Menu, Staff, User } from './types';
+import type { PG, Guest, Complaint, Expense, Menu, Staff, User, Plan, PlanName } from './types';
 
 export const defaultMenu: Menu = {
   monday: { breakfast: 'Poha, Tea', lunch: 'Roti, Mixed Veg, Dal Tadka, Rice', dinner: 'Paneer Butter Masala, Roti, Salad' },
@@ -11,30 +11,129 @@ export const defaultMenu: Menu = {
   sunday: { breakfast: 'Puri Sabji', lunch: 'Special Thali (Chef\'s choice)', dinner: 'Noodles, Manchurian' },
 }
 
+export const plans: Record<PlanName, Plan> = {
+  free: {
+    id: 'free',
+    name: 'Basic',
+    price: 0,
+    pricePeriod: 'Forever',
+    pgLimit: 1,
+    bedLimit: 20,
+    floorLimit: 2,
+    hasStaffManagement: false,
+    hasComplaints: true,
+    hasAiRentReminders: false,
+    hasSeoGenerator: false,
+    hasAutomatedWhatsapp: false,
+    hasMarketplace: false,
+    description: "For new owners getting started.",
+  },
+  starter: {
+    id: 'starter',
+    name: 'Starter',
+    price: 99,
+    pricePeriod: '/month',
+    pgLimit: 1,
+    bedLimit: 'unlimited',
+    floorLimit: 4,
+    hasStaffManagement: false,
+    hasComplaints: false,
+    hasAiRentReminders: false,
+    hasSeoGenerator: false,
+    hasAutomatedWhatsapp: false,
+    hasMarketplace: false,
+    description: "For small PGs focusing on core operations.",
+  },
+  pro: {
+    id: 'pro',
+    name: 'Pro',
+    price: 199,
+    pricePeriod: '/month',
+    pgLimit: 5,
+    bedLimit: 'unlimited',
+    floorLimit: 'unlimited',
+    hasStaffManagement: true,
+    hasComplaints: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasAutomatedWhatsapp: false,
+    hasMarketplace: false,
+    description: "For growing businesses that need more power.",
+  },
+  business: {
+    id: 'business',
+    name: 'Business',
+    price: 399,
+    pricePeriod: '/month',
+    pgLimit: 10,
+    bedLimit: 'unlimited',
+    floorLimit: 'unlimited',
+    hasStaffManagement: true,
+    hasComplaints: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasAutomatedWhatsapp: true,
+    hasMarketplace: false,
+    description: "For large-scale operators with multiple properties.",
+  },
+  enterprise: {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: 'Custom',
+    pricePeriod: "Let's talk",
+    pgLimit: 'unlimited',
+    bedLimit: 'unlimited',
+    floorLimit: 'unlimited',
+    hasStaffManagement: true,
+    hasComplaints: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasAutomatedWhatsapp: true,
+    hasMarketplace: true,
+    description: "For large-scale operators with custom needs.",
+  }
+};
+
+
 export const users: User[] = [
   {
     id: 'user-1',
     name: 'P. G. Owner',
     email: 'owner@pgoasis.com',
+    password: 'password',
     role: 'owner',
     avatarUrl: 'https://placehold.co/40x40.png?text=PO',
+    subscription: { planId: 'pro', status: 'active' },
   },
   {
     id: 'user-2',
     name: 'Manoj Sharma',
-    email: 'manoj.s@pgoasis.com',
+    email: 'manager@pgoasis.com',
+    password: 'password',
     role: 'manager',
-    pgIds: ['pg-1'], // Manager for Sunshine Living
+    pgIds: ['pg-1'],
     avatarUrl: 'https://placehold.co/40x40.png?text=MS',
+    subscription: { planId: 'pro', status: 'active' }, 
   },
   {
     id: 'user-3',
     name: 'Sita Devi',
-    email: 'sita.d@pgoasis.com',
+    email: 'cook@pgoasis.com',
+    password: 'password',
     role: 'cook',
     pgIds: ['pg-1'],
     avatarUrl: 'https://placehold.co/40x40.png?text=SD',
-  }
+    subscription: { planId: 'pro', status: 'active' },
+  },
+    {
+    id: 'user-4',
+    name: 'Starter User',
+    email: 'starter@pgoasis.com',
+    password: 'password',
+    role: 'owner',
+    avatarUrl: 'https://placehold.co/40x40.png?text=SU',
+    subscription: { planId: 'starter', status: 'active' },
+  },
 ];
 
 
@@ -232,6 +331,7 @@ export const pgs: PG[] = [
     totalBeds: 20,
     rules: ['No smoking', 'No pets', 'Visitors allowed until 10 PM'],
     contact: '+911234567890',
+    ownerId: 'user-1',
     floors: [
       { id: 'floor-1', name: 'First Floor', rooms: [
         { id: 'room-101', name: 'Room 101', rent: 8500, deposit: 17000, beds: [
@@ -280,6 +380,7 @@ export const pgs: PG[] = [
     totalBeds: 25,
     rules: ['No loud music after 11 PM'],
     contact: '+911234567890',
+    ownerId: 'user-1',
     floors: [],
     menu: defaultMenu,
   },
@@ -297,6 +398,7 @@ export const pgs: PG[] = [
     totalBeds: 40,
     rules: ['Respect quiet hours'],
     contact: '+911234567890',
+    ownerId: 'user-1',
     floors: [],
     menu: defaultMenu,
   },
@@ -314,6 +416,7 @@ export const pgs: PG[] = [
     totalBeds: 30,
     rules: [],
     contact: '+911234567890',
+    ownerId: 'user-1',
     floors: [],
     menu: defaultMenu,
   },

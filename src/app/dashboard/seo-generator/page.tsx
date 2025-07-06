@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState } from 'react'
@@ -5,13 +6,13 @@ import { useForm, type SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { generateSeoContent, type GenerateSeoContentInput } from '@/ai/flows/generate-seo-content'
-
+import { useData } from '@/context/data-provider'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Wand2, Copy } from 'lucide-react'
+import { Wand2, Copy, ShieldAlert } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -29,6 +30,7 @@ export default function SeoGeneratorPage() {
   const [loading, setLoading] = useState(false)
   const [seoResult, setSeoResult] = useState<{ title: string; description: string } | null>(null)
   const { toast } = useToast()
+  const { currentPlan } = useData()
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -58,6 +60,19 @@ export default function SeoGeneratorPage() {
       title: 'Copied!',
       description: `${field} has been copied to your clipboard.`,
     })
+  }
+  
+  if (!currentPlan?.hasSeoGenerator) {
+       return (
+        <div className="flex items-center justify-center h-full">
+            <div className="text-center p-8 bg-card rounded-lg border">
+                <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                <p className="mt-2 text-muted-foreground">The AI SEO Generator is not included in your current plan.</p>
+                <Button className="mt-4">Upgrade Plan</Button>
+            </div>
+        </div>
+      )
   }
 
   return (

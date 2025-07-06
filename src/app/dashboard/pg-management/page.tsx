@@ -1,3 +1,4 @@
+
 'use client'
 
 import Link from "next/link"
@@ -14,9 +15,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { useData } from "@/context/data-provider"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from '@/hooks/use-toast'
 
 const genderBadgeColor = {
   male: 'bg-blue-100 text-blue-800',
@@ -26,8 +29,24 @@ const genderBadgeColor = {
 
 
 export default function PgManagementPage() {
-    const { pgs, isLoading, setSelectedPgId } = useData();
+    const { pgs, isLoading, setSelectedPgId, currentPlan } = useData();
     const router = useRouter();
+    const { toast } = useToast()
+
+    const canAddPg = currentPlan && (currentPlan.pgLimit === 'unlimited' || pgs.length < currentPlan.pgLimit);
+
+    const handleAddPgClick = () => {
+        if (!canAddPg) {
+            toast({
+                variant: 'destructive',
+                title: 'PG Limit Reached',
+                description: `You have reached the ${currentPlan?.pgLimit} PG limit for your current plan. Please upgrade to add more.`,
+            })
+            return;
+        }
+        // TODO: Implement Add PG Sheet component
+        toast({ title: "Coming soon!", description: "The ability to add PGs will be implemented shortly."})
+    }
 
     if (isLoading) {
         return (
@@ -62,11 +81,6 @@ export default function PgManagementPage() {
             </div>
         )
     }
-
-    const handleConfigureClick = (pgId: string) => {
-        setSelectedPgId(pgId);
-        router.push('/dashboard');
-    }
     
     return (
         <div className="flex flex-col gap-8">
@@ -76,10 +90,23 @@ export default function PgManagementPage() {
                         <CardTitle>Your PGs</CardTitle>
                         <CardDescription>You have {pgs.length} PGs.</CardDescription>
                     </div>
-                    {/* TODO: Implement Add PG Sheet component */}
-                    <Button>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add New PG
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                           <div className="inline-block">
+                             <Button onClick={handleAddPgClick} disabled={!canAddPg}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add New PG
+                            </Button>
+                           </div>
+                        </TooltipTrigger>
+                        {!canAddPg && (
+                             <TooltipContent>
+                                <p>You have reached your plan's PG limit.</p>
+                             </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+
                 </CardHeader>
                 <CardContent>
                     {/* Desktop Table View */}
@@ -122,7 +149,7 @@ export default function PgManagementPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                    <DropdownMenuItem onClick={() => handleConfigureClick(pg.id)}>
+                                                    <DropdownMenuItem onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}>
                                                         <Pencil className="mr-2 h-4 w-4" /> Configure
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem>View Guests</DropdownMenuItem>
@@ -156,7 +183,7 @@ export default function PgManagementPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => handleConfigureClick(pg.id)}>
+                                            <DropdownMenuItem onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}>
                                               <Pencil className="mr-2 h-4 w-4" /> Configure
                                             </DropdownMenuItem>
                                             <DropdownMenuItem>View Guests</DropdownMenuItem>

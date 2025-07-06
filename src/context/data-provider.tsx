@@ -2,8 +2,9 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
-import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu } from '@/lib/mock-data';
-import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu, plans } from '@/lib/mock-data';
+import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan } from '@/lib/types';
 import { differenceInDays, parseISO, isPast, isFuture } from 'date-fns';
 
 
@@ -61,6 +62,10 @@ interface DataContextType {
   users: User[];
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  signup: (name: string, email: string, password: string) => Promise<{success: boolean; message?: string}>;
+  currentPlan: Plan | null;
 }
 
 // Create context
@@ -68,6 +73,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 // Provider component
 export const DataProvider = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
   const [pgs, setPgs] = useState<PG[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -80,60 +86,103 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const loadedPgs = getFromLocalStorage<PG[]>('pgs', initialPgs);
     const loadedUsers = getFromLocalStorage<User[]>('users', initialUsers);
-
-    setPgs(loadedPgs);
+    setUsers(loadedUsers);
+    
+    setPgs(getFromLocalStorage<PG[]>('pgs', initialPgs));
     setGuests(getFromLocalStorage<Guest[]>('guests', initialGuests));
     setComplaints(getFromLocalStorage<Complaint[]>('complaints', initialComplaints));
     setExpenses(getFromLocalStorage<Expense[]>('expenses', initialExpenses));
     setStaff(getFromLocalStorage<Staff[]>('staff', initialStaff));
-    setUsers(loadedUsers);
     
     const storedPgId = getFromLocalStorage<string | null>('selectedPgId', null);
     setSelectedPgId(storedPgId);
 
-    const storedUserId = getFromLocalStorage<string | null>('currentUserId', loadedUsers[0]?.id || null);
-    setCurrentUser(loadedUsers.find(u => u.id === storedUserId) || loadedUsers[0] || null);
+    const storedUserId = getFromLocalStorage<string | null>('currentUserId', null);
+    if(storedUserId) {
+        const user = loadedUsers.find(u => u.id === storedUserId);
+        setCurrentUser(user || null);
+    }
     
     setIsLoading(false);
   }, []);
+
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+    if (user) {
+        setCurrentUser(user);
+        saveToLocalStorage('currentUserId', user.id);
+        return true;
+    }
+    return false;
+  }, [users]);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+    saveToLocalStorage<string | null>('currentUserId', null);
+    router.push('/login');
+  }, [router]);
+
+  const signup = useCallback(async (name: string, email: string, password: string): Promise<{success: boolean; message?: string}> => {
+      if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+          return { success: false, message: 'An account with this email already exists.' };
+      }
+      const newUser: User = {
+          id: `user-${Date.now()}`,
+          name,
+          email,
+          password,
+          role: 'owner',
+          subscription: { planId: 'free', status: 'active' },
+          avatarUrl: `https://placehold.co/40x40.png?text=${name.slice(0,2).toUpperCase()}`
+      };
+      const updatedUsers = [...users, newUser];
+      setUsers(updatedUsers);
+      saveToLocalStorage('users', updatedUsers);
+      const loginSuccess = await login(email, password);
+      return { success: loginSuccess };
+  }, [users, login]);
 
   const handleSetCurrentUser = useCallback((user: User | null) => {
     setCurrentUser(user);
     saveToLocalStorage('currentUserId', user ? user.id : null);
   }, []);
+  
+  const currentPlan = useMemo(() => {
+    if (!currentUser) return null;
+    return plans[currentUser.subscription.planId];
+  }, [currentUser]);
 
   // Filter data based on current user's role and PG access
   const visiblePgs = useMemo(() => {
     if (isLoading || !currentUser) return [];
-    if (currentUser.role === 'owner') return pgs;
+    if (currentUser.role === 'owner') return pgs.filter(pg => pg.ownerId === currentUser.id);
     return pgs.filter(pg => currentUser.pgIds?.includes(pg.id));
   }, [currentUser, pgs, isLoading]);
 
   const visibleGuests = useMemo(() => {
     if (isLoading || !currentUser) return [];
-    if (currentUser.role === 'owner') return guests;
-    return guests.filter(guest => currentUser.pgIds?.includes(guest.pgId));
-  }, [currentUser, guests, isLoading]);
+    const userPgs = visiblePgs.map(p => p.id);
+    return guests.filter(guest => userPgs.includes(guest.pgId));
+  }, [currentUser, guests, isLoading, visiblePgs]);
 
   const visibleComplaints = useMemo(() => {
     if (isLoading || !currentUser) return [];
-    if (currentUser.role === 'owner') return complaints;
-    return complaints.filter(c => currentUser.pgIds?.includes(c.pgId));
-  }, [currentUser, complaints, isLoading]);
+    const userPgs = visiblePgs.map(p => p.id);
+    return complaints.filter(c => userPgs.includes(c.pgId));
+  }, [currentUser, complaints, isLoading, visiblePgs]);
 
   const visibleExpenses = useMemo(() => {
     if (isLoading || !currentUser) return [];
-    if (currentUser.role === 'owner') return expenses;
-    return expenses.filter(exp => currentUser.pgIds?.includes(exp.pgId));
-  }, [currentUser, expenses, isLoading]);
+    const userPgs = visiblePgs.map(p => p.id);
+    return expenses.filter(exp => userPgs.includes(exp.pgId));
+  }, [currentUser, expenses, isLoading, visiblePgs]);
 
   const visibleStaff = useMemo(() => {
     if (isLoading || !currentUser) return [];
-    if (currentUser.role === 'owner') return staff;
-    return staff.filter(s => currentUser.pgIds?.includes(s.pgId));
-  }, [currentUser, staff, isLoading]);
+    const userPgs = visiblePgs.map(p => p.id);
+    return staff.filter(s => userPgs.includes(s.pgId));
+  }, [currentUser, staff, isLoading, visiblePgs]);
 
   // Reset selectedPgId if the new user doesn't have access to it
   useEffect(() => {
@@ -145,7 +194,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // Notification Generation Logic
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !currentPlan) return;
 
     const newNotifications: Notification[] = [];
     
@@ -199,20 +248,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
     });
 
-    visibleComplaints.forEach(complaint => {
-        if (complaint.status === 'open') {
-             newNotifications.push({
-                id: `noti-complaint-${complaint.id}`,
-                type: 'new-complaint',
-                title: `New Complaint: ${complaint.guestName}`,
-                message: `Category: ${complaint.category}.`,
-                link: '/dashboard/complaints',
-                date: new Date(complaint.date).toISOString(),
-                isRead: false,
-                targetId: complaint.id,
-            });
-        }
-    });
+    if (currentPlan.hasComplaints) {
+        visibleComplaints.forEach(complaint => {
+            if (complaint.status === 'open') {
+                newNotifications.push({
+                    id: `noti-complaint-${complaint.id}`,
+                    type: 'new-complaint',
+                    title: `New Complaint: ${complaint.guestName}`,
+                    message: `Category: ${complaint.category}.`,
+                    link: '/dashboard/complaints',
+                    date: new Date(complaint.date).toISOString(),
+                    isRead: false,
+                    targetId: complaint.id,
+                });
+            }
+        });
+    }
     
     const storedNotifications = getFromLocalStorage<Notification[]>('notifications', []);
     const updatedNotifications = newNotifications.map(newNoti => {
@@ -222,7 +273,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
     setNotifications(updatedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 
-  }, [visibleGuests, visibleComplaints, isLoading]);
+  }, [visibleGuests, visibleComplaints, isLoading, currentPlan]);
 
   const markNotificationAsRead = useCallback((notificationId: string) => {
     setNotifications(prev => {
@@ -359,6 +410,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     users,
     currentUser,
     setCurrentUser: handleSetCurrentUser,
+    login,
+    logout,
+    signup,
+    currentPlan,
   };
 
   return (

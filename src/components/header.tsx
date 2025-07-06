@@ -21,7 +21,7 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
-  const { pgs, selectedPgId, setSelectedPgId, isLoading } = useData();
+  const { pgs, selectedPgId, setSelectedPgId, isLoading, currentUser } = useData();
   const isDashboard = pathname.startsWith('/dashboard');
 
   const handleValueChange = (pgId: string) => {
@@ -38,7 +38,7 @@ export default function Header() {
                 <HomeIcon className="h-6 w-6 text-primary" />
                 <span className="font-bold text-lg font-headline hidden sm:inline-block">PGOasis</span>
             </Link>
-             {isDashboard && (
+             {isDashboard && currentUser && (
                 isLoading ? (
                     <Skeleton className="h-10 w-[120px] sm:w-[180px]" />
                 ) : pgs.length > 0 ? (
@@ -64,29 +64,32 @@ export default function Header() {
 
 
         <nav className="hidden md:flex items-center gap-6 text-sm absolute left-1/2 -translate-x-1/2">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                'transition-colors hover:text-foreground/80',
-                pathname === link.href ? 'text-foreground' : 'text-muted-foreground'
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            if (link.href === '/dashboard' && !currentUser) return null;
+            return (
+                <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                    'transition-colors hover:text-foreground/80',
+                    pathname === link.href ? 'text-foreground' : 'text-muted-foreground'
+                )}
+                >
+                {link.label}
+                </Link>
+            )
+          })}
         </nav>
 
         <div className="flex items-center gap-2">
-          {isDashboard && <NotificationsPopover />}
+          {currentUser && isDashboard && <NotificationsPopover />}
            {pathname === '/' && (
             <div className="hidden md:flex">
               <InstallPWA />
             </div>
           )}
           <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90">
-            <Link href="/login">Login</Link>
+            <Link href={currentUser ? "/dashboard" : "/login"}>{currentUser ? "Go to Dashboard" : "Login"}</Link>
           </Button>
           <Sheet>
             <SheetTrigger asChild>
@@ -119,7 +122,7 @@ export default function Header() {
                 ))}
                  {pathname === '/' && <InstallPWA />}
                  <Button asChild className="mt-4 bg-primary hover:bg-primary/90">
-                    <Link href="/login">Login</Link>
+                    <Link href={currentUser ? "/dashboard" : "/login"}>{currentUser ? "Go to Dashboard" : "Login"}</Link>
                 </Button>
               </div>
             </SheetContent>

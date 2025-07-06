@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
@@ -14,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Users, PlusCircle, MoreHorizontal, IndianRupee, Pencil, Trash2, Building } from 'lucide-react'
+import { Users, PlusCircle, MoreHorizontal, IndianRupee, Pencil, Trash2, Building, ShieldAlert } from 'lucide-react'
 import type { Staff } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -38,7 +39,7 @@ const roleColors: Record<Staff['role'], string> = {
 }
 
 export default function StaffPage() {
-    const { pgs, staff, addStaff, updateStaff, deleteStaff, isLoading, selectedPgId } = useData()
+    const { pgs, staff, addStaff, updateStaff, deleteStaff, isLoading, selectedPgId, currentPlan } = useData()
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null)
 
@@ -84,6 +85,19 @@ export default function StaffPage() {
         if (!selectedPgId) return staff;
         return staff.filter(s => s.pgId === selectedPgId);
     }, [staff, selectedPgId]);
+
+    if (!currentPlan?.hasStaffManagement) {
+         return (
+          <div className="flex items-center justify-center h-full">
+              <div className="text-center p-8 bg-card rounded-lg border">
+                  <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                  <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                  <p className="mt-2 text-muted-foreground">Staff management is not included in your current plan.</p>
+                  <Button className="mt-4">Upgrade Plan</Button>
+              </div>
+          </div>
+        )
+    }
 
     if (isLoading) {
         return (

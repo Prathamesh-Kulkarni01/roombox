@@ -57,7 +57,7 @@ export default function GuestProfilePage() {
     const router = useRouter()
     const { toast } = useToast()
     const guestId = params.guestId as string
-    const { guests, complaints, updateGuest, isLoading } = useData()
+    const { guests, complaints, updateGuest, isLoading, currentPlan } = useData()
 
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
     const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
@@ -101,7 +101,7 @@ export default function GuestProfilePage() {
     }
 
     const handleOpenReminderDialog = async () => {
-        if (!guest) return
+        if (!guest || !currentPlan?.hasAiRentReminders) return
         setIsReminderDialogOpen(true)
         setIsGeneratingReminder(true)
         setReminderMessage('')
@@ -229,7 +229,7 @@ export default function GuestProfilePage() {
                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
                                 <Button onClick={() => setIsPaymentDialogOpen(true)}><Wallet className="mr-2 h-4 w-4" /> Collect Rent</Button>
                              )}
-                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
+                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && currentPlan?.hasAiRentReminders && (
                                 <Button variant="secondary" onClick={handleOpenReminderDialog}><Send className="mr-2 h-4 w-4" />Send Reminder</Button>
                             )}
                         </CardFooter>
@@ -314,5 +314,3 @@ export default function GuestProfilePage() {
         </div>
     )
 }
-
-    

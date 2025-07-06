@@ -42,7 +42,7 @@ export type Menu = Record<DayOfWeek, Meal>;
 
 export interface PG {
   id: string;
-  name: string;
+  name:string;
   location: string;
   city: string;
   gender: 'male' | 'female' | 'co-ed';
@@ -59,6 +59,7 @@ export interface PG {
   contact: string; // WhatsApp number
   floors?: Floor[];
   menu?: Menu;
+  ownerId: string;
 }
 
 export interface Guest {
@@ -127,11 +128,35 @@ export interface Notification {
 
 export type UserRole = 'owner' | 'manager' | 'cook' | 'cleaner' | 'security' | 'other';
 
+export type PlanName = 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
+
+export interface Plan {
+  id: PlanName;
+  name: string;
+  price: number | 'Custom';
+  pricePeriod: '/month' | 'Forever' | "Let's talk";
+  pgLimit: number | 'unlimited';
+  bedLimit: number | 'unlimited';
+  floorLimit: number | 'unlimited';
+  hasStaffManagement: boolean;
+  hasComplaints: boolean;
+  hasAiRentReminders: boolean;
+  hasSeoGenerator: boolean;
+  hasAutomatedWhatsapp: boolean;
+  hasMarketplace: boolean;
+  description: string;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: UserRole;
-  pgIds?: string[]; // PGs this user has access to. Undefined for owner (all access)
+  pgIds?: string[];
   avatarUrl?: string;
+  subscription: {
+    planId: PlanName;
+    status: 'active' | 'inactive';
+  };
 }

@@ -13,23 +13,22 @@ import { navPermissions } from '@/lib/permissions';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
-  { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed },
-  { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet },
-  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building },
-  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users },
-  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning },
-  { href: '/dashboard/staff', label: 'Staff Management', icon: Contact },
-  { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2 },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core' },
+  { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed, feature: 'core' },
+  { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet, feature: 'core' },
+  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building, feature: 'core' },
+  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
+  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
+  { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },
+  { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2, feature: 'hasSeoGenerator' },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
 ];
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
-  const { currentUser, users, setCurrentUser } = useData();
+  const { currentUser, users, setCurrentUser, logout, currentPlan } = useData();
 
-  if (!currentUser) {
-    // or a loading skeleton
+  if (!currentUser || !currentPlan) {
     return (
         <aside className="w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground hidden md:flex">
              <div className="flex-1 flex flex-col gap-y-2 p-4">
@@ -40,7 +39,14 @@ export default function DashboardSidebar() {
   }
 
   const allowedRoutes = navPermissions[currentUser.role] || [];
-  const visibleNavItems = navItems.filter(item => allowedRoutes.includes(item.href));
+  
+  const visibleNavItems = navItems.filter(item => {
+    if (!allowedRoutes.includes(item.href)) return false;
+    if (item.feature !== 'core' && !currentPlan[item.feature as keyof typeof currentPlan]) {
+        return false;
+    }
+    return true;
+  });
 
 
   return (
@@ -77,7 +83,7 @@ export default function DashboardSidebar() {
                         </Avatar>
                         <div className='flex-1'>
                             <p className="font-semibold text-sm truncate">{currentUser.name}</p>
-                            <p className="text-xs text-sidebar-foreground/70 capitalize">{currentUser.role}</p>
+                            <p className="text-xs text-sidebar-foreground/70 capitalize">{currentUser.role} ({currentPlan.name})</p>
                         </div>
                     </div>
                      <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/70 shrink-0" />
@@ -97,11 +103,9 @@ export default function DashboardSidebar() {
                     ))}
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                <Link href="/login">
+                <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
-                </Link>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

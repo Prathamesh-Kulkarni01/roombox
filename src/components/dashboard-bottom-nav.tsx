@@ -17,35 +17,40 @@ import { useData } from '@/context/data-provider';
 import { navPermissions } from '@/lib/permissions';
 
 const allMainNavItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/dashboard/expense', label: 'Expenses', icon: Wallet },
-  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning },
-  { href: '/dashboard/food', label: 'Food', icon: UtensilsCrossed },
+  { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'core' },
+  { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'core' },
+  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
+  { href: '/dashboard/food', label: 'Food', icon: UtensilsCrossed, feature: 'core' },
 ];
 
 const allMoreNavItems = [
-  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building },
-  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users },
-  { href: '/dashboard/staff', label: 'Staff Management', icon: Contact },
-  { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2 },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building, feature: 'core' },
+  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
+  { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },
+  { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2, feature: 'hasSeoGenerator' },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
 ]
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
-  const { currentUser } = useData();
+  const { currentUser, currentPlan } = useData();
 
-  if (!currentUser) return null;
+  if (!currentUser || !currentPlan) return null;
 
   const allowedRoutes = navPermissions[currentUser.role] || [];
-
-  const mainNavItems = allMainNavItems.filter(item => allowedRoutes.includes(item.href));
-  const moreNavItems = allMoreNavItems.filter(item => allowedRoutes.includes(item.href));
-
-  // The 'More' tab should only show if there are items in it.
-  const showMoreTab = moreNavItems.length > 0;
   
-  // Distribute items, ensuring we don't exceed 5 slots. If more tab is hidden, we can show one more main item.
+  const filterByPermissions = (item: typeof allMainNavItems[0]) => {
+      if (!allowedRoutes.includes(item.href)) return false;
+      if (item.feature !== 'core' && !currentPlan[item.feature as keyof typeof currentPlan]) {
+          return false;
+      }
+      return true;
+  }
+
+  const mainNavItems = allMainNavItems.filter(filterByPermissions);
+  const moreNavItems = allMoreNavItems.filter(filterByPermissions);
+
+  const showMoreTab = moreNavItems.length > 0;
   const mainItemsCount = showMoreTab ? 4 : 5;
   const visibleMainNavItems = mainNavItems.slice(0, mainItemsCount);
   const overflowItems = [...mainNavItems.slice(mainItemsCount), ...moreNavItems];

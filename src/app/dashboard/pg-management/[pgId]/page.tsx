@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { useData } from '@/context/data-provider'
 import Link from 'next/link'
 import { produce } from 'immer'
-
+import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -19,6 +19,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 import { Building, Layers, DoorOpen, BedDouble, PlusCircle, IndianRupee, Trash2, ArrowLeft, Pencil } from 'lucide-react'
 import type { PG, Floor, Room, Bed } from '@/lib/types'
@@ -34,19 +35,17 @@ const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is require
 export default function ManagePgPage() {
   const router = useRouter()
   const params = useParams()
-  const { pgs, updatePg, guests } = useData()
+  const { pgs, updatePg, guests, currentPlan } = useData()
   const pgId = params.pgId as string
+  const { toast } = useToast()
 
   const [isEditMode, setIsEditMode] = useState(false)
-
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false)
   const [isBedDialogOpen, setIsBedDialogOpen] = useState(false)
-
   const [floorToEdit, setFloorToEdit] = useState<Floor | null>(null)
   const [roomToEdit, setRoomToEdit] = useState<{ room: Room; floorId: string } | null>(null)
   const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null)
-  
   const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<string | null>(null)
   const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string } | null>(null)
 
@@ -55,21 +54,11 @@ export default function ManagePgPage() {
   const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } })
   
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
+  const canAddFloor = pg && currentPlan && (currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit)
 
-  useEffect(() => {
-    if (floorToEdit) floorForm.reset({ name: floorToEdit.name })
-    else floorForm.reset({ name: '' })
-  }, [floorToEdit, floorForm])
-
-  useEffect(() => {
-    if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit })
-    else roomForm.reset({ name: '', rent: undefined, deposit: undefined })
-  }, [roomToEdit, roomForm])
-
-  useEffect(() => {
-    if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name })
-    else bedForm.reset({ name: '' })
-  }, [bedToEdit, bedForm])
+  useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm])
+  useEffect(() => { if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: undefined, deposit: undefined }); }, [roomToEdit, roomForm])
+  useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm])
 
   if (!pg) {
     return (
@@ -85,111 +74,99 @@ export default function ManagePgPage() {
   }
   
   const handleFloorSubmit = (values: z.infer<typeof floorSchema>) => {
+    if (!canAddFloor && !floorToEdit) return;
     const nextState = produce(pg, draft => {
       if (!draft.floors) draft.floors = [];
-      if (floorToEdit) { // Editing existing floor
-        const floor = draft.floors.find(f => f.id === floorToEdit.id)
-        if (floor) floor.name = values.name
-      } else { // Adding new floor
-        draft.floors.push({ id: `floor-${new Date().getTime()}`, name: values.name, rooms: [] })
+      if (floorToEdit) {
+        const floor = draft.floors.find(f => f.id === floorToEdit.id);
+        if (floor) floor.name = values.name;
+      } else {
+        draft.floors.push({ id: `floor-${new Date().getTime()}`, name: values.name, rooms: [] });
       }
-    })
-    updatePg(nextState)
-    setIsFloorDialogOpen(false)
-    setFloorToEdit(null)
+    });
+    updatePg(nextState);
+    setIsFloorDialogOpen(false);
+    setFloorToEdit(null);
   }
 
   const handleRoomSubmit = (values: z.infer<typeof roomSchema>) => {
-    const floorId = roomToEdit?.floorId || selectedFloorForRoomAdd
-    if (!floorId) return
-
+    const floorId = roomToEdit?.floorId || selectedFloorForRoomAdd;
+    if (!floorId) return;
     const nextState = produce(pg, draft => {
-        const floor = draft.floors?.find(f => f.id === floorId)
-        if (!floor) return
-
-        if (roomToEdit) { // Editing existing room
-            const room = floor.rooms.find(r => r.id === roomToEdit.room.id)
-            if(room) {
-                room.name = values.name
-                room.rent = values.rent
-                room.deposit = values.deposit
-            }
-        } else { // Adding new room
-             floor.rooms.push({ id: `room-${new Date().getTime()}`, name: values.name, rent: values.rent, deposit: values.deposit, beds: [] })
+        const floor = draft.floors?.find(f => f.id === floorId);
+        if (!floor) return;
+        if (roomToEdit) {
+            const room = floor.rooms.find(r => r.id === roomToEdit.room.id);
+            if(room) { room.name = values.name; room.rent = values.rent; room.deposit = values.deposit; }
+        } else {
+             floor.rooms.push({ id: `room-${new Date().getTime()}`, name: values.name, rent: values.rent, deposit: values.deposit, beds: [] });
         }
-    })
-    updatePg(nextState)
-    setIsRoomDialogOpen(false)
-    setRoomToEdit(null)
-    setSelectedFloorForRoomAdd(null)
+    });
+    updatePg(nextState);
+    setIsRoomDialogOpen(false);
+    setRoomToEdit(null);
+    setSelectedFloorForRoomAdd(null);
   }
   
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
-    const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId
-    const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId
-    if (!floorId || !roomId) return
-
+    const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
+    const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
+    if (!floorId || !roomId) return;
     const nextState = produce(pg, draft => {
-      const floor = draft.floors?.find(f => f.id === floorId)
-      const room = floor?.rooms.find(r => r.id === roomId)
-      if (!room) return
-
-      if (bedToEdit) { // Editing existing bed
-        const bed = room.beds.find(b => b.id === bedToEdit.bed.id)
-        if (bed) bed.name = values.name
-      } else { // Adding new bed
-        room.beds.push({ id: `bed-${new Date().getTime()}`, name: values.name, guestId: null })
-        draft.totalBeds = (draft.totalBeds || 0) + 1
+      const floor = draft.floors?.find(f => f.id === floorId);
+      const room = floor?.rooms.find(r => r.id === roomId);
+      if (!room) return;
+      if (bedToEdit) {
+        const bed = room.beds.find(b => b.id === bedToEdit.bed.id);
+        if (bed) bed.name = values.name;
+      } else {
+        room.beds.push({ id: `bed-${new Date().getTime()}`, name: values.name, guestId: null });
+        draft.totalBeds = (draft.totalBeds || 0) + 1;
       }
-    })
-    updatePg(nextState)
-    setIsBedDialogOpen(false)
-    setBedToEdit(null)
-    setSelectedRoomForBedAdd(null)
+    });
+    updatePg(nextState);
+    setIsBedDialogOpen(false);
+    setBedToEdit(null);
+    setSelectedRoomForBedAdd(null);
   }
 
   const handleDelete = (type: 'floor' | 'room' | 'bed', ids: { floorId: string; roomId?: string; bedId?: string }) => {
-    if (!confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return
-
+    if (!confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
     const nextState = produce(pg, draft => {
-        const floorIndex = draft.floors?.findIndex(f => f.id === ids.floorId)
-        if (floorIndex === undefined || floorIndex === -1) return
-
+        const floorIndex = draft.floors?.findIndex(f => f.id === ids.floorId);
+        if (floorIndex === undefined || floorIndex === -1 || !draft.floors) return;
+        const floor = draft.floors[floorIndex];
         if (type === 'floor') {
-            const floor = draft.floors?.[floorIndex]
-            if (floor?.rooms.some(r => r.beds.some(b => b.guestId))) {
-                 alert("Cannot delete a floor with occupied rooms.")
-                 return
-            }
-            const bedsInFloor = floor?.rooms.reduce((acc, room) => acc + room.beds.length, 0) || 0;
-            draft.totalBeds -= bedsInFloor
-            draft.floors?.splice(floorIndex, 1)
+            if (floor?.rooms.some(r => r.beds.some(b => b.guestId))) { alert("Cannot delete a floor with occupied rooms."); return; }
+            draft.totalBeds -= floor?.rooms.reduce((acc, room) => acc + room.beds.length, 0) || 0;
+            draft.floors.splice(floorIndex, 1);
         } else if (type === 'room' && ids.roomId) {
-            const roomIndex = draft.floors?.[floorIndex].rooms.findIndex(r => r.id === ids.roomId)
-            if (roomIndex === undefined || roomIndex === -1) return
-            const room = draft.floors?.[floorIndex].rooms[roomIndex]
-            if (room?.beds.some(b => b.guestId)) {
-                alert("Cannot delete a room with occupied beds.")
-                return
-            }
-            draft.totalBeds -= room?.beds.length || 0
-            draft.floors?.[floorIndex].rooms.splice(roomIndex, 1)
+            const roomIndex = floor.rooms.findIndex(r => r.id === ids.roomId);
+            if (roomIndex === undefined || roomIndex === -1) return;
+            const room = floor.rooms[roomIndex];
+            if (room?.beds.some(b => b.guestId)) { alert("Cannot delete a room with occupied beds."); return; }
+            draft.totalBeds -= room?.beds.length || 0;
+            floor.rooms.splice(roomIndex, 1);
         } else if (type === 'bed' && ids.roomId && ids.bedId) {
-            const room = draft.floors?.[floorIndex].rooms.find(r => r.id === ids.roomId)
-            const bedIndex = room?.beds.findIndex(b => b.id === ids.bedId)
-            if (bedIndex === undefined || bedIndex === -1) return
-            if (room?.beds[bedIndex].guestId) {
-                alert("Cannot delete an occupied bed.")
-                return
-            }
-            room?.beds.splice(bedIndex, 1)
-            draft.totalBeds -= 1
+            const room = floor.rooms.find(r => r.id === ids.roomId);
+            const bedIndex = room?.beds.findIndex(b => b.id === ids.bedId);
+            if (bedIndex === undefined || bedIndex === -1 || !room) return;
+            if (room.beds[bedIndex].guestId) { alert("Cannot delete an occupied bed."); return; }
+            room.beds.splice(bedIndex, 1);
+            draft.totalBeds -= 1;
         }
-    })
-    updatePg(nextState)
+    });
+    updatePg(nextState);
   }
 
-  const openAddFloorDialog = () => { setFloorToEdit(null); setIsFloorDialogOpen(true) }
+  const openAddFloorDialog = () => {
+    if (!canAddFloor) {
+        toast({ variant: 'destructive', title: 'Floor Limit Reached', description: 'Please upgrade your plan to add more floors.'});
+        return;
+    }
+    setFloorToEdit(null);
+    setIsFloorDialogOpen(true);
+  }
   const openEditFloorDialog = (floor: Floor) => { setFloorToEdit(floor); setIsFloorDialogOpen(true) }
   const openAddRoomDialog = (floorId: string) => { setRoomToEdit(null); setSelectedFloorForRoomAdd(floorId); setIsRoomDialogOpen(true) }
   const openEditRoomDialog = (room: Room, floorId: string) => { setRoomToEdit({room, floorId}); setIsRoomDialogOpen(true) }
@@ -203,6 +180,7 @@ export default function ManagePgPage() {
             <Button variant="outline" size="icon" onClick={() => router.back()}>
             <ArrowLeft />
             </Button>
+            <h1 className="text-2xl font-bold">{pg.name} Layout</h1>
         </div>
         <div className="flex items-center space-x-2">
             <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
@@ -211,9 +189,7 @@ export default function ManagePgPage() {
       </div>
 
       <Card>
-        <CardHeader>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6">
           <Accordion type="multiple" className="w-full" defaultValue={pg.floors?.map(f => f.id)}>
             {pg.floors?.map(floor => (
               <AccordionItem value={floor.id} key={floor.id}>
@@ -294,12 +270,21 @@ export default function ManagePgPage() {
             ))}
           </Accordion>
           {isEditMode && (
-             <button onClick={openAddFloorDialog} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                <PlusCircle className="mr-2 h-5 w-5" />
-                <span className="font-medium">Add New Floor</span>
-            </button>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div className="inline-block mt-6 w-full">
+                            <button onClick={openAddFloorDialog} disabled={!canAddFloor} className="w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:bg-muted/50 disabled:cursor-not-allowed">
+                                <PlusCircle className="mr-2 h-5 w-5" />
+                                <span className="font-medium">Add New Floor</span>
+                            </button>
+                        </div>
+                    </TooltipTrigger>
+                    {!canAddFloor && <TooltipContent><p>Upgrade your plan to add more floors.</p></TooltipContent>}
+                </Tooltip>
+            </TooltipProvider>
           )}
-          {pg.floors?.length === 0 && !isEditMode && (
+          {(pg.floors?.length || 0) === 0 && !isEditMode && (
             <div className="text-center py-10 text-muted-foreground">No floors configured yet. Enable Edit Mode to start.</div>
           )}
         </CardContent>
