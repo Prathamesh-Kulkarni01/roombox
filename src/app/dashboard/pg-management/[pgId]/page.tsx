@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
@@ -211,8 +212,6 @@ export default function ManagePgPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>Floors & Rooms for {pg.name}</CardTitle>
-            <CardDescription>Organize your PG's layout. Enable 'Edit Mode' to make changes.</CardDescription>
         </CardHeader>
         <CardContent>
           <Accordion type="multiple" className="w-full" defaultValue={pg.floors?.map(f => f.id)}>
@@ -223,7 +222,7 @@ export default function ManagePgPage() {
                     <Layers /> {floor.name}
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="pl-2 border-l-2 ml-4">
+                <AccordionContent className="pt-4">
                   <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${!isEditMode && floor.rooms.length === 0 ? 'hidden': ''}`}>
                     {floor.rooms.map(room => (
                         <Card key={room.id} className="flex flex-col">

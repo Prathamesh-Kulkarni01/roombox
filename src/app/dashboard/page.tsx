@@ -303,7 +303,7 @@ export default function DashboardPage() {
               {pg.floors?.map(floor => (
                 <AccordionItem value={floor.id} key={floor.id}>
                   <AccordionTrigger className="text-lg font-medium hover:no-underline"><div className="flex items-center gap-4 w-full"><Layers /> {floor.name}</div></AccordionTrigger>
-                  <AccordionContent className="pl-2 border-l-2 ml-4">
+                  <AccordionContent className="pt-4">
                     <div className="space-y-6">
                       {floor.rooms.map(room => (
                         <div key={room.id}>
@@ -381,5 +381,3 @@ export default function DashboardPage() {
     </>
   )
 }
-
-    
