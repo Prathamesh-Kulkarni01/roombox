@@ -1,3 +1,4 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
@@ -7,6 +8,7 @@ import { DataProvider } from '@/context/data-provider';
 export const metadata: Metadata = {
   title: 'PGOasis',
   description: 'PG Management and Tenant Marketplace',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -17,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="!scroll-smooth">
       <head>
-        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#FFFFFF" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
