@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -31,20 +32,20 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 gap-4">
-        <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
+        <div className="flex items-center gap-2 md:gap-4 flex-1 md:flex-none">
+            <Link href="/" className="flex items-center gap-2 mr-2">
                 <HomeIcon className="h-6 w-6 text-primary" />
                 <span className="font-bold text-lg font-headline hidden sm:inline-block">PGOasis</span>
             </Link>
              {isDashboard && (
                 isLoading ? (
-                    <Skeleton className="h-10 w-[180px]" />
+                    <Skeleton className="h-10 w-[120px] sm:w-[180px]" />
                 ) : pgs.length > 0 ? (
                     <Select
                         value={selectedPgId || 'all'}
                         onValueChange={handleValueChange}
                     >
-                        <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectTrigger className="w-auto sm:w-[180px] flex-1 min-w-[120px]">
                             <SelectValue placeholder="Select a PG..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -61,7 +62,7 @@ export default function Header() {
         </div>
 
 
-        <nav className="hidden md:flex items-center gap-6 text-sm">
+        <nav className="hidden md:flex items-center gap-6 text-sm absolute left-1/2 -translate-x-1/2">
           {navLinks.map((link) => (
             <Link
               key={link.href}
