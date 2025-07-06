@@ -1,8 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints } from '@/lib/mock-data';
-import type { PG, Guest, Complaint } from '@/lib/types';
+import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses } from '@/lib/mock-data';
+import type { PG, Guest, Complaint, Expense } from '@/lib/types';
 
 // Helper functions for localStorage
 const getFromLocalStorage = <T,>(key: string, initialData: T): T => {
@@ -37,9 +37,11 @@ interface DataContextType {
   pgs: PG[];
   guests: Guest[];
   complaints: Complaint[];
+  expenses: Expense[];
   updateGuest: (updatedGuest: Guest) => void;
   addGuest: (newGuest: Guest) => void;
   updatePgs: (updatedPgs: PG[]) => void;
+  addExpense: (newExpense: Omit<Expense, 'id'>) => void;
   isLoading: boolean;
 }
 
@@ -51,6 +53,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [pgs, setPgs] = useState<PG[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -58,6 +61,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setPgs(getFromLocalStorage<PG[]>('pgs', initialPgs));
     setGuests(getFromLocalStorage<Guest[]>('guests', initialGuests));
     setComplaints(getFromLocalStorage<Complaint[]>('complaints', initialComplaints));
+    setExpenses(getFromLocalStorage<Expense[]>('expenses', initialExpenses));
     setIsLoading(false);
   }, []);
   
@@ -82,7 +86,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       saveToLocalStorage('pgs', updatedPgs);
   }, []);
 
-  const value = { pgs, guests, complaints, updateGuest, addGuest, updatePgs, isLoading };
+  const addExpense = useCallback((newExpenseData: Omit<Expense, 'id'>) => {
+    setExpenses(prevExpenses => {
+        const newExpense: Expense = {
+            id: `exp-${new Date().getTime()}`,
+            ...newExpenseData,
+        };
+        const newExpenses = [newExpense, ...prevExpenses];
+        saveToLocalStorage('expenses', newExpenses);
+        return newExpenses;
+    });
+  }, []);
+
+  const value = { pgs, guests, complaints, expenses, updateGuest, addGuest, updatePgs, addExpense, isLoading };
 
   return (
     <DataContext.Provider value={value}>

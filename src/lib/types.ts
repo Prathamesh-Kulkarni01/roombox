@@ -72,3 +72,13 @@ export interface Complaint {
   status: 'open' | 'in-progress' | 'resolved';
   date: string;
 }
+
+export interface Expense {
+  id: string;
+  pgId: string;
+  pgName: string;
+  category: 'food' | 'maintenance' | 'utilities' | 'salary' | 'other';
+  description: string;
+  amount: number;
+  date: string;
+}

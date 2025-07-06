@@ -1,4 +1,4 @@
-import type { PG, Guest, Complaint } from './types';
+import type { PG, Guest, Complaint, Expense } from './types';
 
 export const guests: Guest[] = [
   {
@@ -278,5 +278,53 @@ export const complaints: Complaint[] = [
     description: 'My room lights are flickering.',
     status: 'open',
     date: '2024-07-30',
+  },
+];
+
+export const expenses: Expense[] = [
+  {
+    id: 'exp-1',
+    pgId: 'pg-1',
+    pgName: 'Sunshine Living',
+    category: 'food',
+    description: 'Weekly vegetable purchase',
+    amount: 7500,
+    date: '2024-07-28',
+  },
+  {
+    id: 'exp-2',
+    pgId: 'pg-1',
+    pgName: 'Sunshine Living',
+    category: 'maintenance',
+    description: 'Plumbing repair in Room 201',
+    amount: 1200,
+    date: '2024-07-27',
+  },
+  {
+    id: 'exp-3',
+    pgId: 'pg-2',
+    pgName: 'Royal Comforts PG',
+    category: 'utilities',
+    description: 'Electricity Bill - July',
+    amount: 15000,
+    date: '2024-07-25',
+  },
+  {
+    id: 'exp-4',
+    pgId: 'pg-1',
+    pgName: 'Sunshine Living',
+    category: 'food',
+    description: 'Groceries and staples',
+    amount: 12000,
+    date: '2024-07-22',
+  },
+   {
+    id: 'exp-5',
+    pgId: 'pg-1',
+    pgName: 'Sunshine Living',
+    category: 'salary',
+    description: 'Salary for cleaning staff',
+    amount: 8000,
+    date: '2024-07-31',
   },
 ];
