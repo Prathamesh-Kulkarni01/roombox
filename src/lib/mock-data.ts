@@ -1,4 +1,14 @@
-import type { PG, Guest, Complaint, Expense } from './types';
+import type { PG, Guest, Complaint, Expense, Menu } from './types';
+
+const defaultMenu: Menu = {
+  monday: { breakfast: 'Poha, Tea', lunch: 'Roti, Mixed Veg, Dal Tadka, Rice', dinner: 'Paneer Butter Masala, Roti, Salad' },
+  tuesday: { breakfast: 'Upma, Coffee', lunch: 'Roti, Aloo Gobi, Dal Fry, Rice', dinner: 'Chole, Bhature, Onion Salad' },
+  wednesday: { breakfast: 'Idli Sambar', lunch: 'Roti, Rajma, Jeera Rice', dinner: 'Veg Pulao, Raita, Papad' },
+  thursday: { breakfast: 'Aloo Paratha, Curd', lunch: 'Roti, Bhindi Masala, Dal Makhani, Rice', dinner: 'Kadhi Pakoda, Rice, Roti' },
+  friday: { breakfast: 'Masala Dosa', lunch: 'Roti, Lauki Sabzi, Chana Dal, Rice', dinner: 'Veg Biryani, Raita' },
+  saturday: { breakfast: 'Bread Omelette', lunch: 'Roti, Baingan Bharta, Arhar Dal, Rice', dinner: 'Pav Bhaji' },
+  sunday: { breakfast: 'Puri Sabji', lunch: 'Special Thali (Chef\'s choice)', dinner: 'Noodles, Manchurian' },
+}
 
 export const guests: Guest[] = [
   {
@@ -197,6 +207,7 @@ export const pgs: PG[] = [
         ]},
       ]},
     ],
+    menu: defaultMenu,
   },
   {
     id: 'pg-2',
@@ -213,6 +224,7 @@ export const pgs: PG[] = [
     rules: ['No loud music after 11 PM'],
     contact: '+911234567890',
     floors: [],
+    menu: defaultMenu,
   },
   {
     id: 'pg-3',

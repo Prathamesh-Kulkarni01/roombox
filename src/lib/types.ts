@@ -25,6 +25,17 @@ export interface Floor {
   rooms: Room[];
 }
 
+export interface Meal {
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+}
+
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export type Menu = Record<DayOfWeek, Meal>;
+
+
 export interface PG {
   id: string;
   name: string;
@@ -43,6 +54,7 @@ export interface PG {
   rules: string[];
   contact: string; // WhatsApp number
   floors?: Floor[];
+  menu?: Menu;
 }
 
 export interface Guest {

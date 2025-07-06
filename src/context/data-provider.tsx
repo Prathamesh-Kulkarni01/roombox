@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses } from '@/lib/mock-data';
-import type { PG, Guest, Complaint, Expense } from '@/lib/types';
+import type { PG, Guest, Complaint, Expense, Menu } from '@/lib/types';
 
 // Helper functions for localStorage
 const getFromLocalStorage = <T,>(key: string, initialData: T): T => {
@@ -42,6 +42,7 @@ interface DataContextType {
   addGuest: (newGuest: Guest) => void;
   updatePgs: (updatedPgs: PG[]) => void;
   addExpense: (newExpense: Omit<Expense, 'id'>) => void;
+  updatePgMenu: (pgId: string, menu: Menu) => void;
   isLoading: boolean;
 }
 
@@ -97,8 +98,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         return newExpenses;
     });
   }, []);
+  
+  const updatePgMenu = useCallback((pgId: string, menu: Menu) => {
+    setPgs(prevPgs => {
+        const newPgs = prevPgs.map(pg => 
+            pg.id === pgId ? { ...pg, menu } : pg
+        );
+        saveToLocalStorage('pgs', newPgs);
+        return newPgs;
+    });
+  }, []);
 
-  const value = { pgs, guests, complaints, expenses, updateGuest, addGuest, updatePgs, addExpense, isLoading };
+
+  const value = { pgs, guests, complaints, expenses, updateGuest, addGuest, updatePgs, addExpense, updatePgMenu, isLoading };
 
   return (
     <DataContext.Provider value={value}>
