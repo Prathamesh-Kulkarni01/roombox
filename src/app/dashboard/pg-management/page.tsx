@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, MoreHorizontal, IndianRupee } from "lucide-react"
+import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,10 +42,17 @@ export default function PgManagementPage() {
                         <Skeleton className="h-10 w-32" />
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-2">
-                           {Array.from({ length: 3 }).map((_, i) => (
-                             <Skeleton key={i} className="h-12 w-full" />
-                           ))}
+                        {/* Mobile skeleton */}
+                        <div className="md:hidden space-y-4">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <Skeleton key={i} className="h-28 w-full rounded-lg" />
+                        ))}
+                        </div>
+                        {/* Desktop skeleton */}
+                        <div className="hidden md:block space-y-2">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <Skeleton key={i} className="h-12 w-full" />
+                        ))}
                         </div>
                     </CardContent>
                 </Card>
@@ -71,54 +78,102 @@ export default function PgManagementPage() {
                     </Button>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Location</TableHead>
-                                <TableHead>Gender</TableHead>
-                                <TableHead>Occupancy</TableHead>
-                                <TableHead>Price Range</TableHead>
-                                <TableHead>
-                                    <span className="sr-only">Actions</span>
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {pgs.map((pg) => (
-                                <TableRow key={pg.id}>
-                                    <TableCell className="font-medium">{pg.name}</TableCell>
-                                    <TableCell>{pg.location}</TableCell>
-                                    <TableCell>
-                                        <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
-                                            {pg.gender}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>{pg.occupancy}/{pg.totalBeds}</TableCell>
-                                    <TableCell className="flex items-center">
-                                      <IndianRupee className="w-4 h-4 mr-1 text-muted-foreground"/>
-                                      {pg.priceRange.min} - {pg.priceRange.max}
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button aria-haspopup="true" size="icon" variant="ghost">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                    <span className="sr-only">Toggle menu</span>
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                <DropdownMenuItem>Edit</DropdownMenuItem>
-                                                <DropdownMenuItem>View Tenants</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Location</TableHead>
+                                    <TableHead>Gender</TableHead>
+                                    <TableHead>Occupancy</TableHead>
+                                    <TableHead>Price Range</TableHead>
+                                    <TableHead>
+                                        <span className="sr-only">Actions</span>
+                                    </TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {pgs.map((pg) => (
+                                    <TableRow key={pg.id}>
+                                        <TableCell className="font-medium">{pg.name}</TableCell>
+                                        <TableCell>{pg.location}</TableCell>
+                                        <TableCell>
+                                            <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
+                                                {pg.gender}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>{pg.occupancy}/{pg.totalBeds}</TableCell>
+                                        <TableCell className="flex items-center">
+                                          <IndianRupee className="w-4 h-4 mr-1 text-muted-foreground"/>
+                                          {pg.priceRange.min} - {pg.priceRange.max}
+                                        </TableCell>
+                                        <TableCell>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                        <span className="sr-only">Toggle menu</span>
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                    <DropdownMenuItem>Edit</DropdownMenuItem>
+                                                    <DropdownMenuItem>View Tenants</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    {/* Mobile Card View */}
+                    <div className="md:hidden grid gap-4">
+                        {pgs.map((pg) => (
+                            <div key={pg.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold">{pg.name}</p>
+                                        <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                                            <MapPin className="w-3.5 h-3.5" />
+                                            {pg.location}
+                                        </div>
+                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost" className="-mr-2 -mt-2">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                                <span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem>View Tenants</DropdownMenuItem>
+                                            <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                                <div className="flex justify-between items-end text-sm">
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-muted-foreground" />
+                                            <span>{pg.occupancy}/{pg.totalBeds} Occupancy</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                             <IndianRupee className="w-4 h-4 text-muted-foreground"/>
+                                             <span>{pg.priceRange.min} - {pg.priceRange.max}</span>
+                                        </div>
+                                    </div>
+                                    <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
+                                        {pg.gender}
+                                    </Badge>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </CardContent>
             </Card>
         </div>
