@@ -1,10 +1,11 @@
+
 'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRight, BarChart, CheckCircle, ChefHat, FileText, IndianRupee, MessageSquareWarning, Users, Wand2, Zap } from 'lucide-react';
+import { ArrowRight, CheckCircle, ChefHat, FileText, IndianRupee, MessageSquareWarning, Users, Wand2, Zap } from 'lucide-react';
 
 const features = [
   {
@@ -50,21 +51,22 @@ const painPoints = [
 export default function Home() {
   return (
     <div className="flex flex-col min-h-[calc(100vh-56px)]">
-      <main className="flex-1">
+      <main className="flex-1 overflow-x-hidden">
         {/* Hero Section */}
-        <section className="py-20 md:py-32 bg-primary/10">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-6xl font-bold font-headline mb-6">
+        <section className="relative py-20 md:py-32 bg-gradient-to-b from-primary/5 via-primary/10 to-primary/5">
+          <div className="absolute top-0 left-0 w-full h-full bg-grid-slate-900/[0.04] [mask-image:linear-gradient(to_bottom,white_5%,transparent_90%)]"></div>
+          <div className="container mx-auto px-4 text-center relative">
+            <h1 className="text-4xl md:text-6xl font-bold font-headline mb-6 animate-in fade-in slide-in-from-top-8 duration-700 ease-out">
               The Modern Way to Manage Your PG
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-3xl mx-auto">
+            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-3xl mx-auto animate-in fade-in slide-in-from-top-8 duration-700 ease-out delay-100">
               Stop juggling spreadsheets and notebooks. PGOasis centralizes your operations, automates tedious tasks, and helps you provide a better experience for your tenants.
             </p>
-            <div className="flex justify-center gap-4">
-              <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
+            <div className="flex justify-center gap-4 animate-in fade-in zoom-in-95 duration-500 ease-out delay-200">
+              <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg hover:shadow-xl transition-shadow">
                 <Link href="/dashboard">Get Started for Free</Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
+              <Button size="lg" variant="outline" asChild className="bg-background/50">
                 <Link href="#features">Learn More <ArrowRight className="ml-2 h-5 w-5" /></Link>
               </Button>
             </div>
@@ -74,15 +76,15 @@ export default function Home() {
         {/* Pain Points Section */}
         <section className="py-16 md:py-24 bg-background">
             <div className="container mx-auto px-4">
-                <div className="text-center mb-12">
+                <div className="text-center mb-12 animate-in fade-in duration-500">
                     <h2 className="text-3xl md:text-4xl font-bold font-headline">Tired of the Old Way?</h2>
                     <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
                         If you're still relying on manual methods, you're losing time and money. Sound familiar?
                     </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {painPoints.map((point) => (
-                        <Card key={point.title} className="text-center p-6 bg-card border-2 border-dashed">
+                    {painPoints.map((point, index) => (
+                        <Card key={point.title} className="text-center p-6 bg-card border-2 border-dashed border-destructive/30 hover:border-destructive hover:shadow-lg hover:scale-105 transition-all duration-300 animate-in fade-in zoom-in-95" style={{ animationDelay: `${index * 100}ms`}}>
                              <CardContent className="p-0 flex flex-col items-center gap-4">
                                 <FileText className="w-10 h-10 text-destructive" />
                                 <h3 className="text-xl font-semibold">{point.title}</h3>
@@ -97,15 +99,15 @@ export default function Home() {
         {/* Features Section */}
         <section id="features" className="py-16 md:py-24 bg-primary/10">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
+            <div className="text-center mb-12 animate-in fade-in duration-500">
               <h2 className="text-3xl md:text-4xl font-bold font-headline">Everything You Need, All in One Place</h2>
               <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
                 PGOasis is packed with features designed specifically for PG owners to streamline their workflow.
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {features.map((feature) => (
-                <Card key={feature.title} className="bg-card p-2">
+              {features.map((feature, index) => (
+                <Card key={feature.title} className="bg-card p-2 hover:-translate-y-2 transition-transform duration-300 hover:shadow-2xl hover:shadow-primary/20 animate-in fade-in zoom-in-95" style={{ animationDelay: `${index * 100}ms`}}>
                    <CardContent className="p-6 flex flex-col items-start gap-4 text-left">
                      {feature.icon}
                      <h3 className="text-xl font-semibold">{feature.title}</h3>
@@ -121,7 +123,7 @@ export default function Home() {
          <section className="py-16 md:py-24 bg-background">
             <div className="container mx-auto px-4">
                  <div className="grid lg:grid-cols-2 gap-12 items-center">
-                    <div className="order-2 lg:order-1">
+                    <div className="order-2 lg:order-1 animate-in fade-in slide-in-from-left-16 duration-700 ease-out">
                         <h2 className="text-3xl md:text-4xl font-bold font-headline mb-6">Transform Your PG Business</h2>
                         <p className="text-muted-foreground mb-8 text-lg">
                            Move from chaos to control. Our platform empowers you to not just manage, but to grow.
@@ -150,7 +152,7 @@ export default function Home() {
                             </li>
                         </ul>
                     </div>
-                    <div className="order-1 lg:order-2">
+                    <div className="order-1 lg:order-2 animate-in fade-in slide-in-from-right-16 duration-700 ease-out">
                         <Image
                             src="https://placehold.co/600x500.png"
                             width={600}
@@ -167,7 +169,7 @@ export default function Home() {
         {/* Testimonial Section */}
         <section className="py-16 md:py-24 bg-primary/10">
           <div className="container mx-auto px-4">
-            <div className="max-w-3xl mx-auto text-center">
+            <div className="max-w-3xl mx-auto text-center animate-in fade-in zoom-in-95 duration-700 ease-out">
               <Image
                   src="https://placehold.co/100x100.png"
                   width={100}
@@ -188,13 +190,13 @@ export default function Home() {
         {/* Final CTA Section */}
         <section className="py-20 md:py-32 bg-background">
           <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold font-headline mb-6">
+            <h2 className="text-3xl md:text-4xl font-bold font-headline mb-6 animate-in fade-in zoom-in-95 duration-500">
               Ready to Simplify Your PG Management?
             </h2>
-            <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-500 delay-100">
               Join dozens of other PG owners who have switched to a smarter way of working.
             </p>
-            <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 px-8">
+            <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 px-8 animate-in fade-in zoom-in-95 duration-500 delay-200">
               <Link href="/dashboard">Start Your Free Trial Today</Link>
             </Button>
           </div>
