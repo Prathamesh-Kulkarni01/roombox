@@ -31,9 +31,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { Guest, Bed, Room, PG } from "@/lib/types"
 import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Wallet, Home, LogOut, UserPlus, CalendarIcon, Calendar } from "lucide-react"
-import { differenceInDays, format } from "date-fns"
+import { differenceInDays, format, addMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -47,13 +48,27 @@ const addGuestSchema = z.object({
     kycDocument: z.any().optional()
 })
 
+const paymentSchema = z.object({
+  paymentMethod: z.enum(['cash', 'upi', 'in-app']),
+});
+
 export default function DashboardPage() {
   const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs, selectedPgId } = useData();
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
   const [selectedBedForGuestAdd, setSelectedBedForGuestAdd] = useState<{ bed: Bed; room: Room; pg: PG } | null>(null);
 
-  const form = useForm<z.infer<typeof addGuestSchema>>({
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedGuestForPayment, setSelectedGuestForPayment] = useState<Guest | null>(null);
+
+  const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
     resolver: zodResolver(addGuestSchema),
+  });
+  
+  const paymentForm = useForm<z.infer<typeof paymentSchema>>({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: {
+      paymentMethod: 'cash',
+    },
   });
 
   const pgsToDisplay = useMemo(() => {
@@ -95,7 +110,7 @@ export default function DashboardPage() {
   
   const handleOpenAddGuestDialog = (bed: Bed, room: Room, pg: PG) => {
     setSelectedBedForGuestAdd({ bed, room, pg });
-    form.reset({
+    addGuestForm.reset({
       rentAmount: room.beds.length <= 2 ? pg.priceRange.max : pg.priceRange.min,
       depositAmount: (room.beds.length <= 2 ? pg.priceRange.max : pg.priceRange.min) * 2,
     });
@@ -150,6 +165,28 @@ export default function DashboardPage() {
 
     updatePgs(newPgs);
     setIsAddGuestDialogOpen(false);
+  };
+
+  const handleOpenPaymentDialog = (guest: Guest) => {
+    setSelectedGuestForPayment(guest);
+    paymentForm.reset({ paymentMethod: 'cash' });
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
+    if (!selectedGuestForPayment) return;
+
+    const nextDueDate = addMonths(new Date(selectedGuestForPayment.dueDate), 1);
+
+    const updatedGuest: Guest = {
+      ...selectedGuestForPayment,
+      rentStatus: 'paid',
+      dueDate: format(nextDueDate, 'yyyy-MM-dd'),
+    };
+    
+    updateGuest(updatedGuest);
+    setIsPaymentDialogOpen(false);
+    setSelectedGuestForPayment(null);
   };
 
 
@@ -320,11 +357,17 @@ export default function DashboardPage() {
                                             <span>Joined: {format(new Date(guest.moveInDate), "do MMM, yyyy")}</span>
                                         </div>
                                     </div>
-                                    {!guest.exitDate && (
-                                       <Button variant="outline" size="sm" onClick={() => handleInitiateExit(guest)}>
-                                        <LogOut className="mr-2 h-4 w-4" /> Initiate Exit
-                                      </Button>
-                                    )}
+                                    <div className="flex flex-wrap gap-2">
+                                        {guest.rentStatus === 'unpaid' && !guest.exitDate && (
+                                            <Button size="sm" onClick={() => handleOpenPaymentDialog(guest)}>
+                                                <IndianRupee className="mr-2 h-4 w-4" /> Collect Rent
+                                            </Button>
+                                        )}
+                                        <Button variant="outline" size="sm" onClick={() => handleInitiateExit(guest)} disabled={!!guest.exitDate}>
+                                            <LogOut className="mr-2 h-4 w-4" />
+                                            {guest.exitDate ? 'Exit Initiated' : 'Initiate Exit'}
+                                        </Button>
+                                    </div>
                                   </div>
                                 )}
                               </PopoverContent>
@@ -354,28 +397,28 @@ export default function DashboardPage() {
                 </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto -mr-6 pr-6">
-              <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleAddGuestSubmit)} className="space-y-4" id="add-guest-form">
-                      <FormField control={form.control} name="name" render={({ field }) => (
+              <Form {...addGuestForm}>
+                  <form onSubmit={addGuestForm.handleSubmit(handleAddGuestSubmit)} className="space-y-4" id="add-guest-form">
+                      <FormField control={addGuestForm.control} name="name" render={({ field }) => (
                           <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Priya Sharma" {...field} /></FormControl><FormMessage /></FormItem>
                       )} />
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="phone" render={({ field }) => (
+                        <FormField control={addGuestForm.control} name="phone" render={({ field }) => (
                             <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                         <FormField control={form.control} name="email" render={({ field }) => (
+                         <FormField control={addGuestForm.control} name="email" render={({ field }) => (
                             <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="e.g., priya@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="rentAmount" render={({ field }) => (
+                        <FormField control={addGuestForm.control} name="rentAmount" render={({ field }) => (
                             <FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="depositAmount" render={({ field }) => (
+                        <FormField control={addGuestForm.control} name="depositAmount" render={({ field }) => (
                              <FormItem><FormLabel>Security Deposit</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                       </div>
-                       <FormField control={form.control} name="moveInDate" render={({ field }) => (
+                       <FormField control={addGuestForm.control} name="moveInDate" render={({ field }) => (
                             <FormItem className="flex flex-col"><FormLabel>Move-in Date</FormLabel>
                               <Popover><PopoverTrigger asChild>
                                     <FormControl>
@@ -391,7 +434,7 @@ export default function DashboardPage() {
                                 </Popover>
                              <FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="kycDocument" render={({ field }) => (
+                        <FormField control={addGuestForm.control} name="kycDocument" render={({ field }) => (
                             <FormItem><FormLabel>KYC Document</FormLabel><FormControl><Input type="file" /></FormControl><FormDescription>Upload Aadhar, PAN, or other ID. This is for demo purposes.</FormDescription><FormMessage /></FormItem>
                         )} />
                   </form>
@@ -402,6 +445,59 @@ export default function DashboardPage() {
                 <Button type="submit" form="add-guest-form">Add Guest</Button>
             </DialogFooter>
         </DialogContent>
+    </Dialog>
+
+    <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Collect Rent Payment</DialogTitle>
+          <DialogDescription>
+            Confirm payment for {selectedGuestForPayment?.name}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-2">
+            <p className="text-sm text-muted-foreground">Guest: <span className="font-medium text-foreground">{selectedGuestForPayment?.name}</span></p>
+            <p className="text-sm text-muted-foreground">Rent Amount: <span className="font-bold text-lg text-foreground">₹{selectedGuestForPayment?.rentAmount.toLocaleString('en-IN')}</span></p>
+        </div>
+        <Form {...paymentForm}>
+            <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4">
+                <FormField
+                    control={paymentForm.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                        <FormItem className="space-y-3">
+                            <FormLabel>Payment Method</FormLabel>
+                            <FormControl>
+                                <RadioGroup
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                    className="flex gap-4 pt-1"
+                                >
+                                    <FormItem className="flex items-center space-x-2">
+                                        <FormControl><RadioGroupItem value="cash" id="cash" /></FormControl>
+                                        <FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel>
+                                    </FormItem>
+                                    <FormItem className="flex items-center space-x-2">
+                                        <FormControl><RadioGroupItem value="upi" id="upi" /></FormControl>
+                                        <FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel>
+                                    </FormItem>
+                                    <FormItem className="flex items-center space-x-2">
+                                        <FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl>
+                                        <FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel>
+                                    </FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </form>
+        </Form>
+        <DialogFooter>
+            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+            <Button type="submit" form="payment-form">Confirm Payment</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
     </>
   )
