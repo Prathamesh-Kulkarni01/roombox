@@ -16,7 +16,7 @@ import {
 const mainNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/dashboard/pg-management', label: 'PGs', icon: Building },
-  { href: '/dashboard/tenant-management', label: 'Tenants', icon: Users },
+  { href: '/dashboard/tenant-management', label: 'Guests', icon: Users },
   { href: '/dashboard/expense', label: 'Expenses', icon: Wallet },
 ];
 

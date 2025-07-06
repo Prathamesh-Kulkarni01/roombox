@@ -13,7 +13,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateRentReminderInputSchema = z.object({
-  tenantName: z.string().describe('The name of the tenant.'),
+  guestName: z.string().describe('The name of the guest.'),
   rentAmount: z.number().describe('The amount of rent due.'),
   dueDate: z.string().describe('The due date for the rent payment (e.g., July 1, 2024).'),
   pgName: z.string().describe('The name of the PG.'),
@@ -35,11 +35,11 @@ const generateRentReminderPrompt = ai.definePrompt({
   name: 'generateRentReminderPrompt',
   input: {schema: GenerateRentReminderInputSchema},
   output: {schema: GenerateRentReminderOutputSchema},
-  prompt: `You are an AI assistant helping PG Owners generate polite rent reminder messages to send to their tenants via WhatsApp or SMS.
+  prompt: `You are an AI assistant helping PG Owners generate polite rent reminder messages to send to their guests via WhatsApp or SMS.
 
-  Generate a friendly and polite rent reminder message for the following tenant:
+  Generate a friendly and polite rent reminder message for the following guest:
 
-  Tenant Name: {{{tenantName}}}
+  Guest Name: {{{guestName}}}
   Rent Amount: ₹{{{rentAmount}}}
   Due Date: {{{dueDate}}}
   PG Name: {{{pgName}}}
@@ -48,7 +48,7 @@ The message should:
 
 *   Be concise and to the point.
 *   Maintain a professional tone.
-*   Include the tenant's name, rent amount, and due date.
+*   Include the guest's name, rent amount, and due date.
 *   Mention the PG name
 *   Be suitable for sending via WhatsApp or SMS.
 

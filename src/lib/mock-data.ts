@@ -1,6 +1,6 @@
-import type { PG, Tenant, Complaint } from './types';
+import type { PG, Guest, Complaint } from './types';
 
-export const tenants: Tenant[] = [
+export const guests: Guest[] = [
   {
     id: 't-1',
     name: 'Priya Sharma',
@@ -55,7 +55,7 @@ export const tenants: Tenant[] = [
     moveInDate: '2024-07-01',
     noticePeriodDays: 30,
   },
-  // --- Additional tenants for Sunshine Living (pg-1) ---
+  // --- Additional guests for Sunshine Living (pg-1) ---
   {
     id: 't-5',
     name: 'Aarav Singh',
@@ -135,13 +135,12 @@ export const tenants: Tenant[] = [
     moveInDate: '2024-03-18',
     noticePeriodDays: 30,
   },
-  { id: 't-11', name: 'Kabir Joshi', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-102-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-07-07', noticePeriodDays: 30, },
-  { id: 't-12', name: 'Myra Sharma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-a', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-02-22', noticePeriodDays: 30, },
-  { id: 't-13', name: 'Reyansh Singh', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-01-30', noticePeriodDays: 30, },
-  { id: 't-14', name: 'Aisha Khan', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-c', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-05-01', noticePeriodDays: 30, },
-  { id: 't-15', name: 'Advik Verma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-03-03', noticePeriodDays: 30, },
-  { id: 't-16', name: 'Kiara Reddy', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-e', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-04-09', noticePeriodDays: 30, },
-  { id: 't-17', name: 'Ishaan Patel', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-f', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-06-11', noticePeriodDays: 30, },
+  { id: 't-11', name: 'Kabir Joshi', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-a', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-07-07', noticePeriodDays: 30, },
+  { id: 't-12', name: 'Myra Sharma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-02-22', noticePeriodDays: 30, },
+  { id: 't-13', name: 'Reyansh Singh', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-c', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-01-30', noticePeriodDays: 30, },
+  { id: 't-14', name: 'Aisha Khan', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-05-01', noticePeriodDays: 30, },
+  { id: 't-15', name: 'Advik Verma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-e', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-03-03', noticePeriodDays: 30, },
+  { id: 't-16', name: 'Kiara Reddy', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-f', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-04-09', noticePeriodDays: 30, },
   { id: 't-18', name: 'Zara Mehta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-202-a', rentStatus: 'unpaid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-01-15', noticePeriodDays: 30, },
   { id: 't-19', name: 'Arjun Gupta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-202-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-02-01', noticePeriodDays: 30, },
 ];
@@ -169,32 +168,32 @@ export const pgs: PG[] = [
     floors: [
       { id: 'floor-1', name: 'First Floor', rooms: [
         { id: 'room-101', name: 'Room 101', beds: [
-          { id: 'pg1-101-a', name: 'A', tenantId: 't-1' },
-          { id: 'pg1-101-b', name: 'B', tenantId: 't-5' },
-          { id: 'pg1-101-c', name: 'C', tenantId: 't-6' },
-          { id: 'pg1-101-d', name: 'D', tenantId: 't-7' },
+          { id: 'pg1-101-a', name: 'A', guestId: 't-1' },
+          { id: 'pg1-101-b', name: 'B', guestId: 't-5' },
+          { id: 'pg1-101-c', name: 'C', guestId: 't-6' },
+          { id: 'pg1-101-d', name: 'D', guestId: 't-7' },
         ]},
         { id: 'room-102', name: 'Room 102', beds: [
-          { id: 'pg1-102-a', name: 'A', tenantId: 't-8' },
-          { id: 'pg1-102-b', name: 'B', tenantId: 't-9' },
-          { id: 'pg1-102-c', name: 'C', tenantId: 't-10' },
-          { id: 'pg1-102-d', name: 'D', tenantId: 't-11' },
+          { id: 'pg1-102-a', name: 'A', guestId: 't-8' },
+          { id: 'pg1-102-b', name: 'B', guestId: 't-9' },
+          { id: 'pg1-102-c', name: 'C', guestId: 't-10' },
+          { id: 'pg1-102-d', name: 'D', guestId: 't-11' },
         ]},
       ]},
       { id: 'floor-2', name: 'Second Floor', rooms: [
         { id: 'room-201', name: 'Room 201', beds: [
-          { id: 'pg1-201-a', name: 'A', tenantId: 't-12' },
-          { id: 'pg1-201-b', name: 'B', tenantId: 't-13' },
-          { id: 'pg1-201-c', name: 'C', tenantId: 't-14' },
-          { id: 'pg1-201-d', name: 'D', tenantId: 't-15' },
-          { id: 'pg1-201-e', name: 'E', tenantId: 't-16' },
-          { id: 'pg1-201-f', name: 'F', tenantId: 't-17' },
+          { id: 'pg1-201-a', name: 'A', guestId: 't-12' },
+          { id: 'pg1-201-b', name: 'B', guestId: 't-13' },
+          { id: 'pg1-201-c', name: 'C', guestId: 't-14' },
+          { id: 'pg1-201-d', name: 'D', guestId: 't-15' },
+          { id: 'pg1-201-e', name: 'E', guestId: 't-16' },
+          { id: 'pg1-201-f', name: 'F', guestId: null },
         ]},
         { id: 'room-202', name: 'Room 202', beds: [
-          { id: 'pg1-202-a', name: 'A', tenantId: 't-18' },
-          { id: 'pg1-202-b', name: 'B', tenantId: 't-19' },
-          { id: 'pg1-202-c', name: 'C', tenantId: null },
-          { id: 'pg1-202-d', name: 'D', tenantId: null },
+          { id: 'pg1-202-a', name: 'A', guestId: 't-18' },
+          { id: 'pg1-202-b', name: 'B', guestId: 't-19' },
+          { id: 'pg1-202-c', name: 'C', guestId: null },
+          { id: 'pg1-202-d', name: 'D', guestId: null },
         ]},
       ]},
     ],
@@ -252,8 +251,8 @@ export const pgs: PG[] = [
 export const complaints: Complaint[] = [
   {
     id: 'c-1',
-    tenantId: 't-2',
-    tenantName: 'Rohan Verma',
+    guestId: 't-2',
+    guestName: 'Rohan Verma',
     pgId: 'pg-2',
     category: 'wifi',
     description: 'The WiFi speed is very slow in my room (RC-205).',
@@ -262,8 +261,8 @@ export const complaints: Complaint[] = [
   },
   {
     id: 'c-2',
-    tenantId: 't-1',
-    tenantName: 'Priya Sharma',
+    guestId: 't-1',
+    guestName: 'Priya Sharma',
     pgId: 'pg-1',
     category: 'cleanliness',
     description: 'The common bathroom on the 1st floor has not been cleaned today.',
@@ -272,8 +271,8 @@ export const complaints: Complaint[] = [
   },
   {
     id: 'c-3',
-    tenantId: 't-7',
-    tenantName: 'Vivaan Reddy',
+    guestId: 't-7',
+    guestName: 'Vivaan Reddy',
     pgId: 'pg-1',
     category: 'maintenance',
     description: 'My room lights are flickering.',

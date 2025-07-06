@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import type { Tenant, Bed, Room, PG } from "@/lib/types"
+import type { Guest, Bed, Room, PG } from "@/lib/types"
 import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Settings, Home, Calendar, Wallet, UserPlus, LogOut, Clock } from "lucide-react"
 import { differenceInDays, format } from "date-fns"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashboardPage() {
-  const { pgs, tenants, complaints, isLoading, updateTenant, addTenant, updatePgs } = useData();
+  const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs } = useData();
   const [selectedPg, setSelectedPg] = useState<PG | null>(null);
 
   useEffect(() => {
@@ -24,10 +24,10 @@ export default function DashboardPage() {
   }, [pgs, isLoading, selectedPg]);
 
   const getBedStatus = (bed: Bed) => {
-    const tenant = tenants.find(t => t.id === bed.tenantId)
-    if (!tenant) return 'available'
-    if (tenant.exitDate) return 'notice-period'
-    if (tenant.rentStatus === 'unpaid') return 'rent-pending'
+    const guest = guests.find(g => g.id === bed.guestId)
+    if (!guest) return 'available'
+    if (guest.exitDate) return 'notice-period'
+    if (guest.rentStatus === 'unpaid') return 'rent-pending'
     return 'occupied'
   }
 
@@ -43,23 +43,23 @@ export default function DashboardPage() {
     return days > 0 ? days : 0;
   }
   
-  const handleInitiateExit = (tenantToUpdate: Tenant) => {
-    if (tenantToUpdate.exitDate) return; // Already in notice period
+  const handleInitiateExit = (guestToUpdate: Guest) => {
+    if (guestToUpdate.exitDate) return; // Already in notice period
 
     const exitDate = new Date();
-    exitDate.setDate(exitDate.getDate() + tenantToUpdate.noticePeriodDays);
+    exitDate.setDate(exitDate.getDate() + guestToUpdate.noticePeriodDays);
     
-    const updatedTenant = {
-      ...tenantToUpdate,
+    const updatedGuest = {
+      ...guestToUpdate,
       exitDate: format(exitDate, 'yyyy-MM-dd'),
     };
-    updateTenant(updatedTenant);
+    updateGuest(updatedGuest);
   };
   
-  const handleAddTenant = (bed: Bed, room: Room, pg: PG) => {
-    const newTenant: Tenant = {
-      id: `t-${new Date().getTime()}`,
-      name: 'New Tenant',
+  const handleAddGuest = (bed: Bed, room: Room, pg: PG) => {
+    const newGuest: Guest = {
+      id: `g-${new Date().getTime()}`,
+      name: 'New Guest',
       pgId: pg.id,
       pgName: pg.name,
       bedId: bed.id,
@@ -71,7 +71,7 @@ export default function DashboardPage() {
       noticePeriodDays: 30,
     };
     
-    addTenant(newTenant);
+    addGuest(newGuest);
 
     const newPgs = pgs.map(currentPg => {
         if (currentPg.id === pg.id) {
@@ -84,7 +84,7 @@ export default function DashboardPage() {
                         if (r.id === room.id) {
                             return {
                                 ...r,
-                                beds: r.beds.map(b => b.id === bed.id ? { ...b, tenantId: newTenant.id } : b)
+                                beds: r.beds.map(b => b.id === bed.id ? { ...b, guestId: newGuest.id } : b)
                             };
                         }
                         return r;
@@ -186,9 +186,9 @@ export default function DashboardPage() {
                     <h3 className="font-semibold mb-3 text-lg">{room.name} <span className="font-normal text-muted-foreground">({room.beds.length}-sharing)</span></h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
                       {room.beds.map(bed => {
-                        const tenant = tenants.find(t => t.id === bed.tenantId)
+                        const guest = guests.find(g => g.id === bed.guestId)
                         const status = getBedStatus(bed)
-                        const hasComplaint = tenant && complaints.some(c => c.tenantId === tenant.id && c.status !== 'resolved')
+                        const hasComplaint = guest && complaints.some(c => c.guestId === guest.id && c.status !== 'resolved')
                         
                         return (
                           <Popover key={bed.id}>
@@ -198,7 +198,7 @@ export default function DashboardPage() {
                               
                               <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
                                 {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
-                                {tenant?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
+                                {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
                                 {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
                               </div>
                               
@@ -209,42 +209,42 @@ export default function DashboardPage() {
                               </PopoverTrigger>
                             </div>
                             <PopoverContent className="w-64">
-                              {tenant ? (
+                              {guest ? (
                                 <div className="grid gap-4">
                                   <div className="flex items-center gap-3">
                                     <Avatar>
-                                      <AvatarImage src={`https://placehold.co/40x40.png?text=${tenant.name.charAt(0)}`} />
-                                      <AvatarFallback>{tenant.name.charAt(0)}</AvatarFallback>
+                                      <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} />
+                                      <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                      <p className="text-sm font-medium leading-none">{tenant.name}</p>
-                                      <p className="text-sm text-muted-foreground">{tenant.pgName}</p>
+                                      <p className="text-sm font-medium leading-none">{guest.name}</p>
+                                      <p className="text-sm text-muted-foreground">{guest.pgName}</p>
                                     </div>
                                   </div>
-                                  {tenant.exitDate ? (
+                                  {guest.exitDate ? (
                                     <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 w-fit">
                                       <Clock className="w-3 h-3 mr-2" />
-                                      Exiting in {getDaysLeft(tenant.exitDate)} days
+                                      Exiting in {getDaysLeft(guest.exitDate)} days
                                     </Badge>
                                   ) : (
-                                     <Badge variant={tenant.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="w-fit">{tenant.rentStatus}</Badge>
+                                     <Badge variant={guest.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="w-fit">{guest.rentStatus}</Badge>
                                   )}
                                   <div className="text-sm space-y-2">
                                       <div className="flex items-center">
                                           <Wallet className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                          Rent: ₹{tenant.rentAmount}
+                                          Rent: ₹{guest.rentAmount}
                                       </div>
                                       <div className="flex items-center">
                                           <Calendar className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                          Due: {tenant.dueDate}
+                                          Due: {guest.dueDate}
                                       </div>
                                       <div className="flex items-center">
                                           <Home className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                          Joined: {format(new Date(tenant.moveInDate), "do MMM, yyyy")}
+                                          Joined: {format(new Date(guest.moveInDate), "do MMM, yyyy")}
                                       </div>
                                   </div>
-                                  {!tenant.exitDate && (
-                                     <Button variant="outline" size="sm" onClick={() => handleInitiateExit(tenant)}>
+                                  {!guest.exitDate && (
+                                     <Button variant="outline" size="sm" onClick={() => handleInitiateExit(guest)}>
                                       <LogOut className="mr-2" /> Initiate Exit
                                     </Button>
                                   )}
@@ -253,9 +253,9 @@ export default function DashboardPage() {
                                 <div className="text-center py-4">
                                   <p className="font-semibold">Bed Available</p>
                                   <p className="text-sm text-muted-foreground">This bed is currently unoccupied.</p>
-                                  <Button size="sm" className="mt-4" onClick={() => handleAddTenant(bed, room, selectedPg)}>
+                                  <Button size="sm" className="mt-4" onClick={() => handleAddGuest(bed, room, selectedPg)}>
                                     <UserPlus className="mr-2"/>
-                                    Add Tenant
+                                    Add Guest
                                   </Button>
                                 </div>
                               )}

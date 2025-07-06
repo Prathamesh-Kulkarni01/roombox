@@ -11,7 +11,7 @@ import { Button } from './ui/button';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
   { href: '/dashboard/pg-management', label: 'PG Management', icon: Building },
-  { href: '/dashboard/tenant-management', label: 'Tenant Management', icon: Users },
+  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users },
   { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed },
   { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet },
   { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2 },

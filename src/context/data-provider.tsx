@@ -1,8 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { pgs as initialPgs, tenants as initialTenants, complaints as initialComplaints } from '@/lib/mock-data';
-import type { PG, Tenant, Complaint } from '@/lib/types';
+import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints } from '@/lib/mock-data';
+import type { PG, Guest, Complaint } from '@/lib/types';
 
 // Helper functions for localStorage
 const getFromLocalStorage = <T,>(key: string, initialData: T): T => {
@@ -35,10 +35,10 @@ const saveToLocalStorage = <T,>(key: string, data: T) => {
 // Context type
 interface DataContextType {
   pgs: PG[];
-  tenants: Tenant[];
+  guests: Guest[];
   complaints: Complaint[];
-  updateTenant: (updatedTenant: Tenant) => void;
-  addTenant: (newTenant: Tenant) => void;
+  updateGuest: (updatedGuest: Guest) => void;
+  addGuest: (newGuest: Guest) => void;
   updatePgs: (updatedPgs: PG[]) => void;
   isLoading: boolean;
 }
@@ -49,31 +49,31 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 // Provider component
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [pgs, setPgs] = useState<PG[]>([]);
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // This effect runs only once on mount to load data from localStorage
     setPgs(getFromLocalStorage<PG[]>('pgs', initialPgs));
-    setTenants(getFromLocalStorage<Tenant[]>('tenants', initialTenants));
+    setGuests(getFromLocalStorage<Guest[]>('guests', initialGuests));
     setComplaints(getFromLocalStorage<Complaint[]>('complaints', initialComplaints));
     setIsLoading(false);
   }, []);
   
-  const updateTenant = useCallback((updatedTenant: Tenant) => {
-    setTenants(prevTenants => {
-        const newTenants = prevTenants.map(t => t.id === updatedTenant.id ? updatedTenant : t);
-        saveToLocalStorage('tenants', newTenants);
-        return newTenants;
+  const updateGuest = useCallback((updatedGuest: Guest) => {
+    setGuests(prevGuests => {
+        const newGuests = prevGuests.map(t => t.id === updatedGuest.id ? updatedGuest : t);
+        saveToLocalStorage('guests', newGuests);
+        return newGuests;
     })
   }, []);
 
-  const addTenant = useCallback((newTenant: Tenant) => {
-    setTenants(prevTenants => {
-        const newTenants = [...prevTenants, newTenant];
-        saveToLocalStorage('tenants', newTenants);
-        return newTenants;
+  const addGuest = useCallback((newGuest: Guest) => {
+    setGuests(prevGuests => {
+        const newGuests = [...prevGuests, newGuest];
+        saveToLocalStorage('guests', newGuests);
+        return newGuests;
     });
   }, []);
   
@@ -82,7 +82,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       saveToLocalStorage('pgs', updatedPgs);
   }, []);
 
-  const value = { pgs, tenants, complaints, updateTenant, addTenant, updatePgs, isLoading };
+  const value = { pgs, guests, complaints, updateGuest, addGuest, updatePgs, isLoading };
 
   return (
     <DataContext.Provider value={value}>

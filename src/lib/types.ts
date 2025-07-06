@@ -10,7 +10,7 @@ export type Amenity =
 export interface Bed {
   id: string;
   name: string;
-  tenantId: string | null;
+  guestId: string | null;
 }
 
 export interface Room {
@@ -45,7 +45,7 @@ export interface PG {
   floors?: Floor[];
 }
 
-export interface Tenant {
+export interface Guest {
   id: string;
   name: string;
   pgId: string;
@@ -64,8 +64,8 @@ export interface Tenant {
 
 export interface Complaint {
   id: string;
-  tenantId: string;
-  tenantName: string;
+  guestId: string;
+  guestName: string;
   pgId: string;
   category: 'maintenance' | 'cleanliness' | 'wifi' | 'food' | 'other';
   description: string;

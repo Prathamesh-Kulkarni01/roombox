@@ -119,7 +119,7 @@ export default function PgManagementPage() {
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                     <DropdownMenuItem>Edit</DropdownMenuItem>
-                                                    <DropdownMenuItem>View Tenants</DropdownMenuItem>
+                                                    <DropdownMenuItem>View Guests</DropdownMenuItem>
                                                     <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
@@ -151,7 +151,7 @@ export default function PgManagementPage() {
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                             <DropdownMenuItem>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem>View Tenants</DropdownMenuItem>
+                                            <DropdownMenuItem>View Guests</DropdownMenuItem>
                                             <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
