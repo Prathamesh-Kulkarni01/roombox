@@ -1,20 +1,60 @@
 'use client'
 
-import { useMemo } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useData } from "@/context/data-provider"
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Calendar } from "@/components/ui/calendar"
 import type { Guest, Bed, Room, PG } from "@/lib/types"
-import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Wallet, Calendar, Home, LogOut, UserPlus } from "lucide-react"
+import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Wallet, Home, LogOut, UserPlus, CalendarIcon } from "lucide-react"
 import { differenceInDays, format } from "date-fns"
+import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
+
+const addGuestSchema = z.object({
+    name: z.string().min(2, "Name must be at least 2 characters."),
+    phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
+    email: z.string().email("Please enter a valid email address."),
+    rentAmount: z.coerce.number().min(1, "Rent amount is required."),
+    depositAmount: z.coerce.number().min(0, "Deposit amount must be 0 or more."),
+    moveInDate: z.date({ required_error: "A move-in date is required."}),
+    kycDocument: z.any().optional()
+})
 
 export default function DashboardPage() {
   const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs, selectedPgId } = useData();
+  const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
+  const [selectedBedForGuestAdd, setSelectedBedForGuestAdd] = useState<{ bed: Bed; room: Room; pg: PG } | null>(null);
+
+  const form = useForm<z.infer<typeof addGuestSchema>>({
+    resolver: zodResolver(addGuestSchema),
+  });
 
   const pgsToDisplay = useMemo(() => {
     return selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
@@ -53,18 +93,34 @@ export default function DashboardPage() {
     updateGuest(updatedGuest);
   };
   
-  const handleAddGuest = (bed: Bed, room: Room, pg: PG) => {
+  const handleOpenAddGuestDialog = (bed: Bed, room: Room, pg: PG) => {
+    setSelectedBedForGuestAdd({ bed, room, pg });
+    form.reset({
+      rentAmount: room.beds.length <= 2 ? pg.priceRange.max : pg.priceRange.min,
+      depositAmount: (room.beds.length <= 2 ? pg.priceRange.max : pg.priceRange.min) * 2,
+    });
+    setIsAddGuestDialogOpen(true);
+  };
+
+  const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
+    if (!selectedBedForGuestAdd) return;
+    
+    const { pg, room, bed } = selectedBedForGuestAdd;
+
     const newGuest: Guest = {
       id: `g-${new Date().getTime()}`,
-      name: 'New Guest',
+      name: values.name,
+      phone: values.phone,
+      email: values.email,
       pgId: pg.id,
       pgName: pg.name,
       bedId: bed.id,
       rentStatus: 'unpaid',
-      dueDate: format(new Date(), 'yyyy-MM-dd'),
-      rentAmount: pg.priceRange.min,
+      dueDate: format(new Date(values.moveInDate).setDate(values.moveInDate.getDate() + 30), 'yyyy-MM-dd'),
+      rentAmount: values.rentAmount,
+      depositAmount: values.depositAmount,
       kycStatus: 'pending',
-      moveInDate: format(new Date(), 'yyyy-MM-dd'),
+      moveInDate: format(values.moveInDate, 'yyyy-MM-dd'),
       noticePeriodDays: 30,
     };
     
@@ -93,7 +149,9 @@ export default function DashboardPage() {
     });
 
     updatePgs(newPgs);
+    setIsAddGuestDialogOpen(false);
   };
+
 
   const stats = useMemo(() => {
     const relevantGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests
@@ -160,6 +218,7 @@ export default function DashboardPage() {
   }
 
   return (
+    <>
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat, index) => (
@@ -195,6 +254,19 @@ export default function DashboardPage() {
                           const status = getBedStatus(bed)
                           const hasComplaint = guest && complaints.some(c => c.guestId === guest.id && c.status !== 'resolved')
                           
+                          if (!guest) { // Bed is available
+                            return (
+                                <button key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)} className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left ${bedStatusClasses[status]}`}>
+                                    <BedDouble className="w-8 h-8 mb-1" />
+                                    <span className="font-bold text-sm">Bed {bed.name}</span>
+                                    <div className="absolute bottom-1 right-1 flex items-center justify-center h-6 w-6 rounded-full bg-black/10">
+                                       <UserPlus className="h-4 w-4" />
+                                    </div>
+                                    <span className="absolute top-1.5 left-1.5 text-xs font-semibold">Available</span>
+                                </button>
+                            )
+                          }
+                          
                           return (
                             <Popover key={bed.id}>
                               <div className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors ${bedStatusClasses[status]}`}>
@@ -214,7 +286,7 @@ export default function DashboardPage() {
                                 </PopoverTrigger>
                               </div>
                               <PopoverContent className="w-64">
-                                {guest ? (
+                                {guest && (
                                   <div className="grid gap-4">
                                     <div className="flex items-center gap-3">
                                       <Avatar>
@@ -254,15 +326,6 @@ export default function DashboardPage() {
                                       </Button>
                                     )}
                                   </div>
-                                ) : (
-                                  <div className="text-center py-4">
-                                    <p className="font-semibold">Bed Available</p>
-                                    <p className="text-sm text-muted-foreground">This bed is currently unoccupied.</p>
-                                    <Button size="sm" className="mt-4" onClick={() => handleAddGuest(bed, room, pg)}>
-                                      <UserPlus className="mr-2 h-4 w-4"/>
-                                      Add Guest
-                                    </Button>
-                                  </div>
                                 )}
                               </PopoverContent>
                             </Popover>
@@ -281,5 +344,64 @@ export default function DashboardPage() {
         </Card>
       ))}
     </div>
+    
+    <Dialog open={isAddGuestDialogOpen} onOpenChange={setIsAddGuestDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+                <DialogTitle>Onboard New Guest</DialogTitle>
+                <DialogDescription>
+                  Add a new guest to Bed {selectedBedForGuestAdd?.bed.name} in Room {selectedBedForGuestAdd?.room.name} at {selectedBedForGuestAdd?.pg.name}.
+                </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleAddGuestSubmit)} className="space-y-4">
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Priya Sharma" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField control={form.control} name="phone" render={({ field }) => (
+                          <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                       <FormField control={form.control} name="email" render={({ field }) => (
+                          <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="e.g., priya@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField control={form.control} name="rentAmount" render={({ field }) => (
+                          <FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="depositAmount" render={({ field }) => (
+                           <FormItem><FormLabel>Security Deposit</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                    </div>
+                     <FormField control={form.control} name="moveInDate" render={({ field }) => (
+                          <FormItem className="flex flex-col"><FormLabel>Move-in Date</FormLabel>
+                            <Popover><PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                      {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus />
+                                </PopoverContent>
+                              </Popover>
+                           <FormMessage /></FormItem>
+                      )} />
+                      <FormField control={form.control} name="kycDocument" render={({ field }) => (
+                          <FormItem><FormLabel>KYC Document</FormLabel><FormControl><Input type="file" /></FormControl><FormDescription>Upload Aadhar, PAN, or other ID. This is for demo purposes.</FormDescription><FormMessage /></FormItem>
+                      )} />
+
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                        <Button type="submit">Add Guest</Button>
+                    </DialogFooter>
+                </form>
+            </Form>
+        </DialogContent>
+    </Dialog>
+    </>
   )
 }

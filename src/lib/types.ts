@@ -60,12 +60,15 @@ export interface PG {
 export interface Guest {
   id: string;
   name: string;
+  phone?: string;
+  email?: string;
   pgId: string;
   pgName: string;
   bedId: string;
   rentStatus: 'paid' | 'unpaid';
   dueDate: string;
   rentAmount: number;
+  depositAmount?: number;
   kycStatus: 'verified' | 'pending' | 'rejected';
   kycDocUrl?: string;
   hasMessage?: boolean;
