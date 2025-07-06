@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 import Link from "next/link"
 import { useData } from "@/context/data-provider"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
@@ -8,20 +8,15 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Guest, Bed, Room, PG } from "@/lib/types"
 import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Settings, Home, Calendar, Wallet, UserPlus, LogOut, Clock } from "lucide-react"
 import { differenceInDays, format } from "date-fns"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashboardPage() {
-  const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs } = useData();
-  const [selectedPg, setSelectedPg] = useState<PG | null>(null);
-
-  useEffect(() => {
-    if (!isLoading && pgs.length > 0 && !selectedPg) {
-      setSelectedPg(pgs[0]);
-    }
-  }, [pgs, isLoading, selectedPg]);
+  const { pgs, guests, complaints, isLoading, updateGuest, addGuest, updatePgs, selectedPgId, setSelectedPgId } = useData();
+  const selectedPg = pgs.find(p => p.id === selectedPgId);
 
   const getBedStatus = (bed: Bed) => {
     const guest = guests.find(g => g.id === bed.guestId)
@@ -143,14 +138,35 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
-          <p className="text-muted-foreground">Real-time view of your PG operations.</p>
+         <div className="flex items-center gap-4">
+            <div className="w-full sm:w-auto">
+                 <Select
+                    value={selectedPgId || ''}
+                    onValueChange={(pgId) => {
+                        if (setSelectedPgId) setSelectedPgId(pgId);
+                    }}
+                    >
+                    <SelectTrigger className="w-full sm:w-[280px]">
+                        <SelectValue placeholder="Select a PG to view dashboard" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {pgs.length > 0 ? (
+                            pgs.map((pg) => (
+                                <SelectItem key={pg.id} value={pg.id}>
+                                    {pg.name}
+                                </SelectItem>
+                            ))
+                        ) : (
+                            <SelectItem value="no-pg" disabled>No PGs found. Add one first.</SelectItem>
+                        )}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
         <Button asChild variant="outline">
-          <Link href="/dashboard/settings">
+          <Link href="/dashboard/pg-management">
             <Settings className="mr-2 h-4 w-4" />
-            Configure Rooms & Beds
+            Configure PG
           </Link>
         </Button>
       </div>

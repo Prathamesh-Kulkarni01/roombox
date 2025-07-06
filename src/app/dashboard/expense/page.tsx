@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -87,22 +87,33 @@ const quickAddItems: { label: string; icon: React.ElementType; category: Expense
 
 
 export default function ExpensePage() {
-    const { pgs, expenses, addExpense, isLoading } = useData()
+    const { pgs, expenses, addExpense, isLoading, selectedPgId, setSelectedPgId } = useData()
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     const form = useForm<ExpenseFormValues>({
         resolver: zodResolver(expenseSchema),
         defaultValues: {
             date: format(new Date(), 'yyyy-MM-dd'),
+            pgId: selectedPgId || undefined,
         },
     })
+
+    useEffect(() => {
+        if (selectedPgId) {
+            form.reset({
+                ...form.getValues(),
+                pgId: selectedPgId,
+                date: format(new Date(), 'yyyy-MM-dd'),
+            });
+        }
+    }, [selectedPgId, form]);
     
     const handleQuickAdd = (item: typeof quickAddItems[0]) => {
         form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),
             category: item.category,
             description: item.description,
-            pgId: form.getValues('pgId') || pgs[0]?.id,
+            pgId: selectedPgId || pgs[0]?.id,
         })
         setIsDialogOpen(true)
     }
@@ -110,7 +121,7 @@ export default function ExpensePage() {
     const openAddExpenseDialog = () => {
        form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),
-            pgId: form.getValues('pgId') || pgs[0]?.id,
+            pgId: selectedPgId || pgs[0]?.id,
         });
         setIsDialogOpen(true);
     }
@@ -122,16 +133,22 @@ export default function ExpensePage() {
         addExpense({ ...data, pgName: selectedPg.name });
         form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),
-            pgId: form.getValues('pgId') || pgs[0]?.id,
+            pgId: selectedPgId || pgs[0]?.id,
         });
         setIsDialogOpen(false);
     }
+    
+    const filteredExpenses = useMemo(() => {
+        if (!selectedPgId) return expenses;
+        return expenses.filter(exp => exp.pgId === selectedPgId);
+    }, [expenses, selectedPgId]);
+
 
     const { totalExpenses, foodExpenses, otherExpenses } = useMemo(() => {
         const now = new Date()
         const startOfThisMonth = startOfMonth(now)
         
-        const monthlyExpenses = expenses.filter(exp => 
+        const monthlyExpenses = filteredExpenses.filter(exp => 
             isWithinInterval(new Date(exp.date), { start: startOfThisMonth, end: now })
         )
 
@@ -145,7 +162,7 @@ export default function ExpensePage() {
             foodExpenses: food,
             otherExpenses: total - food,
         }
-    }, [expenses])
+    }, [filteredExpenses])
 
     if (isLoading) {
        return (
@@ -184,12 +201,33 @@ export default function ExpensePage() {
     return (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <div className="flex flex-col gap-8">
-            <div>
-                <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-                    <Wallet className="w-8 h-8 text-primary" /> Expense Tracking
-                </h1>
-                <p className="text-muted-foreground">Keep track of all your PG-related expenses.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
+                        <Wallet className="w-8 h-8 text-primary" /> Expense Tracking
+                    </h1>
+                    <p className="text-muted-foreground">Keep track of all your PG-related expenses.</p>
+                </div>
+                <Select
+                    value={selectedPgId || ''}
+                    onValueChange={(pgId) => {
+                        if (setSelectedPgId) setSelectedPgId(pgId === 'all' ? null : pgId);
+                    }}
+                    >
+                    <SelectTrigger className="w-full sm:w-[280px]">
+                        <SelectValue placeholder="Select a PG" />
+                    </SelectTrigger>
+                    <SelectContent>
+                         <SelectItem value="all">All PGs</SelectItem>
+                        {pgs.map((pg) => (
+                            <SelectItem key={pg.id} value={pg.id}>
+                                {pg.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
+
 
             <div className="grid gap-4 md:grid-cols-3">
                 {stats.map(stat => (
@@ -232,7 +270,7 @@ export default function ExpensePage() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Recent Expenses</CardTitle>
-                        <CardDescription>A log of your most recent expenses.</CardDescription>
+                        <CardDescription>A log of your most recent expenses{selectedPgId ? ` for ${pgs.find(p=>p.id === selectedPgId)?.name}` : ' for all PGs'}.</CardDescription>
                     </div>
                      <Button onClick={openAddExpenseDialog}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
@@ -252,7 +290,7 @@ export default function ExpensePage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {expenses.slice(0, 10).map((expense) => {
+                                {filteredExpenses.slice(0, 10).map((expense) => {
                                     const meta = categoryMeta[expense.category]
                                     return (
                                     <TableRow key={expense.id}>
@@ -273,7 +311,7 @@ export default function ExpensePage() {
                     </div>
                      {/* Mobile Card View */}
                     <div className="md:hidden grid gap-4">
-                        {expenses.slice(0, 10).map((expense) => {
+                        {filteredExpenses.slice(0, 10).map((expense) => {
                             const meta = categoryMeta[expense.category]
                             return (
                                 <div key={expense.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">

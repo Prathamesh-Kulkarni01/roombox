@@ -38,6 +38,8 @@ interface DataContextType {
   guests: Guest[];
   complaints: Complaint[];
   expenses: Expense[];
+  selectedPgId: string | null;
+  setSelectedPgId: (id: string | null) => void;
   updateGuest: (updatedGuest: Guest) => void;
   addGuest: (newGuest: Guest) => void;
   updatePgs: (updatedPgs: PG[]) => void;
@@ -55,17 +57,33 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [selectedPgId, setSelectedPgId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // This effect runs only once on mount to load data from localStorage
-    setPgs(getFromLocalStorage<PG[]>('pgs', initialPgs));
+    const loadedPgs = getFromLocalStorage<PG[]>('pgs', initialPgs);
+    setPgs(loadedPgs);
     setGuests(getFromLocalStorage<Guest[]>('guests', initialGuests));
     setComplaints(getFromLocalStorage<Complaint[]>('complaints', initialComplaints));
     setExpenses(getFromLocalStorage<Expense[]>('expenses', initialExpenses));
+    
+    const storedPgId = getFromLocalStorage<string | null>('selectedPgId', null);
+    if (storedPgId && loadedPgs.some(p => p.id === storedPgId)) {
+      setSelectedPgId(storedPgId);
+    } else if (loadedPgs.length > 0) {
+      const firstPgId = loadedPgs[0].id;
+      setSelectedPgId(firstPgId);
+      saveToLocalStorage('selectedPgId', firstPgId);
+    }
+
     setIsLoading(false);
   }, []);
   
+  const handleSetSelectedPgId = useCallback((id: string | null) => {
+    setSelectedPgId(id);
+    saveToLocalStorage('selectedPgId', id);
+  }, []);
+
   const updateGuest = useCallback((updatedGuest: Guest) => {
     setGuests(prevGuests => {
         const newGuests = prevGuests.map(t => t.id === updatedGuest.id ? updatedGuest : t);
@@ -110,7 +128,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
 
-  const value = { pgs, guests, complaints, expenses, updateGuest, addGuest, updatePgs, addExpense, updatePgMenu, isLoading };
+  const value = { pgs, guests, complaints, expenses, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, addExpense, updatePgMenu, isLoading };
 
   return (
     <DataContext.Provider value={value}>

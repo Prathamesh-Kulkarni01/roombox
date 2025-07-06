@@ -34,21 +34,16 @@ const days: { key: DayOfWeek; label: string }[] = [
 ]
 
 export default function FoodPage() {
-    const { pgs, updatePgMenu, isLoading } = useData()
-    const [selectedPgId, setSelectedPgId] = useState<string>('')
+    const { pgs, updatePgMenu, isLoading, selectedPgId, setSelectedPgId } = useData()
     const [menu, setMenu] = useState<Menu>(initialMenu)
     const { toast } = useToast()
-
-    useEffect(() => {
-        if (pgs.length > 0 && !selectedPgId) {
-            setSelectedPgId(pgs[0].id)
-        }
-    }, [pgs, selectedPgId])
 
     useEffect(() => {
         if (selectedPgId) {
             const selectedPg = pgs.find(pg => pg.id === selectedPgId)
             setMenu(selectedPg?.menu || initialMenu)
+        } else {
+            setMenu(initialMenu)
         }
     }, [selectedPgId, pgs])
 
@@ -119,7 +114,7 @@ export default function FoodPage() {
                             <CardDescription>Select a PG and set the menu for each day of the week.</CardDescription>
                         </div>
                         {pgs.length > 0 ? (
-                             <Select value={selectedPgId} onValueChange={setSelectedPgId}>
+                             <Select value={selectedPgId || ''} onValueChange={(id) => setSelectedPgId && setSelectedPgId(id)}>
                                 <SelectTrigger className="w-full sm:w-[200px]">
                                     <SelectValue placeholder="Select a PG" />
                                 </SelectTrigger>
@@ -152,6 +147,7 @@ export default function FoodPage() {
                                             value={menu[day.key]?.breakfast || ''}
                                             onChange={(e) => handleMenuChange(day.key, 'breakfast', e.target.value)}
                                             rows={3}
+                                            disabled={!selectedPgId}
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -162,6 +158,7 @@ export default function FoodPage() {
                                             value={menu[day.key]?.lunch || ''}
                                             onChange={(e) => handleMenuChange(day.key, 'lunch', e.target.value)}
                                             rows={3}
+                                            disabled={!selectedPgId}
                                         />
                                     </div>
                                     <div className="grid gap-2">
@@ -172,6 +169,7 @@ export default function FoodPage() {
                                             value={menu[day.key]?.dinner || ''}
                                             onChange={(e) => handleMenuChange(day.key, 'dinner', e.target.value)}
                                             rows={3}
+                                            disabled={!selectedPgId}
                                         />
                                     </div>
                                 </div>
