@@ -1,24 +1,36 @@
+
 {
-  "name": "PGOasis",
+  "name": "PGOasis: The Modern OS for Your PG",
   "short_name": "PGOasis",
-  "description": "PG Management and Tenant Marketplace",
-  "icons": [
-    {
-      "src": "/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "theme_color": "#E2F3FD",
-  "background_color": "#E2F3FD",
+  "description": "Stop juggling spreadsheets. PGOasis automates your operations, from rent collection to guest management, all in one simple platform.",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait"
+  "background_color": "#E3F2FD",
+  "theme_color": "#64B5F6",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
 }
