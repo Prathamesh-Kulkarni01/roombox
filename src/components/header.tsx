@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Menu, HomeIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -67,7 +67,7 @@ export default function Header() {
               href={link.href}
               className={cn(
                 'transition-colors hover:text-foreground/80',
-                pathname === link.href ? 'text-foreground' : 'text-foreground/60'
+                pathname === link.href ? 'text-foreground' : 'text-muted-foreground'
               )}
             >
               {link.label}
@@ -87,6 +87,10 @@ export default function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Menu</SheetTitle>
+                <SheetDescription>Main navigation</SheetDescription>
+              </SheetHeader>
               <div className="flex flex-col gap-4 py-6">
                 <Link href="/" className="flex items-center gap-2 mb-4">
                     <HomeIcon className="h-6 w-6 text-primary" />
