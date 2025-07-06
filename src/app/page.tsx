@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Check, LayoutDashboard, PieChart, BotMessageSquare, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import InstallPWA from '@/components/install-pwa';
 
 const features = [
   {
@@ -63,10 +64,11 @@ export default function Home() {
             <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-top-8 duration-700 ease-out delay-100">
               Stop juggling spreadsheets. PGOasis automates your operations, from rent collection to guest management, all in one simple platform.
             </p>
-            <div className="flex justify-center animate-in fade-in zoom-in-95 duration-500 ease-out delay-200">
+            <div className="flex flex-wrap justify-center gap-4 animate-in fade-in zoom-in-95 duration-500 ease-out delay-200">
               <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
                 <Link href="/dashboard">Get Started for Free</Link>
               </Button>
+              <InstallPWA />
             </div>
           </div>
         </section>
