@@ -184,15 +184,15 @@ export default function ManagePgPage() {
                 <AccordionTrigger className="text-lg font-medium hover:no-underline">
                   <div className="flex items-center gap-4">
                     <Layers /> {floor.name}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id })}}>
-                        <Trash2 className="w-4 h-4" />
-                    </Button>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pl-2 border-l-2 ml-4">
-                  <div className="flex justify-end mb-4">
+                  <div className="flex justify-end items-center mb-4 gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setSelectedFloorForRoomAdd(floor.id); setIsAddRoomDialogOpen(true); }}>
                       <PlusCircle className="mr-2 h-4 w-4" /> Add Room to {floor.name}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={() => handleDelete('floor', { floorId: floor.id })}>
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Floor
                     </Button>
                   </div>
                   {floor.rooms.length > 0 ? (
