@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Building, Users, Wand2 } from 'lucide-react';
+import { Home, Building, Users, UtensilsCrossed, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/dashboard/pg-management', label: 'PGs', icon: Building },
   { href: '/dashboard/tenant-management', label: 'Tenants', icon: Users },
-  { href: '/dashboard/seo-generator', label: 'AI SEO', icon: Wand2 },
+  { href: '/dashboard/food', label: 'Food', icon: UtensilsCrossed },
+  { href: '/dashboard/expense', label: 'Expenses', icon: Wallet },
 ];
 
 export default function DashboardBottomNav() {
@@ -17,7 +18,7 @@ export default function DashboardBottomNav() {
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t z-50">
-      <nav className="grid grid-cols-4 h-16 items-center">
+      <nav className="grid grid-cols-5 h-16 items-center">
         {navItems.map((item) => (
           <Link
             key={item.href}

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { HomeIcon, Building, Users, Wand2, UserCircle, LogOut } from 'lucide-react';
+import { HomeIcon, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -12,7 +12,10 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon },
   { href: '/dashboard/pg-management', label: 'PG Management', icon: Building },
   { href: '/dashboard/tenant-management', label: 'Tenant Management', icon: Users },
+  { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed },
+  { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet },
   { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2 },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function DashboardSidebar() {
