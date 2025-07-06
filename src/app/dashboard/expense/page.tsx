@@ -27,7 +27,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog"
@@ -49,7 +48,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Wallet, UtensilsCrossed, Wrench, PlusCircle, IndianRupee, User } from "lucide-react"
+import { Wallet, UtensilsCrossed, Wrench, PlusCircle, IndianRupee, User, Droplets, Lightbulb, Wifi, Sparkles, Bug, Flame } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, startOfMonth, isWithinInterval } from 'date-fns'
 import type { Expense } from '@/lib/types'
@@ -64,14 +63,28 @@ const expenseSchema = z.object({
 })
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>
+type ExpenseCategory = ExpenseFormValues['category']
 
-const categoryMeta = {
+const categoryMeta: Record<ExpenseCategory, { icon: React.ElementType, color: string }> = {
     food: { icon: UtensilsCrossed, color: "bg-green-100 text-green-800" },
     maintenance: { icon: Wrench, color: "bg-blue-100 text-blue-800" },
     utilities: { icon: Wallet, color: "bg-orange-100 text-orange-800" },
     salary: { icon: User, color: "bg-purple-100 text-purple-800" },
     other: { icon: Wallet, color: "bg-gray-100 text-gray-800" },
 }
+
+const quickAddItems: { label: string; icon: React.ElementType; category: ExpenseCategory, description: string }[] = [
+    { label: "Water Bill", icon: Droplets, category: "utilities", description: "Monthly water bill" },
+    { label: "Electricity Bill", icon: Lightbulb, category: "utilities", description: "Monthly electricity bill" },
+    { label: "Internet Bill", icon: Wifi, category: "utilities", description: "Monthly internet bill" },
+    { label: "Gas Cylinder", icon: Flame, category: "utilities", description: "Gas cylinder refill" },
+    { label: "Cleaning", icon: Sparkles, category: "maintenance", description: "Cleaning supplies" },
+    { label: "Repairs", icon: Wrench, category: "maintenance", description: "Minor repairs" },
+    { label: "Pest Control", icon: Bug, category: "maintenance", description: "Pest control service" },
+    { label: "Staff Salary", icon: User, category: "salary", description: "Monthly staff salary" },
+    { label: "Groceries", icon: UtensilsCrossed, category: "food", description: "Weekly groceries" },
+]
+
 
 export default function ExpensePage() {
     const { pgs, expenses, addExpense, isLoading } = useData()
@@ -81,9 +94,26 @@ export default function ExpensePage() {
         resolver: zodResolver(expenseSchema),
         defaultValues: {
             date: format(new Date(), 'yyyy-MM-dd'),
-            category: 'food',
         },
     })
+    
+    const handleQuickAdd = (item: typeof quickAddItems[0]) => {
+        form.reset({
+            date: format(new Date(), 'yyyy-MM-dd'),
+            category: item.category,
+            description: item.description,
+            pgId: form.getValues('pgId') || pgs[0]?.id,
+        })
+        setIsDialogOpen(true)
+    }
+    
+    const openAddExpenseDialog = () => {
+       form.reset({
+            date: format(new Date(), 'yyyy-MM-dd'),
+            pgId: form.getValues('pgId') || pgs[0]?.id,
+        });
+        setIsDialogOpen(true);
+    }
 
     const onSubmit = (data: ExpenseFormValues) => {
         const selectedPg = pgs.find(pg => pg.id === data.pgId)
@@ -91,8 +121,8 @@ export default function ExpensePage() {
 
         addExpense({ ...data, pgName: selectedPg.name });
         form.reset({
-             date: format(new Date(), 'yyyy-MM-dd'),
-            category: 'food',
+            date: format(new Date(), 'yyyy-MM-dd'),
+            pgId: form.getValues('pgId') || pgs[0]?.id,
         });
         setIsDialogOpen(false);
     }
@@ -178,48 +208,93 @@ export default function ExpensePage() {
                 ))}
             </div>
 
+             <Card>
+                <CardHeader>
+                    <CardTitle>Quick Add Expense</CardTitle>
+                    <CardDescription>Quickly log common expenses.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {quickAddItems.map(item => (
+                        <button
+                            key={item.label}
+                            onClick={() => handleQuickAdd(item)}
+                            className="flex flex-col items-center justify-center gap-2 p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors text-center"
+                        >
+                            <item.icon className="w-6 h-6 text-primary" />
+                            <span className="text-sm font-medium">{item.label}</span>
+                        </button>
+                    ))}
+                </CardContent>
+            </Card>
+
+
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Recent Expenses</CardTitle>
                         <CardDescription>A log of your most recent expenses.</CardDescription>
                     </div>
-                     <DialogTrigger asChild>
-                        <Button>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
-                        </Button>
-                    </DialogTrigger>
+                     <Button onClick={openAddExpenseDialog}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
+                    </Button>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead className="hidden md:table-cell">PG</TableHead>
-                                <TableHead>Category</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {expenses.slice(0, 10).map((expense) => {
-                                const meta = categoryMeta[expense.category]
-                                return (
-                                <TableRow key={expense.id}>
-                                    <TableCell className="text-xs md:text-sm">{format(new Date(expense.date), 'dd MMM, yyyy')}</TableCell>
-                                    <TableCell className="hidden md:table-cell">{expense.pgName}</TableCell>
-                                    <TableCell>
-                                        <Badge className={cn("capitalize border-transparent", meta.color)}>
-                                            <meta.icon className="w-3 h-3 mr-0 md:mr-1.5" />
-                                            <span className="hidden md:inline">{expense.category}</span>
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="max-w-[150px] md:max-w-[300px] truncate">{expense.description}</TableCell>
-                                    <TableCell className="text-right font-medium">₹{expense.amount.toLocaleString('en-IN')}</TableCell>
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>PG</TableHead>
+                                    <TableHead>Category</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
                                 </TableRow>
-                            )})}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {expenses.slice(0, 10).map((expense) => {
+                                    const meta = categoryMeta[expense.category]
+                                    return (
+                                    <TableRow key={expense.id}>
+                                        <TableCell>{format(new Date(expense.date), 'dd MMM, yyyy')}</TableCell>
+                                        <TableCell>{expense.pgName}</TableCell>
+                                        <TableCell>
+                                            <Badge className={cn("capitalize border-transparent", meta.color)}>
+                                                <meta.icon className="w-3 h-3 mr-1.5" />
+                                                {expense.category}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="max-w-[300px] truncate">{expense.description}</TableCell>
+                                        <TableCell className="text-right font-medium">₹{expense.amount.toLocaleString('en-IN')}</TableCell>
+                                    </TableRow>
+                                )})}
+                            </TableBody>
+                        </Table>
+                    </div>
+                     {/* Mobile Card View */}
+                    <div className="md:hidden grid gap-4">
+                        {expenses.slice(0, 10).map((expense) => {
+                            const meta = categoryMeta[expense.category]
+                            return (
+                                <div key={expense.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-bold truncate max-w-[200px]">{expense.description}</p>
+                                            <p className="text-sm text-muted-foreground">{expense.pgName}</p>
+                                        </div>
+                                        <p className="font-semibold text-lg shrink-0">₹{expense.amount.toLocaleString('en-IN')}</p>
+                                    </div>
+                                    <div className="flex justify-between items-end text-sm">
+                                         <Badge className={cn("capitalize border-transparent", meta.color)}>
+                                            <meta.icon className="w-3 h-3 mr-1.5" />
+                                            {expense.category}
+                                        </Badge>
+                                        <p className="text-muted-foreground">{format(new Date(expense.date), 'dd MMM, yyyy')}</p>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
                 </CardContent>
             </Card>
         </div>
@@ -236,7 +311,7 @@ export default function ExpensePage() {
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>PG</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a PG" />
@@ -256,7 +331,7 @@ export default function ExpensePage() {
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a category" />
