@@ -127,12 +127,6 @@ export default function StaffPage() {
     return (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <div className="flex flex-col gap-8">
-                <div>
-                    <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-                        <Users className="w-8 h-8 text-primary" /> Staff Management
-                    </h1>
-                    <p className="text-muted-foreground">Manage your PG staff members, their roles, and salaries.</p>
-                </div>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div>

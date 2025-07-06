@@ -60,12 +60,6 @@ export default function ComplaintsDashboardPage() {
 
     return (
         <div className="flex flex-col gap-8">
-            <div>
-                <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-                    <MessageSquareWarning className="w-8 h-8 text-primary" /> Complaint Management
-                </h1>
-                <p className="text-muted-foreground">Track and resolve guest complaints efficiently.</p>
-            </div>
             <Card>
                 <CardHeader>
                     <CardTitle>Open Complaints</CardTitle>

@@ -96,12 +96,6 @@ export default function FoodPage() {
     if (!selectedPgId) {
         return (
             <div className="flex flex-col gap-8">
-                <div>
-                    <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-                        <ChefHat className="w-8 h-8 text-primary" /> Daily Menu Management
-                    </h1>
-                    <p className="text-muted-foreground">Plan and display the weekly menu for your PGs.</p>
-                </div>
                 <div className="flex items-center justify-center h-full min-h-[40vh] bg-card border rounded-lg">
                     <div className="text-center">
                         <Building className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -115,13 +109,6 @@ export default function FoodPage() {
 
     return (
         <div className="flex flex-col gap-8">
-            <div>
-                <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-                    <ChefHat className="w-8 h-8 text-primary" /> Daily Menu Management
-                </h1>
-                <p className="text-muted-foreground">Plan and display the weekly menu for your PGs.</p>
-            </div>
-
             <Card>
                 <CardHeader>
                     <CardTitle>Weekly Menu Planner for {selectedPg?.name}</CardTitle>

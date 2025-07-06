@@ -351,11 +351,7 @@ export default function DashboardPage() {
   return (
     <>
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-            <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
-            <p className="text-muted-foreground">Overview of your properties and quick actions.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <div className="flex items-center space-x-2">
             <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
             <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} />

@@ -10,7 +10,7 @@ export default function DashboardLayout({
       <div className="flex min-h-[calc(100vh-56px)]">
         <DashboardSidebar />
         <div className="flex flex-1 flex-col overflow-auto">
-          <main className="flex-1 p-4 md:p-8 bg-muted/40 pb-20 md:pb-8">
+          <main className="flex-1 p-4 bg-muted/40 pb-20 md:pb-4">
             {children}
           </main>
         </div>

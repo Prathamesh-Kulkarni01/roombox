@@ -70,10 +70,6 @@ export default function PgManagementPage() {
     
     return (
         <div className="flex flex-col gap-8">
-            <div>
-                <h1 className="text-3xl font-bold font-headline">PG Management</h1>
-                <p className="text-muted-foreground">Add, edit, and manage your PG listings and configurations.</p>
-            </div>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>

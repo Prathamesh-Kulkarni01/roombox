@@ -202,10 +202,6 @@ export default function ManagePgPage() {
             <Button variant="outline" size="icon" onClick={() => router.back()}>
             <ArrowLeft />
             </Button>
-            <div>
-            <h1 className="text-3xl font-bold font-headline">Manage {pg.name}</h1>
-            <p className="text-muted-foreground">Configure floors, rooms, and beds for this property.</p>
-            </div>
         </div>
         <div className="flex items-center space-x-2">
             <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
@@ -215,7 +211,7 @@ export default function ManagePgPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>Floors & Rooms</CardTitle>
+            <CardTitle>Floors & Rooms for {pg.name}</CardTitle>
             <CardDescription>Organize your PG's layout. Enable 'Edit Mode' to make changes.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -225,16 +221,6 @@ export default function ManagePgPage() {
                 <AccordionTrigger className="text-lg font-medium hover:no-underline">
                   <div className="flex items-center gap-4 w-full">
                     <Layers /> {floor.name}
-                     {isEditMode && (
-                        <div className="ml-auto flex items-center pr-4">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEditFloorDialog(floor) }}>
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id }) }}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
-                     )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pl-2 border-l-2 ml-4">
@@ -292,6 +278,18 @@ export default function ManagePgPage() {
                   {floor.rooms.length === 0 && !isEditMode && (
                     <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable Edit Mode to add one.</div>
                   )}
+                  <div className="mt-6 flex items-center gap-4">
+                    {isEditMode && (
+                        <Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id }) }}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Floor
+                        </Button>
+                    )}
+                     {isEditMode && (
+                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); openEditFloorDialog(floor) }}>
+                            <Pencil className="mr-2 h-4 w-4" /> Edit Floor
+                        </Button>
+                     )}
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}

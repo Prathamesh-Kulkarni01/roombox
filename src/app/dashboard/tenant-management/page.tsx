@@ -76,10 +76,6 @@ export default function GuestManagementPage() {
 
     return (
         <div className="flex flex-col gap-8">
-            <div>
-                <h1 className="text-3xl font-bold font-headline">Guest Management</h1>
-                <p className="text-muted-foreground">View, add, and manage guests in your PGs.</p>
-            </div>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>

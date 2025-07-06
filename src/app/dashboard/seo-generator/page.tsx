@@ -1,4 +1,3 @@
-// @/app/dashboard/seo-generator/page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -63,13 +62,6 @@ export default function SeoGeneratorPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-          <Wand2 className="w-8 h-8 text-primary" /> AI SEO Content Generator
-        </h1>
-        <p className="text-muted-foreground">Create compelling, SEO-friendly titles and descriptions for your PG listings.</p>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         <Card>
           <form onSubmit={handleSubmit(onSubmit)}>

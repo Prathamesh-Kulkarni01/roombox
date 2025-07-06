@@ -215,16 +215,6 @@ export default function ExpensePage() {
     return (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <div className="flex flex-col gap-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
-                        <Wallet className="w-8 h-8 text-primary" /> Expense Tracking
-                    </h1>
-                    <p className="text-muted-foreground">Keep track of all your PG-related expenses.</p>
-                </div>
-            </div>
-
-
             <div className="grid gap-4 md:grid-cols-3">
                 {stats.map(stat => (
                     <Card key={stat.title}>
