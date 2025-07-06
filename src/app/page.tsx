@@ -68,7 +68,6 @@ export default function Home() {
               <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
                 <Link href="/dashboard">Get Started for Free</Link>
               </Button>
-              <InstallPWA />
             </div>
           </div>
         </section>

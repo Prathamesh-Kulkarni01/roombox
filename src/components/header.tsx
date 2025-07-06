@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useData } from '@/context/data-provider';
 import { Skeleton } from './ui/skeleton';
 import NotificationsPopover from './notifications-popover';
+import InstallPWA from './install-pwa';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -79,6 +80,11 @@ export default function Header() {
 
         <div className="flex items-center gap-2">
           {isDashboard && <NotificationsPopover />}
+           {pathname === '/' && (
+            <div className="hidden md:flex">
+              <InstallPWA />
+            </div>
+          )}
           <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90">
             <Link href="/login">Login</Link>
           </Button>
@@ -111,6 +117,7 @@ export default function Header() {
                     {link.label}
                     </Link>
                 ))}
+                 {pathname === '/' && <InstallPWA />}
                  <Button asChild className="mt-4 bg-primary hover:bg-primary/90">
                     <Link href="/login">Login</Link>
                 </Button>
