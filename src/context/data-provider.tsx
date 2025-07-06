@@ -68,14 +68,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setExpenses(getFromLocalStorage<Expense[]>('expenses', initialExpenses));
     
     const storedPgId = getFromLocalStorage<string | null>('selectedPgId', null);
-    if (storedPgId && loadedPgs.some(p => p.id === storedPgId)) {
-      setSelectedPgId(storedPgId);
-    } else if (loadedPgs.length > 0) {
-      const firstPgId = loadedPgs[0].id;
-      setSelectedPgId(firstPgId);
-      saveToLocalStorage('selectedPgId', firstPgId);
-    }
-
+    setSelectedPgId(storedPgId);
+    
     setIsLoading(false);
   }, []);
   

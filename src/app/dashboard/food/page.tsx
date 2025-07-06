@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { ChefHat, Package } from "lucide-react"
+import { ChefHat, Package, Building } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Menu, DayOfWeek } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -37,14 +37,15 @@ export default function FoodPage() {
     const [menu, setMenu] = useState<Menu>(initialMenu)
     const { toast } = useToast()
 
+    const selectedPg = pgs.find(pg => pg.id === selectedPgId)
+
     useEffect(() => {
-        if (selectedPgId) {
-            const selectedPg = pgs.find(pg => pg.id === selectedPgId)
-            setMenu(selectedPg?.menu || initialMenu)
+        if (selectedPg) {
+            setMenu(selectedPg.menu || initialMenu)
         } else {
             setMenu(initialMenu)
         }
-    }, [selectedPgId, pgs])
+    }, [selectedPg])
 
     const handleMenuChange = (day: DayOfWeek, meal: keyof typeof menu.monday, value: string) => {
         setMenu(prev => ({
@@ -58,7 +59,7 @@ export default function FoodPage() {
         updatePgMenu(selectedPgId, menu)
         toast({
             title: "Menu Saved!",
-            description: "The menu has been updated successfully.",
+            description: `The menu for ${selectedPg?.name} has been updated successfully.`,
         })
     }
     
@@ -75,10 +76,6 @@ export default function FoodPage() {
                         <Skeleton className="h-5 w-72" />
                     </CardHeader>
                     <CardContent>
-                        <div className="flex items-center justify-between mb-4">
-                            <Skeleton className="h-8 w-48" />
-                            <Skeleton className="h-10 w-48" />
-                        </div>
                         <Skeleton className="h-10 w-full mb-4" />
                         <Skeleton className="h-64 w-full" />
                     </CardContent>
@@ -98,11 +95,19 @@ export default function FoodPage() {
 
     if (!selectedPgId) {
         return (
-            <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                    <ChefHat className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h2 className="mt-4 text-xl font-semibold">Food Management</h2>
-                    <p className="mt-2 text-muted-foreground">Please select a PG to plan its weekly menu.</p>
+            <div className="flex flex-col gap-8">
+                <div>
+                    <h1 className="text-3xl font-bold font-headline flex items-center gap-2">
+                        <ChefHat className="w-8 h-8 text-primary" /> Daily Menu Management
+                    </h1>
+                    <p className="text-muted-foreground">Plan and display the weekly menu for your PGs.</p>
+                </div>
+                <div className="flex items-center justify-center h-full min-h-[40vh] bg-card border rounded-lg">
+                    <div className="text-center">
+                        <Building className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <h2 className="mt-4 text-xl font-semibold">Select a PG</h2>
+                        <p className="mt-2 text-muted-foreground">Please select a PG from the header to manage its menu.</p>
+                    </div>
                 </div>
             </div>
         )
@@ -119,7 +124,7 @@ export default function FoodPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Weekly Menu Planner</CardTitle>
+                    <CardTitle>Weekly Menu Planner for {selectedPg?.name}</CardTitle>
                     <CardDescription>Set the menu for each day of the week for the selected PG.</CardDescription>
                 </CardHeader>
                 <CardContent>

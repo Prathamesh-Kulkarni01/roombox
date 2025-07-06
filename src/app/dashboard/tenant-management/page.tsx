@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -30,8 +31,13 @@ const kycStatusColors = {
 };
 
 export default function GuestManagementPage() {
-    const { guests, isLoading } = useData();
+    const { guests, isLoading, selectedPgId } = useData();
     
+    const filteredGuests = useMemo(() => {
+        if (!selectedPgId) return guests;
+        return guests.filter(guest => guest.pgId === selectedPgId);
+    }, [guests, selectedPgId]);
+
     if (isLoading) {
         return (
             <div className="flex flex-col gap-8">
@@ -76,7 +82,7 @@ export default function GuestManagementPage() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>All Guests</CardTitle>
-                        <CardDescription>You are managing {guests.length} guests.</CardDescription>
+                        <CardDescription>You are managing {filteredGuests.length} guests.</CardDescription>
                     </div>
                     {/* Add Guest component will be triggered here */}
                     <Button>
@@ -84,41 +90,83 @@ export default function GuestManagementPage() {
                     </Button>
                 </CardHeader>
                 <CardContent>
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>PG Name</TableHead>
-                                    <TableHead>Rent Status</TableHead>
-                                    <TableHead>KYC Status</TableHead>
-                                    <TableHead>Due Date</TableHead>
-                                    <TableHead>
-                                        <span className="sr-only">Actions</span>
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {guests.map((guest) => (
-                                    <TableRow key={guest.id}>
-                                        <TableCell className="font-medium">{guest.name}</TableCell>
-                                        <TableCell>{guest.pgName}</TableCell>
-                                        <TableCell>
-                                            <Badge className={cn("capitalize border-transparent", rentStatusColors[guest.rentStatus])}>
-                                                {guest.rentStatus}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={cn("capitalize border-transparent", kycStatusColors[guest.kycStatus])}>
-                                                {guest.kycStatus}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{guest.dueDate}</TableCell>
-                                        <TableCell>
+                     {filteredGuests.length === 0 ? (
+                        <div className="text-center py-10 text-muted-foreground">No guests found for the selected PG.</div>
+                     ) : (
+                        <>
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>PG Name</TableHead>
+                                            <TableHead>Rent Status</TableHead>
+                                            <TableHead>KYC Status</TableHead>
+                                            <TableHead>Due Date</TableHead>
+                                            <TableHead>
+                                                <span className="sr-only">Actions</span>
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredGuests.map((guest) => (
+                                            <TableRow key={guest.id}>
+                                                <TableCell className="font-medium">{guest.name}</TableCell>
+                                                <TableCell>{guest.pgName}</TableCell>
+                                                <TableCell>
+                                                    <Badge className={cn("capitalize border-transparent", rentStatusColors[guest.rentStatus])}>
+                                                        {guest.rentStatus}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge className={cn("capitalize border-transparent", kycStatusColors[guest.kycStatus])}>
+                                                        {guest.kycStatus}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>{guest.dueDate}</TableCell>
+                                                <TableCell>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                                <span className="sr-only">Toggle menu</span>
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                            <DropdownMenuItem>Edit Guest</DropdownMenuItem>
+                                                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                                                            {guest.rentStatus === 'unpaid' && (
+                                                                <DropdownMenuItem>Send Rent Reminder</DropdownMenuItem>
+                                                            )}
+                                                            <DropdownMenuItem className="text-red-600">Remove Guest</DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            {/* Mobile Card View */}
+                            <div className="md:hidden grid gap-4">
+                                {filteredGuests.map((guest) => (
+                                <div key={guest.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar>
+                                                <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} />
+                                                <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="font-bold">{guest.name}</p>
+                                                <p className="text-sm text-muted-foreground">{guest.pgName}</p>
+                                            </div>
+                                        </div>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                    <Button aria-haspopup="true" size="icon" variant="ghost" className="-mr-2 -mt-2">
                                                         <MoreHorizontal className="h-4 w-4" />
                                                         <span className="sr-only">Toggle menu</span>
                                                     </Button>
@@ -133,63 +181,27 @@ export default function GuestManagementPage() {
                                                     <DropdownMenuItem className="text-red-600">Remove Guest</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    {/* Mobile Card View */}
-                    <div className="md:hidden grid gap-4">
-                        {guests.map((guest) => (
-                           <div key={guest.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
-                               <div className="flex justify-between items-start">
-                                   <div className="flex items-center gap-3">
-                                       <Avatar>
-                                           <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} />
-                                           <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
-                                       </Avatar>
-                                       <div>
-                                           <p className="font-bold">{guest.name}</p>
-                                           <p className="text-sm text-muted-foreground">{guest.pgName}</p>
-                                       </div>
-                                   </div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button aria-haspopup="true" size="icon" variant="ghost" className="-mr-2 -mt-2">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                                <span className="sr-only">Toggle menu</span>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem>Edit Guest</DropdownMenuItem>
-                                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                                            {guest.rentStatus === 'unpaid' && (
-                                                <DropdownMenuItem>Send Rent Reminder</DropdownMenuItem>
-                                            )}
-                                            <DropdownMenuItem className="text-red-600">Remove Guest</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                               </div>
-                                <div className="flex justify-between items-end text-sm">
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <IndianRupee className="w-4 h-4 text-muted-foreground" />
-                                            <span>Rent Due: {guest.dueDate}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <ShieldCheck className="w-4 h-4 text-muted-foreground"/>
-                                            <span>KYC: <span className={cn("capitalize font-medium", kycStatusColors[guest.kycStatus].replace('bg-','text-'))}>{guest.kycStatus}</span></span>
-                                        </div>
                                     </div>
-                                    <Badge className={cn("capitalize border-transparent", rentStatusColors[guest.rentStatus])}>
-                                        {guest.rentStatus}
-                                    </Badge>
-                                </div>
+                                    <div className="flex justify-between items-end text-sm">
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                                                <span>Rent Due: {guest.dueDate}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <ShieldCheck className="w-4 h-4 text-muted-foreground"/>
+                                                <span>KYC: <span className={cn("capitalize font-medium", kycStatusColors[guest.kycStatus].replace('bg-','text-'))}>{guest.kycStatus}</span></span>
+                                            </div>
+                                        </div>
+                                        <Badge className={cn("capitalize border-transparent", rentStatusColors[guest.rentStatus])}>
+                                            {guest.rentStatus}
+                                        </Badge>
+                                    </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </>
+                     )}
                 </CardContent>
             </Card>
         </div>

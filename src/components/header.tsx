@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Menu, HomeIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useData } from '@/context/data-provider';
+import { Skeleton } from './ui/skeleton';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -15,14 +18,47 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
+  const { pgs, selectedPgId, setSelectedPgId, isLoading } = useData();
+  const isDashboard = pathname.startsWith('/dashboard');
+
+  const handleValueChange = (pgId: string) => {
+    if (setSelectedPgId) {
+        setSelectedPgId(pgId === 'all' ? null : pgId)
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2">
-          <HomeIcon className="h-6 w-6 text-primary" />
-          <span className="font-bold text-lg font-headline">PGOasis</span>
-        </Link>
+      <div className="container mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 gap-4">
+        <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-2">
+                <HomeIcon className="h-6 w-6 text-primary" />
+                <span className="font-bold text-lg font-headline hidden sm:inline-block">PGOasis</span>
+            </Link>
+             {isDashboard && (
+                isLoading ? (
+                    <Skeleton className="h-10 w-[180px]" />
+                ) : pgs.length > 0 ? (
+                    <Select
+                        value={selectedPgId || 'all'}
+                        onValueChange={handleValueChange}
+                    >
+                        <SelectTrigger className="w-full sm:w-[180px]">
+                            <SelectValue placeholder="Select a PG..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                             <SelectItem value="all">All PGs</SelectItem>
+                            {pgs.map((pg) => (
+                                <SelectItem key={pg.id} value={pg.id}>
+                                    {pg.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                ) : null
+             )}
+        </div>
+
 
         <nav className="hidden md:flex items-center gap-6 text-sm">
           {navLinks.map((link) => (

@@ -48,7 +48,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Wallet, UtensilsCrossed, Wrench, PlusCircle, IndianRupee, User, Droplets, Lightbulb, Wifi, Sparkles, Bug, Flame } from "lucide-react"
+import { Wallet, UtensilsCrossed, Wrench, PlusCircle, IndianRupee, User, Droplets, Lightbulb, Wifi, Sparkles, Bug, Flame, Building } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { format, startOfMonth, isWithinInterval } from 'date-fns'
 import type { Expense } from '@/lib/types'
@@ -99,29 +99,30 @@ export default function ExpensePage() {
     })
 
     useEffect(() => {
-        if (selectedPgId) {
-            form.reset({
-                ...form.getValues(),
-                pgId: selectedPgId,
-                date: format(new Date(), 'yyyy-MM-dd'),
-            });
-        }
-    }, [selectedPgId, form]);
+        const defaultPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined);
+        form.reset({
+            ...form.getValues(),
+            pgId: defaultPgId,
+            date: format(new Date(), 'yyyy-MM-dd'),
+        });
+    }, [selectedPgId, pgs, form]);
     
     const handleQuickAdd = (item: typeof quickAddItems[0]) => {
+        const defaultPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined);
         form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),
             category: item.category,
             description: item.description,
-            pgId: selectedPgId || pgs[0]?.id,
+            pgId: defaultPgId,
         })
         setIsDialogOpen(true)
     }
     
     const openAddExpenseDialog = () => {
+       const defaultPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined);
        form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),
-            pgId: selectedPgId || pgs[0]?.id,
+            pgId: defaultPgId,
         });
         setIsDialogOpen(true);
     }
@@ -131,15 +132,16 @@ export default function ExpensePage() {
         if (!selectedPg) return
 
         addExpense({ ...data, pgName: selectedPg.name });
+        const defaultPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined);
         form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),
-            pgId: selectedPgId || pgs[0]?.id,
+            pgId: defaultPgId,
         });
         setIsDialogOpen(false);
     }
     
     const filteredExpenses = useMemo(() => {
-        if (!selectedPgId) return [];
+        if (!selectedPgId) return expenses;
         return expenses.filter(exp => exp.pgId === selectedPgId);
     }, [expenses, selectedPgId]);
 
@@ -192,13 +194,13 @@ export default function ExpensePage() {
        )
     }
     
-    if (!selectedPgId) {
+    if (pgs.length === 0) {
         return (
           <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                  <Wallet className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h2 className="mt-4 text-xl font-semibold">Expense Tracking</h2>
-                  <p className="mt-2 text-muted-foreground">Please select a PG to view and manage its expenses.</p>
+                  <Building className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h2 className="mt-4 text-xl font-semibold">No PGs Found</h2>
+                  <p className="mt-2 text-muted-foreground">Please add a PG to start managing expenses.</p>
               </div>
           </div>
         )
@@ -327,6 +329,9 @@ export default function ExpensePage() {
                             )
                         })}
                     </div>
+                     {filteredExpenses.length === 0 && (
+                        <div className="text-center py-10 text-muted-foreground">No expenses logged yet.</div>
+                     )}
                 </CardContent>
             </Card>
         </div>
