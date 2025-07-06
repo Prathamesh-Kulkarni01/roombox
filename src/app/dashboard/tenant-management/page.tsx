@@ -1,9 +1,10 @@
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { tenants } from "@/lib/mock-data"
-import { PlusCircle, MoreHorizontal, IndianRupee } from "lucide-react"
+import { PlusCircle, MoreHorizontal } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useData } from "@/context/data-provider"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const rentStatusColors = {
   paid: 'bg-green-100 text-green-800',
@@ -25,6 +28,35 @@ const kycStatusColors = {
 };
 
 export default function TenantManagementPage() {
+    const { tenants, isLoading } = useData();
+    
+    if (isLoading) {
+        return (
+            <div className="flex flex-col gap-8">
+                 <div>
+                    <Skeleton className="h-9 w-72 mb-2" />
+                    <Skeleton className="h-5 w-80" />
+                </div>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                       <div className="space-y-2">
+                         <Skeleton className="h-7 w-32" />
+                         <Skeleton className="h-5 w-48" />
+                       </div>
+                        <Skeleton className="h-10 w-36" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                           {Array.from({ length: 5 }).map((_, i) => (
+                             <Skeleton key={i} className="h-12 w-full" />
+                           ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
     return (
         <div className="flex flex-col gap-8">
             <div>

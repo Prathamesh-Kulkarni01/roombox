@@ -1,8 +1,9 @@
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { pgs } from "@/lib/mock-data"
 import { PlusCircle, MoreHorizontal, IndianRupee } from "lucide-react"
 import {
   DropdownMenu,
@@ -12,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useData } from "@/context/data-provider"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const genderBadgeColor = {
   male: 'bg-blue-100 text-blue-800',
@@ -21,6 +24,35 @@ const genderBadgeColor = {
 
 
 export default function PgManagementPage() {
+    const { pgs, isLoading } = useData();
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col gap-8">
+                 <div>
+                    <Skeleton className="h-9 w-64 mb-2" />
+                    <Skeleton className="h-5 w-80" />
+                </div>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                       <div className="space-y-2">
+                         <Skeleton className="h-7 w-24" />
+                         <Skeleton className="h-5 w-32" />
+                       </div>
+                        <Skeleton className="h-10 w-32" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                           {Array.from({ length: 3 }).map((_, i) => (
+                             <Skeleton key={i} className="h-12 w-full" />
+                           ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+    
     return (
         <div className="flex flex-col gap-8">
             <div>

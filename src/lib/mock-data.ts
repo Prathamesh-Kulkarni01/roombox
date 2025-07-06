@@ -68,7 +68,6 @@ export const tenants: Tenant[] = [
     kycStatus: 'verified',
     moveInDate: '2024-02-10',
     noticePeriodDays: 30,
-    exitDate: new Date(new Date().setDate(new Date().getDate() + 15)).toISOString().split('T')[0], // Exiting in 15 days
   },
   {
     id: 't-6',

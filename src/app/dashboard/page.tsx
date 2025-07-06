@@ -1,25 +1,28 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useData } from "@/context/data-provider"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { pgs, tenants, complaints } from "@/lib/mock-data"
-import type { Tenant, Bed } from "@/lib/types"
+import type { Tenant, Bed, Room, PG } from "@/lib/types"
 import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Settings, Home, Calendar, Wallet, UserPlus, LogOut, Clock } from "lucide-react"
 import { differenceInDays, format } from "date-fns"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashboardPage() {
-  const [selectedPg, setSelectedPg] = useState(pgs[0])
+  const { pgs, tenants, complaints, isLoading, updateTenant, addTenant, updatePgs } = useData();
+  const [selectedPg, setSelectedPg] = useState<PG | null>(null);
 
-  const stats = [
-    { title: "Occupancy", value: `${selectedPg.occupancy}/${selectedPg.totalBeds}`, icon: Users },
-    { title: "Monthly Revenue", value: "₹2,45,600", icon: IndianRupee },
-    { title: "Open Complaints", value: complaints.filter(c => c.pgId === selectedPg.id && c.status === 'open').length, icon: MessageSquareWarning },
-  ]
-  
+  useEffect(() => {
+    if (!isLoading && pgs.length > 0 && !selectedPg) {
+      setSelectedPg(pgs[0]);
+    }
+  }, [pgs, isLoading, selectedPg]);
+
   const getBedStatus = (bed: Bed) => {
     const tenant = tenants.find(t => t.id === bed.tenantId)
     if (!tenant) return 'available'
@@ -39,6 +42,103 @@ export default function DashboardPage() {
     const days = differenceInDays(new Date(exitDate), new Date());
     return days > 0 ? days : 0;
   }
+  
+  const handleInitiateExit = (tenantToUpdate: Tenant) => {
+    if (tenantToUpdate.exitDate) return; // Already in notice period
+
+    const exitDate = new Date();
+    exitDate.setDate(exitDate.getDate() + tenantToUpdate.noticePeriodDays);
+    
+    const updatedTenant = {
+      ...tenantToUpdate,
+      exitDate: format(exitDate, 'yyyy-MM-dd'),
+    };
+    updateTenant(updatedTenant);
+  };
+  
+  const handleAddTenant = (bed: Bed, room: Room, pg: PG) => {
+    const newTenant: Tenant = {
+      id: `t-${new Date().getTime()}`,
+      name: 'New Tenant',
+      pgId: pg.id,
+      pgName: pg.name,
+      bedId: bed.id,
+      rentStatus: 'unpaid',
+      dueDate: format(new Date(), 'yyyy-MM-dd'),
+      rentAmount: pg.priceRange.min,
+      kycStatus: 'pending',
+      moveInDate: format(new Date(), 'yyyy-MM-dd'),
+      noticePeriodDays: 30,
+    };
+    
+    addTenant(newTenant);
+
+    const newPgs = pgs.map(currentPg => {
+        if (currentPg.id === pg.id) {
+            return {
+                ...currentPg,
+                occupancy: currentPg.occupancy + 1,
+                floors: currentPg.floors?.map(floor => ({
+                    ...floor,
+                    rooms: floor.rooms.map(r => {
+                        if (r.id === room.id) {
+                            return {
+                                ...r,
+                                beds: r.beds.map(b => b.id === bed.id ? { ...b, tenantId: newTenant.id } : b)
+                            };
+                        }
+                        return r;
+                    })
+                }))
+            };
+        }
+        return currentPg;
+    });
+
+    updatePgs(newPgs);
+  };
+
+
+  if (isLoading || !selectedPg) {
+    return (
+      <div className="flex flex-col gap-6 animate-pulse">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <Skeleton className="h-9 w-48 mb-2" />
+            <Skeleton className="h-5 w-64" />
+          </div>
+          <Skeleton className="h-10 w-52" />
+        </div>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-7 w-1/2 mb-2" />
+            <Skeleton className="h-5 w-3/4" />
+          </CardHeader>
+          <CardContent className="space-y-8">
+              <div className="space-y-4">
+                  <Skeleton className="h-7 w-1/4 mb-4" />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                          <Skeleton key={i} className="aspect-square rounded-lg" />
+                      ))}
+                  </div>
+              </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+  
+  const stats = [
+    { title: "Occupancy", value: `${selectedPg.occupancy}/${selectedPg.totalBeds}`, icon: Users },
+    { title: "Monthly Revenue", value: "₹2,45,600", icon: IndianRupee },
+    { title: "Open Complaints", value: complaints.filter(c => c.pgId === selectedPg.id && c.status === 'open').length, icon: MessageSquareWarning },
+  ]
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,9 +147,11 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
           <p className="text-muted-foreground">Real-time view of your PG operations.</p>
         </div>
-        <Button variant="outline">
+        <Button asChild variant="outline">
+          <Link href="/dashboard/settings">
             <Settings className="mr-2 h-4 w-4" />
             Configure Rooms & Beds
+          </Link>
         </Button>
       </div>
 
@@ -142,7 +244,7 @@ export default function DashboardPage() {
                                       </div>
                                   </div>
                                   {!tenant.exitDate && (
-                                     <Button variant="outline" size="sm">
+                                     <Button variant="outline" size="sm" onClick={() => handleInitiateExit(tenant)}>
                                       <LogOut className="mr-2" /> Initiate Exit
                                     </Button>
                                   )}
@@ -151,7 +253,7 @@ export default function DashboardPage() {
                                 <div className="text-center py-4">
                                   <p className="font-semibold">Bed Available</p>
                                   <p className="text-sm text-muted-foreground">This bed is currently unoccupied.</p>
-                                  <Button size="sm" className="mt-4">
+                                  <Button size="sm" className="mt-4" onClick={() => handleAddTenant(bed, room, selectedPg)}>
                                     <UserPlus className="mr-2"/>
                                     Add Tenant
                                   </Button>
