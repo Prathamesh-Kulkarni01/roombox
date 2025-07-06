@@ -8,13 +8,13 @@ export type Amenity =
   | 'parking';
 
 export interface Bed {
-  id: string; 
-  name: string; 
+  id: string;
+  name: string;
   tenantId: string | null;
 }
 
 export interface Room {
-  id: string; 
+  id: string;
   name: string;
   beds: Bed[];
 }
@@ -57,6 +57,9 @@ export interface Tenant {
   kycStatus: 'verified' | 'pending' | 'rejected';
   kycDocUrl?: string;
   hasMessage?: boolean;
+  moveInDate: string;
+  noticePeriodDays: number;
+  exitDate?: string;
 }
 
 export interface Complaint {

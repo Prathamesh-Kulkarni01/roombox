@@ -8,7 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { pgs, tenants, complaints } from "@/lib/mock-data"
 import type { Tenant, Bed } from "@/lib/types"
-import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Settings, Home, Calendar, Wallet } from "lucide-react"
+import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Settings, Home, Calendar, Wallet, UserPlus, LogOut, Clock } from "lucide-react"
+import { differenceInDays, format } from "date-fns"
 
 export default function DashboardPage() {
   const [selectedPg, setSelectedPg] = useState(pgs[0])
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const getBedStatus = (bed: Bed) => {
     const tenant = tenants.find(t => t.id === bed.tenantId)
     if (!tenant) return 'available'
+    if (tenant.exitDate) return 'notice-period'
     if (tenant.rentStatus === 'unpaid') return 'rent-pending'
     return 'occupied'
   }
@@ -30,6 +32,12 @@ export default function DashboardPage() {
     available: 'bg-yellow-200 border-yellow-400 text-yellow-800 hover:bg-yellow-300',
     occupied: 'bg-slate-200 border-slate-400 text-slate-800 hover:bg-slate-300',
     'rent-pending': 'bg-red-300 border-red-500 text-red-900 hover:bg-red-400',
+    'notice-period': 'bg-blue-200 border-blue-400 text-blue-800 hover:bg-blue-300',
+  }
+  
+  const getDaysLeft = (exitDate: string) => {
+    const days = differenceInDays(new Date(exitDate), new Date());
+    return days > 0 ? days : 0;
   }
 
   return (
@@ -89,6 +97,7 @@ export default function DashboardPage() {
                               <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
                                 {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
                                 {tenant?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
+                                {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
                               </div>
                               
                               <PopoverTrigger asChild>
@@ -110,11 +119,18 @@ export default function DashboardPage() {
                                       <p className="text-sm text-muted-foreground">{tenant.pgName}</p>
                                     </div>
                                   </div>
+                                  {tenant.exitDate ? (
+                                    <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 w-fit">
+                                      <Clock className="w-3 h-3 mr-2" />
+                                      Exiting in {getDaysLeft(tenant.exitDate)} days
+                                    </Badge>
+                                  ) : (
+                                     <Badge variant={tenant.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="w-fit">{tenant.rentStatus}</Badge>
+                                  )}
                                   <div className="text-sm space-y-2">
                                       <div className="flex items-center">
                                           <Wallet className="w-4 h-4 mr-2 text-muted-foreground"/>
                                           Rent: ₹{tenant.rentAmount}
-                                          <Badge variant={tenant.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="ml-auto">{tenant.rentStatus}</Badge>
                                       </div>
                                       <div className="flex items-center">
                                           <Calendar className="w-4 h-4 mr-2 text-muted-foreground"/>
@@ -122,15 +138,23 @@ export default function DashboardPage() {
                                       </div>
                                       <div className="flex items-center">
                                           <Home className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                          Bed ID: {tenant.bedId}
+                                          Joined: {format(new Date(tenant.moveInDate), "do MMM, yyyy")}
                                       </div>
                                   </div>
+                                  {!tenant.exitDate && (
+                                     <Button variant="outline" size="sm">
+                                      <LogOut className="mr-2" /> Initiate Exit
+                                    </Button>
+                                  )}
                                 </div>
                               ) : (
                                 <div className="text-center py-4">
                                   <p className="font-semibold">Bed Available</p>
                                   <p className="text-sm text-muted-foreground">This bed is currently unoccupied.</p>
-                                  <Button size="sm" className="mt-4">Add Tenant</Button>
+                                  <Button size="sm" className="mt-4">
+                                    <UserPlus className="mr-2"/>
+                                    Add Tenant
+                                  </Button>
                                 </div>
                               )}
                             </PopoverContent>

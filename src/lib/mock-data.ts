@@ -12,6 +12,8 @@ export const tenants: Tenant[] = [
     rentAmount: 8500,
     kycStatus: 'verified',
     kycDocUrl: 'https://placehold.co/400x300.png',
+    moveInDate: '2024-03-01',
+    noticePeriodDays: 30,
   },
   {
     id: 't-2',
@@ -23,6 +25,8 @@ export const tenants: Tenant[] = [
     dueDate: '2024-08-05',
     rentAmount: 9000,
     kycStatus: 'pending',
+    moveInDate: '2024-05-15',
+    noticePeriodDays: 30,
   },
   {
     id: 't-3',
@@ -35,6 +39,8 @@ export const tenants: Tenant[] = [
     rentAmount: 12000,
     kycStatus: 'verified',
     kycDocUrl: 'https://placehold.co/400x300.png',
+    moveInDate: '2023-11-20',
+    noticePeriodDays: 60,
   },
    {
     id: 't-4',
@@ -46,6 +52,8 @@ export const tenants: Tenant[] = [
     dueDate: '2024-08-05',
     rentAmount: 9500,
     kycStatus: 'rejected',
+    moveInDate: '2024-07-01',
+    noticePeriodDays: 30,
   },
   // --- Additional tenants for Sunshine Living (pg-1) ---
   {
@@ -54,10 +62,13 @@ export const tenants: Tenant[] = [
     pgId: 'pg-1',
     pgName: 'Sunshine Living',
     bedId: 'pg1-101-b',
-    rentStatus: 'unpaid',
+    rentStatus: 'paid',
     dueDate: '2024-08-05',
     rentAmount: 8500,
     kycStatus: 'verified',
+    moveInDate: '2024-02-10',
+    noticePeriodDays: 30,
+    exitDate: new Date(new Date().setDate(new Date().getDate() + 15)).toISOString().split('T')[0], // Exiting in 15 days
   },
   {
     id: 't-6',
@@ -69,6 +80,8 @@ export const tenants: Tenant[] = [
     dueDate: '2024-08-05',
     rentAmount: 8500,
     kycStatus: 'verified',
+    moveInDate: '2024-04-12',
+    noticePeriodDays: 30,
   },
   {
     id: 't-7',
@@ -80,6 +93,8 @@ export const tenants: Tenant[] = [
     dueDate: '2024-08-05',
     rentAmount: 8500,
     kycStatus: 'verified',
+    moveInDate: '2024-01-05',
+    noticePeriodDays: 30,
   },
   {
     id: 't-8',
@@ -91,6 +106,8 @@ export const tenants: Tenant[] = [
     dueDate: '2024-08-05',
     rentAmount: 8500,
     kycStatus: 'verified',
+    moveInDate: '2023-12-01',
+    noticePeriodDays: 30,
   },
   {
     id: 't-9',
@@ -102,6 +119,8 @@ export const tenants: Tenant[] = [
     dueDate: '2024-08-05',
     rentAmount: 8500,
     kycStatus: 'verified',
+    moveInDate: '2024-06-20',
+    noticePeriodDays: 30,
   },
   {
     id: 't-10',
@@ -114,16 +133,18 @@ export const tenants: Tenant[] = [
     rentAmount: 8500,
     kycStatus: 'verified',
     hasMessage: true,
+    moveInDate: '2024-03-18',
+    noticePeriodDays: 30,
   },
-  { id: 't-11', name: 'Kabir Joshi', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-102-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-12', name: 'Myra Sharma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-a', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-13', name: 'Reyansh Singh', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-14', name: 'Aisha Khan', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-c', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-15', name: 'Advik Verma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-16', name: 'Kiara Reddy', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-e', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-17', name: 'Ishaan Patel', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-f', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-18', name: 'Zara Mehta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-202-a', rentStatus: 'unpaid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-19', name: 'Arjun Gupta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-202-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-11', name: 'Kabir Joshi', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-102-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-07-07', noticePeriodDays: 30, },
+  { id: 't-12', name: 'Myra Sharma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-a', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-02-22', noticePeriodDays: 30, },
+  { id: 't-13', name: 'Reyansh Singh', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-01-30', noticePeriodDays: 30, },
+  { id: 't-14', name: 'Aisha Khan', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-c', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-05-01', noticePeriodDays: 30, },
+  { id: 't-15', name: 'Advik Verma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-03-03', noticePeriodDays: 30, },
+  { id: 't-16', name: 'Kiara Reddy', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-e', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-04-09', noticePeriodDays: 30, },
+  { id: 't-17', name: 'Ishaan Patel', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-f', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-06-11', noticePeriodDays: 30, },
+  { id: 't-18', name: 'Zara Mehta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-202-a', rentStatus: 'unpaid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-01-15', noticePeriodDays: 30, },
+  { id: 't-19', name: 'Arjun Gupta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-202-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified', moveInDate: '2024-02-01', noticePeriodDays: 30, },
 ];
 
 
