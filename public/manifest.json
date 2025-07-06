@@ -1,12 +1,11 @@
-
 {
   "name": "PGOasis",
   "short_name": "PGOasis",
-  "description": "The Modern OS for Your PG",
+  "description": "PG Management and Tenant Marketplace",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#FFFFFF",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",

@@ -7,6 +7,8 @@ const withPWA = withPWAInit({
   disable: false,
   register: true,
   skipWaiting: true,
+  cacheStartUrl: true,
+  dynamicStartUrl: true,
 });
 
 const nextConfig: NextConfig = {
