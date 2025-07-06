@@ -116,14 +116,14 @@ export const tenants: Tenant[] = [
     hasMessage: true,
   },
   { id: 't-11', name: 'Kabir Joshi', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-102-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-12', name: 'Myra Sharma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-103-a', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-13', name: 'Reyansh Singh', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-103-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-14', name: 'Aisha Khan', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-103-c', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-15', name: 'Advik Verma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-103-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-16', name: 'Kiara Reddy', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-104-a', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-17', name: 'Ishaan Patel', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-104-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-18', name: 'Zara Mehta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-104-c', rentStatus: 'unpaid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
-  { id: 't-19', name: 'Arjun Gupta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-104-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-12', name: 'Myra Sharma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-a', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-13', name: 'Reyansh Singh', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-14', name: 'Aisha Khan', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-c', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-15', name: 'Advik Verma', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-d', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-16', name: 'Kiara Reddy', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-e', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-17', name: 'Ishaan Patel', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-201-f', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-18', name: 'Zara Mehta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-202-a', rentStatus: 'unpaid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
+  { id: 't-19', name: 'Arjun Gupta', pgId: 'pg-1', pgName: 'Sunshine Living', bedId: 'pg1-202-b', rentStatus: 'paid', dueDate: '2024-08-05', rentAmount: 8500, kycStatus: 'verified' },
 ];
 
 
@@ -142,40 +142,40 @@ export const pgs: PG[] = [
       'https://placehold.co/600x400.png',
     ],
     rating: 4.5,
-    occupancy: 18,
+    occupancy: 16,
     totalBeds: 20,
     rules: ['No smoking', 'No pets', 'Visitors allowed until 10 PM'],
     contact: '+911234567890',
-    rooms: [
-      { id: 'room-101', name: 'Room 101', beds: [
-        { id: 'pg1-101-a', name: 'A', tenantId: 't-1' },
-        { id: 'pg1-101-b', name: 'B', tenantId: 't-5' },
-        { id: 'pg1-101-c', name: 'C', tenantId: 't-6' },
-        { id: 'pg1-101-d', name: 'D', tenantId: 't-7' },
+    floors: [
+      { id: 'floor-1', name: 'First Floor', rooms: [
+        { id: 'room-101', name: 'Room 101', beds: [
+          { id: 'pg1-101-a', name: 'A', tenantId: 't-1' },
+          { id: 'pg1-101-b', name: 'B', tenantId: 't-5' },
+          { id: 'pg1-101-c', name: 'C', tenantId: 't-6' },
+          { id: 'pg1-101-d', name: 'D', tenantId: 't-7' },
+        ]},
+        { id: 'room-102', name: 'Room 102', beds: [
+          { id: 'pg1-102-a', name: 'A', tenantId: 't-8' },
+          { id: 'pg1-102-b', name: 'B', tenantId: 't-9' },
+          { id: 'pg1-102-c', name: 'C', tenantId: 't-10' },
+          { id: 'pg1-102-d', name: 'D', tenantId: 't-11' },
+        ]},
       ]},
-      { id: 'room-102', name: 'Room 102', beds: [
-        { id: 'pg1-102-a', name: 'A', tenantId: 't-8' },
-        { id: 'pg1-102-b', name: 'B', tenantId: 't-9' },
-        { id: 'pg1-102-c', name: 'C', tenantId: 't-10' },
-        { id: 'pg1-102-d', name: 'D', tenantId: 't-11' },
-      ]},
-      { id: 'room-103', name: 'Room 103', beds: [
-        { id: 'pg1-103-a', name: 'A', tenantId: 't-12' },
-        { id: 'pg1-103-b', name: 'B', tenantId: 't-13' },
-        { id: 'pg1-103-c', name: 'C', tenantId: 't-14' },
-        { id: 'pg1-103-d', name: 'D', tenantId: 't-15' },
-      ]},
-      { id: 'room-104', name: 'Room 104', beds: [
-        { id: 'pg1-104-a', name: 'A', tenantId: 't-16' },
-        { id: 'pg1-104-b', name: 'B', tenantId: 't-17' },
-        { id: 'pg1-104-c', name: 'C', tenantId: 't-18' },
-        { id: 'pg1-104-d', name: 'D', tenantId: 't-19' },
-      ]},
-      { id: 'room-105', name: 'Room 105', beds: [
-        { id: 'pg1-105-a', name: 'A', tenantId: null },
-        { id: 'pg1-105-b', name: 'B', tenantId: null },
-        { id: 'pg1-105-c', name: 'C', tenantId: null },
-        { id: 'pg1-105-d', name: 'D', tenantId: null },
+      { id: 'floor-2', name: 'Second Floor', rooms: [
+        { id: 'room-201', name: 'Room 201', beds: [
+          { id: 'pg1-201-a', name: 'A', tenantId: 't-12' },
+          { id: 'pg1-201-b', name: 'B', tenantId: 't-13' },
+          { id: 'pg1-201-c', name: 'C', tenantId: 't-14' },
+          { id: 'pg1-201-d', name: 'D', tenantId: 't-15' },
+          { id: 'pg1-201-e', name: 'E', tenantId: 't-16' },
+          { id: 'pg1-201-f', name: 'F', tenantId: 't-17' },
+        ]},
+        { id: 'room-202', name: 'Room 202', beds: [
+          { id: 'pg1-202-a', name: 'A', tenantId: 't-18' },
+          { id: 'pg1-202-b', name: 'B', tenantId: 't-19' },
+          { id: 'pg1-202-c', name: 'C', tenantId: null },
+          { id: 'pg1-202-d', name: 'D', tenantId: null },
+        ]},
       ]},
     ],
   },
@@ -193,6 +193,7 @@ export const pgs: PG[] = [
     totalBeds: 25,
     rules: ['No loud music after 11 PM'],
     contact: '+911234567890',
+    floors: [],
   },
   {
     id: 'pg-3',
@@ -208,6 +209,7 @@ export const pgs: PG[] = [
     totalBeds: 40,
     rules: ['Respect quiet hours'],
     contact: '+911234567890',
+    floors: [],
   },
   {
     id: 'pg-4',
@@ -223,6 +225,7 @@ export const pgs: PG[] = [
     totalBeds: 30,
     rules: [],
     contact: '+911234567890',
+    floors: [],
   },
 ];
 

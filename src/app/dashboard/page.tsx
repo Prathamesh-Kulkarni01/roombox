@@ -64,75 +64,82 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>{selectedPg.name} - Room Layout</CardTitle>
-          <CardDescription>Visualize bed occupancy and statuses across all rooms.</CardDescription>
+          <CardDescription>Visualize bed occupancy and statuses across all floors and rooms.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {selectedPg.rooms?.map(room => (
-            <div key={room.id}>
-              <h3 className="font-semibold mb-3 text-lg">{room.name}</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-                {room.beds.map(bed => {
-                  const tenant = tenants.find(t => t.id === bed.tenantId)
-                  const status = getBedStatus(bed)
-                  const hasComplaint = tenant && complaints.some(c => c.tenantId === tenant.id && c.status !== 'resolved')
-                  
-                  return (
-                    <Popover key={bed.id}>
-                      <div className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors ${bedStatusClasses[status]}`}>
-                        <BedDouble className="w-8 h-8 mb-1" />
-                        <span className="font-bold text-sm">Bed {bed.name}</span>
+        <CardContent className="space-y-8">
+          {selectedPg.floors?.map(floor => (
+            <div key={floor.id}>
+              <h2 className="font-bold text-xl mb-4 pb-2 border-b">{floor.name}</h2>
+              <div className="space-y-6">
+                {floor.rooms.map(room => (
+                  <div key={room.id}>
+                    <h3 className="font-semibold mb-3 text-lg">{room.name} <span className="font-normal text-muted-foreground">({room.beds.length}-sharing)</span></h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                      {room.beds.map(bed => {
+                        const tenant = tenants.find(t => t.id === bed.tenantId)
+                        const status = getBedStatus(bed)
+                        const hasComplaint = tenant && complaints.some(c => c.tenantId === tenant.id && c.status !== 'resolved')
                         
-                        <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
-                          {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
-                          {tenant?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
-                        </div>
-                        
-                        <PopoverTrigger asChild>
-                          <Button size="icon" variant="ghost" className="absolute bottom-1 right-1 h-6 w-6 rounded-full hover:bg-black/10">
-                            <Info className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                      </div>
-                      <PopoverContent className="w-64">
-                        {tenant ? (
-                          <div className="grid gap-4">
-                            <div className="flex items-center gap-3">
-                              <Avatar>
-                                <AvatarImage src={`https://placehold.co/40x40.png?text=${tenant.name.charAt(0)}`} />
-                                <AvatarFallback>{tenant.name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="text-sm font-medium leading-none">{tenant.name}</p>
-                                <p className="text-sm text-muted-foreground">{tenant.pgName}</p>
+                        return (
+                          <Popover key={bed.id}>
+                            <div className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors ${bedStatusClasses[status]}`}>
+                              <BedDouble className="w-8 h-8 mb-1" />
+                              <span className="font-bold text-sm">Bed {bed.name}</span>
+                              
+                              <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
+                                {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
+                                {tenant?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
                               </div>
+                              
+                              <PopoverTrigger asChild>
+                                <Button size="icon" variant="ghost" className="absolute bottom-1 right-1 h-6 w-6 rounded-full hover:bg-black/10">
+                                  <Info className="h-4 w-4" />
+                                </Button>
+                              </PopoverTrigger>
                             </div>
-                            <div className="text-sm space-y-2">
-                                <div className="flex items-center">
-                                    <Wallet className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                    Rent: ₹{tenant.rentAmount}
-                                    <Badge variant={tenant.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="ml-auto">{tenant.rentStatus}</Badge>
+                            <PopoverContent className="w-64">
+                              {tenant ? (
+                                <div className="grid gap-4">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar>
+                                      <AvatarImage src={`https://placehold.co/40x40.png?text=${tenant.name.charAt(0)}`} />
+                                      <AvatarFallback>{tenant.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="text-sm font-medium leading-none">{tenant.name}</p>
+                                      <p className="text-sm text-muted-foreground">{tenant.pgName}</p>
+                                    </div>
+                                  </div>
+                                  <div className="text-sm space-y-2">
+                                      <div className="flex items-center">
+                                          <Wallet className="w-4 h-4 mr-2 text-muted-foreground"/>
+                                          Rent: ₹{tenant.rentAmount}
+                                          <Badge variant={tenant.rentStatus === 'paid' ? 'secondary' : 'destructive'} className="ml-auto">{tenant.rentStatus}</Badge>
+                                      </div>
+                                      <div className="flex items-center">
+                                          <Calendar className="w-4 h-4 mr-2 text-muted-foreground"/>
+                                          Due: {tenant.dueDate}
+                                      </div>
+                                      <div className="flex items-center">
+                                          <Home className="w-4 h-4 mr-2 text-muted-foreground"/>
+                                          Bed ID: {tenant.bedId}
+                                      </div>
+                                  </div>
                                 </div>
-                                <div className="flex items-center">
-                                    <Calendar className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                    Due: {tenant.dueDate}
+                              ) : (
+                                <div className="text-center py-4">
+                                  <p className="font-semibold">Bed Available</p>
+                                  <p className="text-sm text-muted-foreground">This bed is currently unoccupied.</p>
+                                  <Button size="sm" className="mt-4">Add Tenant</Button>
                                 </div>
-                                <div className="flex items-center">
-                                    <Home className="w-4 h-4 mr-2 text-muted-foreground"/>
-                                    Bed ID: {tenant.bedId}
-                                </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-center py-4">
-                            <p className="font-semibold">Bed Available</p>
-                            <p className="text-sm text-muted-foreground">This bed is currently unoccupied.</p>
-                            <Button size="sm" className="mt-4">Add Tenant</Button>
-                          </div>
-                        )}
-                      </PopoverContent>
-                    </Popover>
-                  )
-                })}
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}

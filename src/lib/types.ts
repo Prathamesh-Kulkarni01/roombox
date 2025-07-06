@@ -19,6 +19,12 @@ export interface Room {
   beds: Bed[];
 }
 
+export interface Floor {
+  id: string;
+  name: string;
+  rooms: Room[];
+}
+
 export interface PG {
   id: string;
   name: string;
@@ -36,7 +42,7 @@ export interface PG {
   totalBeds: number;
   rules: string[];
   contact: string; // WhatsApp number
-  rooms?: Room[];
+  floors?: Floor[];
 }
 
 export interface Tenant {
