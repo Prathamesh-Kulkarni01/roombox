@@ -20,15 +20,19 @@ const actionsToPersist = [
 
 const localStorageMiddleware: Middleware = store => next => action => {
     const result = next(action);
-    if (typeof window !== 'undefined' && actionsToPersist.includes(action.type)) {
-        const state = store.getState();
+    
+    // Get the state *after* the action has been processed.
+    const state = store.getState();
+    const useCloud = state.user.currentPlan?.hasCloudSync ?? false;
+
+    // We only persist to localStorage if the user is on a non-cloud plan
+    if (typeof window !== 'undefined' && !useCloud && actionsToPersist.includes(action.type)) {
         try {
             if (action.type.startsWith('pgs/')) localStorage.setItem('pgs', JSON.stringify(state.pgs.pgs));
             if (action.type.startsWith('guests/')) localStorage.setItem('guests', JSON.stringify(state.guests.guests));
             if (action.type.startsWith('complaints/')) localStorage.setItem('complaints', JSON.stringify(state.complaints.complaints));
             if (action.type.startsWith('expenses/')) localStorage.setItem('expenses', JSON.stringify(state.expenses.expenses));
             if (action.type.startsWith('staff/')) localStorage.setItem('staff', JSON.stringify(state.staff.staff));
-            if (action.type === 'user/setCurrentUser') localStorage.setItem('currentUserId', JSON.stringify(state.user.currentUser?.id || null));
         } catch (e) {
             console.error("Could not save to localStorage", e);
         }
@@ -49,7 +53,12 @@ export const makeStore = () => {
         staff: staffReducer,
         notifications: notificationsReducer,
     },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(localStorageMiddleware),
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware({
+        // Recommended to turn off for performance, especially with large state.
+        // We handle our own persistence logic.
+        serializableCheck: false, 
+        immutableCheck: false,
+    }).concat(localStorageMiddleware),
     devTools: process.env.NODE_ENV !== 'production',
   });
 };
