@@ -253,11 +253,50 @@ export default function DashboardPage() {
   }, [pgsToDisplay, guests, complaints, selectedPgId]);
 
   if (isLoading) {
-    return <div className="flex flex-col gap-6 animate-pulse">...loading skeleton...</div>;
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-end gap-4">
+          <div className="flex items-center space-x-2">
+            <Skeleton className="h-6 w-24 rounded-md" />
+            <Skeleton className="h-6 w-10 rounded-md" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+        </div>
+
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-5 w-3/4" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-40 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
   
   if (pgs.length === 0) {
-    return <div className="flex flex-col items-center justify-center h-full text-center p-8">...no pgs message...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-250px)] text-center p-8 bg-card border rounded-lg">
+        <Building className="mx-auto h-16 w-16 text-muted-foreground" />
+        <h2 className="mt-6 text-2xl font-semibold">Welcome to Your Dashboard!</h2>
+        <p className="mt-2 text-muted-foreground max-w-md">
+          You haven&apos;t added any PGs yet. Get started by adding your first property.
+        </p>
+        <Button asChild className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground">
+          <Link href="/dashboard/pg-management">Add Your First PG</Link>
+        </Button>
+      </div>
+    );
   }
 
   const bedStatusClasses = {
