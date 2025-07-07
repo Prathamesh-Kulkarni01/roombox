@@ -76,10 +76,7 @@ interface DataContextType {
   updateUserPlan: (planId: PlanName) => void;
   currentGuest: Guest | null;
   currentPg: PG | null;
-  handlePhoneAuthSuccess: (phoneNumber: string) => Promise<{ isNewUser: boolean; role: UserRole | null }>;
   handleSocialLogin: (socialUser: FirebaseUser) => Promise<{ isNewUser: boolean; role: UserRole | null }>;
-  pendingSignupPhone: string | null;
-  completeNewUserSignup: (name: string) => Promise<void>;
 }
 
 // Create context
@@ -98,9 +95,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [pendingSignupPhone, setPendingSignupPhone] = useState<string | null>(null);
 
-  // Memoized derived state
+  const handleSetCurrentUser = useCallback((user: User | null) => {
+    setCurrentUser(user);
+    saveToLocalStorage('currentUserId', user ? user.id : null);
+  }, []);
+
   const currentPlan = useMemo(() => {
     if (!currentUser) return null;
     return plans[currentUser.subscription?.planId || 'free'];
@@ -115,14 +115,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (!currentGuest) return null;
     return pgs.find(p => p.id === currentGuest.pgId) || null;
   }, [currentGuest, pgs]);
-
-  const handleSetCurrentUser = useCallback((user: User | null) => {
-    setCurrentUser(user);
-    saveToLocalStorage('currentUserId', user ? user.id : null);
-    if (!user) {
-      setPendingSignupPhone(null);
-    }
-  }, []);
   
   // Main data loading effect
   useEffect(() => {
@@ -263,24 +255,28 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     return newPg.id;
   }, [currentUser, syncToFirestore]);
 
-  const handlePhoneAuthSuccess = useCallback(async (phoneNumber: string): Promise<{ isNewUser: boolean; role: UserRole | null }> => {
-    // 1. Check if a User object already exists with this phone number
-    let existingUser = users.find(u => u.phone === phoneNumber);
+  const handleSocialLogin = useCallback(async (socialUser: FirebaseUser): Promise<{ isNewUser: boolean, role: UserRole | null }> => {
+    if (!socialUser.email) {
+      throw new Error("Social login provider did not return an email.");
+    }
+    
+    // 1. Check if a User object already exists
+    let existingUser = users.find(u => u.email === socialUser.email);
     if (existingUser) {
       handleSetCurrentUser(existingUser);
       return { isNewUser: false, role: existingUser.role };
     }
 
-    // 2. Check if a Staff object exists with this phone number
-    const existingStaff = staff.find(s => s.phone === phoneNumber);
+    // 2. Check if a Staff object exists with this email
+    const existingStaff = staff.find(s => s.email === socialUser.email);
     if (existingStaff) {
        const newUserForStaff: User = {
           id: `user-${Date.now()}`,
           name: existingStaff.name,
-          phone: phoneNumber,
+          email: socialUser.email,
           role: existingStaff.role,
           pgIds: [existingStaff.pgId],
-          avatarUrl: `https://placehold.co/40x40.png?text=${existingStaff.name.slice(0,2).toUpperCase()}`
+          avatarUrl: socialUser.photoURL || `https://placehold.co/40x40.png?text=${existingStaff.name.slice(0,2).toUpperCase()}`
        };
        const updatedUsers = [...users, newUserForStaff];
        setUsers(updatedUsers);
@@ -289,16 +285,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
        return { isNewUser: false, role: newUserForStaff.role };
     }
 
-    // 3. Check if a Guest object exists with this phone number
-    const existingGuest = guests.find(g => g.phone === phoneNumber);
+    // 3. Check if a Guest object exists with this email
+    const existingGuest = guests.find(g => g.email === socialUser.email);
     if (existingGuest) {
        const newUserForGuest: User = {
           id: `user-${Date.now()}`,
           name: existingGuest.name,
-          phone: phoneNumber,
+          email: socialUser.email,
           role: 'tenant',
           guestId: existingGuest.id,
-          avatarUrl: `https://placehold.co/40x40.png?text=${existingGuest.name.slice(0,2).toUpperCase()}`
+          avatarUrl: socialUser.photoURL || `https://placehold.co/40x40.png?text=${existingGuest.name.slice(0,2).toUpperCase()}`
        };
        const updatedUsers = [...users, newUserForGuest];
        setUsers(updatedUsers);
@@ -306,24 +302,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
        handleSetCurrentUser(newUserForGuest);
        return { isNewUser: false, role: newUserForGuest.role };
     }
-    
-    // 4. If no user found, it's a new signup
-    setPendingSignupPhone(phoneNumber);
-    return { isNewUser: true, role: null };
-  }, [users, staff, guests, handleSetCurrentUser]);
 
-  const handleSocialLogin = useCallback(async (socialUser: FirebaseUser): Promise<{ isNewUser: boolean, role: UserRole | null }> => {
-    if (!socialUser.email) {
-      throw new Error("Social login provider did not return an email.");
-    }
-    
-    let existingUser = users.find(u => u.email === socialUser.email);
-    if (existingUser) {
-      handleSetCurrentUser(existingUser);
-      return { isNewUser: false, role: existingUser.role };
-    }
-
-    // New user via social login
+    // 4. If no user found, it's a new owner signup
     const newUser: User = {
         id: `user-${Date.now()}`,
         name: socialUser.displayName || 'New User',
@@ -337,40 +317,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const updatedUsers = [...users, newUser];
     setUsers(updatedUsers);
     saveToLocalStorage('users', updatedUsers);
-    
-    // Set current user BEFORE calling functions that rely on it (like addPg)
     handleSetCurrentUser(newUser); 
-    
     addPg({ name: `${newUser.name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
     
     return { isNewUser: true, role: 'owner' };
-  }, [users, handleSetCurrentUser, addPg]);
-
-  const completeNewUserSignup = useCallback(async (name: string) => {
-    if (!pendingSignupPhone) {
-        console.error("No pending phone number for signup.");
-        return;
-    }
-    const newUser: User = {
-        id: `user-${Date.now()}`,
-        name,
-        phone: pendingSignupPhone,
-        role: 'owner',
-        subscription: { planId: 'free', status: 'active' },
-        avatarUrl: `https://placehold.co/40x40.png?text=${name.slice(0,2).toUpperCase()}`
-    };
-    
-    const updatedUsers = [...users, newUser];
-    setUsers(updatedUsers);
-    saveToLocalStorage('users', updatedUsers);
-    
-    // Set current user BEFORE calling addPg
-    handleSetCurrentUser(newUser);
-    
-    addPg({ name: `${name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
-
-    setPendingSignupPhone(null);
-  }, [pendingSignupPhone, users, addPg, handleSetCurrentUser]);
+  }, [users, staff, guests, handleSetCurrentUser, addPg]);
 
   const updateUserPlan = useCallback((planId: PlanName) => {
     if (!currentUser) return;
@@ -563,7 +514,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     saveToLocalStorage('selectedPgId', id);
   }, []);
   
-  const value = { pgs: visiblePgs, guests: visibleGuests, complaints: visibleComplaints, expenses: visibleExpenses, staff: visibleStaff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addPg, addExpense, updatePgMenu, updateComplaint, addComplaint, addStaff, updateStaff, deleteStaff, isLoading, notifications, markNotificationAsRead, markAllAsRead, users, currentUser, setCurrentUser: handleSetCurrentUser, logout, disassociateAndCreateOwnerAccount, currentPlan, updateUserPlan, currentGuest, currentPg, handlePhoneAuthSuccess, handleSocialLogin, pendingSignupPhone, completeNewUserSignup };
+  const value = { pgs: visiblePgs, guests: visibleGuests, complaints: visibleComplaints, expenses: visibleExpenses, staff: visibleStaff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addPg, addExpense, updatePgMenu, updateComplaint, addComplaint, addStaff, updateStaff, deleteStaff, isLoading, notifications, markNotificationAsRead, markAllAsRead, users, currentUser, setCurrentUser: handleSetCurrentUser, logout, disassociateAndCreateOwnerAccount, currentPlan, updateUserPlan, currentGuest, currentPg, handleSocialLogin };
 
   return (
     <DataContext.Provider value={value}>

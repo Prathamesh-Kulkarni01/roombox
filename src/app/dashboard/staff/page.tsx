@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 const staffSchema = z.object({
   pgId: z.string().min(1, "Please select a PG"),
   name: z.string().min(2, "Name must be at least 2 characters."),
+  email: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
   role: z.enum(['manager', 'cleaner', 'cook', 'security', 'other']),
   phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
   salary: z.coerce.number().min(1, "Salary is required."),
@@ -223,6 +224,9 @@ export default function StaffPage() {
                         )} />
                         <FormField control={form.control} name="name" render={({ field }) => (
                             <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Suresh Kumar" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                         <FormField control={form.control} name="email" render={({ field }) => (
+                            <FormItem><FormLabel>Email (Optional)</FormLabel><FormControl><Input type="email" placeholder="e.g., suresh@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="phone" render={({ field }) => (
                             <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>

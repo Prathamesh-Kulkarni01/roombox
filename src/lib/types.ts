@@ -110,6 +110,7 @@ export interface Expense {
 export interface Staff {
   id: string;
   name: string;
+  email?: string;
   role: 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
   phone: string;
   salary: number;

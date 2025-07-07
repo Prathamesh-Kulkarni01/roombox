@@ -508,6 +508,7 @@ export const staff: Staff[] = [
   {
     id: 'staff-1',
     name: 'Rajesh Kumar',
+    email: 'manager@pgoasis.com',
     role: 'manager',
     phone: '+919988776655',
     salary: 25000,
@@ -517,6 +518,7 @@ export const staff: Staff[] = [
   {
     id: 'staff-2',
     name: 'Sita Devi',
+    email: 'cook@pgoasis.com',
     role: 'cook',
     phone: '+919988776654',
     salary: 15000,
