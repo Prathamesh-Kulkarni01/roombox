@@ -31,6 +31,15 @@ export default function LoginPage() {
   const [showOtpInput, setShowOtpInput] = useState(false)
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null)
 
+  useEffect(() => {
+    return () => {
+      // Cleanup the verifier on component unmount
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+      }
+    };
+  }, []);
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{10}$/.test(phone)) {
@@ -38,14 +47,26 @@ export default function LoginPage() {
         return;
     }
     setLoading(true);
+
     try {
-      // Create the verifier here, just before it's needed.
+      // Ensure any previous verifier is cleared before creating a new one
+      if (window.recaptchaVerifier) {
+          window.recaptchaVerifier.clear();
+      }
+      
       const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
         'callback': (response: any) => {
           // reCAPTCHA solved, allow signInWithPhoneNumber.
+        },
+        'expired-callback': () => {
+            // Response expired. Ask user to solve reCAPTCHA again.
+            if (window.recaptchaVerifier) {
+                window.recaptchaVerifier.clear();
+            }
         }
       });
+      window.recaptchaVerifier = recaptchaVerifier;
 
       const formattedPhone = `+91${phone}`;
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
@@ -55,10 +76,18 @@ export default function LoginPage() {
     } catch (error) {
       console.error("Error sending OTP:", error);
       // Reset reCAPTCHA if something goes wrong.
-      if (window.grecaptcha) {
-        window.grecaptcha.reset();
+      if (window.grecaptcha && typeof window.grecaptcha.reset === 'function') {
+        try {
+          window.grecaptcha.reset();
+        } catch(e) {
+          console.error("Error resetting grecaptcha", e)
+        }
       }
-      toast({ variant: "destructive", title: "Failed to send OTP", description: "Please check your number and try again. You may need to refresh." });
+      toast({ 
+        variant: "destructive", 
+        title: "Failed to send OTP", 
+        description: "Please check your number and try again. This can sometimes be due to project configuration issues." 
+      });
     } finally {
       setLoading(false);
     }
