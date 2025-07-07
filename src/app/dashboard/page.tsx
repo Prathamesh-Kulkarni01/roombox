@@ -81,7 +81,16 @@ export default function DashboardPage() {
   const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string } | null>(null);
   
   // Forms
-  const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({ resolver: zodResolver(addGuestSchema) });
+  const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
+    resolver: zodResolver(addGuestSchema),
+    defaultValues: {
+      name: '',
+      phone: '',
+      email: '',
+      rentAmount: 0,
+      depositAmount: 0,
+    },
+  });
   const floorForm = useForm<z.infer<typeof floorSchema>>({ resolver: zodResolver(floorSchema), defaultValues: { name: '' } });
   const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema), defaultValues: { name: '', rent: 0, deposit: 0 } });
   const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } });
@@ -97,7 +106,7 @@ export default function DashboardPage() {
   }, [floorToEdit, floorForm]);
 
   useEffect(() => {
-    if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: undefined, deposit: undefined });
+    if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: 0, deposit: 0 });
   }, [roomToEdit, roomForm]);
 
   useEffect(() => {
