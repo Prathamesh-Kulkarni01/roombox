@@ -18,6 +18,7 @@ import { setExpenses, fetchExpenses as fetchLocalExpenses } from '@/lib/slices/e
 import { setStaff, fetchStaff as fetchLocalStaff } from '@/lib/slices/staffSlice'
 import { setNotifications, fetchNotifications as fetchLocalNotifications } from '@/lib/slices/notificationsSlice'
 import { useToast } from '@/hooks/use-toast'
+import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
 
 function AuthHandler({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
@@ -79,9 +80,12 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
   // Real-time data subscription and local data fetching effect
   useEffect(() => {
-    if (!currentUser || !currentPlan) {
-      return;
-    }
+    if (!currentUser) return;
+    
+    // Initialize Firebase Cloud Messaging for notifications
+    initializeFirebaseMessaging();
+    
+    if (!currentPlan) return;
 
     if (currentPlan.hasCloudSync && isFirebaseConfigured() && db) {
       // Pro Plan: Real-time sync from Firestore
