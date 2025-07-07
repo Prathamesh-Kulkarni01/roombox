@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -11,6 +12,14 @@ import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } fro
 import { auth } from "@/lib/firebase"
 import { Loader2 } from 'lucide-react'
 
+// Since reCAPTCHA is loaded via a script, we need to extend the window type
+declare global {
+    interface Window {
+        recaptchaVerifier?: RecaptchaVerifier;
+        grecaptcha?: any;
+    }
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const { handlePhoneAuthSuccess } = useData()
@@ -22,18 +31,6 @@ export default function LoginPage() {
   const [showOtpInput, setShowOtpInput] = useState(false)
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null)
 
-  useEffect(() => {
-    // This effect should run only once
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => {
-          // reCAPTCHA solved, allow signInWithPhoneNumber.
-        }
-      });
-    }
-  }, [])
-
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\d{10}$/.test(phone)) {
@@ -42,15 +39,26 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
+      // Create the verifier here, just before it's needed.
+      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': (response: any) => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
+      });
+
       const formattedPhone = `+91${phone}`;
-      const appVerifier = window.recaptchaVerifier;
-      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
       setConfirmationResult(result);
       setShowOtpInput(true);
       toast({ title: "OTP Sent", description: `An OTP has been sent to ${formattedPhone}.` });
     } catch (error) {
       console.error("Error sending OTP:", error);
-      toast({ variant: "destructive", title: "Failed to send OTP", description: "Please check the phone number and try again." });
+      // Reset reCAPTCHA if something goes wrong.
+      if (window.grecaptcha) {
+        window.grecaptcha.reset();
+      }
+      toast({ variant: "destructive", title: "Failed to send OTP", description: "Please check your number and try again. You may need to refresh." });
     } finally {
       setLoading(false);
     }
