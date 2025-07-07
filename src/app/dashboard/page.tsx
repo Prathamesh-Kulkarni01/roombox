@@ -20,6 +20,7 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Form,
   FormControl,
@@ -37,9 +38,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
 
 import type { Guest, Bed, Room, PG, Floor } from "@/lib/types"
-import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Home, UserPlus, CalendarIcon, Layers, DoorOpen, PlusCircle, Trash2, Pencil } from "lucide-react"
+import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Home, UserPlus, CalendarIcon, Layers, DoorOpen, PlusCircle, Trash2, Pencil, Wallet, LogOut, ArrowRight } from "lucide-react"
 import { differenceInDays, format, addMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -62,8 +66,20 @@ const roomSchema = z.object({
 })
 const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is required.") })
 
+const paymentSchema = z.object({
+  amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
+  paymentMethod: z.enum(['cash', 'upi', 'in-app']),
+});
+
+const rentStatusColors: Record<Guest['rentStatus'], string> = {
+  paid: 'bg-green-100 text-green-800 border-green-300',
+  unpaid: 'bg-red-100 text-red-800 border-red-300',
+  partial: 'bg-orange-100 text-orange-800 border-orange-300',
+};
+
+
 export default function DashboardPage() {
-  const { pgs, guests, complaints, isLoading, addGuest, updatePgs, selectedPgId, updatePg } = useData();
+  const { pgs, guests, complaints, isLoading, addGuest, updatePgs, selectedPgId, updatePg, updateGuest } = useData();
   
   // States for guest dialog
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
@@ -80,20 +96,24 @@ export default function DashboardPage() {
   const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<string | null>(null);
   const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string } | null>(null);
   
+  // States for guest actions
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedGuestForPayment, setSelectedGuestForPayment] = useState<Guest | null>(null);
+  
   // Forms
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
     resolver: zodResolver(addGuestSchema),
     defaultValues: {
-      name: '',
-      phone: '',
-      email: '',
-      rentAmount: 0,
-      depositAmount: 0,
+      name: '', phone: '', email: '', rentAmount: 0, depositAmount: 0,
     },
   });
   const floorForm = useForm<z.infer<typeof floorSchema>>({ resolver: zodResolver(floorSchema), defaultValues: { name: '' } });
   const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema), defaultValues: { name: '', rent: 0, deposit: 0 } });
   const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } });
+  const paymentForm = useForm<z.infer<typeof paymentSchema>>({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: { paymentMethod: 'cash' }
+  });
 
   // Memos
   const pgsToDisplay = useMemo(() => {
@@ -101,17 +121,15 @@ export default function DashboardPage() {
   }, [pgs, selectedPgId])
 
   // Effects for form resets
+  useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm]);
+  useEffect(() => { if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: 0, deposit: 0 }); }, [roomToEdit, roomForm]);
+  useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm]);
   useEffect(() => {
-    if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' });
-  }, [floorToEdit, floorForm]);
-
-  useEffect(() => {
-    if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: 0, deposit: 0 });
-  }, [roomToEdit, roomForm]);
-
-  useEffect(() => {
-    if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' });
-  }, [bedToEdit, bedForm]);
+    if (selectedGuestForPayment) {
+        const amountDue = selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0);
+        paymentForm.reset({ paymentMethod: 'cash', amountPaid: amountDue > 0 ? Number(amountDue.toFixed(2)) : 0 });
+    }
+  }, [selectedGuestForPayment, paymentForm]);
 
   // Data Handlers
   const getBedStatus = (bed: Bed) => {
@@ -154,6 +172,36 @@ export default function DashboardPage() {
     });
     updatePgs(newPgs);
     setIsAddGuestDialogOpen(false);
+  };
+  
+  const handleOpenPaymentDialog = (guest: Guest) => {
+    setSelectedGuestForPayment(guest);
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
+      if (!selectedGuestForPayment) return;
+      const guest = selectedGuestForPayment;
+      const newTotalPaid = (guest.rentPaidAmount || 0) + values.amountPaid;
+      let updatedGuest: Guest;
+      if (newTotalPaid >= guest.rentAmount) {
+          updatedGuest = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(guest.dueDate), 1), 'yyyy-MM-dd') };
+      } else {
+          updatedGuest = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid };
+      }
+      updateGuest(updatedGuest);
+      setIsPaymentDialogOpen(false);
+      setSelectedGuestForPayment(null);
+  };
+
+  const handleVacateBed = (guest: Guest) => {
+    if (!guest || guest.exitDate) return;
+    if (confirm(`Are you sure you want to initiate the exit process for ${guest.name}? This cannot be undone.`)) {
+        const exitDate = new Date();
+        exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays);
+        const updatedGuest = { ...guest, exitDate: format(exitDate, 'yyyy-MM-dd') };
+        updateGuest(updatedGuest);
+    }
   };
 
   // Layout Editing Handlers
@@ -382,19 +430,61 @@ export default function DashboardPage() {
                               }
                               
                               return (
-                                <div key={bed.id} className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2.5 text-center gap-1 transition-colors ${bedStatusClasses[status]}`}>
-                                    <BedDouble className="w-8 h-8 mb-1" />
-                                    <span className="font-bold text-sm">Bed {bed.name}</span>
-                                    <p className="text-xs w-full truncate">{guest.name}</p>
-                                    <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
-                                        {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
-                                        {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
-                                        {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
-                                    </div>
-                                    <Link href={`/dashboard/tenant-management/${guest.id}`} className="absolute bottom-1 right-1">
-                                      <Button size="icon" variant="ghost" className="h-6 w-6 rounded-full hover:bg-black/10"><Info className="h-4 w-4" /></Button>
-                                    </Link>
-                                </div>
+                                <Popover key={bed.id}>
+                                    <PopoverTrigger asChild>
+                                        <button className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2.5 text-center gap-1 transition-colors w-full ${bedStatusClasses[status]}`}>
+                                            <BedDouble className="w-8 h-8 mb-1" />
+                                            <span className="font-bold text-sm">Bed {bed.name}</span>
+                                            <p className="text-xs w-full truncate">{guest.name}</p>
+                                            <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
+                                                {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
+                                                {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
+                                                {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
+                                            </div>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-64 p-0">
+                                        <div className="p-4 space-y-2">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar>
+                                                    <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} />
+                                                    <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-semibold">{guest.name}</p>
+                                                    <p className="text-xs text-muted-foreground">{guest.phone}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-sm space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span>Rent Status:</span>
+                                                    <Badge variant="outline" className={cn("capitalize", rentStatusColors[guest.rentStatus])}>{guest.rentStatus}</Badge>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Due Date:</span>
+                                                    <span className="font-medium">{format(new Date(guest.dueDate), "do MMM")}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-1 p-2 bg-muted/50">
+                                            {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
+                                                <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleOpenPaymentDialog(guest)}>
+                                                    <Wallet className="mr-2 h-4 w-4" /> Collect Rent
+                                                </Button>
+                                            )}
+                                            {!guest.exitDate && (
+                                                <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleVacateBed(guest)}>
+                                                    <LogOut className="mr-2 h-4 w-4" /> Vacate Bed
+                                                </Button>
+                                            )}
+                                            <Button variant="ghost" size="sm" className="justify-start" asChild>
+                                                <Link href={`/dashboard/tenant-management/${guest.id}`}>
+                                                    <ArrowRight className="mr-2 h-4 w-4" /> Show Profile
+                                                </Link>
+                                            </Button>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
                               );
                             })}
                              {isEditMode && (<button onClick={() => openAddBedDialog(floor.id, room.id)} className="min-h-[110px] w-full flex flex-col items-center justify-center p-2 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-6 h-6 mb-1" /><span className="text-sm font-medium text-center">Add Bed</span></button>)}
@@ -426,6 +516,46 @@ export default function DashboardPage() {
     <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}><DialogContent><DialogHeader><DialogTitle>{floorToEdit ? 'Edit Floor' : 'Add New Floor'}</DialogTitle></DialogHeader><Form {...floorForm}><form onSubmit={floorForm.handleSubmit(handleFloorSubmit(pgsToDisplay[0]))} id="floor-form" className="space-y-4"><FormField control={floorForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Floor Name</FormLabel><FormControl><Input placeholder="e.g., First Floor" {...field} /></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="floor-form">{floorToEdit ? 'Save Changes' : 'Add Floor'}</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}><DialogContent><DialogHeader><DialogTitle>{roomToEdit ? 'Edit Room' : 'Add New Room'}</DialogTitle></DialogHeader><Form {...roomForm}><form onSubmit={roomForm.handleSubmit(handleRoomSubmit(pgsToDisplay[0]))} id="room-form" className="space-y-4"><FormField control={roomForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Room Name / Number</FormLabel><FormControl><Input placeholder="e.g., Room 101" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={roomForm.control} name="rent" render={({ field }) => (<FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" placeholder="e.g., 8000" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={roomForm.control} name="deposit" render={({ field }) => (<FormItem><FormLabel>Security Deposit</FormLabel><FormControl><Input type="number" placeholder="e.g., 16000" {...field} /></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="room-form">{roomToEdit ? 'Save Changes' : 'Add Room'}</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={isBedDialogOpen} onOpenChange={setIsBedDialogOpen}><DialogContent><DialogHeader><DialogTitle>{bedToEdit ? 'Edit Bed' : 'Add New Bed'}</DialogTitle></DialogHeader><Form {...bedForm}><form onSubmit={bedForm.handleSubmit(handleBedSubmit(pgsToDisplay[0]))} id="bed-form" className="space-y-4"><FormField control={bedForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Bed Name / Number</FormLabel><FormControl><Input placeholder="e.g., A, B, 1, 2..." {...field} /></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="bed-form">{bedToEdit ? 'Save Changes' : 'Add Bed'}</Button></DialogFooter></DialogContent></Dialog>
+    
+    {/* Payment Dialog */}
+    <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+              <DialogTitle>Collect Rent Payment</DialogTitle>
+              <DialogDescription>Record a full or partial payment for {selectedGuestForPayment?.name}.</DialogDescription>
+          </DialogHeader>
+          {selectedGuestForPayment && (
+              <Form {...paymentForm}>
+                  <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4">
+                      <div className="space-y-2 py-2">
+                          <p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{selectedGuestForPayment.rentAmount.toLocaleString('en-IN')}</span></p>
+                          <p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{(selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0)).toLocaleString('en-IN')}</span></p>
+                      </div>
+                      <FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (
+                          <FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (
+                          <FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel>
+                              <FormControl>
+                                  <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1">
+                                      <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash-payment" /></FormControl><FormLabel htmlFor="cash-payment" className="font-normal cursor-pointer">Cash</FormLabel></FormItem>
+                                      <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi-payment" /></FormControl><FormLabel htmlFor="upi-payment" className="font-normal cursor-pointer">UPI</FormLabel></FormItem>
+                                  </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                          </FormItem>
+                      )} />
+                  </form>
+              </Form>
+          )}
+          <DialogFooter>
+              <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+              <Button type="submit" form="payment-form">Confirm Payment</Button>
+          </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   )
 }
+
+    
