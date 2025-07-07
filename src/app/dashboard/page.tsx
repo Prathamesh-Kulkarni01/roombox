@@ -40,10 +40,12 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { useToast } from "@/hooks/use-toast"
+import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 
 
 import type { Guest, Bed, Room, PG, Floor } from "@/lib/types"
-import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Home, UserPlus, CalendarIcon, Layers, DoorOpen, PlusCircle, Trash2, Pencil, Wallet, LogOut, ArrowRight } from "lucide-react"
+import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Home, UserPlus, CalendarIcon, Layers, DoorOpen, PlusCircle, Trash2, Pencil, Wallet, LogOut, ArrowRight, Phone, Copy } from "lucide-react"
 import { differenceInDays, format, addMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -79,7 +81,8 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
 
 
 export default function DashboardPage() {
-  const { pgs, guests, complaints, isLoading, addGuest, updatePgs, selectedPgId, updatePg, updateGuest } = useData();
+  const { pgs, guests, complaints, isLoading, addGuest, updatePgs, selectedPgId, updatePg, updateGuest, currentPlan } = useData();
+  const { toast } = useToast()
   
   // States for guest dialog
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
@@ -99,6 +102,10 @@ export default function DashboardPage() {
   // States for guest actions
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedGuestForPayment, setSelectedGuestForPayment] = useState<Guest | null>(null);
+  const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [isGeneratingReminder, setIsGeneratingReminder] = useState(false);
+  const [selectedGuestForReminder, setSelectedGuestForReminder] = useState<Guest | null>(null);
   
   // Forms
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
@@ -203,6 +210,30 @@ export default function DashboardPage() {
         updateGuest(updatedGuest);
     }
   };
+
+  const handleOpenReminderDialog = async (guest: Guest) => {
+    if (!guest || !currentPlan?.hasAiRentReminders) return
+    setSelectedGuestForReminder(guest);
+    setIsReminderDialogOpen(true)
+    setIsGeneratingReminder(true)
+    setReminderMessage('')
+
+    try {
+        const input: GenerateRentReminderInput = {
+            guestName: guest.name,
+            rentAmount: guest.rentAmount - (guest.rentPaidAmount || 0),
+            dueDate: format(new Date(guest.dueDate), "do MMMM yyyy"),
+            pgName: guest.pgName,
+        }
+        const result = await generateRentReminder(input)
+        setReminderMessage(result.reminderMessage)
+    } catch (error) {
+        console.error("Failed to generate reminder", error)
+        setReminderMessage("Sorry, we couldn't generate a reminder at this time. Please try again.")
+    } finally {
+        setIsGeneratingReminder(false)
+    }
+  }
 
   // Layout Editing Handlers
   const handleFloorSubmit = (pg: PG) => (values: z.infer<typeof floorSchema>) => {
@@ -472,6 +503,18 @@ export default function DashboardPage() {
                                                     <Wallet className="mr-2 h-4 w-4" /> Collect Rent
                                                 </Button>
                                             )}
+                                            {currentPlan?.hasAiRentReminders && (guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
+                                                <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleOpenReminderDialog(guest)}>
+                                                    <MessageCircle className="mr-2 h-4 w-4" /> Send Reminder
+                                                </Button>
+                                            )}
+                                            {guest.phone && (
+                                                <Button variant="ghost" size="sm" className="justify-start w-full" asChild>
+                                                    <a href={`tel:${guest.phone}`}>
+                                                        <Phone className="mr-2 h-4 w-4" /> Call Guest
+                                                    </a>
+                                                </Button>
+                                            )}
                                             {!guest.exitDate && (
                                                 <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleVacateBed(guest)}>
                                                     <LogOut className="mr-2 h-4 w-4" /> Vacate Bed
@@ -554,8 +597,31 @@ export default function DashboardPage() {
           </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Reminder Dialog */}
+    <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Send Rent Reminder</DialogTitle>
+                <DialogDescription>A reminder message has been generated for {selectedGuestForReminder?.name}. You can copy it or send it directly via WhatsApp.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                {isGeneratingReminder ? (
+                    <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>
+                ) : (
+                    <Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />
+                )}
+            </div>
+            <DialogFooter className="gap-2 sm:justify-end">
+                <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}>
+                    <Copy className="mr-2 h-4 w-4" /> Copy
+                </Button>
+                <a href={`https://wa.me/${selectedGuestForReminder?.phone}?text=${encodeURIComponent(reminderMessage)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
+                    <Button className="w-full bg-green-500 hover:bg-green-600 text-white"><MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp</Button>
+                </a>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   )
 }
-
-    

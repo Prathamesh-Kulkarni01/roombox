@@ -23,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 
 import type { Guest, Complaint } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Send, Copy, Calendar, Phone, Mail, Building, BedDouble } from "lucide-react"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble } from "lucide-react"
 import { format, addMonths, differenceInDays } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
@@ -225,12 +225,19 @@ export default function GuestProfilePage() {
                                 <span className="font-medium">₹{(guest.depositAmount || 0).toLocaleString('en-IN')}</span>
                             </div>
                         </CardContent>
-                        <CardFooter className="gap-2">
+                        <CardFooter className="flex flex-wrap gap-2">
                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
                                 <Button onClick={() => setIsPaymentDialogOpen(true)}><Wallet className="mr-2 h-4 w-4" /> Collect Rent</Button>
                              )}
                               {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && currentPlan?.hasAiRentReminders && (
-                                <Button variant="secondary" onClick={handleOpenReminderDialog}><Send className="mr-2 h-4 w-4" />Send Reminder</Button>
+                                <Button variant="secondary" onClick={handleOpenReminderDialog}><MessageCircle className="mr-2 h-4 w-4" />Send Reminder</Button>
+                            )}
+                             {guest.phone && (
+                                <Button variant="outline" asChild>
+                                    <a href={`tel:${guest.phone}`}>
+                                        <Phone className="mr-2 h-4 w-4" /> Call Guest
+                                    </a>
+                                </Button>
                             )}
                         </CardFooter>
                     </Card>
