@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
-import { useData } from '@/context/data-provider';
 import { navPermissions } from '@/lib/permissions';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { logoutUser } from '@/lib/slices/userSlice';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core' },
@@ -26,7 +27,8 @@ const navItems = [
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
-  const { currentUser, users, setCurrentUser, logout, currentPlan } = useData();
+  const dispatch = useAppDispatch();
+  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
 
   if (!currentUser || !currentPlan) {
     return (
@@ -73,42 +75,27 @@ export default function DashboardSidebar() {
       </div>
       <div className="p-4 mt-auto">
         <Separator className="my-4 bg-sidebar-border" />
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="w-full justify-between h-auto px-2 py-1.5 text-left">
-                    <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                            <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                            <AvatarFallback>{currentUser.name.slice(0,2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className='flex-1'>
-                            <p className="font-semibold text-sm truncate">{currentUser.name}</p>
-                            <p className="text-xs text-sidebar-foreground/70 capitalize">{currentUser.role} ({currentPlan.name})</p>
-                        </div>
-                    </div>
-                     <ChevronsUpDown className="h-4 w-4 text-sidebar-foreground/70 shrink-0" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 mb-2" align="end" forceMount>
-                <DropdownMenuLabel>Switch Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup value={currentUser.id} onValueChange={(id) => {
-                    const userToSwitch = users.find(u => u.id === id);
-                    if (userToSwitch) setCurrentUser(userToSwitch);
-                }}>
-                    {users.map(user => (
-                        <DropdownMenuRadioItem key={user.id} value={user.id}>
-                            {user.name} ({user.role})
-                        </DropdownMenuRadioItem>
-                    ))}
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+         <div className="flex items-center gap-3">
+            <Avatar className="h-9 w-9">
+                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+                <AvatarFallback>{currentUser.name.slice(0,2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className='flex-1'>
+                <p className="font-semibold text-sm truncate">{currentUser.name}</p>
+                <p className="text-xs text-sidebar-foreground/70 capitalize">{currentUser.role} ({currentPlan.name})</p>
+            </div>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7"><LogOut/></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-40 mb-2" align="end" forceMount>
+                     <DropdownMenuItem onClick={() => dispatch(logoutUser())}>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Logout
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
       </div>
     </aside>
   );

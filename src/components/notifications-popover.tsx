@@ -1,30 +1,33 @@
+
 'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useData } from '@/context/data-provider'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Bell, CheckCheck } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { markAllAsRead, markNotificationAsRead } from '@/lib/slices/notificationsSlice'
 
 export default function NotificationsPopover() {
-  const { notifications, markNotificationAsRead, markAllAsRead } = useData()
+  const dispatch = useAppDispatch()
+  const { notifications } = useAppSelector((state) => state.notifications)
   const [isOpen, setIsOpen] = useState(false)
 
   const unreadCount = notifications.filter(n => !n.isRead).length
 
   const handleNotificationClick = (notificationId: string) => {
-    markNotificationAsRead(notificationId)
+    dispatch(markNotificationAsRead(notificationId))
     setIsOpen(false)
   }
 
   const handleMarkAllRead = (e: React.MouseEvent) => {
     e.preventDefault();
-    markAllAsRead()
+    dispatch(markAllAsRead())
   }
 
   return (

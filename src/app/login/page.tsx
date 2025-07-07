@@ -1,14 +1,16 @@
+
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useData } from '@/context/data-provider'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { Loader2 } from 'lucide-react'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { initializeUser } from '@/lib/slices/userSlice'
 
 const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
   <svg role="img" viewBox="0 0 24 24" {...props}>
@@ -21,26 +23,28 @@ const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
 
 export default function LoginPage() {
   const router = useRouter()
-  const { handleSocialLogin, isLoading: isDataLoading } = useData()
+  const dispatch = useAppDispatch()
+  const { isLoading } = useAppSelector((state) => state.app)
   const { toast } = useToast()
 
   const [isSigningIn, setIsSigningIn] = useState(false)
   
-  const loading = isDataLoading || isSigningIn
+  const loading = isLoading || isSigningIn
 
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      const { role } = await handleSocialLogin(result.user);
+      const userAction = await dispatch(initializeUser(result.user));
+      const user = userAction.payload as any; // Temporary any
       
       toast({
         title: 'Welcome!',
         description: "You've been signed in successfully.",
       });
 
-      if (role === 'tenant') {
+      if (user.role === 'tenant') {
         router.push('/tenants/my-pg');
       } else {
         router.push('/dashboard');
@@ -48,7 +52,6 @@ export default function LoginPage() {
 
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
-      // Don't show an error if the user just closes the popup
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({
           variant: "destructive",

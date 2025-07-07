@@ -8,10 +8,12 @@ import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescri
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Menu, HomeIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useData } from '@/context/data-provider';
 import { Skeleton } from './ui/skeleton';
 import NotificationsPopover from './notifications-popover';
 import InstallPWA from './install-pwa';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { logoutUser } from '@/lib/slices/userSlice';
+import { setSelectedPgId } from '@/lib/slices/appSlice';
 
 const navLinks = [
   { href: '/', label: 'Home', roles: ['all'] },
@@ -22,18 +24,20 @@ const navLinks = [
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { pgs, selectedPgId, setSelectedPgId, isLoading, currentUser, logout } = useData();
+  const dispatch = useAppDispatch();
+  const { pgs } = useAppSelector((state) => state.pgs);
+  const { selectedPgId, isLoading } = useAppSelector((state) => state.app);
+  const { currentUser } = useAppSelector((state) => state.user);
+
   const isDashboard = pathname.startsWith('/dashboard');
   const isTenantDashboard = pathname.startsWith('/tenants');
 
   const handleValueChange = (pgId: string) => {
-    if (setSelectedPgId) {
-        setSelectedPgId(pgId === 'all' ? null : pgId)
-    }
+    dispatch(setSelectedPgId(pgId === 'all' ? null : pgId));
   }
 
   const handleLogout = () => {
-    logout();
+    dispatch(logoutUser());
     router.push('/login');
   }
 

@@ -13,8 +13,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useData } from '@/context/data-provider';
 import { navPermissions } from '@/lib/permissions';
+import { useAppSelector } from '@/lib/hooks';
 
 const allMainNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'core' },
@@ -33,7 +33,7 @@ const allMoreNavItems = [
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
-  const { currentUser, currentPlan } = useData();
+  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
 
   if (!currentUser || !currentPlan) return null;
 

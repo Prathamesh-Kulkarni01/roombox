@@ -3,17 +3,18 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useData } from '@/context/data-provider';
 import DashboardSidebar from "@/components/dashboard-sidebar";
 import DashboardBottomNav from "@/components/dashboard-bottom-nav";
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAppSelector } from '@/lib/hooks';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { currentUser, isLoading } = useData();
+  const { currentUser } = useAppSelector((state) => state.user);
+  const { isLoading } = useAppSelector((state) => state.app);
   const router = useRouter();
 
   useEffect(() => {
