@@ -1,7 +1,8 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, PG } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
+import { auth, db, isFirebaseConfigured } from '../firebase';
+import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { produce } from 'immer';
@@ -35,7 +36,7 @@ export const fetchGuests = createAsyncThunk(
 
 export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, NewGuestData, { state: RootState }>(
     'guests/addGuest',
-    async (guestData, { getState, rejectWithValue }) => {
+    async (guestData, { getState, dispatch, rejectWithValue }) => {
         const { user, pgs } = getState();
         if (!user.currentUser || !guestData.email) return rejectWithValue('No user or guest email');
 
@@ -54,6 +55,21 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             }
         });
 
+        // Send the passwordless sign-in link
+        if (isFirebaseConfigured() && auth) {
+            const actionCodeSettings = {
+                url: `${window.location.origin}/login/verify`,
+                handleCodeInApp: true,
+            };
+            try {
+                await sendSignInLinkToEmail(auth, newGuest.email, actionCodeSettings);
+                console.log(`Sign-in link sent to ${newGuest.email}`);
+            } catch (error) {
+                console.error("Failed to send sign-in link:", error);
+                // Even if email fails, we continue to create the guest record
+            }
+        }
+
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', newGuest.id);
@@ -66,6 +82,16 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
 
             await batch.commit();
         }
+
+        // Dispatch a notification for the owner
+        dispatch(addNotification({
+            type: 'new-guest',
+            title: 'Guest Added & Invited',
+            message: `${newGuest.name} has been added. A sign-in link was sent to their email.`,
+            link: `/dashboard/tenant-management/${newGuest.id}`,
+            targetId: newGuest.id,
+        }));
+        
         return { newGuest, updatedPg };
     }
 );

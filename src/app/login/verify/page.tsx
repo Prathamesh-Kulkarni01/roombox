@@ -13,7 +13,7 @@ function VerifyLogin() {
     const router = useRouter()
     const { toast } = useToast()
     const [error, setError] = useState<string | null>(null)
-    const [message, setMessage] = useState("Verifying...")
+    const [message, setMessage] = useState("Verifying your login link...")
 
     useEffect(() => {
         const verifyLink = async () => {
@@ -23,38 +23,42 @@ function VerifyLogin() {
             }
 
             if (isSignInWithEmailLink(auth, window.location.href)) {
-                let email = window.localStorage.getItem('emailForSignIn')
+                // We don't have the email in localStorage because the owner, not the guest, initiated the flow.
+                // We must prompt the user for their email as a security measure.
+                let email = window.localStorage.getItem('emailForSignIn');
                 if (!email) {
-                    email = window.prompt('Please provide your email for confirmation')
+                    email = window.prompt('For security, please re-enter your email address to complete sign-in.');
                 }
+                
                 if (!email) {
-                    setError("Email is required for verification. Please try logging in again.")
-                    return
+                    setError("Email address is required to complete sign-in. Please return to the login page and try again.");
+                    return;
                 }
 
                 try {
-                    setMessage("Signing you in securely...")
-                    const result = await signInWithEmailLink(auth, email, window.location.href)
-                    window.localStorage.removeItem('emailForSignIn')
+                    setMessage("Signing you in securely...");
+                    await signInWithEmailLink(auth, email, window.location.href);
+                    window.localStorage.removeItem('emailForSignIn');
                     
+                    // The user is now signed in. The AuthHandler in StoreProvider will
+                    // detect this, run initializeUser, and handle redirection.
                     toast({
                       title: 'Success!',
-                      description: 'You have been signed in. Redirecting...',
-                    })
-                    // The AuthHandler will detect the new user and redirect them
-                    // based on their role after initialization.
+                      description: 'You have been signed in. Redirecting to your dashboard...',
+                    });
+                    router.push('/tenants/my-pg');
                 } catch (err: any) {
-                    console.error(err)
-                    setError("Failed to sign in. The link may be invalid or expired. Please try again.")
+                    console.error(err);
+                    setError("Failed to sign in. The link may be invalid or expired. Please try again.");
                 }
             } else {
-                setError("This is not a valid sign-in link.")
+                setError("This does not appear to be a valid sign-in link.");
             }
         }
         
-        verifyLink()
+        verifyLink();
 
-    }, [router, toast])
+    }, [router, toast]);
     
     // The redirect is handled by the root layout's AuthHandler observing the auth state.
     // This component just shows the status of the link verification.
