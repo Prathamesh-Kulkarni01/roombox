@@ -10,9 +10,11 @@ import { auth, isFirebaseConfigured } from '@/lib/firebase'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { fetchAllData, initializeUser, logoutUser } from '@/lib/slices/userSlice'
 
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
 function AuthHandler({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
-  const { currentUser } = useAppSelector((state) => state.user);
+  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const authListenerStarted = useRef(false);
 
   useEffect(() => {
@@ -33,11 +35,25 @@ function AuthHandler({ children }: { children: ReactNode }) {
     };
   }, [dispatch]);
 
+  // Effect for initial data load
   useEffect(() => {
     if (currentUser) {
       dispatch(fetchAllData(currentUser));
     }
   }, [currentUser, dispatch]);
+  
+  // Effect for background sync on an interval for Pro users
+  useEffect(() => {
+    if (currentUser && currentPlan?.hasCloudSync) {
+      const intervalId = setInterval(() => {
+        dispatch(fetchAllData(currentUser));
+      }, SYNC_INTERVAL_MS);
+
+      // Clear interval on cleanup
+      return () => clearInterval(intervalId);
+    }
+  }, [currentUser, currentPlan, dispatch]);
+
 
   return <>{children}</>;
 }
