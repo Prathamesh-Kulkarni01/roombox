@@ -181,7 +181,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   
   const currentPlan = useMemo(() => {
-    if (!currentUser || !currentUser.subscription) return plans['free'];
+    if (!currentUser || !currentUser.subscription) {
+      // Default to free plan if subscription info is missing to prevent crashes
+      // This handles old user data from localStorage
+      return plans['free'];
+    }
     return plans[currentUser.subscription.planId];
   }, [currentUser]);
 
