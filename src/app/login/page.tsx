@@ -27,6 +27,7 @@ export default function LoginPage() {
   const { login } = useData()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState("owner")
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -55,7 +56,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
-        <Tabs defaultValue="owner" className="w-full max-w-sm">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-sm">
             <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="owner">Owner / Staff</TabsTrigger>
                 <TabsTrigger value="guest">Guest</TabsTrigger>
@@ -160,7 +161,9 @@ export default function LoginPage() {
                     </Form>
                      <div className="mt-4 text-center text-sm">
                         PG owner or staff?{" "}
-                        <TabsTrigger value="owner" className="underline p-0 h-auto">Login here</TabsTrigger>
+                        <Button variant="link" type="button" onClick={() => setActiveTab('owner')} className="underline p-0 h-auto font-normal">
+                            Login here
+                        </Button>
                     </div>
                     </CardContent>
                 </Card>
