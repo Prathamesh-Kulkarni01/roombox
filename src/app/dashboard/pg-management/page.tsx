@@ -1,6 +1,7 @@
 
 'use client'
 
+import { useState } from 'react'
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils"
 import { useData } from "@/context/data-provider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from '@/hooks/use-toast'
+import AddPgSheet from '@/components/add-pg-sheet'
 
 const genderBadgeColor = {
   male: 'bg-blue-100 text-blue-800',
@@ -29,9 +31,10 @@ const genderBadgeColor = {
 
 
 export default function PgManagementPage() {
-    const { pgs, isLoading, setSelectedPgId, currentPlan } = useData();
+    const { pgs, isLoading, currentPlan } = useData();
     const router = useRouter();
     const { toast } = useToast()
+    const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false)
 
     const canAddPg = currentPlan && (currentPlan.pgLimit === 'unlimited' || pgs.length < currentPlan.pgLimit);
 
@@ -44,8 +47,7 @@ export default function PgManagementPage() {
             })
             return;
         }
-        // TODO: Implement Add PG Sheet component
-        toast({ title: "Coming soon!", description: "The ability to add PGs will be implemented shortly."})
+        setIsAddPgSheetOpen(true)
     }
 
     if (isLoading) {
@@ -84,6 +86,11 @@ export default function PgManagementPage() {
     
     return (
         <div className="flex flex-col gap-8">
+            <AddPgSheet 
+                open={isAddPgSheetOpen} 
+                onOpenChange={setIsAddPgSheetOpen}
+                onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}`)}
+            />
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>

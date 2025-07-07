@@ -36,6 +36,8 @@ const saveToLocalStorage = <T,>(key: string, data: T) => {
     }
 }
 
+type NewPgData = Pick<PG, 'name' | 'location' | 'city' | 'gender'>;
+
 // Context type
 interface DataContextType {
   pgs: PG[];
@@ -49,6 +51,7 @@ interface DataContextType {
   addGuest: (newGuest: Guest) => void;
   updatePgs: (updatedPgs: PG[]) => void;
   updatePg: (updatedPg: PG) => void;
+  addPg: (newPgData: NewPgData) => string | undefined;
   addExpense: (newExpense: Omit<Expense, 'id'>) => void;
   updatePgMenu: (pgId: string, menu: Menu) => void;
   updateComplaint: (updatedComplaint: Complaint) => void;
@@ -107,28 +110,32 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   }, []);
 
+  const handleSetCurrentUser = useCallback((user: User | null) => {
+    setCurrentUser(user);
+    saveToLocalStorage('currentUserId', user ? user.id : null);
+  }, []);
+
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
     if (user) {
-        setCurrentUser(user);
-        saveToLocalStorage('currentUserId', user.id);
+        handleSetCurrentUser(user);
         return true;
     }
     return false;
-  }, [users]);
+  }, [users, handleSetCurrentUser]);
 
   const logout = useCallback(() => {
-    setCurrentUser(null);
-    saveToLocalStorage<string | null>('currentUserId', null);
+    handleSetCurrentUser(null);
     router.push('/login');
-  }, [router]);
+  }, [router, handleSetCurrentUser]);
 
   const signup = useCallback(async (name: string, email: string, password: string): Promise<{success: boolean; message?: string}> => {
       if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
           return { success: false, message: 'An account with this email already exists.' };
       }
+      const newUserId = `user-${Date.now()}`;
       const newUser: User = {
-          id: `user-${Date.now()}`,
+          id: newUserId,
           name,
           email,
           password,
@@ -136,20 +143,45 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           subscription: { planId: 'free', status: 'active' },
           avatarUrl: `https://placehold.co/40x40.png?text=${name.slice(0,2).toUpperCase()}`
       };
+
+      const newPgId = `pg-${Date.now()}`;
+      const newPg: PG = {
+        id: newPgId,
+        name: `${name.split(' ')[0]}'s First PG`,
+        location: 'Update Location',
+        city: 'Update City',
+        gender: 'co-ed',
+        priceRange: { min: 0, max: 0 },
+        amenities: ['wifi', 'food'],
+        images: ['https://placehold.co/600x400.png'],
+        rating: 0,
+        occupancy: 0,
+        totalBeds: 0,
+        rules: [],
+        contact: '',
+        ownerId: newUserId,
+        floors: [],
+        menu: defaultMenu,
+      };
+
       const updatedUsers = [...users, newUser];
       setUsers(updatedUsers);
       saveToLocalStorage('users', updatedUsers);
-      const loginSuccess = await login(email, password);
-      return { success: loginSuccess };
-  }, [users, login]);
 
-  const handleSetCurrentUser = useCallback((user: User | null) => {
-    setCurrentUser(user);
-    saveToLocalStorage('currentUserId', user ? user.id : null);
-  }, []);
+      setPgs(prevPgs => {
+        const updatedPgs = [...prevPgs, newPg];
+        saveToLocalStorage('pgs', updatedPgs);
+        return updatedPgs;
+      });
+
+      handleSetCurrentUser(newUser);
+      
+      return { success: true };
+  }, [users, handleSetCurrentUser]);
+
   
   const currentPlan = useMemo(() => {
-    if (!currentUser || !currentUser.subscription) return null;
+    if (!currentUser || !currentUser.subscription) return plans['free'];
     return plans[currentUser.subscription.planId];
   }, [currentUser]);
 
@@ -326,6 +358,35 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const addPg = useCallback((newPgData: NewPgData): string | undefined => {
+    if (!currentUser) return;
+
+    const newPgId = `pg-${new Date().getTime()}`;
+    const newPg: PG = {
+      id: newPgId,
+      ...newPgData,
+      ownerId: currentUser.id,
+      images: ['https://placehold.co/600x400.png'],
+      rating: 0,
+      occupancy: 0,
+      totalBeds: 0,
+      rules: [],
+      contact: '',
+      priceRange: { min: 0, max: 0 },
+      amenities: ['wifi', 'food'],
+      floors: [],
+      menu: defaultMenu
+    };
+    
+    setPgs(prevPgs => {
+        const newPgs = [...prevPgs, newPg];
+        saveToLocalStorage('pgs', newPgs);
+        return newPgs;
+    });
+
+    return newPgId;
+  }, [currentUser]);
+
   const addExpense = useCallback((newExpenseData: Omit<Expense, 'id'>) => {
     setExpenses(prevExpenses => {
         const newExpense: Expense = {
@@ -396,7 +457,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     updateGuest, 
     addGuest, 
     updatePgs, 
-    updatePg, 
+    updatePg,
+    addPg,
     addExpense, 
     updatePgMenu, 
     updateComplaint, 
