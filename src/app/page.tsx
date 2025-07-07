@@ -16,22 +16,22 @@ const features = [
     {
         icon: <LayoutDashboard className="h-8 w-8 text-primary" />,
         title: 'Visual Occupancy Dashboard',
-        description: 'Ditch spreadsheets. Manage floors, rooms, and beds visually. See vacancies and guest details at a glance.',
+        description: 'Ditch spreadsheets. Our intuitive property management dashboard lets you manage floors, rooms, and beds visually. See vacancies and guest details at a glance.',
       },
       {
         icon: <Wallet className="h-8 w-8 text-primary" />,
         title: 'Automated Finance Tracking',
-        description: 'Effortlessly log expenses and track monthly revenue. Get a clear, real-time view of your property’s financial health.',
+        description: 'Effortlessly log expenses, track monthly revenue, and simplify rent collection. Get a clear, real-time view of your property’s financial health.',
       },
       {
         icon: <BotMessageSquare className="h-8 w-8 text-primary" />,
         title: 'AI-Powered Communication',
-        description: 'Save time with AI-generated rent reminders and SEO-friendly listings to attract more high-quality tenants.',
+        description: 'Save time with AI-generated rent reminders and create SEO-friendly property listings to attract more high-quality tenants.',
       },
       {
         icon: <Cloud className="h-8 w-8 text-primary" />,
         title: 'Cloud Sync & Backup',
-        description: 'Never lose your data. Paid plans securely back up your data to the cloud, accessible from any device.',
+        description: 'Never lose your data. Paid plans securely back up your property data to the cloud, making it accessible from any device, anytime.',
       },
 ];
 
@@ -42,7 +42,7 @@ const faqs = [
     },
     {
         question: "Can I manage multiple properties with one account?",
-        answer: "Yes! Our platform is designed to scale with your business. You can add and manage multiple property locations from a single, centralized dashboard, making it easy to oversee your entire portfolio."
+        answer: "Yes! RoomBox is designed to scale with your business. You can add and manage multiple properties, PGs, or hostels from a single, centralized dashboard, making it easy to oversee your entire rental portfolio."
     },
     {
         question: "How does the AI work?",
@@ -70,8 +70,33 @@ const getPlanFeatures = (plan: Plan) => [
 
 
 export default function Home() {
+  const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "RoomBox",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": "Simplify your rental property management with RoomBox. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "250"
+      },
+      "keywords": "rental management software, property management, pg management, tenant management, rent collection, expense tracking"
+  };
+  
   return (
     <div className="flex flex-col min-h-[calc(100vh-56px)] bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        key="product-jsonld"
+      />
       <main className="flex-1">
         {/* Hero Section */}
         <section className="py-24 md:py-32">
