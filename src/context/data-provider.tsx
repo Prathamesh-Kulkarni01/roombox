@@ -5,10 +5,11 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { useRouter } from 'next/navigation';
 import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu, plans } from '@/lib/mock-data';
 import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan, PlanName, UserRole } from '@/lib/types';
-import { differenceInDays, parseISO, isPast, isFuture, format } from 'date-fns';
+import { differenceInDays, parseISO, isPast, isFuture, format, addMonths } from 'date-fns';
 import { db, auth, isFirebaseConfigured } from '@/lib/firebase';
 import { type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
+import { produce } from 'immer';
 
 
 // Helper functions for localStorage
@@ -52,7 +53,7 @@ interface DataContextType {
   selectedPgId: string | null;
   setSelectedPgId: (id: string | null) => void;
   updateGuest: (updatedGuest: Guest) => void;
-  addGuest: (newGuest: Guest) => void;
+  addGuest: (guestData: Omit<Guest, 'id'>) => void;
   updatePgs: (updatedPgs: PG[]) => void;
   updatePg: (updatedPg: PG) => void;
   addPg: (newPgData: NewPgData) => string | undefined;
@@ -116,6 +117,131 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     return pgs.find(p => p.id === currentGuest.pgId) || null;
   }, [currentGuest, pgs]);
   
+  // Helper to sync a document to Firestore if on a Pro plan
+  const syncToFirestore = useCallback(async (collectionName: string, data: { id: string }) => {
+    if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
+      try {
+        const docRef = doc(db, 'users_data', currentUser.id, collectionName, data.id);
+        await setDoc(docRef, data, { merge: true });
+      } catch (err) {
+        console.error(`Failed to sync ${collectionName} item to Firebase`, err);
+      }
+    }
+  }, [currentUser, currentPlan]);
+  
+  const deleteFromFirestore = useCallback(async (collectionName: string, docId: string) => {
+     if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
+        try {
+            const docRef = doc(db, 'users_data', currentUser.id, collectionName, docId);
+            await deleteDoc(docRef);
+        } catch (err) {
+            console.error(`Failed to delete ${collectionName} item from Firebase`, err);
+        }
+     }
+  }, [currentUser, currentPlan]);
+
+  const updatePg = useCallback((updatedPg: PG) => {
+    setPgs(prev => {
+        const newPgs = prev.map(pg => (pg.id === updatedPg.id ? updatedPg : pg));
+        saveToLocalStorage('pgs', newPgs);
+        return newPgs;
+    });
+    syncToFirestore('pgs', updatedPg);
+  }, [syncToFirestore]);
+
+  const updatePgs = useCallback((updatedPgs: PG[]) => {
+      setPgs(updatedPgs);
+      saveToLocalStorage('pgs', updatedPgs);
+      if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
+          const batch = writeBatch(db);
+          updatedPgs.forEach(pg => {
+              const docRef = doc(db, 'users_data', currentUser.id, 'pgs', pg.id);
+              batch.set(docRef, pg);
+          });
+          batch.commit().catch(err => console.error("Failed to batch sync PGs to Firebase", err));
+      }
+  }, [currentUser, currentPlan]);
+  
+  const addGuest = useCallback((guestData: Omit<Guest, 'id'>) => {
+    const newGuest: Guest = {
+      ...guestData,
+      id: `g-${Date.now()}`
+    };
+
+    const newGuests = [...guests, newGuest];
+    setGuests(newGuests);
+    saveToLocalStorage('guests', newGuests);
+
+    const pgToUpdate = pgs.find(p => p.id === newGuest.pgId);
+    if (!pgToUpdate) return;
+
+    const updatedPg = produce(pgToUpdate, draft => {
+        draft.occupancy += 1;
+        let bedFound = false;
+        draft.floors?.forEach(floor => {
+            if (bedFound) return;
+            floor.rooms.forEach(room => {
+                if (bedFound) return;
+                const bed = room.beds.find(b => b.id === newGuest.bedId);
+                if (bed) {
+                    bed.guestId = newGuest.id;
+                    bedFound = true;
+                }
+            });
+        });
+    });
+    
+    const newPgs = pgs.map(p => p.id === updatedPg.id ? updatedPg : p);
+    setPgs(newPgs);
+    saveToLocalStorage('pgs', newPgs);
+
+    if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
+        const batch = writeBatch(db);
+        const guestRef = doc(db, 'users_data', currentUser.id, 'guests', newGuest.id);
+        batch.set(guestRef, newGuest);
+
+        const pgRef = doc(db, 'users_data', currentUser.id, 'pgs', updatedPg.id);
+        batch.set(pgRef, updatedPg);
+
+        batch.commit().catch(err => console.error("Failed to batch write guest and pg", err));
+    }
+  }, [guests, pgs, currentUser, currentPlan]);
+  
+  const updateGuest = useCallback((updatedGuest: Guest) => {
+    setGuests(prev => { const newGuests = prev.map(g => g.id === updatedGuest.id ? updatedGuest : g); saveToLocalStorage('guests', newGuests); return newGuests; });
+    syncToFirestore('guests', updatedGuest);
+  }, [syncToFirestore]);
+  
+  const addPg = useCallback((newPgData: NewPgData): string | undefined => {
+    if (!currentUser) return;
+    const newPg: PG = { id: `pg-${Date.now()}`, ...newPgData, ownerId: currentUser.id, images: ['https://placehold.co/600x400.png'], rating: 0, occupancy: 0, totalBeds: 0, rules: [], contact: '', priceRange: { min: 0, max: 0 }, amenities: ['wifi', 'food'], floors: [], menu: defaultMenu };
+    setPgs(prev => { const newPgs = [...prev, newPg]; saveToLocalStorage('pgs', newPgs); return newPgs; });
+    syncToFirestore('pgs', newPg);
+    return newPg.id;
+  }, [currentUser, syncToFirestore]);
+  
+  const logout = useCallback(() => {
+    handleSetCurrentUser(null);
+    auth.signOut();
+    router.push('/login');
+  }, [router, handleSetCurrentUser]);
+  
+  const disassociateAndCreateOwnerAccount = useCallback(() => {
+    if (!currentUser || !currentGuest) return;
+    
+    const guestRecordToUpdate = { ...currentGuest, email: undefined };
+    updateGuest(guestRecordToUpdate);
+
+    const updatedUserAsOwner: User = { ...currentUser, role: 'owner', guestId: undefined, subscription: { planId: 'free', status: 'active' } };
+    const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUserAsOwner : u);
+    setUsers(updatedUsers);
+    saveToLocalStorage('users', updatedUsers);
+    
+    handleSetCurrentUser(updatedUserAsOwner);
+    addPg({ name: `${currentUser.name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
+    logout();
+  }, [currentUser, currentGuest, users, addPg, logout, handleSetCurrentUser, updateGuest]);
+
   // Main data loading effect
   useEffect(() => {
     const loadInitialData = async () => {
@@ -218,43 +344,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     loadInitialData();
   }, [currentUser?.id]); // Rerun when user changes
 
-  // Helper to sync a document to Firestore if on a Pro plan
-  const syncToFirestore = useCallback(async (collectionName: string, data: { id: string }) => {
-    if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
-      try {
-        const docRef = doc(db, 'users_data', currentUser.id, collectionName, data.id);
-        await setDoc(docRef, data, { merge: true });
-      } catch (err) {
-        console.error(`Failed to sync ${collectionName} item to Firebase`, err);
-      }
-    }
-  }, [currentUser, currentPlan]);
-  
-  const deleteFromFirestore = useCallback(async (collectionName: string, docId: string) => {
-     if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
-        try {
-            const docRef = doc(db, 'users_data', currentUser.id, collectionName, docId);
-            await deleteDoc(docRef);
-        } catch (err) {
-            console.error(`Failed to delete ${collectionName} item from Firebase`, err);
-        }
-     }
-  }, [currentUser, currentPlan]);
-
-  const logout = useCallback(() => {
-    handleSetCurrentUser(null);
-    auth.signOut();
-    router.push('/login');
-  }, [router, handleSetCurrentUser]);
-
-  const addPg = useCallback((newPgData: NewPgData): string | undefined => {
-    if (!currentUser) return;
-    const newPg: PG = { id: `pg-${Date.now()}`, ...newPgData, ownerId: currentUser.id, images: ['https://placehold.co/600x400.png'], rating: 0, occupancy: 0, totalBeds: 0, rules: [], contact: '', priceRange: { min: 0, max: 0 }, amenities: ['wifi', 'food'], floors: [], menu: defaultMenu };
-    setPgs(prev => { const newPgs = [...prev, newPg]; saveToLocalStorage('pgs', newPgs); return newPgs; });
-    syncToFirestore('pgs', newPg);
-    return newPg.id;
-  }, [currentUser, syncToFirestore]);
-
   const handleSocialLogin = useCallback(async (socialUser: FirebaseUser): Promise<{ isNewUser: boolean, role: UserRole | null }> => {
     if (!socialUser.email) {
       throw new Error("Social login provider did not return an email.");
@@ -333,38 +422,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       return newUsers;
     });
   }, [currentUser, handleSetCurrentUser]);
-
-  const updatePg = useCallback((updatedPg: PG) => {
-    setPgs(prev => {
-        const newPgs = prev.map(pg => (pg.id === updatedPg.id ? updatedPg : pg));
-        saveToLocalStorage('pgs', newPgs);
-        return newPgs;
-    });
-    syncToFirestore('pgs', updatedPg);
-  }, [syncToFirestore]);
-
-  const updatePgs = useCallback((updatedPgs: PG[]) => {
-      setPgs(updatedPgs);
-      saveToLocalStorage('pgs', updatedPgs);
-      if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
-          const batch = writeBatch(db);
-          updatedPgs.forEach(pg => {
-              const docRef = doc(db, 'users_data', currentUser.id, 'pgs', pg.id);
-              batch.set(docRef, pg);
-          });
-          batch.commit().catch(err => console.error("Failed to batch sync PGs to Firebase", err));
-      }
-  }, [currentUser, currentPlan]);
-
-  const updateGuest = useCallback((updatedGuest: Guest) => {
-    setGuests(prev => { const newGuests = prev.map(g => g.id === updatedGuest.id ? updatedGuest : g); saveToLocalStorage('guests', newGuests); return newGuests; });
-    syncToFirestore('guests', updatedGuest);
-  }, [syncToFirestore]);
-
-  const addGuest = useCallback((newGuest: Guest) => {
-    setGuests(prev => { const newGuests = [...prev, newGuest]; saveToLocalStorage('guests', newGuests); return newGuests; });
-    syncToFirestore('guests', newGuest);
-  }, [syncToFirestore]);
   
   const addExpense = useCallback((newExpenseData: Omit<Expense, 'id'>) => {
     const newExpense: Expense = { id: `exp-${Date.now()}`, ...newExpenseData };
@@ -410,21 +467,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setStaff(prev => { const newStaffList = prev.filter(s => s.id !== staffId); saveToLocalStorage('staff', newStaffList); return newStaffList; });
     deleteFromFirestore('staff', staffId);
   }, [deleteFromFirestore]);
-
-  const disassociateAndCreateOwnerAccount = useCallback(() => {
-    if (!currentUser || !currentGuest) return;
-    const guest = currentGuest;
-    const updatedGuests = guests.map(g => g.id === guest.id ? { ...g, email: undefined } : g);
-    setGuests(updatedGuests); saveToLocalStorage('guests', updatedGuests);
-    const updatedUserAsOwner: User = { ...currentUser, role: 'owner', guestId: undefined, subscription: { planId: 'free', status: 'active' } };
-    const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUserAsOwner : u);
-    setUsers(updatedUsers); saveToLocalStorage('users', updatedUsers);
-    
-    // Set user before calling addPg
-    handleSetCurrentUser(updatedUserAsOwner);
-    addPg({ name: `${currentUser.name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
-    logout();
-  }, [currentUser, currentGuest, guests, users, addPg, logout, handleSetCurrentUser]);
 
   const visiblePgs = useMemo(() => {
     if (isLoading || !currentUser || currentUser.role === 'tenant') return [];

@@ -156,28 +156,26 @@ export default function DashboardPage() {
 
   const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
     if (!selectedBedForGuestAdd) return;
-    const { pg, room, bed } = selectedBedForGuestAdd;
-    const newGuest: Guest = {
-      id: `g-${new Date().getTime()}`, name: values.name, phone: values.phone, email: values.email, pgId: pg.id, pgName: pg.name, bedId: bed.id, rentStatus: 'unpaid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(values.moveInDate), 1), 'yyyy-MM-dd'), rentAmount: values.rentAmount, depositAmount: values.depositAmount, kycStatus: 'pending', moveInDate: format(values.moveInDate, 'yyyy-MM-dd'), noticePeriodDays: 30,
+    const { pg, bed } = selectedBedForGuestAdd;
+    
+    const guestData: Omit<Guest, 'id'> = {
+      name: values.name,
+      phone: values.phone,
+      email: values.email,
+      pgId: pg.id,
+      pgName: pg.name,
+      bedId: bed.id,
+      rentStatus: 'unpaid',
+      rentPaidAmount: 0,
+      dueDate: format(addMonths(new Date(values.moveInDate), 1), 'yyyy-MM-dd'),
+      rentAmount: values.rentAmount,
+      depositAmount: values.depositAmount,
+      kycStatus: 'pending',
+      moveInDate: format(values.moveInDate, 'yyyy-MM-dd'),
+      noticePeriodDays: 30,
     };
-    addGuest(newGuest);
-    const newPgs = pgs.map(currentPg => {
-        if (currentPg.id === pg.id) {
-            return {
-                ...currentPg, occupancy: currentPg.occupancy + 1,
-                floors: currentPg.floors?.map(floor => ({
-                    ...floor, rooms: floor.rooms.map(r => {
-                        if (r.id === room.id) {
-                            return { ...r, beds: r.beds.map(b => b.id === bed.id ? { ...b, guestId: newGuest.id } : b) };
-                        }
-                        return r;
-                    })
-                }))
-            };
-        }
-        return currentPg;
-    });
-    updatePgs(newPgs);
+    
+    addGuest(guestData);
     setIsAddGuestDialogOpen(false);
   };
   
