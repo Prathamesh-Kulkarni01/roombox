@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check, LayoutDashboard, Wallet, MessageSquareWarning, BotMessageSquare, Users, Settings, ChefHat, X, UserCheck, UserCog } from 'lucide-react';
+import { Check, LayoutDashboard, Wallet, Cloud, BotMessageSquare, Users, Settings, ChefHat, X, UserCheck, UserCog } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import InstallPWA from '@/components/install-pwa';
 import { plans } from '@/lib/mock-data';
@@ -30,9 +30,9 @@ const features = [
         description: 'Save time with AI-generated rent reminders and SEO-friendly listings to attract more high-quality tenants.',
       },
       {
-        icon: <Users className="h-8 w-8 text-primary" />,
-        title: 'Centralized Management',
-        description: 'Handle guest onboarding, complaints, and staff management all from one unified, easy-to-use platform.',
+        icon: <Cloud className="h-8 w-8 text-primary" />,
+        title: 'Cloud Sync & Backup',
+        description: 'Never lose your data. Paid plans securely back up your data to the cloud, accessible from any device.',
       },
 ];
 
@@ -64,6 +64,7 @@ const getPlanFeatures = (plan: Plan) => [
     { text: 'Staff Management', included: plan.hasStaffManagement },
     { text: 'AI Rent Reminders', included: plan.hasAiRentReminders },
     { text: 'AI SEO Generator', included: plan.hasSeoGenerator },
+    { text: 'Cloud Sync & Backup', included: plan.hasCloudSync },
     { text: 'WhatsApp Automation', included: plan.hasAutomatedWhatsapp },
     { text: 'Marketplace Listing', included: plan.hasMarketplace, isComingSoon: plan.id !== 'enterprise' },
 ];

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu, plans } from '@/lib/mock-data';
 import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan, PlanName, UserRole } from '@/lib/types';
 import { differenceInDays, parseISO, isPast, isFuture, format } from 'date-fns';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 
 
 // Helper functions for localStorage
@@ -94,39 +96,141 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    const loadedUsers = getFromLocalStorage<User[]>('users', initialUsers);
-    setUsers(loadedUsers);
-    
-    setPgs(getFromLocalStorage<PG[]>('pgs', initialPgs));
-    setGuests(getFromLocalStorage<Guest[]>('guests', initialGuests));
-    setComplaints(getFromLocalStorage<Complaint[]>('complaints', initialComplaints));
-    setExpenses(getFromLocalStorage<Expense[]>('expenses', initialExpenses));
-    setStaff(getFromLocalStorage<Staff[]>('staff', initialStaff));
-    
-    const storedPgId = getFromLocalStorage<string | null>('selectedPgId', null);
-    setSelectedPgId(storedPgId);
-
-    const storedUserId = getFromLocalStorage<string | null>('currentUserId', null);
-    if(storedUserId) {
-        const user = loadedUsers.find(u => u.id === storedUserId);
-        setCurrentUser(user || null);
-    }
-    
-    setIsLoading(false);
-  }, []);
-
   const handleSetCurrentUser = useCallback((user: User | null) => {
     setCurrentUser(user);
     saveToLocalStorage('currentUserId', user ? user.id : null);
   }, []);
+  
+  const currentPlan = useMemo(() => {
+    if (!currentUser) return null;
+    return plans[currentUser.subscription?.planId || 'free'];
+  }, [currentUser]);
 
-  const logout = useCallback(() => {
-    handleSetCurrentUser(null);
-    router.push('/login');
-  }, [router, handleSetCurrentUser]);
+  // Main data loading effect
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      const loadedUsers = getFromLocalStorage<User[]>('users', initialUsers);
+      setUsers(loadedUsers);
 
-  // Data for a logged-in guest
+      const storedUserId = getFromLocalStorage<string | null>('currentUserId', null);
+      const user = storedUserId ? loadedUsers.find(u => u.id === storedUserId) : null;
+      
+      const loadDataFromLocalStorage = () => {
+        const localPgs = getFromLocalStorage<PG[]>('pgs', initialPgs);
+        const localGuests = getFromLocalStorage<Guest[]>('guests', initialGuests);
+        const localComplaints = getFromLocalStorage<Complaint[]>('complaints', initialComplaints);
+        const localExpenses = getFromLocalStorage<Expense[]>('expenses', initialExpenses);
+        const localStaff = getFromLocalStorage<Staff[]>('staff', initialStaff);
+
+        setPgs(localPgs);
+        setGuests(localGuests);
+        setComplaints(localComplaints);
+        setExpenses(localExpenses);
+        setStaff(localStaff);
+        return { localPgs, localGuests, localComplaints, localExpenses, localStaff };
+      };
+
+      if (user) {
+        // Set user first to derive plan
+        setCurrentUser(user);
+        const plan = plans[user.subscription?.planId || 'free'];
+        
+        if (plan.id !== 'free' && isFirebaseConfigured()) {
+          console.log(`Pro plan (${plan.id}) detected. Initializing Firebase sync.`);
+          try {
+            const collections = {
+              pgs: collection(db, 'users_data', user.id, 'pgs'),
+              guests: collection(db, 'users_data', user.id, 'guests'),
+              complaints: collection(db, 'users_data', user.id, 'complaints'),
+              expenses: collection(db, 'users_data', user.id, 'expenses'),
+              staff: collection(db, 'users_data', user.id, 'staff'),
+            };
+
+            const docRef = doc(db, "users_data", user.id);
+            const userDoc = await getDoc(docRef);
+
+            if (!userDoc.exists()) {
+              console.log("No data in Firestore, performing initial sync from local storage.");
+              const { localPgs, localGuests, localComplaints, localExpenses, localStaff } = loadDataFromLocalStorage();
+              
+              const batch = writeBatch(db);
+              batch.set(doc(db, 'users_data', user.id), { syncedAt: new Date().toISOString() });
+              localPgs.forEach(item => batch.set(doc(collections.pgs, item.id), item));
+              localGuests.forEach(item => batch.set(doc(collections.guests, item.id), item));
+              localComplaints.forEach(item => batch.set(doc(collections.complaints, item.id), item));
+              localExpenses.forEach(item => batch.set(doc(collections.expenses, item.id), item));
+              localStaff.forEach(item => batch.set(doc(collections.staff, item.id), item));
+              await batch.commit();
+              console.log("Initial sync to Firebase complete.");
+            } else {
+              console.log("Data found in Firestore, syncing to local state.");
+              const [pgsSnap, guestsSnap, complaintsSnap, expensesSnap, staffSnap] = await Promise.all([
+                getDocs(collections.pgs), getDocs(collections.guests), getDocs(collections.complaints), getDocs(collections.expenses), getDocs(collections.staff)
+              ]);
+
+              const pgsData = pgsSnap.docs.map(d => d.data() as PG);
+              const guestsData = guestsSnap.docs.map(d => d.data() as Guest);
+              const complaintsData = complaintsSnap.docs.map(d => d.data() as Complaint);
+              const expensesData = expensesSnap.docs.map(d => d.data() as Expense);
+              const staffData = staffSnap.docs.map(d => d.data() as Staff);
+              
+              setPgs(pgsData);
+              setGuests(guestsData);
+              setComplaints(complaintsData);
+              setExpenses(expensesData);
+              setStaff(staffData);
+              
+              saveToLocalStorage('pgs', pgsData);
+              saveToLocalStorage('guests', guestsData);
+              saveToLocalStorage('complaints', complaintsData);
+              saveToLocalStorage('expenses', expensesData);
+              saveToLocalStorage('staff', staffData);
+            }
+          } catch (error) {
+            console.error("Firebase sync failed, falling back to local storage:", error);
+            loadDataFromLocalStorage();
+          }
+        } else {
+          console.log(`Plan (${plan.id}) is not Pro or Firebase not configured. Using local storage.`);
+          loadDataFromLocalStorage();
+        }
+      } else {
+        // No user logged in, clear state or use defaults
+         setPgs([]); setGuests([]); setComplaints([]); setExpenses([]); setStaff([]);
+      }
+      
+      const storedPgId = getFromLocalStorage<string | null>('selectedPgId', null);
+      setSelectedPgId(storedPgId);
+      setIsLoading(false);
+    };
+
+    loadInitialData();
+  }, [currentUser?.id]); // Rerun when user changes
+
+  // Helper to sync a document to Firestore if on a Pro plan
+  const syncToFirestore = useCallback(async (collectionName: string, data: { id: string }) => {
+    if (currentUser && currentPlan && currentPlan.id !== 'free' && isFirebaseConfigured()) {
+      try {
+        const docRef = doc(db, 'users_data', currentUser.id, collectionName, data.id);
+        await setDoc(docRef, data, { merge: true });
+      } catch (err) {
+        console.error(`Failed to sync ${collectionName} item to Firebase`, err);
+      }
+    }
+  }, [currentUser, currentPlan]);
+  
+  const deleteFromFirestore = useCallback(async (collectionName: string, docId: string) => {
+     if (currentUser && currentPlan && currentPlan.id !== 'free' && isFirebaseConfigured()) {
+        try {
+            const docRef = doc(db, 'users_data', currentUser.id, collectionName, docId);
+            await deleteDoc(docRef);
+        } catch (err) {
+            console.error(`Failed to delete ${collectionName} item from Firebase`, err);
+        }
+     }
+  }, [currentUser, currentPlan]);
+
   const currentGuest = useMemo(() => {
     if (isLoading || !currentUser || currentUser.role !== 'tenant' || !currentUser.guestId) return null;
     return guests.find(g => g.id === currentUser.guestId) || null;
@@ -137,34 +241,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     return pgs.find(p => p.id === currentGuest.pgId) || null;
   }, [currentGuest, pgs]);
 
-  const addPg = useCallback((newPgData: NewPgData): string | undefined => {
-    if (!currentUser) return;
-
-    const newPgId = `pg-${new Date().getTime()}`;
-    const newPg: PG = {
-      id: newPgId,
-      ...newPgData,
-      ownerId: currentUser.id,
-      images: ['https://placehold.co/600x400.png'],
-      rating: 0,
-      occupancy: 0,
-      totalBeds: 0,
-      rules: [],
-      contact: '',
-      priceRange: { min: 0, max: 0 },
-      amenities: ['wifi', 'food'],
-      floors: [],
-      menu: defaultMenu
-    };
-    
-    setPgs(prevPgs => {
-        const newPgs = [...prevPgs, newPg];
-        saveToLocalStorage('pgs', newPgs);
-        return newPgs;
-    });
-
-    return newPgId;
-  }, [currentUser]);
+  const logout = useCallback(() => {
+    handleSetCurrentUser(null);
+    router.push('/login');
+  }, [router, handleSetCurrentUser]);
 
   const login = useCallback(async (email: string, password: string): Promise<User | null> => {
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
@@ -174,6 +254,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
     return null;
   }, [users, handleSetCurrentUser]);
+
+  const addPg = useCallback((newPgData: NewPgData): string | undefined => {
+    if (!currentUser) return;
+    const newPg: PG = { id: `pg-${Date.now()}`, ...newPgData, ownerId: currentUser.id, images: ['https://placehold.co/600x400.png'], rating: 0, occupancy: 0, totalBeds: 0, rules: [], contact: '', priceRange: { min: 0, max: 0 }, amenities: ['wifi', 'food'], floors: [], menu: defaultMenu };
+    setPgs(prev => { const newPgs = [...prev, newPg]; saveToLocalStorage('pgs', newPgs); return newPgs; });
+    syncToFirestore('pgs', newPg);
+    return newPg.id;
+  }, [currentUser, syncToFirestore]);
 
   const signup = useCallback(async (name: string, email: string, password: string): Promise<{success: boolean; message?: string, existingRole?: UserRole}> => {
       const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
@@ -191,108 +279,115 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           avatarUrl: `https://placehold.co/40x40.png?text=${name.slice(0,2).toUpperCase()}`
       };
 
-      const newPgId = `pg-${Date.now()}`;
-      const newPg: PG = {
-        id: newPgId,
-        name: `${name.split(' ')[0]}'s First PG`,
-        location: 'Update Location',
-        city: 'Update City',
-        gender: 'co-ed',
-        priceRange: { min: 0, max: 0 },
-        amenities: ['wifi', 'food'],
-        images: ['https://placehold.co/600x400.png'],
-        rating: 0,
-        occupancy: 0,
-        totalBeds: 0,
-        rules: [],
-        contact: '',
-        ownerId: newUserId,
-        floors: [],
-        menu: defaultMenu,
-      };
+      addPg({ name: `${name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
 
       const updatedUsers = [...users, newUser];
       setUsers(updatedUsers);
       saveToLocalStorage('users', updatedUsers);
-
-      setPgs(prevPgs => {
-        const updatedPgs = [...prevPgs, newPg];
-        saveToLocalStorage('pgs', updatedPgs);
-        return updatedPgs;
-      });
-
+      
       handleSetCurrentUser(newUser);
       
       return { success: true };
-  }, [users, handleSetCurrentUser]);
-  
-  const disassociateAndCreateOwnerAccount = useCallback(() => {
-        if (!currentUser || !currentGuest) return;
-
-        // 1. Find the associated guest record and clear email
-        const updatedGuests = guests.map(g => {
-            if (g.id === currentGuest.id) {
-                return { ...g, email: undefined };
-            }
-            return g;
-        });
-        setGuests(updatedGuests);
-        saveToLocalStorage('guests', updatedGuests);
-
-        // 2. Convert current user to an owner
-        const updatedUserAsOwner: User = {
-            ...currentUser,
-            role: 'owner',
-            guestId: undefined,
-            subscription: { planId: 'free', status: 'active' },
-        };
-        const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUserAsOwner : u);
-        setUsers(updatedUsers);
-        saveToLocalStorage('users', updatedUsers);
-
-        // 3. Create a default PG for the new owner
-        addPg({
-            name: `${currentUser.name.split(' ')[0]}'s First PG`,
-            location: 'Update Location',
-            city: 'Update City',
-            gender: 'co-ed',
-        });
-
-        // 4. Log out the user so they can log back in as an owner
-        logout();
-
-    }, [currentUser, currentGuest, guests, users, addPg, logout]);
-  
-  
-  const currentPlan = useMemo(() => {
-    if (!currentUser || !currentUser.subscription) {
-      return plans['free'];
-    }
-    return plans[currentUser.subscription.planId];
-  }, [currentUser]);
+  }, [users, handleSetCurrentUser, addPg]);
 
   const updateUserPlan = useCallback((planId: PlanName) => {
     if (!currentUser) return;
-
-    const updatedUser: User = {
-      ...currentUser,
-      subscription: {
-        ...(currentUser.subscription || { status: 'active' }),
-        planId: planId,
-      },
-    };
-    
+    const updatedUser: User = { ...currentUser, subscription: { ...(currentUser.subscription || { status: 'active' }), planId: planId } };
     handleSetCurrentUser(updatedUser);
-
     setUsers(prevUsers => {
       const newUsers = prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u);
       saveToLocalStorage('users', newUsers);
       return newUsers;
     });
-
   }, [currentUser, handleSetCurrentUser]);
 
-  // Data filtered for owner/manager roles
+  const updatePg = useCallback((updatedPg: PG) => {
+    setPgs(prev => {
+        const newPgs = prev.map(pg => (pg.id === updatedPg.id ? updatedPg : pg));
+        saveToLocalStorage('pgs', newPgs);
+        return newPgs;
+    });
+    syncToFirestore('pgs', updatedPg);
+  }, [syncToFirestore]);
+
+  const updatePgs = useCallback((updatedPgs: PG[]) => {
+      setPgs(updatedPgs);
+      saveToLocalStorage('pgs', updatedPgs);
+      if (currentUser && currentPlan && currentPlan.id !== 'free' && isFirebaseConfigured()) {
+          const batch = writeBatch(db);
+          updatedPgs.forEach(pg => {
+              const docRef = doc(db, 'users_data', currentUser.id, 'pgs', pg.id);
+              batch.set(docRef, pg);
+          });
+          batch.commit().catch(err => console.error("Failed to batch sync PGs to Firebase", err));
+      }
+  }, [currentUser, currentPlan]);
+
+  const updateGuest = useCallback((updatedGuest: Guest) => {
+    setGuests(prev => { const newGuests = prev.map(g => g.id === updatedGuest.id ? updatedGuest : g); saveToLocalStorage('guests', newGuests); return newGuests; });
+    syncToFirestore('guests', updatedGuest);
+  }, [syncToFirestore]);
+
+  const addGuest = useCallback((newGuest: Guest) => {
+    setGuests(prev => { const newGuests = [...prev, newGuest]; saveToLocalStorage('guests', newGuests); return newGuests; });
+    syncToFirestore('guests', newGuest);
+  }, [syncToFirestore]);
+  
+  const addExpense = useCallback((newExpenseData: Omit<Expense, 'id'>) => {
+    const newExpense: Expense = { id: `exp-${Date.now()}`, ...newExpenseData };
+    setExpenses(prev => { const newExpenses = [newExpense, ...prev]; saveToLocalStorage('expenses', newExpenses); return newExpenses; });
+    syncToFirestore('expenses', newExpense);
+  }, [syncToFirestore]);
+
+  const updatePgMenu = useCallback((pgId: string, menu: Menu) => {
+    setPgs(prevPgs => {
+      const newPgs = prevPgs.map(pg => pg.id === pgId ? { ...pg, menu } : pg);
+      const updatedPg = newPgs.find(pg => pg.id === pgId);
+      if (updatedPg) syncToFirestore('pgs', updatedPg);
+      saveToLocalStorage('pgs', newPgs);
+      return newPgs;
+    });
+  }, [syncToFirestore]);
+
+  const updateComplaint = useCallback((updatedComplaint: Complaint) => {
+    setComplaints(prev => { const newComplaints = prev.map(c => c.id === updatedComplaint.id ? updatedComplaint : c); saveToLocalStorage('complaints', newComplaints); return newComplaints; });
+    syncToFirestore('complaints', updatedComplaint);
+  }, [syncToFirestore]);
+
+  const addComplaint = useCallback((newComplaintData: NewComplaintData) => {
+    if (!currentGuest) return;
+    const newComplaint: Complaint = { id: `c-${Date.now()}`, ...newComplaintData, guestId: currentGuest.id, guestName: currentGuest.name, pgId: currentGuest.pgId, pgName: currentGuest.pgName, status: 'open', date: format(new Date(), 'yyyy-MM-dd'), upvotes: 0 };
+    setComplaints(prev => { const newComplaints = [newComplaint, ...prev]; saveToLocalStorage('complaints', newComplaints); return newComplaints; });
+    syncToFirestore('complaints', newComplaint);
+  }, [currentGuest, syncToFirestore]);
+  
+  const addStaff = useCallback((newStaffData: Omit<Staff, 'id'>) => {
+    const newStaff: Staff = { id: `staff-${Date.now()}`, ...newStaffData };
+    setStaff(prev => { const newStaffList = [...prev, newStaff]; saveToLocalStorage('staff', newStaffList); return newStaffList; });
+    syncToFirestore('staff', newStaff);
+  }, [syncToFirestore]);
+  
+  const updateStaff = useCallback((updatedStaff: Staff) => {
+    setStaff(prev => { const newStaffList = prev.map(s => s.id === updatedStaff.id ? updatedStaff : s); saveToLocalStorage('staff', newStaffList); return newStaffList; });
+    syncToFirestore('staff', updatedStaff);
+  }, [syncToFirestore]);
+
+  const deleteStaff = useCallback((staffId: string) => {
+    setStaff(prev => { const newStaffList = prev.filter(s => s.id !== staffId); saveToLocalStorage('staff', newStaffList); return newStaffList; });
+    deleteFromFirestore('staff', staffId);
+  }, [deleteFromFirestore]);
+
+  const disassociateAndCreateOwnerAccount = useCallback(() => {
+    if (!currentUser || !currentGuest) return;
+    const updatedGuests = guests.map(g => g.id === currentGuest.id ? { ...g, email: undefined } : g);
+    setGuests(updatedGuests); saveToLocalStorage('guests', updatedGuests);
+    const updatedUserAsOwner: User = { ...currentUser, role: 'owner', guestId: undefined, subscription: { planId: 'free', status: 'active' } };
+    const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUserAsOwner : u);
+    setUsers(updatedUsers); saveToLocalStorage('users', updatedUsers);
+    addPg({ name: `${currentUser.name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
+    logout();
+  }, [currentUser, currentGuest, guests, users, addPg, logout]);
+
   const visiblePgs = useMemo(() => {
     if (isLoading || !currentUser || currentUser.role === 'tenant') return [];
     if (currentUser.role === 'owner') return pgs.filter(pg => pg.ownerId === currentUser.id);
@@ -323,95 +418,41 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     return staff.filter(s => userPgs.includes(s.pgId));
   }, [currentUser, staff, isLoading, visiblePgs]);
 
-  // Reset selectedPgId if the new user doesn't have access to it
   useEffect(() => {
     if (selectedPgId && visiblePgs.length > 0 && !visiblePgs.find(p => p.id === selectedPgId)) {
       setSelectedPgId(null);
     }
   }, [visiblePgs, selectedPgId]);
 
-
-  // Notification Generation Logic
   useEffect(() => {
     if (isLoading || !currentPlan) return;
-
     const newNotifications: Notification[] = [];
-    
     visibleGuests.forEach(guest => {
         const dueDate = parseISO(guest.dueDate);
         const daysUntilDue = differenceInDays(dueDate, new Date());
-
         if (guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') {
-            if (isPast(dueDate)) {
-                newNotifications.push({
-                    id: `noti-rent-overdue-${guest.id}`,
-                    type: 'rent-overdue',
-                    title: `Rent Overdue: ${guest.name}`,
-                    message: `Rent was due on ${guest.dueDate}.`,
-                    link: '/dashboard/tenant-management',
-                    date: new Date().toISOString(),
-                    isRead: false,
-                    targetId: guest.id,
-                });
-            } else if (daysUntilDue <= 7) {
-                 newNotifications.push({
-                    id: `noti-rent-due-${guest.id}`,
-                    type: 'rent-due',
-                    title: `Rent Due Soon: ${guest.name}`,
-                    message: `Rent is due in ${daysUntilDue + 1} days.`,
-                    link: '/dashboard/tenant-management',
-                    date: new Date().toISOString(),
-                    isRead: false,
-                    targetId: guest.id,
-                });
-            }
+            if (isPast(dueDate)) newNotifications.push({ id: `noti-rent-overdue-${guest.id}`, type: 'rent-overdue', title: `Rent Overdue: ${guest.name}`, message: `Rent was due on ${guest.dueDate}.`, link: '/dashboard/tenant-management', date: new Date().toISOString(), isRead: false, targetId: guest.id });
+            else if (daysUntilDue <= 7) newNotifications.push({ id: `noti-rent-due-${guest.id}`, type: 'rent-due', title: `Rent Due Soon: ${guest.name}`, message: `Rent is due in ${daysUntilDue + 1} days.`, link: '/dashboard/tenant-management', date: new Date().toISOString(), isRead: false, targetId: guest.id });
         }
     });
-
     visibleGuests.forEach(guest => {
         if (guest.exitDate) {
             const exitDate = parseISO(guest.exitDate);
             const daysUntilExit = differenceInDays(exitDate, new Date());
-            if (daysUntilExit <= 15 && isFuture(exitDate)) {
-                 newNotifications.push({
-                    id: `noti-checkout-${guest.id}`,
-                    type: 'checkout-soon',
-                    title: `Checkout Soon: ${guest.name}`,
-                    message: `Scheduled to check out in ${daysUntilExit + 1} days.`,
-                    link: '/dashboard',
-                    date: new Date().toISOString(),
-                    isRead: false,
-                    targetId: guest.id,
-                });
-            }
+            if (daysUntilExit <= 15 && isFuture(exitDate)) newNotifications.push({ id: `noti-checkout-${guest.id}`, type: 'checkout-soon', title: `Checkout Soon: ${guest.name}`, message: `Scheduled to check out in ${daysUntilExit + 1} days.`, link: '/dashboard', date: new Date().toISOString(), isRead: false, targetId: guest.id });
         }
     });
-
     if (currentPlan.hasComplaints) {
         visibleComplaints.forEach(complaint => {
-            if (complaint.status === 'open') {
-                newNotifications.push({
-                    id: `noti-complaint-${complaint.id}`,
-                    type: 'new-complaint',
-                    title: `New Complaint: ${complaint.guestName}`,
-                    message: `Category: ${complaint.category}.`,
-                    link: '/dashboard/complaints',
-                    date: new Date(complaint.date).toISOString(),
-                    isRead: false,
-                    targetId: complaint.id,
-                });
-            }
+            if (complaint.status === 'open') newNotifications.push({ id: `noti-complaint-${complaint.id}`, type: 'new-complaint', title: `New Complaint: ${complaint.guestName}`, message: `Category: ${complaint.category}.`, link: '/dashboard/complaints', date: new Date(complaint.date).toISOString(), isRead: false, targetId: complaint.id });
         });
     }
-    
     const storedNotifications = getFromLocalStorage<Notification[]>('notifications', []);
     const updatedNotifications = newNotifications.map(newNoti => {
         const storedNoti = storedNotifications.find(sn => sn.id === newNoti.id);
         return storedNoti ? { ...newNoti, isRead: storedNoti.isRead } : newNoti;
     });
-
     setNotifications(updatedNotifications.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-
   }, [visibleGuests, visibleComplaints, isLoading, currentPlan]);
 
   const markNotificationAsRead = useCallback((notificationId: string) => {
@@ -430,156 +471,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  
   const handleSetSelectedPgId = useCallback((id: string | null) => {
     setSelectedPgId(id);
     saveToLocalStorage('selectedPgId', id);
   }, []);
-
-  const updateGuest = useCallback((updatedGuest: Guest) => {
-    setGuests(prevGuests => {
-        const newGuests = prevGuests.map(t => t.id === updatedGuest.id ? updatedGuest : t);
-        saveToLocalStorage('guests', newGuests);
-        return newGuests;
-    })
-  }, []);
-
-  const addGuest = useCallback((newGuest: Guest) => {
-    setGuests(prevGuests => {
-        const newGuests = [...prevGuests, newGuest];
-        saveToLocalStorage('guests', newGuests);
-        return newGuests;
-    });
-  }, []);
   
-  const updatePgs = useCallback((updatedPgs: PG[]) => {
-      setPgs(updatedPgs);
-      saveToLocalStorage('pgs', updatedPgs);
-  }, []);
-
-  const updatePg = useCallback((updatedPg: PG) => {
-    setPgs(prevPgs => {
-        const newPgs = prevPgs.map(pg => (pg.id === updatedPg.id ? updatedPg : pg));
-        saveToLocalStorage('pgs', newPgs);
-        return newPgs;
-    });
-  }, []);
-
-  const addExpense = useCallback((newExpenseData: Omit<Expense, 'id'>) => {
-    setExpenses(prevExpenses => {
-        const newExpense: Expense = {
-            id: `exp-${new Date().getTime()}`,
-            ...newExpenseData,
-        };
-        const newExpenses = [newExpense, ...prevExpenses];
-        saveToLocalStorage('expenses', newExpenses);
-        return newExpenses;
-    });
-  }, []);
-  
-  const updatePgMenu = useCallback((pgId: string, menu: Menu) => {
-    setPgs(prevPgs => {
-        const newPgs = prevPgs.map(pg => 
-            pg.id === pgId ? { ...pg, menu } : pg
-        );
-        saveToLocalStorage('pgs', newPgs);
-        return newPgs;
-    });
-  }, []);
-
-  const updateComplaint = useCallback((updatedComplaint: Complaint) => {
-    setComplaints(prevComplaints => {
-      const newComplaints = prevComplaints.map(c => c.id === updatedComplaint.id ? updatedComplaint : c);
-      saveToLocalStorage('complaints', newComplaints);
-      return newComplaints;
-    });
-  }, []);
-
-  const addComplaint = useCallback((newComplaintData: NewComplaintData) => {
-    if (!currentGuest) return;
-    setComplaints(prev => {
-      const newComplaint: Complaint = {
-        id: `c-${Date.now()}`,
-        ...newComplaintData,
-        guestId: currentGuest.id,
-        guestName: currentGuest.name,
-        pgId: currentGuest.pgId,
-        pgName: currentGuest.pgName,
-        status: 'open',
-        date: format(new Date(), 'yyyy-MM-dd'),
-        upvotes: 0,
-      };
-      const newComplaints = [newComplaint, ...prev];
-      saveToLocalStorage('complaints', newComplaints);
-      return newComplaints;
-    });
-  }, [currentGuest]);
-
-  const addStaff = useCallback((newStaffData: Omit<Staff, 'id'>) => {
-    setStaff(prevStaff => {
-        const newStaff: Staff = {
-            id: `staff-${new Date().getTime()}`,
-            ...newStaffData,
-        };
-        const newStaffList = [...prevStaff, newStaff];
-        saveToLocalStorage('staff', newStaffList);
-        return newStaffList;
-    });
-  }, []);
-
-  const updateStaff = useCallback((updatedStaff: Staff) => {
-    setStaff(prevStaff => {
-        const newStaffList = prevStaff.map(s => s.id === updatedStaff.id ? updatedStaff : s);
-        saveToLocalStorage('staff', newStaffList);
-        return newStaffList;
-    })
-  }, []);
-  
-  const deleteStaff = useCallback((staffId: string) => {
-      setStaff(prevStaff => {
-          const newStaffList = prevStaff.filter(s => s.id !== staffId);
-          saveToLocalStorage('staff', newStaffList);
-          return newStaffList;
-      })
-  }, []);
-
-
-  const value = { 
-    pgs: visiblePgs, 
-    guests: visibleGuests, 
-    complaints: visibleComplaints, 
-    expenses: visibleExpenses, 
-    staff: visibleStaff, 
-    selectedPgId, 
-    setSelectedPgId: handleSetSelectedPgId, 
-    updateGuest, 
-    addGuest, 
-    updatePgs, 
-    updatePg,
-    addPg,
-    addExpense, 
-    updatePgMenu, 
-    updateComplaint,
-    addComplaint,
-    addStaff, 
-    updateStaff, 
-    deleteStaff, 
-    isLoading, 
-    notifications, 
-    markNotificationAsRead, 
-    markAllAsRead,
-    users,
-    currentUser,
-    setCurrentUser: handleSetCurrentUser,
-    login,
-    logout,
-    signup,
-    disassociateAndCreateOwnerAccount,
-    currentPlan,
-    updateUserPlan,
-    currentGuest,
-    currentPg,
-  };
+  const value = { pgs: visiblePgs, guests: visibleGuests, complaints: visibleComplaints, expenses: visibleExpenses, staff: visibleStaff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addPg, addExpense, updatePgMenu, updateComplaint, addComplaint, addStaff, updateStaff, deleteStaff, isLoading, notifications, markNotificationAsRead, markAllAsRead, users, currentUser, setCurrentUser: handleSetCurrentUser, login, logout, signup, disassociateAndCreateOwnerAccount, currentPlan, updateUserPlan, currentGuest, currentPg };
 
   return (
     <DataContext.Provider value={value}>
@@ -588,7 +485,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Custom hook to use the context
 export const useData = () => {
   const context = useContext(DataContext);
   if (context === undefined) {
