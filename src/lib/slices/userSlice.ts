@@ -10,6 +10,7 @@ import { fetchGuests } from './guestsSlice';
 import { fetchComplaints } from './complaintsSlice';
 import { fetchExpenses } from './expensesSlice';
 import { fetchStaff } from './staffSlice';
+import { fetchNotifications } from './notificationsSlice';
 import { RootState } from '../store';
 
 interface UserState {
@@ -59,7 +60,8 @@ export const fetchAllData = createAsyncThunk<void, User, { dispatch: any, state:
             dispatch(fetchGuests({ userId: user.id, useCloud })),
             dispatch(fetchComplaints({ userId: user.id, useCloud })),
             dispatch(fetchExpenses({ userId: user.id, useCloud })),
-            dispatch(fetchStaff({ userId: user.id, useCloud }))
+            dispatch(fetchStaff({ userId: user.id, useCloud })),
+            dispatch(fetchNotifications({ userId: user.id, useCloud }))
         ]);
     }
 );
