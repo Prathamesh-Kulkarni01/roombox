@@ -4,6 +4,7 @@
   "short_name": "PGOasis",
   "description": "Stop juggling spreadsheets. PGOasis automates your operations, from rent collection to guest management, all in one simple platform.",
   "start_url": "/",
+  "scope":"/",
   "display": "standalone",
   "background_color": "#E3F2FD",
   "theme_color": "#64B5F6",
