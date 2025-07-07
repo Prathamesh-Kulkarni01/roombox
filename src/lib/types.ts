@@ -1,4 +1,5 @@
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -152,7 +153,7 @@ export interface Plan {
 export interface User {
   id: string;
   name: string;
-  phone: string;
+  phone?: string;
   email?: string;
   password?: string;
   role: UserRole;

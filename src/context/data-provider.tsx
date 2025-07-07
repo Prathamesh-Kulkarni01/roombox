@@ -7,6 +7,7 @@ import { pgs as initialPgs, guests as initialGuests, complaints as initialCompla
 import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan, PlanName, UserRole } from '@/lib/types';
 import { differenceInDays, parseISO, isPast, isFuture, format } from 'date-fns';
 import { db, auth, isFirebaseConfigured } from '@/lib/firebase';
+import { type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 
 
@@ -76,6 +77,7 @@ interface DataContextType {
   currentGuest: Guest | null;
   currentPg: PG | null;
   handlePhoneAuthSuccess: (phoneNumber: string) => Promise<{ isNewUser: boolean; role: UserRole | null }>;
+  handleSocialLogin: (socialUser: FirebaseUser) => Promise<{ isNewUser: boolean; role: UserRole | null }>;
   pendingSignupPhone: string | null;
   completeNewUserSignup: (name: string) => Promise<void>;
 }
@@ -98,6 +100,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [pendingSignupPhone, setPendingSignupPhone] = useState<string | null>(null);
 
+  // Memoized derived state
+  const currentPlan = useMemo(() => {
+    if (!currentUser) return null;
+    return plans[currentUser.subscription?.planId || 'free'];
+  }, [currentUser]);
+
+  const currentGuest = useMemo(() => {
+    if (isLoading || !currentUser || currentUser.role !== 'tenant' || !currentUser.guestId) return null;
+    return guests.find(g => g.id === currentUser.guestId) || null;
+  }, [currentUser, guests, isLoading]);
+
+  const currentPg = useMemo(() => {
+    if (!currentGuest) return null;
+    return pgs.find(p => p.id === currentGuest.pgId) || null;
+  }, [currentGuest, pgs]);
+
   const handleSetCurrentUser = useCallback((user: User | null) => {
     setCurrentUser(user);
     saveToLocalStorage('currentUserId', user ? user.id : null);
@@ -106,11 +124,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
   
-  const currentPlan = useMemo(() => {
-    if (!currentUser) return null;
-    return plans[currentUser.subscription?.planId || 'free'];
-  }, [currentUser]);
-
   // Main data loading effect
   useEffect(() => {
     const loadInitialData = async () => {
@@ -141,8 +154,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser(user);
         const plan = plans[user.subscription?.planId || 'free'];
         
-        if (plan.id !== 'free' && isFirebaseConfigured()) {
-          console.log(`Pro plan (${plan.id}) detected. Initializing Firebase sync.`);
+        if (plan.hasCloudSync && isFirebaseConfigured()) {
+          console.log(`Cloud-sync plan (${plan.id}) detected. Initializing Firebase sync.`);
           try {
             const collections = {
               pgs: collection(db, 'users_data', user.id, 'pgs'),
@@ -197,7 +210,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             loadDataFromLocalStorage();
           }
         } else {
-          console.log(`Plan (${plan.id}) is not Pro or Firebase not configured. Using local storage.`);
+          console.log(`Plan (${plan.id}) does not have cloud sync or Firebase not configured. Using local storage.`);
           loadDataFromLocalStorage();
         }
       } else {
@@ -215,7 +228,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // Helper to sync a document to Firestore if on a Pro plan
   const syncToFirestore = useCallback(async (collectionName: string, data: { id: string }) => {
-    if (currentUser && currentPlan && currentPlan.id !== 'free' && isFirebaseConfigured()) {
+    if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
       try {
         const docRef = doc(db, 'users_data', currentUser.id, collectionName, data.id);
         await setDoc(docRef, data, { merge: true });
@@ -226,7 +239,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [currentUser, currentPlan]);
   
   const deleteFromFirestore = useCallback(async (collectionName: string, docId: string) => {
-     if (currentUser && currentPlan && currentPlan.id !== 'free' && isFirebaseConfigured()) {
+     if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
         try {
             const docRef = doc(db, 'users_data', currentUser.id, collectionName, docId);
             await deleteDoc(docRef);
@@ -299,6 +312,40 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     return { isNewUser: true, role: null };
   }, [users, staff, guests, handleSetCurrentUser]);
 
+  const handleSocialLogin = useCallback(async (socialUser: FirebaseUser): Promise<{ isNewUser: boolean, role: UserRole | null }> => {
+    if (!socialUser.email) {
+      throw new Error("Social login provider did not return an email.");
+    }
+    
+    let existingUser = users.find(u => u.email === socialUser.email);
+    if (existingUser) {
+      handleSetCurrentUser(existingUser);
+      return { isNewUser: false, role: existingUser.role };
+    }
+
+    // New user via social login
+    const newUser: User = {
+        id: `user-${Date.now()}`,
+        name: socialUser.displayName || 'New User',
+        email: socialUser.email,
+        phone: socialUser.phoneNumber || undefined,
+        role: 'owner',
+        subscription: { planId: 'free', status: 'active' },
+        avatarUrl: socialUser.photoURL || `https://placehold.co/40x40.png?text=${(socialUser.displayName || 'NU').slice(0,2).toUpperCase()}`
+    };
+
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
+    saveToLocalStorage('users', updatedUsers);
+    
+    // Set current user BEFORE calling functions that rely on it (like addPg)
+    handleSetCurrentUser(newUser); 
+    
+    addPg({ name: `${newUser.name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
+    
+    return { isNewUser: true, role: 'owner' };
+  }, [users, handleSetCurrentUser, addPg]);
+
   const completeNewUserSignup = useCallback(async (name: string) => {
     if (!pendingSignupPhone) {
         console.error("No pending phone number for signup.");
@@ -312,11 +359,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         subscription: { planId: 'free', status: 'active' },
         avatarUrl: `https://placehold.co/40x40.png?text=${name.slice(0,2).toUpperCase()}`
     };
-    addPg({ name: `${name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
+    
     const updatedUsers = [...users, newUser];
     setUsers(updatedUsers);
     saveToLocalStorage('users', updatedUsers);
+    
+    // Set current user BEFORE calling addPg
     handleSetCurrentUser(newUser);
+    
+    addPg({ name: `${name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
+
     setPendingSignupPhone(null);
   }, [pendingSignupPhone, users, addPg, handleSetCurrentUser]);
 
@@ -343,7 +395,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const updatePgs = useCallback((updatedPgs: PG[]) => {
       setPgs(updatedPgs);
       saveToLocalStorage('pgs', updatedPgs);
-      if (currentUser && currentPlan && currentPlan.id !== 'free' && isFirebaseConfigured()) {
+      if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
           const batch = writeBatch(db);
           updatedPgs.forEach(pg => {
               const docRef = doc(db, 'users_data', currentUser.id, 'pgs', pg.id);
@@ -384,14 +436,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     syncToFirestore('complaints', updatedComplaint);
   }, [syncToFirestore]);
   
-  const currentGuest = useMemo(() => {
-    if (isLoading || !currentUser || currentUser.role !== 'tenant' || !currentUser.guestId) return null;
-    return guests.find(g => g.id === currentUser.guestId) || null;
-  }, [currentUser, guests, isLoading]);
-
   const addComplaint = useCallback((newComplaintData: NewComplaintData) => {
-    if (!currentGuest) return;
-    const newComplaint: Complaint = { id: `c-${Date.now()}`, ...newComplaintData, guestId: currentGuest.id, guestName: currentGuest.name, pgId: currentGuest.pgId, pgName: currentGuest.pgName, status: 'open', date: format(new Date(), 'yyyy-MM-dd'), upvotes: 0 };
+    const guest = currentGuest;
+    if (!guest) return;
+    const newComplaint: Complaint = { id: `c-${Date.now()}`, ...newComplaintData, guestId: guest.id, guestName: guest.name, pgId: guest.pgId, pgName: guest.pgName, status: 'open', date: format(new Date(), 'yyyy-MM-dd'), upvotes: 0 };
     setComplaints(prev => { const newComplaints = [newComplaint, ...prev]; saveToLocalStorage('complaints', newComplaints); return newComplaints; });
     syncToFirestore('complaints', newComplaint);
   }, [currentGuest, syncToFirestore]);
@@ -413,15 +461,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [deleteFromFirestore]);
 
   const disassociateAndCreateOwnerAccount = useCallback(() => {
-    if (!currentUser || !currentGuest) return;
-    const updatedGuests = guests.map(g => g.id === currentGuest.id ? { ...g, email: undefined } : g);
+    const guest = currentGuest;
+    if (!currentUser || !guest) return;
+    const updatedGuests = guests.map(g => g.id === guest.id ? { ...g, email: undefined } : g);
     setGuests(updatedGuests); saveToLocalStorage('guests', updatedGuests);
     const updatedUserAsOwner: User = { ...currentUser, role: 'owner', guestId: undefined, subscription: { planId: 'free', status: 'active' } };
     const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUserAsOwner : u);
     setUsers(updatedUsers); saveToLocalStorage('users', updatedUsers);
+    
+    // Set user before calling addPg
+    handleSetCurrentUser(updatedUserAsOwner);
     addPg({ name: `${currentUser.name.split(' ')[0]}'s First PG`, location: 'Update Location', city: 'Update City', gender: 'co-ed' });
     logout();
-  }, [currentUser, currentGuest, guests, users, addPg, logout]);
+  }, [currentUser, currentGuest, guests, users, addPg, logout, handleSetCurrentUser]);
 
   const visiblePgs = useMemo(() => {
     if (isLoading || !currentUser || currentUser.role === 'tenant') return [];
@@ -452,11 +504,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const userPgs = visiblePgs.map(p => p.id);
     return staff.filter(s => userPgs.includes(s.pgId));
   }, [currentUser, staff, isLoading, visiblePgs]);
-
-  const currentPg = useMemo(() => {
-    if (!currentGuest) return null;
-    return pgs.find(p => p.id === currentGuest.pgId) || null;
-  }, [currentGuest, pgs]);
 
   useEffect(() => {
     if (selectedPgId && visiblePgs.length > 0 && !visiblePgs.find(p => p.id === selectedPgId)) {
@@ -516,7 +563,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     saveToLocalStorage('selectedPgId', id);
   }, []);
   
-  const value = { pgs: visiblePgs, guests: visibleGuests, complaints: visibleComplaints, expenses: visibleExpenses, staff: visibleStaff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addPg, addExpense, updatePgMenu, updateComplaint, addComplaint, addStaff, updateStaff, deleteStaff, isLoading, notifications, markNotificationAsRead, markAllAsRead, users, currentUser, setCurrentUser: handleSetCurrentUser, logout, disassociateAndCreateOwnerAccount, currentPlan, updateUserPlan, currentGuest, currentPg, handlePhoneAuthSuccess, pendingSignupPhone, completeNewUserSignup };
+  const value = { pgs: visiblePgs, guests: visibleGuests, complaints: visibleComplaints, expenses: visibleExpenses, staff: visibleStaff, selectedPgId, setSelectedPgId: handleSetSelectedPgId, updateGuest, addGuest, updatePgs, updatePg, addPg, addExpense, updatePgMenu, updateComplaint, addComplaint, addStaff, updateStaff, deleteStaff, isLoading, notifications, markNotificationAsRead, markAllAsRead, users, currentUser, setCurrentUser: handleSetCurrentUser, logout, disassociateAndCreateOwnerAccount, currentPlan, updateUserPlan, currentGuest, currentPg, handlePhoneAuthSuccess, handleSocialLogin, pendingSignupPhone, completeNewUserSignup };
 
   return (
     <DataContext.Provider value={value}>
