@@ -7,7 +7,7 @@ import StoreProvider from '@/components/StoreProvider';
 
 const APP_NAME = "RoomBox";
 const APP_DESCRIPTION = "RoomBox is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
-const APP_URL = "https://roombox.app"; // Placeholder, replace with your actual domain
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://roombox.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
