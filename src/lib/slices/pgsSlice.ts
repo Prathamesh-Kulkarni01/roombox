@@ -5,7 +5,7 @@ import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
 import { RootState } from '../store';
-import { addGuest, updateGuest } from './guestsSlice';
+import { addGuest } from './guestsSlice';
 
 interface PgsState {
     pgs: PG[];
@@ -101,14 +101,6 @@ const pgsSlice = createSlice({
             })
             .addCase(addGuest.fulfilled, (state, action) => {
                 if (!action.payload) return;
-                const { updatedPg } = action.payload;
-                const index = state.pgs.findIndex(p => p.id === updatedPg.id);
-                if (index !== -1) {
-                    state.pgs[index] = updatedPg;
-                }
-            })
-            .addCase(updateGuest.fulfilled, (state, action) => {
-                if (!action.payload.updatedPg) return;
                 const { updatedPg } = action.payload;
                 const index = state.pgs.findIndex(p => p.id === updatedPg.id);
                 if (index !== -1) {

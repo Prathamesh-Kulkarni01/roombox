@@ -1,5 +1,4 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, PG } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
@@ -71,17 +70,12 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
     }
 );
 
-export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, Guest, { state: RootState }>(
+export const updateGuest = createAsyncThunk<Guest, Guest, { state: RootState }>(
     'guests/updateGuest',
     async (updatedGuest, { getState, dispatch, rejectWithValue }) => {
         const { user, guests } = getState();
         const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
         if (!user.currentUser || !originalGuest) return rejectWithValue('No user or original guest');
-
-        // The logic to update the PG (freeing bed, reducing occupancy) when an exit is *initiated*
-        // has been removed. This was incorrect, as the guest still occupies the bed during their notice period.
-        // A separate action/process would be needed to finalize the guest's departure after the exit date.
-        // For now, "Vacate Bed" will correctly put the guest into a "notice-period" state without freeing the bed.
 
         const rentStatusChanged = updatedGuest.rentStatus !== originalGuest.rentStatus;
         if (rentStatusChanged && updatedGuest.rentStatus === 'paid') {
@@ -96,13 +90,10 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
-            // We only need to update the guest document, not the PG document.
             await setDoc(guestDocRef, updatedGuest, { merge: true });
         }
-
-        // We return the updated guest, but no PG update.
-        // The pgsSlice will not be affected, which is the desired behavior.
-        return { updatedGuest };
+        
+        return updatedGuest;
     }
 );
 
@@ -123,9 +114,9 @@ const guestsSlice = createSlice({
                 if(action.payload) state.guests.push(action.payload.newGuest);
             })
             .addCase(updateGuest.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.updatedGuest.id);
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
-                    state.guests[index] = action.payload.updatedGuest;
+                    state.guests[index] = action.payload;
                 }
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
