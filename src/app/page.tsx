@@ -77,6 +77,7 @@ export default function Home() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="py-24 md:py-32">
+          <div className="container mx-auto px-4 text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-6 animate-in fade-in slide-in-from-top-8 duration-700 ease-out">
               The Modern OS for Your Rental Property
             </h1>
