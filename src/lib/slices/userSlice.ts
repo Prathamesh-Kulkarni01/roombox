@@ -53,17 +53,20 @@ export const fetchAllData = createAsyncThunk<void, User, { dispatch: any, state:
         const plan = plans[user.subscription?.planId || 'free'];
         const useCloud = plan.hasCloudSync && isFirebaseConfigured();
         
-        dispatch(fetchPgs({ userId: user.id, useCloud }));
-        dispatch(fetchGuests({ userId: user.id, useCloud }));
-        dispatch(fetchComplaints({ userId: user.id, useCloud }));
-        dispatch(fetchExpenses({ userId: user.id, useCloud }));
-        dispatch(fetchStaff({ userId: user.id, useCloud }));
+        // Await all dispatches to ensure data is fully loaded before proceeding
+        await Promise.all([
+            dispatch(fetchPgs({ userId: user.id, useCloud })),
+            dispatch(fetchGuests({ userId: user.id, useCloud })),
+            dispatch(fetchComplaints({ userId: user.id, useCloud })),
+            dispatch(fetchExpenses({ userId: user.id, useCloud })),
+            dispatch(fetchStaff({ userId: user.id, useCloud }))
+        ]);
     }
 );
 
-export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState }>(
+export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState, dispatch: any }>(
     'user/updateUserPlan',
-    async (planId, { getState, rejectWithValue }) => {
+    async (planId, { getState, dispatch, rejectWithValue }) => {
         const state = getState();
         const { currentUser, currentPlan: oldPlan } = state.user;
 
@@ -79,26 +82,25 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
         if (oldPlan.id === newPlan.id) {
             return currentUser; // No change needed
         }
-
-        // Update user document in Firestore first
-        const updatedUser: User = {
-            ...currentUser,
-            subscription: { ...(currentUser.subscription || { status: 'active' }), planId },
-        };
-        const userDocRef = doc(db, 'users', currentUser.id);
-        await setDoc(userDocRef, updatedUser, { merge: true });
-
-        // Now handle data sync based on plan change
+        
         const isUpgrading = !oldPlan.hasCloudSync && newPlan.hasCloudSync;
         const isDowngrading = oldPlan.hasCloudSync && !newPlan.hasCloudSync;
+        
+        // If downgrading, fetch latest data from cloud BEFORE saving to local storage
+        if (isDowngrading) {
+            await dispatch(fetchAllData(currentUser));
+        }
+
+        // Get the most recent state after any potential fetches
+        const latestState = getState();
 
         if (isUpgrading) {
             try {
-                const { pgs } = state.pgs;
-                const { guests } = state.guests;
-                const { complaints } = state.complaints;
-                const { expenses } = state.expenses;
-                const { staff } = state.staff;
+                const { pgs } = latestState.pgs;
+                const { guests } = latestState.guests;
+                const { complaints } = latestState.complaints;
+                const { expenses } = latestState.expenses;
+                const { staff } = latestState.staff;
                 const batch = writeBatch(db);
                 const userId = currentUser.id;
 
@@ -115,16 +117,26 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
         } else if (isDowngrading) {
             if (typeof window !== 'undefined') {
                 try {
-                    localStorage.setItem('pgs', JSON.stringify(state.pgs.pgs));
-                    localStorage.setItem('guests', JSON.stringify(state.guests.guests));
-                    localStorage.setItem('complaints', JSON.stringify(state.complaints.complaints));
-                    localStorage.setItem('expenses', JSON.stringify(state.expenses.expenses));
-                    localStorage.setItem('staff', JSON.stringify(state.staff.staff));
+                    localStorage.setItem('pgs', JSON.stringify(latestState.pgs.pgs));
+                    localStorage.setItem('guests', JSON.stringify(latestState.guests.guests));
+                    localStorage.setItem('complaints', JSON.stringify(latestState.complaints.complaints));
+                    localStorage.setItem('expenses', JSON.stringify(latestState.expenses.expenses));
+                    localStorage.setItem('staff', JSON.stringify(latestState.staff.staff));
                 } catch (error) {
                     console.error("Failed to sync cloud data to local on downgrade:", error);
                 }
             }
         }
+        
+        // Create the updated user object after sync operations
+        const updatedUser: User = {
+            ...currentUser,
+            subscription: { ...(currentUser.subscription || { status: 'active' }), planId },
+        };
+
+        // Finally, update the user document in Firestore
+        const userDocRef = doc(db, 'users', currentUser.id);
+        await setDoc(userDocRef, updatedUser, { merge: true });
 
         return updatedUser;
     }
