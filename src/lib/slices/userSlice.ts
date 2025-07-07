@@ -3,7 +3,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole } from '../types';
 import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { fetchPgs } from './pgsSlice';
 import { fetchGuests } from './guestsSlice';
@@ -64,12 +64,68 @@ export const fetchAllData = createAsyncThunk<void, User, { dispatch: any, state:
 export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState }>(
     'user/updateUserPlan',
     async (planId, { getState, rejectWithValue }) => {
-        const { currentUser } = (getState() as RootState).user;
-        if (!currentUser || !isFirebaseConfigured()) return rejectWithValue('User or Firebase not available');
+        const state = getState();
+        const { currentUser, currentPlan: oldPlan } = state.user;
 
-        const updatedUser: User = { ...currentUser, subscription: { ...(currentUser.subscription || { status: 'active' }), planId: planId } };
+        if (!currentUser || !oldPlan || !isFirebaseConfigured()) {
+            return rejectWithValue('User, old plan, or Firebase not available');
+        }
+
+        const newPlan = plans[planId];
+        if (!newPlan) {
+            return rejectWithValue('Invalid plan ID');
+        }
+
+        if (oldPlan.id === newPlan.id) {
+            return currentUser; // No change needed
+        }
+
+        // Update user document in Firestore first
+        const updatedUser: User = {
+            ...currentUser,
+            subscription: { ...(currentUser.subscription || { status: 'active' }), planId },
+        };
         const userDocRef = doc(db, 'users', currentUser.id);
         await setDoc(userDocRef, updatedUser, { merge: true });
+
+        // Now handle data sync based on plan change
+        const isUpgrading = !oldPlan.hasCloudSync && newPlan.hasCloudSync;
+        const isDowngrading = oldPlan.hasCloudSync && !newPlan.hasCloudSync;
+
+        if (isUpgrading) {
+            try {
+                const { pgs } = state.pgs;
+                const { guests } = state.guests;
+                const { complaints } = state.complaints;
+                const { expenses } = state.expenses;
+                const { staff } = state.staff;
+                const batch = writeBatch(db);
+                const userId = currentUser.id;
+
+                pgs.forEach(pg => batch.set(doc(db, 'users_data', userId, 'pgs', pg.id), pg));
+                guests.forEach(guest => batch.set(doc(db, 'users_data', userId, 'guests', guest.id), guest));
+                complaints.forEach(complaint => batch.set(doc(db, 'users_data', userId, 'complaints', complaint.id), complaint));
+                expenses.forEach(expense => batch.set(doc(db, 'users_data', userId, 'expenses', expense.id), expense));
+                staff.forEach(staffMember => batch.set(doc(db, 'users_data', userId, 'staff', staffMember.id), staffMember));
+                
+                await batch.commit();
+            } catch (error) {
+                console.error("Failed to sync local data to cloud on upgrade:", error);
+            }
+        } else if (isDowngrading) {
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem('pgs', JSON.stringify(state.pgs.pgs));
+                    localStorage.setItem('guests', JSON.stringify(state.guests.guests));
+                    localStorage.setItem('complaints', JSON.stringify(state.complaints.complaints));
+                    localStorage.setItem('expenses', JSON.stringify(state.expenses.expenses));
+                    localStorage.setItem('staff', JSON.stringify(state.staff.staff));
+                } catch (error) {
+                    console.error("Failed to sync cloud data to local on downgrade:", error);
+                }
+            }
+        }
+
         return updatedUser;
     }
 );
@@ -96,6 +152,15 @@ export const logoutUser = createAsyncThunk(
     async () => {
         if(isFirebaseConfigured()) {
             await auth.signOut();
+        }
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('pgs');
+            localStorage.removeItem('guests');
+            localStorage.removeItem('complaints');
+            localStorage.removeItem('expenses');
+            localStorage.removeItem('staff');
+            localStorage.removeItem('notifications');
+            localStorage.removeItem('selectedPgId');
         }
         return null;
     }
