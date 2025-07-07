@@ -5,12 +5,6 @@ import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { fetchPgs } from './pgsSlice';
-import { fetchGuests } from './guestsSlice';
-import { fetchComplaints } from './complaintsSlice';
-import { fetchExpenses } from './expensesSlice';
-import { fetchStaff } from './staffSlice';
-import { fetchNotifications } from './notificationsSlice';
 import { RootState } from '../store';
 
 interface UserState {
@@ -24,7 +18,7 @@ const initialState: UserState = {
 };
 
 // Async Thunks
-export const initializeUser = createAsyncThunk<User, FirebaseUser, { state: RootState }>(
+export const initializeUser = createAsyncThunk<User, FirebaseUser>(
     'user/initializeUser',
     async (firebaseUser, { rejectWithValue }) => {
         if (!isFirebaseConfigured()) return rejectWithValue('Firebase not configured');
@@ -48,27 +42,9 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { state: Root
     }
 );
 
-export const fetchAllData = createAsyncThunk<void, User, { dispatch: any, state: RootState }>(
-    'user/fetchAllData',
-    async (user, { dispatch, getState }) => {
-        const plan = plans[user.subscription?.planId || 'free'];
-        const useCloud = plan.hasCloudSync && isFirebaseConfigured();
-        
-        // Await all dispatches to ensure data is fully loaded before proceeding
-        await Promise.all([
-            dispatch(fetchPgs({ userId: user.id, useCloud })),
-            dispatch(fetchGuests({ userId: user.id, useCloud })),
-            dispatch(fetchComplaints({ userId: user.id, useCloud })),
-            dispatch(fetchExpenses({ userId: user.id, useCloud })),
-            dispatch(fetchStaff({ userId: user.id, useCloud })),
-            dispatch(fetchNotifications({ userId: user.id, useCloud }))
-        ]);
-    }
-);
-
-export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState, dispatch: any }>(
+export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState }>(
     'user/updateUserPlan',
-    async (planId, { getState, dispatch, rejectWithValue }) => {
+    async (planId, { getState, rejectWithValue }) => {
         const state = getState();
         const { currentUser, currentPlan: oldPlan } = state.user;
 
@@ -88,21 +64,15 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
         const isUpgrading = !oldPlan.hasCloudSync && newPlan.hasCloudSync;
         const isDowngrading = oldPlan.hasCloudSync && !newPlan.hasCloudSync;
         
-        // If downgrading, fetch latest data from cloud BEFORE saving to local storage
-        if (isDowngrading) {
-            await dispatch(fetchAllData(currentUser));
-        }
-
-        // Get the most recent state after any potential fetches
-        const latestState = getState();
-
         if (isUpgrading) {
+            // Push local data to cloud
             try {
-                const { pgs } = latestState.pgs;
-                const { guests } = latestState.guests;
-                const { complaints } = latestState.complaints;
-                const { expenses } = latestState.expenses;
-                const { staff } = latestState.staff;
+                const { pgs } = state.pgs;
+                const { guests } = state.guests;
+                const { complaints } = state.complaints;
+                const { expenses } = state.expenses;
+                const { staff } = state.staff;
+                const { notifications } = state.notifications;
                 const batch = writeBatch(db);
                 const userId = currentUser.id;
 
@@ -111,32 +81,35 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
                 complaints.forEach(complaint => batch.set(doc(db, 'users_data', userId, 'complaints', complaint.id), complaint));
                 expenses.forEach(expense => batch.set(doc(db, 'users_data', userId, 'expenses', expense.id), expense));
                 staff.forEach(staffMember => batch.set(doc(db, 'users_data', userId, 'staff', staffMember.id), staffMember));
+                notifications.forEach(notification => batch.set(doc(db, 'users_data', userId, 'notifications', notification.id), notification));
                 
                 await batch.commit();
             } catch (error) {
                 console.error("Failed to sync local data to cloud on upgrade:", error);
+                return rejectWithValue('Failed to sync data on upgrade.');
             }
         } else if (isDowngrading) {
+            // Save latest cloud data (already in state) to local storage
             if (typeof window !== 'undefined') {
                 try {
-                    localStorage.setItem('pgs', JSON.stringify(latestState.pgs.pgs));
-                    localStorage.setItem('guests', JSON.stringify(latestState.guests.guests));
-                    localStorage.setItem('complaints', JSON.stringify(latestState.complaints.complaints));
-                    localStorage.setItem('expenses', JSON.stringify(latestState.expenses.expenses));
-                    localStorage.setItem('staff', JSON.stringify(latestState.staff.staff));
+                    localStorage.setItem('pgs', JSON.stringify(state.pgs.pgs));
+                    localStorage.setItem('guests', JSON.stringify(state.guests.guests));
+                    localStorage.setItem('complaints', JSON.stringify(state.complaints.complaints));
+                    localStorage.setItem('expenses', JSON.stringify(state.expenses.expenses));
+                    localStorage.setItem('staff', JSON.stringify(state.staff.staff));
+                    localStorage.setItem('notifications', JSON.stringify(state.notifications.notifications));
                 } catch (error) {
                     console.error("Failed to sync cloud data to local on downgrade:", error);
+                    return rejectWithValue('Failed to save data locally on downgrade.');
                 }
             }
         }
         
-        // Create the updated user object after sync operations
         const updatedUser: User = {
             ...currentUser,
             subscription: { ...(currentUser.subscription || { status: 'active' }), planId },
         };
 
-        // Finally, update the user document in Firestore
         const userDocRef = doc(db, 'users', currentUser.id);
         await setDoc(userDocRef, updatedUser, { merge: true });
 
