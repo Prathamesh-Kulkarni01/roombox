@@ -1,12 +1,11 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { PG, Floor, Room, Bed } from '../types';
+import type { PG } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
-import { produce } from 'immer';
+import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
 import { RootState } from '../store';
-import { addGuest } from './guestsSlice';
+import { addGuest, updateGuest } from './guestsSlice';
 
 interface PgsState {
     pgs: PG[];
@@ -21,7 +20,7 @@ type NewPgData = Pick<PG, 'name' | 'location' | 'city' | 'gender'>;
 // Async Thunks
 export const fetchPgs = createAsyncThunk(
     'pgs/fetchPgs',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }, { rejectWithValue }) => {
+    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
         if (useCloud) {
             const pgsCollection = collection(db, 'users_data', userId, 'pgs');
             const pgsSnap = await getDocs(pgsCollection);
@@ -72,7 +71,7 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            await setDoc(docRef, updatedPg, { merge: true });
+            await setDoc(docRef, updatedPg);
         }
         return updatedPg;
     }
@@ -102,16 +101,18 @@ const pgsSlice = createSlice({
             })
             .addCase(addGuest.fulfilled, (state, action) => {
                 if (!action.payload) return;
-                const { newGuest } = action.payload;
-                const pgToUpdate = state.pgs.find(p => p.id === newGuest.pgId);
-                if (pgToUpdate) {
-                    pgToUpdate.occupancy += 1;
-                    pgToUpdate.floors?.forEach(floor => {
-                        floor.rooms.forEach(room => {
-                            const bed = room.beds.find(b => b.id === newGuest.bedId);
-                            if (bed) bed.guestId = newGuest.id;
-                        });
-                    });
+                const { updatedPg } = action.payload;
+                const index = state.pgs.findIndex(p => p.id === updatedPg.id);
+                if (index !== -1) {
+                    state.pgs[index] = updatedPg;
+                }
+            })
+            .addCase(updateGuest.fulfilled, (state, action) => {
+                if (!action.payload.updatedPg) return;
+                const { updatedPg } = action.payload;
+                const index = state.pgs.findIndex(p => p.id === updatedPg.id);
+                if (index !== -1) {
+                    state.pgs[index] = updatedPg;
                 }
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
