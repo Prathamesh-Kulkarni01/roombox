@@ -41,6 +41,19 @@ export default function MyPgPage() {
         return pgs.find(p => p.id === currentGuest.pgId);
     }, [currentGuest, pgs]);
 
+    const bedDetails = useMemo(() => {
+        if (!currentPg || !currentGuest) return { roomName: 'N/A', bedName: 'N/A' };
+        for (const floor of currentPg.floors || []) {
+            for (const room of floor.rooms) {
+                const bed = room.beds.find(b => b.id === currentGuest.bedId);
+                if (bed) {
+                    return { roomName: room.name, bedName: bed.name };
+                }
+            }
+        }
+        return { roomName: 'N/A', bedName: 'N/A' };
+    }, [currentPg, currentGuest]);
+
     if (isLoading || !currentGuest || !currentPg) {
         return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -70,7 +83,7 @@ export default function MyPgPage() {
                     <CardContent className="grid md:grid-cols-2 gap-6 text-sm">
                         <div className="flex items-center gap-3"><Calendar className="w-5 h-5 text-primary" /><p>Moved In: <span className="font-medium">{format(new Date(currentGuest.moveInDate), "do MMM, yyyy")}</span></p></div>
                         <div className="flex items-center gap-3"><Clock className="w-5 h-5 text-primary" /><p>Stay Duration: <span className="font-medium">{stayDuration} days</span></p></div>
-                        <div className="flex items-center gap-3"><BedDouble className="w-5 h-5 text-primary" /><p>Room/Bed: <span className="font-medium">{currentGuest.bedId}</span></p></div>
+                        <div className="flex items-center gap-3"><BedDouble className="w-5 h-5 text-primary" /><p>Room/Bed: <span className="font-medium">Room {bedDetails.roomName}, Bed {bedDetails.bedName}</span></p></div>
                         <div className="flex items-center gap-3"><FileText className="w-5 h-5 text-primary" /><p>Notice Period: <span className="font-medium">{currentGuest.noticePeriodDays} days</span></p></div>
                     </CardContent>
                     {currentGuest.exitDate && (
