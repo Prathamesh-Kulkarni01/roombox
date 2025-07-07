@@ -149,7 +149,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, []);
   
   const currentPlan = useMemo(() => {
-    if (!currentUser) return null;
+    if (!currentUser || !currentUser.subscription) return null;
     return plans[currentUser.subscription.planId];
   }, [currentUser]);
 
