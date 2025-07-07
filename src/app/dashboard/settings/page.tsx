@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useState } from "react"
@@ -6,25 +7,73 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { useData } from "@/context/data-provider"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { plans } from "@/lib/mock-data"
+import type { PlanName } from "@/lib/types"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function SettingsPage() {
   const [notificationMethod, setNotificationMethod] = useState("manual")
+  const { currentUser, currentPlan, updateUserPlan } = useData()
+
+  if (!currentUser || !currentPlan) {
+    return null // Or a loading state
+  }
 
   return (
     <div className="flex flex-col gap-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Owner Profile</CardTitle>
+          <CardDescription>Your account and subscription details.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center gap-4">
+          <Avatar className="h-16 w-16">
+            <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+            <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-lg font-semibold">{currentUser.name}</p>
+            <p className="text-muted-foreground">{currentUser.email}</p>
+            <p className="text-sm text-muted-foreground capitalize">{currentUser.role} - <span className="font-medium text-primary">{currentPlan.name} Plan</span></p>
+          </div>
+        </CardContent>
+      </Card>
+      
        <Card>
         <CardHeader>
-          <CardTitle>General Settings</CardTitle>
-          <CardDescription>
-            Configure general settings for your properties.
-          </CardDescription>
+          <CardTitle>Developer Settings</CardTitle>
+          <CardDescription>For development and testing purposes only.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+            <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Warning</AlertTitle>
+                <AlertDescription>
+                    Changing your plan here is for development testing and does not reflect a real subscription change.
+                </AlertDescription>
+            </Alert>
             <div className="grid gap-2 max-w-sm">
-                <Label htmlFor="notice-period">Default Notice Period (days)</Label>
-                <Input id="notice-period" type="number" defaultValue="30" />
+                <Label htmlFor="plan-switcher">Switch Plan</Label>
+                <Select
+                    value={currentPlan.id}
+                    onValueChange={(planId) => updateUserPlan(planId as PlanName)}
+                >
+                    <SelectTrigger id="plan-switcher">
+                        <SelectValue placeholder="Select a plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {Object.values(plans).map(plan => (
+                            <SelectItem key={plan.id} value={plan.id}>
+                                {plan.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
-            <Button>Save General Settings</Button>
         </CardContent>
       </Card>
 

@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu, plans } from '@/lib/mock-data';
-import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan } from '@/lib/types';
+import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan, PlanName } from '@/lib/types';
 import { differenceInDays, parseISO, isPast, isFuture } from 'date-fns';
 
 
@@ -69,6 +69,7 @@ interface DataContextType {
   logout: () => void;
   signup: (name: string, email: string, password: string) => Promise<{success: boolean; message?: string}>;
   currentPlan: Plan | null;
+  updateUserPlan: (planId: PlanName) => void;
 }
 
 // Create context
@@ -182,12 +183,33 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   
   const currentPlan = useMemo(() => {
     if (!currentUser || !currentUser.subscription) {
-      // Default to free plan if subscription info is missing to prevent crashes
-      // This handles old user data from localStorage
       return plans['free'];
     }
     return plans[currentUser.subscription.planId];
   }, [currentUser]);
+
+  const updateUserPlan = useCallback((planId: PlanName) => {
+    if (!currentUser) return;
+
+    const updatedUser: User = {
+      ...currentUser,
+      subscription: {
+        ...currentUser.subscription,
+        planId: planId,
+      },
+    };
+    
+    // Update the current user in state, which also saves the id to local storage
+    handleSetCurrentUser(updatedUser);
+
+    // Update the user in the main users list and save to local storage
+    setUsers(prevUsers => {
+      const newUsers = prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u);
+      saveToLocalStorage('users', newUsers);
+      return newUsers;
+    });
+
+  }, [currentUser, handleSetCurrentUser]);
 
   // Filter data based on current user's role and PG access
   const visiblePgs = useMemo(() => {
@@ -480,6 +502,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     logout,
     signup,
     currentPlan,
+    updateUserPlan,
   };
 
   return (
