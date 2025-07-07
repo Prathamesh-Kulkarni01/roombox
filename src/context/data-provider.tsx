@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu, plans } from '@/lib/mock-data';
+import { defaultMenu, plans } from '@/lib/mock-data';
 import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan, PlanName, UserRole } from '@/lib/types';
 import { differenceInDays, parseISO, isPast, isFuture, format, addMonths } from 'date-fns';
 import { db, auth, isFirebaseConfigured } from '@/lib/firebase';
@@ -156,6 +156,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (userDoc.exists()) {
         const existingUser = userDoc.data() as User;
         handleSetCurrentUser(existingUser);
+        setUsers([existingUser]);
         return { isNewUser: false, role: existingUser.role };
     }
 
@@ -167,11 +168,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         avatarUrl: socialUser.photoURL || `https://placehold.co/40x40.png?text=${(socialUser.displayName || 'NU').slice(0,2).toUpperCase()}`
     };
     if (socialUser.email) newUser.email = socialUser.email;
-    if (socialUser.phoneNumber) newUser.phone = socialUser.phoneNumber;
-
-    await setDoc(userDocRef, newUser as User);
     
-    handleSetCurrentUser(newUser as User);
+    const newUserToSave = newUser as User;
+
+    await setDoc(userDocRef, newUserToSave);
+    handleSetCurrentUser(newUserToSave);
+    setUsers([newUserToSave]);
     
     return { isNewUser: true, role: 'owner' };
   }, [handleSetCurrentUser]);
@@ -186,15 +188,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // Effect to manage Firebase auth state
   useEffect(() => {
-      if (!isFirebaseConfigured()) {
-          console.log("Firebase not configured, using local mock data.");
-          setUsers(getFromLocalStorage<User[]>('users', initialUsers));
-          const storedUserId = getFromLocalStorage<string | null>('currentUserId', null);
-          setCurrentUser(storedUserId ? initialUsers.find(u => u.id === storedUserId) || null : null);
-          setIsLoading(false);
-          return;
-      }
-
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
           setIsLoading(true);
           if (firebaseUser) {
@@ -202,13 +195,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
               const userDoc = await getDoc(userDocRef);
 
               if (userDoc.exists()) {
-                  handleSetCurrentUser(userDoc.data() as User);
+                  const user = userDoc.data() as User;
+                  setUsers([user]);
+                  handleSetCurrentUser(user);
               } else {
                   console.log("Authenticated user has no user document, attempting to create one.");
                   await handleSocialLogin(firebaseUser);
               }
           } else {
               handleSetCurrentUser(null);
+              setUsers([]);
           }
           setIsLoading(false);
       });
@@ -245,44 +241,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                     staff: collection(db, 'users_data', currentUser.id, 'staff'),
                 };
                 
-                const userSyncDocRef = doc(db, "users_data", currentUser.id);
-                const userSyncDoc = await getDoc(userSyncDocRef);
-
-                if (!userSyncDoc.exists()) {
-                    console.log("No data in Firestore for this user, performing initial sync from local storage.");
-                    const localPgs = getFromLocalStorage('pgs', initialPgs).filter(p => p.ownerId === currentUser.id);
-                    const localGuests = getFromLocalStorage('guests', initialGuests);
-                    const localComplaints = getFromLocalStorage('complaints', initialComplaints);
-                    const localExpenses = getFromLocalStorage('expenses', initialExpenses);
-                    const localStaff = getFromLocalStorage('staff', initialStaff);
-                    
-                    const batch = writeBatch(db);
-                    batch.set(userSyncDocRef, { ownerId: currentUser.id, syncedAt: new Date().toISOString() });
-                    localPgs.forEach(item => batch.set(doc(collections.pgs, item.id), item));
-                    localGuests.forEach(item => batch.set(doc(collections.guests, item.id), item));
-                    localComplaints.forEach(item => batch.set(doc(collections.complaints, item.id), item));
-                    localExpenses.forEach(item => batch.set(doc(collections.expenses, item.id), item));
-                    localStaff.forEach(item => batch.set(doc(collections.staff, item.id), item));
-                    await batch.commit();
-
-                    setPgs(localPgs); setGuests(localGuests); setComplaints(localComplaints); setExpenses(localExpenses); setStaff(localStaff);
-                } else {
-                    const [pgsSnap, guestsSnap, complaintsSnap, expensesSnap, staffSnap] = await Promise.all([
-                        getDocs(collections.pgs), getDocs(collections.guests), getDocs(collections.complaints), getDocs(collections.expenses), getDocs(collections.staff)
-                    ]);
-                    const data = {
-                        pgs: pgsSnap.docs.map(d => d.data() as PG),
-                        guests: guestsSnap.docs.map(d => d.data() as Guest),
-                        complaints: complaintsSnap.docs.map(d => d.data() as Complaint),
-                        expenses: expensesSnap.docs.map(d => d.data() as Expense),
-                        staff: staffSnap.docs.map(d => d.data() as Staff),
-                    };
-                    setPgs(data.pgs); setGuests(data.guests); setComplaints(data.complaints); setExpenses(data.expenses); setStaff(data.staff);
-                    saveToLocalStorage('pgs', data.pgs); saveToLocalStorage('guests', data.guests); saveToLocalStorage('complaints', data.complaints); saveToLocalStorage('expenses', data.expenses); saveToLocalStorage('staff', data.staff);
-                }
+                const [pgsSnap, guestsSnap, complaintsSnap, expensesSnap, staffSnap] = await Promise.all([
+                    getDocs(collections.pgs), getDocs(collections.guests), getDocs(collections.complaints), getDocs(collections.expenses), getDocs(collections.staff)
+                ]);
+                const data = {
+                    pgs: pgsSnap.docs.map(d => d.data() as PG),
+                    guests: guestsSnap.docs.map(d => d.data() as Guest),
+                    complaints: complaintsSnap.docs.map(d => d.data() as Complaint),
+                    expenses: expensesSnap.docs.map(d => d.data() as Expense),
+                    staff: staffSnap.docs.map(d => d.data() as Staff),
+                };
+                setPgs(data.pgs); setGuests(data.guests); setComplaints(data.complaints); setExpenses(data.expenses); setStaff(data.staff);
+                saveToLocalStorage('pgs', data.pgs); saveToLocalStorage('guests', data.guests); saveToLocalStorage('complaints', data.complaints); saveToLocalStorage('expenses', data.expenses); saveToLocalStorage('staff', data.staff);
+                
             } catch (error) {
-                console.error("Firebase sync failed, falling back to local storage:", error);
-                loadFromLocalStorage();
+                console.error("Firebase sync failed. User data could not be loaded.", error);
+                setPgs([]); setGuests([]); setComplaints([]); setExpenses([]); setStaff([]);
             }
         } else {
             loadFromLocalStorage();
@@ -550,3 +524,4 @@ export const useData = () => {
   }
   return context;
 };
+

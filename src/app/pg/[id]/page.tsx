@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { pgs } from '@/lib/mock-data';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +16,13 @@ const amenityIcons = {
 };
 
 export default function PgDetailPage({ params }: { params: { id: string } }) {
-  const pg = pgs.find((p) => p.id === params.id);
+  // This page was dependent on mock data and needs to be connected to a public
+  // Firebase collection to work correctly. For now, it will show a 404 page.
+  notFound();
+
+  // The code below is preserved for when this page is connected to a live data source.
+  /*
+  const pg = null; // Fetch PG data from a public collection using params.id
 
   if (!pg) {
     notFound();
@@ -26,7 +31,6 @@ export default function PgDetailPage({ params }: { params: { id: string } }) {
   return (
     <div className="bg-muted/20">
       <div className="container mx-auto px-4 py-8 md:py-12">
-        {/* Image Gallery */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-8">
           <div className="col-span-1 md:col-span-2">
             <Image
@@ -53,7 +57,6 @@ export default function PgDetailPage({ params }: { params: { id: string } }) {
           ))}
         </div>
 
-        {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <h1 className="text-3xl md:text-4xl font-bold font-headline mb-2">{pg.name}</h1>
@@ -108,7 +111,6 @@ export default function PgDetailPage({ params }: { params: { id: string } }) {
             </Card>
           </div>
 
-          {/* Inquiry Card */}
           <div className="lg:col-span-1">
              <Card className="sticky top-20">
                 <CardHeader><CardTitle>Contact Owner</CardTitle></CardHeader>
@@ -124,7 +126,6 @@ export default function PgDetailPage({ params }: { params: { id: string } }) {
           </div>
         </div>
       </div>
-       {/* Sticky bottom bar for mobile */}
        <div className="md:hidden sticky bottom-0 left-0 right-0 bg-background/90 backdrop-blur-sm p-4 border-t w-full">
          <a href={`https://wa.me/${pg.contact}?text=Hi, I'm interested in your PG "${pg.name}" listed on PGOasis.`} target="_blank" rel="noopener noreferrer">
           <Button className="w-full text-lg bg-accent hover:bg-accent/90 text-accent-foreground">Inquire Now</Button>
@@ -132,4 +133,5 @@ export default function PgDetailPage({ params }: { params: { id: string } }) {
       </div>
     </div>
   );
+  */
 }
