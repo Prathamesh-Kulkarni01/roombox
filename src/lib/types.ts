@@ -128,13 +128,13 @@ export interface Notification {
 
 export type UserRole = 'owner' | 'manager' | 'cook' | 'cleaner' | 'security' | 'other';
 
-export type PlanName = 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
+export type PlanName = 'free' | 'starter' | 'pro' | 'enterprise';
 
 export interface Plan {
   id: PlanName;
   name: string;
   price: number | 'Custom';
-  pricePeriod: '/month' | 'Forever' | "Let's talk";
+  pricePeriod: string;
   pgLimit: number | 'unlimited';
   bedLimit: number | 'unlimited';
   floorLimit: number | 'unlimited';

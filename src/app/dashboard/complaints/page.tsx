@@ -11,6 +11,7 @@ import { ShieldAlert } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Complaint } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 
 const statusColors: Record<Complaint['status'], string> = {
     open: "bg-red-100 text-red-800",
@@ -39,7 +40,7 @@ export default function ComplaintsDashboardPage() {
               <div className="text-center p-8 bg-card rounded-lg border">
                   <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
                   <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                  <p className="mt-2 text-muted-foreground">The complaints management feature is not included in your current plan.</p>
+                  <p className="mt-2 text-muted-foreground max-w-sm">The complaints management feature is not included in your current plan. Please upgrade to access this feature.</p>
                   <Button className="mt-4">Upgrade Plan</Button>
               </div>
           </div>

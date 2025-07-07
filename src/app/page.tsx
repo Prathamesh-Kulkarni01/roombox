@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check, LayoutDashboard, Wallet, MessageSquareWarning, BotMessageSquare, Users, Settings, ChefHat } from 'lucide-react';
+import { Check, LayoutDashboard, Wallet, MessageSquareWarning, BotMessageSquare, Users, Settings, ChefHat, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import InstallPWA from '@/components/install-pwa';
 import { plans } from '@/lib/mock-data';
@@ -55,7 +55,19 @@ const faqs = [
     }
 ]
 
-const planOrder: PlanName[] = ['free', 'pro', 'enterprise'];
+const planOrder: PlanName[] = ['free', 'starter', 'pro'];
+
+const getPlanFeatures = (plan: Plan) => [
+    { text: `${plan.pgLimit === 'unlimited' ? 'Unlimited' : `Up to ${plan.pgLimit}`} PG${plan.pgLimit !== 1 ? 's' : ''}`, included: true },
+    { text: 'Rent Management', included: true },
+    { text: 'Complaint Management', included: plan.hasComplaints },
+    { text: 'Staff Management', included: plan.hasStaffManagement },
+    { text: 'AI Rent Reminders', included: plan.hasAiRentReminders },
+    { text: 'AI SEO Generator', included: plan.hasSeoGenerator },
+    { text: 'WhatsApp Automation', included: plan.hasAutomatedWhatsapp },
+    { text: 'Marketplace Listing', included: plan.hasMarketplace, isComingSoon: plan.id !== 'enterprise' },
+];
+
 
 export default function Home() {
   return (
@@ -110,42 +122,56 @@ export default function Home() {
                     <Badge variant="outline" className="mb-4">Simple Pricing</Badge>
                     <h2 className="text-3xl md:text-4xl font-bold">Choose Your Plan</h2>
                     <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-                        Start for free, upgrade when you're ready. No hidden fees.
+                        Start for free, upgrade when you're ready. No hidden fees, cancel anytime.
                     </p>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto items-start">
                     {planOrder.map(planId => {
                         const plan = plans[planId];
-                        const isPopular = plan.id === 'pro';
+                        const isPopular = plan.id === 'starter';
+                        const planFeatures = getPlanFeatures(plan);
                         return (
-                            <Card key={plan.id} className={cn("p-8", isPopular && "border-2 border-primary relative")}>
-                                {isPopular && <Badge className="absolute -top-4 left-1/2 -translate-x-1/2">Most Popular</Badge>}
-                                <CardContent className="p-0">
+                            <Card key={plan.id} className={cn("p-6 flex flex-col", isPopular && "border-2 border-primary relative")}>
+                                {isPopular && <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Most Popular</Badge>}
+                                <CardContent className="p-0 flex-grow">
                                     <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
                                     <p className="text-muted-foreground mb-6 h-10">{plan.description}</p>
                                     <div className="mb-6">
                                         <span className="text-4xl font-bold">
-                                            {typeof plan.price === 'number' ? `₹${plan.price}`: plan.price}
+                                            {typeof plan.price === 'number' && plan.price > 0 ? `₹${plan.price}` : plan.price === 0 ? 'Free' : plan.price}
                                         </span>
-                                        <span className="text-muted-foreground text-sm">{plan.pricePeriod}</span>
+                                        <span className="text-muted-foreground text-sm ml-1">{plan.pricePeriod}</span>
                                     </div>
                                     <ul className="space-y-3 mb-8 text-sm">
-                                        <li className="flex items-center gap-3"><Check className="w-5 h-5 text-green-500"/>{plan.pgLimit === 'unlimited' ? 'Unlimited' : `Up to ${plan.pgLimit}`} PG{plan.pgLimit !== 1 && 's'}</li>
-                                        <li className="flex items-center gap-3"><Check className="w-5 h-5 text-green-500"/>{plan.bedLimit === 'unlimited' ? 'Unlimited' : `${plan.bedLimit}`} Beds</li>
-                                        <li className="flex items-center gap-3"><Check className="w-5 h-5 text-green-500"/>{plan.hasComplaints ? 'Complaint Management' : <span className="text-muted-foreground">Basic Support</span>}</li>
-                                        <li className="flex items-center gap-3"><Check className="w-5 h-5 text-green-500"/>{plan.hasStaffManagement ? 'Staff Management' : <span className="text-muted-foreground">Single User</span>}</li>
-                                        <li className="flex items-center gap-3"><Check className="w-5 h-5 text-green-500"/>{plan.hasAiRentReminders ? 'AI Reminders' : <span className="text-muted-foreground">Manual Reminders</span>}</li>
+                                        {planFeatures.map(feature => (
+                                            <li key={feature.text} className={cn("flex items-start gap-3", !feature.included && "text-muted-foreground")}>
+                                                {feature.included ? <Check className="w-5 h-5 text-green-500 mt-0.5 shrink-0"/> : <X className="w-5 h-5 text-red-500 mt-0.5 shrink-0"/>}
+                                                <span>
+                                                    {feature.text}
+                                                    {feature.isComingSoon && <Badge variant="outline" className="ml-2 text-xs">Soon</Badge>}
+                                                </span>
+                                            </li>
+                                        ))}
                                     </ul>
-                                    <Button variant={isPopular ? 'default' : 'outline'} className={cn("w-full", isPopular && "bg-accent hover:bg-accent/90 text-accent-foreground")}>
-                                      <Link href="/signup">
-                                        {plan.price === 0 ? 'Get Started' : 'Choose Plan'}
-                                      </Link>
-                                    </Button>
                                 </CardContent>
+                                <Button variant={isPopular ? 'default' : 'outline'} className={cn("w-full mt-4", isPopular && "bg-accent hover:bg-accent/90 text-accent-foreground")}>
+                                    <Link href="/signup">
+                                    {plan.price === 0 ? 'Get Started' : 'Choose Plan'}
+                                    </Link>
+                                </Button>
                             </Card>
                         )
                     })}
                 </div>
+                 <div className="text-center mt-12">
+                    <Card className="inline-block p-6 max-w-lg mx-auto">
+                        <CardContent className="p-0 text-left">
+                           <h3 className="text-xl font-bold mb-4 text-center">Enterprise Plan</h3>
+                           <p className="text-muted-foreground mb-4">Need a custom solution? We offer tailored plans for large-scale operations with features like marketplace listings, dedicated support, and custom integrations.</p>
+                           <Button variant="link" className="p-0 h-auto">Contact Sales &rarr;</Button>
+                        </CardContent>
+                    </Card>
+                 </div>
             </div>
         </section>
 

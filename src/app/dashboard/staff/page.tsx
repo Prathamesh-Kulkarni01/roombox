@@ -92,7 +92,7 @@ export default function StaffPage() {
               <div className="text-center p-8 bg-card rounded-lg border">
                   <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
                   <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                  <p className="mt-2 text-muted-foreground">Staff management is not included in your current plan.</p>
+                  <p className="mt-2 text-muted-foreground max-w-sm">Staff management is not included in your current plan. Please upgrade to access this feature.</p>
                   <Button className="mt-4">Upgrade Plan</Button>
               </div>
           </div>
