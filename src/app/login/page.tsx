@@ -1,7 +1,6 @@
-
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useData } from '@/context/data-provider'
 import { useToast } from '@/hooks/use-toast'
@@ -13,9 +12,10 @@ import { auth } from "@/lib/firebase"
 import { Loader2 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-// No longer need a global recaptcha verifier
 declare global {
     interface Window {
+        recaptchaVerifier?: RecaptchaVerifier;
+        confirmationResult?: ConfirmationResult;
         grecaptcha?: any;
     }
 }
@@ -31,6 +31,24 @@ export default function LoginPage() {
   const [showOtpInput, setShowOtpInput] = useState(false)
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null)
   const [authType, setAuthType] = useState<'owner' | 'guest'>('owner')
+  
+  useEffect(() => {
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': (response: any) => {
+          // reCAPTCHA solved.
+        },
+        'expired-callback': () => {
+          toast({
+            variant: "destructive",
+            title: "reCAPTCHA Expired",
+            description: "Please try sending the OTP again."
+          });
+        }
+      });
+    }
+  }, []);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,17 +58,16 @@ export default function LoginPage() {
     }
     setLoading(true);
 
+    const appVerifier = window.recaptchaVerifier;
+    if (!appVerifier) {
+      toast({ variant: "destructive", title: "reCAPTCHA Error", description: "Please refresh the page and try again."});
+      setLoading(false);
+      return;
+    }
+    
     try {
-      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => {},
-        'expired-callback': () => {
-          toast({ variant: "destructive", title: "reCAPTCHA Expired", description: "Please try sending the OTP again." });
-        }
-      });
-      
       const formattedPhone = `+91${phone}`;
-      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
       
       setConfirmationResult(result);
       setShowOtpInput(true);
