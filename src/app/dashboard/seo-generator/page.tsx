@@ -6,7 +6,7 @@ import { useForm, type SubmitHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { generateSeoContent, type GenerateSeoContentInput } from '@/ai/flows/generate-seo-content'
-import { useData } from '@/context/data-provider'
+import { useAppSelector } from '@/lib/hooks'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -30,7 +30,7 @@ export default function SeoGeneratorPage() {
   const [loading, setLoading] = useState(false)
   const [seoResult, setSeoResult] = useState<{ title: string; description: string } | null>(null)
   const { toast } = useToast()
-  const { currentPlan } = useData()
+  const { currentPlan } = useAppSelector(state => state.user)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { useData } from "@/context/data-provider"
+import { useAppSelector } from "@/lib/hooks"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from '@/hooks/use-toast'
 import AddPgSheet from '@/components/add-pg-sheet'
@@ -31,7 +31,9 @@ const genderBadgeColor = {
 
 
 export default function PgManagementPage() {
-    const { pgs, isLoading, currentPlan } = useData();
+    const { pgs } = useAppSelector(state => state.pgs);
+    const { isLoading } = useAppSelector(state => state.app);
+    const { currentPlan } = useAppSelector(state => state.user);
     const router = useRouter();
     const { toast } = useToast()
     const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false)

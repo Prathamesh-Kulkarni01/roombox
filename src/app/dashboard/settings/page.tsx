@@ -7,20 +7,26 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { useData } from "@/context/data-provider"
+import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { plans } from "@/lib/mock-data"
 import type { PlanName } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { updateUserPlan as updateUserPlanAction } from "@/lib/slices/userSlice"
 
 export default function SettingsPage() {
+  const dispatch = useAppDispatch()
   const [notificationMethod, setNotificationMethod] = useState("manual")
-  const { currentUser, currentPlan, updateUserPlan } = useData()
+  const { currentUser, currentPlan } = useAppSelector((state) => state.user)
 
   if (!currentUser || !currentPlan) {
     return null // Or a loading state
+  }
+
+  const handlePlanChange = (planId: PlanName) => {
+      dispatch(updateUserPlanAction(planId));
   }
 
   return (
@@ -60,7 +66,7 @@ export default function SettingsPage() {
                 <Label htmlFor="plan-switcher">Switch Plan</Label>
                 <Select
                     value={currentPlan.id}
-                    onValueChange={(planId) => updateUserPlan(planId as PlanName)}
+                    onValueChange={(planId) => handlePlanChange(planId as PlanName)}
                 >
                     <SelectTrigger id="plan-switcher">
                         <SelectValue placeholder="Select a plan" />

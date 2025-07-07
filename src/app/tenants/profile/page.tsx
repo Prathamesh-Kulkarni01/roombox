@@ -2,7 +2,7 @@
 'use client'
 
 import React from 'react'
-import { useData } from "@/context/data-provider"
+import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,13 +11,17 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { UserCog } from "lucide-react"
+import { disassociateAndCreateOwnerAccount as disassociateAction } from '@/lib/slices/userSlice'
+
 
 export default function TenantProfilePage() {
-    const { currentUser, isLoading, disassociateAndCreateOwnerAccount } = useData()
+    const dispatch = useAppDispatch()
+    const { currentUser } = useAppSelector(state => state.user)
+    const { isLoading } = useAppSelector(state => state.app)
 
     const handleBecomeOwner = () => {
         if (confirm("Are you sure? This will convert your guest account into a new PG Owner account. You will be logged out and can log back in as an owner.")) {
-            disassociateAndCreateOwnerAccount()
+            dispatch(disassociateAction())
         }
     }
 

@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { useData } from "@/context/data-provider"
+import { useAppSelector } from "@/lib/hooks"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { Guest } from '@/lib/types'
@@ -28,14 +28,15 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
   partial: 'bg-orange-100 text-orange-800',
 };
 
-const kycStatusColors = {
+const kycStatusColors: Record<Guest['kycStatus'], string> = {
   verified: 'bg-blue-100 text-blue-800',
   pending: 'bg-yellow-100 text-yellow-800',
   rejected: 'bg-orange-100 text-orange-800'
 };
 
 export default function GuestManagementPage() {
-    const { guests, isLoading, selectedPgId } = useData();
+    const { guests } = useAppSelector(state => state.guests);
+    const { isLoading, selectedPgId } = useAppSelector(state => state.app);
     
     const filteredGuests = useMemo(() => {
         if (!selectedPgId) return guests;
@@ -209,5 +210,3 @@ export default function GuestManagementPage() {
         </div>
     )
 }
-
-    

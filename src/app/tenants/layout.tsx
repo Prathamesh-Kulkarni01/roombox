@@ -3,16 +3,17 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useData } from '@/context/data-provider';
 import TenantSidebar from "@/components/tenant-sidebar";
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAppSelector } from '@/lib/hooks';
 
 export default function TenantDashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { currentUser, isLoading } = useData();
+  const { currentUser } = useAppSelector((state) => state.user);
+  const { isLoading } = useAppSelector((state) => state.app);
   const router = useRouter();
 
   useEffect(() => {

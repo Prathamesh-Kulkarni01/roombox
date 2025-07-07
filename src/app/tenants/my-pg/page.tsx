@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useData } from "@/context/data-provider"
+import { useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck } from "lucide-react"
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { useMemo } from "react"
 
 const rentStatusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-800 border-green-300',
@@ -25,7 +26,20 @@ const kycStatusColors: Record<string, string> = {
 
 
 export default function MyPgPage() {
-    const { currentGuest, currentPg, isLoading } = useData()
+    const { currentUser } = useAppSelector(state => state.user)
+    const { guests } = useAppSelector(state => state.guests)
+    const { pgs } = useAppSelector(state => state.pgs)
+    const { isLoading } = useAppSelector(state => state.app)
+
+    const currentGuest = useMemo(() => {
+        if (!currentUser || !currentUser.guestId) return null;
+        return guests.find(g => g.id === currentUser.guestId);
+    }, [currentUser, guests]);
+
+    const currentPg = useMemo(() => {
+        if (!currentGuest) return null;
+        return pgs.find(p => p.id === currentGuest.pgId);
+    }, [currentGuest, pgs]);
 
     if (isLoading || !currentGuest || !currentPg) {
         return (

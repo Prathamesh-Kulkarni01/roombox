@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useData } from '@/context/data-provider'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from '@/hooks/use-toast'
 import type { Complaint } from '@/lib/types'
 import { formatDistanceToNow } from 'date-fns'
+import { addComplaint as addComplaintAction, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 
 const complaintSchema = z.object({
   category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other']),
@@ -34,7 +35,15 @@ const statusColors: Record<Complaint['status'], string> = {
 
 export default function TenantComplaintsPage() {
     const { toast } = useToast()
-    const { complaints, currentGuest, addComplaint, updateComplaint } = useData()
+    const dispatch = useAppDispatch()
+    const { complaints } = useAppSelector(state => state.complaints)
+    const { currentUser } = useAppSelector(state => state.user)
+    const { guests } = useAppSelector(state => state.guests)
+
+    const currentGuest = useMemo(() => {
+        if (!currentUser || !currentUser.guestId) return null;
+        return guests.find(g => g.id === currentUser.guestId);
+    }, [currentUser, guests]);
 
     const pgComplaints = useMemo(() => {
         if (!currentGuest) return []
@@ -47,13 +56,13 @@ export default function TenantComplaintsPage() {
     })
     
     const onSubmit = (data: ComplaintFormValues) => {
-        addComplaint(data)
+        dispatch(addComplaintAction(data))
         toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the PG manager." })
         form.reset()
     }
 
     const handleUpvote = (complaint: Complaint) => {
-        updateComplaint({ ...complaint, upvotes: (complaint.upvotes || 0) + 1})
+        dispatch(updateComplaintAction({ ...complaint, upvotes: (complaint.upvotes || 0) + 1}))
         toast({ title: "Upvoted!", description: "The manager will see that this is a common issue."})
     }
 

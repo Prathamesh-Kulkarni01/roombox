@@ -1,7 +1,8 @@
+
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useData } from '@/context/data-provider'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -11,6 +12,7 @@ import { ChefHat, Package, Building } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Menu, DayOfWeek } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
+import { updatePg } from '@/lib/slices/pgsSlice'
 
 const initialMenu: Menu = {
     monday: { breakfast: '', lunch: '', dinner: '' },
@@ -33,7 +35,9 @@ const days: { key: DayOfWeek; label: string }[] = [
 ]
 
 export default function FoodPage() {
-    const { pgs, updatePgMenu, isLoading, selectedPgId } = useData()
+    const dispatch = useAppDispatch()
+    const { pgs } = useAppSelector(state => state.pgs)
+    const { isLoading, selectedPgId } = useAppSelector(state => state.app)
     const [menu, setMenu] = useState<Menu>(initialMenu)
     const { toast } = useToast()
 
@@ -55,8 +59,9 @@ export default function FoodPage() {
     }
 
     const handleSaveMenu = () => {
-        if (!selectedPgId || !menu) return;
-        updatePgMenu(selectedPgId, menu)
+        if (!selectedPgId || !menu || !selectedPg) return;
+        const pgToUpdate = { ...selectedPg, menu };
+        dispatch(updatePg(pgToUpdate));
         toast({
             title: "Menu Saved!",
             description: `The menu for ${selectedPg?.name} has been updated successfully.`,

@@ -1,12 +1,13 @@
 
 'use client'
 
-import { useData } from "@/context/data-provider"
+import { useAppSelector } from "@/lib/hooks"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UtensilsCrossed } from "lucide-react"
 import type { DayOfWeek } from '@/lib/types'
+import { useMemo } from "react"
 
 const days: { key: DayOfWeek; label: string }[] = [
     { key: 'monday', label: 'Mon' },
@@ -19,7 +20,21 @@ const days: { key: DayOfWeek; label: string }[] = [
 ]
 
 export default function TenantFoodPage() {
-    const { currentPg, isLoading } = useData()
+    const { currentUser } = useAppSelector(state => state.user)
+    const { guests } = useAppSelector(state => state.guests)
+    const { pgs } = useAppSelector(state => state.pgs)
+    const { isLoading } = useAppSelector(state => state.app)
+
+    const currentGuest = useMemo(() => {
+        if (!currentUser || !currentUser.guestId) return null;
+        return guests.find(g => g.id === currentUser.guestId);
+    }, [currentUser, guests]);
+
+    const currentPg = useMemo(() => {
+        if (!currentGuest) return null;
+        return pgs.find(p => p.id === currentGuest.pgId);
+    }, [currentGuest, pgs]);
+
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as DayOfWeek;
 
     if (isLoading || !currentPg?.menu) {

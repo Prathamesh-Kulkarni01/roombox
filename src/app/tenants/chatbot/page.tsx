@@ -1,8 +1,8 @@
 
 'use client'
 
-import { useState, useRef, useEffect } from "react"
-import { useData } from "@/context/data-provider"
+import { useState, useRef, useEffect, useMemo } from "react"
+import { useAppSelector } from "@/lib/hooks"
 import { askPgChatbot, type AskPgChatbotInput } from "@/ai/flows/ask-pg-chatbot"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
@@ -18,7 +18,21 @@ interface Message {
 }
 
 export default function ChatbotPage() {
-    const { currentPg, currentUser, isLoading } = useData()
+    const { currentUser } = useAppSelector((state) => state.user)
+    const { guests } = useAppSelector(state => state.guests)
+    const { pgs } = useAppSelector(state => state.pgs)
+    const { isLoading } = useAppSelector(state => state.app)
+
+    const currentGuest = useMemo(() => {
+        if (!currentUser || !currentUser.guestId) return null;
+        return guests.find(g => g.id === currentUser.guestId);
+    }, [currentUser, guests]);
+
+    const currentPg = useMemo(() => {
+        if (!currentGuest) return null;
+        return pgs.find(p => p.id === currentGuest.pgId);
+    }, [currentGuest, pgs]);
+
     const [messages, setMessages] = useState<Message[]>([])
     const [input, setInput] = useState('')
     const [isGenerating, setIsGenerating] = useState(false)

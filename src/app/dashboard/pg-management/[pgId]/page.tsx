@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useData } from '@/context/data-provider'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import Link from 'next/link'
 import { produce } from 'immer'
 import { useToast } from '@/hooks/use-toast'
@@ -23,6 +23,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 
 import { Building, Layers, DoorOpen, BedDouble, PlusCircle, IndianRupee, Trash2, ArrowLeft, Pencil } from 'lucide-react'
 import type { PG, Floor, Room, Bed } from '@/lib/types'
+import { updatePg as updatePgAction } from '@/lib/slices/pgsSlice'
+
 
 const floorSchema = z.object({ name: z.string().min(2, "Floor name must be at least 2 characters.") })
 const roomSchema = z.object({
@@ -35,7 +37,10 @@ const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is require
 export default function ManagePgPage() {
   const router = useRouter()
   const params = useParams()
-  const { pgs, updatePg, guests, currentPlan } = useData()
+  const dispatch = useAppDispatch()
+  const { pgs } = useAppSelector(state => state.pgs)
+  const { guests } = useAppSelector(state => state.guests)
+  const { currentPlan } = useAppSelector(state => state.user)
   const pgId = params.pgId as string
   const { toast } = useToast()
 
@@ -84,7 +89,7 @@ export default function ManagePgPage() {
         draft.floors.push({ id: `floor-${new Date().getTime()}`, name: values.name, rooms: [] });
       }
     });
-    updatePg(nextState);
+    dispatch(updatePgAction(nextState));
     setIsFloorDialogOpen(false);
     setFloorToEdit(null);
   }
@@ -102,7 +107,7 @@ export default function ManagePgPage() {
              floor.rooms.push({ id: `room-${new Date().getTime()}`, name: values.name, rent: values.rent, deposit: values.deposit, beds: [] });
         }
     });
-    updatePg(nextState);
+    dispatch(updatePgAction(nextState));
     setIsRoomDialogOpen(false);
     setRoomToEdit(null);
     setSelectedFloorForRoomAdd(null);
@@ -124,7 +129,7 @@ export default function ManagePgPage() {
         draft.totalBeds = (draft.totalBeds || 0) + 1;
       }
     });
-    updatePg(nextState);
+    dispatch(updatePgAction(nextState));
     setIsBedDialogOpen(false);
     setBedToEdit(null);
     setSelectedRoomForBedAdd(null);
@@ -156,7 +161,7 @@ export default function ManagePgPage() {
             draft.totalBeds -= 1;
         }
     });
-    updatePg(nextState);
+    dispatch(updatePgAction(nextState));
   }
 
   const openAddFloorDialog = () => {

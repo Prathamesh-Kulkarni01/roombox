@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useData } from '@/context/data-provider'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -19,6 +19,7 @@ import { Users, PlusCircle, MoreHorizontal, IndianRupee, Pencil, Trash2, Buildin
 import type { Staff } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction } from '@/lib/slices/staffSlice'
 
 const staffSchema = z.object({
   pgId: z.string().min(1, "Please select a PG"),
@@ -40,7 +41,11 @@ const roleColors: Record<Staff['role'], string> = {
 }
 
 export default function StaffPage() {
-    const { pgs, staff, addStaff, updateStaff, deleteStaff, isLoading, selectedPgId, currentPlan } = useData()
+    const dispatch = useAppDispatch()
+    const { pgs } = useAppSelector(state => state.pgs)
+    const { staff } = useAppSelector(state => state.staff)
+    const { isLoading, selectedPgId } = useAppSelector(state => state.app)
+    const { currentPlan } = useAppSelector(state => state.user)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null)
 
@@ -63,9 +68,9 @@ export default function StaffPage() {
     const onSubmit = (data: StaffFormValues) => {
         const pgName = pgs.find(p => p.id === data.pgId)?.name || 'Unknown PG';
         if (staffToEdit) {
-            updateStaff({ ...staffToEdit, ...data, pgName });
+            dispatch(updateStaffAction({ ...staffToEdit, ...data, pgName }));
         } else {
-            addStaff({ ...data, pgName });
+            dispatch(addStaffAction({ ...data, pgName }));
         }
         setIsDialogOpen(false);
         setStaffToEdit(null);
@@ -78,7 +83,7 @@ export default function StaffPage() {
     
     const handleDelete = (staffId: string) => {
         if(confirm('Are you sure you want to delete this staff member?')) {
-            deleteStaff(staffId);
+            dispatch(deleteStaffAction(staffId));
         }
     }
 

@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { produce } from 'immer'
 
-import { useData } from "@/context/data-provider"
+import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -48,6 +48,8 @@ import type { Guest, Bed, Room, PG, Floor } from "@/lib/types"
 import { Users, IndianRupee, MessageSquareWarning, Building, BedDouble, Info, MessageCircle, ShieldAlert, Clock, Home, UserPlus, CalendarIcon, Layers, DoorOpen, PlusCircle, Trash2, Pencil, Wallet, LogOut, ArrowRight, Phone, Copy } from "lucide-react"
 import { differenceInDays, format, addMonths } from "date-fns"
 import { cn } from "@/lib/utils"
+import { addGuest as addGuestAction, updateGuest as updateGuestAction } from "@/lib/slices/guestsSlice"
+import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
 
 const addGuestSchema = z.object({
@@ -81,7 +83,12 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
 
 
 export default function DashboardPage() {
-  const { pgs, guests, complaints, isLoading, addGuest, updatePgs, selectedPgId, updatePg, updateGuest, currentPlan } = useData();
+  const dispatch = useAppDispatch()
+  const { pgs } = useAppSelector(state => state.pgs)
+  const { guests } = useAppSelector(state => state.guests)
+  const { complaints } = useAppSelector(state => state.complaints)
+  const { isLoading, selectedPgId } = useAppSelector(state => state.app)
+  const { currentPlan } = useAppSelector(state => state.user)
   const { toast } = useToast()
   
   // States for guest dialog
@@ -175,7 +182,7 @@ export default function DashboardPage() {
       noticePeriodDays: 30,
     };
     
-    addGuest(guestData);
+    dispatch(addGuestAction(guestData));
     setIsAddGuestDialogOpen(false);
   };
   
@@ -194,7 +201,7 @@ export default function DashboardPage() {
       } else {
           updatedGuest = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid };
       }
-      updateGuest(updatedGuest);
+      dispatch(updateGuestAction(updatedGuest));
       setIsPaymentDialogOpen(false);
       setSelectedGuestForPayment(null);
   };
@@ -205,7 +212,7 @@ export default function DashboardPage() {
         const exitDate = new Date();
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays);
         const updatedGuest = { ...guest, exitDate: format(exitDate, 'yyyy-MM-dd') };
-        updateGuest(updatedGuest);
+        dispatch(updateGuestAction(updatedGuest));
     }
   };
 
@@ -244,7 +251,7 @@ export default function DashboardPage() {
         draft.floors.push({ id: `floor-${new Date().getTime()}`, name: values.name, rooms: [] });
       }
     });
-    updatePg(nextState);
+    dispatch(updatePgAction(nextState));
     setIsFloorDialogOpen(false);
     setFloorToEdit(null);
   };
@@ -262,7 +269,7 @@ export default function DashboardPage() {
              floor.rooms.push({ id: `room-${new Date().getTime()}`, name: values.name, rent: values.rent, deposit: values.deposit, beds: [] });
         }
     });
-    updatePg(nextState);
+    dispatch(updatePgAction(nextState));
     setIsRoomDialogOpen(false);
     setRoomToEdit(null);
   };
@@ -282,7 +289,7 @@ export default function DashboardPage() {
         draft.totalBeds = (draft.totalBeds || 0) + 1;
       }
     });
-    updatePg(nextState);
+    dispatch(updatePgAction(nextState));
     setIsBedDialogOpen(false);
     setBedToEdit(null);
   };
@@ -313,7 +320,7 @@ export default function DashboardPage() {
             draft.totalBeds -= 1;
         }
     });
-    updatePg(nextState);
+    dispatch(updatePgAction(nextState));
   };
 
   const openAddFloorDialog = () => { setFloorToEdit(null); setIsFloorDialogOpen(true); };
@@ -551,7 +558,7 @@ export default function DashboardPage() {
     
     {/* --- DIALOGS --- */}
     <Dialog open={isAddGuestDialogOpen} onOpenChange={setIsAddGuestDialogOpen}>
-        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90dvh]"><DialogHeader><DialogTitle>Onboard New Guest</DialogTitle><DialogDescription>Add a new guest to Bed {selectedBedForGuestAdd?.bed.name} in Room {selectedBedForGuestAdd?.room.name} at {selectedBedForGuestAdd?.pg.name}.</DialogDescription></DialogHeader><div className="flex-1 overflow-y-auto -mr-6 pr-6"><Form {...addGuestForm}><form onSubmit={addGuestForm.handleSubmit(handleAddGuestSubmit)} className="space-y-4" id="add-guest-form"><FormField control={addGuestForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Priya Sharma" {...field} /></FormControl><FormMessage /></FormItem>)} /><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={addGuestForm.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="e.g., priya@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={addGuestForm.control} name="rentAmount" render={({ field }) => (<FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="depositAmount" render={({ field }) => (<FormItem><FormLabel>Security Deposit</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><FormField control={addGuestForm.control} name="moveInDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Move-in Date</FormLabel><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button><CalendarComponent mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus /><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="kycDocument" render={({ field }) => (<FormItem><FormLabel>KYC Document</FormLabel><FormControl><Input type="file" /></FormControl><FormDescription>Upload Aadhar, PAN, or other ID. This is for demo purposes.</FormDescription><FormMessage /></FormItem>)} /></form></Form></div><DialogFooter className="pt-4"><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="add-guest-form">Add Guest</Button></DialogFooter></DialogContent>
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90dvh]"><DialogHeader><DialogTitle>Onboard New Guest</DialogTitle><DialogDescription>Add a new guest to Bed {selectedBedForGuestAdd?.bed.name} in Room {selectedBedForGuestAdd?.room.name} at {selectedBedForGuestAdd?.pg.name}.</DialogDescription></DialogHeader><div className="flex-1 overflow-y-auto -mr-6 pr-6"><Form {...addGuestForm}><form onSubmit={addGuestForm.handleSubmit(handleAddGuestSubmit)} className="space-y-4" id="add-guest-form"><FormField control={addGuestForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Priya Sharma" {...field} /></FormControl><FormMessage /></FormItem>)} /><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={addGuestForm.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="e.g., priya@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FormField control={addGuestForm.control} name="rentAmount" render={({ field }) => (<FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="depositAmount" render={({ field }) => (<FormItem><FormLabel>Security Deposit</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} /></div><FormField control={addGuestForm.control} name="moveInDate" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Move-in Date</FormLabel><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><CalendarComponent mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} /><FormField control={addGuestForm.control} name="kycDocument" render={({ field }) => (<FormItem><FormLabel>KYC Document</FormLabel><FormControl><Input type="file" /></FormControl><FormDescription>Upload Aadhar, PAN, or other ID. This is for demo purposes.</FormDescription><FormMessage /></FormItem>)} /></form></Form></div><DialogFooter className="pt-4"><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="add-guest-form">Add Guest</Button></DialogFooter></DialogContent>
     </Dialog>
     
     <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}><DialogContent><DialogHeader><DialogTitle>{floorToEdit ? 'Edit Floor' : 'Add New Floor'}</DialogTitle></DialogHeader><Form {...floorForm}><form onSubmit={floorForm.handleSubmit(handleFloorSubmit(pgsToDisplay[0]))} id="floor-form" className="space-y-4"><FormField control={floorForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Floor Name</FormLabel><FormControl><Input placeholder="e.g., First Floor" {...field} /></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="floor-form">{floorToEdit ? 'Save Changes' : 'Add Floor'}</Button></DialogFooter></DialogContent></Dialog>

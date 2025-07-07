@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useData } from '@/context/data-provider'
+import { useAppDispatch } from '@/lib/hooks'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PG } from '@/lib/types'
+import { addPg as addPgAction } from '@/lib/slices/pgsSlice'
 
 const pgSchema = z.object({
   name: z.string().min(3, "PG name must be at least 3 characters."),
@@ -43,7 +44,7 @@ interface AddPgSheetProps {
 }
 
 export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheetProps) {
-  const { addPg } = useData()
+  const dispatch = useAppDispatch()
 
   const form = useForm<PgFormValues>({
     resolver: zodResolver(pgSchema),
@@ -55,12 +56,15 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
     },
   })
 
-  const onSubmit = (data: PgFormValues) => {
-    const newPgId = addPg(data)
-    form.reset()
-    onOpenChange(false)
-    if(onPgAdded && newPgId) {
-        onPgAdded(newPgId)
+  const onSubmit = async (data: PgFormValues) => {
+    const resultAction = await dispatch(addPgAction(data))
+    if (addPgAction.fulfilled.match(resultAction)) {
+      const newPgId = resultAction.payload.id;
+      form.reset()
+      onOpenChange(false)
+      if(onPgAdded && newPgId) {
+          onPgAdded(newPgId)
+      }
     }
   }
 

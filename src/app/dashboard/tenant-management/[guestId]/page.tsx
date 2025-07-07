@@ -9,7 +9,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
-import { useData } from "@/context/data-provider"
+import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
@@ -28,6 +28,7 @@ import { format, addMonths, differenceInDays } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
+import { updateGuest as updateGuestAction } from "@/lib/slices/guestsSlice"
 
 const paymentSchema = z.object({
   amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
@@ -55,9 +56,14 @@ const complaintStatusColors: Record<Complaint['status'], string> = {
 export default function GuestProfilePage() {
     const params = useParams()
     const router = useRouter()
+    const dispatch = useAppDispatch()
     const { toast } = useToast()
     const guestId = params.guestId as string
-    const { guests, complaints, updateGuest, isLoading, currentPlan } = useData()
+    
+    const { guests } = useAppSelector(state => state.guests)
+    const { complaints } = useAppSelector(state => state.complaints)
+    const { isLoading } = useAppSelector(state => state.app)
+    const { currentPlan } = useAppSelector(state => state.user)
 
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
     const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
@@ -84,7 +90,7 @@ export default function GuestProfilePage() {
         const exitDate = new Date()
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays)
         const updatedGuest = { ...guest, exitDate: format(exitDate, 'yyyy-MM-dd') }
-        updateGuest(updatedGuest)
+        dispatch(updateGuestAction(updatedGuest))
     }
 
     const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
@@ -96,7 +102,7 @@ export default function GuestProfilePage() {
         } else {
             updatedGuest = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid }
         }
-        updateGuest(updatedGuest)
+        dispatch(updateGuestAction(updatedGuest))
         setIsPaymentDialogOpen(false)
     }
 

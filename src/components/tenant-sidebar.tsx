@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useData } from '@/context/data-provider';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
+import { useMemo } from 'react';
+import { logoutUser } from '@/lib/slices/userSlice';
 
 const navItems = [
   { href: '/tenants/my-pg', label: 'My PG', icon: Home },
@@ -20,7 +22,15 @@ const navItems = [
 
 export default function TenantSidebar() {
   const pathname = usePathname();
-  const { currentUser, logout, currentGuest } = useData();
+  const dispatch = useAppDispatch();
+  const { currentUser } = useAppSelector((state) => state.user);
+  const { guests } = useAppSelector((state) => state.guests);
+
+  const currentGuest = useMemo(() => {
+    if (!currentUser || !currentUser.guestId) return null;
+    return guests.find(g => g.id === currentUser.guestId);
+  }, [currentUser, guests]);
+
 
   if (!currentUser || !currentGuest) {
     return (
@@ -70,7 +80,7 @@ export default function TenantSidebar() {
                 <p className="text-xs text-muted-foreground">{currentGuest.pgName}</p>
             </div>
         </div>
-        <Button variant="outline" className="w-full" onClick={logout}>
+        <Button variant="outline" className="w-full" onClick={() => dispatch(logoutUser())}>
             <LogOut className="mr-2 h-4 w-4" />
             Logout
         </Button>

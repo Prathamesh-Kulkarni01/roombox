@@ -2,7 +2,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useData } from '@/context/data-provider'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 import type { Complaint } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 
 const statusColors: Record<Complaint['status'], string> = {
     open: "bg-red-100 text-red-800",
@@ -20,7 +21,11 @@ const statusColors: Record<Complaint['status'], string> = {
 }
 
 export default function ComplaintsDashboardPage() {
-    const { complaints, updateComplaint, isLoading, selectedPgId, pgs, currentPlan } = useData()
+    const dispatch = useAppDispatch()
+    const { complaints } = useAppSelector(state => state.complaints)
+    const { pgs } = useAppSelector(state => state.pgs)
+    const { isLoading, selectedPgId } = useAppSelector(state => state.app)
+    const { currentPlan } = useAppSelector(state => state.user)
 
     const filteredComplaints = useMemo(() => {
         if (!selectedPgId) return complaints;
@@ -30,7 +35,7 @@ export default function ComplaintsDashboardPage() {
     const handleStatusChange = (complaintId: string, newStatus: Complaint['status']) => {
         const complaintToUpdate = complaints.find(c => c.id === complaintId)
         if (complaintToUpdate) {
-            updateComplaint({ ...complaintToUpdate, status: newStatus })
+            dispatch(updateComplaintAction({ ...complaintToUpdate, status: newStatus }))
         }
     }
 

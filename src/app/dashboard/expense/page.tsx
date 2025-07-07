@@ -1,10 +1,11 @@
+
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useData } from '@/context/data-provider'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -53,6 +54,8 @@ import { cn } from "@/lib/utils"
 import { format, startOfMonth, isWithinInterval } from 'date-fns'
 import type { Expense } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
+import { addExpense as addExpenseAction } from '@/lib/slices/expensesSlice'
+
 
 const expenseSchema = z.object({
   pgId: z.string().min(1, "Please select a PG"),
@@ -87,7 +90,10 @@ const quickAddItems: { label: string; icon: React.ElementType; category: Expense
 
 
 export default function ExpensePage() {
-    const { pgs, expenses, addExpense, isLoading, selectedPgId } = useData()
+    const dispatch = useAppDispatch()
+    const { pgs } = useAppSelector(state => state.pgs)
+    const { expenses } = useAppSelector(state => state.expenses)
+    const { isLoading, selectedPgId } = useAppSelector(state => state.app)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     const form = useForm<ExpenseFormValues>({
@@ -131,7 +137,7 @@ export default function ExpensePage() {
         const selectedPg = pgs.find(pg => pg.id === data.pgId)
         if (!selectedPg) return
 
-        addExpense({ ...data, pgName: selectedPg.name });
+        dispatch(addExpenseAction({ ...data, pgName: selectedPg.name }));
         const defaultPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined);
         form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),
