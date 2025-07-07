@@ -22,7 +22,7 @@ const initialState: UserState = {
 export const initializeUser = createAsyncThunk<User, FirebaseUser>(
     'user/initializeUser',
     async (firebaseUser, { rejectWithValue }) => {
-        if (!isFirebaseConfigured()) return rejectWithValue('Firebase not configured');
+        if (!isFirebaseConfigured() || !db) return rejectWithValue('Firebase not configured');
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
 
