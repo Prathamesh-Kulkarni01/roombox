@@ -11,6 +11,7 @@ import InstallPWA from '@/components/install-pwa';
 import { plans } from '@/lib/mock-data';
 import type { Plan, PlanName } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 const features = [
     {
@@ -101,6 +102,15 @@ export default function Home() {
         {/* Hero Section */}
         <section className="py-24 md:py-32">
           <div className="container mx-auto px-4 text-center">
+             <Image
+              src="https://placehold.co/600x400.png"
+              alt="RoomBox Dashboard Preview"
+              width={800}
+              height={500}
+              className="w-full max-w-4xl mx-auto rounded-xl shadow-2xl mb-12"
+              data-ai-hint="dashboard computer screen"
+              priority
+            />
             <h1 className="text-4xl md:text-6xl font-bold mb-6 animate-in fade-in slide-in-from-top-8 duration-700 ease-out">
               The Modern OS for Your Rental Property
             </h1>
