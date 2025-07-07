@@ -71,39 +71,15 @@ const getPlanFeatures = (plan: Plan) => [
 
 
 export default function Home() {
-  const jsonLd = {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "RoomBox",
-      "applicationCategory": "BusinessApplication",
-      "operatingSystem": "Web",
-      "description": "Simplify your rental property management with RoomBox. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "INR"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "reviewCount": "250"
-      },
-      "keywords": "rental management software, property management, pg management, tenant management, rent collection, expense tracking"
-  };
   
   return (
     <div className="flex flex-col min-h-[calc(100vh-56px)] bg-background">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        key="product-jsonld"
-      />
       <main className="flex-1">
         {/* Hero Section */}
         <section className="py-24 md:py-32">
           <div className="container mx-auto px-4 text-center">
              <Image
-              src="https://placehold.co/600x400.png"
+              src="/dashboard-hero.png"
               alt="RoomBox Dashboard Preview"
               width={800}
               height={500}
