@@ -1,4 +1,4 @@
-// src/lib/firebase.ts
+
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -13,14 +13,15 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-const isFirebaseConfigured = () => {
-    return firebaseConfig.projectId && firebaseConfig.projectId !== "your-project-id";
+// Function to check if the Firebase config keys have been set
+export const isFirebaseConfigured = () => {
+    return !!firebaseConfig.projectId && firebaseConfig.projectId !== "your-project-id";
 }
 
+// Initialize Firebase
+const app = isFirebaseConfigured() && !getApps().length ? initializeApp(firebaseConfig) : (getApps().length > 0 ? getApp() : null);
 
-export { db, auth, isFirebaseConfigured };
+const db = app ? getFirestore(app) : null;
+const auth = app ? getAuth(app) : null;
+
+export { db, auth, app, firebaseConfig };

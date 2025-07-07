@@ -6,7 +6,9 @@ import { Provider } from 'react-redux'
 import { makeStore, type AppStore } from '@/lib/store'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 import { collection, onSnapshot } from 'firebase/firestore'
+import { getApp } from 'firebase/app'
 import { auth, db, isFirebaseConfigured } from '@/lib/firebase'
+import { getAnalytics, isSupported } from 'firebase/analytics'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { initializeUser, logoutUser } from '@/lib/slices/userSlice'
 import { setPgs, fetchPgs as fetchLocalPgs } from '@/lib/slices/pgsSlice'
@@ -22,6 +24,16 @@ function AuthHandler({ children }: { children: ReactNode }) {
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const authListenerStarted = useRef(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isFirebaseConfigured()) {
+      isSupported().then(supported => {
+        if (supported) {
+          getAnalytics(getApp());
+        }
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -48,7 +60,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
   }, [toast]);
 
   useEffect(() => {
-    if (!isFirebaseConfigured() || authListenerStarted.current) return;
+    if (!isFirebaseConfigured() || authListenerStarted.current || !auth) return;
 
     authListenerStarted.current = true;
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
@@ -71,7 +83,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (currentPlan.hasCloudSync && isFirebaseConfigured()) {
+    if (currentPlan.hasCloudSync && isFirebaseConfigured() && db) {
       // Pro Plan: Real-time sync from Firestore
       const collectionsToSync = {
         pgs: setPgs,
