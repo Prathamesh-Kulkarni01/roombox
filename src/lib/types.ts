@@ -67,7 +67,7 @@ export interface Guest {
   id: string;
   name: string;
   phone?: string;
-  email?: string;
+  email: string;
   pgId: string;
   pgName: string;
   bedId: string;
@@ -82,6 +82,7 @@ export interface Guest {
   moveInDate: string;
   noticePeriodDays: number;
   exitDate?: string;
+  userId?: string;
 }
 
 export interface Complaint {

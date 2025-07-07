@@ -1,4 +1,5 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, PG } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
@@ -36,7 +37,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
     'guests/addGuest',
     async (guestData, { getState, rejectWithValue }) => {
         const { user, pgs } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
+        if (!user.currentUser || !guestData.email) return rejectWithValue('No user or guest email');
 
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
@@ -57,10 +58,12 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', newGuest.id);
             const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
+            const inviteDocRef = doc(db, 'guest_invites', newGuest.email);
             
             batch.set(guestDocRef, newGuest);
             batch.set(pgDocRef, updatedPg);
-            
+            batch.set(inviteDocRef, { ownerId: user.currentUser.id, guestId: newGuest.id });
+
             await batch.commit();
         }
         return { newGuest, updatedPg };

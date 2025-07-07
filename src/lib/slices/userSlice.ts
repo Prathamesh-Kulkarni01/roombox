@@ -1,4 +1,5 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole } from '../types';
 import { plans } from '../mock-data';
@@ -28,6 +29,36 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser>(
         if (userDoc.exists()) {
             return userDoc.data() as User;
         } else {
+            const guestEmail = firebaseUser.email;
+            if (guestEmail) {
+                const inviteDocRef = doc(db, 'guest_invites', guestEmail);
+                const inviteDoc = await getDoc(inviteDocRef);
+
+                if (inviteDoc.exists()) {
+                    const { ownerId, guestId } = inviteDoc.data();
+                    
+                    const newTenantUser: User = {
+                        id: firebaseUser.uid,
+                        name: firebaseUser.displayName || 'New Tenant',
+                        email: firebaseUser.email,
+                        role: 'tenant',
+                        guestId: guestId,
+                        avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || 'NT').slice(0, 2).toUpperCase()}`
+                    };
+
+                    const batch = writeBatch(db);
+                    batch.set(userDocRef, newTenantUser);
+                    
+                    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+                    batch.update(guestDocRef, { userId: firebaseUser.uid });
+                    
+                    batch.delete(inviteDocRef);
+
+                    await batch.commit();
+                    return newTenantUser;
+                }
+            }
+
             const newUser: User = {
                 id: firebaseUser.uid,
                 name: firebaseUser.displayName || 'New User',
@@ -77,7 +108,13 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
                 const userId = currentUser.id;
 
                 pgs.forEach(pg => batch.set(doc(db, 'users_data', userId, 'pgs', pg.id), pg));
-                guests.forEach(guest => batch.set(doc(db, 'users_data', userId, 'guests', guest.id), guest));
+                guests.forEach(guest => {
+                    batch.set(doc(db, 'users_data', userId, 'guests', guest.id), guest);
+                    if (guest.email && !guest.userId) {
+                        const inviteDocRef = doc(db, 'guest_invites', guest.email);
+                        batch.set(inviteDocRef, { ownerId: userId, guestId: guest.id });
+                    }
+                });
                 complaints.forEach(complaint => batch.set(doc(db, 'users_data', userId, 'complaints', complaint.id), complaint));
                 expenses.forEach(expense => batch.set(doc(db, 'users_data', userId, 'expenses', expense.id), expense));
                 staff.forEach(staffMember => batch.set(doc(db, 'users_data', userId, 'staff', staffMember.id), staffMember));
@@ -92,12 +129,13 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
             // Save latest cloud data (already in state) to local storage
             if (typeof window !== 'undefined') {
                 try {
-                    localStorage.setItem('pgs', JSON.stringify(state.pgs.pgs));
-                    localStorage.setItem('guests', JSON.stringify(state.guests.guests));
-                    localStorage.setItem('complaints', JSON.stringify(state.complaints.complaints));
-                    localStorage.setItem('expenses', JSON.stringify(state.expenses.expenses));
-                    localStorage.setItem('staff', JSON.stringify(state.staff.staff));
-                    localStorage.setItem('notifications', JSON.stringify(state.notifications.notifications));
+                    const { pgs, guests, complaints, expenses, staff, notifications } = getState() as RootState;
+                    localStorage.setItem('pgs', JSON.stringify(pgs.pgs));
+                    localStorage.setItem('guests', JSON.stringify(guests.guests));
+                    localStorage.setItem('complaints', JSON.stringify(complaints.complaints));
+                    localStorage.setItem('expenses', JSON.stringify(expenses.expenses));
+                    localStorage.setItem('staff', JSON.stringify(staff.staff));
+                    localStorage.setItem('notifications', JSON.stringify(notifications.notifications));
                 } catch (error) {
                     console.error("Failed to sync cloud data to local on downgrade:", error);
                     return rejectWithValue('Failed to save data locally on downgrade.');
