@@ -74,39 +74,20 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
         const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
         if (!user.currentUser || !originalGuest) return rejectWithValue('No user or original guest');
 
-        let updatedPg: PG | undefined = undefined;
-        
-        // Handle vacating a bed
-        const isVacating = !!updatedGuest.exitDate && !originalGuest.exitDate;
-        if(isVacating) {
-            const pg = pgs.pgs.find(p => p.id === updatedGuest.pgId);
-            if(pg) {
-                updatedPg = produce(pg, draft => {
-                    draft.occupancy = Math.max(0, draft.occupancy - 1);
-                    const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.guestId === updatedGuest.id)));
-                    const room = floor?.rooms.find(r => r.beds.some(b => b.guestId === updatedGuest.id));
-                    const bed = room?.beds.find(b => b.guestId === updatedGuest.id);
-                    if (bed) {
-                        bed.guestId = null;
-                    }
-                });
-            }
-        }
-
+        // The logic to update the PG (freeing bed, reducing occupancy) when an exit is *initiated*
+        // has been removed. This was incorrect, as the guest still occupies the bed during their notice period.
+        // A separate action/process would be needed to finalize the guest's departure after the exit date.
+        // For now, "Vacate Bed" will correctly put the guest into a "notice-period" state without freeing the bed.
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
-            batch.set(guestDocRef, updatedGuest, { merge: true });
-
-            if (updatedPg) {
-                const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-                batch.set(pgDocRef, updatedPg);
-            }
-            
-            await batch.commit();
+            // We only need to update the guest document, not the PG document.
+            await setDoc(guestDocRef, updatedGuest, { merge: true });
         }
-        return { updatedGuest, updatedPg };
+
+        // We return the updated guest, but no PG update.
+        // The pgsSlice will not be affected, which is the desired behavior.
+        return { updatedGuest };
     }
 );
 
