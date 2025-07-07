@@ -121,7 +121,7 @@ export interface Staff {
 
 export interface Notification {
   id: string;
-  type: 'rent-due' | 'checkout-soon' | 'new-complaint' | 'rent-overdue';
+  type: 'rent-due' | 'checkout-soon' | 'new-complaint' | 'rent-paid';
   title: string;
   message: string;
   link: string;

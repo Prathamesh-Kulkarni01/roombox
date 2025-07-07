@@ -29,6 +29,27 @@ export const fetchNotifications = createAsyncThunk(
     }
 );
 
+export const addNotification = createAsyncThunk<Notification, Omit<Notification, 'id' | 'date' | 'isRead'>, { state: RootState }>(
+    'notifications/addNotification',
+    async (notificationData, { getState, rejectWithValue }) => {
+        const { user } = getState();
+        if (!user.currentUser) return rejectWithValue('No user');
+
+        const newNotification: Notification = {
+            id: `notif-${Date.now()}`,
+            ...notificationData,
+            date: new Date().toISOString(),
+            isRead: false,
+        };
+
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', user.currentUser.id, 'notifications', newNotification.id);
+            await setDoc(docRef, newNotification);
+        }
+        return newNotification;
+    }
+);
+
 export const markNotificationAsRead = createAsyncThunk<string, string, { state: RootState }>(
     'notifications/markAsRead',
     async (notificationId, { getState, rejectWithValue }) => {
@@ -81,6 +102,9 @@ const notificationsSlice = createSlice({
         builder
             .addCase(fetchNotifications.fulfilled, (state, action) => {
                 state.notifications = action.payload.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            })
+            .addCase(addNotification.fulfilled, (state, action) => {
+                state.notifications.unshift(action.payload);
             })
             .addCase(markNotificationAsRead.fulfilled, (state, action) => {
                 const notification = state.notifications.find(n => n.id === action.payload);

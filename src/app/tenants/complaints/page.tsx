@@ -56,6 +56,10 @@ export default function TenantComplaintsPage() {
     })
     
     const onSubmit = (data: ComplaintFormValues) => {
+        if (!currentGuest) {
+            toast({ title: "Error", description: "Could not identify current guest.", variant: "destructive"})
+            return;
+        }
         dispatch(addComplaintAction(data))
         toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the PG manager." })
         form.reset()

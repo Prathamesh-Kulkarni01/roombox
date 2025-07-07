@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 import type { Guest, Complaint } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble } from "lucide-react"
-import { format, addMonths, differenceInDays } from "date-fns"
+import { format, addMonths, differenceInDays, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
@@ -89,7 +89,7 @@ export default function GuestProfilePage() {
         if (!guest || guest.exitDate) return
         const exitDate = new Date()
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays)
-        const updatedGuest = { ...guest, exitDate: format(exitDate, 'yyyy-MM-dd') }
+        const updatedGuest = { ...guest, exitDate: exitDate.toISOString() }
         dispatch(updateGuestAction(updatedGuest))
     }
 
@@ -98,7 +98,7 @@ export default function GuestProfilePage() {
         const newTotalPaid = (guest.rentPaidAmount || 0) + values.amountPaid
         let updatedGuest: Guest;
         if (newTotalPaid >= guest.rentAmount) {
-            updatedGuest = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(guest.dueDate), 1), 'yyyy-MM-dd') }
+            updatedGuest = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: addMonths(new Date(guest.dueDate), 1).toISOString() }
         } else {
             updatedGuest = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid }
         }
@@ -224,7 +224,7 @@ export default function GuestProfilePage() {
                             </div>
                              <div className="flex justify-between items-center">
                                 <span>Next Due Date:</span>
-                                <span className="font-medium">{format(new Date(guest.dueDate), "do MMM, yyyy")}</span>
+                                <span className="font-medium">{format(parseISO(guest.dueDate), "do MMM, yyyy")}</span>
                             </div>
                              <div className="flex justify-between items-center">
                                 <span>Security Deposit:</span>
@@ -254,7 +254,7 @@ export default function GuestProfilePage() {
                         <CardContent className="space-y-4 text-sm">
                            <div className="flex justify-between items-center">
                                 <span>Move-in Date:</span>
-                                <span className="font-medium">{format(new Date(guest.moveInDate), "do MMM, yyyy")}</span>
+                                <span className="font-medium">{format(parseISO(guest.moveInDate), "do MMM, yyyy")}</span>
                             </div>
                              <div className="flex justify-between items-center">
                                 <span>Notice Period:</span>
@@ -264,7 +264,7 @@ export default function GuestProfilePage() {
                                 <span>Exit Status:</span>
                                 {guest.exitDate ? (
                                     <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                                        Exiting on {format(new Date(guest.exitDate), "do MMM, yyyy")} ({differenceInDays(new Date(guest.exitDate), new Date())} days left)
+                                        Exiting on {format(parseISO(guest.exitDate), "do MMM, yyyy")} ({differenceInDays(parseISO(guest.exitDate), new Date())} days left)
                                     </Badge>
                                 ) : (
                                     <Badge variant="secondary">Active</Badge>
@@ -302,7 +302,7 @@ export default function GuestProfilePage() {
                             <TableBody>
                                 {guestComplaints.map(complaint => (
                                     <TableRow key={complaint.id}>
-                                        <TableCell>{complaint.date}</TableCell>
+                                        <TableCell>{format(parseISO(complaint.date), 'dd MMM, yyyy')}</TableCell>
                                         <TableCell className="capitalize">{complaint.category}</TableCell>
                                         <TableCell className="max-w-xs truncate">{complaint.description}</TableCell>
                                         <TableCell>

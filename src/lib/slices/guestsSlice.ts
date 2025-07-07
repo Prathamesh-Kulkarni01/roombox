@@ -6,6 +6,7 @@ import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { produce } from 'immer';
+import { addNotification } from './notificationsSlice';
 
 interface GuestsState {
     guests: Guest[];
@@ -72,8 +73,8 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
 
 export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, Guest, { state: RootState }>(
     'guests/updateGuest',
-    async (updatedGuest, { getState, rejectWithValue }) => {
-        const { user, pgs, guests } = getState();
+    async (updatedGuest, { getState, dispatch, rejectWithValue }) => {
+        const { user, guests } = getState();
         const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
         if (!user.currentUser || !originalGuest) return rejectWithValue('No user or original guest');
 
@@ -81,6 +82,17 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
         // has been removed. This was incorrect, as the guest still occupies the bed during their notice period.
         // A separate action/process would be needed to finalize the guest's departure after the exit date.
         // For now, "Vacate Bed" will correctly put the guest into a "notice-period" state without freeing the bed.
+
+        const rentStatusChanged = updatedGuest.rentStatus !== originalGuest.rentStatus;
+        if (rentStatusChanged && updatedGuest.rentStatus === 'paid') {
+            await dispatch(addNotification({
+                type: 'rent-paid',
+                title: 'Rent Collected',
+                message: `You collected rent from ${updatedGuest.name}.`,
+                link: `/dashboard/tenant-management/${updatedGuest.id}`,
+                targetId: updatedGuest.id,
+            }));
+        }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);

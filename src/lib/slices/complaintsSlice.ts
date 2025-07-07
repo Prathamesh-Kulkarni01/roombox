@@ -5,6 +5,7 @@ import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { format } from 'date-fns';
+import { addNotification } from './notificationsSlice';
 
 interface ComplaintsState {
     complaints: Complaint[];
@@ -34,7 +35,7 @@ export const fetchComplaints = createAsyncThunk(
 
 export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { state: RootState }>(
     'complaints/addComplaint',
-    async (complaintData, { getState, rejectWithValue }) => {
+    async (complaintData, { getState, dispatch, rejectWithValue }) => {
         const { user, guests } = getState();
         const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
         if (!user.currentUser || !currentGuest) return rejectWithValue('No user or guest');
@@ -47,7 +48,7 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
             pgId: currentGuest.pgId,
             pgName: currentGuest.pgName,
             status: 'open',
-            date: format(new Date(), 'yyyy-MM-dd'),
+            date: new Date().toISOString(),
             upvotes: 0
         };
 
@@ -55,6 +56,15 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
             const docRef = doc(db, 'users_data', user.currentUser.id, 'complaints', newComplaint.id);
             await setDoc(docRef, newComplaint);
         }
+
+        await dispatch(addNotification({
+            type: 'new-complaint',
+            title: 'Complaint Submitted',
+            message: `Your complaint about ${newComplaint.category} has been sent to the manager.`,
+            link: `/tenants/complaints`,
+            targetId: newComplaint.id,
+        }));
+        
         return newComplaint;
     }
 );
