@@ -20,7 +20,7 @@ export default function TenantProfilePage() {
     const { isLoading } = useAppSelector(state => state.app)
 
     const handleBecomeOwner = () => {
-        if (confirm("Are you sure? This will convert your guest account into a new PG Owner account. You will be logged out and can log back in as an owner.")) {
+        if (confirm("Are you sure? This will convert your guest account into a new Property Owner account. You will be logged out and can log back in as an owner.")) {
             dispatch(disassociateAction())
         }
     }
@@ -81,14 +81,14 @@ export default function TenantProfilePage() {
                 <CardContent>
                     <Alert>
                         <UserCog className="h-4 w-4" />
-                        <AlertTitle>Become a PG Owner</AlertTitle>
+                        <AlertTitle>Become a Property Owner</AlertTitle>
                         <AlertDescription>
-                            Want to manage your own PG? You can convert your guest account into a new, separate owner account.
+                            Want to manage your own property? You can convert your guest account into a new, separate owner account.
                         </AlertDescription>
                     </Alert>
                 </CardContent>
                 <CardFooter>
-                     <Button variant="outline" onClick={handleBecomeOwner}>Start Managing Your Own PG</Button>
+                     <Button variant="outline" onClick={handleBecomeOwner}>Start Managing Your Own Property</Button>
                 </CardFooter>
             </Card>
         </div>

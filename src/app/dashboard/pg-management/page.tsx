@@ -44,8 +44,8 @@ export default function PgManagementPage() {
         if (!canAddPg) {
             toast({
                 variant: 'destructive',
-                title: 'PG Limit Reached',
-                description: `You have reached the ${currentPlan?.pgLimit} PG limit for your current plan. Please upgrade to add more.`,
+                title: 'Property Limit Reached',
+                description: `You have reached the ${currentPlan?.pgLimit} property limit for your current plan. Please upgrade to add more.`,
             })
             return;
         }
@@ -96,21 +96,21 @@ export default function PgManagementPage() {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Your PGs</CardTitle>
-                        <CardDescription>You have {pgs.length} PGs.</CardDescription>
+                        <CardTitle>Your Properties</CardTitle>
+                        <CardDescription>You have {pgs.length} properties.</CardDescription>
                     </div>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                            <div className="inline-block">
                              <Button onClick={handleAddPgClick} disabled={!canAddPg}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add New PG
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add New Property
                             </Button>
                            </div>
                         </TooltipTrigger>
                         {!canAddPg && (
                              <TooltipContent>
-                                <p>You have reached your plan's PG limit.</p>
+                                <p>You have reached your plan's property limit.</p>
                              </TooltipContent>
                         )}
                       </Tooltip>

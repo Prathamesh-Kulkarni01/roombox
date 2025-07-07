@@ -6,8 +6,8 @@ import Header from '@/components/header';
 import StoreProvider from '@/components/StoreProvider';
 
 export const metadata: Metadata = {
-  title: 'PGOasis',
-  description: 'PG Management and Tenant Marketplace',
+  title: 'RoomBox',
+  description: 'Modern rental management for co-living spaces.',
   manifest: '/manifest.json',
 };
 

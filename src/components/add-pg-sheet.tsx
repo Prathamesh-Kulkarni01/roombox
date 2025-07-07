@@ -29,7 +29,7 @@ import { PG } from '@/lib/types'
 import { addPg as addPgAction } from '@/lib/slices/pgsSlice'
 
 const pgSchema = z.object({
-  name: z.string().min(3, "PG name must be at least 3 characters."),
+  name: z.string().min(3, "Property name must be at least 3 characters."),
   location: z.string().min(3, "Location is required."),
   city: z.string().min(2, "City is required."),
   gender: z.enum(['male', 'female', 'co-ed']),
@@ -72,7 +72,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Add a New PG</SheetTitle>
+          <SheetTitle>Add a New Property</SheetTitle>
           <SheetDescription>
             Fill in the basic details for your new property. You can add more details later.
           </SheetDescription>
@@ -84,9 +84,9 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>PG Name</FormLabel>
+                  <FormLabel>Property Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Happy Homes PG" {...field} />
+                    <Input placeholder="e.g., Happy Homes" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -146,7 +146,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
           <SheetClose asChild>
             <Button type="button" variant="secondary">Cancel</Button>
           </SheetClose>
-          <Button type="submit" form="add-pg-form">Add PG</Button>
+          <Button type="submit" form="add-pg-form">Add Property</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

@@ -383,10 +383,10 @@ export default function DashboardPage() {
         <Building className="mx-auto h-16 w-16 text-muted-foreground" />
         <h2 className="mt-6 text-2xl font-semibold">Welcome to Your Dashboard!</h2>
         <p className="mt-2 text-muted-foreground max-w-md">
-          You haven&apos;t added any PGs yet. Get started by adding your first property.
+          You haven&apos;t added any properties yet. Get started by adding your first one.
         </p>
         <Button asChild className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground">
-          <Link href="/dashboard/pg-management">Add Your First PG</Link>
+          <Link href="/dashboard/pg-management">Add Your First Property</Link>
         </Button>
       </div>
     );
@@ -550,7 +550,7 @@ export default function DashboardPage() {
               ))}
             </Accordion>
             {isEditMode && (<button onClick={openAddFloorDialog} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>)}
-            {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This PG has no floors configured. Enable 'Edit Mode' to build the layout.</div>)}
+            {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Enable 'Edit Mode' to build the layout.</div>)}
           </CardContent>
         </Card>
       ))}

@@ -47,7 +47,7 @@ export default function Header() {
         <div className="flex items-center gap-2 md:gap-4 flex-1 md:flex-none">
             <Link href="/" className="flex items-center gap-2 mr-2">
                 <HomeIcon className="h-6 w-6 text-primary" />
-                <span className="font-bold text-lg font-headline hidden sm:inline-block">PGOasis</span>
+                <span className="font-bold text-lg font-headline hidden sm:inline-block">RoomBox</span>
             </Link>
              {isDashboard && currentUser && (
                 isLoading ? (
@@ -58,10 +58,10 @@ export default function Header() {
                         onValueChange={handleValueChange}
                     >
                         <SelectTrigger className="w-auto sm:w-[180px] flex-1 min-w-[120px]">
-                            <SelectValue placeholder="Select a PG..." />
+                            <SelectValue placeholder="Select a Property..." />
                         </SelectTrigger>
                         <SelectContent>
-                             <SelectItem value="all">All PGs</SelectItem>
+                             <SelectItem value="all">All Properties</SelectItem>
                             {pgs.map((pg) => (
                                 <SelectItem key={pg.id} value={pg.id}>
                                     {pg.name}
@@ -123,7 +123,7 @@ export default function Header() {
               <div className="flex flex-col gap-4 py-6">
                 <Link href="/" className="flex items-center gap-2 mb-4">
                     <HomeIcon className="h-6 w-6 text-primary" />
-                    <span className="font-bold text-lg font-headline">PGOasis</span>
+                    <span className="font-bold text-lg font-headline">RoomBox</span>
                 </Link>
                 {navLinks.map((link) => {
                    if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;

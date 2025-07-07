@@ -21,7 +21,7 @@ const features = [
       {
         icon: <Wallet className="h-8 w-8 text-primary" />,
         title: 'Automated Finance Tracking',
-        description: 'Effortlessly log expenses and track monthly revenue. Get a clear, real-time view of your PG’s financial health.',
+        description: 'Effortlessly log expenses and track monthly revenue. Get a clear, real-time view of your property’s financial health.',
       },
       {
         icon: <BotMessageSquare className="h-8 w-8 text-primary" />,
@@ -41,8 +41,8 @@ const faqs = [
         answer: "Absolutely. We use industry-standard encryption and security protocols to ensure your data is safe and private. You own your data, and we're committed to protecting it."
     },
     {
-        question: "Can I manage multiple PGs with one account?",
-        answer: "Yes! Our platform is designed to scale with your business. You can add and manage multiple PG locations from a single, centralized dashboard, making it easy to oversee your entire portfolio."
+        question: "Can I manage multiple properties with one account?",
+        answer: "Yes! Our platform is designed to scale with your business. You can add and manage multiple property locations from a single, centralized dashboard, making it easy to oversee your entire portfolio."
     },
     {
         question: "How does the AI work?",
@@ -50,14 +50,14 @@ const faqs = [
     },
     {
         question: "Is there a free trial?",
-        answer: "PGOasis offers a free basic plan that's perfect for getting started. You can explore our core features and see how they fit your needs. When you're ready, you can upgrade to a paid plan for more advanced capabilities."
+        answer: "RoomBox offers a free basic plan that's perfect for getting started. You can explore our core features and see how they fit your needs. When you're ready, you can upgrade to a paid plan for more advanced capabilities."
     }
 ]
 
 const planOrder: PlanName[] = ['free', 'starter', 'pro'];
 
 const getPlanFeatures = (plan: Plan) => [
-    { text: `${plan.pgLimit === 'unlimited' ? 'Unlimited' : `Up to ${plan.pgLimit}`} PG${plan.pgLimit !== 1 ? 's' : ''}`, included: true },
+    { text: `${plan.pgLimit === 'unlimited' ? 'Unlimited' : `Up to ${plan.pgLimit}`} Propert${plan.pgLimit !== 1 ? 'ies' : 'y'}`, included: true },
     { text: 'Rent Management', included: true },
     { text: 'Complaint Management', included: plan.hasComplaints },
     { text: 'Staff Management', included: plan.hasStaffManagement },
@@ -77,10 +77,10 @@ export default function Home() {
         <section className="py-24 md:py-32">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-6 animate-in fade-in slide-in-from-top-8 duration-700 ease-out">
-              The Modern OS for Your PG
+              The Modern OS for Your Rental Property
             </h1>
             <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-top-8 duration-700 ease-out delay-100">
-              Stop juggling spreadsheets. PGOasis automates your operations, from rent collection to guest management, all in one simple platform.
+              Stop juggling spreadsheets. RoomBox automates your operations, from rent collection to guest management, all in one simple platform.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500 ease-out delay-200">
               <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -102,7 +102,7 @@ export default function Home() {
                     <Badge variant="outline" className="mb-4">Our Features</Badge>
                     <h2 className="text-3xl md:text-4xl font-bold">Everything You Need. Nothing You Don't.</h2>
                     <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-                        PGOasis is built to solve the real problems of PG management.
+                        RoomBox is built to solve the real problems of rental management.
                     </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -204,10 +204,10 @@ export default function Home() {
         <section className="py-24 md:py-32 bg-background">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to Simplify Your PG Management?
+              Ready to Simplify Your Rental Management?
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Join hundreds of PG owners who have switched to a smarter way of working. Get started in minutes, no credit card required.
+              Join hundreds of property owners who have switched to a smarter way of working. Get started in minutes, no credit card required.
             </p>
             <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 px-8">
               <Link href="/login">Start for Free</Link>
@@ -219,7 +219,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-muted/40 border-t">
         <div className="container mx-auto px-4 py-6 text-center text-muted-foreground text-sm">
-          <p>&copy; {new Date().getFullYear()} PGOasis. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} RoomBox. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -69,10 +69,10 @@ export default function ManagePgPage() {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <Building className="mx-auto h-16 w-16 text-muted-foreground" />
-        <h2 className="mt-6 text-2xl font-semibold">PG Not Found</h2>
-        <p className="mt-2 text-muted-foreground max-w-md">The PG you are looking for does not exist or has been removed.</p>
+        <h2 className="mt-6 text-2xl font-semibold">Property Not Found</h2>
+        <p className="mt-2 text-muted-foreground max-w-md">The property you are looking for does not exist or has been removed.</p>
         <Button asChild className="mt-6">
-          <Link href="/dashboard/pg-management">Go Back to PG List</Link>
+          <Link href="/dashboard/pg-management">Go Back to Property List</Link>
         </Button>
       </div>
     )

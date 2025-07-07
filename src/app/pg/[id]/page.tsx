@@ -116,7 +116,7 @@ export default function PgDetailPage({ params }: { params: { id: string } }) {
                 <CardHeader><CardTitle>Contact Owner</CardTitle></CardHeader>
                 <CardContent>
                     <p className="text-muted-foreground mb-4">Interested? Get in touch with the owner directly for a faster response.</p>
-                    <a href={`https://wa.me/${pg.contact}?text=Hi, I'm interested in your PG "${pg.name}" listed on PGOasis.`} target="_blank" rel="noopener noreferrer">
+                    <a href={`https://wa.me/${pg.contact}?text=Hi, I'm interested in your property "${pg.name}" listed on RoomBox.`} target="_blank" rel="noopener noreferrer">
                         <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
                             Inquire on WhatsApp
                         </Button>
@@ -127,7 +127,7 @@ export default function PgDetailPage({ params }: { params: { id: string } }) {
         </div>
       </div>
        <div className="md:hidden sticky bottom-0 left-0 right-0 bg-background/90 backdrop-blur-sm p-4 border-t w-full">
-         <a href={`https://wa.me/${pg.contact}?text=Hi, I'm interested in your PG "${pg.name}" listed on PGOasis.`} target="_blank" rel="noopener noreferrer">
+         <a href={`https://wa.me/${pg.contact}?text=Hi, I'm interested in your property "${pg.name}" listed on RoomBox.`} target="_blank" rel="noopener noreferrer">
           <Button className="w-full text-lg bg-accent hover:bg-accent/90 text-accent-foreground">Inquire Now</Button>
          </a>
       </div>
