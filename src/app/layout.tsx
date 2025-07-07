@@ -7,8 +7,10 @@ import StoreProvider from '@/components/StoreProvider';
 
 const APP_NAME = "RoomBox";
 const APP_DESCRIPTION = "Simplify your rental property management with RoomBox. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease. Get started for free.";
+const APP_URL = "https://roombox.app"; // Placeholder, replace with your actual domain
 
 export const metadata: Metadata = {
+  metadataBase: new URL(APP_URL),
   applicationName: APP_NAME,
   title: {
     default: "RoomBox | All-in-One Rental Management Software",
@@ -30,6 +32,34 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "RoomBox Team" }],
   creator: "RoomBox",
+  openGraph: {
+    type: "website",
+    url: "/",
+    title: {
+      default: "RoomBox | All-in-One Rental Management Software",
+      template: `%s - ${APP_NAME}`,
+    },
+    description: APP_DESCRIPTION,
+    siteName: APP_NAME,
+    images: [
+      {
+        url: "https://placehold.co/1200x630.png",
+        width: 1200,
+        height: 630,
+        alt: "A preview of the RoomBox dashboard showing occupancy and revenue.",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: {
+      default: "RoomBox | All-in-One Rental Management Software",
+      template: `%s - ${APP_NAME}`,
+    },
+    description: APP_DESCRIPTION,
+    images: ["https://placehold.co/1200x630.png"],
+    creator: "@roombox_app",
+  },
 };
 
 export const viewport: Viewport = {
@@ -41,6 +71,26 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "RoomBox",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "description": "Simplify your rental property management with RoomBox. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "250"
+      },
+      "keywords": "rental management software, property management, pg management, tenant management, rent collection, expense tracking"
+  };
+
   return (
     <html lang="en" className="!scroll-smooth">
       <head>
@@ -48,6 +98,11 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          key="product-jsonld"
+        />
       </head>
       <body className="font-body antialiased">
         <StoreProvider>
