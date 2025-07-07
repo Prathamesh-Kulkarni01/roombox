@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { useRouter } from 'next/navigation';
 import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu, plans } from '@/lib/mock-data';
 import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan, PlanName } from '@/lib/types';
-import { differenceInDays, parseISO, isPast, isFuture } from 'date-fns';
+import { differenceInDays, parseISO, isPast, isFuture, format } from 'date-fns';
 
 
 // Helper functions for localStorage
@@ -37,6 +37,7 @@ const saveToLocalStorage = <T,>(key: string, data: T) => {
 }
 
 type NewPgData = Pick<PG, 'name' | 'location' | 'city' | 'gender'>;
+type NewComplaintData = Pick<Complaint, 'category' | 'description'>
 
 // Context type
 interface DataContextType {
@@ -55,6 +56,7 @@ interface DataContextType {
   addExpense: (newExpense: Omit<Expense, 'id'>) => void;
   updatePgMenu: (pgId: string, menu: Menu) => void;
   updateComplaint: (updatedComplaint: Complaint) => void;
+  addComplaint: (newComplaintData: NewComplaintData) => void;
   addStaff: (newStaff: Omit<Staff, 'id'>) => void;
   updateStaff: (updatedStaff: Staff) => void;
   deleteStaff: (staffId: string) => void;
@@ -70,6 +72,8 @@ interface DataContextType {
   signup: (name: string, email: string, password: string) => Promise<{success: boolean; message?: string}>;
   currentPlan: Plan | null;
   updateUserPlan: (planId: PlanName) => void;
+  currentGuest: Guest | null;
+  currentPg: PG | null;
 }
 
 // Create context
@@ -194,15 +198,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const updatedUser: User = {
       ...currentUser,
       subscription: {
-        ...currentUser.subscription,
+        ...(currentUser.subscription || { status: 'active' }),
         planId: planId,
       },
     };
     
-    // Update the current user in state, which also saves the id to local storage
     handleSetCurrentUser(updatedUser);
 
-    // Update the user in the main users list and save to local storage
     setUsers(prevUsers => {
       const newUsers = prevUsers.map(u => u.id === updatedUser.id ? updatedUser : u);
       saveToLocalStorage('users', newUsers);
@@ -211,36 +213,47 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   }, [currentUser, handleSetCurrentUser]);
 
-  // Filter data based on current user's role and PG access
+  // Data filtered for owner/manager roles
   const visiblePgs = useMemo(() => {
-    if (isLoading || !currentUser) return [];
+    if (isLoading || !currentUser || currentUser.role === 'tenant') return [];
     if (currentUser.role === 'owner') return pgs.filter(pg => pg.ownerId === currentUser.id);
     return pgs.filter(pg => currentUser.pgIds?.includes(pg.id));
   }, [currentUser, pgs, isLoading]);
 
   const visibleGuests = useMemo(() => {
-    if (isLoading || !currentUser) return [];
+    if (isLoading || !currentUser || currentUser.role === 'tenant') return [];
     const userPgs = visiblePgs.map(p => p.id);
     return guests.filter(guest => userPgs.includes(guest.pgId));
   }, [currentUser, guests, isLoading, visiblePgs]);
 
   const visibleComplaints = useMemo(() => {
-    if (isLoading || !currentUser) return [];
+    if (isLoading || !currentUser || currentUser.role === 'tenant') return [];
     const userPgs = visiblePgs.map(p => p.id);
     return complaints.filter(c => userPgs.includes(c.pgId));
   }, [currentUser, complaints, isLoading, visiblePgs]);
 
   const visibleExpenses = useMemo(() => {
-    if (isLoading || !currentUser) return [];
+    if (isLoading || !currentUser || currentUser.role === 'tenant') return [];
     const userPgs = visiblePgs.map(p => p.id);
     return expenses.filter(exp => userPgs.includes(exp.pgId));
   }, [currentUser, expenses, isLoading, visiblePgs]);
 
   const visibleStaff = useMemo(() => {
-    if (isLoading || !currentUser) return [];
+    if (isLoading || !currentUser || currentUser.role === 'tenant') return [];
     const userPgs = visiblePgs.map(p => p.id);
     return staff.filter(s => userPgs.includes(s.pgId));
   }, [currentUser, staff, isLoading, visiblePgs]);
+
+  // Data for a logged-in guest
+  const currentGuest = useMemo(() => {
+    if (isLoading || !currentUser || currentUser.role !== 'tenant' || !currentUser.guestId) return null;
+    return guests.find(g => g.id === currentUser.guestId) || null;
+  }, [currentUser, guests, isLoading]);
+
+  const currentPg = useMemo(() => {
+    if (!currentGuest) return null;
+    return pgs.find(p => p.id === currentGuest.pgId) || null;
+  }, [currentGuest, pgs]);
 
   // Reset selectedPgId if the new user doesn't have access to it
   useEffect(() => {
@@ -443,6 +456,26 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const addComplaint = useCallback((newComplaintData: NewComplaintData) => {
+    if (!currentGuest) return;
+    setComplaints(prev => {
+      const newComplaint: Complaint = {
+        id: `c-${Date.now()}`,
+        ...newComplaintData,
+        guestId: currentGuest.id,
+        guestName: currentGuest.name,
+        pgId: currentGuest.pgId,
+        pgName: currentGuest.pgName,
+        status: 'open',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        upvotes: 0,
+      };
+      const newComplaints = [newComplaint, ...prev];
+      saveToLocalStorage('complaints', newComplaints);
+      return newComplaints;
+    });
+  }, [currentGuest]);
+
   const addStaff = useCallback((newStaffData: Omit<Staff, 'id'>) => {
     setStaff(prevStaff => {
         const newStaff: Staff = {
@@ -487,7 +520,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     addPg,
     addExpense, 
     updatePgMenu, 
-    updateComplaint, 
+    updateComplaint,
+    addComplaint,
     addStaff, 
     updateStaff, 
     deleteStaff, 
@@ -503,6 +537,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     signup,
     currentPlan,
     updateUserPlan,
+    currentGuest,
+    currentPg,
   };
 
   return (

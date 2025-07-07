@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -14,20 +14,27 @@ import NotificationsPopover from './notifications-popover';
 import InstallPWA from './install-pwa';
 
 const navLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/tenants/complaints', label: 'Complaints' },
+  { href: '/', label: 'Home', roles: ['all'] },
+  { href: '/dashboard', label: 'Owner Dashboard', roles: ['owner', 'manager', 'cook', 'cleaner', 'security'] },
+  { href: '/tenants/my-pg', label: 'My Dashboard', roles: ['tenant'] },
 ];
 
 export default function Header() {
   const pathname = usePathname();
-  const { pgs, selectedPgId, setSelectedPgId, isLoading, currentUser } = useData();
+  const router = useRouter();
+  const { pgs, selectedPgId, setSelectedPgId, isLoading, currentUser, logout } = useData();
   const isDashboard = pathname.startsWith('/dashboard');
+  const isTenantDashboard = pathname.startsWith('/tenants');
 
   const handleValueChange = (pgId: string) => {
     if (setSelectedPgId) {
         setSelectedPgId(pgId === 'all' ? null : pgId)
     }
+  }
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
   }
 
   return (
@@ -65,14 +72,16 @@ export default function Header() {
 
         <nav className="hidden md:flex items-center gap-6 text-sm absolute left-1/2 -translate-x-1/2">
           {navLinks.map((link) => {
-            if (link.href === '/dashboard' && !currentUser) return null;
+            if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;
+            if (currentUser && !link.roles.includes('all') && !link.roles.includes(currentUser.role)) return null;
+            
             return (
                 <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
                     'transition-colors hover:text-foreground/80',
-                    pathname === link.href ? 'text-foreground' : 'text-muted-foreground'
+                    pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/' ? 'text-foreground' : 'text-muted-foreground'
                 )}
                 >
                 {link.label}
@@ -82,15 +91,19 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {currentUser && isDashboard && <NotificationsPopover />}
+          {currentUser && (isDashboard || isTenantDashboard) && <NotificationsPopover />}
            {pathname === '/' && (
             <div className="hidden md:flex">
               <InstallPWA />
             </div>
           )}
-          <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90">
-            <Link href={currentUser ? "/dashboard" : "/login"}>{currentUser ? "Go to Dashboard" : "Login"}</Link>
-          </Button>
+          {currentUser ? (
+              <Button variant="outline" onClick={handleLogout} className="hidden md:flex">Logout</Button>
+          ) : (
+             <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90">
+                <Link href="/login">Login</Link>
+            </Button>
+          )}
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
@@ -108,22 +121,31 @@ export default function Header() {
                     <HomeIcon className="h-6 w-6 text-primary" />
                     <span className="font-bold text-lg font-headline">PGOasis</span>
                 </Link>
-                {navLinks.map((link) => (
-                    <Link
-                    key={link.href}
-                    href={link.href}
-                    className={cn(
-                        'text-lg font-medium transition-colors hover:text-primary',
-                        pathname === link.href ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                    >
-                    {link.label}
-                    </Link>
-                ))}
+                {navLinks.map((link) => {
+                   if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;
+                   if (currentUser && !link.roles.includes('all') && !link.roles.includes(currentUser.role)) return null;
+                   
+                    return (
+                        <Link
+                        key={link.href}
+                        href={link.href}
+                        className={cn(
+                            'text-lg font-medium transition-colors hover:text-primary',
+                           pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/' ? 'text-primary' : 'text-muted-foreground'
+                        )}
+                        >
+                        {link.label}
+                        </Link>
+                    )
+                })}
                  {pathname === '/' && <InstallPWA />}
-                 <Button asChild className="mt-4 bg-primary hover:bg-primary/90">
-                    <Link href={currentUser ? "/dashboard" : "/login"}>{currentUser ? "Go to Dashboard" : "Login"}</Link>
-                </Button>
+                  {currentUser ? (
+                    <Button onClick={handleLogout} className="mt-4">Logout</Button>
+                  ) : (
+                    <Button asChild className="mt-4 bg-primary hover:bg-primary/90">
+                        <Link href="/login">Login</Link>
+                    </Button>
+                  )}
               </div>
             </SheetContent>
           </Sheet>

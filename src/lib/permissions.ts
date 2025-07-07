@@ -24,5 +24,12 @@ export const navPermissions: Record<UserRole, string[]> = {
   cook: ['/dashboard/food', '/dashboard/expense'],
   cleaner: ['/dashboard/complaints'],
   security: ['/dashboard/complaints', '/dashboard/tenant-management'],
+  tenant: [
+    '/tenants/my-pg',
+    '/tenants/complaints',
+    '/tenants/food',
+    '/tenants/chatbot',
+    '/tenants/profile',
+  ],
   other: [],
 };

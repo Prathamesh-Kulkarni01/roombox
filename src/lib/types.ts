@@ -24,7 +24,7 @@ export interface Room {
 }
 
 export interface Floor {
-  id: string;
+  id:string;
   name: string;
   rooms: Room[];
 }
@@ -93,6 +93,7 @@ export interface Complaint {
   status: 'open' | 'in-progress' | 'resolved';
   date: string;
   pgName?: string;
+  upvotes?: number;
 }
 
 export interface Expense {
@@ -126,9 +127,9 @@ export interface Notification {
   targetId: string; // guestId or complaintId
 }
 
-export type UserRole = 'owner' | 'manager' | 'cook' | 'cleaner' | 'security' | 'other';
+export type UserRole = 'owner' | 'manager' | 'cook' | 'cleaner' | 'security' | 'other' | 'tenant';
 
-export type PlanName = 'free' | 'starter' | 'pro' | 'enterprise';
+export type PlanName = 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
 
 export interface Plan {
   id: PlanName;
@@ -136,8 +137,8 @@ export interface Plan {
   price: number | 'Custom';
   pricePeriod: string;
   pgLimit: number | 'unlimited';
-  bedLimit: number | 'unlimited';
-  floorLimit: number | 'unlimited';
+  bedLimit?: number | 'unlimited';
+  floorLimit?: number | 'unlimited';
   hasStaffManagement: boolean;
   hasComplaints: boolean;
   hasAiRentReminders: boolean;
@@ -155,7 +156,8 @@ export interface User {
   role: UserRole;
   pgIds?: string[];
   avatarUrl?: string;
-  subscription: {
+  guestId?: string; // Link to a Guest record if the user is a tenant
+  subscription?: {
     planId: PlanName;
     status: 'active' | 'inactive';
   };
