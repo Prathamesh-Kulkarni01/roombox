@@ -101,7 +101,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUser(user);
     saveToLocalStorage('currentUserId', user ? user.id : null);
   }, []);
-
+  
   const currentPlan = useMemo(() => {
     if (!currentUser) return null;
     return plans[currentUser.subscription?.planId || 'free'];
@@ -156,36 +156,33 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (userDoc.exists()) {
         const existingUser = userDoc.data() as User;
         handleSetCurrentUser(existingUser);
-        setUsers(prev => produce(prev, draft => {
-            const index = draft.findIndex(u => u.id === existingUser.id);
-            if (index !== -1) draft[index] = existingUser;
-            else draft.push(existingUser);
-        }));
         return { isNewUser: false, role: existingUser.role };
     }
 
-    const newUser: User = {
+    const newUser: Partial<User> = {
         id: socialUser.uid,
         name: socialUser.displayName || 'New User',
-        email: socialUser.email || undefined,
-        phone: socialUser.phoneNumber || undefined,
         role: 'owner',
         subscription: { planId: 'free', status: 'active' },
         avatarUrl: socialUser.photoURL || `https://placehold.co/40x40.png?text=${(socialUser.displayName || 'NU').slice(0,2).toUpperCase()}`
     };
+    if (socialUser.email) newUser.email = socialUser.email;
+    if (socialUser.phoneNumber) newUser.phone = socialUser.phoneNumber;
 
-    await setDoc(userDocRef, newUser);
-    // Don't call addPg here, let the new user do it from the UI.
+    await setDoc(userDocRef, newUser as User);
     
-    handleSetCurrentUser(newUser);
-    setUsers(prev => [...prev, newUser]);
-
+    handleSetCurrentUser(newUser as User);
+    
     return { isNewUser: true, role: 'owner' };
-  }, [handleSetCurrentUser, addPg]);
+  }, [handleSetCurrentUser]);
 
   const logout = useCallback(() => {
-    auth.signOut();
-  }, []);
+    if (isFirebaseConfigured()) {
+      auth.signOut();
+    } else {
+      handleSetCurrentUser(null);
+    }
+  }, [handleSetCurrentUser]);
 
   // Effect to manage Firebase auth state
   useEffect(() => {
@@ -199,6 +196,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          setIsLoading(true);
           if (firebaseUser) {
               const userDocRef = doc(db, 'users', firebaseUser.uid);
               const userDoc = await getDoc(userDocRef);
@@ -211,8 +209,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
               }
           } else {
               handleSetCurrentUser(null);
-              setIsLoading(false);
           }
+          setIsLoading(false);
       });
       return () => unsubscribe();
   }, [handleSetCurrentUser, handleSocialLogin]);
@@ -230,7 +228,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         const plan = plans[currentUser.subscription?.planId || 'free'];
         
         const loadFromLocalStorage = () => {
-            setPgs(getFromLocalStorage<PG[]>('pgs', []));
+            setPgs(getFromLocalStorage<PG[]>('pgs', []).filter(p => p.ownerId === currentUser.id));
             setGuests(getFromLocalStorage<Guest[]>('guests', []));
             setComplaints(getFromLocalStorage<Complaint[]>('complaints', []));
             setExpenses(getFromLocalStorage<Expense[]>('expenses', []));
@@ -252,7 +250,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
                 if (!userSyncDoc.exists()) {
                     console.log("No data in Firestore for this user, performing initial sync from local storage.");
-                    const localPgs = getFromLocalStorage('pgs', initialPgs);
+                    const localPgs = getFromLocalStorage('pgs', initialPgs).filter(p => p.ownerId === currentUser.id);
                     const localGuests = getFromLocalStorage('guests', initialGuests);
                     const localComplaints = getFromLocalStorage('complaints', initialComplaints);
                     const localExpenses = getFromLocalStorage('expenses', initialExpenses);
@@ -323,27 +321,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const disassociateAndCreateOwnerAccount = useCallback(async () => {
     if (!currentUser || !currentGuest) return;
 
-    const updatedUserAsOwner: User = { ...currentUser, role: 'owner', guestId: undefined, subscription: { planId: 'free', status: 'active' } };
+    // Create a new object, removing guestId
+    const { guestId, ...restOfUser } = currentUser;
+    const updatedUserAsOwner: User = { ...restOfUser, role: 'owner', subscription: { planId: 'free', status: 'active' } };
 
     if (isFirebaseConfigured()) {
-        const batch = writeBatch(db);
-        const guestDocRef = doc(db, 'users_data', currentGuest.pgId, 'guests', currentGuest.id); // This path seems wrong
-        // Assuming owner is the one with collections. If a guest is owned by a pro user, how to get their ownerId?
-        // This feature is complex with the current data model. Let's simplify: the guest's owner needs to be found.
-        // For now, let's assume the guest's data is under their own UID if they were ever a user, or we need to find owner.
-        // The current logic doesn't support this well. I will proceed with updating the user doc only.
-        
         const userDocRef = doc(db, 'users', currentUser.id);
-        batch.set(userDocRef, updatedUserAsOwner, { merge: true });
-
-        // The guest record needs to be updated in its owner's collection.
-        // This is complex. Let's just focus on converting the user. The guest record remains.
-        
-        await batch.commit();
+        await setDoc(userDocRef, updatedUserAsOwner, { merge: true });
     }
     
     handleSetCurrentUser(updatedUserAsOwner);
-    setUsers(users.map(u => u.id === currentUser.id ? updatedUserAsOwner : u));
+    const newUsers = users.map(u => u.id === currentUser.id ? updatedUserAsOwner : u);
+    setUsers(newUsers);
+    saveToLocalStorage('users', newUsers);
     logout();
   }, [currentUser, currentGuest, users, logout, handleSetCurrentUser]);
 
@@ -375,8 +365,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       id: `g-${Date.now()}`
     };
 
-    setGuests(prev => [...prev, newGuest]);
-    saveToLocalStorage('guests', [...guests, newGuest]);
+    const updatedGuests = [...guests, newGuest];
+    setGuests(updatedGuests);
+    saveToLocalStorage('guests', updatedGuests);
 
     const pgToUpdate = pgs.find(p => p.id === newGuest.pgId);
     if (!pgToUpdate) return;
@@ -391,8 +382,9 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         });
     });
     
-    setPgs(pgs.map(p => p.id === updatedPg.id ? updatedPg : p));
-    saveToLocalStorage('pgs', pgs.map(p => p.id === updatedPg.id ? updatedPg : p));
+    const updatedPgs = pgs.map(p => p.id === updatedPg.id ? updatedPg : p)
+    setPgs(updatedPgs);
+    saveToLocalStorage('pgs', updatedPgs);
 
     if (currentUser && currentPlan && currentPlan.hasCloudSync && isFirebaseConfigured()) {
         const batch = writeBatch(db);
