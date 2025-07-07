@@ -15,11 +15,37 @@ import { setComplaints, fetchComplaints as fetchLocalComplaints } from '@/lib/sl
 import { setExpenses, fetchExpenses as fetchLocalExpenses } from '@/lib/slices/expensesSlice'
 import { setStaff, fetchStaff as fetchLocalStaff } from '@/lib/slices/staffSlice'
 import { setNotifications, fetchNotifications as fetchLocalNotifications } from '@/lib/slices/notificationsSlice'
+import { useToast } from '@/hooks/use-toast'
 
 function AuthHandler({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const authListenerStarted = useRef(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const handleOnline = () => {
+      toast({
+        title: "You're back online!",
+        description: "Your data will be synced automatically.",
+      });
+    };
+
+    const handleOffline = () => {
+      toast({
+        title: "You've gone offline",
+        description: "Your changes will be saved and synced when you reconnect.",
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [toast]);
 
   useEffect(() => {
     if (!isFirebaseConfigured() || authListenerStarted.current) return;
