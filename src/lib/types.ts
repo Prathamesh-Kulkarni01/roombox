@@ -152,7 +152,8 @@ export interface Plan {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  phone: string;
+  email?: string;
   password?: string;
   role: UserRole;
   pgIds?: string[];

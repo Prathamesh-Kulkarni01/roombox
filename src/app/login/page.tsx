@@ -1,174 +1,139 @@
-
 'use client'
 
-import { useState } from 'react'
-import Link from "next/link"
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useForm, type SubmitHandler } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useData } from '@/context/data-provider'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address."),
-  password: z.string().min(1, "Password is required."),
-})
-
-type LoginFormValues = z.infer<typeof loginSchema>
+import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from "firebase/auth"
+import { auth } from "@/lib/firebase"
+import { Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login } = useData()
+  const { handlePhoneAuthSuccess } = useData()
   const { toast } = useToast()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState("owner")
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
-  })
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showOtpInput, setShowOtpInput] = useState(false)
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null)
 
-  const onSubmit: SubmitHandler<LoginFormValues> = async (data) => {
-    setIsSubmitting(true)
-    const user = await login(data.email, data.password)
-    if (user) {
-      toast({ title: "Login Successful", description: "Welcome back!" })
-      if (user.role === 'tenant') {
-        router.push('/tenants/my-pg');
+  useEffect(() => {
+    // This effect should run only once
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': () => {
+          // reCAPTCHA solved, allow signInWithPhoneNumber.
+        }
+      });
+    }
+  }, [])
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{10}$/.test(phone)) {
+        toast({ variant: "destructive", title: "Invalid Phone Number", description: "Please enter a valid 10-digit phone number." });
+        return;
+    }
+    setLoading(true);
+    try {
+      const formattedPhone = `+91${phone}`;
+      const appVerifier = window.recaptchaVerifier;
+      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+      setConfirmationResult(result);
+      setShowOtpInput(true);
+      toast({ title: "OTP Sent", description: `An OTP has been sent to ${formattedPhone}.` });
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      toast({ variant: "destructive", title: "Failed to send OTP", description: "Please check the phone number and try again." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmationResult) return;
+    setLoading(true);
+    try {
+      const userCredential = await confirmationResult.confirm(otp);
+      if (userCredential.user && userCredential.user.phoneNumber) {
+        const result = await handlePhoneAuthSuccess(userCredential.user.phoneNumber);
+        
+        if (result.isNewUser) {
+          router.push('/complete-profile');
+        } else if (result.role === 'tenant') {
+          router.push('/tenants/my-pg');
+        } else {
+          router.push('/dashboard');
+        }
       } else {
-        router.push('/dashboard');
+         throw new Error("User not found in credential");
       }
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid email or password. Please try again.",
-      })
-      setIsSubmitting(false)
+    } catch (error) {
+       console.error("Error verifying OTP:", error);
+       toast({ variant: "destructive", title: "Invalid OTP", description: "The OTP you entered is incorrect. Please try again." });
+       setLoading(false);
     }
   }
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-sm">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="owner">Owner / Staff</TabsTrigger>
-                <TabsTrigger value="guest">Guest</TabsTrigger>
-            </TabsList>
-            <TabsContent value="owner">
-                 <Card>
-                    <CardHeader>
-                    <CardTitle className="text-2xl">Owner Login</CardTitle>
-                    <CardDescription>
-                        Enter your email below to login to your owner dashboard.
-                    </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-                        <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <FormControl>
-                                <Input type="email" placeholder="m@example.com" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="password"
-                            render={({ field }) => (
-                            <FormItem>
-                                <div className="flex items-center">
-                                <FormLabel>Password</FormLabel>
-                                <Link href="#" className="ml-auto inline-block text-sm underline">
-                                    Forgot your password?
-                                </Link>
-                                </div>
-                                <FormControl>
-                                <Input type="password" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isSubmitting}>
-                            {isSubmitting ? 'Logging in...' : 'Login'}
+        <div id="recaptcha-container"></div>
+        <Card className="w-full max-w-sm">
+            <CardHeader>
+                <CardTitle className="text-2xl">Login or Sign Up</CardTitle>
+                <CardDescription>
+                    Enter your phone number to receive a one-time password.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {!showOtpInput ? (
+                    <form onSubmit={handleSendOtp} className="grid gap-4">
+                        <div className="flex items-center gap-2">
+                           <div className="flex h-10 w-14 items-center justify-center rounded-md border border-input bg-background px-3 py-2 text-sm">
+                            +91
+                           </div>
+                           <Input 
+                             id="phone"
+                             type="tel"
+                             placeholder="10-digit mobile number"
+                             value={phone}
+                             onChange={(e) => setPhone(e.target.value)}
+                             required
+                           />
+                        </div>
+                        <Button type="submit" className="w-full" disabled={loading}>
+                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Send OTP
                         </Button>
-                        </form>
-                    </Form>
-                    <div className="mt-4 text-center text-sm">
-                        Don&apos;t have an account?{" "}
-                        <Link href="/signup" className="underline">
-                        Sign up
-                        </Link>
-                    </div>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-             <TabsContent value="guest">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-2xl">Guest Login</CardTitle>
-                        <CardDescription>
-                            Enter your credentials to access the guest portal.
-                        </CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
-                        <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <FormControl>
-                                <Input type="email" placeholder="m@example.com" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
+                    </form>
+                ) : (
+                    <form onSubmit={handleVerifyOtp} className="grid gap-4">
+                         <Input 
+                            id="otp"
+                            type="text"
+                            placeholder="Enter 6-digit OTP"
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value)}
+                            required
                         />
-                        <FormField
-                            control={form.control}
-                            name="password"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Password</FormLabel>
-                                <FormControl>
-                                <Input type="password" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isSubmitting}>
-                            {isSubmitting ? 'Logging in...' : 'Login'}
+                         <Button type="submit" className="w-full" disabled={loading}>
+                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Verify OTP
                         </Button>
-                        </form>
-                    </Form>
-                     <div className="mt-4 text-center text-sm">
-                        PG owner or staff?{" "}
-                        <Button variant="link" type="button" onClick={() => setActiveTab('owner')} className="underline p-0 h-auto font-normal">
-                            Login here
+                        <Button variant="link" onClick={() => setShowOtpInput(false)}>
+                            Use a different number
                         </Button>
-                    </div>
-                    </CardContent>
-                </Card>
-            </TabsContent>
-        </Tabs>
+                    </form>
+                )}
+            </CardContent>
+        </Card>
     </div>
   )
 }

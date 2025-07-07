@@ -86,14 +86,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500 ease-out delay-200">
               <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
                 <Link href="/login">
-                    <UserCog className="mr-2 h-5 w-5" />
-                    Owner / Staff Portal
-                </Link>
-              </Button>
-               <Button size="lg" asChild variant="outline">
-                <Link href="/login">
-                    <UserCheck className="mr-2 h-5 w-5" />
-                    Guest Portal
+                    Get Started Now
                 </Link>
               </Button>
             </div>
@@ -166,9 +159,9 @@ export default function Home() {
                                         ))}
                                     </ul>
                                 </CardContent>
-                                <Button variant={isPopular ? 'default' : 'outline'} className={cn("w-full mt-4", isPopular && "bg-accent hover:bg-accent/90 text-accent-foreground")}>
-                                    <Link href="/signup">
-                                    {plan.price === 0 ? 'Get Started' : 'Choose Plan'}
+                                <Button asChild variant={isPopular ? 'default' : 'outline'} className={cn("w-full mt-4", isPopular && "bg-accent hover:bg-accent/90 text-accent-foreground")}>
+                                    <Link href="/login">
+                                      {plan.price === 0 ? 'Get Started' : 'Choose Plan'}
                                     </Link>
                                 </Button>
                             </Card>
@@ -218,7 +211,7 @@ export default function Home() {
               Join hundreds of PG owners who have switched to a smarter way of working. Get started in minutes, no credit card required.
             </p>
             <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 px-8">
-              <Link href="/signup">Start Your Free Trial</Link>
+              <Link href="/login">Start for Free</Link>
             </Button>
           </div>
         </section>
