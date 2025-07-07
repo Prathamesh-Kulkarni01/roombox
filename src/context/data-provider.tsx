@@ -412,8 +412,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [deleteFromFirestore]);
 
   const disassociateAndCreateOwnerAccount = useCallback(() => {
+    if (!currentUser || !currentGuest) return;
     const guest = currentGuest;
-    if (!currentUser || !guest) return;
     const updatedGuests = guests.map(g => g.id === guest.id ? { ...g, email: undefined } : g);
     setGuests(updatedGuests); saveToLocalStorage('guests', updatedGuests);
     const updatedUserAsOwner: User = { ...currentUser, role: 'owner', guestId: undefined, subscription: { planId: 'free', status: 'active' } };

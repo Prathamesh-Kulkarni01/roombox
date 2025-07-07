@@ -2,11 +2,10 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check, LayoutDashboard, Wallet, Cloud, BotMessageSquare, Users, Settings, ChefHat, X, UserCheck, UserCog } from 'lucide-react';
+import { Check, LayoutDashboard, Wallet, Cloud, BotMessageSquare, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import InstallPWA from '@/components/install-pwa';
 import { plans } from '@/lib/mock-data';
