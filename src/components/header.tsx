@@ -101,7 +101,7 @@ export default function Header() {
               <Button variant="outline" onClick={handleLogout} className="hidden md:flex">Logout</Button>
           ) : (
              <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90">
-                <Link href="/login">Login</Link>
+                <Link href="/login">Login / Sign Up</Link>
             </Button>
           )}
           <Sheet>
@@ -143,7 +143,7 @@ export default function Header() {
                     <Button onClick={handleLogout} className="mt-4">Logout</Button>
                   ) : (
                     <Button asChild className="mt-4 bg-primary hover:bg-primary/90">
-                        <Link href="/login">Login</Link>
+                        <Link href="/login">Login / Sign Up</Link>
                     </Button>
                   )}
               </div>

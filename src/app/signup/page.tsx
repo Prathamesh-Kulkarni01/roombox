@@ -12,8 +12,9 @@ import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -28,6 +29,7 @@ export default function SignupPage() {
   const { signup } = useData()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [signupError, setSignupError] = useState<{ message: string, role?: string } | null>(null)
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -36,16 +38,14 @@ export default function SignupPage() {
 
   const onSubmit: SubmitHandler<SignupFormValues> = async (data) => {
     setIsSubmitting(true)
+    setSignupError(null)
     const result = await signup(data.name, data.email, data.password)
+    
     if (result.success) {
       toast({ title: "Account Created", description: "Welcome to PGOasis!" })
       router.push('/dashboard')
     } else {
-      toast({
-        variant: "destructive",
-        title: "Signup Failed",
-        description: result.message || "An unexpected error occurred. Please try again.",
-      })
+      setSignupError({ message: result.message || "An unexpected error occurred.", role: result.existingRole })
       setIsSubmitting(false)
     }
   }
@@ -56,10 +56,24 @@ export default function SignupPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Sign Up</CardTitle>
           <CardDescription>
-            Create your account to start managing your PGs.
+            Create your owner account to start managing your PGs.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {signupError && (
+             <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Signup Failed</AlertTitle>
+                <AlertDescription>
+                  {signupError.message}
+                  {signupError.role && ` This email is registered as a ${signupError.role}.`}
+                   <Button asChild variant="link" className="p-0 h-auto ml-1 font-bold">
+                     <Link href="/login">Please login instead.</Link>
+                   </Button>
+                </AlertDescription>
+            </Alert>
+          )}
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
               <FormField

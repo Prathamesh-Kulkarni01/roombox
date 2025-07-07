@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { pgs as initialPgs, guests as initialGuests, complaints as initialComplaints, expenses as initialExpenses, staff as initialStaff, users as initialUsers, defaultMenu, plans } from '@/lib/mock-data';
-import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan, PlanName } from '@/lib/types';
+import type { PG, Guest, Complaint, Expense, Menu, Staff, Notification, User, Plan, PlanName, UserRole } from '@/lib/types';
 import { differenceInDays, parseISO, isPast, isFuture, format } from 'date-fns';
 
 
@@ -67,9 +67,10 @@ interface DataContextType {
   users: User[];
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<User | null>;
   logout: () => void;
-  signup: (name: string, email: string, password: string) => Promise<{success: boolean; message?: string}>;
+  signup: (name: string, email: string, password: string) => Promise<{success: boolean; message?: string, existingRole?: UserRole}>;
+  disassociateAndCreateOwnerAccount: () => void;
   currentPlan: Plan | null;
   updateUserPlan: (planId: PlanName) => void;
   currentGuest: Guest | null;
@@ -120,23 +121,64 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     saveToLocalStorage('currentUserId', user ? user.id : null);
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
-    if (user) {
-        handleSetCurrentUser(user);
-        return true;
-    }
-    return false;
-  }, [users, handleSetCurrentUser]);
-
   const logout = useCallback(() => {
     handleSetCurrentUser(null);
     router.push('/login');
   }, [router, handleSetCurrentUser]);
 
-  const signup = useCallback(async (name: string, email: string, password: string): Promise<{success: boolean; message?: string}> => {
-      if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-          return { success: false, message: 'An account with this email already exists.' };
+  // Data for a logged-in guest
+  const currentGuest = useMemo(() => {
+    if (isLoading || !currentUser || currentUser.role !== 'tenant' || !currentUser.guestId) return null;
+    return guests.find(g => g.id === currentUser.guestId) || null;
+  }, [currentUser, guests, isLoading]);
+
+  const currentPg = useMemo(() => {
+    if (!currentGuest) return null;
+    return pgs.find(p => p.id === currentGuest.pgId) || null;
+  }, [currentGuest, pgs]);
+
+  const addPg = useCallback((newPgData: NewPgData): string | undefined => {
+    if (!currentUser) return;
+
+    const newPgId = `pg-${new Date().getTime()}`;
+    const newPg: PG = {
+      id: newPgId,
+      ...newPgData,
+      ownerId: currentUser.id,
+      images: ['https://placehold.co/600x400.png'],
+      rating: 0,
+      occupancy: 0,
+      totalBeds: 0,
+      rules: [],
+      contact: '',
+      priceRange: { min: 0, max: 0 },
+      amenities: ['wifi', 'food'],
+      floors: [],
+      menu: defaultMenu
+    };
+    
+    setPgs(prevPgs => {
+        const newPgs = [...prevPgs, newPg];
+        saveToLocalStorage('pgs', newPgs);
+        return newPgs;
+    });
+
+    return newPgId;
+  }, [currentUser]);
+
+  const login = useCallback(async (email: string, password: string): Promise<User | null> => {
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+    if (user) {
+        handleSetCurrentUser(user);
+        return user;
+    }
+    return null;
+  }, [users, handleSetCurrentUser]);
+
+  const signup = useCallback(async (name: string, email: string, password: string): Promise<{success: boolean; message?: string, existingRole?: UserRole}> => {
+      const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (existingUser) {
+          return { success: false, message: 'An account with this email already exists.', existingRole: existingUser.role };
       }
       const newUserId = `user-${Date.now()}`;
       const newUser: User = {
@@ -183,7 +225,44 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       
       return { success: true };
   }, [users, handleSetCurrentUser]);
+  
+  const disassociateAndCreateOwnerAccount = useCallback(() => {
+        if (!currentUser || !currentGuest) return;
 
+        // 1. Find the associated guest record and clear email
+        const updatedGuests = guests.map(g => {
+            if (g.id === currentGuest.id) {
+                return { ...g, email: undefined };
+            }
+            return g;
+        });
+        setGuests(updatedGuests);
+        saveToLocalStorage('guests', updatedGuests);
+
+        // 2. Convert current user to an owner
+        const updatedUserAsOwner: User = {
+            ...currentUser,
+            role: 'owner',
+            guestId: undefined,
+            subscription: { planId: 'free', status: 'active' },
+        };
+        const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUserAsOwner : u);
+        setUsers(updatedUsers);
+        saveToLocalStorage('users', updatedUsers);
+
+        // 3. Create a default PG for the new owner
+        addPg({
+            name: `${currentUser.name.split(' ')[0]}'s First PG`,
+            location: 'Update Location',
+            city: 'Update City',
+            gender: 'co-ed',
+        });
+
+        // 4. Log out the user so they can log back in as an owner
+        logout();
+
+    }, [currentUser, currentGuest, guests, users, addPg, logout]);
+  
   
   const currentPlan = useMemo(() => {
     if (!currentUser || !currentUser.subscription) {
@@ -243,17 +322,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const userPgs = visiblePgs.map(p => p.id);
     return staff.filter(s => userPgs.includes(s.pgId));
   }, [currentUser, staff, isLoading, visiblePgs]);
-
-  // Data for a logged-in guest
-  const currentGuest = useMemo(() => {
-    if (isLoading || !currentUser || currentUser.role !== 'tenant' || !currentUser.guestId) return null;
-    return guests.find(g => g.id === currentUser.guestId) || null;
-  }, [currentUser, guests, isLoading]);
-
-  const currentPg = useMemo(() => {
-    if (!currentGuest) return null;
-    return pgs.find(p => p.id === currentGuest.pgId) || null;
-  }, [currentGuest, pgs]);
 
   // Reset selectedPgId if the new user doesn't have access to it
   useEffect(() => {
@@ -397,35 +465,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  const addPg = useCallback((newPgData: NewPgData): string | undefined => {
-    if (!currentUser) return;
-
-    const newPgId = `pg-${new Date().getTime()}`;
-    const newPg: PG = {
-      id: newPgId,
-      ...newPgData,
-      ownerId: currentUser.id,
-      images: ['https://placehold.co/600x400.png'],
-      rating: 0,
-      occupancy: 0,
-      totalBeds: 0,
-      rules: [],
-      contact: '',
-      priceRange: { min: 0, max: 0 },
-      amenities: ['wifi', 'food'],
-      floors: [],
-      menu: defaultMenu
-    };
-    
-    setPgs(prevPgs => {
-        const newPgs = [...prevPgs, newPg];
-        saveToLocalStorage('pgs', newPgs);
-        return newPgs;
-    });
-
-    return newPgId;
-  }, [currentUser]);
-
   const addExpense = useCallback((newExpenseData: Omit<Expense, 'id'>) => {
     setExpenses(prevExpenses => {
         const newExpense: Expense = {
@@ -535,6 +574,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     login,
     logout,
     signup,
+    disassociateAndCreateOwnerAccount,
     currentPlan,
     updateUserPlan,
     currentGuest,

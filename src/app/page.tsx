@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check, LayoutDashboard, Wallet, MessageSquareWarning, BotMessageSquare, Users, Settings, ChefHat, X } from 'lucide-react';
+import { Check, LayoutDashboard, Wallet, MessageSquareWarning, BotMessageSquare, Users, Settings, ChefHat, X, UserCheck, UserCog } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import InstallPWA from '@/components/install-pwa';
 import { plans } from '@/lib/mock-data';
@@ -84,9 +84,20 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500 ease-out delay-200">
               <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Link href="/dashboard">Get Started for Free</Link>
+                <Link href="/login">
+                    <UserCog className="mr-2 h-5 w-5" />
+                    Owner / Staff Portal
+                </Link>
               </Button>
-              <InstallPWA />
+               <Button size="lg" asChild variant="outline">
+                <Link href="/login">
+                    <UserCheck className="mr-2 h-5 w-5" />
+                    Guest Portal
+                </Link>
+              </Button>
+            </div>
+            <div className="mt-6">
+                <InstallPWA />
             </div>
           </div>
         </section>
