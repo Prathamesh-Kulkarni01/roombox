@@ -3,7 +3,7 @@
 
 import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAppSelector } from "@/lib/hooks"
+import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from '@/components/ui/switch'
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Building, Home, IndianRupee, MessageSquareWarning, Users } from "lucide-react"
 
 import { useDashboard } from '@/hooks/use-dashboard'
+import { setTourStepIndex } from '@/lib/slices/appSlice'
 
 import StatsCards from '@/components/dashboard/StatsCards'
 import PgLayout from '@/components/dashboard/PgLayout'
@@ -24,6 +25,7 @@ import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
 import AddPgSheet from "@/components/add-pg-sheet"
 
 export default function DashboardPage() {
+  const dispatch = useAppDispatch();
   const { pgs, guests, complaints } = useAppSelector(state => ({
     pgs: state.pgs.pgs,
     guests: state.guests.guests,
@@ -56,6 +58,15 @@ export default function DashboardPage() {
   }, [pgsToDisplay, guests, complaints, selectedPgId]);
   
   const dashboardActions = useDashboard({ pgs, guests, complaints });
+
+  const handleSheetOpenChange = (open: boolean) => {
+      setIsAddPgSheetOpen(open);
+      // If sheet is closing AND no pgs have been created yet
+      if (!open && pgs.length === 0) {
+          // Reset tour to the step that highlights the "Add Property" button
+          dispatch(setTourStepIndex(1));
+      }
+  }
 
   if (isLoading) {
     return (
@@ -94,7 +105,7 @@ export default function DashboardPage() {
       <>
         <AddPgSheet
           open={isAddPgSheetOpen}
-          onOpenChange={setIsAddPgSheetOpen}
+          onOpenChange={handleSheetOpenChange}
           onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}?setup=true`)}
         />
         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-250px)] text-center p-8 bg-card border rounded-lg">
@@ -103,7 +114,14 @@ export default function DashboardPage() {
           <p className="mt-2 text-muted-foreground max-w-md">
             You haven&apos;t added any properties yet. Get started by adding your first one.
           </p>
-          <Button data-tour="add-first-pg-button" onClick={() => setIsAddPgSheetOpen(true)} className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground">
+          <Button 
+            data-tour="add-first-pg-button" 
+            onClick={() => {
+                setIsAddPgSheetOpen(true);
+                dispatch(setTourStepIndex(2));
+            }} 
+            className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground"
+          >
             Add Your First Property
           </Button>
         </div>
