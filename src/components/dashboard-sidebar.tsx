@@ -13,13 +13,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { setTourStep } from '@/lib/slices/appSlice';
+import { endTour } from '@/lib/slices/appSlice';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core' },
   { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed, feature: 'core' },
   { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet, feature: 'core' },
-  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building, feature: 'core' },
+  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building, feature: 'core', tourId: 'pg-management-nav' },
   { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
   { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
   { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },
@@ -31,7 +31,6 @@ export default function DashboardSidebar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
-  const { tour } = useAppSelector(state => state.app);
 
   if (!currentUser || !currentPlan) {
     return (
@@ -61,16 +60,11 @@ export default function DashboardSidebar() {
             <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
         </div>
         <nav className="flex flex-col gap-1 px-4">
-          {visibleNavItems.map((item) => {
-            const link = (
+          {visibleNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => {
-                  if (tour.isActive && tour.step === 1 && item.href === '/dashboard/pg-management') {
-                    dispatch(setTourStep(2))
-                  }
-                }}
+                data-tour={item.tourId}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent',
                   (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-sidebar-accent text-sidebar-primary'
@@ -79,21 +73,7 @@ export default function DashboardSidebar() {
                 <item.icon className="h-4 w-4" />
                 {item.label}
               </Link>
-            )
-            
-            if (item.href === '/dashboard/pg-management') {
-              return (
-                <Popover key={item.href} open={tour.isActive && tour.step === 1}>
-                  <PopoverTrigger asChild>{link}</PopoverTrigger>
-                  <PopoverContent side="right" align="start">
-                    <p className="font-semibold text-sm">Let's add your first property. Click here to begin.</p>
-                  </PopoverContent>
-                </Popover>
-              )
-            }
-
-            return link;
-          })}
+          ))}
         </nav>
       </div>
       <div className="p-4 mt-auto">

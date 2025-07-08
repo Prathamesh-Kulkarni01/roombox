@@ -80,3 +80,29 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* React Joyride Styles */
+.__floater__body {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-radius: var(--radius) !important;
+  padding: 1.5rem !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.__floater__arrow__inner {
+  fill: hsl(var(--card)) !important;
+}
+
+[data-test-id="button-primary"] {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border-radius: 0.375rem !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 500 !important;
+}
+
+[data-test-id="button-secondary"],
+[data-test-id="button-close"] {
+  color: hsl(var(--foreground)) !important;
+}

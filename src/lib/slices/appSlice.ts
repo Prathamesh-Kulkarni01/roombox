@@ -2,8 +2,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface TourState {
-    isActive: boolean;
-    step: number;
     hasCompleted: boolean;
 }
 
@@ -37,8 +35,6 @@ const initialState: AppState = {
     isLoading: true,
     selectedPgId: getInitialSelectedPgId(),
     tour: {
-        isActive: false,
-        step: 0,
         hasCompleted: getInitialTourCompleted(),
     },
 };
@@ -56,16 +52,7 @@ const appSlice = createSlice({
                 localStorage.setItem('selectedPgId', JSON.stringify(action.payload));
             }
         },
-        startTour: (state) => {
-            state.tour.isActive = true;
-            state.tour.step = 0;
-            state.tour.hasCompleted = false;
-        },
-        setTourStep: (state, action: PayloadAction<number>) => {
-            state.tour.step = action.payload;
-        },
         endTour: (state) => {
-            state.tour.isActive = false;
             state.tour.hasCompleted = true;
             if (typeof window !== 'undefined') {
                 localStorage.setItem('tourCompleted', JSON.stringify(true));
@@ -90,5 +77,5 @@ const appSlice = createSlice({
     }
 });
 
-export const { setLoading, setSelectedPgId, startTour, setTourStep, endTour } = appSlice.actions;
+export const { setLoading, setSelectedPgId, endTour } = appSlice.actions;
 export default appSlice.reducer;

@@ -16,14 +16,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { useAppDispatch, useAppSelector } from "@/lib/hooks"
+import { useAppSelector } from "@/lib/hooks"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from '@/hooks/use-toast'
 import AddPgSheet from '@/components/add-pg-sheet'
-import { endTour } from '@/lib/slices/appSlice'
 
 const genderBadgeColor = {
   male: 'bg-blue-100 text-blue-800',
@@ -33,9 +31,8 @@ const genderBadgeColor = {
 
 
 export default function PgManagementPage() {
-    const dispatch = useAppDispatch()
     const { pgs } = useAppSelector(state => state.pgs);
-    const { isLoading, tour } = useAppSelector(state => state.app);
+    const { isLoading } = useAppSelector(state => state.app);
     const { currentPlan } = useAppSelector(state => state.user);
     const router = useRouter();
     const { toast } = useToast()
@@ -102,30 +99,24 @@ export default function PgManagementPage() {
                         <CardTitle>Your Properties</CardTitle>
                         <CardDescription>You have {pgs.length} properties.</CardDescription>
                     </div>
-                     <Popover open={tour.isActive && tour.step === 2}>
-                        <PopoverTrigger asChild>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                   <div className="inline-block">
-                                     <Button onClick={handleAddPgClick} disabled={!canAddPg}>
-                                        <PlusCircle className="mr-2 h-4 w-4" /> Add New Property
-                                    </Button>
-                                   </div>
-                                </TooltipTrigger>
-                                {!canAddPg && (
-                                     <TooltipContent>
-                                        <p>You have reached your plan's property limit.</p>
-                                     </TooltipContent>
-                                )}
-                              </Tooltip>
-                            </TooltipProvider>
-                        </PopoverTrigger>
-                         <PopoverContent>
-                            <p className="font-semibold text-sm mb-2">Great! Click here to add the details for your first property.</p>
-                            <Button size="sm" onClick={() => dispatch(endTour())}>Got it!</Button>
-                        </PopoverContent>
-                    </Popover>
+                     <div data-tour="add-pg-button">
+                        <TooltipProvider>
+                            <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="inline-block">
+                                    <Button onClick={handleAddPgClick} disabled={!canAddPg}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Property
+                                </Button>
+                                </div>
+                            </TooltipTrigger>
+                            {!canAddPg && (
+                                    <TooltipContent>
+                                    <p>You have reached your plan's property limit.</p>
+                                    </TooltipContent>
+                            )}
+                            </Tooltip>
+                        </TooltipProvider>
+                     </div>
 
                 </CardHeader>
                 <CardContent>
