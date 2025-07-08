@@ -2,7 +2,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { PG } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
 import { RootState } from '../store';
 import { addGuest } from './guestsSlice';
@@ -77,6 +77,25 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
     }
 );
 
+export const deletePg = createAsyncThunk<string, string, { state: RootState }>(
+    'pgs/deletePg',
+    async (pgId, { getState, rejectWithValue }) => {
+        const { user, guests } = getState();
+        if (!user.currentUser) return rejectWithValue('No user');
+
+        const hasGuests = guests.guests.some(g => g.pgId === pgId);
+        if (hasGuests) {
+            return rejectWithValue('Cannot delete property with active guests. Please vacate all guests first.');
+        }
+
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', pgId);
+            await deleteDoc(docRef);
+        }
+        return pgId;
+    }
+);
+
 const pgsSlice = createSlice({
     name: 'pgs',
     initialState,
@@ -106,6 +125,9 @@ const pgsSlice = createSlice({
                 if (index !== -1) {
                     state.pgs[index] = updatedPg;
                 }
+            })
+             .addCase(deletePg.fulfilled, (state, action) => {
+                state.pgs = state.pgs.filter(p => p.id !== action.payload);
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.pgs = [];

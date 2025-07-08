@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin, Pencil, Building } from "lucide-react"
+import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin, Pencil, Building, Trash2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,10 +18,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { useAppSelector } from "@/lib/hooks"
+import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from '@/hooks/use-toast'
 import AddPgSheet from '@/components/add-pg-sheet'
+import { deletePg as deletePgAction } from '@/lib/slices/pgsSlice'
 
 const genderBadgeColor = {
   male: 'bg-blue-100 text-blue-800',
@@ -31,7 +32,11 @@ const genderBadgeColor = {
 
 
 export default function PgManagementPage() {
-    const { pgs } = useAppSelector(state => state.pgs);
+    const dispatch = useAppDispatch();
+    const { pgs, guests } = useAppSelector(state => ({
+        pgs: state.pgs.pgs,
+        guests: state.guests.guests,
+    }));
     const { isLoading } = useAppSelector(state => state.app);
     const { currentPlan } = useAppSelector(state => state.user);
     const router = useRouter();
@@ -51,6 +56,35 @@ export default function PgManagementPage() {
         }
         setIsAddPgSheetOpen(true)
     }
+
+    const handleDeletePg = async (pgId: string, pgName: string) => {
+        const pgHasGuests = guests.some(g => g.pgId === pgId && !g.exitDate);
+        if (pgHasGuests) {
+            toast({
+                variant: "destructive",
+                title: "Deletion Failed",
+                description: `Cannot delete "${pgName}" as it has active guests. Please vacate all guests first.`,
+            });
+            return;
+        }
+
+        if (window.confirm(`Are you sure you want to delete "${pgName}"? This action is permanent and cannot be undone.`)) {
+            try {
+                await dispatch(deletePgAction(pgId)).unwrap();
+                toast({
+                    title: "Property Deleted",
+                    description: `"${pgName}" has been successfully removed.`,
+                });
+            } catch (error: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Deletion Failed",
+                    description: error.message || "An unexpected error occurred.",
+                });
+            }
+        }
+    }
+
 
     if (isLoading) {
         return (
@@ -177,7 +211,9 @@ export default function PgManagementPage() {
                                                         <Pencil className="mr-2 h-4 w-4" /> Configure
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem>View Guests</DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => handleDeletePg(pg.id, pg.name)}>
+                                                        <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                                    </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>
@@ -211,7 +247,9 @@ export default function PgManagementPage() {
                                               <Pencil className="mr-2 h-4 w-4" /> Configure
                                             </DropdownMenuItem>
                                             <DropdownMenuItem>View Guests</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+                                            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => handleDeletePg(pg.id, pg.name)}>
+                                                 <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                            </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>
