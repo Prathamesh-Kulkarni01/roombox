@@ -3,8 +3,9 @@
 
 import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from 'next/link'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -32,7 +33,7 @@ export default function DashboardPage() {
     complaints: state.complaints.complaints,
   }));
 
-  const { isLoading, selectedPgId } = useAppSelector(state => state.app);
+  const { isLoading, selectedPgId, tour } = useAppSelector(state => state.app);
   const isFirstAvailableBedFound = useRef(false);
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
   const router = useRouter();
@@ -61,12 +62,16 @@ export default function DashboardPage() {
 
   const handleSheetOpenChange = (open: boolean) => {
       setIsAddPgSheetOpen(open);
-      // If sheet is closing AND no pgs have been created yet
       if (!open && pgs.length === 0) {
-          // Reset tour to the step that highlights the "Add Property" button
           dispatch(setTourStepIndex(1));
       }
   }
+
+  const shouldShowLayoutPrompt = useMemo(() => {
+    if (!pgs || pgs.length === 0) return false;
+    const hasLayout = pgs.some(p => p.totalBeds > 0);
+    return tour.hasCompletedOnboarding && !tour.hasCompletedLayout && !hasLayout;
+  }, [pgs, tour]);
 
   if (isLoading) {
     return (
@@ -140,6 +145,20 @@ export default function DashboardPage() {
         </div>
         
         <StatsCards stats={stats} />
+
+        {shouldShowLayoutPrompt && (
+             <Card className="bg-primary/10 border-primary/20">
+                <CardHeader>
+                    <CardTitle>Next Step: Configure Your Property Layout</CardTitle>
+                    <CardDescription>You've added a property! Now, let's set up its floors, rooms, and beds to start managing occupancy.</CardDescription>
+                </CardHeader>
+                <CardFooter>
+                    <Button asChild>
+                        <Link href={`/dashboard/pg-management/${pgs[0].id}`}>Configure {pgs[0].name}</Link>
+                    </Button>
+                </CardFooter>
+            </Card>
+        )}
 
         {pgsToDisplay.map(pg => (
           <PgLayout 

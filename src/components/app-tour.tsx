@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import Joyride, { type CallBackProps, type Step, STATUS, EVENTS, ACTIONS } from 'react-joyride'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { setTourStepIndex } from '@/lib/slices/appSlice'
+import { setTourStepIndex, endOnboardingTour, endLayoutTour } from '@/lib/slices/appSlice'
 import { usePathname } from 'next/navigation'
 
 const onboardingSteps: Step[] = [
@@ -88,7 +88,7 @@ const layoutAndGuestSteps: Step[] = [
 export default function AppTour() {
     const dispatch = useAppDispatch();
     const { pgs } = useAppSelector(state => state.pgs);
-    const { tourStepIndex } = useAppSelector(state => state.app);
+    const { tour, tourStepIndex } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
     const [steps, setSteps] = useState<Step[]>([]);
     const [runTour, setRunTour] = useState(false);
@@ -102,30 +102,25 @@ export default function AppTour() {
         }
 
         const hasPgs = pgs.length > 0;
-        const hasLayout = hasPgs && pgs.some(p => p.floors && p.floors.length > 0);
+        const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
         
-        // This was the temporary change to always show the tour
-        const onboardingCompleted = false; 
-        const layoutCompleted = false; 
-
         const isOnDashboard = pathname === '/dashboard';
         const isOnPgManagement = pathname.startsWith('/dashboard/pg-management/');
         
-        // Default to not running the tour
         setRunTour(false);
 
-        if (!onboardingCompleted && !hasPgs && isOnDashboard) {
+        if (!tour.hasCompletedOnboarding && !hasPgs && isOnDashboard) {
             setActiveTour('onboarding');
             setSteps(onboardingSteps);
             setRunTour(true);
-        } else if (!layoutCompleted && hasPgs && !hasLayout && isOnPgManagement) {
+        } else if (tour.hasCompletedOnboarding && !tour.hasCompletedLayout && hasPgs && !hasLayout && isOnPgManagement) {
              setActiveTour('layout');
              setSteps(layoutAndGuestSteps);
              setRunTour(true);
         } else {
             setActiveTour(null);
         }
-    }, [currentUser, pgs, pathname]);
+    }, [currentUser, pgs, tour, pathname]);
 
 
     const handleJoyrideCallback = (data: CallBackProps) => {
@@ -134,6 +129,11 @@ export default function AppTour() {
         if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
             setRunTour(false);
             dispatch(setTourStepIndex(0));
+            if (activeTour === 'onboarding') {
+                dispatch(endOnboardingTour());
+            } else if (activeTour === 'layout') {
+                dispatch(endLayoutTour());
+            }
             return;
         }
 

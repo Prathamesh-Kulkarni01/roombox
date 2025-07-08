@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { endOnboardingTour, endLayoutTour } from '@/lib/slices/appSlice';
+
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core', tourId: 'dashboard-nav' },

@@ -89,6 +89,7 @@ const appSlice = createSlice({
                  if (typeof window !== 'undefined') {
                     localStorage.removeItem('tour_onboarding_completed');
                     localStorage.removeItem('tour_layout_completed');
+                    localStorage.removeItem('selectedPgId');
                 }
                 state.tour.hasCompletedOnboarding = false;
                 state.tour.hasCompletedLayout = false;
