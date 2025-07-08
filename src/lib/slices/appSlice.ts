@@ -2,7 +2,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface TourState {
-    hasCompleted: boolean;
+    hasCompletedOnboarding: boolean;
+    hasCompletedLayout: boolean;
 }
 
 interface AppState {
@@ -21,10 +22,10 @@ const getInitialSelectedPgId = (): string | null => {
     }
 };
 
-const getInitialTourCompleted = (): boolean => {
+const getInitialTourState = (tourName: 'onboarding' | 'layout'): boolean => {
     if (typeof window === 'undefined') return false;
     try {
-        const item = window.localStorage.getItem('tourCompleted');
+        const item = window.localStorage.getItem(`tour_${tourName}_completed`);
         return item ? JSON.parse(item) : false;
     } catch (error) {
         return false;
@@ -35,7 +36,8 @@ const initialState: AppState = {
     isLoading: true,
     selectedPgId: getInitialSelectedPgId(),
     tour: {
-        hasCompleted: getInitialTourCompleted(),
+        hasCompletedOnboarding: getInitialTourState('onboarding'),
+        hasCompletedLayout: getInitialTourState('layout'),
     },
 };
 
@@ -52,10 +54,16 @@ const appSlice = createSlice({
                 localStorage.setItem('selectedPgId', JSON.stringify(action.payload));
             }
         },
-        endTour: (state) => {
-            state.tour.hasCompleted = true;
+        endOnboardingTour: (state) => {
+            state.tour.hasCompletedOnboarding = true;
             if (typeof window !== 'undefined') {
-                localStorage.setItem('tourCompleted', JSON.stringify(true));
+                localStorage.setItem('tour_onboarding_completed', JSON.stringify(true));
+            }
+        },
+        endLayoutTour: (state) => {
+            state.tour.hasCompletedLayout = true;
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('tour_layout_completed', JSON.stringify(true));
             }
         },
     },
@@ -73,9 +81,15 @@ const appSlice = createSlice({
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.isLoading = false;
                 state.selectedPgId = null;
+                 if (typeof window !== 'undefined') {
+                    localStorage.removeItem('tour_onboarding_completed');
+                    localStorage.removeItem('tour_layout_completed');
+                }
+                state.tour.hasCompletedOnboarding = false;
+                state.tour.hasCompletedLayout = false;
             });
     }
 });
 
-export const { setLoading, setSelectedPgId, endTour } = appSlice.actions;
+export const { setLoading, setSelectedPgId, endOnboardingTour, endLayoutTour } = appSlice.actions;
 export default appSlice.reducer;

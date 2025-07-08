@@ -187,7 +187,7 @@ export default function ManagePgPage() {
             </Button>
             <h1 className="text-2xl font-bold">{pg.name} Layout</h1>
         </div>
-        <div className="flex items-center space-x-2">
+        <div data-tour="edit-mode-switch" className="flex items-center space-x-2">
             <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
             <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} />
         </div>
@@ -240,7 +240,7 @@ export default function ManagePgPage() {
                                         </div>
                                     ))}
                                     {isEditMode && (
-                                        <button onClick={() => openAddBedDialog(floor.id, room.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
+                                        <button data-tour="add-bed-button" onClick={() => openAddBedDialog(floor.id, room.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
                                             <PlusCircle className="w-3.5 h-3.5 mr-2" /> Add Bed
                                         </button>
                                     )}
@@ -249,7 +249,7 @@ export default function ManagePgPage() {
                         </Card>
                     ))}
                     {isEditMode && (
-                        <button onClick={() => openAddRoomDialog(floor.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                        <button data-tour="add-room-button" onClick={() => openAddRoomDialog(floor.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                             <PlusCircle className="w-8 h-8 mb-2" />
                             <span className="font-medium">Add New Room</span>
                         </button>
@@ -278,7 +278,7 @@ export default function ManagePgPage() {
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <div className="inline-block mt-6 w-full">
+                        <div data-tour="add-floor-button" className="inline-block mt-6 w-full">
                             <button onClick={openAddFloorDialog} disabled={!canAddFloor} className="w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:bg-muted/50 disabled:cursor-not-allowed">
                                 <PlusCircle className="mr-2 h-5 w-5" />
                                 <span className="font-medium">Add New Floor</span>

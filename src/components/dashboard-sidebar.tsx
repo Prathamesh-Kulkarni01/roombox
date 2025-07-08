@@ -13,10 +13,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { endTour } from '@/lib/slices/appSlice';
+import { endOnboardingTour, endLayoutTour } from '@/lib/slices/appSlice';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core' },
+  { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core', tourId: 'dashboard-nav' },
   { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed, feature: 'core' },
   { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet, feature: 'core' },
   { href: '/dashboard/pg-management', label: 'PG Management', icon: Building, feature: 'core', tourId: 'pg-management-nav' },

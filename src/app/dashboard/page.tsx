@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -90,6 +90,7 @@ export default function DashboardPage() {
   const { isLoading, selectedPgId } = useAppSelector(state => state.app)
   const { currentPlan } = useAppSelector(state => state.user)
   const { toast } = useToast()
+  const isFirstAvailableBedFound = useRef(false);
   
   // States for guest dialog
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
@@ -131,6 +132,7 @@ export default function DashboardPage() {
 
   // Memos
   const pgsToDisplay = useMemo(() => {
+    isFirstAvailableBedFound.current = false;
     return selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
   }, [pgs, selectedPgId])
 
@@ -449,6 +451,8 @@ export default function DashboardPage() {
                               const guest = guests.find(g => g.id === bed.guestId);
                               const status = getBedStatus(bed);
                               const hasComplaint = guest && complaints.some(c => c.guestId === guest.id && c.status !== 'resolved');
+                              const isFirstAvailable = !guest && !isFirstAvailableBedFound.current;
+                              if(isFirstAvailable) isFirstAvailableBedFound.current = true;
 
                               if (isEditMode) {
                                 return (
@@ -462,7 +466,7 @@ export default function DashboardPage() {
                               }
                               
                               if (!guest) {
-                                return (<button key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)} className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left ${bedStatusClasses[status]}`}><BedDouble className="w-8 h-8 mb-1" /><span className="font-bold text-sm">Bed {bed.name}</span><div className="absolute bottom-1 right-1 flex items-center justify-center h-6 w-6 rounded-full bg-black/10"><UserPlus className="h-4 w-4" /></div><span className="absolute top-1.5 left-1.5 text-xs font-semibold">Available</span></button>);
+                                return (<button key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)} data-tour={isFirstAvailable ? 'add-guest-on-bed' : undefined} className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left ${bedStatusClasses[status]}`}><BedDouble className="w-8 h-8 mb-1" /><span className="font-bold text-sm">Bed {bed.name}</span><div className="absolute bottom-1 right-1 flex items-center justify-center h-6 w-6 rounded-full bg-black/10"><UserPlus className="h-4 w-4" /></div><span className="absolute top-1.5 left-1.5 text-xs font-semibold">Available</span></button>);
                               }
                               
                               return (
@@ -535,11 +539,11 @@ export default function DashboardPage() {
                                 </Popover>
                               );
                             })}
-                             {isEditMode && (<button onClick={() => openAddBedDialog(floor.id, room.id)} className="min-h-[110px] w-full flex flex-col items-center justify-center p-2 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-6 h-6 mb-1" /><span className="text-sm font-medium text-center">Add Bed</span></button>)}
+                             {isEditMode && (<button data-tour="add-bed-button" onClick={() => openAddBedDialog(floor.id, room.id)} className="min-h-[110px] w-full flex flex-col items-center justify-center p-2 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-6 h-6 mb-1" /><span className="text-sm font-medium text-center">Add Bed</span></button>)}
                           </div>
                         </div>
                       ))}
-                      {isEditMode && (<button onClick={() => openAddRoomDialog(floor.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>)}
+                      {isEditMode && (<button data-tour="add-room-button" onClick={() => openAddRoomDialog(floor.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>)}
                     </div>
                      <div className="mt-6 flex items-center gap-4">
                         {isEditMode && (<Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete(pg, 'floor', { floorId: floor.id }) }}><Trash2 className="mr-2 h-4 w-4" /> Delete {floor.name}</Button>)}
@@ -549,7 +553,7 @@ export default function DashboardPage() {
                 </AccordionItem>
               ))}
             </Accordion>
-            {isEditMode && (<button onClick={openAddFloorDialog} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>)}
+            {isEditMode && (<button data-tour="add-floor-button" onClick={openAddFloorDialog} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>)}
             {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Enable 'Edit Mode' to build the layout.</div>)}
           </CardContent>
         </Card>
