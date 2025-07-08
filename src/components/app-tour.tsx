@@ -17,7 +17,7 @@ const onboardingSteps: Step[] = [
   },
   {
     target: '[data-tour="add-first-pg-button"]',
-    content: 'Click this button to add your first property. The tour will continue automatically after you save it.',
+    content: 'Click here to add your first property. The form will open in a side panel, and the tour will continue automatically after you save.',
     title: 'Add Your First Property',
     disableBeacon: true,
     hideFooter: true,
@@ -25,36 +25,48 @@ const onboardingSteps: Step[] = [
 ];
 
 const layoutAndGuestSteps: Step[] = [
-  {
-    target: '[data-tour="add-floor-button"]',
-    content: "Your property is created and Edit Mode is on! Start by adding a floor. You can name it 'Ground Floor', 'First Floor', etc.",
-    title: 'Step 1: Add a Floor',
-    disableBeacon: true,
-  },
-  {
-    target: '[data-tour="add-room-button"]',
-    content: "Inside each floor, you can add rooms. This is where you'll define room names and rent details.",
-    title: 'Step 2: Add a Room',
-    disableBeacon: true,
-  },
-  {
-    target: '[data-tour="add-bed-button"]',
-    content: "Next, add beds to your rooms. This determines the sharing type (e.g., 2 beds for double sharing).",
-    title: 'Step 3: Add Beds',
-    disableBeacon: true,
-  },
-  {
-    target: '[data-tour="dashboard-nav"]',
-    content: "Once your layout is complete, turn off 'Edit Mode' and head back to the main Dashboard to add your first guest.",
-    title: 'Step 4: Go to Dashboard',
-    disableBeacon: true,
-  },
-  {
-    target: '[data-tour="add-guest-on-bed"]',
-    content: "On the dashboard, simply click any available bed to begin the guest onboarding process. That's it!",
-    title: 'Step 5: Add Your First Guest',
-    disableBeacon: true,
-  },
+    {
+        target: '[data-tour="edit-mode-switch"]',
+        content: "Great! Your property is created. Now, enable 'Edit Mode' to build the layout of your property. This allows you to add floors, rooms, and beds.",
+        title: 'Step 1: Enable Edit Mode',
+        disableBeacon: true,
+    },
+    {
+        target: '[data-tour="add-floor-button"]',
+        content: "With Edit Mode on, you can now add your first floor. Click here to create a floor.",
+        title: 'Step 2: Add a Floor',
+        disableBeacon: true,
+    },
+    {
+        target: '[data-tour="add-room-button"]',
+        content: "Good job! Now add a room to this floor. You'll set its name and rent details here.",
+        title: 'Step 3: Add a Room',
+        disableBeacon: true,
+    },
+    {
+        target: '[data-tour="add-bed-button"]',
+        content: "Almost there! Add a bed to the room. The number of beds determines the sharing type.",
+        title: 'Step 4: Add Beds',
+        disableBeacon: true,
+    },
+    {
+        target: '[data-tour="edit-mode-switch"]',
+        content: "Your basic layout is complete! Now, turn off 'Edit Mode' to switch to the guest management view.",
+        title: 'Step 5: Disable Edit Mode',
+        disableBeacon: true,
+    },
+    {
+        target: '[data-tour="dashboard-nav"]',
+        content: "Finally, head back to the main Dashboard to add your first guest to the bed you just created.",
+        title: 'Step 6: Go to Dashboard',
+        disableBeacon: true,
+    },
+    {
+        target: '[data-tour="add-guest-on-bed"]',
+        content: "On the dashboard, simply click any available bed to start adding a guest. That's it, you're all set!",
+        title: 'Step 7: Add Your First Guest',
+        disableBeacon: true,
+    },
 ];
 
 
