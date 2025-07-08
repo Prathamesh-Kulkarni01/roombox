@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -76,11 +75,13 @@ export default function AppTour() {
         const hasPgs = pgs.length > 0;
         const hasLayout = hasPgs && pgs.some(p => p.floors && p.floors.length > 0);
 
-        if (!hasPgs && !tour.hasCompletedOnboarding) {
+        // Tour completion checks temporarily removed for testing purposes.
+        // This will make the tour run every time.
+        if (!hasPgs /* && !tour.hasCompletedOnboarding */) {
             setActiveTour('onboarding');
             setSteps(onboardingSteps);
             setRunTour(true);
-        } else if (hasPgs && !hasLayout && !tour.hasCompletedLayout) {
+        } else if (hasPgs && !hasLayout /* && !tour.hasCompletedLayout */) {
              setActiveTour('layout');
              setSteps(layoutAndGuestSteps);
              setRunTour(true);
@@ -88,7 +89,7 @@ export default function AppTour() {
             setRunTour(false);
             setActiveTour(null);
         }
-    }, [currentUser, pgs, tour]);
+    }, [currentUser, pgs]);
 
 
     const handleJoyrideCallback = (data: CallBackProps) => {
@@ -96,11 +97,12 @@ export default function AppTour() {
         const finishedStatuses: string[] = ['finished', 'skipped'];
 
         if (finishedStatuses.includes(status)) {
-            if (activeTour === 'onboarding') {
-                dispatch(endOnboardingTour());
-            } else if (activeTour === 'layout') {
-                dispatch(endLayoutTour());
-            }
+            // Tour completion dispatches temporarily removed for testing
+            // if (activeTour === 'onboarding') {
+            //     dispatch(endOnboardingTour());
+            // } else if (activeTour === 'layout') {
+            //     dispatch(endLayoutTour());
+            // }
             setRunTour(false);
         }
     };
