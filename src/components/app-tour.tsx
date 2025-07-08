@@ -102,9 +102,8 @@ export default function AppTour() {
         const hasPgs = pgs.length > 0;
         const hasLayout = hasPgs && pgs.some(p => p.floors && p.floors.length > 0);
 
-        // Temporarily disabled for testing
-        const onboardingCompleted = false; // state.app.tour.hasCompletedOnboarding;
-        const layoutCompleted = false; // state.app.tour.hasCompletedLayout;
+        const onboardingCompleted = false; 
+        const layoutCompleted = false; 
 
 
         if (!onboardingCompleted && !hasPgs) {
@@ -131,14 +130,7 @@ export default function AppTour() {
             return;
         }
 
-        if (([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND] as string[]).includes(type)) {
-             // Special handling for the onboarding tour when the sheet is closed
-            if (type === EVENTS.TARGET_NOT_FOUND && activeTour === 'onboarding' && index === 2) {
-                // The target for the "add-pg-sheet" was not found, meaning the user
-                // closed it without adding a PG. Reset to the previous step.
-                dispatch(setTourStepIndex(1));
-                return;
-            }
+        if (type === EVENTS.STEP_AFTER) {
             const nextStep = index + (action === ACTIONS.PREV ? -1 : 1);
             dispatch(setTourStepIndex(nextStep));
         }
