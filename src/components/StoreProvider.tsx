@@ -81,93 +81,90 @@ function AuthHandler({ children }: { children: ReactNode }) {
     };
   }, [dispatch]);
 
-  // Data fetching and real-time subscription effect
+  // Data fetching for Owners (and other non-tenant roles)
   useEffect(() => {
-    if (!currentUser || !db) return;
+    if (!currentUser || currentUser.role === 'tenant' || !db) return;
 
     initializeFirebaseMessaging();
 
-    let unsubs: (() => void)[] = [];
+    if (!currentPlan) return;
 
-    if (currentUser.role === 'tenant') {
-      if (!currentUser.ownerId || !currentUser.guestId) return;
+    if (currentPlan.hasCloudSync) {
+      const collectionsToSync = {
+        pgs: setPgs,
+        guests: setGuests,
+        complaints: setComplaints,
+        expenses: setExpenses,
+        staff: setStaff,
+        notifications: setNotifications,
+      };
 
-      const { ownerId, guestId } = currentUser;
-
-      // Subscribe to the guest's document to get their pgId and details
-      const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
-      const unsubGuest = onSnapshot(guestDocRef, (guestSnap) => {
-        // Clean up previous nested subscriptions before creating new ones
-        unsubs.forEach(unsub => unsub());
-        unsubs = [];
-
-        if (guestSnap.exists()) {
-          const guestData = guestSnap.data() as Guest;
-          dispatch(setGuests([guestData]));
-
-          // Now we have the pgId, subscribe to PG-specific data
-          const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
-          const unsubPg = onSnapshot(pgDocRef, (pgSnap) => {
-            if (pgSnap.exists()) dispatch(setPgs([pgSnap.data() as PG]));
-          });
-          unsubs.push(unsubPg);
-
-          const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
-          const unsubComplaints = onSnapshot(complaintsQuery, (snapshot) => {
-            const complaints = snapshot.docs.map(d => d.data() as Complaint);
-            dispatch(setComplaints(complaints.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-          });
-          unsubs.push(unsubComplaints);
-        }
-      });
-
-      unsubs.push(unsubGuest);
-
-    } else { // Handle 'owner' and other non-tenant roles
-      if (!currentPlan) return;
-
-      if (currentPlan.hasCloudSync) {
-        // Real-time sync for cloud-enabled users
-        const collectionsToSync = {
-          pgs: setPgs,
-          guests: setGuests,
-          complaints: setComplaints,
-          expenses: setExpenses,
-          staff: setStaff,
-          notifications: setNotifications,
-        };
-
-        const ownerUnsubs = Object.entries(collectionsToSync).map(([collectionName, setDataAction]) => {
-          const collRef = collection(db, 'users_data', currentUser.id, collectionName);
-          return onSnapshot(collRef, (snapshot) => {
-            const data = snapshot.docs.map(doc => doc.data());
-            if (['complaints', 'expenses', 'notifications'].includes(collectionName)) {
-              data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
-            }
-            dispatch(setDataAction(data as any));
-          }, (error) => {
-            console.error(`Error listening to ${collectionName} collection:`, error);
-          });
+      const ownerUnsubs = Object.entries(collectionsToSync).map(([collectionName, setDataAction]) => {
+        const collRef = collection(db, 'users_data', currentUser.id, collectionName);
+        return onSnapshot(collRef, (snapshot) => {
+          const data = snapshot.docs.map(doc => doc.data());
+          if (['complaints', 'expenses', 'notifications'].includes(collectionName)) {
+            data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
+          }
+          dispatch(setDataAction(data as any));
+        }, (error) => {
+          console.error(`Error listening to ${collectionName} collection:`, error);
         });
-        unsubs.push(...ownerUnsubs);
-
-      } else {
-        // Fetch from local storage for non-cloud users
-        const userId = currentUser.id;
-        dispatch(fetchLocalPgs({ userId, useCloud: false }));
-        dispatch(fetchLocalGuests({ userId, useCloud: false }));
-        dispatch(fetchLocalComplaints({ userId, useCloud: false }));
-        dispatch(fetchLocalExpenses({ userId, useCloud: false }));
-        dispatch(fetchLocalStaff({ userId, useCloud: false }));
-        dispatch(fetchLocalNotifications({ userId, useCloud: false }));
-      }
+      });
+      return () => { ownerUnsubs.forEach(unsub => unsub()); };
+    } else {
+      const userId = currentUser.id;
+      dispatch(fetchLocalPgs({ userId, useCloud: false }));
+      dispatch(fetchLocalGuests({ userId, useCloud: false }));
+      dispatch(fetchLocalComplaints({ userId, useCloud: false }));
+      dispatch(fetchLocalExpenses({ userId, useCloud: false }));
+      dispatch(fetchLocalStaff({ userId, useCloud: false }));
+      dispatch(fetchLocalNotifications({ userId, useCloud: false }));
     }
-
-    // Cleanup function to unsubscribe from all listeners
-    return () => {
-      unsubs.forEach(unsub => unsub());
-    };
   }, [currentUser, currentPlan, dispatch]);
+
+  // Data fetching for Tenants
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== 'tenant' || !db) return;
+    if (!currentUser.ownerId || !currentUser.guestId) return;
+
+    initializeFirebaseMessaging();
+
+    const { ownerId, guestId } = currentUser;
+    let pgUnsub: (() => void) | undefined;
+    let complaintsUnsub: (() => void) | undefined;
+
+    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+    const guestUnsub = onSnapshot(guestDocRef, (guestSnap) => {
+      pgUnsub?.();
+      complaintsUnsub?.();
+
+      if (guestSnap.exists()) {
+        const guestData = guestSnap.data() as Guest;
+        dispatch(setGuests([guestData]));
+
+        const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
+        pgUnsub = onSnapshot(pgDocRef, (pgSnap) => {
+            if (pgSnap.exists()) dispatch(setPgs([pgSnap.data() as PG]));
+        });
+
+        const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
+        complaintsUnsub = onSnapshot(complaintsQuery, (snapshot) => {
+            const complaints = snapshot.docs.map(d => d.data() as Complaint);
+            dispatch(setComplaints(complaints.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+        });
+      }
+    }, (error) => {
+        console.error("Error listening to guest document:", error);
+    });
+
+    return () => {
+      guestUnsub();
+      pgUnsub?.();
+      complaintsUnsub?.();
+    };
+  }, [currentUser, dispatch]);
+
 
   return <>{children}</>;
 }
