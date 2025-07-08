@@ -121,6 +121,7 @@ export default function AppTour() {
                 options: {
                     zIndex: 10000,
                     arrowColor: 'hsl(var(--card))',
+                    overlayColor: 'rgba(0, 0, 0, 0.6)',
                 },
                  spotlight: {
                     borderRadius: 'var(--radius)',
