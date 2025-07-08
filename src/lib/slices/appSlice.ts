@@ -1,9 +1,16 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+interface TourState {
+    isActive: boolean;
+    step: number;
+    hasCompleted: boolean;
+}
+
 interface AppState {
     isLoading: boolean;
     selectedPgId: string | null;
+    tour: TourState;
 }
 
 const getInitialSelectedPgId = (): string | null => {
@@ -16,9 +23,24 @@ const getInitialSelectedPgId = (): string | null => {
     }
 };
 
+const getInitialTourCompleted = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+        const item = window.localStorage.getItem('tourCompleted');
+        return item ? JSON.parse(item) : false;
+    } catch (error) {
+        return false;
+    }
+};
+
 const initialState: AppState = {
     isLoading: true,
     selectedPgId: getInitialSelectedPgId(),
+    tour: {
+        isActive: false,
+        step: 0,
+        hasCompleted: getInitialTourCompleted(),
+    },
 };
 
 const appSlice = createSlice({
@@ -32,6 +54,21 @@ const appSlice = createSlice({
             state.selectedPgId = action.payload;
             if (typeof window !== 'undefined') {
                 localStorage.setItem('selectedPgId', JSON.stringify(action.payload));
+            }
+        },
+        startTour: (state) => {
+            state.tour.isActive = true;
+            state.tour.step = 0;
+            state.tour.hasCompleted = false;
+        },
+        setTourStep: (state, action: PayloadAction<number>) => {
+            state.tour.step = action.payload;
+        },
+        endTour: (state) => {
+            state.tour.isActive = false;
+            state.tour.hasCompleted = true;
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('tourCompleted', JSON.stringify(true));
             }
         },
     },
@@ -53,5 +90,5 @@ const appSlice = createSlice({
     }
 });
 
-export const { setLoading, setSelectedPgId } = appSlice.actions;
+export const { setLoading, setSelectedPgId, startTour, setTourStep, endTour } = appSlice.actions;
 export default appSlice.reducer;

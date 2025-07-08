@@ -12,6 +12,8 @@ import { navPermissions } from '@/lib/permissions';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { setTourStep } from '@/lib/slices/appSlice';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core' },
@@ -29,6 +31,7 @@ export default function DashboardSidebar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
+  const { tour } = useAppSelector(state => state.app);
 
   if (!currentUser || !currentPlan) {
     return (
@@ -58,19 +61,39 @@ export default function DashboardSidebar() {
             <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
         </div>
         <nav className="flex flex-col gap-1 px-4">
-          {visibleNavItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent',
-                (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-sidebar-accent text-sidebar-primary'
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          ))}
+          {visibleNavItems.map((item) => {
+            const link = (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => {
+                  if (tour.isActive && tour.step === 1 && item.href === '/dashboard/pg-management') {
+                    dispatch(setTourStep(2))
+                  }
+                }}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent',
+                  (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-sidebar-accent text-sidebar-primary'
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            )
+            
+            if (item.href === '/dashboard/pg-management') {
+              return (
+                <Popover key={item.href} open={tour.isActive && tour.step === 1}>
+                  <PopoverTrigger asChild>{link}</PopoverTrigger>
+                  <PopoverContent side="right" align="start">
+                    <p className="font-semibold text-sm">Let's add your first property. Click here to begin.</p>
+                  </PopoverContent>
+                </Popover>
+              )
+            }
+
+            return link;
+          })}
         </nav>
       </div>
       <div className="p-4 mt-auto">
