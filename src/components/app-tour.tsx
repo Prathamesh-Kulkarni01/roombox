@@ -25,62 +25,55 @@ const onboardingSteps: Step[] = [
   },
   {
     target: '[data-tour="add-pg-sheet-content"]',
-    content: 'Now, fill in the basic details for your property. When you click "Add Property", you will be taken to the layout editor to continue the tour.',
+    content: 'Now, fill in the basic details for your property. When you click "Add Property", the tour will continue to help you set up its layout.',
     title: 'Property Details',
     disableBeacon: true,
     placement: 'left',
   }
 ];
 
-const layoutAndGuestSteps: Step[] = [
+const layoutTourSteps: Step[] = [
     {
         target: '[data-tour="edit-mode-switch"]',
-        content: "Great! Your property is created. Now, enable 'Edit Mode' to build the layout. This allows you to add floors, rooms, and beds.",
-        title: 'Step 1: Enable Edit Mode',
+        content: "Let's set up your property's layout. First, enable 'Edit Mode' to start adding floors and rooms.",
+        title: 'Configure Your Layout',
         disableBeacon: true,
         spotlightClicks: true,
     },
     {
         target: '[data-tour="add-floor-button"]',
-        content: "With Edit Mode on, you can now add your first floor. Click here to create a floor.",
-        title: 'Step 2: Add a Floor',
+        content: 'Now that you are in Edit Mode, you can add your first floor. Click here to open the floor creation dialog.',
+        title: 'Step 1: Add a Floor',
         disableBeacon: true,
         spotlightClicks: true,
     },
     {
         target: '[data-tour="add-room-button"]',
-        content: "Good job! Now add a room to this floor. You'll set its name and rent details here.",
-        title: 'Step 3: Add a Room',
+        content: 'Great! Add a room to this floor. This will let you set its sharing type and rent.',
+        title: 'Step 2: Add a Room',
         disableBeacon: true,
         spotlightClicks: true,
     },
     {
         target: '[data-tour="add-bed-button"]',
-        content: "Almost there! Add a bed to the room. The number of beds determines the sharing type.",
-        title: 'Step 4: Add Beds',
+        content: "Almost done. Add a bed to the room. You can add multiple beds for different sharing types.",
+        title: 'Step 3: Add a Bed',
         disableBeacon: true,
         spotlightClicks: true,
     },
     {
         target: '[data-tour="edit-mode-switch"]',
-        content: "Your basic layout is complete! Now, turn off 'Edit Mode' to switch to the guest management view.",
-        title: 'Step 5: Disable Edit Mode',
-        disableBeacon: true,
-        spotlightClicks: true,
-    },
-    {
-        target: '[data-tour="dashboard-nav"]',
-        content: "Finally, head back to the main Dashboard to add your first guest to the bed you just created.",
-        title: 'Step 6: Go to Dashboard',
+        content: "Perfect! Your layout is ready. Disable 'Edit Mode' now to see the occupancy view and manage guests.",
+        title: "Step 4: You're All Set!",
         disableBeacon: true,
         spotlightClicks: true,
     },
     {
         target: '[data-tour="add-guest-on-bed"]',
-        content: "On the dashboard, simply click any available bed to start adding a guest. That's it, you're all set!",
-        title: 'Step 7: Add Your First Guest',
+        content: "To add a guest, just click any available bed. That's it! You've completed the main setup.",
+        title: 'Final Step: Add Your First Guest',
         disableBeacon: true,
-        spotlightClicks: true,
+        spotlightClicks: false, // Don't force this click, just inform.
     },
 ];
 
@@ -105,17 +98,19 @@ export default function AppTour() {
         const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
         
         const isOnDashboard = pathname === '/dashboard';
-        const isOnPgManagement = pathname.startsWith('/dashboard/pg-management/');
         
         setRunTour(false);
 
+        // Tour 1: Onboarding for first PG
         if (!tour.hasCompletedOnboarding && !hasPgs && isOnDashboard) {
             setActiveTour('onboarding');
             setSteps(onboardingSteps);
             setRunTour(true);
-        } else if (tour.hasCompletedOnboarding && !tour.hasCompletedLayout && hasPgs && !hasLayout && isOnPgManagement) {
+        } 
+        // Tour 2: Layout setup on Dashboard page
+        else if (tour.hasCompletedOnboarding && !tour.hasCompletedLayout && hasPgs && !hasLayout && isOnDashboard) {
              setActiveTour('layout');
-             setSteps(layoutAndGuestSteps);
+             setSteps(layoutTourSteps);
              setRunTour(true);
         } else {
             setActiveTour(null);
