@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from "../ui/button"
 import { Layers, PlusCircle, Trash2, Pencil } from "lucide-react"
-import type { PG, Floor, Room, Bed } from "@/lib/types"
+import type { PG } from "@/lib/types"
 import BedCard from "./BedCard"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { MutableRefObject } from "react"
@@ -13,12 +13,9 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
   isFirstAvailableBedFound: MutableRefObject<boolean>
 }
 
-export default function PgLayout({ pg, isEditMode, openAddFloorDialog, handleDelete, openEditFloorDialog, openAddRoomDialog, isFirstAvailableBedFound }: PgLayoutProps) {
-  const { guests, complaints } = useAppSelector(state => ({
-    guests: state.guests.guests,
-    complaints: state.complaints.complaints,
-  }));
-  
+export default function PgLayout(props: PgLayoutProps) {
+  const { pg, isEditMode, openAddFloorDialog, handleDelete, openEditFloorDialog, openAddRoomDialog } = props
+
   return (
     <Card>
       <CardHeader>
@@ -34,13 +31,13 @@ export default function PgLayout({ pg, isEditMode, openAddFloorDialog, handleDel
                 <div className="space-y-6">
                   {floor.rooms.map(room => (
                     <div key={room.id}>
-                       <BedCard room={room} floor={floor} pg={pg} isFirstAvailableBedFound={isFirstAvailableBedFound} />
+                       <BedCard {...props} room={room} floor={floor} />
                     </div>
                   ))}
                   {isEditMode && (<button data-tour="add-room-button" onClick={() => openAddRoomDialog(floor.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>)}
                 </div>
                  <div className="mt-6 flex items-center gap-4">
-                    {isEditMode && (<Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id }) }}><Trash2 className="mr-2 h-4 w-4" /> Delete {floor.name}</Button>)}
+                    {isEditMode && (<Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { pgId: pg.id, floorId: floor.id }) }}><Trash2 className="mr-2 h-4 w-4" /> Delete {floor.name}</Button>)}
                     {isEditMode && (<Button variant="ghost" onClick={(e) => { e.stopPropagation(); openEditFloorDialog(floor) }}><Pencil className="mr-2 h-4 w-4" /> Edit {floor.name}</Button>)}
                  </div>
               </AccordionContent>

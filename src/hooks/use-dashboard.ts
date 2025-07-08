@@ -44,7 +44,7 @@ interface UseDashboardProps {
 }
 
 export function useDashboard({ pgs }: UseDashboardProps) {
-  const dispatch = useAppAppDispatch();
+  const dispatch = useAppDispatch();
   const { toast } = useToast()
   const { currentPlan } = useAppSelector(state => state.user)
   
@@ -321,6 +321,3 @@ export function useDashboard({ pgs }: UseDashboardProps) {
 }
 
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
-
-// Shim to fix type error with dispatch
-const useAppAppDispatch: () => typeof dispatch = useAppDispatch;
