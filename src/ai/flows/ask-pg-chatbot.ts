@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -31,9 +32,16 @@ export async function askPgChatbot(input: AskPgChatbotInput): Promise<AskPgChatb
   return askPgChatbotFlow(input);
 }
 
+// Internal schema for the prompt, where menu is a string
+const AskPgChatbotPromptSchema = AskPgChatbotInputSchema.extend({
+    pgContext: AskPgChatbotInputSchema.shape.pgContext.extend({
+        menu: z.string().describe('The JSON string representation of the weekly menu.')
+    })
+});
+
 const askPgChatbotPrompt = ai.definePrompt({
   name: 'askPgChatbotPrompt',
-  input: {schema: AskPgChatbotInputSchema},
+  input: {schema: AskPgChatbotPromptSchema},
   output: {schema: AskPgChatbotOutputSchema},
   prompt: `You are a friendly and helpful assistant for "{{pgContext.name}}". Your role is to answer questions from residents based ONLY on the information provided below. Be concise and polite. If the information is not available, say "I don't have information about that. Please contact the PG manager."
 
@@ -45,7 +53,7 @@ const askPgChatbotPrompt = ai.definePrompt({
 
   Here is the full weekly menu for context:
   \`\`\`json
-  {{{json pgContext.menu}}}
+  {{{pgContext.menu}}}
   \`\`\`
 
   Now, please answer the following question from a resident:
@@ -61,7 +69,15 @@ const askPgChatbotFlow = ai.defineFlow(
     outputSchema: AskPgChatbotOutputSchema,
   },
   async input => {
-    const {output} = await askPgChatbotPrompt(input);
+    // Convert menu object to a JSON string for the prompt
+    const promptInput = {
+        ...input,
+        pgContext: {
+            ...input.pgContext,
+            menu: JSON.stringify(input.pgContext.menu, null, 2),
+        }
+    };
+    const {output} = await askPgChatbotPrompt(promptInput);
     return output!;
   }
 );
