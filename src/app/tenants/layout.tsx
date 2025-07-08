@@ -4,6 +4,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TenantSidebar from "@/components/tenant-sidebar";
+import TenantBottomNav from "@/components/tenant-bottom-nav";
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppSelector } from '@/lib/hooks';
 
@@ -22,7 +23,9 @@ export default function TenantDashboardLayout({
     }
   }, [isLoading, currentUser, router]);
 
-  if (isLoading || !currentUser || currentUser.role !== 'tenant') {
+  // If there's no user, or the user is not a tenant, show a loading skeleton.
+  // The useEffect hook will handle redirection shortly.
+  if (!currentUser || currentUser.role !== 'tenant') {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
          <div className="w-64 flex-col border-r bg-muted hidden md:flex p-4">
@@ -44,9 +47,12 @@ export default function TenantDashboardLayout({
   return (
       <div className="flex min-h-[calc(100vh-56px)]">
         <TenantSidebar />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40">
-            {children}
-        </main>
+        <div className="flex flex-1 flex-col overflow-auto">
+            <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 pb-20 md:pb-4">
+                {isLoading ? <Skeleton className="h-full w-full" /> : children}
+            </main>
+        </div>
+        <TenantBottomNav />
       </div>
   )
 }
