@@ -16,14 +16,8 @@ const onboardingSteps: Step[] = [
     disableBeacon: true,
   },
   {
-    target: '[data-tour="pg-management-nav"]',
-    content: "This is your main navigation. Click here to go to the Property Management section.",
-    title: 'Manage Properties',
-    disableBeacon: true,
-  },
-  {
-    target: '[data-tour="add-pg-button"]',
-    content: 'Great! Now, click here to open the form and add the details for your new property. The tour will continue after you create it.',
+    target: '[data-tour="add-first-pg-button"]',
+    content: 'Click here to add the details for your new property. The tour will continue after you create it.',
     title: 'Add Your First Property',
     disableBeacon: true,
   },

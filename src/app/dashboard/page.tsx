@@ -103,7 +103,7 @@ export default function DashboardPage() {
           <p className="mt-2 text-muted-foreground max-w-md">
             You haven&apos;t added any properties yet. Get started by adding your first one.
           </p>
-          <Button onClick={() => setIsAddPgSheetOpen(true)} className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground">
+          <Button data-tour="add-first-pg-button" onClick={() => setIsAddPgSheetOpen(true)} className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground">
             Add Your First Property
           </Button>
         </div>
