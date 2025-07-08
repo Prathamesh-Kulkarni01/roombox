@@ -76,8 +76,12 @@ export interface Guest {
   rentAmount: number;
   rentPaidAmount?: number;
   depositAmount?: number;
-  kycStatus: 'verified' | 'pending' | 'rejected';
-  kycDocUrl?: string;
+  kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
+  aadhaarDataUri?: string;
+  photoDataUri?: string;
+  optionalDoc1DataUri?: string;
+  optionalDoc2DataUri?: string;
+  kycRejectReason?: string;
   hasMessage?: boolean;
   moveInDate: string;
   noticePeriodDays: number;
@@ -121,7 +125,7 @@ export interface Staff {
 
 export interface Notification {
   id: string;
-  type: 'rent-due' | 'checkout-soon' | 'new-complaint' | 'rent-paid' | 'new-guest';
+  type: 'rent-due' | 'checkout-soon' | 'new-complaint' | 'rent-paid' | 'new-guest' | 'kyc-submitted';
   title: string;
   message: string;
   link: string;
@@ -146,6 +150,7 @@ export interface Plan {
   hasComplaints: boolean;
   hasAiRentReminders: boolean;
   hasSeoGenerator: boolean;
+  hasKycVerification: boolean;
   hasAutomatedWhatsapp: boolean;
   hasMarketplace: boolean;
   hasCloudSync: boolean;

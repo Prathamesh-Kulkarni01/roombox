@@ -1,4 +1,5 @@
 
+
 import type { UserRole } from './types';
 
 export const navPermissions: Record<UserRole, string[]> = {
@@ -29,6 +30,7 @@ export const navPermissions: Record<UserRole, string[]> = {
     '/tenants/complaints',
     '/tenants/food',
     '/tenants/chatbot',
+    '/tenants/kyc',
     '/tenants/profile',
   ],
   other: [],

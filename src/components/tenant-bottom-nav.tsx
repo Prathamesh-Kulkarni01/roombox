@@ -1,18 +1,19 @@
 
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User } from 'lucide-react';
+import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/lib/hooks';
 
 const navItems = [
   { href: '/tenants/my-pg', label: 'My PG', icon: Home },
   { href: '/tenants/complaints', label: 'Complaints', icon: MessageSquareWarning },
+  { href: '/tenants/kyc', label: 'KYC', icon: ShieldCheck },
   { href: '/tenants/food', label: 'Menu', icon: UtensilsCrossed },
   { href: '/tenants/chatbot', label: 'AI Helper', icon: Bot },
-  { href: '/tenants/profile', label: 'Profile', icon: User },
 ];
 
 export default function TenantBottomNav() {

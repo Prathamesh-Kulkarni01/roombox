@@ -1,4 +1,5 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, PG } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
@@ -7,6 +8,7 @@ import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore
 import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
+import { verifyKyc } from '@/ai/flows/verify-kyc-flow';
 
 interface GuestsState {
     guests: Guest[];
@@ -43,7 +45,11 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
 
-        const newGuest: Guest = { ...guestData, id: `g-${Date.now()}` };
+        const newGuest: Guest = { 
+            ...guestData, 
+            id: `g-${Date.now()}`,
+            kycStatus: 'not-started',
+        };
 
         const updatedPg = produce(pg, draft => {
             draft.occupancy += 1;
@@ -55,7 +61,6 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             }
         });
 
-        // Send the passwordless sign-in link
         if (isFirebaseConfigured() && auth) {
             const actionCodeSettings = {
                 url: `${window.location.origin}/login/verify`,
@@ -63,10 +68,8 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             };
             try {
                 await sendSignInLinkToEmail(auth, newGuest.email, actionCodeSettings);
-                console.log(`Sign-in link sent to ${newGuest.email}`);
             } catch (error) {
                 console.error("Failed to send sign-in link:", error);
-                // Even if email fails, we continue to create the guest record
             }
         }
 
@@ -83,7 +86,6 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             await batch.commit();
         }
 
-        // Dispatch a notification for the owner
         dispatch(addNotification({
             type: 'new-guest',
             title: 'Guest Added & Invited',
@@ -95,6 +97,58 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
         return { newGuest, updatedPg };
     }
 );
+
+export const updateGuestKyc = createAsyncThunk<Guest, {
+    aadhaarDataUri: string;
+    photoDataUri: string;
+    optionalDoc1DataUri?: string;
+    optionalDoc2DataUri?: string;
+}, { state: RootState }>(
+    'guests/updateGuestKyc',
+    async (kycData, { getState, dispatch, rejectWithValue }) => {
+        const { user, guests } = getState();
+        const guestToUpdate = guests.guests.find(g => g.id === user.currentUser?.guestId);
+
+        if (!user.currentUser || !guestToUpdate) {
+            return rejectWithValue('User or guest not found');
+        }
+
+        let kycUpdate: Partial<Guest> = {
+            ...kycData,
+            kycStatus: 'pending',
+        };
+
+        if (user.currentPlan?.hasKycVerification) {
+            try {
+                const verificationResult = await verifyKyc({ idDocumentUri: kycData.aadhaarDataUri, selfieUri: kycData.photoDataUri });
+                kycUpdate.kycStatus = (verificationResult.isIdValid && verificationResult.isFaceMatch) ? 'verified' : 'rejected';
+                kycUpdate.kycRejectReason = verificationResult.reason;
+            } catch (e) {
+                console.error("AI KYC verification failed", e);
+                kycUpdate.kycStatus = 'pending';
+                kycUpdate.kycRejectReason = 'AI verification failed. Needs manual review.';
+            }
+        }
+
+        const updatedGuest = { ...guestToUpdate, ...kycUpdate };
+
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', user.ownerId || user.currentUser.id, 'guests', updatedGuest.id);
+            await setDoc(docRef, updatedGuest, { merge: true });
+        }
+        
+        dispatch(addNotification({
+            type: 'kyc-submitted',
+            title: `KYC Submitted by ${updatedGuest.name}`,
+            message: `KYC status: ${updatedGuest.kycStatus}. Review their documents.`,
+            link: `/dashboard/tenant-management/${updatedGuest.id}`,
+            targetId: updatedGuest.id,
+        }));
+
+        return updatedGuest;
+    }
+);
+
 
 export const updateGuest = createAsyncThunk<Guest, Guest, { state: RootState }>(
     'guests/updateGuest',
@@ -115,8 +169,8 @@ export const updateGuest = createAsyncThunk<Guest, Guest, { state: RootState }>(
         }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
-            await setDoc(guestDocRef, updatedGuest, { merge: true });
+            const docRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
+            await setDoc(docRef, updatedGuest, { merge: true });
         }
         
         return updatedGuest;
@@ -140,6 +194,12 @@ const guestsSlice = createSlice({
                 if(action.payload) state.guests.push(action.payload.newGuest);
             })
             .addCase(updateGuest.fulfilled, (state, action) => {
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
+                if (index !== -1) {
+                    state.guests[index] = action.payload;
+                }
+            })
+            .addCase(updateGuestKyc.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
                     state.guests[index] = action.payload;
