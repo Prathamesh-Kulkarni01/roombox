@@ -17,9 +17,10 @@ const onboardingSteps: Step[] = [
   },
   {
     target: '[data-tour="add-first-pg-button"]',
-    content: 'Click here to add the details for your new property. The tour will continue after you create it.',
+    content: 'Click this button to add your first property. The tour will continue automatically after you save it.',
     title: 'Add Your First Property',
     disableBeacon: true,
+    hideFooter: true,
   },
 ];
 
