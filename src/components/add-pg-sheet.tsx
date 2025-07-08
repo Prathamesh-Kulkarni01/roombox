@@ -70,7 +70,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent data-tour="add-pg-sheet-content">
         <SheetHeader>
           <SheetTitle>Add a New Property</SheetTitle>
           <SheetDescription>

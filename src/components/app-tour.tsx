@@ -17,55 +17,69 @@ const onboardingSteps: Step[] = [
   },
   {
     target: '[data-tour="add-first-pg-button"]',
-    content: 'Click here to add your first property. The form will open in a side panel, and the tour will continue automatically after you save.',
+    content: 'Click here to add your first property. A form will open from the side.',
     title: 'Add Your First Property',
     disableBeacon: true,
     hideFooter: true,
   },
+  {
+    target: '[data-tour="add-pg-sheet-content"]',
+    content: 'Now, fill in the basic details for your property. When you click "Add Property", the tour will guide you through setting up its layout.',
+    title: 'Property Details',
+    disableBeacon: true,
+    placement: 'left',
+  }
 ];
 
 const layoutAndGuestSteps: Step[] = [
     {
         target: '[data-tour="edit-mode-switch"]',
-        content: "Great! Your property is created. Now, enable 'Edit Mode' to build the layout of your property. This allows you to add floors, rooms, and beds.",
+        content: "Great! Your property is created. Now, enable 'Edit Mode' to build the layout. This allows you to add floors, rooms, and beds.",
         title: 'Step 1: Enable Edit Mode',
         disableBeacon: true,
+        spotlightClicks: true,
     },
     {
         target: '[data-tour="add-floor-button"]',
         content: "With Edit Mode on, you can now add your first floor. Click here to create a floor.",
         title: 'Step 2: Add a Floor',
         disableBeacon: true,
+        spotlightClicks: true,
     },
     {
         target: '[data-tour="add-room-button"]',
         content: "Good job! Now add a room to this floor. You'll set its name and rent details here.",
         title: 'Step 3: Add a Room',
         disableBeacon: true,
+        spotlightClicks: true,
     },
     {
         target: '[data-tour="add-bed-button"]',
         content: "Almost there! Add a bed to the room. The number of beds determines the sharing type.",
         title: 'Step 4: Add Beds',
         disableBeacon: true,
+        spotlightClicks: true,
     },
     {
         target: '[data-tour="edit-mode-switch"]',
         content: "Your basic layout is complete! Now, turn off 'Edit Mode' to switch to the guest management view.",
         title: 'Step 5: Disable Edit Mode',
         disableBeacon: true,
+        spotlightClicks: true,
     },
     {
         target: '[data-tour="dashboard-nav"]',
         content: "Finally, head back to the main Dashboard to add your first guest to the bed you just created.",
         title: 'Step 6: Go to Dashboard',
         disableBeacon: true,
+        spotlightClicks: true,
     },
     {
         target: '[data-tour="add-guest-on-bed"]',
         content: "On the dashboard, simply click any available bed to start adding a guest. That's it, you're all set!",
         title: 'Step 7: Add Your First Guest',
         disableBeacon: true,
+        spotlightClicks: true,
     },
 ];
 
