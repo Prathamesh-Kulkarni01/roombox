@@ -10,13 +10,13 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const VerifyKycInputSchema = z.object({
+const VerifyKycInputSchema = z.object({
   idDocumentUri: z.string().describe("A data URI of the guest's ID document (e.g., Aadhaar card). Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
   selfieUri: z.string().describe("A data URI of the guest's live photo (selfie). Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type VerifyKycInput = z.infer<typeof VerifyKycInputSchema>;
 
-export const VerifyKycOutputSchema = z.object({
+const VerifyKycOutputSchema = z.object({
   isIdValid: z.boolean().describe("Whether the provided ID document appears to be a legitimate government-issued ID card."),
   isFaceMatch: z.boolean().describe("Whether the face in the ID document matches the face in the selfie."),
   reason: z.string().describe("A brief explanation for the verification result, especially if it fails."),
