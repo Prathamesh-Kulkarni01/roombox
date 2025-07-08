@@ -1,8 +1,8 @@
 
 'use client'
 
-import { useMemo, useRef } from "react"
-import Link from "next/link"
+import { useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import BedDialog from '@/components/dashboard/dialogs/BedDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
+import AddPgSheet from "@/components/add-pg-sheet"
 
 export default function DashboardPage() {
   const { pgs, guests, complaints } = useAppSelector(state => ({
@@ -31,6 +32,9 @@ export default function DashboardPage() {
 
   const { isLoading, selectedPgId } = useAppSelector(state => state.app);
   const isFirstAvailableBedFound = useRef(false);
+  const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
+  const router = useRouter();
+
 
   const pgsToDisplay = useMemo(() => {
     isFirstAvailableBedFound.current = false;
@@ -87,16 +91,23 @@ export default function DashboardPage() {
 
   if (pgs.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-250px)] text-center p-8 bg-card border rounded-lg">
-        <Building className="mx-auto h-16 w-16 text-muted-foreground" />
-        <h2 className="mt-6 text-2xl font-semibold">Welcome to Your Dashboard!</h2>
-        <p className="mt-2 text-muted-foreground max-w-md">
-          You haven&apos;t added any properties yet. Get started by adding your first one.
-        </p>
-        <Button asChild className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground">
-          <Link href="/dashboard/pg-management">Add Your First Property</Link>
-        </Button>
-      </div>
+      <>
+        <AddPgSheet
+          open={isAddPgSheetOpen}
+          onOpenChange={setIsAddPgSheetOpen}
+          onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}?setup=true`)}
+        />
+        <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-250px)] text-center p-8 bg-card border rounded-lg">
+          <Building className="mx-auto h-16 w-16 text-muted-foreground" />
+          <h2 className="mt-6 text-2xl font-semibold">Welcome to Your Dashboard!</h2>
+          <p className="mt-2 text-muted-foreground max-w-md">
+            You haven&apos;t added any properties yet. Get started by adding your first one.
+          </p>
+          <Button onClick={() => setIsAddPgSheetOpen(true)} className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground">
+            Add Your First Property
+          </Button>
+        </div>
+      </>
     );
   }
 
