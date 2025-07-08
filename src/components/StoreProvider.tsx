@@ -5,7 +5,7 @@ import { useRef, type ReactNode, useEffect } from 'react'
 import { Provider } from 'react-redux'
 import { makeStore, type AppStore } from '@/lib/store'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
-import { collection, onSnapshot, doc, query, where } from 'firebase/firestore'
+import { collection, onSnapshot, doc, query, where, type Unsubscribe } from 'firebase/firestore'
 import { getApp } from 'firebase/app'
 import { auth, db, isFirebaseConfigured } from '@/lib/firebase'
 import { getAnalytics, isSupported } from 'firebase/analytics'
@@ -126,62 +126,69 @@ function AuthHandler({ children }: { children: ReactNode }) {
   // Data fetching for Tenants
   useEffect(() => {
     if (currentUser?.role !== 'tenant' || !currentUser?.ownerId || !currentUser?.guestId || !db) {
+        // Not a tenant or missing required IDs, so we return early.
+        // Also ensure no stale data is shown.
+        if (currentUser && currentUser.role === 'tenant') {
+            dispatch(setGuests([]));
+            dispatch(setPgs([]));
+            dispatch(setComplaints([]));
+        }
         return;
     }
-
-    initializeFirebaseMessaging();
-
-    const { ownerId, guestId } = currentUser;
-    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
     
-    // This will hold the listeners for the PG and complaints, so we can clean them up
-    let subUnsubs: (() => void)[] = [];
+    initializeFirebaseMessaging();
+    const { ownerId, guestId } = currentUser;
 
-    const guestUnsub = onSnapshot(guestDocRef, (guestSnap) => {
-      // Clean up old PG/complaint listeners before creating new ones
-      subUnsubs.forEach(unsub => unsub());
-      subUnsubs = [];
+    let pgUnsubscribe: Unsubscribe | null = null;
+    let complaintsUnsubscribe: Unsubscribe | null = null;
 
-      if (guestSnap.exists()) {
-        const guestData = guestSnap.data() as Guest;
-        dispatch(setGuests([guestData]));
-        
-        if (guestData.pgId) {
-            const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
-            const pgUnsub = onSnapshot(pgDocRef, (pgSnap) => {
-                if (pgSnap.exists()) {
-                    dispatch(setPgs([pgSnap.data() as PG]));
-                } else {
-                    console.warn(`Tenant's PG document with id ${guestData.pgId} not found.`);
-                    dispatch(setPgs([]));
-                }
-            });
-            subUnsubs.push(pgUnsub);
+    const guestUnsubscribe = onSnapshot(doc(db, 'users_data', ownerId, 'guests', guestId), (guestSnap) => {
+        // If the guest listener fires, it might mean the pgId has changed.
+        // We must clean up the old listeners before creating new ones.
+        if (pgUnsubscribe) pgUnsubscribe();
+        if (complaintsUnsubscribe) complaintsUnsubscribe();
 
-            const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
-            const complaintsUnsub = onSnapshot(complaintsQuery, (snapshot) => {
-                const complaints = snapshot.docs.map(d => d.data() as Complaint);
-                dispatch(setComplaints(complaints.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-            });
-            subUnsubs.push(complaintsUnsub);
+        if (guestSnap.exists()) {
+            const guestData = guestSnap.data() as Guest;
+            dispatch(setGuests([guestData]));
+
+            if (guestData.pgId) {
+                // Set up new listener for the PG document
+                const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
+                pgUnsubscribe = onSnapshot(pgDocRef, (pgSnap) => {
+                    if (pgSnap.exists()) {
+                        dispatch(setPgs([pgSnap.data() as PG]));
+                    } else {
+                        dispatch(setPgs([]));
+                    }
+                });
+
+                // Set up new listener for PG-specific complaints
+                const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
+                complaintsUnsubscribe = onSnapshot(complaintsQuery, (snapshot) => {
+                    const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
+                    dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+                });
+            } else {
+                // Guest has no assigned PG, clear related state
+                dispatch(setPgs([]));
+                dispatch(setComplaints([]));
+            }
         } else {
-             console.warn("Guest document exists but has no pgId.", guestData);
-             dispatch(setPgs([]));
-             dispatch(setComplaints([]));
+            // Guest document doesn't exist, clear all tenant-related state
+            dispatch(setGuests([]));
+            dispatch(setPgs([]));
+            dispatch(setComplaints([]));
         }
-      } else {
-        console.warn(`Guest document with id ${guestId} not found for owner ${ownerId}.`);
-        dispatch(setGuests([]));
-        dispatch(setPgs([]));
-        dispatch(setComplaints([]));
-      }
     }, (error) => {
         console.error("Error listening to guest document:", error);
     });
 
+    // Main cleanup function for the effect
     return () => {
-      guestUnsub();
-      subUnsubs.forEach(unsub => unsub()); // Clean up everything on effect cleanup
+        guestUnsubscribe();
+        if (pgUnsubscribe) pgUnsubscribe();
+        if (complaintsUnsubscribe) complaintsUnsubscribe();
     };
   }, [currentUser, dispatch]);
 
