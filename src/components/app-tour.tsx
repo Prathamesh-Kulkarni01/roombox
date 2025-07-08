@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import Joyride, { type CallBackProps, type Step, STATUS, EVENTS, ACTIONS } from 'react-joyride'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
+import { usePathname } from 'next/navigation'
 
 const onboardingSteps: Step[] = [
   {
@@ -92,6 +93,7 @@ export default function AppTour() {
     const [steps, setSteps] = useState<Step[]>([]);
     const [runTour, setRunTour] = useState(false);
     const [activeTour, setActiveTour] = useState<'onboarding' | 'layout' | null>(null);
+    const pathname = usePathname();
 
      useEffect(() => {
         if (currentUser?.role !== 'owner') {
@@ -101,24 +103,29 @@ export default function AppTour() {
 
         const hasPgs = pgs.length > 0;
         const hasLayout = hasPgs && pgs.some(p => p.floors && p.floors.length > 0);
-
+        
+        // This was the temporary change to always show the tour
         const onboardingCompleted = false; 
         const layoutCompleted = false; 
 
+        const isOnDashboard = pathname === '/dashboard';
+        const isOnPgManagement = pathname.startsWith('/dashboard/pg-management/');
+        
+        // Default to not running the tour
+        setRunTour(false);
 
-        if (!onboardingCompleted && !hasPgs) {
+        if (!onboardingCompleted && !hasPgs && isOnDashboard) {
             setActiveTour('onboarding');
             setSteps(onboardingSteps);
             setRunTour(true);
-        } else if (!layoutCompleted && hasPgs && !hasLayout) {
+        } else if (!layoutCompleted && hasPgs && !hasLayout && isOnPgManagement) {
              setActiveTour('layout');
              setSteps(layoutAndGuestSteps);
              setRunTour(true);
         } else {
-            setRunTour(false);
             setActiveTour(null);
         }
-    }, [currentUser, pgs]);
+    }, [currentUser, pgs, pathname]);
 
 
     const handleJoyrideCallback = (data: CallBackProps) => {
@@ -135,6 +142,10 @@ export default function AppTour() {
             dispatch(setTourStepIndex(nextStep));
         }
     };
+
+    if (!runTour) {
+        return null;
+    }
 
     return (
         <Joyride
