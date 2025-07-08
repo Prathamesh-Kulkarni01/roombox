@@ -10,6 +10,7 @@ interface AppState {
     isLoading: boolean;
     selectedPgId: string | null;
     tour: TourState;
+    tourStepIndex: number;
 }
 
 const getInitialSelectedPgId = (): string | null => {
@@ -39,6 +40,7 @@ const initialState: AppState = {
         hasCompletedOnboarding: getInitialTourState('onboarding'),
         hasCompletedLayout: getInitialTourState('layout'),
     },
+    tourStepIndex: 0,
 };
 
 const appSlice = createSlice({
@@ -66,6 +68,9 @@ const appSlice = createSlice({
                 localStorage.setItem('tour_layout_completed', JSON.stringify(true));
             }
         },
+        setTourStepIndex: (state, action: PayloadAction<number>) => {
+            state.tourStepIndex = action.payload;
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -87,9 +92,10 @@ const appSlice = createSlice({
                 }
                 state.tour.hasCompletedOnboarding = false;
                 state.tour.hasCompletedLayout = false;
+                state.tourStepIndex = 0;
             });
     }
 });
 
-export const { setLoading, setSelectedPgId, endOnboardingTour, endLayoutTour } = appSlice.actions;
+export const { setLoading, setSelectedPgId, endOnboardingTour, endLayoutTour, setTourStepIndex } = appSlice.actions;
 export default appSlice.reducer;

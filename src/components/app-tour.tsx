@@ -2,9 +2,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Joyride, { type CallBackProps, type Step } from 'react-joyride'
+import Joyride, { type CallBackProps, type Step, STATUS, EVENTS, ACTIONS } from 'react-joyride'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { endOnboardingTour, endLayoutTour } from '@/lib/slices/appSlice'
+import { endOnboardingTour, endLayoutTour, setTourStepIndex } from '@/lib/slices/appSlice'
 
 const onboardingSteps: Step[] = [
   {
@@ -24,7 +24,7 @@ const onboardingSteps: Step[] = [
   },
   {
     target: '[data-tour="add-pg-sheet-content"]',
-    content: 'Now, fill in the basic details for your property. When you click "Add Property", the tour will guide you through setting up its layout.',
+    content: 'Now, fill in the basic details for your property. When you click "Add Property", you will be taken to the layout editor to continue the tour.',
     title: 'Property Details',
     disableBeacon: true,
     placement: 'left',
@@ -87,7 +87,7 @@ const layoutAndGuestSteps: Step[] = [
 export default function AppTour() {
     const dispatch = useAppDispatch();
     const { pgs } = useAppSelector(state => state.pgs);
-    const { tour } = useAppSelector(state => state.app);
+    const { tour, tourStepIndex } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
     const [steps, setSteps] = useState<Step[]>([]);
     const [runTour, setRunTour] = useState(false);
@@ -102,13 +102,11 @@ export default function AppTour() {
         const hasPgs = pgs.length > 0;
         const hasLayout = hasPgs && pgs.some(p => p.floors && p.floors.length > 0);
 
-        // Tour completion checks temporarily removed for testing purposes.
-        // This will make the tour run every time.
-        if (!hasPgs /* && !tour.hasCompletedOnboarding */) {
+        if (!hasPgs) {
             setActiveTour('onboarding');
             setSteps(onboardingSteps);
             setRunTour(true);
-        } else if (hasPgs && !hasLayout /* && !tour.hasCompletedLayout */) {
+        } else if (hasPgs && !hasLayout) {
              setActiveTour('layout');
              setSteps(layoutAndGuestSteps);
              setRunTour(true);
@@ -120,10 +118,20 @@ export default function AppTour() {
 
 
     const handleJoyrideCallback = (data: CallBackProps) => {
-        const { status } = data;
-        const finishedStatuses: string[] = ['finished', 'skipped'];
+        const { action, index, status, type } = data;
 
-        if (finishedStatuses.includes(status)) {
+        if (([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND] as string[]).includes(type)) {
+            if (type === EVENTS.TARGET_NOT_FOUND && activeTour === 'onboarding') {
+                // If the sheet closes without adding, its target disappears. Go back to the "add property" button step.
+                dispatch(setTourStepIndex(1));
+                return;
+            }
+            // For all other actions (next, prev, click), update the step index.
+            const nextStep = index + (action === ACTIONS.PREV ? -1 : 1);
+            dispatch(setTourStepIndex(nextStep));
+        }
+
+        if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
             // Tour completion dispatches temporarily removed for testing
             // if (activeTour === 'onboarding') {
             //     dispatch(endOnboardingTour());
@@ -131,6 +139,7 @@ export default function AppTour() {
             //     dispatch(endLayoutTour());
             // }
             setRunTour(false);
+            dispatch(setTourStepIndex(0));
         }
     };
 
@@ -138,10 +147,9 @@ export default function AppTour() {
         <Joyride
             steps={steps}
             run={runTour}
-            continuous
+            stepIndex={tourStepIndex}
             showProgress
             showSkipButton
-            disableOverlayClose={true}
             spotlightClicks={true}
             callback={handleJoyrideCallback}
             styles={{
