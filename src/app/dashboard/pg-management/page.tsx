@@ -16,6 +16,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
@@ -23,6 +33,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from '@/hooks/use-toast'
 import AddPgSheet from '@/components/add-pg-sheet'
 import { deletePg as deletePgAction } from '@/lib/slices/pgsSlice'
+import type { PG } from '@/lib/types'
 
 const genderBadgeColor = {
   male: 'bg-blue-100 text-blue-800',
@@ -42,6 +53,7 @@ export default function PgManagementPage() {
     const router = useRouter();
     const { toast } = useToast()
     const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false)
+    const [pgToDelete, setPgToDelete] = useState<PG | null>(null);
 
     const canAddPg = currentPlan && (currentPlan.pgLimit === 'unlimited' || pgs.length < currentPlan.pgLimit);
 
@@ -65,23 +77,24 @@ export default function PgManagementPage() {
                 title: "Deletion Failed",
                 description: `Cannot delete "${pgName}" as it has active guests. Please vacate all guests first.`,
             });
+            setPgToDelete(null);
             return;
         }
 
-        if (window.confirm(`Are you sure you want to delete "${pgName}"? This action is permanent and cannot be undone.`)) {
-            try {
-                await dispatch(deletePgAction(pgId)).unwrap();
-                toast({
-                    title: "Property Deleted",
-                    description: `"${pgName}" has been successfully removed.`,
-                });
-            } catch (error: any) {
-                toast({
-                    variant: "destructive",
-                    title: "Deletion Failed",
-                    description: error.message || "An unexpected error occurred.",
-                });
-            }
+        try {
+            await dispatch(deletePgAction(pgId)).unwrap();
+            toast({
+                title: "Property Deleted",
+                description: `"${pgName}" has been successfully removed.`,
+            });
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Deletion Failed",
+                description: error.message || "An unexpected error occurred.",
+            });
+        } finally {
+            setPgToDelete(null);
         }
     }
 
@@ -211,7 +224,7 @@ export default function PgManagementPage() {
                                                         <Pencil className="mr-2 h-4 w-4" /> Configure
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem>View Guests</DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => handleDeletePg(pg.id, pg.name)}>
+                                                    <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
                                                         <Trash2 className="mr-2 h-4 w-4"/> Delete
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
@@ -247,7 +260,7 @@ export default function PgManagementPage() {
                                               <Pencil className="mr-2 h-4 w-4" /> Configure
                                             </DropdownMenuItem>
                                             <DropdownMenuItem>View Guests</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => handleDeletePg(pg.id, pg.name)}>
+                                            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
                                                  <Trash2 className="mr-2 h-4 w-4"/> Delete
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
@@ -275,6 +288,28 @@ export default function PgManagementPage() {
                 )}
                 </CardContent>
             </Card>
+
+            <AlertDialog open={!!pgToDelete} onOpenChange={(open) => !open && setPgToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the
+                            property "{pgToDelete?.name}" and all of its associated data.
+                            Please ensure all guests have been vacated first.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setPgToDelete(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive hover:bg-destructive/90"
+                            onClick={() => handleDeletePg(pgToDelete!.id, pgToDelete!.name)}
+                        >
+                            Continue
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

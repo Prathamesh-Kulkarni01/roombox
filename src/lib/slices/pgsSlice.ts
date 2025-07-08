@@ -126,6 +126,14 @@ const pgsSlice = createSlice({
                     state.pgs[index] = updatedPg;
                 }
             })
+            .addCase('guests/updateGuest/fulfilled', (state, action) => {
+                if (!action.payload.updatedPg) return;
+                const { updatedPg } = action.payload;
+                const index = state.pgs.findIndex(p => p.id === updatedPg.id);
+                if (index !== -1) {
+                    state.pgs[index] = updatedPg;
+                }
+            })
              .addCase(deletePg.fulfilled, (state, action) => {
                 state.pgs = state.pgs.filter(p => p.id !== action.payload);
             })

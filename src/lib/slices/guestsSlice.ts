@@ -150,10 +150,10 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
 );
 
 
-export const updateGuest = createAsyncThunk<Guest, Guest, { state: RootState }>(
+export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, Guest, { state: RootState }>(
     'guests/updateGuest',
     async (updatedGuest, { getState, dispatch, rejectWithValue }) => {
-        const { user, guests } = getState();
+        const { user, guests, pgs } = getState();
         const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
         if (!user.currentUser || !originalGuest) return rejectWithValue('No user or original guest');
 
@@ -167,13 +167,38 @@ export const updateGuest = createAsyncThunk<Guest, Guest, { state: RootState }>(
                 targetId: updatedGuest.id,
             }));
         }
+        
+        // Handle vacating a bed
+        let updatedPg: PG | undefined = undefined;
+        const isVacating = !!updatedGuest.exitDate && !originalGuest.exitDate;
+        if(isVacating) {
+            const pg = pgs.pgs.find(p => p.id === updatedGuest.pgId);
+            if(pg) {
+                updatedPg = produce(pg, draft => {
+                    draft.occupancy = Math.max(0, draft.occupancy - 1);
+                    const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.guestId === updatedGuest.id)));
+                    const room = floor?.rooms.find(r => r.beds.some(b => b.guestId === updatedGuest.id));
+                    const bed = room?.beds.find(b => b.guestId === updatedGuest.id);
+                    if (bed) {
+                        bed.guestId = null;
+                    }
+                });
+            }
+        }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
-            await setDoc(docRef, updatedGuest, { merge: true });
+            const batch = writeBatch(db);
+            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
+            batch.set(guestDocRef, updatedGuest, { merge: true });
+
+            if (updatedPg) {
+                const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
+                batch.set(pgDocRef, updatedPg);
+            }
+             await batch.commit();
         }
         
-        return updatedGuest;
+        return { updatedGuest, updatedPg };
     }
 );
 
@@ -194,9 +219,9 @@ const guestsSlice = createSlice({
                 if(action.payload) state.guests.push(action.payload.newGuest);
             })
             .addCase(updateGuest.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.id);
+                const index = state.guests.findIndex(g => g.id === action.payload.updatedGuest.id);
                 if (index !== -1) {
-                    state.guests[index] = action.payload;
+                    state.guests[index] = action.payload.updatedGuest;
                 }
             })
             .addCase(updateGuestKyc.fulfilled, (state, action) => {
@@ -204,6 +229,9 @@ const guestsSlice = createSlice({
                 if (index !== -1) {
                     state.guests[index] = action.payload;
                 }
+            })
+            .addCase('pgs/deletePg/fulfilled', (state, action) => {
+                state.guests = state.guests.filter(g => g.pgId !== action.payload);
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.guests = [];

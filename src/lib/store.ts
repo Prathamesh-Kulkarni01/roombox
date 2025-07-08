@@ -10,7 +10,7 @@ import staffReducer from './slices/staffSlice';
 import notificationsReducer from './slices/notificationsSlice';
 
 const actionsToPersist = [
-    'pgs/setPgs', 'pgs/addPg/fulfilled', 'pgs/updatePg/fulfilled',
+    'pgs/setPgs', 'pgs/addPg/fulfilled', 'pgs/updatePg/fulfilled', 'pgs/deletePg/fulfilled',
     'guests/setGuests', 'guests/addGuest/fulfilled', 'guests/updateGuest/fulfilled',
     'complaints/setComplaints', 'complaints/addComplaint/fulfilled', 'complaints/updateComplaint/fulfilled',
     'expenses/setExpenses', 'expenses/addExpense/fulfilled',
