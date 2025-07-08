@@ -162,6 +162,7 @@ export interface User {
   pgIds?: string[];
   avatarUrl?: string;
   guestId?: string; // Link to a Guest record if the user is a tenant
+  ownerId?: string; // If role is tenant, this is the ID of their PG owner
   subscription?: {
     planId: PlanName;
     status: 'active' | 'inactive';

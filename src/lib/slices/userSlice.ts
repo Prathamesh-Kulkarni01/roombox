@@ -4,7 +4,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole } from '../types';
 import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
-import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
 
@@ -43,6 +43,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser>(
                         email: firebaseUser.email,
                         role: 'tenant',
                         guestId: guestId,
+                        ownerId: ownerId,
                         avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || 'NT').slice(0, 2).toUpperCase()}`
                     };
 
@@ -159,9 +160,9 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
     'user/disassociateAndCreateOwnerAccount',
     async (_, { getState, rejectWithValue }) => {
         const { currentUser } = (getState() as RootState).user;
-        if (!currentUser || !isFirebaseConfigured()) return rejectWithValue('User or Firebase not available');
+        if (!currentUser || !isFirebaseConfigured() || !db) return rejectWithValue('User or Firebase not available');
         
-        const { guestId, ...restOfUser } = currentUser;
+        const { guestId, ownerId, ...restOfUser } = currentUser;
         const updatedUser: User = { ...restOfUser, role: 'owner', subscription: { planId: 'free', status: 'active' } };
 
         const userDocRef = doc(db, 'users', currentUser.id);
@@ -175,7 +176,7 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
 export const logoutUser = createAsyncThunk(
     'user/logoutUser',
     async () => {
-        if(isFirebaseConfigured()) {
+        if(isFirebaseConfigured() && auth) {
             await auth.signOut();
         }
         if (typeof window !== 'undefined') {

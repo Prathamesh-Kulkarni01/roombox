@@ -5,7 +5,7 @@ import { useRef, type ReactNode, useEffect } from 'react'
 import { Provider } from 'react-redux'
 import { makeStore, type AppStore } from '@/lib/store'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
-import { collection, onSnapshot } from 'firebase/firestore'
+import { collection, onSnapshot, doc, query, where } from 'firebase/firestore'
 import { getApp } from 'firebase/app'
 import { auth, db, isFirebaseConfigured } from '@/lib/firebase'
 import { getAnalytics, isSupported } from 'firebase/analytics'
@@ -19,6 +19,8 @@ import { setStaff, fetchStaff as fetchLocalStaff } from '@/lib/slices/staffSlice
 import { setNotifications, fetchNotifications as fetchLocalNotifications } from '@/lib/slices/notificationsSlice'
 import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
+import type { Guest, PG, Complaint, Notification } from '@/lib/types'
+
 
 function AuthHandler({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
@@ -60,6 +62,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
     };
   }, [toast]);
 
+  // Auth state listener
   useEffect(() => {
     if (!isFirebaseConfigured() || authListenerStarted.current || !auth) return;
 
@@ -78,58 +81,92 @@ function AuthHandler({ children }: { children: ReactNode }) {
     };
   }, [dispatch]);
 
-  // Real-time data subscription and local data fetching effect
+  // Data fetching and real-time subscription effect
   useEffect(() => {
-    if (!currentUser) return;
-    
-    // Initialize Firebase Cloud Messaging for notifications
+    if (!currentUser || !db) return;
+
     initializeFirebaseMessaging();
-    
-    if (!currentPlan) return;
 
-    if (currentPlan.hasCloudSync && isFirebaseConfigured() && db) {
-      // Pro Plan: Real-time sync from Firestore
-      const collectionsToSync = {
-        pgs: setPgs,
-        guests: setGuests,
-        complaints: setComplaints,
-        expenses: setExpenses,
-        staff: setStaff,
-        notifications: setNotifications,
-      };
+    let unsubs: (() => void)[] = [];
 
-      const unsubscribes = Object.entries(collectionsToSync).map(
-        ([collectionName, setDataAction]) => {
+    if (currentUser.role === 'tenant') {
+      if (!currentUser.ownerId || !currentUser.guestId) return;
+
+      const { ownerId, guestId } = currentUser;
+
+      // Subscribe to the guest's document to get their pgId and details
+      const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+      const unsubGuest = onSnapshot(guestDocRef, (guestSnap) => {
+        // Clean up previous nested subscriptions before creating new ones
+        unsubs.forEach(unsub => unsub());
+        unsubs = [];
+
+        if (guestSnap.exists()) {
+          const guestData = guestSnap.data() as Guest;
+          dispatch(setGuests([guestData]));
+
+          // Now we have the pgId, subscribe to PG-specific data
+          const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
+          const unsubPg = onSnapshot(pgDocRef, (pgSnap) => {
+            if (pgSnap.exists()) dispatch(setPgs([pgSnap.data() as PG]));
+          });
+          unsubs.push(unsubPg);
+
+          const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
+          const unsubComplaints = onSnapshot(complaintsQuery, (snapshot) => {
+            const complaints = snapshot.docs.map(d => d.data() as Complaint);
+            dispatch(setComplaints(complaints.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+          });
+          unsubs.push(unsubComplaints);
+        }
+      });
+
+      unsubs.push(unsubGuest);
+
+    } else { // Handle 'owner' and other non-tenant roles
+      if (!currentPlan) return;
+
+      if (currentPlan.hasCloudSync) {
+        // Real-time sync for cloud-enabled users
+        const collectionsToSync = {
+          pgs: setPgs,
+          guests: setGuests,
+          complaints: setComplaints,
+          expenses: setExpenses,
+          staff: setStaff,
+          notifications: setNotifications,
+        };
+
+        const ownerUnsubs = Object.entries(collectionsToSync).map(([collectionName, setDataAction]) => {
           const collRef = collection(db, 'users_data', currentUser.id, collectionName);
-          const unsubscribe = onSnapshot(collRef, (snapshot) => {
+          return onSnapshot(collRef, (snapshot) => {
             const data = snapshot.docs.map(doc => doc.data());
-            // Sort by date if applicable, descending
             if (['complaints', 'expenses', 'notifications'].includes(collectionName)) {
-                data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
+              data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
             }
             dispatch(setDataAction(data as any));
           }, (error) => {
             console.error(`Error listening to ${collectionName} collection:`, error);
           });
-          return unsubscribe;
-        }
-      );
+        });
+        unsubs.push(...ownerUnsubs);
 
-      // Cleanup function to unsubscribe when component unmounts or dependencies change
-      return () => {
-        unsubscribes.forEach(unsub => unsub());
-      };
-
-    } else {
-      // Free Plan: Fetch from local storage once
-      const userId = currentUser.id;
-      dispatch(fetchLocalPgs({ userId, useCloud: false }));
-      dispatch(fetchLocalGuests({ userId, useCloud: false }));
-      dispatch(fetchLocalComplaints({ userId, useCloud: false }));
-      dispatch(fetchLocalExpenses({ userId, useCloud: false }));
-      dispatch(fetchLocalStaff({ userId, useCloud: false }));
-      dispatch(fetchLocalNotifications({ userId, useCloud: false }));
+      } else {
+        // Fetch from local storage for non-cloud users
+        const userId = currentUser.id;
+        dispatch(fetchLocalPgs({ userId, useCloud: false }));
+        dispatch(fetchLocalGuests({ userId, useCloud: false }));
+        dispatch(fetchLocalComplaints({ userId, useCloud: false }));
+        dispatch(fetchLocalExpenses({ userId, useCloud: false }));
+        dispatch(fetchLocalStaff({ userId, useCloud: false }));
+        dispatch(fetchLocalNotifications({ userId, useCloud: false }));
+      }
     }
+
+    // Cleanup function to unsubscribe from all listeners
+    return () => {
+      unsubs.forEach(unsub => unsub());
+    };
   }, [currentUser, currentPlan, dispatch]);
 
   return <>{children}</>;
