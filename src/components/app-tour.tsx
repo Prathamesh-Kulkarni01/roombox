@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import Joyride, { type CallBackProps, type Step, STATUS, EVENTS, ACTIONS } from 'react-joyride'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { endOnboardingTour, endLayoutTour, setTourStepIndex } from '@/lib/slices/appSlice'
+import { setTourStepIndex } from '@/lib/slices/appSlice'
 
 const onboardingSteps: Step[] = [
   {
@@ -87,7 +87,7 @@ const layoutAndGuestSteps: Step[] = [
 export default function AppTour() {
     const dispatch = useAppDispatch();
     const { pgs } = useAppSelector(state => state.pgs);
-    const { tour, tourStepIndex } = useAppSelector(state => state.app);
+    const { tourStepIndex } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
     const [steps, setSteps] = useState<Step[]>([]);
     const [runTour, setRunTour] = useState(false);
@@ -102,11 +102,16 @@ export default function AppTour() {
         const hasPgs = pgs.length > 0;
         const hasLayout = hasPgs && pgs.some(p => p.floors && p.floors.length > 0);
 
-        if (!hasPgs) {
+        // Temporarily disabled for testing
+        const onboardingCompleted = false; // state.app.tour.hasCompletedOnboarding;
+        const layoutCompleted = false; // state.app.tour.hasCompletedLayout;
+
+
+        if (!onboardingCompleted && !hasPgs) {
             setActiveTour('onboarding');
             setSteps(onboardingSteps);
             setRunTour(true);
-        } else if (hasPgs && !hasLayout) {
+        } else if (!layoutCompleted && hasPgs && !hasLayout) {
              setActiveTour('layout');
              setSteps(layoutAndGuestSteps);
              setRunTour(true);
@@ -120,26 +125,22 @@ export default function AppTour() {
     const handleJoyrideCallback = (data: CallBackProps) => {
         const { action, index, status, type } = data;
 
+        if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
+            setRunTour(false);
+            dispatch(setTourStepIndex(0));
+            return;
+        }
+
         if (([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND] as string[]).includes(type)) {
-            if (type === EVENTS.TARGET_NOT_FOUND && activeTour === 'onboarding') {
-                // If the sheet closes without adding, its target disappears. Go back to the "add property" button step.
+             // Special handling for the onboarding tour when the sheet is closed
+            if (type === EVENTS.TARGET_NOT_FOUND && activeTour === 'onboarding' && index === 2) {
+                // The target for the "add-pg-sheet" was not found, meaning the user
+                // closed it without adding a PG. Reset to the previous step.
                 dispatch(setTourStepIndex(1));
                 return;
             }
-            // For all other actions (next, prev, click), update the step index.
             const nextStep = index + (action === ACTIONS.PREV ? -1 : 1);
             dispatch(setTourStepIndex(nextStep));
-        }
-
-        if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
-            // Tour completion dispatches temporarily removed for testing
-            // if (activeTour === 'onboarding') {
-            //     dispatch(endOnboardingTour());
-            // } else if (activeTour === 'layout') {
-            //     dispatch(endLayoutTour());
-            // }
-            setRunTour(false);
-            dispatch(setTourStepIndex(0));
         }
     };
 
@@ -150,12 +151,14 @@ export default function AppTour() {
             stepIndex={tourStepIndex}
             showProgress
             showSkipButton
-            spotlightClicks={true}
+            continuous
+            disableOverlayClose
+            spotlightClicks
             callback={handleJoyrideCallback}
             styles={{
                 options: {
                     zIndex: 10000,
-                    arrowColor: 'hsl(var(--card))',
+                    arrowColor: 'hsl(var(--popover))',
                     overlayColor: 'rgba(0, 0, 0, 0.6)',
                 },
                  spotlight: {
