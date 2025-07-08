@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -37,6 +37,7 @@ const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is require
 export default function ManagePgPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const dispatch = useAppDispatch()
   const { pgs } = useAppSelector(state => state.pgs)
   const { guests } = useAppSelector(state => state.guests)
@@ -60,6 +61,14 @@ export default function ManagePgPage() {
   
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
   const canAddFloor = pg && currentPlan && (currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit)
+
+  useEffect(() => {
+    if (searchParams.get('setup') === 'true') {
+        setIsEditMode(true);
+        // Clean the URL to prevent re-triggering on refresh
+        router.replace(`/dashboard/pg-management/${pgId}`, { scroll: false });
+    }
+  }, [searchParams, router, pgId]);
 
   useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm])
   useEffect(() => { if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: undefined, deposit: undefined }); }, [roomToEdit, roomForm])

@@ -30,15 +30,10 @@ const onboardingSteps: Step[] = [
 
 const layoutAndGuestSteps: Step[] = [
   {
-    target: '[data-tour="edit-mode-switch"]',
-    content: "You've created your property! Now, let's build its structure. Enable 'Edit Mode' to add floors, rooms, and beds.",
-    title: 'Set Up Your Property',
-    disableBeacon: true,
-  },
-  {
     target: '[data-tour="add-floor-button"]',
-    content: "Start by adding a floor. You can name it 'Ground Floor', 'First Floor', etc.",
+    content: "Great, your property is created and Edit Mode is on! Start by adding a floor. You can name it 'Ground Floor', 'First Floor', etc.",
     title: 'Add a Floor',
+    disableBeacon: true,
   },
   {
     target: '[data-tour="add-room-button"]',

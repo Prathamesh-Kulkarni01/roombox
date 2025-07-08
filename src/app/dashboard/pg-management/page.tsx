@@ -91,7 +91,7 @@ export default function PgManagementPage() {
             <AddPgSheet 
                 open={isAddPgSheetOpen} 
                 onOpenChange={setIsAddPgSheetOpen}
-                onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}`)}
+                onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}?setup=true`)}
             />
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
