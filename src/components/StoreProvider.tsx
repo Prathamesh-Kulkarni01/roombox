@@ -125,34 +125,55 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
   // Data fetching for Tenants
   useEffect(() => {
-    if (!currentUser || currentUser.role !== 'tenant' || !db) return;
-    if (!currentUser.ownerId || !currentUser.guestId) return;
+    if (currentUser?.role !== 'tenant' || !currentUser?.ownerId || !currentUser?.guestId || !db) {
+        return;
+    }
 
     initializeFirebaseMessaging();
 
     const { ownerId, guestId } = currentUser;
-    let pgUnsub: (() => void) | undefined;
-    let complaintsUnsub: (() => void) | undefined;
-
     const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+    
+    // This will hold the listeners for the PG and complaints, so we can clean them up
+    let subUnsubs: (() => void)[] = [];
+
     const guestUnsub = onSnapshot(guestDocRef, (guestSnap) => {
-      pgUnsub?.();
-      complaintsUnsub?.();
+      // Clean up old PG/complaint listeners before creating new ones
+      subUnsubs.forEach(unsub => unsub());
+      subUnsubs = [];
 
       if (guestSnap.exists()) {
         const guestData = guestSnap.data() as Guest;
         dispatch(setGuests([guestData]));
+        
+        if (guestData.pgId) {
+            const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
+            const pgUnsub = onSnapshot(pgDocRef, (pgSnap) => {
+                if (pgSnap.exists()) {
+                    dispatch(setPgs([pgSnap.data() as PG]));
+                } else {
+                    console.warn(`Tenant's PG document with id ${guestData.pgId} not found.`);
+                    dispatch(setPgs([]));
+                }
+            });
+            subUnsubs.push(pgUnsub);
 
-        const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
-        pgUnsub = onSnapshot(pgDocRef, (pgSnap) => {
-            if (pgSnap.exists()) dispatch(setPgs([pgSnap.data() as PG]));
-        });
-
-        const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
-        complaintsUnsub = onSnapshot(complaintsQuery, (snapshot) => {
-            const complaints = snapshot.docs.map(d => d.data() as Complaint);
-            dispatch(setComplaints(complaints.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-        });
+            const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
+            const complaintsUnsub = onSnapshot(complaintsQuery, (snapshot) => {
+                const complaints = snapshot.docs.map(d => d.data() as Complaint);
+                dispatch(setComplaints(complaints.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+            });
+            subUnsubs.push(complaintsUnsub);
+        } else {
+             console.warn("Guest document exists but has no pgId.", guestData);
+             dispatch(setPgs([]));
+             dispatch(setComplaints([]));
+        }
+      } else {
+        console.warn(`Guest document with id ${guestId} not found for owner ${ownerId}.`);
+        dispatch(setGuests([]));
+        dispatch(setPgs([]));
+        dispatch(setComplaints([]));
       }
     }, (error) => {
         console.error("Error listening to guest document:", error);
@@ -160,8 +181,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     return () => {
       guestUnsub();
-      pgUnsub?.();
-      complaintsUnsub?.();
+      subUnsubs.forEach(unsub => unsub()); // Clean up everything on effect cleanup
     };
   }, [currentUser, dispatch]);
 
