@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, MoreHorizontal, IndianRupee, User, ShieldCheck } from "lucide-react"
+import { PlusCircle, MoreHorizontal, IndianRupee, User, ShieldCheck, Building } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +36,7 @@ const kycStatusColors: Record<Guest['kycStatus'], string> = {
 
 export default function GuestManagementPage() {
     const { guests } = useAppSelector(state => state.guests);
+    const { pgs } = useAppSelector(state => state.pgs);
     const { isLoading, selectedPgId } = useAppSelector(state => state.app);
     
     const filteredGuests = useMemo(() => {
@@ -70,6 +71,21 @@ export default function GuestManagementPage() {
                     </CardContent>
                 </Card>
             </div>
+        )
+    }
+
+    if (pgs.length === 0) {
+        return (
+          <div className="flex items-center justify-center h-full min-h-[calc(100vh-250px)]">
+              <div className="text-center p-8 bg-card rounded-lg border">
+                  <Building className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h2 className="mt-4 text-xl font-semibold">Add a Property First</h2>
+                  <p className="mt-2 text-muted-foreground max-w-sm">You need to add a property before you can manage guests.</p>
+                  <Button asChild className="mt-4">
+                    <Link href="/dashboard/pg-management">Add Property</Link>
+                  </Button>
+              </div>
+          </div>
         )
     }
 

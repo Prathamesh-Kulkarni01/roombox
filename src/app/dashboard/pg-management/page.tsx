@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin, Pencil } from "lucide-react"
+import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin, Pencil, Building } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,6 +118,19 @@ export default function PgManagementPage() {
 
                 </CardHeader>
                 <CardContent>
+                    {pgs.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center text-center py-10 px-4">
+                            <Building className="mx-auto h-12 w-12 text-muted-foreground" />
+                            <h3 className="mt-4 text-lg font-semibold">No Properties Found</h3>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                Get started by adding your first property.
+                            </p>
+                            <Button className="mt-4" onClick={handleAddPgClick}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Property
+                            </Button>
+                        </div>
+                    ) : (
+                    <>
                     {/* Desktop Table View */}
                     <div className="hidden md:block">
                         <Table>
@@ -218,6 +231,8 @@ export default function PgManagementPage() {
                             </div>
                         ))}
                     </div>
+                    </>
+                )}
                 </CardContent>
             </Card>
         </div>
