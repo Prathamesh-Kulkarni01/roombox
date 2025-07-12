@@ -96,19 +96,17 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-end gap-4">
-          <div className="flex items-center space-x-2">
-            <Skeleton className="h-6 w-24 rounded-md" />
-            <Skeleton className="h-6 w-10 rounded-md" />
-          </div>
-        </div>
-
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <Skeleton className="h-24 rounded-lg" />
           <Skeleton className="h-24 rounded-lg" />
           <Skeleton className="h-24 rounded-lg" />
         </div>
-
+        <div className="flex justify-end">
+            <div className="flex items-center space-x-2">
+                <Skeleton className="h-5 w-20 rounded-md" />
+                <Skeleton className="h-6 w-10 rounded-md" />
+            </div>
+        </div>
         <Card>
           <CardHeader>
             <Skeleton className="h-8 w-1/2" />
@@ -164,14 +162,14 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-6">
+        <StatsCards stats={stats} />
+        
         <div className="flex flex-wrap items-center justify-end gap-4">
           <div className="flex items-center space-x-2">
               <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
               <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch"/>
           </div>
         </div>
-        
-        <StatsCards stats={stats} />
 
         {pgsToDisplay.map(pg => (
           <PgLayout 
