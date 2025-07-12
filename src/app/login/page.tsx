@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,10 @@ const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
 export default function LoginPage() {
   const router = useRouter()
   const dispatch = useAppDispatch()
-  const { isLoading } = useAppSelector((state) => state.app)
+  const { appLoading, currentUser } = useAppSelector((state) => ({
+    appLoading: state.app.isLoading,
+    currentUser: state.user.currentUser,
+  }));
   const { toast } = useToast()
 
   const [isSigningIn, setIsSigningIn] = useState(false)
@@ -35,7 +38,26 @@ export default function LoginPage() {
   const [emailSent, setEmailSent] = useState(false)
   const [isSendingLink, setIsSendingLink] = useState(false)
   
-  const loading = isLoading || isSigningIn || isSendingLink
+  const loading = appLoading || isSigningIn || isSendingLink;
+
+  useEffect(() => {
+    if (!appLoading && currentUser) {
+      if (currentUser.role === 'tenant') {
+        router.replace('/tenants/my-pg');
+      } else {
+        router.replace('/dashboard');
+      }
+    }
+  }, [appLoading, currentUser, router]);
+
+  if (appLoading || currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-56px)]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,20 +90,12 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      const userAction = await dispatch(initializeUser(result.user));
-      const user = userAction.payload as any;
-      
+      // The user state change is handled by the onAuthStateChanged listener in StoreProvider
+      // which will then trigger the redirection useEffect.
       toast({
         title: 'Welcome!',
         description: "You've been signed in successfully.",
       });
-
-      if (user.role === 'tenant') {
-        router.push('/tenants/my-pg');
-      } else {
-        router.push('/dashboard');
-      }
-
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
       if (error.code !== 'auth/popup-closed-by-user') {

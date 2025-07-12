@@ -1,11 +1,14 @@
 
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAppSelector } from '@/lib/hooks';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check, LayoutDashboard, Wallet, Cloud, BotMessageSquare, X } from 'lucide-react';
+import { Check, LayoutDashboard, Wallet, Cloud, BotMessageSquare, X, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import InstallPWA from '@/components/install-pwa';
 import { plans } from '@/lib/mock-data';
@@ -71,7 +74,30 @@ const getPlanFeatures = (plan: Plan) => [
 
 
 export default function Home() {
-  
+  const router = useRouter();
+  const { currentUser, isLoading } = useAppSelector((state) => ({
+    currentUser: state.user.currentUser,
+    isLoading: state.app.isLoading,
+  }));
+
+  useEffect(() => {
+    if (!isLoading && currentUser) {
+      if (currentUser.role === 'tenant') {
+        router.replace('/tenants/my-pg');
+      } else {
+        router.replace('/dashboard');
+      }
+    }
+  }, [isLoading, currentUser, router]);
+
+  if (isLoading || currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-56px)]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-56px)] bg-background">
       <main className="flex-1">
