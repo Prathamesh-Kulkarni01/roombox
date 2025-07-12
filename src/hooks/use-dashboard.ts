@@ -60,7 +60,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null);
   const [selectedPgForFloorAdd, setSelectedPgForFloorAdd] = useState<PG | null>(null);
   const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<{ floorId: string, pgId: string } | null>(null);
-  const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; pgId: string } | null>(null);
+  const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; pgId: string; } | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string } } | null>(null)
   
   // States for guest actions
@@ -243,6 +243,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     dispatch(updatePgAction(nextState));
     setIsBedDialogOpen(false);
     setBedToEdit(null);
+    setSelectedRoomForBedAdd(null);
   };
 
   const handleDelete = (type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string }) => {

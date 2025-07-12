@@ -14,7 +14,7 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
 }
 
 export default function PgLayout(props: PgLayoutProps) {
-  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, openEditFloorDialog, openAddRoomDialog } = props
+  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, openEditFloorDialog, openAddRoomDialog, openAddBedDialog } = props
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
   useEffect(() => {

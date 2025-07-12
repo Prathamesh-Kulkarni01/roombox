@@ -53,7 +53,7 @@ export default function ManagePgPage() {
   const [roomToEdit, setRoomToEdit] = useState<{ room: Room; floorId: string } | null>(null)
   const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null)
   const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<string | null>(null)
-  const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string } | null>(null)
+  const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; pgId: string; } | null>(null)
 
   const floorForm = useForm<z.infer<typeof floorSchema>>({ resolver: zodResolver(floorSchema), defaultValues: { name: '' } })
   const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema), defaultValues: { name: '', rent: 0, deposit: 0 } })
@@ -95,7 +95,7 @@ export default function ManagePgPage() {
         const floor = draft.floors.find(f => f.id === floorToEdit.id);
         if (floor) floor.name = values.name;
       } else {
-        draft.floors.push({ id: `floor-${new Date().getTime()}`, name: values.name, rooms: [] });
+        draft.floors.push({ id: `floor-${new Date().getTime()}`, name: values.name, rooms: [], pgId: pg.id });
       }
     });
     dispatch(updatePgAction(nextState));
@@ -127,14 +127,13 @@ export default function ManagePgPage() {
     const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
     if (!floorId || !roomId) return;
     const nextState = produce(pg, draft => {
-      const floor = draft.floors?.find(f => f.id === floorId);
-      const room = floor?.rooms.find(r => r.id === roomId);
+      const room = draft.floors?.find(f => f.id === floorId)?.rooms.find(r => r.id === roomId);
       if (!room) return;
       if (bedToEdit) {
         const bed = room.beds.find(b => b.id === bedToEdit.bed.id);
         if (bed) bed.name = values.name;
       } else {
-        room.beds.push({ id: `bed-${new Date().getTime()}`, name: values.name, guestId: null });
+        room.beds.push({ id: `bed-${Date.now()}`, name: values.name, guestId: null });
         draft.totalBeds = (draft.totalBeds || 0) + 1;
       }
     });
@@ -184,7 +183,7 @@ export default function ManagePgPage() {
   const openEditFloorDialog = (floor: Floor) => { setFloorToEdit(floor); setIsFloorDialogOpen(true) }
   const openAddRoomDialog = (floorId: string) => { setRoomToEdit(null); setSelectedFloorForRoomAdd(floorId); setIsRoomDialogOpen(true) }
   const openEditRoomDialog = (room: Room, floorId: string) => { setRoomToEdit({room, floorId}); setIsRoomDialogOpen(true) }
-  const openAddBedDialog = (floorId: string, roomId: string) => { setBedToEdit(null); setSelectedRoomForBedAdd({floorId, roomId}); setIsBedDialogOpen(true) }
+  const openAddBedDialog = (floorId: string, roomId: string, pgId: string) => { setBedToEdit(null); setSelectedRoomForBedAdd({floorId, roomId, pgId}); setIsBedDialogOpen(true) }
   const openEditBedDialog = (bed: Bed, roomId: string, floorId: string) => { setBedToEdit({bed, roomId, floorId}); setIsBedDialogOpen(true) }
 
   return (
@@ -249,7 +248,7 @@ export default function ManagePgPage() {
                                         </div>
                                     ))}
                                     {isEditMode && (
-                                        <button data-tour="add-bed-button" onClick={() => openAddBedDialog(floor.id, room.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
+                                        <button data-tour="add-bed-button" onClick={() => openAddBedDialog(floor.id, room.id, pg.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
                                             <PlusCircle className="w-3.5 h-3.5 mr-2" /> Add Bed
                                         </button>
                                     )}
