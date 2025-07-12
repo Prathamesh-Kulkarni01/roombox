@@ -6,7 +6,7 @@ import { Layers, PlusCircle, Trash2, Pencil } from "lucide-react"
 import type { PG } from "@/lib/types"
 import BedCard from "./BedCard"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
-import { MutableRefObject } from "react"
+import { MutableRefObject, useState, useEffect } from "react"
 
 interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
   pg: PG
@@ -15,6 +15,14 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
 
 export default function PgLayout(props: PgLayoutProps) {
   const { pg, isEditMode, openAddFloorDialog, setItemToDelete, openEditFloorDialog, openAddRoomDialog } = props
+  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Keep all accordions open by default, and also when new floors are added.
+    if (pg.floors) {
+      setOpenAccordionItems(pg.floors.map(f => f.id));
+    }
+  }, [pg.floors]);
 
   return (
     <Card>
@@ -23,7 +31,12 @@ export default function PgLayout(props: PgLayoutProps) {
         <CardDescription>{isEditMode ? "Add, edit, or remove floors, rooms, and beds." : "Visualize bed occupancy and manage guests."}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Accordion type="multiple" className="w-full" defaultValue={pg.floors?.map(f => f.id)}>
+        <Accordion 
+          type="multiple" 
+          className="w-full" 
+          value={openAccordionItems}
+          onValueChange={setOpenAccordionItems}
+        >
           {pg.floors?.map(floor => (
             <AccordionItem value={floor.id} key={floor.id}>
               <AccordionTrigger className="text-lg font-medium hover:no-underline"><div className="flex items-center gap-4 w-full"><Layers /> {floor.name}</div></AccordionTrigger>
@@ -34,7 +47,7 @@ export default function PgLayout(props: PgLayoutProps) {
                        <BedCard {...props} room={room} floor={floor} />
                     </div>
                   ))}
-                  {isEditMode && (<button data-tour="add-room-button" onClick={() => openAddRoomDialog(floor.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>)}
+                  {isEditMode && (<button data-tour="add-room-button" onClick={() => openAddRoomDialog(floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>)}
                 </div>
                  <div className="mt-6 flex items-center gap-4">
                     {isEditMode && (<Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); setItemToDelete({ type: 'floor', ids: { pgId: pg.id, floorId: floor.id } }) }}><Trash2 className="mr-2 h-4 w-4" /> Delete {floor.name}</Button>)}

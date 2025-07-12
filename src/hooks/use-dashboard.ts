@@ -59,8 +59,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [roomToEdit, setRoomToEdit] = useState<{ room: Room; floorId: string } | null>(null);
   const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null);
   const [selectedPgForFloorAdd, setSelectedPgForFloorAdd] = useState<PG | null>(null);
-  const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<string | null>(null);
-  const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string } | null>(null);
+  const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<{ floorId: string, pgId: string } | null>(null);
+  const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; pgId: string } | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string } } | null>(null)
   
   // States for guest actions
@@ -202,9 +202,10 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   };
 
   const handleRoomSubmit = (values: z.infer<typeof roomSchema>) => {
-    const floorId = roomToEdit?.floorId || selectedFloorForRoomAdd;
-    if (!floorId) return;
-    const pg = pgs.find(p => p.floors?.some(f => f.id === floorId));
+    const floorId = roomToEdit?.floorId || selectedFloorForRoomAdd?.floorId;
+    const pgId = roomToEdit ? getPgById(roomToEdit.floorId)?.id : selectedFloorForRoomAdd?.pgId;
+    if (!floorId || !pgId) return;
+    const pg = pgs.find(p => p.id === pgId);
     if(!pg) return;
     const nextState = produce(pg, draft => {
         const floor = draft.floors?.find(f => f.id === floorId);
@@ -224,8 +225,9 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
     const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
-    if (!floorId || !roomId) return;
-    const pg = pgs.find(p => p.floors?.some(f => f.id === floorId));
+    const pgId = bedToEdit ? getPgById(bedToEdit.floorId)?.id : selectedRoomForBedAdd?.pgId;
+    if (!floorId || !roomId || !pgId) return;
+    const pg = pgs.find(p => p.id === pgId);
     if(!pg) return;
     const nextState = produce(pg, draft => {
       const room = draft.floors?.find(f => f.id === floorId)?.rooms.find(r => r.id === roomId);
@@ -295,9 +297,9 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   
   const openAddFloorDialog = (pg: PG) => { setFloorToEdit(null); setSelectedPgForFloorAdd(pg); setIsFloorDialogOpen(true); };
   const openEditFloorDialog = (floor: Floor) => { setFloorToEdit(floor); setIsFloorDialogOpen(true); };
-  const openAddRoomDialog = (floorId: string) => { setRoomToEdit(null); setSelectedFloorForRoomAdd(floorId); setIsRoomDialogOpen(true); };
+  const openAddRoomDialog = (floorId: string, pgId: string) => { setRoomToEdit(null); setSelectedFloorForRoomAdd({floorId, pgId}); setIsRoomDialogOpen(true); };
   const openEditRoomDialog = (room: Room, floorId: string) => { setRoomToEdit({room, floorId}); setIsRoomDialogOpen(true); };
-  const openAddBedDialog = (floorId: string, roomId: string) => { setBedToEdit(null); setSelectedRoomForBedAdd({floorId, roomId}); setIsBedDialogOpen(true); };
+  const openAddBedDialog = (floorId: string, roomId: string, pgId: string) => { setBedToEdit(null); setSelectedRoomForBedAdd({floorId, roomId, pgId}); setIsBedDialogOpen(true); };
   const openEditBedDialog = (bed: Bed, roomId: string, floorId: string) => { setBedToEdit({bed, roomId, floorId}); setIsBedDialogOpen(true); };
 
   return {
