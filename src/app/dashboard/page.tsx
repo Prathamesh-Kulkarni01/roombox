@@ -25,6 +25,16 @@ import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
 import AddPgSheet from "@/components/add-pg-sheet"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
+import { cn } from "@/lib/utils"
+
+const bedLegend: Record<string, { label: string, className: string }> = {
+    available: { label: 'Available', className: 'bg-yellow-200' },
+    occupied: { label: 'Occupied', className: 'bg-slate-200' },
+    'rent-pending': { label: 'Rent Pending', className: 'bg-red-300' },
+    'rent-partial': { label: 'Partial Payment', className: 'bg-orange-200' },
+    'notice-period': { label: 'Notice Period', className: 'bg-blue-200' },
+};
+
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
@@ -171,11 +181,20 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
         
-        <div className="flex flex-wrap items-center justify-end gap-4">
-          <div className="flex items-center space-x-2">
-              <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
-              <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch"/>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                <span className="font-semibold text-sm">Bed Legend:</span>
+                {Object.values(bedLegend).map(item => (
+                    <div key={item.label} className="flex items-center gap-2">
+                        <div className={cn("w-3 h-3 rounded-full", item.className)}></div>
+                        <span>{item.label}</span>
+                    </div>
+                ))}
+            </div>
+            <div className="flex items-center space-x-2">
+                <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
+                <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch"/>
+            </div>
         </div>
 
         {pgsToDisplay.map(pg => (
