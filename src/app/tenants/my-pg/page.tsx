@@ -5,12 +5,13 @@ import { useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck } from "lucide-react"
-import { format, differenceInDays } from "date-fns"
+import { format, differenceInDays, parseISO } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useMemo } from "react"
+import Link from "next/link"
 
 const rentStatusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-800 border-green-300',
@@ -56,13 +57,40 @@ export default function MyPgPage() {
 
     if (isLoading || !currentGuest || !currentPg) {
         return (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="lg:col-span-2 space-y-6">
-                    <Skeleton className="h-48 w-full" />
-                    <Skeleton className="h-32 w-full" />
+                    <Card>
+                        <CardHeader>
+                            <Skeleton className="h-8 w-3/4" />
+                            <Skeleton className="h-4 w-1/2" />
+                        </CardHeader>
+                        <CardContent className="grid md:grid-cols-2 gap-6">
+                            <Skeleton className="h-6 w-full" />
+                            <Skeleton className="h-6 w-full" />
+                            <Skeleton className="h-6 w-full" />
+                            <Skeleton className="h-6 w-full" />
+                        </CardContent>
+                    </Card>
+                    <Card>
+                         <CardHeader>
+                            <Skeleton className="h-7 w-1/3" />
+                         </CardHeader>
+                         <CardContent>
+                            <Skeleton className="h-14 w-full" />
+                         </CardContent>
+                    </Card>
                 </div>
                 <div className="lg:col-span-1 space-y-6">
-                     <Skeleton className="h-64 w-full" />
+                     <Card>
+                        <CardHeader><Skeleton className="h-7 w-1/2" /></CardHeader>
+                        <CardContent className="space-y-4">
+                            <Skeleton className="h-6 w-full" />
+                            <Skeleton className="h-6 w-full" />
+                            <Skeleton className="h-7 w-full" />
+                            <Skeleton className="h-6 w-full" />
+                        </CardContent>
+                        <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
+                     </Card>
                 </div>
             </div>
         )
@@ -108,13 +136,14 @@ export default function MyPgPage() {
                                     <p className="font-semibold">Your KYC is <span className="capitalize">{currentGuest.kycStatus}</span></p>
                                     <p className="text-xs text-muted-foreground">
                                         {currentGuest.kycStatus === 'verified' && "All documents are verified."}
-                                        {currentGuest.kycStatus === 'pending' && "Please submit your documents to the PG manager."}
+                                        {currentGuest.kycStatus === 'pending' && "Awaiting review by your PG manager."}
                                         {currentGuest.kycStatus === 'rejected' && "There was an issue with your documents. Please contact the manager."}
+                                        {currentGuest.kycStatus === 'not-started' && "Please submit your documents to the PG manager."}
                                     </p>
                                 </div>
                            </div>
                            {currentGuest.kycStatus !== 'verified' && (
-                                <Button>Upload Document</Button>
+                                <Button asChild><Link href="/tenants/kyc">Upload Document</Link></Button>
                            )}
                         </div>
                      </CardContent>

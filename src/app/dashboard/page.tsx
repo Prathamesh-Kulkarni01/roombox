@@ -114,11 +114,18 @@ export default function DashboardPage() {
             <Skeleton className="h-8 w-1/2" />
             <Skeleton className="h-5 w-3/4" />
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-40 w-full" />
+          <CardContent className="p-4 md:p-6 space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <div className="space-y-6 pl-4 border-l">
+                 <div className="space-y-4">
+                    <Skeleton className="h-8 w-1/3" />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                        <Skeleton className="aspect-square w-full rounded-lg" />
+                        <Skeleton className="aspect-square w-full rounded-lg" />
+                    </div>
+                </div>
             </div>
+             <Skeleton className="h-12 w-full" />
           </CardContent>
         </Card>
       </div>

@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, CheckCircle, FileUp, Loader2, RefreshCw, XCircle } from 'lucide-react';
+import Link from 'next/link';
 
 const kycStatusMeta = {
     'not-started': { text: 'Not Started', color: 'bg-gray-100 text-gray-800', icon: <></> },
@@ -26,7 +27,7 @@ const kycStatusMeta = {
 export default function KycPage() {
     const dispatch = useAppDispatch();
     const { toast } = useToast();
-    const { currentUser } = useAppSelector(state => state.user);
+    const { currentUser, currentPlan } = useAppSelector(state => state.user);
     const { guests } = useAppSelector(state => state.guests);
     const guest = guests.find(g => g.id === currentUser?.guestId);
 
@@ -97,7 +98,7 @@ export default function KycPage() {
         }
         setIsSubmitting(true);
         try {
-            await dispatch(updateGuestKyc({ aadhaarDataUri, photoDataUri })).unwrap();
+            await dispatch(updateGuestKyc({ aadhaarDataUri: aadhaarUri, photoDataUri: photoUri })).unwrap();
             toast({ title: 'KYC Submitted', description: 'Your documents are being processed.' });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your documents. Please try again.' });
@@ -107,7 +108,60 @@ export default function KycPage() {
     };
 
     if (!guest) {
-        return <div className="space-y-4"><Skeleton className="h-96 w-full" /><Skeleton className="h-48 w-full" /></div>;
+        return (
+             <div className="space-y-6">
+                <Card>
+                    <CardHeader>
+                        <Skeleton className="h-8 w-1/3" />
+                        <Skeleton className="h-4 w-2/3" />
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-12 w-full" />
+                    </CardContent>
+                </Card>
+                <Card>
+                     <CardHeader>
+                        <Skeleton className="h-8 w-1/2" />
+                        <Skeleton className="h-4 w-3/4" />
+                    </CardHeader>
+                    <CardContent className="grid md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Skeleton className="h-5 w-1/4" />
+                            <Skeleton className="w-full aspect-video rounded-md" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                        <div className="space-y-2">
+                             <Skeleton className="h-5 w-1/4" />
+                            <Skeleton className="w-full aspect-video rounded-md" />
+                            <Skeleton className="h-10 w-32" />
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Skeleton className="h-12 w-full" />
+                    </CardFooter>
+                </Card>
+             </div>
+        )
+    }
+    
+    if (currentPlan && !currentPlan.hasKycVerification) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>KYC Verification</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Alert>
+                        <AlertTitle>Feature Not Available</AlertTitle>
+                        <AlertDescription>
+                            This feature is not enabled by your PG owner. Please contact them for manual KYC verification.
+                             <br/><br/>
+                             <Button asChild><Link href="/tenants/my-pg">Go to Dashboard</Link></Button>
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
+        )
     }
 
     const isVerified = guest.kycStatus === 'verified';

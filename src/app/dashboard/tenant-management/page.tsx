@@ -31,7 +31,8 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
 const kycStatusColors: Record<Guest['kycStatus'], string> = {
   verified: 'bg-blue-100 text-blue-800',
   pending: 'bg-yellow-100 text-yellow-800',
-  rejected: 'bg-orange-100 text-orange-800'
+  rejected: 'bg-orange-100 text-orange-800',
+  'not-started': 'bg-gray-100 text-gray-800',
 };
 
 export default function GuestManagementPage() {
@@ -59,12 +60,31 @@ export default function GuestManagementPage() {
                         {/* Mobile skeleton */}
                         <div className="md:hidden space-y-4">
                         {Array.from({ length: 3 }).map((_, i) => (
-                            <Skeleton key={i} className="h-32 w-full rounded-lg" />
+                             <div key={i} className="p-4 border rounded-lg space-y-3">
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center gap-3">
+                                        <Skeleton className="h-10 w-10 rounded-full" />
+                                        <div className="space-y-1">
+                                            <Skeleton className="h-5 w-24" />
+                                            <Skeleton className="h-4 w-16" />
+                                        </div>
+                                    </div>
+                                    <Skeleton className="h-6 w-6" />
+                                </div>
+                                <div className="flex justify-between items-end">
+                                    <div className="space-y-2">
+                                        <Skeleton className="h-4 w-32" />
+                                        <Skeleton className="h-4 w-24" />
+                                    </div>
+                                    <Skeleton className="h-6 w-16 rounded-full" />
+                                </div>
+                            </div>
                         ))}
                         </div>
                         {/* Desktop skeleton */}
                         <div className="hidden md:block space-y-2">
-                           {Array.from({ length: 5 }).map((_, i) => (
+                            <Skeleton className="h-12 w-full rounded-md" />
+                           {Array.from({ length: 4 }).map((_, i) => (
                              <Skeleton key={i} className="h-12 w-full" />
                            ))}
                         </div>
@@ -209,7 +229,7 @@ export default function GuestManagementPage() {
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <ShieldCheck className="w-4 h-4 text-muted-foreground"/>
-                                                <span>KYC: <span className={cn("capitalize font-medium", kycStatusColors[guest.kycStatus].replace('bg-','text-'))}>{guest.kycStatus}</span></span>
+                                                <span>KYC: <span className={cn("capitalize font-medium", kycStatusColors[guest.kycStatus].replace('bg-','text-'))}>{guest.kycStatus.replace('-',' ')}</span></span>
                                             </div>
                                         </div>
                                         <Badge className={cn("capitalize border-transparent", rentStatusColors[guest.rentStatus])}>

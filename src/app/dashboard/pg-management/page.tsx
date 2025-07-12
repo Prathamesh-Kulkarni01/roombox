@@ -118,14 +118,14 @@ export default function PgManagementPage() {
                         {/* Mobile skeleton */}
                         <div className="md:hidden space-y-4">
                         {Array.from({ length: 3 }).map((_, i) => (
-                            <Skeleton key={i} className="h-28 w-full rounded-lg" />
+                            <Skeleton key={i} className="h-32 w-full rounded-lg" />
                         ))}
                         </div>
                         {/* Desktop skeleton */}
                         <div className="hidden md:block space-y-2">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                            <Skeleton key={i} className="h-12 w-full" />
-                        ))}
+                           <Skeleton className="h-12 w-full" />
+                           <Skeleton className="h-12 w-full" />
+                           <Skeleton className="h-12 w-full" />
                         </div>
                     </CardContent>
                 </Card>
