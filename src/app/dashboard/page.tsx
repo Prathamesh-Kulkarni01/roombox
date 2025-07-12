@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, IndianRupee, MessageSquareWarning, Users } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning } from "lucide-react"
 
 import { useDashboard } from '@/hooks/use-dashboard'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
@@ -72,9 +72,15 @@ export default function DashboardPage() {
     const totalBeds = pgsToDisplay.reduce((sum, pg) => sum + pg.totalBeds, 0);
     const monthlyRevenue = relevantGuests.filter(g => g.rentStatus === 'paid').reduce((sum, g) => sum + g.rentAmount, 0);
     const openComplaintsCount = relevantComplaints.filter(c => c.status === 'open').length;
+    
+    const pendingDues = relevantGuests
+      .filter(g => g.rentStatus === 'unpaid' || g.rentStatus === 'partial')
+      .reduce((sum, g) => sum + (g.rentAmount - (g.rentPaidAmount || 0)), 0);
+
     return [
       { title: "Occupancy", value: `${totalOccupancy}/${totalBeds}`, icon: Users },
-      { title: "Monthly Revenue", value: `₹${monthlyRevenue.toLocaleString('en-IN')}`, icon: IndianRupee },
+      { title: "Collected Rent", value: `₹${monthlyRevenue.toLocaleString('en-IN')}`, icon: IndianRupee },
+      { title: "Pending Dues", value: `₹${pendingDues.toLocaleString('en-IN')}`, icon: FileWarning },
       { title: "Open Complaints", value: openComplaintsCount, icon: MessageSquareWarning },
     ];
   }, [pgsToDisplay, guests, complaints, selectedPgId]);
@@ -96,7 +102,8 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Skeleton className="h-24 rounded-lg" />
           <Skeleton className="h-24 rounded-lg" />
           <Skeleton className="h-24 rounded-lg" />
           <Skeleton className="h-24 rounded-lg" />
