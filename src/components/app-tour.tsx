@@ -34,15 +34,8 @@ const onboardingSteps: Step[] = [
 
 const layoutTourSteps: Step[] = [
     {
-        target: '[data-tour="edit-mode-switch"]',
-        content: "Let's set up your property's layout. First, enable 'Edit Mode' to start adding floors and rooms.",
-        title: 'Configure Your Layout',
-        disableBeacon: true,
-        spotlightClicks: true,
-    },
-    {
         target: '[data-tour="add-floor-button"]',
-        content: 'Now that you are in Edit Mode, you can add your first floor. Click here to open the floor creation dialog.',
+        content: 'Your property needs a layout. Start by adding your first floor. Click here to open the floor creation dialog.',
         title: 'Step 1: Add a Floor',
         disableBeacon: true,
         spotlightClicks: true,

@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from 'next/link'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, Home, IndianRupee, MessageSquareWarning, Users } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users } from "lucide-react"
 
 import { useDashboard } from '@/hooks/use-dashboard'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
@@ -24,6 +24,7 @@ import BedDialog from '@/components/dashboard/dialogs/BedDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
 import AddPgSheet from "@/components/add-pg-sheet"
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
@@ -38,6 +39,26 @@ export default function DashboardPage() {
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
   const router = useRouter();
 
+  const {
+    isEditMode, setIsEditMode,
+    isAddGuestDialogOpen, setIsAddGuestDialogOpen,
+    isFloorDialogOpen, setIsFloorDialogOpen,
+    isRoomDialogOpen, setIsRoomDialogOpen,
+    isBedDialogOpen, setIsBedDialogOpen,
+    isPaymentDialogOpen, setIsPaymentDialogOpen,
+    isReminderDialogOpen, setIsReminderDialogOpen,
+    itemToDelete, setItemToDelete,
+    ...dashboardActions
+  } = useDashboard({ pgs, guests });
+
+  // Auto-enable edit mode if a PG exists but has no layout
+  useEffect(() => {
+    const hasPgs = pgs.length > 0;
+    const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
+    if (!isLoading && hasPgs && !hasLayout) {
+        setIsEditMode(true);
+    }
+  }, [pgs, isLoading, setIsEditMode]);
 
   const pgsToDisplay = useMemo(() => {
     isFirstAvailableBedFound.current = false;
@@ -58,8 +79,6 @@ export default function DashboardPage() {
     ];
   }, [pgsToDisplay, guests, complaints, selectedPgId]);
   
-  const dashboardActions = useDashboard({ pgs, guests, complaints });
-
   const handleSheetOpenChange = (open: boolean) => {
       setIsAddPgSheetOpen(open);
       if (!open && pgs.length === 0) {
@@ -67,11 +86,12 @@ export default function DashboardPage() {
       }
   }
 
-  const shouldShowLayoutPrompt = useMemo(() => {
-    if (!pgs || pgs.length === 0) return false;
-    const hasLayout = pgs.some(p => p.totalBeds > 0);
-    return tour.hasCompletedOnboarding && !tour.hasCompletedLayout && !hasLayout;
-  }, [pgs, tour]);
+  const handleDeleteConfirm = () => {
+    if (itemToDelete) {
+      dashboardActions.handleDelete(itemToDelete.type, itemToDelete.ids);
+      setItemToDelete(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -111,7 +131,7 @@ export default function DashboardPage() {
         <AddPgSheet
           open={isAddPgSheetOpen}
           onOpenChange={handleSheetOpenChange}
-          onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}?setup=true`)}
+          onPgAdded={(pgId) => { /* No redirect here anymore */ }}
         />
         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-250px)] text-center p-8 bg-card border rounded-lg">
           <Building className="mx-auto h-16 w-16 text-muted-foreground" />
@@ -123,7 +143,7 @@ export default function DashboardPage() {
             data-tour="add-first-pg-button" 
             onClick={() => {
                 setIsAddPgSheetOpen(true);
-                dispatch(setTourStepIndex(2));
+                dispatch(setTourStepIndex(1));
             }} 
             className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground"
           >
@@ -140,43 +160,51 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center justify-end gap-4">
           <div className="flex items-center space-x-2">
               <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
-              <Switch id="edit-mode" checked={dashboardActions.isEditMode} onCheckedChange={dashboardActions.setIsEditMode} />
+              <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch"/>
           </div>
         </div>
         
         <StatsCards stats={stats} />
 
-        {shouldShowLayoutPrompt && (
-             <Card className="bg-primary/10 border-primary/20">
-                <CardHeader>
-                    <CardTitle>Next Step: Configure Your Property Layout</CardTitle>
-                    <CardDescription>You've added a property! Now, let's set up its floors, rooms, and beds to start managing occupancy.</CardDescription>
-                </CardHeader>
-                <CardFooter>
-                    <Button asChild>
-                        <Link href={`/dashboard/pg-management/${pgs[0].id}`}>Configure {pgs[0].name}</Link>
-                    </Button>
-                </CardFooter>
-            </Card>
-        )}
-
         {pgsToDisplay.map(pg => (
           <PgLayout 
             key={pg.id} 
             pg={pg} 
-            {...dashboardActions} 
+            isEditMode={isEditMode}
             isFirstAvailableBedFound={isFirstAvailableBedFound}
+            setItemToDelete={setItemToDelete}
+            {...dashboardActions}
           />
         ))}
       </div>
       
       {/* DIALOGS */}
-      <AddGuestDialog {...dashboardActions} />
-      <FloorDialog {...dashboardActions} />
-      <RoomDialog {...dashboardActions} />
-      <BedDialog {...dashboardActions} />
-      <PaymentDialog {...dashboardActions} />
-      <ReminderDialog {...dashboardActions} />
+      <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
+      <FloorDialog isFloorDialogOpen={isFloorDialogOpen} setIsFloorDialogOpen={setIsFloorDialogOpen} {...dashboardActions}/>
+      <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} {...dashboardActions} />
+      <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} {...dashboardActions} />
+      <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} {...dashboardActions} />
+      <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} {...dashboardActions}/>
+    
+      <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the {itemToDelete?.type} and all items inside it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleDeleteConfirm}
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
