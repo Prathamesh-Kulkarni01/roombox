@@ -35,12 +35,12 @@ export default function DashboardPage() {
   }));
 
   const { isLoading, selectedPgId, tour } = useAppSelector(state => state.app);
+  const [isEditMode, setIsEditMode] = useState(false)
   const isFirstAvailableBedFound = useRef(false);
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
   const router = useRouter();
 
   const {
-    isEditMode, setIsEditMode,
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
     isFloorDialogOpen, setIsFloorDialogOpen,
     isRoomDialogOpen, setIsRoomDialogOpen,
@@ -58,7 +58,7 @@ export default function DashboardPage() {
     if (!isLoading && hasPgs && !hasLayout) {
         setIsEditMode(true);
     }
-  }, [pgs, isLoading, setIsEditMode]);
+  }, [pgs, isLoading]);
 
   const pgsToDisplay = useMemo(() => {
     isFirstAvailableBedFound.current = false;
