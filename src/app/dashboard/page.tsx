@@ -112,12 +112,7 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Skeleton className="h-24 rounded-lg" />
-          <Skeleton className="h-24 rounded-lg" />
-          <Skeleton className="h-24 rounded-lg" />
-          <Skeleton className="h-24 rounded-lg" />
-        </div>
+        <StatsCards stats={[]} /> 
         <div className="flex justify-end">
             <div className="flex items-center space-x-2">
                 <Skeleton className="h-5 w-20 rounded-md" />
