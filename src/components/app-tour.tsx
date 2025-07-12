@@ -1,161 +1,155 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
-import Joyride, { type CallBackProps, type Step, STATUS, EVENTS, ACTIONS } from 'react-joyride'
+import { useEffect } from 'react'
+import { TourProvider, useTour, type StepType } from '@reactour/tour'
+import Popover from '@reactour/popover'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { setTourStepIndex, endOnboardingTour, endLayoutTour } from '@/lib/slices/appSlice'
+import { endOnboardingTour, endLayoutTour, setTourStepIndex } from '@/lib/slices/appSlice'
 import { usePathname } from 'next/navigation'
+import { Button } from './ui/button'
 
-const onboardingSteps: Step[] = [
+const onboardingSteps: StepType[] = [
   {
+    selector: 'body',
     content: "Welcome to RoomBox! Let's get you set up by adding your first property.",
-    locale: { skip: <strong aria-label="skip">Skip Tour</strong> },
-    placement: 'center',
-    target: 'body',
-    title: 'Welcome!',
-    disableBeacon: true,
   },
   {
-    target: '[data-tour="add-first-pg-button"]',
+    selector: '[data-tour="add-first-pg-button"]',
     content: 'Click here to add your first property. A form will open from the side.',
-    title: 'Add Your First Property',
-    disableBeacon: true,
-    hideFooter: true,
   },
   {
-    target: '[data-tour="add-pg-sheet-content"]',
+    selector: '[data-tour="add-pg-sheet-content"]',
     content: 'Now, fill in the basic details for your property. When you click "Add Property", the tour will continue to help you set up its layout.',
-    title: 'Property Details',
-    disableBeacon: true,
-    placement: 'left',
+    position: 'left',
   }
 ];
 
-const layoutTourSteps: Step[] = [
+const layoutTourSteps: StepType[] = [
     {
-        target: '[data-tour="add-floor-button"]',
+        selector: '[data-tour="add-floor-button"]',
         content: 'Your property needs a layout. Start by adding your first floor. Click here to open the floor creation dialog.',
-        title: 'Step 1: Add a Floor',
-        disableBeacon: true,
-        spotlightClicks: true,
     },
     {
-        target: '[data-tour="add-room-button"]',
+        selector: '[data-tour="add-room-button"]',
         content: 'Great! Add a room to this floor. This will let you set its sharing type and rent.',
-        title: 'Step 2: Add a Room',
-        disableBeacon: true,
-        spotlightClicks: true,
     },
     {
-        target: '[data-tour="add-bed-button"]',
+        selector: '[data-tour="add-bed-button"]',
         content: "Almost done. Add a bed to the room. You can add multiple beds for different sharing types.",
-        title: 'Step 3: Add a Bed',
-        disableBeacon: true,
-        spotlightClicks: true,
     },
     {
-        target: '[data-tour="edit-mode-switch"]',
-        content: "Perfect! Your layout is ready. Disable 'Edit Mode' now to see the occupancy view and manage guests.",
-        title: "Step 4: You're All Set!",
-        disableBeacon: true,
-        spotlightClicks: true,
-    },
-    {
-        target: '[data-tour="add-guest-on-bed"]',
-        content: "To add a guest, just click any available bed. That's it! You've completed the main setup.",
-        title: 'Final Step: Add Your First Guest',
-        disableBeacon: true,
-        spotlightClicks: false, // Don't force this click, just inform.
+        selector: '[data-tour="add-guest-on-bed"]',
+        content: "Perfect! Your layout is ready. To add a guest, just click any available bed. That's it! You've completed the main setup.",
     },
 ];
 
-
-export default function AppTour() {
+function TourLogic() {
     const dispatch = useAppDispatch();
     const { pgs } = useAppSelector(state => state.pgs);
     const { tour, tourStepIndex } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
-    const [steps, setSteps] = useState<Step[]>([]);
-    const [runTour, setRunTour] = useState(false);
-    const [activeTour, setActiveTour] = useState<'onboarding' | 'layout' | null>(null);
     const pathname = usePathname();
+    const { setIsOpen, setSteps, setCurrentStep } = useTour();
 
-     useEffect(() => {
+    useEffect(() => {
         if (currentUser?.role !== 'owner') {
-            setRunTour(false);
+            setIsOpen(false);
             return;
         }
 
         const hasPgs = pgs.length > 0;
         const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
-        
         const isOnDashboard = pathname === '/dashboard';
-        
-        setRunTour(false);
 
-        // Tour 1: Onboarding for first PG
         if (!tour.hasCompletedOnboarding && !hasPgs && isOnDashboard) {
-            setActiveTour('onboarding');
             setSteps(onboardingSteps);
-            setRunTour(true);
-        } 
-        // Tour 2: Layout setup on Dashboard page
-        else if (tour.hasCompletedOnboarding && !tour.hasCompletedLayout && hasPgs && !hasLayout && isOnDashboard) {
-             setActiveTour('layout');
-             setSteps(layoutTourSteps);
-             setRunTour(true);
+            setIsOpen(true);
+            setCurrentStep(tourStepIndex);
+        } else if (tour.hasCompletedOnboarding && !tour.hasCompletedLayout && hasPgs && !hasLayout && isOnDashboard) {
+            setSteps(layoutTourSteps);
+            setIsOpen(true);
+            setCurrentStep(tourStepIndex);
         } else {
-            setActiveTour(null);
+            setIsOpen(false);
         }
-    }, [currentUser, pgs, tour, pathname]);
+    }, [currentUser, pgs, tour, pathname, setIsOpen, setSteps, setCurrentStep, tourStepIndex]);
 
+    return null;
+}
 
-    const handleJoyrideCallback = (data: CallBackProps) => {
-        const { action, index, status, type } = data;
+const CustomPopover = (props: any) => (
+  <Popover {...props}>
+    {(popoverProps) => (
+      <div
+        {...popoverProps}
+        className="rounded-lg border bg-popover text-popover-foreground p-6 shadow-lg max-w-sm w-full"
+      >
+        <h3 className="text-lg font-semibold mb-2">{props.steps[props.currentStep].title || 'RoomBox Tour'}</h3>
+        <p className="text-sm text-muted-foreground mb-4">{props.steps[props.currentStep].content}</p>
+        <div className="flex justify-between items-center">
+            <div>
+              {props.currentStep > 0 && (
+                  <Button variant="ghost" onClick={props.prevStep}>Back</Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{props.currentStep + 1} / {props.steps.length}</span>
+                {props.currentStep < props.steps.length - 1 && (
+                  <Button onClick={props.nextStep}>Next</Button>
+                )}
+                {props.currentStep === props.steps.length - 1 && (
+                  <Button onClick={() => props.setIsOpen(false)}>Finish</Button>
+                )}
+            </div>
+        </div>
+      </div>
+    )}
+  </Popover>
+);
 
-        if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
-            setRunTour(false);
-            dispatch(setTourStepIndex(0));
-            if (activeTour === 'onboarding') {
-                dispatch(endOnboardingTour());
-            } else if (activeTour === 'layout') {
-                dispatch(endLayoutTour());
-            }
-            return;
-        }
+export default function AppTour() {
+    const dispatch = useAppDispatch();
+    const { tour, tourStepIndex } = useAppSelector(state => state.app);
+    const { pgs } = useAppSelector(state => state.pgs);
 
-        if (type === EVENTS.STEP_AFTER) {
-            const nextStep = index + (action === ACTIONS.PREV ? -1 : 1);
-            dispatch(setTourStepIndex(nextStep));
-        }
-    };
+    const hasPgs = pgs.length > 0;
+    const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
 
-    if (!runTour) {
-        return null;
+    const afterOpen = (target: Element | undefined) => {
+      if(target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
+    const beforeClose = (target: Element | undefined) => {
+        if (!tour.hasCompletedOnboarding && !hasPgs) {
+            dispatch(endOnboardingTour());
+        }
+        if (tour.hasCompletedOnboarding && !tour.hasCompletedLayout && hasPgs && !hasLayout) {
+             dispatch(endLayoutTour());
+        }
+        dispatch(setTourStepIndex(0));
+    }
+    
     return (
-        <Joyride
-            steps={steps}
-            run={runTour}
-            stepIndex={tourStepIndex}
-            showProgress
-            showSkipButton
-            continuous
-            disableOverlayClose
-            spotlightClicks
-            callback={handleJoyrideCallback}
+        <TourProvider
+            steps={[]}
+            components={{ Popover: CustomPopover }}
             styles={{
-                options: {
-                    zIndex: 10000,
-                    arrowColor: 'hsl(var(--popover))',
-                    overlayColor: 'rgba(0, 0, 0, 0.6)',
-                },
-                 spotlight: {
-                    borderRadius: 'var(--radius)',
-                }
+                popover: (base) => ({ ...base, boxShadow: 'none', background: 'transparent' }),
+                maskWrapper: (base) => ({ ...base, zIndex: 10000, opacity: 0.8 }),
+                highlightedArea: (base) => ({ ...base, rx: 12 }),
             }}
-        />
+            padding={{ mask: 8, popover: 12 }}
+            onClickMask={({ setCurrentStep, currentStep, setIsOpen }) => {
+              // Don't allow closing by clicking mask
+            }}
+            afterOpen={afterOpen}
+            beforeClose={beforeClose}
+            onStepChange={(meta) => {
+                if(meta) dispatch(setTourStepIndex(meta.currentStep));
+            }}
+        >
+            <TourLogic />
+        </TourProvider>
     )
 }

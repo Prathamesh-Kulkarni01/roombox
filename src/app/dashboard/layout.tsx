@@ -7,7 +7,6 @@ import DashboardSidebar from "@/components/dashboard-sidebar";
 import DashboardBottomNav from "@/components/dashboard-bottom-nav";
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppSelector } from '@/lib/hooks';
-import AppTour from '@/components/app-tour';
 
 export default function DashboardLayout({
   children,
@@ -51,7 +50,6 @@ export default function DashboardLayout({
 
   return (
       <>
-        <AppTour />
         <div className="flex min-h-[calc(100vh-56px)]">
           <DashboardSidebar />
           <div className="flex flex-1 flex-col overflow-auto">

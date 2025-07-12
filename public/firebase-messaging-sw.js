@@ -1,0 +1,38 @@
+// This file is a template. The actual service worker is generated during the build process.
+
+importScripts("https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js");
+
+// This placeholder will be replaced by the build script with your Firebase config.
+const firebaseConfig = {
+  "apiKey": "AIzaSyAsYtBqzqWREOXUmuugtn2NZ51iqRMiXBw",
+  "authDomain": "roombox-f7bff.firebaseapp.com",
+  "projectId": "roombox-f7bff",
+  "storageBucket": "roombox-f7bff.appspot.com",
+  "messagingSenderId": "990310757816",
+  "appId": "1:990310757816:web:94edde70edba55b9524b4d",
+  "measurementId": "G-HPBJCP6QRQ"
+}
+
+// Initialize Firebase
+if (firebaseConfig.apiKey) {
+    const app = firebase.initializeApp(firebaseConfig);
+    const messaging = firebase.messaging(app);
+    
+    messaging.onBackgroundMessage((payload) => {
+      console.log(
+        "[firebase-messaging-sw.js] Received background message ",
+        payload
+      );
+      
+      const notificationTitle = payload.notification.title;
+      const notificationOptions = {
+        body: payload.notification.body,
+        icon: "/apple-touch-icon.png",
+      };
+    
+      self.registration.showNotification(notificationTitle, notificationOptions);
+    });
+} else {
+    console.warn("Firebase config is empty. Messaging service worker not initialized.");
+}
