@@ -88,7 +88,7 @@ export default function BedCard(props: BedCardProps) {
             </Popover>
           );
         })}
-        {isEditMode && (<button data-tour="add-bed-button" onClick={() => openAddBedDialog(floor.id, room.id)} className="min-h-[110px] w-full flex flex-col items-center justify-center p-2 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-6 h-6 mb-1" /><span className="text-sm font-medium text-center">Add Bed</span></button>)}
+        {isEditMode && (<button data-tour="add-bed-button" onClick={() => openAddBedDialog(floor.id, room.id, pg.id)} className="min-h-[110px] w-full flex flex-col items-center justify-center p-2 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-6 h-6 mb-1" /><span className="text-sm font-medium text-center">Add Bed</span></button>)}
       </div>
     </>
   )
