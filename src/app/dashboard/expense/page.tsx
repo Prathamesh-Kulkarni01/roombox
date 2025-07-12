@@ -119,6 +119,7 @@ export default function ExpensePage() {
             date: format(new Date(), 'yyyy-MM-dd'),
             category: item.category,
             description: item.description,
+            amount: undefined,
             pgId: defaultPgId,
         })
         setIsDialogOpen(true)
@@ -129,6 +130,9 @@ export default function ExpensePage() {
        form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),
             pgId: defaultPgId,
+            category: undefined,
+            amount: undefined,
+            description: '',
         });
         setIsDialogOpen(true);
     }
@@ -215,7 +219,7 @@ export default function ExpensePage() {
     const stats = [
         { title: "Total Expenses (This Month)", value: totalExpenses, icon: Wallet },
         { title: "Food Expenses (This Month)", value: foodExpenses, icon: UtensilsCrossed },
-        { title: "Other Expenses (This Month)", value: Wrench },
+        { title: "Other Expenses (This Month)", value: otherExpenses, icon: Wrench },
     ]
 
     return (
