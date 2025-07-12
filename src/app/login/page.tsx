@@ -12,8 +12,8 @@ import { Separator } from "@/components/ui/separator"
 import { GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { Loader2 } from 'lucide-react'
-import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { initializeUser } from '@/lib/slices/userSlice'
+import { useAppSelector } from '@/lib/hooks'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
   <svg role="img" viewBox="0 0 24 24" {...props}>
@@ -26,12 +26,11 @@ const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
 
 export default function LoginPage() {
   const router = useRouter()
-  const dispatch = useAppDispatch()
-  const { appLoading, currentUser } = useAppSelector((state) => ({
-    appLoading: state.app.isLoading,
+  const { toast } = useToast()
+  const { isLoading: appLoading, currentUser } = useAppSelector((state) => ({
+    isLoading: state.app.isLoading,
     currentUser: state.user.currentUser,
   }));
-  const { toast } = useToast()
 
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [email, setEmail] = useState('')
@@ -52,8 +51,25 @@ export default function LoginPage() {
 
   if (appLoading || currentUser) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-56px)]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
+        <Card className="w-full max-w-sm">
+            <CardHeader className="text-center">
+                <Skeleton className="h-7 w-32 mx-auto" />
+                <Skeleton className="h-5 w-48 mx-auto mt-2" />
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid gap-2">
+                 <Skeleton className="h-5 w-16" />
+                 <Skeleton className="h-10 w-full" />
+              </div>
+              <Skeleton className="h-10 w-full" />
+              <div className="relative">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">OR</span></div>
+              </div>
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+        </Card>
       </div>
     );
   }
