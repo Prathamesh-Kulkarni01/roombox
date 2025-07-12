@@ -28,6 +28,7 @@ export interface Floor {
   id:string;
   name: string;
   rooms: Room[];
+  pgId: string;
 }
 
 export interface Meal {

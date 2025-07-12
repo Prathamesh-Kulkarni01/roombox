@@ -14,7 +14,7 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
 }
 
 export default function PgLayout(props: PgLayoutProps) {
-  const { pg, isEditMode, openAddFloorDialog, handleDelete, openEditFloorDialog, openAddRoomDialog } = props
+  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, openEditFloorDialog, openAddRoomDialog } = props
 
   return (
     <Card>
@@ -37,14 +37,14 @@ export default function PgLayout(props: PgLayoutProps) {
                   {isEditMode && (<button data-tour="add-room-button" onClick={() => openAddRoomDialog(floor.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>)}
                 </div>
                  <div className="mt-6 flex items-center gap-4">
-                    {isEditMode && (<Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { pgId: pg.id, floorId: floor.id }) }}><Trash2 className="mr-2 h-4 w-4" /> Delete {floor.name}</Button>)}
+                    {isEditMode && (<Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); setItemToDelete({ type: 'floor', ids: { pgId: pg.id, floorId: floor.id } }) }}><Trash2 className="mr-2 h-4 w-4" /> Delete {floor.name}</Button>)}
                     {isEditMode && (<Button variant="ghost" onClick={(e) => { e.stopPropagation(); openEditFloorDialog(floor) }}><Pencil className="mr-2 h-4 w-4" /> Edit {floor.name}</Button>)}
                  </div>
               </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
-        {isEditMode && (<button data-tour="add-floor-button" onClick={openAddFloorDialog} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>)}
+        {isEditMode && (<button data-tour="add-floor-button" onClick={() => openAddFloorDialog(pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>)}
         {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Enable 'Edit Mode' to build the layout.</div>)}
       </CardContent>
     </Card>

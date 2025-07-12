@@ -40,10 +40,9 @@ const paymentSchema = z.object({
 interface UseDashboardProps {
   pgs: PG[];
   guests: Guest[];
-  complaints: Complaint[];
 }
 
-export function useDashboard({ pgs }: UseDashboardProps) {
+export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const dispatch = useAppDispatch();
   const { toast } = useToast()
   const { currentPlan } = useAppSelector(state => state.user)
@@ -53,15 +52,16 @@ export function useDashboard({ pgs }: UseDashboardProps) {
   const [selectedBedForGuestAdd, setSelectedBedForGuestAdd] = useState<{ bed: Bed; room: Room; pg: PG } | null>(null);
   
   // States for layout editing
-  const [isEditMode, setIsEditMode] = useState(false);
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [isBedDialogOpen, setIsBedDialogOpen] = useState(false);
   const [floorToEdit, setFloorToEdit] = useState<Floor | null>(null);
   const [roomToEdit, setRoomToEdit] = useState<{ room: Room; floorId: string } | null>(null);
   const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null);
+  const [selectedPgForFloorAdd, setSelectedPgForFloorAdd] = useState<PG | null>(null);
   const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<string | null>(null);
   const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string } } | null>(null)
   
   // States for guest actions
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -184,7 +184,7 @@ export function useDashboard({ pgs }: UseDashboardProps) {
   const getPgById = (pgId: string) => pgs.find(p => p.id === pgId);
 
   const handleFloorSubmit = (values: z.infer<typeof floorSchema>) => {
-    const pg = getPgById(floorToEdit?.pgId || '');
+    const pg = floorToEdit ? getPgById(floorToEdit.pgId) : selectedPgForFloorAdd;
     if (!pg) return;
     const nextState = produce(pg, draft => {
       if (!draft.floors) draft.floors = [];
@@ -192,12 +192,13 @@ export function useDashboard({ pgs }: UseDashboardProps) {
         const floor = draft.floors.find(f => f.id === floorToEdit.id);
         if (floor) floor.name = values.name;
       } else {
-        draft.floors.push({ id: `floor-${new Date().getTime()}`, name: values.name, rooms: [] });
+        draft.floors.push({ id: `floor-${Date.now()}`, name: values.name, rooms: [], pgId: pg.id });
       }
     });
     dispatch(updatePgAction(nextState));
     setIsFloorDialogOpen(false);
     setFloorToEdit(null);
+    setSelectedPgForFloorAdd(null);
   };
 
   const handleRoomSubmit = (values: z.infer<typeof roomSchema>) => {
@@ -212,7 +213,7 @@ export function useDashboard({ pgs }: UseDashboardProps) {
             const room = floor.rooms.find(r => r.id === roomToEdit.room.id);
             if(room) { room.name = values.name; room.rent = values.rent; room.deposit = values.deposit; }
         } else {
-             floor.rooms.push({ id: `room-${new Date().getTime()}`, name: values.name, rent: values.rent, deposit: values.deposit, beds: [] });
+             floor.rooms.push({ id: `room-${Date.now()}`, name: values.name, rent: values.rent, deposit: values.deposit, beds: [] });
         }
     });
     dispatch(updatePgAction(nextState));
@@ -233,7 +234,7 @@ export function useDashboard({ pgs }: UseDashboardProps) {
         const bed = room.beds.find(b => b.id === bedToEdit.bed.id);
         if (bed) bed.name = values.name;
       } else {
-        room.beds.push({ id: `bed-${new Date().getTime()}`, name: values.name, guestId: null });
+        room.beds.push({ id: `bed-${Date.now()}`, name: values.name, guestId: null });
         draft.totalBeds = (draft.totalBeds || 0) + 1;
       }
     });
@@ -244,36 +245,55 @@ export function useDashboard({ pgs }: UseDashboardProps) {
 
   const handleDelete = (type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string }) => {
     const pg = getPgById(ids.pgId);
-    if (!pg || !confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
+    if (!pg) return;
 
+    const hasGuests = (beds: Bed[]): boolean => {
+        return beds.some(bed => guests.some(g => g.bedId === bed.id && !g.exitDate));
+    }
+    
     const nextState = produce(pg, draft => {
         const floorIndex = draft.floors?.findIndex(f => f.id === ids.floorId);
         if (floorIndex === undefined || floorIndex === -1 || !draft.floors) return;
+        
         const floor = draft.floors[floorIndex];
         if (type === 'floor') {
-            if (floor?.rooms.some(r => r.beds.some(b => b.guestId))) { alert("Cannot delete a floor with occupied rooms."); return; }
+            const floorHasGuests = floor.rooms.some(r => hasGuests(r.beds));
+            if (floorHasGuests) {
+                toast({ variant: 'destructive', title: "Cannot Delete", description: "This floor has occupied beds. Please vacate all guests first." });
+                return;
+            }
             draft.totalBeds -= floor?.rooms.reduce((acc, room) => acc + room.beds.length, 0) || 0;
             draft.floors.splice(floorIndex, 1);
         } else if (type === 'room' && ids.roomId) {
             const roomIndex = floor.rooms.findIndex(r => r.id === ids.roomId);
-            if (roomIndex === undefined || roomIndex === -1) return;
+            if (roomIndex === -1) return;
             const room = floor.rooms[roomIndex];
-            if (room?.beds.some(b => b.guestId)) { alert("Cannot delete a room with occupied beds."); return; }
+            if (hasGuests(room.beds)) {
+                 toast({ variant: 'destructive', title: "Cannot Delete", description: "This room has occupied beds. Please vacate all guests first." });
+                return;
+            }
             draft.totalBeds -= room?.beds.length || 0;
             floor.rooms.splice(roomIndex, 1);
         } else if (type === 'bed' && ids.roomId && ids.bedId) {
             const room = floor.rooms.find(r => r.id === ids.roomId);
-            const bedIndex = room?.beds.findIndex(b => b.id === ids.bedId);
-            if (bedIndex === undefined || bedIndex === -1 || !room) return;
-            if (room.beds[bedIndex].guestId) { alert("Cannot delete an occupied bed."); return; }
+            if (!room) return;
+            const bedIndex = room.beds.findIndex(b => b.id === ids.bedId);
+            if (bedIndex === -1) return;
+            if (room.beds[bedIndex].guestId) {
+                 toast({ variant: 'destructive', title: "Cannot Delete", description: "This bed is occupied. Please vacate the guest first." });
+                return;
+            }
             room.beds.splice(bedIndex, 1);
             draft.totalBeds -= 1;
         }
     });
-    dispatch(updatePgAction(nextState));
+
+    if(JSON.stringify(pg) !== JSON.stringify(nextState)) {
+        dispatch(updatePgAction(nextState));
+    }
   };
   
-  const openAddFloorDialog = () => { setFloorToEdit(null); setIsFloorDialogOpen(true); };
+  const openAddFloorDialog = (pg: PG) => { setFloorToEdit(null); setSelectedPgForFloorAdd(pg); setIsFloorDialogOpen(true); };
   const openEditFloorDialog = (floor: Floor) => { setFloorToEdit(floor); setIsFloorDialogOpen(true); };
   const openAddRoomDialog = (floorId: string) => { setRoomToEdit(null); setSelectedFloorForRoomAdd(floorId); setIsRoomDialogOpen(true); };
   const openEditRoomDialog = (room: Room, floorId: string) => { setRoomToEdit({room, floorId}); setIsRoomDialogOpen(true); };
@@ -281,7 +301,6 @@ export function useDashboard({ pgs }: UseDashboardProps) {
   const openEditBedDialog = (bed: Bed, roomId: string, floorId: string) => { setBedToEdit({bed, roomId, floorId}); setIsBedDialogOpen(true); };
 
   return {
-    isEditMode, setIsEditMode,
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
     isFloorDialogOpen, setIsFloorDialogOpen,
     isRoomDialogOpen, setIsRoomDialogOpen,
@@ -296,6 +315,7 @@ export function useDashboard({ pgs }: UseDashboardProps) {
     selectedGuestForReminder,
     reminderMessage,
     isGeneratingReminder,
+    itemToDelete, setItemToDelete,
     addGuestForm,
     floorForm,
     roomForm,
