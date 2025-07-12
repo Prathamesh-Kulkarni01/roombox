@@ -4,6 +4,7 @@
 import { useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck } from "lucide-react"
 import { format, differenceInDays, parseISO } from "date-fns"
 import { Button } from "@/components/ui/button"
@@ -116,10 +117,11 @@ export default function MyPgPage() {
                     </CardContent>
                     {currentGuest.exitDate && (
                          <CardFooter>
-                            <div className="p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-800 text-sm w-full">
-                                <p className="font-semibold flex items-center gap-2"><AlertCircle /> Notice Period Active</p>
-                                <p>Your final day to vacate is <span className="font-bold">{format(new Date(currentGuest.exitDate), "do MMMM, yyyy")}</span>.</p>
-                            </div>
+                             <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200 w-full">
+                                <AlertCircle className="text-blue-600 dark:text-blue-400" />
+                                <AlertTitle className="font-semibold">Notice Period Active</AlertTitle>
+                                <AlertDescription>Your final day to vacate is <span className="font-bold">{format(new Date(currentGuest.exitDate), "do MMMM, yyyy")}</span>.</AlertDescription>
+                            </Alert>
                         </CardFooter>
                     )}
                 </Card>

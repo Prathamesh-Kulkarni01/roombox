@@ -215,7 +215,7 @@ export default function ExpensePage() {
     const stats = [
         { title: "Total Expenses (This Month)", value: totalExpenses, icon: Wallet },
         { title: "Food Expenses (This Month)", value: foodExpenses, icon: UtensilsCrossed },
-        { title: "Other Expenses (This Month)", value: otherExpenses, icon: Wrench },
+        { title: "Other Expenses (This Month)", value: Wrench },
     ]
 
     return (
@@ -248,7 +248,7 @@ export default function ExpensePage() {
                         <button
                             key={item.label}
                             onClick={() => handleQuickAdd(item)}
-                            className="flex flex-col items-center justify-center gap-2 p-4 border rounded-lg bg-card hover:bg-muted/50 transition-colors text-center"
+                            className="flex flex-col items-center justify-center gap-2 p-4 border rounded-lg bg-card hover:bg-muted/50 dark:hover:bg-muted/20 transition-colors text-center"
                         >
                             <item.icon className="w-6 h-6 text-primary" />
                             <span className="text-sm font-medium">{item.label}</span>
@@ -306,7 +306,7 @@ export default function ExpensePage() {
                         {filteredExpenses.slice(0, 10).map((expense) => {
                             const meta = categoryMeta[expense.category]
                             return (
-                                <div key={expense.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
+                                <div key={expense.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20 dark:bg-muted/40">
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="font-bold truncate max-w-[200px]">{expense.description}</p>

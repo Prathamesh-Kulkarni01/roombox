@@ -71,7 +71,7 @@ export default function TenantFoodPage() {
                         {days.map(day => (
                              <TabsContent key={day.key} value={day.key}>
                                 <div className="grid gap-6 mt-6 md:grid-cols-3">
-                                    <Card className="bg-muted/30">
+                                    <Card className="bg-muted/30 dark:bg-muted/20">
                                         <CardHeader>
                                             <CardTitle className="text-lg">Breakfast</CardTitle>
                                             <CardDescription>8:00 AM - 10:00 AM</CardDescription>
@@ -80,7 +80,7 @@ export default function TenantFoodPage() {
                                             <p className="font-medium">{menu[day.key]?.breakfast || 'Not set'}</p>
                                         </CardContent>
                                     </Card>
-                                     <Card className="bg-muted/30">
+                                     <Card className="bg-muted/30 dark:bg-muted/20">
                                         <CardHeader>
                                             <CardTitle className="text-lg">Lunch</CardTitle>
                                             <CardDescription>12:30 PM - 2:30 PM</CardDescription>
@@ -89,7 +89,7 @@ export default function TenantFoodPage() {
                                             <p className="font-medium">{menu[day.key]?.lunch || 'Not set'}</p>
                                         </CardContent>
                                     </Card>
-                                     <Card className="bg-muted/30">
+                                     <Card className="bg-muted/30 dark:bg-muted/20">
                                         <CardHeader>
                                             <CardTitle className="text-lg">Dinner</CardTitle>
                                             <CardDescription>8:00 PM - 10:00 PM</CardDescription>

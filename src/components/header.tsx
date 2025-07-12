@@ -14,6 +14,7 @@ import InstallPWA from './install-pwa';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { setSelectedPgId } from '@/lib/slices/appSlice';
+import { ThemeToggle } from './theme-toggle';
 
 const navLinks = [
   { href: '/', label: 'Home', roles: ['all'] },
@@ -95,6 +96,7 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {currentUser && (isDashboard || isTenantDashboard) && <NotificationsPopover />}
            {pathname === '/' && (
             <div className="hidden md:flex">

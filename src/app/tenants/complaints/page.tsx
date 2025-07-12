@@ -127,7 +127,7 @@ export default function TenantComplaintsPage() {
                                 </div>
                                 <p className="text-sm text-muted-foreground">{c.description}</p>
                             </CardContent>
-                            <CardFooter className="bg-muted/40 p-2 flex justify-end gap-2">
+                            <CardFooter className="bg-muted/40 dark:bg-muted/20 p-2 flex justify-end gap-2">
                                 <Button variant="ghost" size="sm" onClick={() => handleUpvote(c)} disabled={c.guestId === currentGuest?.id || c.status === 'resolved'}>
                                     <ThumbsUp className="mr-2"/> Upvote {c.upvotes && c.upvotes > 0 ? `(${c.upvotes})` : ''}
                                 </Button>

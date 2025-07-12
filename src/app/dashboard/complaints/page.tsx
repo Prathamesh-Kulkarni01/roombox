@@ -138,7 +138,7 @@ export default function ComplaintsDashboardPage() {
                         {/* Mobile Card View */}
                         <div className="md:hidden grid gap-4">
                             {filteredComplaints.map((complaint) => (
-                                <div key={complaint.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
+                                <div key={complaint.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20 dark:bg-muted/40">
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="font-bold">{complaint.guestName}</p>
