@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2 } from "lucide-react"
 
 import { useDashboard } from '@/hooks/use-dashboard'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
@@ -112,7 +112,19 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <StatsCards stats={[]} /> 
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-4 w-4" />
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0">
+                        <Skeleton className="h-7 w-1/2" />
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
         <div className="flex justify-end">
             <div className="flex items-center space-x-2">
                 <Skeleton className="h-5 w-20 rounded-md" />
@@ -148,7 +160,7 @@ export default function DashboardPage() {
         <AddPgSheet
           open={isAddPgSheetOpen}
           onOpenChange={handleSheetOpenChange}
-          onPgAdded={(pgId) => { /* No redirect here anymore */ }}
+          onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
         />
         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-250px)] text-center p-8 bg-card border rounded-lg">
           <Building className="mx-auto h-16 w-16 text-muted-foreground" />
