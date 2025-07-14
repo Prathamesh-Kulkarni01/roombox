@@ -139,13 +139,13 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       if (!selectedGuestForPayment) return;
       const guest = selectedGuestForPayment;
       const newTotalPaid = (guest.rentPaidAmount || 0) + values.amountPaid;
-      let updatedGuest: Guest;
+      let updatedGuestData: Guest;
       if (newTotalPaid >= guest.rentAmount) {
-          updatedGuest = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(guest.dueDate), 1), 'yyyy-MM-dd') };
+          updatedGuestData = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(guest.dueDate), 1), 'yyyy-MM-dd') };
       } else {
-          updatedGuest = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid };
+          updatedGuestData = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid };
       }
-      dispatch(updateGuestAction({updatedGuest}));
+      dispatch(updateGuestAction({updatedGuest: updatedGuestData}));
       setIsPaymentDialogOpen(false);
       setSelectedGuestForPayment(null);
   };
@@ -337,7 +337,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleAddGuestSubmit,
     handleOpenPaymentDialog,
     handlePaymentSubmit,
-    setGuestToInitiateExit,
     handleOpenReminderDialog,
     handleFloorSubmit,
     handleRoomSubmit,

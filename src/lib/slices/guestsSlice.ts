@@ -1,5 +1,4 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, PG } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
@@ -206,6 +205,44 @@ export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootSt
     }
 );
 
+export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { state: RootState }>(
+    'guests/vacateGuest',
+    async (guestId, { getState, rejectWithValue }) => {
+        const { user, guests, pgs } = getState();
+        const guest = guests.guests.find(g => g.id === guestId);
+        if (!user.currentUser || !guest) return rejectWithValue('User or guest not found');
+
+        const pg = pgs.pgs.find(p => p.id === guest.pgId);
+        if (!pg) return rejectWithValue('PG not found for guest');
+
+        const updatedPg = produce(pg, draft => {
+            draft.occupancy = Math.max(0, draft.occupancy - 1);
+            for (const floor of draft.floors || []) {
+                for (const room of floor.rooms) {
+                    const bed = room.beds.find(b => b.guestId === guestId);
+                    if (bed) {
+                        bed.guestId = null;
+                        break;
+                    }
+                }
+            }
+        });
+        
+        const updatedGuest = { ...guest, exitDate: new Date().toISOString(), isVacated: true };
+
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const batch = writeBatch(db);
+            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guestId);
+            const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
+            batch.set(guestDocRef, updatedGuest); // Overwrite with vacated status
+            batch.set(pgDocRef, updatedPg);
+            await batch.commit();
+        }
+
+        return { guest: updatedGuest, pg: updatedPg };
+    }
+);
+
 const guestsSlice = createSlice({
     name: 'guests',
     initialState,
@@ -239,6 +276,10 @@ const guestsSlice = createSlice({
                 if (index !== -1) {
                     state.guests[index] = action.payload;
                 }
+            })
+            .addCase(vacateGuest.fulfilled, (state, action) => {
+                // Remove guest from the list as they are now vacated
+                state.guests = state.guests.filter(g => g.id !== action.payload.guest.id);
             })
             .addCase('pgs/deletePg/fulfilled', (state, action) => {
                 state.guests = state.guests.filter(g => g.pgId !== action.payload);

@@ -88,6 +88,7 @@ export interface Guest {
   noticePeriodDays: number;
   exitDate?: string;
   userId?: string;
+  isVacated?: boolean;
 }
 
 export interface Complaint {

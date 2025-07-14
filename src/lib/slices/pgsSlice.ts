@@ -136,7 +136,6 @@ const pgsSlice = createSlice({
                 }
             })
             .addCase('guests/vacateGuest/fulfilled', (state, action: PayloadAction<{ guest: Guest, pg: PG }>) => {
-                if (!action.payload.pg) return;
                 const { pg } = action.payload;
                 const index = state.pgs.findIndex(p => p.id === pg.id);
                 if (index !== -1) {
