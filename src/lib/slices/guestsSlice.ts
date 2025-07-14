@@ -150,9 +150,9 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
 );
 
 
-export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, Guest, { state: RootState }>(
+export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, { updatedGuest: Guest, updatedPg?: PG }, { state: RootState }>(
     'guests/updateGuest',
-    async (updatedGuest, { getState, dispatch, rejectWithValue }) => {
+    async ({ updatedGuest, updatedPg }, { getState, dispatch, rejectWithValue }) => {
         const { user, guests, pgs } = getState();
         const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
         if (!user.currentUser || !originalGuest) return rejectWithValue('No user or original guest');
@@ -168,24 +168,6 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
             }));
         }
         
-        // Handle vacating a bed
-        let updatedPg: PG | undefined = undefined;
-        const isVacating = !!updatedGuest.exitDate && !originalGuest.exitDate;
-        if(isVacating) {
-            const pg = pgs.pgs.find(p => p.id === updatedGuest.pgId);
-            if(pg) {
-                updatedPg = produce(pg, draft => {
-                    draft.occupancy = Math.max(0, draft.occupancy - 1);
-                    const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.guestId === updatedGuest.id)));
-                    const room = floor?.rooms.find(r => r.beds.some(b => b.guestId === updatedGuest.id));
-                    const bed = room?.beds.find(b => b.guestId === updatedGuest.id);
-                    if (bed) {
-                        bed.guestId = null;
-                    }
-                });
-            }
-        }
-
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);

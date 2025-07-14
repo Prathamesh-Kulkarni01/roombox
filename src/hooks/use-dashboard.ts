@@ -43,7 +43,7 @@ interface UseDashboardProps {
 }
 
 export function useDashboard({ pgs, guests }: UseDashboardProps) {
-  const dispatch = useAppDispatch();
+  const dispatch = useAppAppDispatch();
   const { toast } = useToast()
   const { currentPlan } = useAppSelector(state => state.user)
   
@@ -142,18 +142,31 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       } else {
           updatedGuest = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid };
       }
-      dispatch(updateGuestAction(updatedGuest));
+      dispatch(updateGuestAction({updatedGuest}));
       setIsPaymentDialogOpen(false);
       setSelectedGuestForPayment(null);
   };
 
   const handleVacateBed = (guest: Guest) => {
     if (!guest || guest.exitDate) return;
-    if (confirm(`Are you sure you want to initiate the exit process for ${guest.name}? This cannot be undone.`)) {
-        const exitDate = new Date();
-        exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays);
-        const updatedGuest = { ...guest, exitDate: format(exitDate, 'yyyy-MM-dd') };
-        dispatch(updateGuestAction(updatedGuest));
+    if (confirm(`This will immediately vacate the bed and clear the guest's dues. Continue?`)) {
+        const pg = pgs.find(p => p.id === guest.pgId);
+        if (!pg) return;
+
+        const updatedPg = produce(pg, draft => {
+            draft.occupancy = Math.max(0, draft.occupancy - 1);
+            const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.guestId === guest.id)));
+            const room = floor?.rooms.find(r => r.beds.some(b => b.guestId === guest.id));
+            const bed = room?.beds.find(b => b.guestId === guest.id);
+            if (bed) {
+                bed.guestId = null;
+            }
+        });
+
+        // Set an exit date and clear pending dues for the guest
+        const updatedGuest = { ...guest, exitDate: format(new Date(), 'yyyy-MM-dd'), rentStatus: 'paid', rentPaidAmount: guest.rentAmount };
+        
+        dispatch(updateGuestAction({ updatedGuest, updatedPg }));
     }
   };
 
@@ -203,7 +216,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   const handleRoomSubmit = (values: z.infer<typeof roomSchema>) => {
     const floorId = roomToEdit?.floorId || selectedFloorForRoomAdd?.floorId;
-    const pgId = roomToEdit ? getPgById(roomToEdit.floorId)?.id : selectedFloorForRoomAdd?.pgId;
+    const pgId = roomToEdit ? pgs.find(p => p.floors?.some(f => f.id === roomToEdit!.floorId))?.id : selectedFloorForRoomAdd?.pgId;
     if (!floorId || !pgId) return;
     const pg = pgs.find(p => p.id === pgId);
     if(!pg) return;
@@ -225,7 +238,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
     const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
-    const pgId = bedToEdit ? getPgById(bedToEdit.floorId)?.id : selectedRoomForBedAdd?.pgId;
+    const pgId = bedToEdit ? pgs.find(p => p.floors?.some(f => f.id === bedToEdit!.floorId))?.id : selectedRoomForBedAdd?.pgId;
     if (!floorId || !roomId || !pgId) return;
     const pg = pgs.find(p => p.id === pgId);
     if(!pg) return;
