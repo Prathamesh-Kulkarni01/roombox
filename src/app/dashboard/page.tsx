@@ -60,6 +60,8 @@ export default function DashboardPage() {
     itemToDelete, setItemToDelete,
     guestToInitiateExit, setGuestToInitiateExit,
     handleConfirmInitiateExit,
+    guestToExitImmediately, setGuestToExitImmediately,
+    handleConfirmImmediateExit,
     ...dashboardActions
   } = useDashboard({ pgs, guests });
 
@@ -215,6 +217,7 @@ export default function DashboardPage() {
             isFirstAvailableBedFound={isFirstAvailableBedFound}
             setItemToDelete={setItemToDelete}
             setGuestToInitiateExit={setGuestToInitiateExit}
+            setGuestToExitImmediately={setGuestToExitImmediately}
             {...dashboardActions}
           />
         ))}
@@ -262,6 +265,26 @@ export default function DashboardPage() {
               onClick={handleConfirmInitiateExit}
             >
               Confirm Exit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={!!guestToExitImmediately} onOpenChange={() => setGuestToExitImmediately(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exit Guest Immediately?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will immediately vacate {guestToExitImmediately?.name} from their bed, bypassing the notice period. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleConfirmImmediateExit}
+            >
+              Exit Immediately
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

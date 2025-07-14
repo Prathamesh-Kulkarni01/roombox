@@ -5,8 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { Guest } from "@/lib/types"
-import { format } from "date-fns"
-import { Wallet, MessageCircle, Phone, LogOut, ArrowRight } from "lucide-react"
+import { format, differenceInDays, parseISO } from "date-fns"
+import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
@@ -21,7 +21,7 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
   partial: 'bg-orange-100 text-orange-800 border-orange-300',
 }
 
-export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, handleOpenReminderDialog, setGuestToInitiateExit }: GuestPopoverContentProps) {
+export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, handleOpenReminderDialog, setGuestToInitiateExit, setGuestToExitImmediately }: GuestPopoverContentProps) {
   const { currentPlan } = useAppSelector(state => state.user)
 
   return (
@@ -46,6 +46,12 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
             <span>Due Date:</span>
             <span className="font-medium">{format(new Date(guest.dueDate), "do MMM")}</span>
           </div>
+           {guest.exitDate && (
+                <div className="flex justify-between text-blue-600">
+                    <span>Exiting In:</span>
+                    <span className="font-medium">{differenceInDays(parseISO(guest.exitDate), new Date())} days</span>
+                </div>
+            )}
         </div>
       </div>
       <div className="flex flex-col gap-1 p-2 bg-muted/50">
@@ -66,9 +72,13 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
             </a>
           </Button>
         )}
-        {!guest.exitDate && (
+        {!guest.exitDate ? (
           <Button variant="ghost" size="sm" className="justify-start" onClick={() => setGuestToInitiateExit(guest)}>
             <LogOut className="mr-2 h-4 w-4" /> Initiate Exit
+          </Button>
+        ) : (
+           <Button variant="ghost" size="sm" className="justify-start text-destructive hover:text-destructive" onClick={() => setGuestToExitImmediately(guest)}>
+            <XCircle className="mr-2 h-4 w-4" /> Exit Immediately
           </Button>
         )}
         <Button variant="ghost" size="sm" className="justify-start" asChild>
