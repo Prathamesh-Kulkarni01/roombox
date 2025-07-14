@@ -127,7 +127,7 @@ const pgsSlice = createSlice({
                     state.pgs[index] = updatedPg;
                 }
             })
-            .addCase('guests/updateGuest/fulfilled', (state, action) => {
+            .addCase('guests/updateGuest/fulfilled', (state, action: PayloadAction<{ updatedGuest: Guest, updatedPg?: PG }>) => {
                 if (!action.payload.updatedPg) return;
                 const { updatedPg } = action.payload;
                 const index = state.pgs.findIndex(p => p.id === updatedPg.id);
@@ -135,7 +135,7 @@ const pgsSlice = createSlice({
                     state.pgs[index] = updatedPg;
                 }
             })
-            .addCase('guests/vacateGuest/fulfilled', (state, action) => {
+            .addCase('guests/vacateGuest/fulfilled', (state, action: PayloadAction<{ guest: Guest, pg: PG }>) => {
                  if (!action.payload.pg) return;
                 const { pg } = action.payload;
                 const index = state.pgs.findIndex(p => p.id === pg.id);
