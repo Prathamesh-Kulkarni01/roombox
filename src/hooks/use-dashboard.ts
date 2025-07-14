@@ -11,7 +11,7 @@ import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows
 
 import type { Guest, Bed, Room, PG, Floor, Complaint } from "@/lib/types"
 import { format, addMonths } from "date-fns"
-import { addGuest as addGuestAction, updateGuest as updateGuestAction, vacateGuest } from "@/lib/slices/guestsSlice"
+import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
 const addGuestSchema = z.object({
@@ -70,7 +70,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [reminderMessage, setReminderMessage] = useState('');
   const [isGeneratingReminder, setIsGeneratingReminder] = useState(false);
   const [selectedGuestForReminder, setSelectedGuestForReminder] = useState<Guest | null>(null);
-  const [guestToVacate, setGuestToVacate] = useState<Guest | null>(null);
+  const [guestToInitiateExit, setGuestToInitiateExit] = useState<Guest | null>(null);
 
 
   // Forms
@@ -149,10 +149,10 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       setSelectedGuestForPayment(null);
   };
 
-  const handleConfirmVacate = () => {
-    if (!guestToVacate) return;
-    dispatch(vacateGuest(guestToVacate.id));
-    setGuestToVacate(null);
+  const handleConfirmInitiateExit = () => {
+    if (!guestToInitiateExit) return;
+    dispatch(initiateGuestExit(guestToInitiateExit.id));
+    setGuestToInitiateExit(null);
   };
 
   const handleOpenReminderDialog = async (guest: Guest) => {
@@ -317,8 +317,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     reminderMessage,
     isGeneratingReminder,
     itemToDelete, setItemToDelete,
-    guestToVacate, setGuestToVacate,
-    handleConfirmVacate,
+    guestToInitiateExit, setGuestToInitiateExit,
+    handleConfirmInitiateExit,
     addGuestForm,
     floorForm,
     roomForm,
@@ -328,7 +328,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleAddGuestSubmit,
     handleOpenPaymentDialog,
     handlePaymentSubmit,
-    setGuestToVacate,
+    setGuestToInitiateExit,
     handleOpenReminderDialog,
     handleFloorSubmit,
     handleRoomSubmit,

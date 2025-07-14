@@ -58,8 +58,8 @@ export default function DashboardPage() {
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
     itemToDelete, setItemToDelete,
-    guestToVacate, setGuestToVacate,
-    handleConfirmVacate,
+    guestToInitiateExit, setGuestToInitiateExit,
+    handleConfirmInitiateExit,
     ...dashboardActions
   } = useDashboard({ pgs, guests });
 
@@ -214,7 +214,7 @@ export default function DashboardPage() {
             isEditMode={isEditMode}
             isFirstAvailableBedFound={isFirstAvailableBedFound}
             setItemToDelete={setItemToDelete}
-            setGuestToVacate={setGuestToVacate}
+            setGuestToInitiateExit={setGuestToInitiateExit}
             {...dashboardActions}
           />
         ))}
@@ -248,21 +248,20 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!guestToVacate} onOpenChange={() => setGuestToVacate(null)}>
+      <AlertDialog open={!!guestToInitiateExit} onOpenChange={() => setGuestToInitiateExit(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Vacate</AlertDialogTitle>
+            <AlertDialogTitle>Initiate Exit Process</AlertDialogTitle>
             <AlertDialogDescription>
-                Are you sure you want to vacate {guestToVacate?.name}? This will mark their rent as paid, clear their dues, and make the bed available. This action cannot be undone.
+                This will place {guestToInitiateExit?.name} on their notice period of {guestToInitiateExit?.noticePeriodDays} days. The bed will remain occupied until their exit date. Are you sure?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
-              onClick={handleConfirmVacate}
+              onClick={handleConfirmInitiateExit}
             >
-              Vacate Guest
+              Confirm Exit
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

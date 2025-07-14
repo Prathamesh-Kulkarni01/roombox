@@ -185,42 +185,26 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
     }
 );
 
-export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { state: RootState }>(
-    'guests/vacateGuest',
+export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootState }>(
+    'guests/initiateGuestExit',
     async (guestId, { getState, rejectWithValue }) => {
-        const { user, guests, pgs } = getState();
+        const { user, guests } = getState();
         const guest = guests.guests.find(g => g.id === guestId);
-        const pg = pgs.pgs.find(p => p.id === guest?.pgId);
 
-        if (!user.currentUser || !guest || !pg) return rejectWithValue('User, guest, or PG not found');
+        if (!user.currentUser || !guest) return rejectWithValue('User or guest not found');
         
-        const updatedGuest: Guest = { ...guest, exitDate: new Date().toISOString() };
-        
-        const updatedPg = produce(pg, draft => {
-            draft.occupancy = Math.max(0, draft.occupancy - 1);
-            const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.guestId === guest.id)));
-            const room = floor?.rooms.find(r => r.beds.some(b => b.guestId === guest.id));
-            const bed = room?.beds.find(b => b.guestId === guest.id);
-            if (bed) {
-                bed.guestId = null;
-            }
-        });
+        const exitDate = new Date();
+        exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays);
+        const updatedGuest: Guest = { ...guest, exitDate: exitDate.toISOString() };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const batch = writeBatch(db);
-            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guest.id);
-            const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', pg.id);
-            
-            batch.set(guestDocRef, updatedGuest, { merge: true });
-            batch.set(pgDocRef, updatedPg);
-            
-            await batch.commit();
+            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guestId);
+            await setDoc(guestDocRef, updatedGuest, { merge: true });
         }
 
-        return { guest: updatedGuest, pg: updatedPg };
+        return updatedGuest;
     }
 );
-
 
 const guestsSlice = createSlice({
     name: 'guests',
@@ -250,10 +234,10 @@ const guestsSlice = createSlice({
                     state.guests[index] = action.payload;
                 }
             })
-            .addCase(vacateGuest.fulfilled, (state, action) => {
-                 const index = state.guests.findIndex(g => g.id === action.payload.guest.id);
+            .addCase(initiateGuestExit.fulfilled, (state, action) => {
+                 const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
-                    state.guests[index] = action.payload.guest;
+                    state.guests[index] = action.payload;
                 }
             })
             .addCase('pgs/deletePg/fulfilled', (state, action) => {
