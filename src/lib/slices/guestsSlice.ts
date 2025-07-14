@@ -9,6 +9,7 @@ import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
 import { verifyKyc } from '@/ai/flows/verify-kyc-flow';
+import { format } from 'date-fns';
 
 interface GuestsState {
     guests: Guest[];
@@ -184,6 +185,42 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
     }
 );
 
+export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { state: RootState }>(
+    'guests/vacateGuest',
+    async (guestId, { getState, rejectWithValue }) => {
+        const { user, guests, pgs } = getState();
+        const guest = guests.guests.find(g => g.id === guestId);
+        const pg = pgs.pgs.find(p => p.id === guest?.pgId);
+
+        if (!user.currentUser || !guest || !pg) return rejectWithValue('User, guest, or PG not found');
+        
+        const updatedGuest = { ...guest, exitDate: format(new Date(), 'yyyy-MM-dd'), rentStatus: 'paid', rentPaidAmount: guest.rentAmount };
+        const updatedPg = produce(pg, draft => {
+            draft.occupancy = Math.max(0, draft.occupancy - 1);
+            const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.guestId === guest.id)));
+            const room = floor?.rooms.find(r => r.beds.some(b => b.guestId === guest.id));
+            const bed = room?.beds.find(b => b.guestId === guest.id);
+            if (bed) {
+                bed.guestId = null;
+            }
+        });
+
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const batch = writeBatch(db);
+            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guest.id);
+            const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', pg.id);
+            
+            batch.set(guestDocRef, updatedGuest, { merge: true });
+            batch.set(pgDocRef, updatedPg);
+            
+            await batch.commit();
+        }
+
+        return { guest: updatedGuest, pg: updatedPg };
+    }
+);
+
+
 const guestsSlice = createSlice({
     name: 'guests',
     initialState,
@@ -210,6 +247,12 @@ const guestsSlice = createSlice({
                 const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
                     state.guests[index] = action.payload;
+                }
+            })
+            .addCase(vacateGuest.fulfilled, (state, action) => {
+                 const index = state.guests.findIndex(g => g.id === action.payload.guest.id);
+                if (index !== -1) {
+                    state.guests[index] = action.payload.guest;
                 }
             })
             .addCase('pgs/deletePg/fulfilled', (state, action) => {

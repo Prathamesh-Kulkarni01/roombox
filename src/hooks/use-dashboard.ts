@@ -11,7 +11,7 @@ import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows
 
 import type { Guest, Bed, Room, PG, Floor, Complaint } from "@/lib/types"
 import { format, addMonths } from "date-fns"
-import { addGuest as addGuestAction, updateGuest as updateGuestAction } from "@/lib/slices/guestsSlice"
+import { addGuest as addGuestAction, updateGuest as updateGuestAction, vacateGuest } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
 const addGuestSchema = z.object({
@@ -150,23 +150,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const handleVacateBed = (guest: Guest) => {
     if (!guest || guest.exitDate) return;
     if (confirm(`This will immediately vacate the bed and clear the guest's dues. Continue?`)) {
-        const pg = pgs.find(p => p.id === guest.pgId);
-        if (!pg) return;
-
-        const updatedPg = produce(pg, draft => {
-            draft.occupancy = Math.max(0, draft.occupancy - 1);
-            const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.guestId === guest.id)));
-            const room = floor?.rooms.find(r => r.beds.some(b => b.guestId === guest.id));
-            const bed = room?.beds.find(b => b.guestId === guest.id);
-            if (bed) {
-                bed.guestId = null;
-            }
-        });
-
-        // Set an exit date and clear pending dues for the guest
-        const updatedGuest = { ...guest, exitDate: format(new Date(), 'yyyy-MM-dd'), rentStatus: 'paid', rentPaidAmount: guest.rentAmount };
-        
-        dispatch(updateGuestAction({ updatedGuest, updatedPg }));
+      dispatch(vacateGuest(guest.id));
     }
   };
 
