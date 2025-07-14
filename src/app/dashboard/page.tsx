@@ -58,6 +58,8 @@ export default function DashboardPage() {
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
     itemToDelete, setItemToDelete,
+    guestToVacate, setGuestToVacate,
+    handleConfirmVacate,
     ...dashboardActions
   } = useDashboard({ pgs, guests });
 
@@ -189,20 +191,21 @@ export default function DashboardPage() {
         <StatsCards stats={stats} />
         
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
-              <span className="font-semibold text-sm">Legend:</span>
-              {Object.values(bedLegend).map(item => (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                      <div className={cn("w-3 h-3 rounded-full", item.className)}></div>
-                      <span>{item.label}</span>
-                  </div>
-              ))}
-          </div>
-          <div className="flex items-center space-x-2 self-end sm:self-center">
-              <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
-              <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch"/>
-          </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                <span className="font-semibold text-sm">Legend:</span>
+                {Object.values(bedLegend).map(item => (
+                    <div key={item.label} className="flex items-center gap-1.5">
+                        <div className={cn("w-3 h-3 rounded-full", item.className)}></div>
+                        <span>{item.label}</span>
+                    </div>
+                ))}
+            </div>
+            <div className="flex items-center space-x-2 self-end sm:self-center">
+                <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
+                <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch"/>
+            </div>
         </div>
+
 
         {pgsToDisplay.map(pg => (
           <PgLayout 
@@ -211,6 +214,7 @@ export default function DashboardPage() {
             isEditMode={isEditMode}
             isFirstAvailableBedFound={isFirstAvailableBedFound}
             setItemToDelete={setItemToDelete}
+            setGuestToVacate={setGuestToVacate}
             {...dashboardActions}
           />
         ))}
@@ -239,6 +243,26 @@ export default function DashboardPage() {
               onClick={handleDeleteConfirm}
             >
               Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!guestToVacate} onOpenChange={() => setGuestToVacate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Vacate</AlertDialogTitle>
+            <AlertDialogDescription>
+                Are you sure you want to vacate {guestToVacate?.name}? This will mark their rent as paid, clear their dues, and make the bed available. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleConfirmVacate}
+            >
+              Vacate Guest
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

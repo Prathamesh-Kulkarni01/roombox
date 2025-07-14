@@ -70,6 +70,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [reminderMessage, setReminderMessage] = useState('');
   const [isGeneratingReminder, setIsGeneratingReminder] = useState(false);
   const [selectedGuestForReminder, setSelectedGuestForReminder] = useState<Guest | null>(null);
+  const [guestToVacate, setGuestToVacate] = useState<Guest | null>(null);
+
 
   // Forms
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
@@ -147,11 +149,10 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       setSelectedGuestForPayment(null);
   };
 
-  const handleVacateBed = (guest: Guest) => {
-    if (!guest || guest.exitDate) return;
-    if (confirm(`This will immediately vacate the bed and clear the guest's dues. Continue?`)) {
-      dispatch(vacateGuest(guest.id));
-    }
+  const handleConfirmVacate = () => {
+    if (!guestToVacate) return;
+    dispatch(vacateGuest(guestToVacate.id));
+    setGuestToVacate(null);
   };
 
   const handleOpenReminderDialog = async (guest: Guest) => {
@@ -316,6 +317,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     reminderMessage,
     isGeneratingReminder,
     itemToDelete, setItemToDelete,
+    guestToVacate, setGuestToVacate,
+    handleConfirmVacate,
     addGuestForm,
     floorForm,
     roomForm,
@@ -325,7 +328,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleAddGuestSubmit,
     handleOpenPaymentDialog,
     handlePaymentSubmit,
-    handleVacateBed,
+    setGuestToVacate,
     handleOpenReminderDialog,
     handleFloorSubmit,
     handleRoomSubmit,

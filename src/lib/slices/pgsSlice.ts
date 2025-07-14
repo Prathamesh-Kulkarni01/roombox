@@ -1,7 +1,7 @@
 
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { PG, Floor, Room, Bed } from '../types';
+import type { PG, Floor, Room, Bed, Guest } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
@@ -136,7 +136,7 @@ const pgsSlice = createSlice({
                 }
             })
             .addCase('guests/vacateGuest/fulfilled', (state, action: PayloadAction<{ guest: Guest, pg: PG }>) => {
-                 if (!action.payload.pg) return;
+                if (!action.payload.pg) return;
                 const { pg } = action.payload;
                 const index = state.pgs.findIndex(p => p.id === pg.id);
                 if (index !== -1) {

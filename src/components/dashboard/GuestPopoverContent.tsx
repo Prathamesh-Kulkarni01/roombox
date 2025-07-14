@@ -21,7 +21,7 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
   partial: 'bg-orange-100 text-orange-800 border-orange-300',
 }
 
-export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, handleOpenReminderDialog, handleVacateBed }: GuestPopoverContentProps) {
+export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, handleOpenReminderDialog, setGuestToVacate }: GuestPopoverContentProps) {
   const { currentPlan } = useAppSelector(state => state.user)
 
   return (
@@ -67,7 +67,7 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
           </Button>
         )}
         {!guest.exitDate && (
-          <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleVacateBed(guest)}>
+          <Button variant="ghost" size="sm" className="justify-start" onClick={() => setGuestToVacate(guest)}>
             <LogOut className="mr-2 h-4 w-4" /> Vacate Bed
           </Button>
         )}

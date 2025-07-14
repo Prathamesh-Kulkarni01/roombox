@@ -9,7 +9,7 @@ import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
 import { verifyKyc } from '@/ai/flows/verify-kyc-flow';
-import { format } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 
 interface GuestsState {
     guests: Guest[];
@@ -194,7 +194,8 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
 
         if (!user.currentUser || !guest || !pg) return rejectWithValue('User, guest, or PG not found');
         
-        const updatedGuest = { ...guest, exitDate: format(new Date(), 'yyyy-MM-dd'), rentStatus: 'paid', rentPaidAmount: guest.rentAmount };
+        const updatedGuest: Guest = { ...guest, exitDate: new Date().toISOString() };
+        
         const updatedPg = produce(pg, draft => {
             draft.occupancy = Math.max(0, draft.occupancy - 1);
             const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.guestId === guest.id)));
