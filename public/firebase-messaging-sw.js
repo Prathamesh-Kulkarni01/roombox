@@ -5,13 +5,13 @@ importScripts("https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-comp
 
 // This placeholder will be replaced by the build script with your Firebase config.
 const firebaseConfig = {
-  "apiKey": "AIzaSyAsYtBqzqWREOXUmuugtn2NZ51iqRMiXBw",
-  "authDomain": "roombox-f7bff.firebaseapp.com",
-  "projectId": "roombox-f7bff",
-  "storageBucket": "roombox-f7bff.appspot.com",
-  "messagingSenderId": "990310757816",
-  "appId": "1:990310757816:web:94edde70edba55b9524b4d",
-  "measurementId": "G-HPBJCP6QRQ"
+  "apiKey": "",
+  "authDomain": "",
+  "projectId": "",
+  "storageBucket": "",
+  "messagingSenderId": "",
+  "appId": "",
+  "measurementId": ""
 }
 
 // Initialize Firebase
