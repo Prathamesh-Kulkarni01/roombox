@@ -48,7 +48,7 @@ const faqs = [
     },
     {
         question: "Can I manage multiple properties with one account?",
-        answer: "Yes! VastuRent is designed to scale with your business. You can add and manage multiple properties, PGs, or hostels from a single, centralized dashboard, making it easy to oversee your entire rental portfolio."
+        answer: "Yes! RentVastu is designed to scale with your business. You can add and manage multiple properties, PGs, or hostels from a single, centralized dashboard, making it easy to oversee your entire rental portfolio."
     },
     {
         question: "How does the AI work?",
@@ -56,7 +56,7 @@ const faqs = [
     },
     {
         question: "Is there a free trial?",
-        answer: "VastuRent offers a free basic plan that's perfect for getting started. You can explore our core features and see how they fit your needs. When you're ready, you can upgrade to a paid plan for more advanced capabilities."
+        answer: "RentVastu offers a free basic plan that's perfect for getting started. You can explore our core features and see how they fit your needs. When you're ready, you can upgrade to a paid plan for more advanced capabilities."
     }
 ]
 
@@ -116,7 +116,7 @@ export default function Home() {
               The Modern OS for Your Rental Property
             </h1>
             <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-top-8 duration-700 ease-out delay-100">
-              Stop juggling spreadsheets. VastuRent automates your operations, from rent collection to guest management, all in one simple platform.
+              Stop juggling spreadsheets. RentVastu automates your operations, from rent collection to guest management, all in one simple platform.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500 ease-out delay-200">
               <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -138,7 +138,7 @@ export default function Home() {
                     <Badge variant="outline" className="mb-4">Our Features</Badge>
                     <h2 className="text-3xl md:text-4xl font-bold">Everything You Need. Nothing You Don't.</h2>
                     <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-                        VastuRent is built to solve the real problems of rental management.
+                        RentVastu is built to solve the real problems of rental management.
                     </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -255,7 +255,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-muted/40 border-t">
         <div className="container mx-auto px-4 py-6 text-center text-muted-foreground text-sm">
-          <p>&copy; {new Date().getFullYear()} VastuRent. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} RentVastu. All rights reserved.</p>
         </div>
       </footer>
     </div>

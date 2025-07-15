@@ -7,15 +7,15 @@ import StoreProvider from '@/components/StoreProvider';
 import { ThemeProvider } from '@/components/theme-provider';
 import AppTour from '@/components/app-tour';
 
-const APP_NAME = "VastuRent";
-const APP_DESCRIPTION = "VastuRent is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
+const APP_NAME = "RentVastu";
+const APP_DESCRIPTION = "RentVastu is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://vasturent.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   applicationName: APP_NAME,
   title: {
-    default: "VastuRent | All-in-One Rental Management Software",
+    default: "RentVastu | All-in-One Rental Management Software",
     template: `%s - ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
@@ -35,15 +35,15 @@ export const metadata: Metadata = {
       "rent collection",
       "expense tracking",
       "occupancy management",
-      "VastuRent"
+      "RentVastu"
   ],
-  authors: [{ name: "VastuRent Team" }],
-  creator: "VastuRent",
+  authors: [{ name: "RentVastu Team" }],
+  creator: "RentVastu",
   openGraph: {
     type: "website",
     url: "/",
     title: {
-      default: "VastuRent | All-in-One Rental Management Software",
+      default: "RentVastu | All-in-One Rental Management Software",
       template: `%s - ${APP_NAME}`,
     },
     description: APP_DESCRIPTION,
@@ -53,14 +53,14 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "A preview of the VastuRent dashboard showing occupancy and revenue.",
+        alt: "A preview of the RentVastu dashboard showing occupancy and revenue.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: {
-      default: "VastuRent | All-in-One Rental Management Software",
+      default: "RentVastu | All-in-One Rental Management Software",
       template: `%s - ${APP_NAME}`,
     },
     description: APP_DESCRIPTION,
@@ -84,10 +84,10 @@ export default function RootLayout({
   const jsonLd = {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "VastuRent",
+      "name": "RentVastu",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
-      "description": "Simplify your rental property management with VastuRent. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
+      "description": "Simplify your rental property management with RentVastu. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
       "offers": {
         "@type": "Offer",
         "price": "0",
