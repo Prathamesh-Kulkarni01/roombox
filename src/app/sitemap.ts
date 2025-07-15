@@ -1,7 +1,7 @@
 import { type MetadataRoute } from 'next'
  
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.app'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vasturent.app'
   
   // These are the static, public-facing pages on your site.
   const staticRoutes = [

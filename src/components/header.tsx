@@ -48,7 +48,7 @@ export default function Header() {
         <div className="flex items-center gap-2 md:gap-4 flex-1 md:flex-none">
             <Link href="/" className="flex items-center gap-2 mr-2">
                 <HomeIcon className="h-6 w-6 text-primary" />
-                <span className="font-bold text-lg font-headline hidden sm:inline-block">RoomBox</span>
+                <span className="font-bold text-lg font-headline hidden sm:inline-block">VastuRent</span>
             </Link>
              {isDashboard && currentUser && (
                 isLoading ? (
@@ -125,7 +125,7 @@ export default function Header() {
               <div className="flex flex-col gap-4 py-6">
                 <Link href="/" className="flex items-center gap-2 mb-4">
                     <HomeIcon className="h-6 w-6 text-primary" />
-                    <span className="font-bold text-lg font-headline">RoomBox</span>
+                    <span className="font-bold text-lg font-headline">VastuRent</span>
                 </Link>
                 {navLinks.map((link) => {
                    if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;

@@ -7,15 +7,15 @@ import StoreProvider from '@/components/StoreProvider';
 import { ThemeProvider } from '@/components/theme-provider';
 import AppTour from '@/components/app-tour';
 
-const APP_NAME = "RoomBox";
-const APP_DESCRIPTION = "RoomBox is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://roombox.app";
+const APP_NAME = "VastuRent";
+const APP_DESCRIPTION = "VastuRent is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://vasturent.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   applicationName: APP_NAME,
   title: {
-    default: "RoomBox | All-in-One Rental Management Software",
+    default: "VastuRent | All-in-One Rental Management Software",
     template: `%s - ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
@@ -35,15 +35,15 @@ export const metadata: Metadata = {
       "rent collection",
       "expense tracking",
       "occupancy management",
-      "RoomBox"
+      "VastuRent"
   ],
-  authors: [{ name: "RoomBox Team" }],
-  creator: "RoomBox",
+  authors: [{ name: "VastuRent Team" }],
+  creator: "VastuRent",
   openGraph: {
     type: "website",
     url: "/",
     title: {
-      default: "RoomBox | All-in-One Rental Management Software",
+      default: "VastuRent | All-in-One Rental Management Software",
       template: `%s - ${APP_NAME}`,
     },
     description: APP_DESCRIPTION,
@@ -53,19 +53,19 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "A preview of the RoomBox dashboard showing occupancy and revenue.",
+        alt: "A preview of the VastuRent dashboard showing occupancy and revenue.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: {
-      default: "RoomBox | All-in-One Rental Management Software",
+      default: "VastuRent | All-in-One Rental Management Software",
       template: `%s - ${APP_NAME}`,
     },
     description: APP_DESCRIPTION,
     images: ["/og-image.png"],
-    creator: "@roombox_app",
+    creator: "@vasturent_app",
   },
 };
 
@@ -84,10 +84,10 @@ export default function RootLayout({
   const jsonLd = {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "RoomBox",
+      "name": "VastuRent",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
-      "description": "Simplify your rental property management with RoomBox. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
+      "description": "Simplify your rental property management with VastuRent. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
       "offers": {
         "@type": "Offer",
         "price": "0",

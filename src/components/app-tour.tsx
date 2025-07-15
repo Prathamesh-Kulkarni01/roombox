@@ -12,7 +12,7 @@ import { Button } from './ui/button'
 const onboardingSteps: StepType[] = [
   {
     selector: 'body',
-    content: "Welcome to RoomBox! Let's get you set up by adding your first property.",
+    content: "Welcome to VastuRent! Let's get you set up by adding your first property.",
   },
   {
     selector: '[data-tour="add-first-pg-button"]',
@@ -85,7 +85,7 @@ const CustomPopover = (props: any) => (
         {...popoverProps}
         className="rounded-lg border bg-popover text-popover-foreground p-6 shadow-lg max-w-sm w-full"
       >
-        <h3 className="text-lg font-semibold mb-2">{props.steps[props.currentStep].title || 'RoomBox Tour'}</h3>
+        <h3 className="text-lg font-semibold mb-2">{props.steps[props.currentStep].title || 'VastuRent Tour'}</h3>
         <p className="text-sm text-muted-foreground mb-4">{props.steps[props.currentStep].content}</p>
         <div className="flex justify-between items-center">
             <div>
