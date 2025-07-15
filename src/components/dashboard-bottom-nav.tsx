@@ -24,7 +24,7 @@ const allMainNavItems = [
 ];
 
 const allMoreNavItems = [
-  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building, feature: 'core' },
+  { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'core' },
   { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
   { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },
   { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2, feature: 'hasSeoGenerator' },

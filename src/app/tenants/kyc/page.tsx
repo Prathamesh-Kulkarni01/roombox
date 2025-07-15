@@ -154,7 +154,7 @@ export default function KycPage() {
                     <Alert>
                         <AlertTitle>Feature Not Available</AlertTitle>
                         <AlertDescription>
-                            This feature is not enabled by your PG owner. Please contact them for manual KYC verification.
+                            This feature is not enabled by your property owner. Please contact them for manual KYC verification.
                              <br/><br/>
                              <Button asChild><Link href="/tenants/my-pg">Go to Dashboard</Link></Button>
                         </AlertDescription>

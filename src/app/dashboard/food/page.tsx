@@ -104,8 +104,8 @@ export default function FoodPage() {
                 <div className="flex items-center justify-center h-full min-h-[40vh] bg-card border rounded-lg">
                     <div className="text-center">
                         <Building className="mx-auto h-12 w-12 text-muted-foreground" />
-                        <h2 className="mt-4 text-xl font-semibold">Select a PG</h2>
-                        <p className="mt-2 text-muted-foreground">Please select a PG from the header to manage its menu.</p>
+                        <h2 className="mt-4 text-xl font-semibold">Select a Property</h2>
+                        <p className="mt-2 text-muted-foreground">Please select a property from the header to manage its menu.</p>
                     </div>
                 </div>
             </div>
@@ -117,7 +117,7 @@ export default function FoodPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Weekly Menu Planner for {selectedPg?.name}</CardTitle>
-                    <CardDescription>Set the menu for each day of the week for the selected PG.</CardDescription>
+                    <CardDescription>Set the menu for each day of the week for the selected property.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="monday" className="w-full">

@@ -61,7 +61,7 @@ export default function TenantComplaintsPage() {
             return;
         }
         dispatch(addComplaintAction(data))
-        toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the PG manager." })
+        toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
         form.reset()
     }
 
@@ -113,7 +113,7 @@ export default function TenantComplaintsPage() {
                 </Card>
             </div>
             <div className="lg:col-span-2">
-                <h2 className="text-2xl font-bold mb-4">PG Complaint Board</h2>
+                <h2 className="text-2xl font-bold mb-4">Property Complaint Board</h2>
                 <div className="space-y-4">
                     {pgComplaints.length > 0 ? pgComplaints.map(c => (
                         <Card key={c.id}>

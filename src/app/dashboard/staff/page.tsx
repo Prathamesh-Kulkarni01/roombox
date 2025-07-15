@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction } from '@/lib/slices/staffSlice'
 
 const staffSchema = z.object({
-  pgId: z.string().min(1, "Please select a PG"),
+  pgId: z.string().min(1, "Please select a property"),
   name: z.string().min(2, "Name must be at least 2 characters."),
   email: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
   role: z.enum(['manager', 'cleaner', 'cook', 'security', 'other']),
@@ -66,7 +66,7 @@ export default function StaffPage() {
     }, [isDialogOpen, staffToEdit, selectedPgId, pgs, form])
 
     const onSubmit = (data: StaffFormValues) => {
-        const pgName = pgs.find(p => p.id === data.pgId)?.name || 'Unknown PG';
+        const pgName = pgs.find(p => p.id === data.pgId)?.name || 'Unknown Property';
         if (staffToEdit) {
             dispatch(updateStaffAction({ ...staffToEdit, ...data, pgName }));
         } else {
@@ -137,8 +137,8 @@ export default function StaffPage() {
           <div className="flex items-center justify-center h-full">
               <div className="text-center">
                   <Building className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h2 className="mt-4 text-xl font-semibold">No PGs Found</h2>
-                  <p className="mt-2 text-muted-foreground">Please add a PG to start managing staff.</p>
+                  <h2 className="mt-4 text-xl font-semibold">No Properties Found</h2>
+                  <p className="mt-2 text-muted-foreground">Please add a property to start managing staff.</p>
               </div>
           </div>
         )
@@ -152,7 +152,7 @@ export default function StaffPage() {
                         <div>
                             <CardTitle>Staff List</CardTitle>
                             <CardDescription>
-                                A list of all staff members {selectedPgId ? `at ${pgs.find(p => p.id === selectedPgId)?.name}` : 'across all PGs'}.
+                                A list of all staff members {selectedPgId ? `at ${pgs.find(p => p.id === selectedPgId)?.name}` : 'across all properties'}.
                             </CardDescription>
                         </div>
                         <Button onClick={() => openDialog()}>
@@ -164,7 +164,7 @@ export default function StaffPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Name</TableHead>
-                                    <TableHead>PG</TableHead>
+                                    <TableHead>Property</TableHead>
                                     <TableHead>Role</TableHead>
                                     <TableHead>Phone</TableHead>
                                     <TableHead className="text-right">Salary</TableHead>
@@ -220,9 +220,9 @@ export default function StaffPage() {
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField control={form.control} name="pgId" render={({ field }) => (
-                            <FormItem><FormLabel>PG</FormLabel>
+                            <FormItem><FormLabel>Property</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a PG" /></SelectTrigger></FormControl>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a property" /></SelectTrigger></FormControl>
                                     <SelectContent>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent>
                                 </Select><FormMessage />
                             </FormItem>

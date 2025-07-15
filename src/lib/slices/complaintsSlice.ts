@@ -60,7 +60,7 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
         await dispatch(addNotification({
             type: 'new-complaint',
             title: 'Complaint Submitted',
-            message: `Your complaint about ${newComplaint.category} has been sent to the manager.`,
+            message: `Your complaint about ${newComplaint.category} has been sent to the property manager.`,
             link: `/tenants/complaints`,
             targetId: newComplaint.id,
         }));

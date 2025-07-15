@@ -138,9 +138,9 @@ export default function MyPgPage() {
                                     <p className="font-semibold">Your KYC is <span className="capitalize">{currentGuest.kycStatus}</span></p>
                                     <p className="text-xs text-muted-foreground">
                                         {currentGuest.kycStatus === 'verified' && "All documents are verified."}
-                                        {currentGuest.kycStatus === 'pending' && "Awaiting review by your PG manager."}
+                                        {currentGuest.kycStatus === 'pending' && "Awaiting review by your property manager."}
                                         {currentGuest.kycStatus === 'rejected' && "There was an issue with your documents. Please contact the manager."}
-                                        {currentGuest.kycStatus === 'not-started' && "Please submit your documents to the PG manager."}
+                                        {currentGuest.kycStatus === 'not-started' && "Please submit your documents to the property manager."}
                                     </p>
                                 </div>
                            </div>

@@ -19,7 +19,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core', tourId: 'dashboard-nav' },
   { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed, feature: 'core' },
   { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet, feature: 'core' },
-  { href: '/dashboard/pg-management', label: 'PG Management', icon: Building, feature: 'core', tourId: 'pg-management-nav' },
+  { href: '/dashboard/pg-management', label: 'Property Management', icon: Building, feature: 'core', tourId: 'pg-management-nav' },
   { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
   { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
   { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },

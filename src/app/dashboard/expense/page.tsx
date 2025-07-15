@@ -58,7 +58,7 @@ import { addExpense as addExpenseAction } from '@/lib/slices/expensesSlice'
 
 
 const expenseSchema = z.object({
-  pgId: z.string().min(1, "Please select a PG"),
+  pgId: z.string().min(1, "Please select a property"),
   category: z.enum(['food', 'maintenance', 'utilities', 'salary', 'other']),
   amount: z.coerce.number().min(1, "Amount must be greater than 0"),
   description: z.string().min(3, "Description is too short").max(100, "Description is too long"),
@@ -209,8 +209,8 @@ export default function ExpensePage() {
           <div className="flex items-center justify-center h-full">
               <div className="text-center">
                   <Building className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h2 className="mt-4 text-xl font-semibold">No PGs Found</h2>
-                  <p className="mt-2 text-muted-foreground">Please add a PG to start managing expenses.</p>
+                  <h2 className="mt-4 text-xl font-semibold">No Properties Found</h2>
+                  <p className="mt-2 text-muted-foreground">Please add a property to start managing expenses.</p>
               </div>
           </div>
         )
@@ -266,7 +266,7 @@ export default function ExpensePage() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Recent Expenses</CardTitle>
-                        <CardDescription>A log of your most recent expenses{selectedPgId ? ` for ${pgs.find(p=>p.id === selectedPgId)?.name}` : ' for all PGs'}.</CardDescription>
+                        <CardDescription>A log of your most recent expenses{selectedPgId ? ` for ${pgs.find(p=>p.id === selectedPgId)?.name}` : ' for all properties'}.</CardDescription>
                     </div>
                      <Button onClick={openAddExpenseDialog}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
@@ -279,7 +279,7 @@ export default function ExpensePage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Date</TableHead>
-                                    <TableHead>PG</TableHead>
+                                    <TableHead>Property</TableHead>
                                     <TableHead>Category</TableHead>
                                     <TableHead>Description</TableHead>
                                     <TableHead className="text-right">Amount</TableHead>
@@ -338,7 +338,7 @@ export default function ExpensePage() {
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Add New Expense</DialogTitle>
-                <DialogDescription>Log a new expense for one of your PGs.</DialogDescription>
+                <DialogDescription>Log a new expense for one of your properties.</DialogDescription>
             </DialogHeader>
             <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -347,11 +347,11 @@ export default function ExpensePage() {
                     name="pgId"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>PG</FormLabel>
+                        <FormLabel>Property</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                             <FormControl>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select a PG" />
+                                <SelectValue placeholder="Select a property" />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>

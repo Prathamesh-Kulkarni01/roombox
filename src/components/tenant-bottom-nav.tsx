@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/lib/hooks';
 
 const navItems = [
-  { href: '/tenants/my-pg', label: 'My PG', icon: Home },
+  { href: '/tenants/my-pg', label: 'My Property', icon: Home },
   { href: '/tenants/complaints', label: 'Complaints', icon: MessageSquareWarning },
   { href: '/tenants/kyc', label: 'KYC', icon: ShieldCheck },
   { href: '/tenants/food', label: 'Menu', icon: UtensilsCrossed },

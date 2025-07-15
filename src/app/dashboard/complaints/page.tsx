@@ -84,7 +84,7 @@ export default function ComplaintsDashboardPage() {
                 <CardHeader>
                     <CardTitle>Open Complaints</CardTitle>
                     <CardDescription>
-                        Showing complaints {selectedPgId ? `for ${pgs.find(p => p.id === selectedPgId)?.name}` : 'for all PGs'}.
+                        Showing complaints {selectedPgId ? `for ${pgs.find(p => p.id === selectedPgId)?.name}` : 'for all properties'}.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -98,7 +98,7 @@ export default function ComplaintsDashboardPage() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Date</TableHead>
-                                        <TableHead>PG</TableHead>
+                                        <TableHead>Property</TableHead>
                                         <TableHead>Guest</TableHead>
                                         <TableHead>Category</TableHead>
                                         <TableHead className="w-[40%]">Description</TableHead>

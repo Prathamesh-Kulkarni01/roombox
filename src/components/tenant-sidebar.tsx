@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -14,7 +13,7 @@ import { useMemo } from 'react';
 import { logoutUser } from '@/lib/slices/userSlice';
 
 const navItems = [
-  { href: '/tenants/my-pg', label: 'My PG', icon: Home },
+  { href: '/tenants/my-pg', label: 'My Property', icon: Home },
   { href: '/tenants/complaints', label: 'Complaints', icon: MessageSquareWarning },
   { href: '/tenants/food', label: 'Food Menu', icon: UtensilsCrossed },
   { href: '/tenants/kyc', label: 'KYC Verification', icon: ShieldCheck },
