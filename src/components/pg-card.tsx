@@ -19,6 +19,11 @@ const genderBadgeColor = {
 };
 
 export default function PgCard({ pg }: PgCardProps) {
+  // A direct link to a PG detail page is tricky without knowing its owner's subdomain.
+  // This link is simplified for the demo. In a real app, this might link to
+  // a modal within the site or a pg-specific page if the routing is set up for it.
+  const pgLink = `/pg/${pg.id}`;
+
   return (
     <Card className="flex flex-col overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="p-0 relative">
@@ -72,7 +77,7 @@ export default function PgCard({ pg }: PgCardProps) {
             <span className="text-sm text-muted-foreground ml-1">/month</span>
         </div>
         <Button asChild size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-          <Link href={`/pg/${pg.id}`}>View Details</Link>
+          <Link href={pgLink}>View Details</Link>
         </Button>
       </CardFooter>
     </Card>

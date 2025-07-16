@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useTransition } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -14,8 +14,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ShieldAlert, Globe, LinkIcon, Save, Eye } from 'lucide-react'
+import { ShieldAlert, Globe, LinkIcon, Save, Eye, Loader2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useToast } from '@/hooks/use-toast'
+import { saveSiteConfig } from '@/lib/actions/siteActions'
 
 const websiteConfigSchema = z.object({
   subdomain: z.string().min(3, 'Subdomain must be at least 3 characters').regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens are allowed.'),
@@ -30,12 +32,14 @@ const websiteConfigSchema = z.object({
 type WebsiteConfigFormValues = z.infer<typeof websiteConfigSchema>;
 
 export default function WebsiteBuilderPage() {
-    const { pgs } = useAppSelector(state => state.pgs)
+    const { pgs, currentUser } = useAppSelector(state => ({ pgs: state.pgs.pgs, currentUser: state.user.currentUser }))
     const { currentPlan } = useAppSelector(state => state.user)
     const { isLoading } = useAppSelector(state => state.app)
     const [subdomain, setSubdomain] = useState('');
     const [domain, setDomain] = useState('');
     const [isDev, setIsDev] = useState(false);
+    const [isSaving, startTransition] = useTransition();
+    const { toast } = useToast();
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -50,30 +54,42 @@ export default function WebsiteBuilderPage() {
         resolver: zodResolver(websiteConfigSchema),
         defaultValues: {
             subdomain: '',
-            siteTitle: '',
+            siteTitle: `${currentUser?.name || 'My'}'s Properties`,
             contactPhone: '',
-            contactEmail: '',
+            contactEmail: currentUser?.email || '',
             listedPgs: pgs.map(p => p.id), // Default to all selected
         }
     })
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields } = useFieldArray({
       control: form.control,
       name: "listedPgs"
     });
 
     const onSubmit = (data: WebsiteConfigFormValues) => {
-        console.log(data)
-        // Here you would save the data to the user's settings in your database
+        if (!currentUser) {
+            toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to save settings.'});
+            return;
+        }
+
+        startTransition(async () => {
+            const result = await saveSiteConfig({ ...data, ownerId: currentUser.id });
+            if (result.success) {
+                toast({ title: 'Success!', description: 'Your website settings have been published.'});
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: result.error});
+            }
+        });
     }
     
     const siteUrl = useMemo(() => {
-        if (!subdomain) return '';
-        if (isDev) return `/site/${subdomain}`;
+        const sub = form.watch('subdomain');
+        if (!sub) return '';
+        if (isDev) return `/site/${sub}`;
         // In a real production scenario, you would configure your server/DNS
         // to handle subdomains.
-        return `https://${subdomain}.${domain}`;
-    }, [subdomain, domain, isDev]);
+        return `https://${sub}.${domain}`;
+    }, [form, domain, isDev]);
     
     if (isLoading) {
         return (
@@ -117,10 +133,6 @@ export default function WebsiteBuilderPage() {
                                         <Input 
                                             placeholder="sunshine-pg" 
                                             {...field} 
-                                            onChange={(e) => {
-                                                field.onChange(e);
-                                                setSubdomain(e.target.value);
-                                            }}
                                             className="rounded-r-none" 
                                         />
                                         <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground">.{domain}</span>
@@ -181,7 +193,7 @@ export default function WebsiteBuilderPage() {
                             render={() => (
                                 <FormItem>
                                     <div className="space-y-3">
-                                        {pgs.map((pg, index) => (
+                                        {pgs.map((pg) => (
                                             <FormField
                                                 key={pg.id}
                                                 control={form.control}
@@ -214,7 +226,10 @@ export default function WebsiteBuilderPage() {
                 </Card>
 
                 <div className="flex justify-end">
-                    <Button type="submit"><Save className="mr-2 h-4 w-4"/> Save & Publish Website</Button>
+                    <Button type="submit" disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save & Publish Website
+                    </Button>
                 </div>
             </form>
         </Form>

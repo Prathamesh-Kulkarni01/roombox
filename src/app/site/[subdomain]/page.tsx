@@ -1,16 +1,16 @@
 
-'use client'
-
-import React, { useMemo } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { useAppSelector } from '@/lib/hooks';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, MapPin, Star, BedDouble, Users, IndianRupee, Wifi, Tv, Wind, Zap, ParkingCircle, Shirt } from 'lucide-react';
+import { CheckCircle, MapPin, Star, BedDouble, Users, IndianRupee, Wifi, Tv, Wind, Zap, ParkingCircle, Shirt, Building } from 'lucide-react';
 import PgCard from '@/components/pg-card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { db } from '@/lib/firebase';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import type { PG } from '@/lib/types';
+import { Metadata } from 'next';
 
 const amenityIcons: { [key: string]: React.ReactNode } = {
   wifi: <Wifi className="w-5 h-5" />,
@@ -23,7 +23,7 @@ const amenityIcons: { [key: string]: React.ReactNode } = {
 };
 
 // This component will render the single property detail page
-const SinglePgView = ({ pg }: { pg: any }) => (
+const SinglePgView = ({ pg, owner }: { pg: PG, owner: { name: string, contactEmail?: string, contactPhone?: string } }) => (
   <div className="bg-muted/20">
       <div className="container mx-auto px-4 py-8 md:py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-8">
@@ -111,26 +111,32 @@ const SinglePgView = ({ pg }: { pg: any }) => (
                 <CardHeader><CardTitle>Contact Owner</CardTitle></CardHeader>
                 <CardContent>
                     <p className="text-muted-foreground mb-4">Interested? Get in touch with the owner directly for a faster response.</p>
-                    <a href={`https://wa.me/${pg.contact}?text=Hi, I'm interested in your property "${pg.name}" listed on RentVastu.`} target="_blank" rel="noopener noreferrer">
-                        <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
-                            Inquire on WhatsApp
-                        </Button>
-                    </a>
+                    {owner.contactPhone ? (
+                        <a href={`https://wa.me/${owner.contactPhone}?text=Hi, I'm interested in your property "${pg.name}" listed on RentVastu.`} target="_blank" rel="noopener noreferrer">
+                            <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
+                                Inquire on WhatsApp
+                            </Button>
+                        </a>
+                    ): (
+                        <p className="text-sm text-muted-foreground">Contact information not provided.</p>
+                    )}
                 </CardContent>
              </Card>
           </div>
         </div>
       </div>
        <div className="md:hidden sticky bottom-0 left-0 right-0 bg-background/90 backdrop-blur-sm p-4 border-t w-full">
-         <a href={`https://wa.me/${pg.contact}?text=Hi, I'm interested in your property "${pg.name}" listed on RentVastu.`} target="_blank" rel="noopener noreferrer">
-          <Button className="w-full text-lg bg-accent hover:bg-accent/90 text-accent-foreground">Inquire Now</Button>
-         </a>
+         {owner.contactPhone ? (
+            <a href={`https://wa.me/${owner.contactPhone}?text=Hi, I'm interested in your property "${pg.name}" listed on RentVastu.`} target="_blank" rel="noopener noreferrer">
+              <Button className="w-full text-lg bg-accent hover:bg-accent/90 text-accent-foreground">Inquire Now</Button>
+            </a>
+         ) : <Button className="w-full text-lg" disabled>Inquire Now</Button>}
       </div>
     </div>
 );
 
 // This component will render the multi-property listing page
-const MultiPgView = ({ pgs, siteTitle, owner }: { pgs: any[], siteTitle: string, owner: any }) => (
+const MultiPgView = ({ pgs, siteTitle, owner }: { pgs: PG[], siteTitle: string, owner: any }) => (
     <div className="bg-background">
         <header className="py-20 bg-muted/40">
             <div className="container mx-auto px-4 text-center">
@@ -153,47 +159,73 @@ const MultiPgView = ({ pgs, siteTitle, owner }: { pgs: any[], siteTitle: string,
     </div>
 );
 
+// Fetch site configuration from Firestore
+async function getSiteData(subdomain: string) {
+    if (!db) return null;
+    
+    // In dev, we treat the subdomain as the PG ID for direct preview
+    if (process.env.NODE_ENV === 'development') {
+        // This is a simplified dev path. We need to find the owner of this pg.
+        // This is complex without a full query engine. We will assume a structure or mock it.
+        // For now, let's just return a "not found" for dev to focus on production path.
+        // A better dev approach would be a mock config.
+        return null;
+    }
 
-export default function SitePage({ params }: { params: { subdomain: string } }) {
-  // In a real app, you would fetch website config based on the subdomain.
-  // For this demo, we'll use the logged-in user's data from Redux.
-  const { pgs, isLoading } = useAppSelector(state => state.pgs);
-  const { currentUser } = useAppSelector(state => state.user);
+    const siteDocRef = doc(db, 'sites', subdomain);
+    const siteDoc = await getDoc(siteDocRef);
 
-  // Simplified: Assume the website builder settings are stored on the user or a separate object.
-  // For now, we'll just filter all the user's pgs. In a real app, this would use the `listedPgs`
-  // array from the website builder form.
-  const websiteConfig = {
-      siteTitle: "My Properties", // You'd fetch this from saved config
-  };
+    if (!siteDoc.exists()) {
+        return null;
+    }
+    const siteConfig = siteDoc.data() as { ownerId: string; listedPgs: string[], siteTitle: string, contactPhone?: string, contactEmail?: string };
 
-  const displayedPgs = pgs; // In a real app: `pgs.filter(p => websiteConfig.listedPgs.includes(p.id))`
+    const ownerDocRef = doc(db, 'users', siteConfig.ownerId);
+    const ownerDoc = await getDoc(ownerDocRef);
+    const owner = ownerDoc.exists() ? ownerDoc.data() : { name: 'Property Owner' };
 
-  if (isLoading) {
-    return (
-        <div className="container mx-auto px-4 py-12">
-             <header className="py-20 bg-muted/40">
-                <div className="container mx-auto px-4 text-center">
-                    <Skeleton className="h-12 w-1/2 mx-auto mb-4" />
-                    <Skeleton className="h-6 w-3/4 mx-auto" />
-                </div>
-            </header>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
-                <Skeleton className="h-96 w-full" />
-                <Skeleton className="h-96 w-full" />
-                <Skeleton className="h-96 w-full" />
-            </div>
-        </div>
-    )
+
+    if (siteConfig.listedPgs.length === 0) {
+        return { pgs: [], siteConfig, owner };
+    }
+
+    const pgsQuery = query(
+        collection(db, 'users_data', siteConfig.ownerId, 'pgs'),
+        where('id', 'in', siteConfig.listedPgs)
+    );
+    const pgsSnapshot = await getDocs(pgsQuery);
+    const pgs = pgsSnapshot.docs.map(doc => doc.data() as PG);
+
+    return { pgs, siteConfig, owner };
+}
+
+export async function generateMetadata({ params }: { params: { subdomain: string } }): Promise<Metadata> {
+  const data = await getSiteData(params.subdomain);
+  if (!data) {
+    return {
+      title: 'Page Not Found',
+    }
   }
-  
-  if (displayedPgs.length === 0 && !isLoading) {
+  const { siteConfig, pgs } = data;
+  return {
+    title: `${siteConfig.siteTitle} | Powered by RentVastu`,
+    description: `Browse properties offered by ${siteConfig.siteTitle}. Find your next home with amenities like WiFi, food, and more.`,
+  }
+}
+
+export default async function SitePage({ params }: { params: { subdomain: string } }) {
+  const data = await getSiteData(params.subdomain);
+
+  if (!data || data.pgs.length === 0) {
     return notFound();
   }
 
-  if (displayedPgs.length === 1) {
-    return <SinglePgView pg={displayedPgs[0]} />;
+  const { pgs, siteConfig, owner } = data;
+  const mergedOwnerInfo = { ...owner, contactPhone: siteConfig.contactPhone, contactEmail: siteConfig.contactEmail };
+
+  if (pgs.length === 1) {
+    return <SinglePgView pg={pgs[0]} owner={mergedOwnerInfo} />;
   }
 
-  return <MultiPgView pgs={displayedPgs} siteTitle={websiteConfig.siteTitle} owner={currentUser} />;
+  return <MultiPgView pgs={pgs} siteTitle={siteConfig.siteTitle} owner={mergedOwnerInfo} />;
 }
