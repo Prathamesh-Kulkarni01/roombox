@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, updateSiteStatus, type SiteConfig } from '@/lib/actions/siteActions'
 import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 
 const websiteConfigSchema = z.object({
   subdomain: z.string().min(3, 'Subdomain must be at least 3 characters').regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens are allowed.'),
