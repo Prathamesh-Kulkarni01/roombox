@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, MapPin, Star, BedDouble, Users, IndianRupee, Wifi, Tv, Wind, Zap, ParkingCircle, Shirt } from 'lucide-react';
+import { mockPgs } from '@/lib/mock-data'; // We'll use mock data for now
 
-const amenityIcons = {
+const amenityIcons: { [key: string]: React.ReactNode } = {
   wifi: <Wifi className="w-5 h-5" />,
   ac: <Wind className="w-5 h-5" />,
   'power-backup': <Zap className="w-5 h-5" />,
@@ -16,14 +17,17 @@ const amenityIcons = {
   parking: <ParkingCircle className="w-5 h-5" />,
 };
 
-export default function PgDetailPage({ params }: { params: { id: string } }) {
-  // This page was dependent on mock data and needs to be connected to a public
-  // Firebase collection to work correctly. For now, it will show a 404 page.
-  notFound();
+// In a real app, this data would be fetched from your public Firestore collection
+// based on the subdomain/slug (`params.id`).
+function getPgData(id: string) {
+    // For now, we find a mock PG that could match this ID.
+    // This part needs to be replaced with a real database query.
+    return mockPgs.find(p => p.id === id || p.name.toLowerCase().replace(/\s+/g, '-') === id);
+}
 
-  // The code below is preserved for when this page is connected to a live data source.
-  /*
-  const pg = null; // Fetch PG data from a public collection using params.id
+
+export default function PgDetailPage({ params }: { params: { id: string } }) {
+  const pg = getPgData(params.id);
 
   if (!pg) {
     notFound();
@@ -134,5 +138,4 @@ export default function PgDetailPage({ params }: { params: { id: string } }) {
       </div>
     </div>
   );
-  */
 }

@@ -40,7 +40,6 @@ export default function WebsiteBuilderPage() {
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const hostParts = window.location.hostname.split('.');
-            // Simple logic to get the main domain (e.g., example.com from www.example.com)
             const mainDomain = hostParts.length > 1 ? hostParts.slice(-2).join('.') : window.location.hostname;
             setDomain(mainDomain);
             setIsDev(process.env.NODE_ENV === 'development' || mainDomain.includes('localhost'));
@@ -70,7 +69,7 @@ export default function WebsiteBuilderPage() {
     
     const siteUrl = useMemo(() => {
         if (!subdomain) return '';
-        if (isDev) return `/${subdomain}`;
+        if (isDev) return `/pg/${subdomain}`;
         return `https://${subdomain}.${domain}`;
     }, [subdomain, domain, isDev]);
     
@@ -137,7 +136,7 @@ export default function WebsiteBuilderPage() {
                                     <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm">{siteUrl}</a>
                                      <Dialog>
                                         <DialogTrigger asChild>
-                                            <Button variant="outline" size="sm"><Eye className="mr-2" />Preview</Button>
+                                            <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" />Preview</Button>
                                         </DialogTrigger>
                                         <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
                                             <DialogHeader>
@@ -213,7 +212,7 @@ export default function WebsiteBuilderPage() {
                 </Card>
 
                 <div className="flex justify-end">
-                    <Button type="submit"><Save className="mr-2"/> Save & Publish Website</Button>
+                    <Button type="submit"><Save className="mr-2 h-4 w-4"/> Save & Publish Website</Button>
                 </div>
             </form>
         </Form>

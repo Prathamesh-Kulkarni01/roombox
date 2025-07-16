@@ -1,5 +1,5 @@
 
-import type { Menu, Plan, PlanName } from './types';
+import type { Menu, Plan, PlanName, PG } from './types';
 
 export const defaultMenu: Menu = {
   monday: { breakfast: 'Poha, Tea', lunch: 'Roti, Mixed Veg, Dal Tadka, Rice', dinner: 'Paneer Butter Masala, Roti, Salad' },
@@ -98,3 +98,32 @@ export const plans: Record<PlanName, Plan> = {
     hasWebsiteBuilder: true,
   }
 };
+
+// This is temporary mock data for the public PG pages.
+// In a real app, you would fetch this from a public Firestore collection.
+export const mockPgs: PG[] = [
+  {
+    id: 'sunshine-pg',
+    ownerId: 'mock-owner',
+    name: 'Sunshine PG',
+    location: 'Koramangala, Bangalore',
+    city: 'Bangalore',
+    gender: 'female',
+    images: [
+      "https://placehold.co/1200x600.png",
+      "https://placehold.co/600x400.png",
+      "https://placehold.co/600x400.png",
+    ],
+    rating: 4.5,
+    occupancy: 25,
+    totalBeds: 30,
+    priceRange: { min: 9000, max: 15000 },
+    amenities: ['wifi', 'ac', 'power-backup', 'food', 'laundry'],
+    rules: [
+      'No guests allowed after 10 PM.',
+      'Maintain cleanliness in common areas.',
+      'Rent to be paid by the 5th of every month.',
+    ],
+    contact: '+919876543210',
+  },
+];
