@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +36,7 @@ export default function PgCard({ pg }: PgCardProps) {
             </Badge>
             <Badge variant="default" className="bg-background/80 text-foreground backdrop-blur-sm">
                 <Star className="w-3 h-3 mr-1 text-yellow-500 fill-yellow-500" />
-                {pg.rating}
+                {pg.rating || 'N/A'}
             </Badge>
         </div>
       </CardHeader>

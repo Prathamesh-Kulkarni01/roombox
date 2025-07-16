@@ -69,7 +69,9 @@ export default function WebsiteBuilderPage() {
     
     const siteUrl = useMemo(() => {
         if (!subdomain) return '';
-        if (isDev) return `/pg/${subdomain}`;
+        if (isDev) return `/site/${subdomain}`;
+        // In a real production scenario, you would configure your server/DNS
+        // to handle subdomains.
         return `https://${subdomain}.${domain}`;
     }, [subdomain, domain, isDev]);
     
