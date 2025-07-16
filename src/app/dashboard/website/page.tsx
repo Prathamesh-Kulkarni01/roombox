@@ -136,7 +136,6 @@ export default function WebsiteBuilderPage() {
     }, [isAppLoading, currentUser?.id]);
 
 
-    const { fields: pgsFields } = useFieldArray({ control: form.control, name: "listedPgs" });
     const { fields: featureFields, append: appendFeature, remove: removeFeature } = useFieldArray({ control: form.control, name: "features" });
     const { fields: faqFields, append: appendFaq, remove: removeFaq } = useFieldArray({ control: form.control, name: "faqs" });
     const { fields: testimonialFields, append: appendTestimonial, remove: removeTestimonial } = useFieldArray({ control: form.control, name: "testimonials" });
@@ -262,7 +261,7 @@ export default function WebsiteBuilderPage() {
                         </Label>
                     </div>
                 </CardContent>
-                <CardFooter className="gap-2">
+                <CardFooter className="flex-wrap gap-2">
                     <Button variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4" />Share</Button>
                     <Dialog>
                         <DialogTrigger asChild>
