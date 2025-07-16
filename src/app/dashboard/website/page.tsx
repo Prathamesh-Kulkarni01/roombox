@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppSelector } from '@/lib/hooks'
@@ -69,7 +69,7 @@ export default function WebsiteBuilderPage() {
     const siteUrl = useMemo(() => {
         const subdomain = siteConfig?.subdomain || subdomainValue;
         if (!subdomain || hasSubdomainError) return '';
-        if (isDev) return `/site/${subdomain}`;
+        if (isDev) return `/site/${subdomain}?preview=true`;
         return `https://${subdomain}.${domain}`;
     }, [subdomainValue, siteConfig, hasSubdomainError, domain, isDev]);
 
@@ -97,6 +97,7 @@ export default function WebsiteBuilderPage() {
         if (!isAppLoading && currentUser) {
             fetchConfig();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAppLoading, currentUser?.id]);
 
 
@@ -220,7 +221,7 @@ export default function WebsiteBuilderPage() {
                         <LinkIcon className="h-4 w-4" />
                         <AlertTitle>Your Website URL</AlertTitle>
                         <AlertDescription>
-                            <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl}</a>
+                            <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl.replace('?preview=true','')}</a>
                         </AlertDescription>
                     </Alert>
                     <div className="flex items-center space-x-2">
@@ -239,7 +240,7 @@ export default function WebsiteBuilderPage() {
                         </DialogTrigger>
                         <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
                             <DialogHeader>
-                                <DialogTitle>Website Preview: {siteUrl}</DialogTitle>
+                                <DialogTitle>Website Preview: {siteUrl.replace('?preview=true','')}</DialogTitle>
                             </DialogHeader>
                             <div className="flex-1 rounded-md border overflow-hidden">
                                 <iframe src={siteUrl} className="w-full h-full" title="Website Preview"/>

@@ -1,16 +1,17 @@
 
-import React from 'react';
+'use client'
+
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
+import { notFound, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, MapPin, Star, BedDouble, Users, IndianRupee, Wifi, Tv, Wind, Zap, ParkingCircle, Shirt, Building, PowerOff } from 'lucide-react';
+import { CheckCircle, MapPin, Star, BedDouble, Users, IndianRupee, Wifi, Tv, Wind, Zap, ParkingCircle, Shirt, Building, PowerOff, Loader2 } from 'lucide-react';
 import PgCard from '@/components/pg-card';
-import { db } from '@/lib/firebase';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import type { PG, SiteConfig } from '@/lib/types';
-import { Metadata } from 'next';
+import { getSiteData } from '@/lib/actions/siteActions';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const amenityIcons: { [key: string]: React.ReactNode } = {
   wifi: <Wifi className="w-5 h-5" />,
@@ -159,72 +160,43 @@ const MultiPgView = ({ pgs, siteTitle, owner }: { pgs: PG[], siteTitle: string, 
     </div>
 );
 
-// Fetch site configuration from Firestore
-async function getSiteData(subdomain: string) {
-    if (!db) return null;
+export default function SitePage({ params }: { params: { subdomain: string } }) {
+  const [data, setData] = useState<Awaited<ReturnType<typeof getSiteData>> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
 
-    const siteDocRef = doc(db, 'sites', subdomain);
-    const siteDoc = await getDoc(siteDocRef);
-
-    if (!siteDoc.exists()) {
-        return null;
+  useEffect(() => {
+    async function fetchData() {
+      const isPreview = searchParams.get('preview') === 'true';
+      const siteData = await getSiteData(params.subdomain, isPreview);
+      setData(siteData);
+      setLoading(false);
     }
-    const siteConfig = siteDoc.data() as SiteConfig;
+    fetchData();
+  }, [params.subdomain, searchParams]);
 
-    if (siteConfig.status !== 'published') {
-        return null; // Don't show drafts or suspended sites
-    }
-
-    const ownerDocRef = doc(db, 'users', siteConfig.ownerId);
-    const ownerDoc = await getDoc(ownerDocRef);
-    const owner = ownerDoc.exists() ? ownerDoc.data() : { name: 'Property Owner' };
-
-
-    if (siteConfig.listedPgs.length === 0) {
-        return { pgs: [], siteConfig, owner };
-    }
-
-    const pgsQuery = query(
-        collection(db, 'users_data', siteConfig.ownerId, 'pgs'),
-        where('id', 'in', siteConfig.listedPgs)
+  if (loading) {
+    return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
     );
-    const pgsSnapshot = await getDocs(pgsQuery);
-    const pgs = pgsSnapshot.docs.map(doc => doc.data() as PG);
-
-    return { pgs, siteConfig, owner };
-}
-
-export async function generateMetadata({ params }: { params: { subdomain: string } }): Promise<Metadata> {
-  const data = await getSiteData(params.subdomain);
-  if (!data) {
-    return {
-      title: 'Page Not Found',
-    }
   }
-  const { siteConfig, pgs } = data;
-  return {
-    title: `${siteConfig.siteTitle} | Powered by RentVastu`,
-    description: `Browse properties offered by ${siteConfig.siteTitle}. Find your next home with amenities like WiFi, food, and more.`,
-  }
-}
-
-export default async function SitePage({ params }: { params: { subdomain: string } }) {
-  const data = await getSiteData(params.subdomain);
 
   if (!data) {
     notFound();
   }
   
-  if (data.pgs.length === 0 && data.siteConfig.listedPgs.length > 0) {
+  if (data.status === 'suspended') {
       return (
-        <div className="flex h-screen flex-col items-center justify-center text-center">
-            <PowerOff className="mb-4 h-16 w-16 text-muted-foreground" />
-            <h1 className="text-2xl font-bold">Site Temporarily Unavailable</h1>
-            <p className="text-muted-foreground">This site is currently offline. Please check back later.</p>
-        </div>
+          <div className="flex h-screen flex-col items-center justify-center text-center">
+              <PowerOff className="mb-4 h-16 w-16 text-muted-foreground" />
+              <h1 className="text-2xl font-bold">Site Temporarily Unavailable</h1>
+              <p className="text-muted-foreground">This site is currently offline. Please check back later.</p>
+          </div>
       )
   }
-  
+
   if (data.pgs.length === 0) {
       return (
         <div className="flex h-screen flex-col items-center justify-center text-center">
@@ -235,7 +207,7 @@ export default async function SitePage({ params }: { params: { subdomain: string
       )
   }
 
-  const { pgs, siteConfig, owner } = data;
+  const { pgs, siteConfig, owner, status } = data;
   const mergedOwnerInfo = { ...owner, contactPhone: siteConfig.contactPhone, contactEmail: siteConfig.contactEmail };
 
   if (pgs.length === 1) {

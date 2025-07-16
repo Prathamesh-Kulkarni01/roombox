@@ -95,3 +95,39 @@ export async function updateSiteStatus(subdomain: string, status: 'published' | 
         return { success: false, error: "Failed to update site status." };
     }
 }
+
+
+// Fetch site configuration from Firestore for the public page
+export async function getSiteData(subdomain: string, isPreview: boolean = false) {
+    if (!db) return null;
+
+    const siteDocRef = doc(db, 'sites', subdomain);
+    const siteDoc = await getDoc(siteDocRef);
+
+    if (!siteDoc.exists()) {
+        return null;
+    }
+    const siteConfig = siteDoc.data() as SiteConfig;
+
+    if (siteConfig.status !== 'published' && !isPreview) {
+        return null;
+    }
+
+    const ownerDocRef = doc(db, 'users', siteConfig.ownerId);
+    const ownerDoc = await getDoc(ownerDocRef);
+    const owner = ownerDoc.exists() ? ownerDoc.data() : { name: 'Property Owner' };
+
+
+    if (siteConfig.listedPgs.length === 0) {
+        return { pgs: [], siteConfig, owner, status: siteConfig.status };
+    }
+
+    const pgsQuery = query(
+        collection(db, 'users_data', siteConfig.ownerId, 'pgs'),
+        where('id', 'in', siteConfig.listedPgs)
+    );
+    const pgsSnapshot = await getDocs(pgsQuery);
+    const pgs = pgsSnapshot.docs.map(doc => doc.data() as PG);
+
+    return { pgs, siteConfig, owner, status: siteConfig.status };
+}
