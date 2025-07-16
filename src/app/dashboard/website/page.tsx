@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,7 +9,6 @@ import { useAppSelector } from '@/lib/hooks'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -34,6 +33,16 @@ export default function WebsiteBuilderPage() {
     const { currentPlan } = useAppSelector(state => state.user)
     const { isLoading } = useAppSelector(state => state.app)
     const [subdomain, setSubdomain] = useState('');
+    const [domain, setDomain] = useState('');
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const hostParts = window.location.hostname.split('.');
+            // Simple logic to get the main domain (e.g., example.com from www.example.com)
+            const mainDomain = hostParts.length > 1 ? hostParts.slice(-2).join('.') : window.location.hostname;
+            setDomain(mainDomain);
+        }
+    }, [])
 
     const form = useForm<WebsiteConfigFormValues>({
         resolver: zodResolver(websiteConfigSchema),
@@ -56,7 +65,7 @@ export default function WebsiteBuilderPage() {
         // Here you would save the data to the user's settings in your database
     }
     
-    const siteUrl = subdomain ? `https://${subdomain}.rentvastu.app` : '';
+    const siteUrl = subdomain ? `https://${subdomain}.${domain}` : '';
     
     if (isLoading) {
         return (
@@ -106,7 +115,7 @@ export default function WebsiteBuilderPage() {
                                             }}
                                             className="rounded-r-none" 
                                         />
-                                        <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground">.rentvastu.app</span>
+                                        <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground">.{domain}</span>
                                     </div>
                                     <FormDescription>This will be your website's public address.</FormDescription>
                                     <FormMessage />
