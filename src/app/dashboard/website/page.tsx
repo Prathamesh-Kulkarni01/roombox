@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -35,6 +35,7 @@ export default function WebsiteBuilderPage() {
     const { isLoading } = useAppSelector(state => state.app)
     const [subdomain, setSubdomain] = useState('');
     const [domain, setDomain] = useState('');
+    const [isDev, setIsDev] = useState(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -42,6 +43,7 @@ export default function WebsiteBuilderPage() {
             // Simple logic to get the main domain (e.g., example.com from www.example.com)
             const mainDomain = hostParts.length > 1 ? hostParts.slice(-2).join('.') : window.location.hostname;
             setDomain(mainDomain);
+            setIsDev(process.env.NODE_ENV === 'development' || mainDomain.includes('localhost'));
         }
     }, [])
 
@@ -66,7 +68,11 @@ export default function WebsiteBuilderPage() {
         // Here you would save the data to the user's settings in your database
     }
     
-    const siteUrl = subdomain ? `https://${subdomain}.${domain}` : '';
+    const siteUrl = useMemo(() => {
+        if (!subdomain) return '';
+        if (isDev) return `/${subdomain}`;
+        return `https://${subdomain}.${domain}`;
+    }, [subdomain, domain, isDev]);
     
     if (isLoading) {
         return (
