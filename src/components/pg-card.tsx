@@ -14,9 +14,9 @@ interface PgCardProps {
 }
 
 const genderBadgeColor = {
-  male: 'bg-blue-100 text-blue-800',
-  female: 'bg-pink-100 text-pink-800',
-  'co-ed': 'bg-purple-100 text-purple-800',
+  male: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  female: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
+  'co-ed': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
 };
 
 export default function PgCard({ pg }: PgCardProps) {
@@ -26,7 +26,7 @@ export default function PgCard({ pg }: PgCardProps) {
   const pgLink = `${pathname}?pgId=${pg.id}`;
 
   return (
-    <Card className="flex flex-col overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+    <Card className="flex flex-col overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 bg-background">
       <CardHeader className="p-0 relative">
         <Image
           src={pg.images[0]}
@@ -71,7 +71,7 @@ export default function PgCard({ pg }: PgCardProps) {
           {pg.amenities.length > 3 && <Badge variant="secondary" className="text-xs">+{pg.amenities.length - 3} more</Badge>}
         </div>
       </CardContent>
-      <CardFooter className="p-4 bg-primary/5 flex justify-between items-center">
+      <CardFooter className="p-4 bg-muted/30 flex justify-between items-center">
         <div className="font-semibold text-lg flex items-center">
             <IndianRupee className="w-5 h-5" />
             {pg.priceRange.min}
