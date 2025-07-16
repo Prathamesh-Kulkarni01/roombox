@@ -14,10 +14,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ShieldAlert, Globe, LinkIcon, Save, Eye, Loader2 } from 'lucide-react'
+import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { saveSiteConfig } from '@/lib/actions/siteActions'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 const websiteConfigSchema = z.object({
   subdomain: z.string().min(3, 'Subdomain must be at least 3 characters').regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens are allowed.'),
@@ -34,10 +36,11 @@ type WebsiteConfigFormValues = z.infer<typeof websiteConfigSchema>;
 export default function WebsiteBuilderPage() {
     const { pgs, currentUser } = useAppSelector(state => ({ pgs: state.pgs.pgs, currentUser: state.user.currentUser }))
     const { currentPlan } = useAppSelector(state => state.user)
-    const { isLoading } = useAppSelector(state => state.app)
+    const { isLoading: isAppLoading } = useAppSelector(state => state.app)
     const [domain, setDomain] = useState('');
     const [isDev, setIsDev] = useState(false);
     const [isSaving, startTransition] = useTransition();
+    const [isFetchingConfig, setIsFetchingConfig] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
@@ -53,12 +56,42 @@ export default function WebsiteBuilderPage() {
         resolver: zodResolver(websiteConfigSchema),
         defaultValues: {
             subdomain: '',
-            siteTitle: `${currentUser?.name || 'My'}'s Properties`,
+            siteTitle: '',
             contactPhone: '',
-            contactEmail: currentUser?.email || '',
-            listedPgs: pgs.map(p => p.id), // Default to all selected
+            contactEmail: '',
+            listedPgs: [],
         }
     })
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            if (!currentUser) return;
+            setIsFetchingConfig(true);
+            try {
+                // In a multi-site scenario, you'd have a way to know which site config to fetch.
+                // For now, we assume one site config per user, stored with their ID.
+                // Let's assume subdomain is stored in user profile or a related doc.
+                // For this example, we'll try to fetch a config based on a convention.
+                // This logic would be more robust in a real app.
+                // Let's assume we can find the subdomain from the user's data, or they enter it.
+                // Let's pre-populate from a potential existing config if found.
+                // This part is tricky without a dedicated user->site mapping.
+                // Simplified: We'll just pre-fill defaults. A more complex app would fetch this.
+                form.reset({
+                    siteTitle: `${currentUser.name || 'My'}'s Properties`,
+                    contactEmail: currentUser.email || '',
+                    listedPgs: pgs.map(p => p.id),
+                });
+            } catch (error) {
+                console.error("Could not fetch existing site config", error);
+            } finally {
+                setIsFetchingConfig(false);
+            }
+        };
+        if (currentUser && pgs.length > 0) {
+            fetchConfig();
+        }
+    }, [currentUser, pgs, form]);
 
     const { fields } = useFieldArray({
       control: form.control,
@@ -87,6 +120,8 @@ export default function WebsiteBuilderPage() {
         if (isDev) return `/site/${sub}`;
         return `https://${sub}.${domain}`;
     }, [form, domain, isDev]);
+    
+    const isLoading = isAppLoading || isFetchingConfig;
     
     if (isLoading) {
         return (
