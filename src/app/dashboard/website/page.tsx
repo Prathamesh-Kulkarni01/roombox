@@ -79,12 +79,8 @@ export default function WebsiteBuilderPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const hostParts = window.location.hostname.split('.');
-            const mainDomain = hostParts.length > 1 ? hostParts.slice(-2).join('.') : window.location.hostname;
-            setDomain(mainDomain);
-            setIsDev(process.env.NODE_ENV === 'development' || mainDomain.includes('localhost'));
-        }
+        setDomain(process.env.NEXT_PUBLIC_SITE_DOMAIN || 'localhost:9002');
+        setIsDev(process.env.NODE_ENV === 'development');
     }, [])
 
     const form = useForm<WebsiteConfigFormValues>({
@@ -199,18 +195,19 @@ export default function WebsiteBuilderPage() {
 
     const handleShare = async () => {
         if (!siteUrl) return;
+        const urlToShare = isDev ? `${window.location.origin}${siteUrl}` : siteUrl;
         if (navigator.share) {
             try {
                 await navigator.share({
                     title: siteConfig?.siteTitle || 'My Property',
                     text: `Check out my property: ${siteConfig?.siteTitle}`,
-                    url: siteUrl.replace('?preview=true',''),
+                    url: urlToShare.replace('?preview=true',''),
                 });
             } catch (error) {
                 console.error('Error sharing:', error);
             }
         } else {
-            navigator.clipboard.writeText(siteUrl.replace('?preview=true',''));
+            navigator.clipboard.writeText(urlToShare.replace('?preview=true',''));
             toast({ title: 'Copied to Clipboard', description: 'Website URL copied.' });
         }
     };
@@ -239,6 +236,7 @@ export default function WebsiteBuilderPage() {
     }
     
     if (viewMode === 'display' && siteConfig) {
+        const publicUrl = isDev ? `${window.location.origin}${siteUrl}` : siteUrl;
         return (
             <Card>
                 <CardHeader>
@@ -250,7 +248,7 @@ export default function WebsiteBuilderPage() {
                         <LinkIcon className="h-4 w-4" />
                         <AlertTitle>Your Website URL</AlertTitle>
                         <AlertDescription>
-                            <a href={siteUrl.replace('?preview=true','')} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl.replace('?preview=true','')}</a>
+                            <a href={publicUrl.replace('?preview=true','')} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{publicUrl.replace('?preview=true','')}</a>
                         </AlertDescription>
                     </Alert>
                     <div className="flex items-center space-x-2">
@@ -269,7 +267,7 @@ export default function WebsiteBuilderPage() {
                         </DialogTrigger>
                         <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
                             <DialogHeader>
-                                <DialogTitle>Website Preview: {siteUrl.replace('?preview=true','')}</DialogTitle>
+                                <DialogTitle>Website Preview: {publicUrl.replace('?preview=true','')}</DialogTitle>
                             </DialogHeader>
                             <div className="flex-1 rounded-md border overflow-hidden">
                                 <iframe src={siteUrl} className="w-full h-full" title="Website Preview"/>
