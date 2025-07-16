@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { HomeIcon, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe } from 'lucide-react';
+import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: HomeIcon, feature: 'core', tourId: 'dashboard-nav' },
+  { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'core', tourId: 'dashboard-nav' },
   { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed, feature: 'core' },
   { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet, feature: 'core' },
   { href: '/dashboard/pg-management', label: 'Property Management', icon: Building, feature: 'core', tourId: 'pg-management-nav' },

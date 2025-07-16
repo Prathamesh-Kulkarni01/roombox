@@ -3,8 +3,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { db } from '../firebase'
-import { doc, setDoc, getDoc, getDocs, query, where, deleteDoc } from 'firebase/firestore'
+import { doc, setDoc, getDoc, getDocs, query, where, deleteDoc, updateDoc } from 'firebase/firestore'
 import { z } from 'zod'
+import { collection } from 'firebase/firestore'
 
 const websiteConfigSchema = z.object({
   subdomain: z.string().min(3).regex(/^[a-z0-9-]+$/),
@@ -13,6 +14,7 @@ const websiteConfigSchema = z.object({
   contactPhone: z.string().optional(),
   contactEmail: z.string().email().optional(),
   listedPgs: z.array(z.string()).min(1),
+  status: z.enum(['published', 'draft', 'suspended']).optional(),
 });
 
 export type SiteConfig = z.infer<typeof websiteConfigSchema>;
@@ -26,8 +28,8 @@ export async function saveSiteConfig(config: SiteConfig & { existingSubdomain?: 
              throw new Error("Firestore is not initialized.");
         }
         
-        // Check for subdomain uniqueness if it's new or has changed
-        if (validatedConfig.subdomain !== existingSubdomain) {
+        // Check for subdomain uniqueness only if it's a new site
+        if (!existingSubdomain) {
             const existingSiteDocRef = doc(db, 'sites', validatedConfig.subdomain);
             const existingSiteDoc = await getDoc(existingSiteDocRef);
             if (existingSiteDoc.exists()) {
@@ -35,14 +37,8 @@ export async function saveSiteConfig(config: SiteConfig & { existingSubdomain?: 
             }
         }
         
-        // If the subdomain has changed, delete the old document
-        if (existingSubdomain && validatedConfig.subdomain !== existingSubdomain) {
-            const oldSiteDocRef = doc(db, 'sites', existingSubdomain);
-            await deleteDoc(oldSiteDocRef);
-        }
-
         const siteDocRef = doc(db, 'sites', validatedConfig.subdomain);
-        await setDoc(siteDocRef, validatedConfig);
+        await setDoc(siteDocRef, validatedConfig, { merge: true });
 
         revalidatePath(`/site/${validatedConfig.subdomain}`);
         if(existingSubdomain && validatedConfig.subdomain !== existingSubdomain) {
@@ -81,5 +77,21 @@ export async function deleteSiteConfig(subdomain: string) {
     } catch (error) {
         console.error("Error deleting site config:", error);
         return { success: false, error: "Failed to delete the website." };
+    }
+}
+
+export async function updateSiteStatus(subdomain: string, status: 'published' | 'suspended') {
+     if (!db) {
+        return { success: false, error: "Database not connected." };
+    }
+    try {
+        const siteDocRef = doc(db, 'sites', subdomain);
+        await updateDoc(siteDocRef, { status });
+        revalidatePath(`/site/${subdomain}`);
+        const updatedDoc = await getDoc(siteDocRef);
+        return { success: true, config: updatedDoc.data() as SiteConfig };
+    } catch (error) {
+        console.error("Error updating site status:", error);
+        return { success: false, error: "Failed to update site status." };
     }
 }

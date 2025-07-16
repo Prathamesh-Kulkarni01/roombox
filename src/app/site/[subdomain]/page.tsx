@@ -5,11 +5,11 @@ import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, MapPin, Star, BedDouble, Users, IndianRupee, Wifi, Tv, Wind, Zap, ParkingCircle, Shirt, Building } from 'lucide-react';
+import { CheckCircle, MapPin, Star, BedDouble, Users, IndianRupee, Wifi, Tv, Wind, Zap, ParkingCircle, Shirt, Building, PowerOff } from 'lucide-react';
 import PgCard from '@/components/pg-card';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import type { PG } from '@/lib/types';
+import type { PG, SiteConfig } from '@/lib/types';
 import { Metadata } from 'next';
 
 const amenityIcons: { [key: string]: React.ReactNode } = {
@@ -169,7 +169,11 @@ async function getSiteData(subdomain: string) {
     if (!siteDoc.exists()) {
         return null;
     }
-    const siteConfig = siteDoc.data() as { ownerId: string; listedPgs: string[], siteTitle: string, contactPhone?: string, contactEmail?: string };
+    const siteConfig = siteDoc.data() as SiteConfig;
+
+    if (siteConfig.status !== 'published') {
+        return null; // Don't show drafts or suspended sites
+    }
 
     const ownerDocRef = doc(db, 'users', siteConfig.ownerId);
     const ownerDoc = await getDoc(ownerDocRef);
@@ -207,8 +211,18 @@ export async function generateMetadata({ params }: { params: { subdomain: string
 export default async function SitePage({ params }: { params: { subdomain: string } }) {
   const data = await getSiteData(params.subdomain);
 
-  if (!data || (data.pgs.length === 0 && data.siteConfig.listedPgs.length > 0)) {
-    return notFound();
+  if (!data) {
+    notFound();
+  }
+  
+  if (data.pgs.length === 0 && data.siteConfig.listedPgs.length > 0) {
+      return (
+        <div className="flex h-screen flex-col items-center justify-center text-center">
+            <PowerOff className="mb-4 h-16 w-16 text-muted-foreground" />
+            <h1 className="text-2xl font-bold">Site Temporarily Unavailable</h1>
+            <p className="text-muted-foreground">This site is currently offline. Please check back later.</p>
+        </div>
+      )
   }
   
   if (data.pgs.length === 0) {

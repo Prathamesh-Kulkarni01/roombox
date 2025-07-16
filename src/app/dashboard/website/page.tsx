@@ -14,10 +14,11 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2, Share2, Power, PowerOff } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
-import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, type SiteConfig } from '@/lib/actions/siteActions'
+import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, updateSiteStatus, type SiteConfig } from '@/lib/actions/siteActions'
+import { Switch } from '@/components/ui/switch'
 
 const websiteConfigSchema = z.object({
   subdomain: z.string().min(3, 'Subdomain must be at least 3 characters').regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens are allowed.'),
@@ -27,6 +28,7 @@ const websiteConfigSchema = z.object({
   listedPgs: z.array(z.string()).refine(value => value.some(item => item), {
     message: "You must select at least one property to display.",
   }),
+  status: z.enum(['published', 'draft', 'suspended']).optional(),
 });
 
 type WebsiteConfigFormValues = z.infer<typeof websiteConfigSchema>;
@@ -65,49 +67,53 @@ export default function WebsiteBuilderPage() {
 
     const siteUrl = useMemo(() => {
         const subdomain = siteConfig?.subdomain || subdomainValue;
-        if (!subdomain) return '';
+        if (!subdomain || hasSubdomainError) return '';
         if (isDev) return `/site/${subdomain}`;
         return `https://${subdomain}.${domain}`;
     }, [subdomainValue, siteConfig, hasSubdomainError, domain, isDev]);
 
+    const fetchConfig = async () => {
+        if (!currentUser) return;
+        setViewMode('loading');
+        const config = await getSiteConfigForOwner(currentUser.id);
+        if (config) {
+            setSiteConfig(config);
+            form.reset(config);
+            setViewMode('display');
+        } else {
+            form.reset({
+                siteTitle: `${currentUser.name || 'My'}'s Properties`,
+                contactEmail: currentUser.email || '',
+                listedPgs: pgs.map(p => p.id),
+                subdomain: '',
+                contactPhone: ''
+            });
+            setViewMode('edit');
+        }
+    };
+    
     useEffect(() => {
-        const fetchConfig = async () => {
-            if (!currentUser) return;
-            setViewMode('loading');
-            const config = await getSiteConfigForOwner(currentUser.id);
-            if (config) {
-                setSiteConfig(config);
-                form.reset(config);
-                setViewMode('display');
-            } else {
-                form.reset({
-                    siteTitle: `${currentUser.name || 'My'}'s Properties`,
-                    contactEmail: currentUser.email || '',
-                    listedPgs: pgs.map(p => p.id),
-                    subdomain: '',
-                    contactPhone: ''
-                });
-                setViewMode('edit');
-            }
-        };
-        if (!isAppLoading) fetchConfig();
-    }, [currentUser, isAppLoading, pgs, form]);
+        if (!isAppLoading && currentUser) {
+            fetchConfig();
+        }
+    }, [isAppLoading, currentUser?.id]);
+
 
     const { fields } = useFieldArray({
       control: form.control,
       name: "listedPgs"
     });
 
-    const onSubmit = (data: WebsiteConfigFormValues) => {
+    const onSubmit = (data: WebsiteConfigFormValues, status: 'draft' | 'published') => {
         if (!currentUser) {
             toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to save settings.'});
             return;
         }
 
         startTransition(async () => {
-            const result = await saveSiteConfig({ ...data, ownerId: currentUser.id, existingSubdomain: siteConfig?.subdomain });
+            const result = await saveSiteConfig({ ...data, status, ownerId: currentUser.id, existingSubdomain: siteConfig?.subdomain });
             if (result.success && result.config) {
-                toast({ title: 'Success!', description: 'Your website settings have been published.'});
+                toast({ title: 'Success!', description: `Your website has been ${status === 'published' ? 'published' : 'saved as a draft'}.`});
                 setSiteConfig(result.config);
                 setViewMode('display');
             } else {
@@ -142,6 +148,42 @@ export default function WebsiteBuilderPage() {
         setIsDeleteDialogOpen(false);
     }
     
+    const handleStatusToggle = async () => {
+        if (!siteConfig) return;
+        const newStatus = siteConfig.status === 'published' ? 'suspended' : 'published';
+        
+        startTransition(async () => {
+            const result = await updateSiteStatus(siteConfig.subdomain, newStatus);
+            if (result.success && result.config) {
+                setSiteConfig(result.config);
+                toast({
+                    title: `Website ${newStatus === 'published' ? 'Live' : 'Suspended'}`,
+                    description: `Your website is now ${newStatus}.`,
+                });
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: result.error });
+            }
+        });
+    }
+
+    const handleShare = async () => {
+        if (!siteUrl) return;
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: siteConfig?.siteTitle || 'My Property',
+                    text: `Check out my property: ${siteConfig?.siteTitle}`,
+                    url: siteUrl,
+                });
+            } catch (error) {
+                console.error('Error sharing:', error);
+            }
+        } else {
+            navigator.clipboard.writeText(siteUrl);
+            toast({ title: 'Copied to Clipboard', description: 'Website URL copied.' });
+        }
+    };
+    
     if (viewMode === 'loading' || isAppLoading) {
         return (
              <div className="space-y-6">
@@ -172,7 +214,7 @@ export default function WebsiteBuilderPage() {
                     <CardTitle className="flex items-center gap-2"><Globe/> Your Public Website</CardTitle>
                     <CardDescription>Your website is live. You can preview, edit, or delete it below.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                      <Alert>
                         <LinkIcon className="h-4 w-4" />
                         <AlertTitle>Your Website URL</AlertTitle>
@@ -180,8 +222,16 @@ export default function WebsiteBuilderPage() {
                             <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl}</a>
                         </AlertDescription>
                     </Alert>
+                    <div className="flex items-center space-x-2">
+                        <Switch id="site-status" checked={siteConfig.status === 'published'} onCheckedChange={handleStatusToggle} disabled={isSaving}/>
+                        <Label htmlFor="site-status" className="flex items-center gap-1.5">
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : siteConfig.status === 'published' ? <Power className="w-4 h-4 text-green-500" /> : <PowerOff className="w-4 h-4 text-red-500" />}
+                            {isSaving ? 'Updating...' : siteConfig.status === 'published' ? 'Live' : 'Suspended'}
+                        </Label>
+                    </div>
                 </CardContent>
                 <CardFooter className="gap-2">
+                    <Button variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4" />Share</Button>
                     <Dialog>
                         <DialogTrigger asChild>
                             <Button variant="outline"><Eye className="mr-2 h-4 w-4" />Preview</Button>
@@ -222,7 +272,7 @@ export default function WebsiteBuilderPage() {
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form className="space-y-8">
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Globe/> Public Website Builder</CardTitle>
@@ -239,11 +289,12 @@ export default function WebsiteBuilderPage() {
                                         <Input 
                                             placeholder="sunshine-pg" 
                                             {...field} 
-                                            className="rounded-r-none" 
+                                            className="rounded-r-none"
+                                            disabled={!!siteConfig}
                                         />
-                                        <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground">.{domain}</span>
+                                        <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground h-10">.{domain}</span>
                                     </div>
-                                    <FormDescription>This will be your website's public address.</FormDescription>
+                                    <FormDescription>This will be your website's public address. Cannot be changed later.</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -310,12 +361,19 @@ export default function WebsiteBuilderPage() {
                 </Card>
 
                 <div className="flex justify-end gap-2">
-                    {siteConfig && (
-                        <Button type="button" variant="secondary" onClick={() => setViewMode('display')}>Cancel</Button>
+                    {viewMode === 'edit' && siteConfig && (
+                        <Button type="button" variant="secondary" onClick={() => {
+                            form.reset(siteConfig); // Reset form to last saved state
+                            setViewMode('display');
+                        }}>Cancel</Button>
                     )}
-                    <Button type="submit" disabled={isSaving}>
+                    <Button type="button" variant="outline" onClick={form.handleSubmit(data => onSubmit(data, 'draft'))} disabled={isSaving}>
                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {siteConfig ? 'Save Changes' : 'Create & Publish Website'}
+                        Save as Draft
+                    </Button>
+                    <Button type="button" onClick={form.handleSubmit(data => onSubmit(data, 'published'))} disabled={isSaving}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {siteConfig ? 'Update & Publish' : 'Create & Publish'}
                     </Button>
                 </div>
             </form>

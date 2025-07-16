@@ -176,3 +176,13 @@ export interface User {
     status: 'active' | 'inactive';
   };
 }
+
+export interface SiteConfig {
+  subdomain: string;
+  ownerId: string;
+  siteTitle: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  listedPgs: string[];
+  status: 'published' | 'draft' | 'suspended';
+}
