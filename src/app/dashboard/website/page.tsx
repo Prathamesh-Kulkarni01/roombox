@@ -9,7 +9,6 @@ import { useAppSelector } from '@/lib/hooks'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -18,8 +17,6 @@ import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2 } from 'lucide
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { saveSiteConfig } from '@/lib/actions/siteActions'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
 
 const websiteConfigSchema = z.object({
   subdomain: z.string().min(3, 'Subdomain must be at least 3 characters').regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens are allowed.'),
@@ -54,6 +51,7 @@ export default function WebsiteBuilderPage() {
 
     const form = useForm<WebsiteConfigFormValues>({
         resolver: zodResolver(websiteConfigSchema),
+        mode: 'onChange',
         defaultValues: {
             subdomain: '',
             siteTitle: '',
@@ -62,21 +60,21 @@ export default function WebsiteBuilderPage() {
             listedPgs: [],
         }
     })
+    
+    const subdomainValue = form.watch('subdomain');
+    const hasSubdomainError = !!form.formState.errors.subdomain;
+
+    const siteUrl = useMemo(() => {
+        if (!subdomainValue || hasSubdomainError) return '';
+        if (isDev) return `/site/${subdomainValue}`;
+        return `https://${subdomainValue}.${domain}`;
+    }, [subdomainValue, hasSubdomainError, domain, isDev]);
 
     useEffect(() => {
         const fetchConfig = async () => {
             if (!currentUser) return;
             setIsFetchingConfig(true);
             try {
-                // In a multi-site scenario, you'd have a way to know which site config to fetch.
-                // For now, we assume one site config per user, stored with their ID.
-                // Let's assume subdomain is stored in user profile or a related doc.
-                // For this example, we'll try to fetch a config based on a convention.
-                // This logic would be more robust in a real app.
-                // Let's assume we can find the subdomain from the user's data, or they enter it.
-                // Let's pre-populate from a potential existing config if found.
-                // This part is tricky without a dedicated user->site mapping.
-                // Simplified: We'll just pre-fill defaults. A more complex app would fetch this.
                 form.reset({
                     siteTitle: `${currentUser.name || 'My'}'s Properties`,
                     contactEmail: currentUser.email || '',
@@ -113,13 +111,6 @@ export default function WebsiteBuilderPage() {
             }
         });
     }
-    
-    const siteUrl = useMemo(() => {
-        const sub = form.watch('subdomain');
-        if (!sub) return '';
-        if (isDev) return `/site/${sub}`;
-        return `https://${sub}.${domain}`;
-    }, [form, domain, isDev]);
     
     const isLoading = isAppLoading || isFetchingConfig;
     
