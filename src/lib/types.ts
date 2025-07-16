@@ -185,4 +185,13 @@ export interface SiteConfig {
   contactEmail?: string;
   listedPgs: string[];
   status: 'published' | 'draft' | 'suspended';
+  heroHeadline?: string;
+  heroSubtext?: string;
+  aboutTitle?: string;
+  aboutDescription?: string;
+  featuresTitle?: string;
+  featuresDescription?: string;
+  features?: { title: string; description: string; }[];
+  faqs?: { q: string; a: string; }[];
+  testimonials?: { quote: string; author: string; }[];
 }

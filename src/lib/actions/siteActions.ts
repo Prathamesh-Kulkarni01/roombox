@@ -6,6 +6,22 @@ import { db } from '../firebase'
 import { doc, setDoc, getDoc, getDocs, query, where, deleteDoc, updateDoc } from 'firebase/firestore'
 import { z } from 'zod'
 import { collection } from 'firebase/firestore'
+import type { PG, User } from '../types'
+
+const featureSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+});
+
+const faqSchema = z.object({
+  q: z.string().min(1),
+  a: z.string().min(1),
+});
+
+const testimonialSchema = z.object({
+  quote: z.string().min(1),
+  author: z.string().min(1),
+});
 
 const websiteConfigSchema = z.object({
   subdomain: z.string().min(3).regex(/^[a-z0-9-]+$/),
@@ -15,6 +31,15 @@ const websiteConfigSchema = z.object({
   contactEmail: z.string().email().optional(),
   listedPgs: z.array(z.string()).min(1),
   status: z.enum(['published', 'draft', 'suspended']).optional(),
+  heroHeadline: z.string().optional(),
+  heroSubtext: z.string().optional(),
+  aboutTitle: z.string().optional(),
+  aboutDescription: z.string().optional(),
+  featuresTitle: z.string().optional(),
+  featuresDescription: z.string().optional(),
+  features: z.array(featureSchema).optional(),
+  faqs: z.array(faqSchema).optional(),
+  testimonials: z.array(testimonialSchema).optional(),
 });
 
 export type SiteConfig = z.infer<typeof websiteConfigSchema>;
@@ -28,8 +53,7 @@ export async function saveSiteConfig(config: SiteConfig & { existingSubdomain?: 
              throw new Error("Firestore is not initialized.");
         }
         
-        // Check for subdomain uniqueness only if it's a new site
-        if (!existingSubdomain) {
+        if (!existingSubdomain || existingSubdomain !== validatedConfig.subdomain) {
             const existingSiteDocRef = doc(db, 'sites', validatedConfig.subdomain);
             const existingSiteDoc = await getDoc(existingSiteDocRef);
             if (existingSiteDoc.exists()) {
@@ -48,7 +72,8 @@ export async function saveSiteConfig(config: SiteConfig & { existingSubdomain?: 
         return { success: true, config: validatedConfig };
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return { success: false, error: "Invalid data provided." };
+            console.error("Zod validation error:", error.errors);
+            return { success: false, error: "Invalid data provided. Please check all fields." };
         }
         console.error("Error saving site config:", error);
         return { success: false, error: "An unexpected error occurred." };
@@ -97,7 +122,6 @@ export async function updateSiteStatus(subdomain: string, status: 'published' | 
 }
 
 
-// Fetch site configuration from Firestore for the public page
 export async function getSiteData(subdomain: string, isPreview: boolean = false) {
     if (!db) return null;
 
@@ -110,12 +134,12 @@ export async function getSiteData(subdomain: string, isPreview: boolean = false)
     const siteConfig = siteDoc.data() as SiteConfig;
 
     if (siteConfig.status !== 'published' && !isPreview) {
-        return null;
+        return { status: siteConfig.status, pgs: [], siteConfig: siteConfig, owner: null };
     }
 
     const ownerDocRef = doc(db, 'users', siteConfig.ownerId);
     const ownerDoc = await getDoc(ownerDocRef);
-    const owner = ownerDoc.exists() ? ownerDoc.data() : { name: 'Property Owner' };
+    const owner = ownerDoc.exists() ? ownerDoc.data() as User : null;
 
 
     if (siteConfig.listedPgs.length === 0) {
