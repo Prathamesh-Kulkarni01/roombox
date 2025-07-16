@@ -162,15 +162,6 @@ const MultiPgView = ({ pgs, siteTitle, owner }: { pgs: PG[], siteTitle: string, 
 // Fetch site configuration from Firestore
 async function getSiteData(subdomain: string) {
     if (!db) return null;
-    
-    // In dev, we treat the subdomain as the PG ID for direct preview
-    if (process.env.NODE_ENV === 'development') {
-        // This is a simplified dev path. We need to find the owner of this pg.
-        // This is complex without a full query engine. We will assume a structure or mock it.
-        // For now, let's just return a "not found" for dev to focus on production path.
-        // A better dev approach would be a mock config.
-        return null;
-    }
 
     const siteDocRef = doc(db, 'sites', subdomain);
     const siteDoc = await getDoc(siteDocRef);
@@ -216,8 +207,18 @@ export async function generateMetadata({ params }: { params: { subdomain: string
 export default async function SitePage({ params }: { params: { subdomain: string } }) {
   const data = await getSiteData(params.subdomain);
 
-  if (!data || data.pgs.length === 0) {
+  if (!data || (data.pgs.length === 0 && data.siteConfig.listedPgs.length > 0)) {
     return notFound();
+  }
+  
+  if (data.pgs.length === 0) {
+      return (
+        <div className="flex h-screen flex-col items-center justify-center text-center">
+            <Building className="mb-4 h-16 w-16 text-muted-foreground" />
+            <h1 className="text-2xl font-bold">No Properties Listed</h1>
+            <p className="text-muted-foreground">The owner has not listed any properties on this website yet.</p>
+        </div>
+      )
   }
 
   const { pgs, siteConfig, owner } = data;
