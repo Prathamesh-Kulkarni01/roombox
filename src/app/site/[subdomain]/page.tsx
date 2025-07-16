@@ -164,6 +164,7 @@ export default function SitePage({ params }: { params: { subdomain: string } }) 
   const [data, setData] = useState<Awaited<ReturnType<typeof getSiteData>> | null>(null);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
+  const pgIdToShow = searchParams.get('pgId');
 
   useEffect(() => {
     async function fetchData() {
@@ -187,7 +188,7 @@ export default function SitePage({ params }: { params: { subdomain: string } }) 
     notFound();
   }
   
-  if (data.status === 'suspended') {
+  if (data.status === 'suspended' && searchParams.get('preview') !== 'true') {
       return (
           <div className="flex h-screen flex-col items-center justify-center text-center">
               <PowerOff className="mb-4 h-16 w-16 text-muted-foreground" />
@@ -207,11 +208,13 @@ export default function SitePage({ params }: { params: { subdomain: string } }) 
       )
   }
 
-  const { pgs, siteConfig, owner, status } = data;
+  const { pgs, siteConfig, owner } = data;
   const mergedOwnerInfo = { ...owner, contactPhone: siteConfig.contactPhone, contactEmail: siteConfig.contactEmail };
 
-  if (pgs.length === 1) {
-    return <SinglePgView pg={pgs[0]} owner={mergedOwnerInfo} />;
+  const singlePg = pgIdToShow ? pgs.find(p => p.id === pgIdToShow) : (pgs.length === 1 ? pgs[0] : null);
+
+  if (singlePg) {
+    return <SinglePgView pg={singlePg} owner={mergedOwnerInfo} />;
   }
 
   return <MultiPgView pgs={pgs} siteTitle={siteConfig.siteTitle} owner={mergedOwnerInfo} />;

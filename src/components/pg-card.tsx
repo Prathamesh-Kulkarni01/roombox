@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import type { PG } from '@/lib/types';
 import { MapPin, Star, BedDouble, Users, IndianRupee } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
 
 interface PgCardProps {
   pg: PG;
@@ -19,10 +20,10 @@ const genderBadgeColor = {
 };
 
 export default function PgCard({ pg }: PgCardProps) {
-  // A direct link to a PG detail page is tricky without knowing its owner's subdomain.
-  // This link is simplified for the demo. In a real app, this might link to
-  // a modal within the site or a pg-specific page if the routing is set up for it.
-  const pgLink = `/pg/${pg.id}`;
+  const pathname = usePathname();
+  // The link now points to the same page but with a query parameter
+  // to specify which PG to show in detail.
+  const pgLink = `${pathname}?pgId=${pg.id}`;
 
   return (
     <Card className="flex flex-col overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
