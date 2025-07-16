@@ -155,27 +155,19 @@ const MultiPgView = ({ pgs, siteTitle, owner }: { pgs: any[], siteTitle: string,
 
 
 export default function SitePage({ params }: { params: { subdomain: string } }) {
-  // This is a simplified example. In a real app, you would fetch the website configuration
-  // and the associated PG data from your database based on the `params.subdomain`.
-  
-  // For demonstration, we'll find an owner whose PG name matches the subdomain slug
-  // and assume their other PGs should be listed.
+  // In a real app, you would fetch website config based on the subdomain.
+  // For this demo, we'll use the logged-in user's data from Redux.
   const { pgs, isLoading } = useAppSelector(state => state.pgs);
-  const { users } = useAppSelector(state => state.user); // Assuming you have a list of users
-  
-  // In a real app, you would fetch this from the website config saved by the owner
+  const { currentUser } = useAppSelector(state => state.user);
+
+  // Simplified: Assume the website builder settings are stored on the user or a separate object.
+  // For now, we'll just filter all the user's pgs. In a real app, this would use the `listedPgs`
+  // array from the website builder form.
   const websiteConfig = {
-      listedPgs: pgs.map(p => p.id), // a list of pg ids
-      siteTitle: "Sunshine Properties",
-      // ... other settings
+      siteTitle: "My Properties", // You'd fetch this from saved config
   };
 
-  const displayedPgs = useMemo(() => {
-    return pgs.filter(pg => websiteConfig.listedPgs.includes(pg.id));
-  }, [pgs, websiteConfig]);
-  
-  const owner = useAppSelector(state => state.user.currentUser); // Simplified for demo
-
+  const displayedPgs = pgs; // In a real app: `pgs.filter(p => websiteConfig.listedPgs.includes(p.id))`
 
   if (isLoading) {
     return (
@@ -194,8 +186,8 @@ export default function SitePage({ params }: { params: { subdomain: string } }) 
         </div>
     )
   }
-
-  if (displayedPgs.length === 0) {
+  
+  if (displayedPgs.length === 0 && !isLoading) {
     return notFound();
   }
 
@@ -203,5 +195,5 @@ export default function SitePage({ params }: { params: { subdomain: string } }) 
     return <SinglePgView pg={displayedPgs[0]} />;
   }
 
-  return <MultiPgView pgs={displayedPgs} siteTitle={websiteConfig.siteTitle} owner={owner} />;
+  return <MultiPgView pgs={displayedPgs} siteTitle={websiteConfig.siteTitle} owner={currentUser} />;
 }
