@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppSelector } from '@/lib/hooks'
@@ -68,10 +68,10 @@ export default function WebsiteBuilderPage() {
 
     const siteUrl = useMemo(() => {
         const subdomain = siteConfig?.subdomain || subdomainValue;
-        if (!subdomain || hasSubdomainError) return '';
+        if (!subdomain) return '';
         if (isDev) return `/site/${subdomain}?preview=true`;
         return `https://${subdomain}.${domain}`;
-    }, [subdomainValue, siteConfig, hasSubdomainError, domain, isDev]);
+    }, [subdomainValue, siteConfig, domain, isDev]);
 
     const fetchConfig = async () => {
         if (!currentUser) return;
@@ -175,13 +175,13 @@ export default function WebsiteBuilderPage() {
                 await navigator.share({
                     title: siteConfig?.siteTitle || 'My Property',
                     text: `Check out my property: ${siteConfig?.siteTitle}`,
-                    url: siteUrl,
+                    url: siteUrl.replace('?preview=true',''),
                 });
             } catch (error) {
                 console.error('Error sharing:', error);
             }
         } else {
-            navigator.clipboard.writeText(siteUrl);
+            navigator.clipboard.writeText(siteUrl.replace('?preview=true',''));
             toast({ title: 'Copied to Clipboard', description: 'Website URL copied.' });
         }
     };
@@ -221,7 +221,7 @@ export default function WebsiteBuilderPage() {
                         <LinkIcon className="h-4 w-4" />
                         <AlertTitle>Your Website URL</AlertTitle>
                         <AlertDescription>
-                            <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl.replace('?preview=true','')}</a>
+                            <a href={siteUrl.replace('?preview=true','')} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl.replace('?preview=true','')}</a>
                         </AlertDescription>
                     </Alert>
                     <div className="flex items-center space-x-2">
@@ -382,3 +382,5 @@ export default function WebsiteBuilderPage() {
         </Form>
     )
 }
+
+    
