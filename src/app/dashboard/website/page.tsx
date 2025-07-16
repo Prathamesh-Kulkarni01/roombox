@@ -35,7 +35,6 @@ export default function WebsiteBuilderPage() {
     const { pgs, currentUser } = useAppSelector(state => ({ pgs: state.pgs.pgs, currentUser: state.user.currentUser }))
     const { currentPlan } = useAppSelector(state => state.user)
     const { isLoading } = useAppSelector(state => state.app)
-    const [subdomain, setSubdomain] = useState('');
     const [domain, setDomain] = useState('');
     const [isDev, setIsDev] = useState(false);
     const [isSaving, startTransition] = useTransition();
@@ -86,8 +85,6 @@ export default function WebsiteBuilderPage() {
         const sub = form.watch('subdomain');
         if (!sub) return '';
         if (isDev) return `/site/${sub}`;
-        // In a real production scenario, you would configure your server/DNS
-        // to handle subdomains.
         return `https://${sub}.${domain}`;
     }, [form, domain, isDev]);
     
@@ -147,7 +144,7 @@ export default function WebsiteBuilderPage() {
                                 <LinkIcon className="h-4 w-4" />
                                 <AlertTitle>Your Website URL</AlertTitle>
                                 <AlertDescription className="flex items-center justify-between">
-                                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm">{siteUrl}</a>
+                                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl}</a>
                                      <Dialog>
                                         <DialogTrigger asChild>
                                             <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" />Preview</Button>
