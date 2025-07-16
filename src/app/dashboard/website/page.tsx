@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ShieldAlert, Globe, LinkIcon, Save, Eye } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -128,7 +129,19 @@ export default function WebsiteBuilderPage() {
                                 <AlertTitle>Your Website URL</AlertTitle>
                                 <AlertDescription className="flex items-center justify-between">
                                     <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm">{siteUrl}</a>
-                                    <Button variant="outline" size="sm" asChild><a href={siteUrl} target="_blank" rel="noopener noreferrer"><Eye className="mr-2" />Preview</a></Button>
+                                     <Dialog>
+                                        <DialogTrigger asChild>
+                                            <Button variant="outline" size="sm"><Eye className="mr-2" />Preview</Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
+                                            <DialogHeader>
+                                                <DialogTitle>Website Preview: {siteUrl}</DialogTitle>
+                                            </DialogHeader>
+                                            <div className="flex-1 rounded-md border overflow-hidden">
+                                                <iframe src={siteUrl} className="w-full h-full" title="Website Preview"/>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
                                 </AlertDescription>
                             </Alert>
                         )}
