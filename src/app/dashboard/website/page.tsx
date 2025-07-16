@@ -12,11 +12,12 @@ import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2 } from 'lucide-react'
+import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
-import { saveSiteConfig } from '@/lib/actions/siteActions'
+import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, type SiteConfig } from '@/lib/actions/siteActions'
 
 const websiteConfigSchema = z.object({
   subdomain: z.string().min(3, 'Subdomain must be at least 3 characters').regex(/^[a-z0-9-]+$/, 'Only lowercase letters, numbers, and hyphens are allowed.'),
@@ -34,10 +35,15 @@ export default function WebsiteBuilderPage() {
     const { pgs, currentUser } = useAppSelector(state => ({ pgs: state.pgs.pgs, currentUser: state.user.currentUser }))
     const { currentPlan } = useAppSelector(state => state.user)
     const { isLoading: isAppLoading } = useAppSelector(state => state.app)
+    
+    const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+    const [viewMode, setViewMode] = useState<'loading' | 'display' | 'edit'>('loading');
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
     const [domain, setDomain] = useState('');
     const [isDev, setIsDev] = useState(false);
     const [isSaving, startTransition] = useTransition();
-    const [isFetchingConfig, setIsFetchingConfig] = useState(true);
     const { toast } = useToast();
 
     useEffect(() => {
@@ -51,45 +57,41 @@ export default function WebsiteBuilderPage() {
 
     const form = useForm<WebsiteConfigFormValues>({
         resolver: zodResolver(websiteConfigSchema),
-        mode: 'onChange',
-        defaultValues: {
-            subdomain: '',
-            siteTitle: '',
-            contactPhone: '',
-            contactEmail: '',
-            listedPgs: [],
-        }
-    })
+        mode: 'onChange'
+    });
     
     const subdomainValue = form.watch('subdomain');
     const hasSubdomainError = !!form.formState.errors.subdomain;
 
     const siteUrl = useMemo(() => {
-        if (!subdomainValue || hasSubdomainError) return '';
-        if (isDev) return `/site/${subdomainValue}`;
-        return `https://${subdomainValue}.${domain}`;
-    }, [subdomainValue, hasSubdomainError, domain, isDev]);
+        const subdomain = siteConfig?.subdomain || subdomainValue;
+        if (!subdomain) return '';
+        if (isDev) return `/site/${subdomain}`;
+        return `https://${subdomain}.${domain}`;
+    }, [subdomainValue, siteConfig, hasSubdomainError, domain, isDev]);
 
     useEffect(() => {
         const fetchConfig = async () => {
             if (!currentUser) return;
-            setIsFetchingConfig(true);
-            try {
+            setViewMode('loading');
+            const config = await getSiteConfigForOwner(currentUser.id);
+            if (config) {
+                setSiteConfig(config);
+                form.reset(config);
+                setViewMode('display');
+            } else {
                 form.reset({
                     siteTitle: `${currentUser.name || 'My'}'s Properties`,
                     contactEmail: currentUser.email || '',
                     listedPgs: pgs.map(p => p.id),
+                    subdomain: '',
+                    contactPhone: ''
                 });
-            } catch (error) {
-                console.error("Could not fetch existing site config", error);
-            } finally {
-                setIsFetchingConfig(false);
+                setViewMode('edit');
             }
         };
-        if (currentUser && pgs.length > 0) {
-            fetchConfig();
-        }
-    }, [currentUser, pgs, form]);
+        if (!isAppLoading) fetchConfig();
+    }, [currentUser, isAppLoading, pgs, form]);
 
     const { fields } = useFieldArray({
       control: form.control,
@@ -103,18 +105,44 @@ export default function WebsiteBuilderPage() {
         }
 
         startTransition(async () => {
-            const result = await saveSiteConfig({ ...data, ownerId: currentUser.id });
-            if (result.success) {
+            const result = await saveSiteConfig({ ...data, ownerId: currentUser.id, existingSubdomain: siteConfig?.subdomain });
+            if (result.success && result.config) {
                 toast({ title: 'Success!', description: 'Your website settings have been published.'});
+                setSiteConfig(result.config);
+                setViewMode('display');
             } else {
-                toast({ variant: 'destructive', title: 'Error', description: result.error});
+                if (result.errorField === 'subdomain') {
+                    form.setError('subdomain', { type: 'manual', message: result.error });
+                } else {
+                    toast({ variant: 'destructive', title: 'Error', description: result.error});
+                }
             }
         });
     }
+
+    const handleDelete = async () => {
+        if (!siteConfig) return;
+        setIsDeleting(true);
+        const result = await deleteSiteConfig(siteConfig.subdomain);
+        if (result.success) {
+            toast({ title: 'Success', description: 'Your public website has been deleted.' });
+            setSiteConfig(null);
+            setViewMode('edit');
+            form.reset({
+                subdomain: '',
+                siteTitle: `${currentUser?.name || 'My'}'s Properties`,
+                contactEmail: currentUser?.email || '',
+                contactPhone: '',
+                listedPgs: pgs.map(p => p.id),
+            });
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.error });
+        }
+        setIsDeleting(false);
+        setIsDeleteDialogOpen(false);
+    }
     
-    const isLoading = isAppLoading || isFetchingConfig;
-    
-    if (isLoading) {
+    if (viewMode === 'loading' || isAppLoading) {
         return (
              <div className="space-y-6">
                 <Skeleton className="h-8 w-1/3" />
@@ -135,7 +163,62 @@ export default function WebsiteBuilderPage() {
              </div>
          </div>
        )
-   }
+    }
+    
+    if (viewMode === 'display' && siteConfig) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Globe/> Your Public Website</CardTitle>
+                    <CardDescription>Your website is live. You can preview, edit, or delete it below.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <Alert>
+                        <LinkIcon className="h-4 w-4" />
+                        <AlertTitle>Your Website URL</AlertTitle>
+                        <AlertDescription>
+                            <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl}</a>
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+                <CardFooter className="gap-2">
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline"><Eye className="mr-2 h-4 w-4" />Preview</Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
+                            <DialogHeader>
+                                <DialogTitle>Website Preview: {siteUrl}</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex-1 rounded-md border overflow-hidden">
+                                <iframe src={siteUrl} className="w-full h-full" title="Website Preview"/>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                    <Button onClick={() => setViewMode('edit')}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
+                    <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
+                </CardFooter>
+
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently delete your public website at <span className="font-mono text-foreground">{siteConfig.subdomain}.{domain}</span>. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </Card>
+        )
+    }
 
     return (
         <Form {...form}>
@@ -143,7 +226,7 @@ export default function WebsiteBuilderPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Globe/> Public Website Builder</CardTitle>
-                        <CardDescription>Create and customize a public, SEO-friendly website for your properties on a custom subdomain.</CardDescription>
+                        <CardDescription>{siteConfig ? 'Edit your public website settings below.' : 'Create a public, SEO-friendly website for your properties on a custom subdomain.'}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <FormField
@@ -165,28 +248,6 @@ export default function WebsiteBuilderPage() {
                                 </FormItem>
                             )}
                         />
-                        {siteUrl && (
-                             <Alert>
-                                <LinkIcon className="h-4 w-4" />
-                                <AlertTitle>Your Website URL</AlertTitle>
-                                <AlertDescription className="flex items-center justify-between">
-                                    <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{siteUrl}</a>
-                                     <Dialog>
-                                        <DialogTrigger asChild>
-                                            <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" />Preview</Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
-                                            <DialogHeader>
-                                                <DialogTitle>Website Preview: {siteUrl}</DialogTitle>
-                                            </DialogHeader>
-                                            <div className="flex-1 rounded-md border overflow-hidden">
-                                                <iframe src={siteUrl} className="w-full h-full" title="Website Preview"/>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                </AlertDescription>
-                            </Alert>
-                        )}
                     </CardContent>
                 </Card>
 
@@ -248,10 +309,13 @@ export default function WebsiteBuilderPage() {
                     </CardContent>
                 </Card>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                    {siteConfig && (
+                        <Button type="button" variant="secondary" onClick={() => setViewMode('display')}>Cancel</Button>
+                    )}
                     <Button type="submit" disabled={isSaving}>
                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save & Publish Website
+                        {siteConfig ? 'Save Changes' : 'Create & Publish Website'}
                     </Button>
                 </div>
             </form>
