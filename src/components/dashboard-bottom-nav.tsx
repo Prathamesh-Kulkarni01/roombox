@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Building, Users, Wallet, MoreHorizontal, UtensilsCrossed, Wand2, Settings, MessageSquareWarning, Contact } from 'lucide-react';
+import { Home, Building, Users, Wallet, MoreHorizontal, UtensilsCrossed, Wand2, Settings, MessageSquareWarning, Contact, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -28,6 +28,7 @@ const allMoreNavItems = [
   { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
   { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },
   { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2, feature: 'hasSeoGenerator' },
+  { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'hasWebsiteBuilder' },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
 ]
 

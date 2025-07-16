@@ -156,6 +156,7 @@ export interface Plan {
   hasAutomatedWhatsapp: boolean;
   hasMarketplace: boolean;
   hasCloudSync: boolean;
+  hasWebsiteBuilder: boolean;
   description: string;
 }
 

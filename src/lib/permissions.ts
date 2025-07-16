@@ -12,6 +12,7 @@ export const navPermissions: Record<UserRole, string[]> = {
     '/dashboard/complaints',
     '/dashboard/staff',
     '/dashboard/seo-generator',
+    '/dashboard/website',
     '/dashboard/settings',
   ],
   manager: [

@@ -27,6 +27,7 @@ export const plans: Record<PlanName, Plan> = {
     hasAutomatedWhatsapp: false,
     hasMarketplace: false,
     hasCloudSync: false,
+    hasWebsiteBuilder: false,
   },
   starter: {
     id: 'starter',
@@ -43,6 +44,7 @@ export const plans: Record<PlanName, Plan> = {
     hasAutomatedWhatsapp: false,
     hasMarketplace: false,
     hasCloudSync: true,
+    hasWebsiteBuilder: false,
   },
   pro: {
     id: 'pro',
@@ -59,6 +61,7 @@ export const plans: Record<PlanName, Plan> = {
     hasAutomatedWhatsapp: true,
     hasMarketplace: false,
     hasCloudSync: true,
+    hasWebsiteBuilder: true,
   },
   business: {
       id: 'business',
@@ -75,6 +78,7 @@ export const plans: Record<PlanName, Plan> = {
       hasAutomatedWhatsapp: true,
       hasMarketplace: false,
       hasCloudSync: true,
+      hasWebsiteBuilder: true,
   },
   enterprise: {
     id: 'enterprise',
@@ -91,5 +95,6 @@ export const plans: Record<PlanName, Plan> = {
     hasAutomatedWhatsapp: true,
     hasMarketplace: true,
     hasCloudSync: true,
+    hasWebsiteBuilder: true,
   }
 };
