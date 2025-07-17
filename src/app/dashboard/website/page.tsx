@@ -74,13 +74,11 @@ export default function WebsiteBuilderPage() {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     const [domain, setDomain] = useState('');
-    const [isDev, setIsDev] = useState(false);
     const [isSaving, startTransition] = useTransition();
     const { toast } = useToast();
 
     useEffect(() => {
-        setDomain(process.env.NEXT_PUBLIC_SITE_DOMAIN || 'localhost:9002');
-        setIsDev(process.env.NODE_ENV === 'development');
+        setDomain(process.env.NEXT_PUBLIC_SITE_DOMAIN || 'rentvastu.netlify.app');
     }, [])
 
     const form = useForm<WebsiteConfigFormValues>({
@@ -92,9 +90,18 @@ export default function WebsiteBuilderPage() {
     const siteUrl = useMemo(() => {
         const subdomain = siteConfig?.subdomain || subdomainValue;
         if (!subdomain) return '';
-        if (isDev) return `/site/${subdomain}?preview=true`;
+        // Always use route-based path for now, for both dev and prod.
+        return `/site/${subdomain}?preview=true`;
+        
+        /* 
+        // Future logic for subdomains
+        const isDev = process.env.NODE_ENV === 'development';
+        if (isDev) {
+             return `/site/${subdomain}?preview=true`;
+        }
         return `https://${subdomain}.${domain}`;
-    }, [subdomainValue, siteConfig, domain, isDev]);
+        */
+    }, [subdomainValue, siteConfig, domain]);
 
     const fetchConfig = async () => {
         if (!currentUser) return;
@@ -195,19 +202,19 @@ export default function WebsiteBuilderPage() {
 
     const handleShare = async () => {
         if (!siteUrl) return;
-        const urlToShare = isDev ? `${window.location.origin}${siteUrl}` : siteUrl;
+        const urlToShare = `${window.location.origin}${siteUrl.replace('?preview=true','')}`;
         if (navigator.share) {
             try {
                 await navigator.share({
                     title: siteConfig?.siteTitle || 'My Property',
                     text: `Check out my property: ${siteConfig?.siteTitle}`,
-                    url: urlToShare.replace('?preview=true',''),
+                    url: urlToShare,
                 });
             } catch (error) {
                 console.error('Error sharing:', error);
             }
         } else {
-            navigator.clipboard.writeText(urlToShare.replace('?preview=true',''));
+            navigator.clipboard.writeText(urlToShare);
             toast({ title: 'Copied to Clipboard', description: 'Website URL copied.' });
         }
     };
@@ -236,7 +243,7 @@ export default function WebsiteBuilderPage() {
     }
     
     if (viewMode === 'display' && siteConfig) {
-        const publicUrl = isDev ? `${window.location.origin}${siteUrl}` : siteUrl;
+        const publicUrl = `${window.location.origin}/site/${siteConfig.subdomain}`;
         return (
             <Card>
                 <CardHeader>
@@ -248,7 +255,7 @@ export default function WebsiteBuilderPage() {
                         <LinkIcon className="h-4 w-4" />
                         <AlertTitle>Your Website URL</AlertTitle>
                         <AlertDescription>
-                            <a href={publicUrl.replace('?preview=true','')} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{publicUrl.replace('?preview=true','')}</a>
+                            <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{publicUrl}</a>
                         </AlertDescription>
                     </Alert>
                     <div className="flex items-center space-x-2">
@@ -267,7 +274,7 @@ export default function WebsiteBuilderPage() {
                         </DialogTrigger>
                         <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
                             <DialogHeader>
-                                <DialogTitle>Website Preview: {publicUrl.replace('?preview=true','')}</DialogTitle>
+                                <DialogTitle>Website Preview: {publicUrl}</DialogTitle>
                             </DialogHeader>
                             <div className="flex-1 rounded-md border overflow-hidden">
                                 <iframe src={siteUrl} className="w-full h-full" title="Website Preview"/>
