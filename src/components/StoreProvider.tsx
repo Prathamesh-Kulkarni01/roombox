@@ -20,6 +20,7 @@ import { setNotifications, fetchNotifications as fetchLocalNotifications } from 
 import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
 import type { Guest, PG, Complaint, Notification } from '@/lib/types'
+import { setLoading } from '@/lib/slices/appSlice'
 
 
 function AuthHandler({ children }: { children: ReactNode }) {
@@ -126,8 +127,6 @@ function AuthHandler({ children }: { children: ReactNode }) {
   // Data fetching for Tenants
   useEffect(() => {
     if (currentUser?.role !== 'tenant' || !currentUser?.ownerId || !currentUser?.guestId || !db) {
-        // Not a tenant or missing required IDs, so we return early.
-        // Also ensure no stale data is shown.
         if (currentUser && currentUser.role === 'tenant') {
             dispatch(setGuests([]));
             dispatch(setPgs([]));
@@ -135,56 +134,71 @@ function AuthHandler({ children }: { children: ReactNode }) {
         }
         return;
     }
-    
+
     initializeFirebaseMessaging();
     const { ownerId, guestId } = currentUser;
 
     let pgUnsubscribe: Unsubscribe | null = null;
     let complaintsUnsubscribe: Unsubscribe | null = null;
+    let guestDataLoaded = false;
+    let pgDataLoaded = false;
+    let complaintsDataLoaded = false;
+
+    const checkLoadingComplete = () => {
+        if (guestDataLoaded && pgDataLoaded && complaintsDataLoaded) {
+            dispatch(setLoading(false));
+        }
+    }
 
     const guestUnsubscribe = onSnapshot(doc(db, 'users_data', ownerId, 'guests', guestId), (guestSnap) => {
-        // If the guest listener fires, it might mean the pgId has changed.
-        // We must clean up the old listeners before creating new ones.
         if (pgUnsubscribe) pgUnsubscribe();
         if (complaintsUnsubscribe) complaintsUnsubscribe();
+
+        guestDataLoaded = true;
 
         if (guestSnap.exists()) {
             const guestData = guestSnap.data() as Guest;
             dispatch(setGuests([guestData]));
 
             if (guestData.pgId) {
-                // Set up new listener for the PG document
                 const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
                 pgUnsubscribe = onSnapshot(pgDocRef, (pgSnap) => {
+                    pgDataLoaded = true;
                     if (pgSnap.exists()) {
                         dispatch(setPgs([pgSnap.data() as PG]));
                     } else {
                         dispatch(setPgs([]));
                     }
+                    checkLoadingComplete();
                 });
 
-                // Set up new listener for PG-specific complaints
                 const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
                 complaintsUnsubscribe = onSnapshot(complaintsQuery, (snapshot) => {
+                    complaintsDataLoaded = true;
                     const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
                     dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+                    checkLoadingComplete();
                 });
             } else {
-                // Guest has no assigned PG, clear related state
                 dispatch(setPgs([]));
                 dispatch(setComplaints([]));
+                pgDataLoaded = true;
+                complaintsDataLoaded = true;
+                checkLoadingComplete();
             }
         } else {
-            // Guest document doesn't exist, clear all tenant-related state
             dispatch(setGuests([]));
             dispatch(setPgs([]));
             dispatch(setComplaints([]));
+            pgDataLoaded = true;
+            complaintsDataLoaded = true;
+            checkLoadingComplete();
         }
     }, (error) => {
         console.error("Error listening to guest document:", error);
+        dispatch(setLoading(false));
     });
 
-    // Main cleanup function for the effect
     return () => {
         guestUnsubscribe();
         if (pgUnsubscribe) pgUnsubscribe();

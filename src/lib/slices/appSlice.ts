@@ -77,8 +77,11 @@ const appSlice = createSlice({
             .addCase('user/initializeUser/pending', (state) => {
                 state.isLoading = true;
             })
-            .addCase('user/initializeUser/fulfilled', (state) => {
-                state.isLoading = false;
+            .addCase('user/initializeUser/fulfilled', (state, action) => {
+                // For owners, loading is done. For tenants, we wait for data.
+                if (action.payload.role !== 'tenant') {
+                    state.isLoading = false;
+                }
             })
             .addCase('user/initializeUser/rejected', (state) => {
                 state.isLoading = false;
