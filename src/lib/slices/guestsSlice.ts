@@ -1,10 +1,10 @@
 
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, Invite, PG } from '../types';
+import type { Guest, Invite, PG, User } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
-import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where } from 'firebase/firestore';
 import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
@@ -24,17 +24,10 @@ type NewGuestData = Omit<Guest, 'id'>;
 // Async Thunks
 export const fetchGuests = createAsyncThunk(
     'guests/fetchGuests',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const guestsCollection = collection(db, 'users_data', userId, 'guests');
-            const guestsSnap = await getDocs(guestsCollection);
-            return guestsSnap.docs.map(d => d.data() as Guest).filter(g => !g.isVacated);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localGuests = localStorage.getItem('guests');
-            const guests = localGuests ? JSON.parse(localGuests) : [];
-            return guests.filter((g: Guest) => !g.isVacated);
-        }
+    async (userId: string) => {
+        const guestsCollection = collection(db, 'users_data', userId, 'guests');
+        const guestsSnap = await getDocs(guestsCollection);
+        return guestsSnap.docs.map(d => d.data() as Guest).filter(g => !g.isVacated);
     }
 );
 
@@ -43,6 +36,16 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
     async (guestData, { getState, dispatch, rejectWithValue }) => {
         const { user, pgs } = getState();
         if (!user.currentUser || !guestData.email) return rejectWithValue('No user or guest email');
+        
+        // Check if a user with this email already exists and is an owner
+        const userQuery = query(collection(db, "users"), where("email", "==", guestData.email));
+        const userSnapshot = await getDocs(userQuery);
+        if (!userSnapshot.empty) {
+            const existingUser = userSnapshot.docs[0].data() as User;
+            if (existingUser.role === 'owner') {
+                return rejectWithValue('This email belongs to an owner. Please use a different email to invite a guest.');
+            }
+        }
 
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
@@ -67,7 +70,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
         const invite: Invite = {
             email: newGuest.email,
             ownerId: user.currentUser.id,
-            role: 'tenant', // Explicitly set role
+            role: 'tenant',
             details: newGuest
         };
 
@@ -294,7 +297,6 @@ const guestsSlice = createSlice({
                 }
             })
             .addCase(vacateGuest.fulfilled, (state, action) => {
-                // Remove guest from the active list as they are now vacated
                 state.guests = state.guests.filter(g => g.id !== action.payload.guest.id);
             })
             .addCase('pgs/deletePg/fulfilled', (state, action) => {
@@ -308,3 +310,4 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
+

@@ -4,7 +4,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite } from '../types';
 import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
-import { doc, getDoc, setDoc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
 import { setLoading } from './appSlice';
@@ -116,7 +116,6 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
         }
         
         const isUpgrading = !oldPlan.hasCloudSync && newPlan.hasCloudSync;
-        const isDowngrading = oldPlan.hasCloudSync && !newPlan.hasCloudSync;
         
         if (isUpgrading) {
             // Push local data to cloud
@@ -149,23 +148,7 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
                 console.error("Failed to sync local data to cloud on upgrade:", error);
                 return rejectWithValue('Failed to sync data on upgrade.');
             }
-        } else if (isDowngrading) {
-            // Save latest cloud data (already in state) to local storage
-            if (typeof window !== 'undefined') {
-                try {
-                    const { pgs, guests, complaints, expenses, staff, notifications } = getState() as RootState;
-                    localStorage.setItem('pgs', JSON.stringify(pgs.pgs));
-                    localStorage.setItem('guests', JSON.stringify(guests.guests));
-                    localStorage.setItem('complaints', JSON.stringify(complaints.complaints));
-                    localStorage.setItem('expenses', JSON.stringify(expenses.expenses));
-                    localStorage.setItem('staff', JSON.stringify(staff.staff));
-                    localStorage.setItem('notifications', JSON.stringify(notifications.notifications));
-                } catch (error) {
-                    console.error("Failed to sync cloud data to local on downgrade:", error);
-                    return rejectWithValue('Failed to save data locally on downgrade.');
-                }
-            }
-        }
+        } 
         
         const updatedUser: User = {
             ...currentUser,
@@ -201,9 +184,6 @@ export const logoutUser = createAsyncThunk(
     async () => {
         if(isFirebaseConfigured() && auth) {
             await auth.signOut();
-        }
-        if (typeof window !== 'undefined') {
-            localStorage.clear();
         }
         return null;
     }

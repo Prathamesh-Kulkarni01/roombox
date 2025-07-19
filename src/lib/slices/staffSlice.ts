@@ -1,9 +1,9 @@
 
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Staff, Invite } from '../types';
+import type { Staff, Invite, User } from '../types';
 import { db, isFirebaseConfigured, auth } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { RootState } from '../store';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 
@@ -20,16 +20,10 @@ type NewStaffData = Omit<Staff, 'id'>;
 // Async Thunks
 export const fetchStaff = createAsyncThunk(
     'staff/fetchStaff',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const staffCollection = collection(db, 'users_data', userId, 'staff');
-            const snap = await getDocs(staffCollection);
-            return snap.docs.map(d => d.data() as Staff);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localData = localStorage.getItem('staff');
-            return localData ? JSON.parse(localData) : [];
-        }
+    async (userId: string) => {
+        const staffCollection = collection(db, 'users_data', userId, 'staff');
+        const snap = await getDocs(staffCollection);
+        return snap.docs.map(d => d.data() as Staff);
     }
 );
 
@@ -38,6 +32,15 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
     async (staffData, { getState, rejectWithValue }) => {
         const { user } = getState();
         if (!user.currentUser || !staffData.email) return rejectWithValue('No user or staff email');
+
+        const userQuery = query(collection(db, "users"), where("email", "==", staffData.email));
+        const userSnapshot = await getDocs(userQuery);
+        if (!userSnapshot.empty) {
+            const existingUser = userSnapshot.docs[0].data() as User;
+            if (existingUser.role === 'owner') {
+                return rejectWithValue('This email belongs to an owner. Please use a different email to invite staff.');
+            }
+        }
 
         const newStaff: Staff = { id: `staff-${Date.now()}`, ...staffData };
         
