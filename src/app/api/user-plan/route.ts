@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase-firestore';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase-admin/firestore';
 import { headers } from 'next/headers';
 import type { User, PlanName } from '@/lib/types';
 import { plans } from '@/lib/mock-data';

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, doc, getDoc, setDoc, writeBatch } from 'firebase-firestore';
+import { getFirestore, doc, getDoc, setDoc, writeBatch } from 'firebase-admin/firestore';
 import { User, Guest } from '@/lib/types';
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');

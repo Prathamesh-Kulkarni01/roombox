@@ -1,14 +1,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirestore, collection, getDocs, doc, setDoc, getDoc, deleteDoc, query, where, writeBatch } from 'firebase-firestore';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore, collection, getDocs, doc, setDoc, getDoc, deleteDoc, query, where, writeBatch } from 'firebase-admin/firestore';
 import { headers } from 'next/headers';
 import { produce } from 'immer';
 import { defaultMenu } from '@/lib/mock-data';
 import type { PG, Guest } from '@/lib/types';
-import { sendSignInLinkToEmail } from 'firebase/auth';
-import { auth as clientAuth } from '@/lib/firebase';
+import { getAuth as getClientAuth, sendSignInLinkToEmail } from 'firebase/auth';
+import { app as clientApp } from '@/lib/firebase';
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
 
