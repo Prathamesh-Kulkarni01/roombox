@@ -181,8 +181,14 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
 
 export const logoutUser = createAsyncThunk(
     'user/logoutUser',
-    async () => {
+    async (_, { getState }) => {
+        const { currentUser } = (getState() as RootState).user;
         if(isFirebaseConfigured() && auth) {
+            if (currentUser && currentUser.fcmToken) {
+                // Clear the FCM token on logout
+                const userDocRef = doc(db, 'users', currentUser.id);
+                await setDoc(userDocRef, { fcmToken: null }, { merge: true });
+            }
             await auth.signOut();
         }
         return null;

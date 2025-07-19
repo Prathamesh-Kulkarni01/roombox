@@ -92,7 +92,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     if (!currentUser || !currentPlan || !db) return;
 
-    initializeFirebaseMessaging();
+    initializeFirebaseMessaging(currentUser.id);
 
     let unsubs: Unsubscribe[] = [];
 

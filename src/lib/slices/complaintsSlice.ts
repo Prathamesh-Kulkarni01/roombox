@@ -5,6 +5,7 @@ import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { addNotification } from './notificationsSlice';
+import { sendNotification } from '@/ai/flows/send-notification-flow';
 
 interface ComplaintsState {
     complaints: Complaint[];
@@ -54,13 +55,13 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
             await setDoc(docRef, newComplaint);
         }
 
-        await dispatch(addNotification({
-            type: 'new-complaint',
-            title: 'New Complaint Received',
-            message: `${newComplaint.guestName} raised a complaint about ${newComplaint.category}.`,
-            link: `/dashboard/complaints`,
-            targetId: newComplaint.id,
-        }));
+        // Send a push notification to the owner
+        await sendNotification({
+            userId: ownerId,
+            title: `New Complaint from ${newComplaint.guestName}`,
+            body: `[${newComplaint.category}] ${newComplaint.description.substring(0, 100)}`,
+            link: `/dashboard/complaints`
+        });
         
         return newComplaint;
     }
@@ -78,6 +79,19 @@ export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: R
         if(isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', ownerId, 'complaints', updatedComplaint.id);
             await setDoc(docRef, updatedComplaint, { merge: true });
+        }
+        
+        // Notify tenant about status change, if the action was performed by an owner
+        if (user.currentUser.role === 'owner' && updatedComplaint.guestId !== user.currentUser.id) {
+            const guestToNotify = (await getDoc(doc(db, 'users_data', ownerId, 'guests', updatedComplaint.guestId))).data();
+            if (guestToNotify?.userId) {
+                await sendNotification({
+                    userId: guestToNotify.userId,
+                    title: `Complaint Status Updated: ${updatedComplaint.status}`,
+                    body: `Your complaint about "${updatedComplaint.category}" has been updated.`,
+                    link: '/tenants/complaints'
+                });
+            }
         }
         
         return updatedComplaint;

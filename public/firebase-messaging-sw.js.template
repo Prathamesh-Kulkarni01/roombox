@@ -1,30 +1,30 @@
-// This file is a template. The actual service worker is generated during the build process.
+// public/firebase-messaging-sw.js.template
+importScripts('https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.22.1/firebase-messaging-compat.js');
 
-importScripts("https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js");
+const firebaseConfig = {} // This will be replaced by the build script
 
-// This placeholder will be replaced by the build script with your Firebase config.
-const firebaseConfig = {}
+firebase.initializeApp(firebaseConfig);
 
-// Initialize Firebase
-if (firebaseConfig.apiKey) {
-    const app = firebase.initializeApp(firebaseConfig);
-    const messaging = firebase.messaging(app);
-    
-    messaging.onBackgroundMessage((payload) => {
-      console.log(
-        "[firebase-messaging-sw.js] Received background message ",
-        payload
-      );
-      
-      const notificationTitle = payload.notification.title;
-      const notificationOptions = {
-        body: payload.notification.body,
-        icon: "/apple-touch-icon.png",
-      };
-    
-      self.registration.showNotification(notificationTitle, notificationOptions);
-    });
-} else {
-    console.warn("Firebase config is empty. Messaging service worker not initialized.");
-}
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  
+  const notificationTitle = payload.notification.title;
+  const notificationOptions = {
+    body: payload.notification.body,
+    icon: '/apple-touch-icon.png',
+    data: {
+        url: payload.fcmOptions.link
+    }
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const urlToOpen = event.notification.data.url || '/';
+    event.waitUntil(clients.openWindow(urlToOpen));
+});

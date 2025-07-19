@@ -181,6 +181,7 @@ export interface User {
     planId: PlanName;
     status: 'active' | 'inactive';
   };
+  fcmToken?: string | null;
 }
 
 export interface Invite {
