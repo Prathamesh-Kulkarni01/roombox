@@ -18,18 +18,16 @@ export default function DashboardLayout({
   const router = useRouter();
 
   useEffect(() => {
-    // If loading is finished and there's no user, redirect to login.
-    if (!isLoading && !currentUser) {
+    // If loading is finished and there's no user, or user is not an owner, redirect to login.
+    if (!isLoading && (!currentUser || currentUser.role !== 'owner')) {
       router.replace('/login');
     }
   }, [isLoading, currentUser, router]);
 
 
-  // Render the layout shell immediately if a user object exists,
-  // even if other data is still loading.
-  if (!currentUser) {
-    // Show a full-page skeleton while the initial user check is happening,
-    // or before redirecting.
+  // Show a full-page skeleton while the initial user check is happening,
+  // or if user role is not owner.
+  if (isLoading || !currentUser || currentUser.role !== 'owner') {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
          <div className="w-64 flex-col border-r bg-muted hidden md:flex p-4">
@@ -54,8 +52,7 @@ export default function DashboardLayout({
           <DashboardSidebar />
           <div className="flex flex-1 flex-col overflow-auto">
             <main className="flex-1 p-4 bg-muted/40 pb-20 md:pb-4">
-              {/* Show skeleton only for the content area if still loading */}
-              {isLoading ? <Skeleton className="h-full w-full" /> : children}
+              {children}
             </main>
           </div>
           <DashboardBottomNav />

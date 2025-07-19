@@ -67,7 +67,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
         const invite: Invite = {
             email: newGuest.email,
             ownerId: user.currentUser.id,
-            role: 'tenant',
+            role: 'tenant', // Explicitly set role
             details: newGuest
         };
 

@@ -7,6 +7,7 @@ import { auth, db, isFirebaseConfigured } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
+import { setLoading } from './appSlice';
 
 interface UserState {
     currentUser: User | null;
@@ -19,10 +20,14 @@ const initialState: UserState = {
 };
 
 // Async Thunks
-export const initializeUser = createAsyncThunk<User, FirebaseUser>(
+export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: any }>(
     'user/initializeUser',
-    async (firebaseUser, { rejectWithValue }) => {
-        if (!isFirebaseConfigured() || !db) return rejectWithValue('Firebase not configured');
+    async (firebaseUser, { dispatch, rejectWithValue }) => {
+        if (!isFirebaseConfigured() || !db) {
+            dispatch(setLoading(false));
+            return rejectWithValue('Firebase not configured');
+        }
+        
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
 
@@ -42,27 +47,26 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser>(
                         const guestDetails = inviteData.details as Guest;
                         newUser = {
                             id: firebaseUser.uid,
-                            name: firebaseUser.displayName || guestDetails.name,
+                            name: firebaseUser.displayName || guestDetails.name || 'New Tenant',
                             email: firebaseUser.email,
                             role: 'tenant',
                             guestId: guestDetails.id,
                             ownerId: inviteData.ownerId,
                             pgId: guestDetails.pgId,
-                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || guestDetails.name).slice(0, 2).toUpperCase()}`
+                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || guestDetails.name) || 'NT').slice(0, 2).toUpperCase()}`
                         };
                         const guestDocRef = doc(db, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
                         await setDoc(guestDocRef, { userId: firebaseUser.uid }, { merge: true });
-
                     } else { // Handle staff roles
                         const staffDetails = inviteData.details as Staff;
                          newUser = {
                             id: firebaseUser.uid,
-                            name: firebaseUser.displayName || staffDetails.name,
+                            name: firebaseUser.displayName || staffDetails.name || 'New Staff',
                             email: firebaseUser.email,
                             role: inviteData.role,
                             ownerId: inviteData.ownerId,
                             pgIds: [staffDetails.pgId],
-                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || staffDetails.name).slice(0, 2).toUpperCase()}`
+                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || staffDetails.name) || 'NS').slice(0, 2).toUpperCase()}`
                         };
                          const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
                          await setDoc(staffDocRef, { userId: firebaseUser.uid }, { merge: true });
@@ -70,21 +74,21 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser>(
 
                     const batch = writeBatch(db);
                     batch.set(userDocRef, newUser);
-                    batch.delete(inviteDocRef); // Delete the invitation now that it's been used
+                    batch.delete(inviteDocRef);
                     await batch.commit();
                     
                     return newUser;
                 }
             }
-
+            
             // Default to creating an owner account if no invite is found
             const newUser: User = {
                 id: firebaseUser.uid,
-                name: firebaseUser.displayName || 'New User',
-                email: firebaseUser.email || undefined,
+                name: firebaseUser.displayName || 'New Owner',
+                email: firebaseUser.email,
                 role: 'owner',
                 subscription: { planId: 'free', status: 'active' },
-                avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || 'NU').slice(0, 2).toUpperCase()}`
+                avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName) || 'NO').slice(0, 2).toUpperCase()}`
             };
             await setDoc(userDocRef, newUser);
             return newUser;
@@ -199,13 +203,7 @@ export const logoutUser = createAsyncThunk(
             await auth.signOut();
         }
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('pgs');
-            localStorage.removeItem('guests');
-            localStorage.removeItem('complaints');
-            localStorage.removeItem('expenses');
-            localStorage.removeItem('staff');
-            localStorage.removeItem('notifications');
-            localStorage.removeItem('selectedPgId');
+            localStorage.clear();
         }
         return null;
     }
@@ -222,11 +220,16 @@ const userSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(initializeUser.pending, (state) => {
+                state.currentUser = null;
+                state.currentPlan = null;
+            })
             .addCase(initializeUser.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
                 state.currentPlan = plans[action.payload.subscription?.planId || 'free'];
             })
-            .addCase(initializeUser.rejected, (state) => {
+            .addCase(initializeUser.rejected, (state, action) => {
+                console.error("Initialize user rejected:", action.payload);
                 state.currentUser = null;
                 state.currentPlan = null;
             })

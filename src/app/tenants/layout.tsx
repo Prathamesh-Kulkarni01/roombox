@@ -23,9 +23,9 @@ export default function TenantDashboardLayout({
     }
   }, [isLoading, currentUser, router]);
 
-  // If there's no user, or the user is not a tenant, show a loading skeleton.
-  // The useEffect hook will handle redirection shortly.
-  if (!currentUser || currentUser.role !== 'tenant') {
+  // Show a full-page skeleton while the initial user check is happening.
+  // This also catches the case where a non-tenant user might briefly land here before redirection.
+  if (isLoading || !currentUser || currentUser.role !== 'tenant') {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
          <div className="w-64 flex-col border-r bg-muted hidden md:flex p-4">
@@ -49,7 +49,7 @@ export default function TenantDashboardLayout({
         <TenantSidebar />
         <div className="flex flex-1 flex-col overflow-auto">
             <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 pb-20 md:pb-4">
-                {isLoading ? <Skeleton className="h-full w-full" /> : children}
+                {children}
             </main>
         </div>
         <TenantBottomNav />

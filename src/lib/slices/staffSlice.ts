@@ -44,7 +44,7 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
         const invite: Invite = {
             email: newStaff.email,
             ownerId: user.currentUser.id,
-            role: newStaff.role,
+            role: newStaff.role, // Ensure role is included in invite
             details: newStaff,
         };
 
