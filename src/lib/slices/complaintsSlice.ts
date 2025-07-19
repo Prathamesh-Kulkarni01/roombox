@@ -2,9 +2,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Complaint } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, query, where } from 'firebase/firestore';
 import { RootState } from '../store';
-import { addNotification } from './notificationsSlice';
 import { sendNotification } from '@/ai/flows/send-notification-flow';
 
 interface ComplaintsState {
@@ -58,8 +57,8 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
         // Send a push notification to the owner
         await sendNotification({
             userId: ownerId,
-            title: `New Complaint from ${newComplaint.guestName}`,
-            body: `[${newComplaint.category}] ${newComplaint.description.substring(0, 100)}`,
+            title: `New Complaint: ${newComplaint.category}`,
+            body: `${newComplaint.guestName} reported: "${newComplaint.description.substring(0, 100)}${newComplaint.description.length > 100 ? '...' : ''}"`,
             link: `/dashboard/complaints`
         });
         
@@ -83,12 +82,15 @@ export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: R
         
         // Notify tenant about status change, if the action was performed by an owner
         if (user.currentUser.role === 'owner' && updatedComplaint.guestId !== user.currentUser.id) {
-            const guestToNotify = (await getDoc(doc(db, 'users_data', ownerId, 'guests', updatedComplaint.guestId))).data();
-            if (guestToNotify?.userId) {
+            const guestToNotifyQuery = query(collection(db, 'users'), where('guestId', '==', updatedComplaint.guestId));
+            const guestUserSnap = await getDocs(guestToNotifyQuery);
+
+            if (!guestUserSnap.empty) {
+                const guestUserId = guestUserSnap.docs[0].id;
                 await sendNotification({
-                    userId: guestToNotify.userId,
-                    title: `Complaint Status Updated: ${updatedComplaint.status}`,
-                    body: `Your complaint about "${updatedComplaint.category}" has been updated.`,
+                    userId: guestUserId,
+                    title: `Complaint Status: ${updatedComplaint.status.toUpperCase()}`,
+                    body: `Your complaint about "${updatedComplaint.description.substring(0, 50)}${updatedComplaint.description.length > 50 ? '...' : ''}" was updated.`,
                     link: '/tenants/complaints'
                 });
             }
@@ -119,6 +121,8 @@ const complaintsSlice = createSlice({
                 const index = state.complaints.findIndex(c => c.id === action.payload.id);
                 if (index !== -1) {
                     state.complaints[index] = action.payload;
+                } else {
+                    state.complaints.push(action.payload);
                 }
             })
             .addCase('user/logoutUser/fulfilled', (state) => {

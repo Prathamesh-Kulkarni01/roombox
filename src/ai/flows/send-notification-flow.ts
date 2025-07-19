@@ -26,12 +26,14 @@ if (getApps().length === 0) {
 }
 
 const db = getFirestore();
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
+
 
 const SendNotificationInputSchema = z.object({
   userId: z.string().describe('The ID of the user to send the notification to.'),
   title: z.string().describe('The title of the notification.'),
   body: z.string().describe('The body content of the notification.'),
-  link: z.string().describe('The URL to open when the notification is clicked.'),
+  link: z.string().describe('The relative URL (e.g., /dashboard/complaints) to open when the notification is clicked.'),
 });
 export type SendNotificationInput = z.infer<typeof SendNotificationInputSchema>;
 
@@ -47,10 +49,10 @@ const sendNotificationFlow = ai.defineFlow(
   },
   async ({ userId, title, body, link }) => {
     try {
-      const userDocRef = db.collection('users').doc(userId);
+      const userDocRef = doc(db, 'users', userId);
       const userDoc = await userDocRef.get();
 
-      if (!userDoc.exists) {
+      if (!userDoc.exists()) {
         console.error(`User with ID ${userId} not found.`);
         return;
       }
@@ -62,6 +64,8 @@ const sendNotificationFlow = ai.defineFlow(
         return;
       }
 
+      const fullLink = `${APP_URL}${link}`;
+
       const message = {
         token: fcmToken,
         notification: {
@@ -69,10 +73,29 @@ const sendNotificationFlow = ai.defineFlow(
           body,
         },
         webpush: {
+          notification: {
+              icon: `${APP_URL}/apple-touch-icon.png`,
+              badge: `${APP_URL}/favicon.ico`,
+          },
           fcm_options: {
-            link,
+            link: fullLink,
           },
         },
+        apns: { // For iOS devices
+            payload: {
+                aps: {
+                    'mutable-content': 1
+                }
+            },
+            fcm_options: {
+                image: `${APP_URL}/apple-touch-icon.png`
+            }
+        },
+        android: { // For Android devices
+            notification: {
+                icon: `${APP_URL}/apple-touch-icon.png`
+            }
+        }
       };
       
       console.log("Sending notification:", message);

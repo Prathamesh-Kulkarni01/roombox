@@ -1,30 +1,38 @@
-// public/firebase-messaging-sw.js.template
-importScripts('https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.22.1/firebase-messaging-compat.js');
 
-const firebaseConfig = {} // This will be replaced by the build script
+// This file is intentionally blank in the template.
+// The build script will inject the Firebase config.
+importScripts("https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js");
+
+// This config will be replaced by the build script
+const firebaseConfig = {}
 
 firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
+// Optional: To handle background notifications
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  console.log(
+    "[firebase-messaging-sw.js] Received background message ",
+    payload
+  );
   
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: '/apple-touch-icon.png',
-    data: {
-        url: payload.fcmOptions.link
-    }
+    icon: payload.notification.icon || '/apple-touch-icon.png',
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-    const urlToOpen = event.notification.data.url || '/';
-    event.waitUntil(clients.openWindow(urlToOpen));
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  
+  const link = event.notification.data?.FCM_MSG?.notification?.click_action || event.notification.data?.link || '/';
+
+  event.waitUntil(
+    clients.openWindow(link)
+  );
 });
