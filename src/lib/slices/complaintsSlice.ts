@@ -86,7 +86,7 @@ const complaintsSlice = createSlice({
     initialState,
     reducers: {
         setComplaints: (state, action: PayloadAction<Complaint[]>) => {
-            state.complaints = action.payload;
+            state.complaints = action.payload.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         },
     },
     extraReducers: (builder) => {
@@ -101,6 +101,10 @@ const complaintsSlice = createSlice({
                 const index = state.complaints.findIndex(c => c.id === action.payload.id);
                 if (index !== -1) {
                     state.complaints[index] = action.payload;
+                } else {
+                    // This case can happen if the data is not perfectly in sync.
+                    // Adding it prevents data loss, but the root cause of sync issues might need to be checked.
+                    state.complaints.push(action.payload);
                 }
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
