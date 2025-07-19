@@ -7,9 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +22,7 @@ import { addComplaint as addComplaintAction, updateComplaint as updateComplaintA
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
-import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import Image from 'next/image'
 
 const complaintSchema = z.object({
@@ -124,7 +124,7 @@ export default function TenantComplaintsPage() {
             toast({ title: "Error", description: "Could not identify current guest.", variant: "destructive"})
             return;
         }
-        dispatch(addComplaintAction(data))
+        dispatch(addComplaint(data))
         toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
         form.reset()
         setImagePreviews([])
@@ -136,7 +136,7 @@ export default function TenantComplaintsPage() {
             toast({ variant: 'destructive', description: "You cannot upvote your own complaint." });
             return;
         }
-        dispatch(updateComplaintAction({ ...complaint, upvotes: (complaint.upvotes || 0) + 1}))
+        dispatch(updateComplaint({ ...complaint, upvotes: (complaint.upvotes || 0) + 1}))
         toast({ title: "Upvoted!", description: "The manager will see that this is a common issue."})
     }
 
