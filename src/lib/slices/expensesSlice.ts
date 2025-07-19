@@ -1,8 +1,6 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Expense } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 
 interface ExpensesState {
@@ -16,34 +14,26 @@ const initialState: ExpensesState = {
 type NewExpenseData = Omit<Expense, 'id'>;
 
 // Async Thunks
-export const fetchExpenses = createAsyncThunk(
+export const fetchExpenses = createAsyncThunk<Expense[], void, { state: RootState }>(
     'expenses/fetchExpenses',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const expensesCollection = collection(db, 'users_data', userId, 'expenses');
-            const snap = await getDocs(expensesCollection);
-            return snap.docs.map(d => d.data() as Expense);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localData = localStorage.getItem('expenses');
-            return localData ? JSON.parse(localData) : [];
-        }
+    async (_, { getState }) => {
+        const { user } = getState();
+        if (!user.currentUser) return [];
+        const res = await fetch('/api/data/expenses');
+        return await res.json();
     }
 );
 
 export const addExpense = createAsyncThunk<Expense, NewExpenseData, { state: RootState }>(
     'expenses/addExpense',
-    async (expenseData, { getState, rejectWithValue }) => {
-        const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
-        const newExpense: Expense = { id: `exp-${Date.now()}`, ...expenseData };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'expenses', newExpense.id);
-            await setDoc(docRef, newExpense);
-        }
-        return newExpense;
+    async (expenseData, { rejectWithValue }) => {
+        const res = await fetch('/api/data/expenses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(expenseData)
+        });
+        if (!res.ok) return rejectWithValue('Failed to add expense');
+        return await res.json();
     }
 );
 

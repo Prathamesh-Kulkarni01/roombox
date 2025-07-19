@@ -1,6 +1,5 @@
 
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig: FirebaseOptions = {
@@ -21,7 +20,9 @@ export const isFirebaseConfigured = () => {
 // Initialize Firebase
 const app = isFirebaseConfigured() && !getApps().length ? initializeApp(firebaseConfig) : (getApps().length > 0 ? getApp() : null);
 
-const db = app ? getFirestore(app) : null;
 const auth = app ? getAuth(app) : null;
+
+// The client-side app should no longer interact with Firestore directly
+const db = null;
 
 export { db, auth, app, firebaseConfig };

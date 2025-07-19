@@ -1,9 +1,6 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, PG } from '../types';
-import { auth, db, isFirebaseConfigured } from '../firebase';
-import { sendSignInLinkToEmail } from 'firebase/auth';
-import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
@@ -21,71 +18,31 @@ const initialState: GuestsState = {
 type NewGuestData = Omit<Guest, 'id'>;
 
 // Async Thunks
-export const fetchGuests = createAsyncThunk(
+export const fetchGuests = createAsyncThunk<Guest[], void, { state: RootState }>(
     'guests/fetchGuests',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const guestsCollection = collection(db, 'users_data', userId, 'guests');
-            const guestsSnap = await getDocs(guestsCollection);
-            return guestsSnap.docs.map(d => d.data() as Guest);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localGuests = localStorage.getItem('guests');
-            return localGuests ? JSON.parse(localGuests) : [];
-        }
+    async (_, { getState }) => {
+        const { user } = getState();
+        if (!user.currentUser) return [];
+        const res = await fetch(`/api/data/guests?ownerId=${user.currentUser.ownerId || user.currentUser.id}`);
+        return await res.json();
     }
 );
 
 export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, NewGuestData, { state: RootState }>(
     'guests/addGuest',
     async (guestData, { getState, dispatch, rejectWithValue }) => {
-        const { user, pgs } = getState();
+        const { user } = getState();
         if (!user.currentUser || !guestData.email) return rejectWithValue('No user or guest email');
 
-        const pg = pgs.pgs.find(p => p.id === guestData.pgId);
-        if (!pg) return rejectWithValue('PG not found');
-
-        const newGuest: Guest = { 
-            ...guestData, 
-            id: `g-${Date.now()}`,
-            kycStatus: 'not-started',
-        };
-
-        const updatedPg = produce(pg, draft => {
-            draft.occupancy += 1;
-            const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.id === newGuest.bedId)));
-            const room = floor?.rooms.find(r => r.beds.some(b => b.id === newGuest.bedId));
-            const bed = room?.beds.find(b => b.id === newGuest.bedId);
-            if (bed) {
-                bed.guestId = newGuest.id;
-            }
+        const res = await fetch('/api/data/guests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(guestData),
         });
 
-        if (isFirebaseConfigured() && auth) {
-            const actionCodeSettings = {
-                url: `${window.location.origin}/login/verify?ownerId=${user.currentUser.id}&guestId=${newGuest.id}`,
-                handleCodeInApp: true,
-            };
-            try {
-                await sendSignInLinkToEmail(auth, newGuest.email, actionCodeSettings);
-            } catch (error) {
-                console.error("Failed to send sign-in link:", error);
-            }
-        }
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const batch = writeBatch(db);
-            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', newGuest.id);
-            const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            const inviteDocRef = doc(db, 'guest_invites', newGuest.email);
-            
-            batch.set(guestDocRef, newGuest);
-            batch.set(pgDocRef, updatedPg);
-            batch.set(inviteDocRef, { ownerId: user.currentUser.id, guestId: newGuest.id });
-
-            await batch.commit();
-        }
-
+        if (!res.ok) return rejectWithValue('Failed to add guest');
+        const { newGuest, updatedPg } = await res.json();
+        
         dispatch(addNotification({
             type: 'new-guest',
             title: 'Guest Added & Invited',
@@ -132,20 +89,24 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
 
         const updatedGuest = { ...guestToUpdate, ...kycUpdate };
 
-        if (user.ownerId && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.ownerId, 'guests', updatedGuest.id);
-            await setDoc(docRef, updatedGuest, { merge: true });
-        }
+        const res = await fetch(`/api/data/guests/${updatedGuest.id}?ownerId=${user.ownerId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedGuest)
+        });
+
+        if (!res.ok) return rejectWithValue('Failed to update KYC');
+        const finalGuest = await res.json();
         
         dispatch(addNotification({
             type: 'kyc-submitted',
-            title: `KYC Submitted by ${updatedGuest.name}`,
-            message: `KYC status: ${updatedGuest.kycStatus}. Review their documents.`,
-            link: `/dashboard/tenant-management/${updatedGuest.id}`,
-            targetId: updatedGuest.id,
+            title: `KYC Submitted by ${finalGuest.name}`,
+            message: `KYC status: ${finalGuest.kycStatus}. Review their documents.`,
+            link: `/dashboard/tenant-management/${finalGuest.id}`,
+            targetId: finalGuest.id,
         }));
 
-        return updatedGuest;
+        return finalGuest;
     }
 );
 
@@ -153,7 +114,7 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
 export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, { updatedGuest: Guest, updatedPg?: PG }, { state: RootState }>(
     'guests/updateGuest',
     async ({ updatedGuest, updatedPg }, { getState, dispatch, rejectWithValue }) => {
-        const { user, guests, pgs } = getState();
+        const { user, guests } = getState();
         const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
         if (!user.currentUser || !originalGuest) return rejectWithValue('No user or original guest');
 
@@ -167,20 +128,15 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
                 targetId: updatedGuest.id,
             }));
         }
-        
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const batch = writeBatch(db);
-            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
-            batch.set(guestDocRef, updatedGuest, { merge: true });
 
-            if (updatedPg) {
-                const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-                batch.set(pgDocRef, updatedPg);
-            }
-             await batch.commit();
-        }
+        const res = await fetch(`/api/data/guests/${updatedGuest.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updatedGuest, updatedPg })
+        });
+        if (!res.ok) return rejectWithValue('Failed to update guest');
         
-        return { updatedGuest, updatedPg };
+        return await res.json();
     }
 );
 
@@ -196,50 +152,26 @@ export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootSt
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays);
         const updatedGuest: Guest = { ...guest, exitDate: exitDate.toISOString() };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guestId);
-            await setDoc(guestDocRef, updatedGuest, { merge: true });
-        }
+        const res = await fetch(`/api/data/guests/${guestId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updatedGuest })
+        });
+        if (!res.ok) return rejectWithValue('Failed to initiate exit');
 
-        return updatedGuest;
+        return (await res.json()).updatedGuest;
     }
 );
 
 export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { state: RootState }>(
     'guests/vacateGuest',
-    async (guestId, { getState, rejectWithValue }) => {
-        const { user, guests, pgs } = getState();
-        const guest = guests.guests.find(g => g.id === guestId);
-        if (!user.currentUser || !guest) return rejectWithValue('User or guest not found');
-
-        const pg = pgs.pgs.find(p => p.id === guest.pgId);
-        if (!pg) return rejectWithValue('PG not found for guest');
-
-        const updatedPg = produce(pg, draft => {
-            draft.occupancy = Math.max(0, draft.occupancy - 1);
-            for (const floor of draft.floors || []) {
-                for (const room of floor.rooms) {
-                    const bed = room.beds.find(b => b.guestId === guestId);
-                    if (bed) {
-                        bed.guestId = null;
-                        break;
-                    }
-                }
-            }
+    async (guestId, { rejectWithValue }) => {
+        const res = await fetch(`/api/data/guests/${guestId}?action=vacate`, {
+            method: 'POST'
         });
+        if (!res.ok) return rejectWithValue('Failed to vacate guest');
         
-        const updatedGuest = { ...guest, exitDate: new Date().toISOString(), isVacated: true };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const batch = writeBatch(db);
-            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guestId);
-            const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            batch.set(guestDocRef, updatedGuest); // Overwrite with vacated status
-            batch.set(pgDocRef, updatedPg);
-            await batch.commit();
-        }
-
-        return { guest: updatedGuest, pg: updatedPg };
+        return await res.json();
     }
 );
 
@@ -278,7 +210,6 @@ const guestsSlice = createSlice({
                 }
             })
             .addCase(vacateGuest.fulfilled, (state, action) => {
-                // Remove guest from the list as they are now vacated
                 state.guests = state.guests.filter(g => g.id !== action.payload.guest.id);
             })
             .addCase('pgs/deletePg/fulfilled', (state, action) => {

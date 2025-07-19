@@ -1,10 +1,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Complaint } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
-import { format } from 'date-fns';
 import { addNotification } from './notificationsSlice';
 
 interface ComplaintsState {
@@ -18,18 +15,13 @@ const initialState: ComplaintsState = {
 type NewComplaintData = Pick<Complaint, 'category' | 'description'>;
 
 // Async Thunks
-export const fetchComplaints = createAsyncThunk(
+export const fetchComplaints = createAsyncThunk<Complaint[], void, { state: RootState }>(
     'complaints/fetchComplaints',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const complaintsCollection = collection(db, 'users_data', userId, 'complaints');
-            const snap = await getDocs(complaintsCollection);
-            return snap.docs.map(d => d.data() as Complaint);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localData = localStorage.getItem('complaints');
-            return localData ? JSON.parse(localData) : [];
-        }
+    async (_, { getState }) => {
+        const { user } = getState();
+        if (!user.currentUser) return [];
+        const res = await fetch(`/api/data/complaints?ownerId=${user.currentUser.ownerId || user.currentUser.id}`);
+        return await res.json();
     }
 );
 
@@ -40,8 +32,7 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
         const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
         if (!user.currentUser || !currentGuest) return rejectWithValue('No user or guest');
 
-        const newComplaint: Complaint = { 
-            id: `c-${Date.now()}`, 
+        const newComplaint: Omit<Complaint, 'id'> = { 
             ...complaintData, 
             guestId: currentGuest.id, 
             guestName: currentGuest.name,
@@ -51,35 +42,36 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
             date: new Date().toISOString(),
             upvotes: 0
         };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'complaints', newComplaint.id);
-            await setDoc(docRef, newComplaint);
-        }
+        
+        const res = await fetch('/api/data/complaints', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newComplaint)
+        });
+        const addedComplaint = await res.json();
 
         await dispatch(addNotification({
             type: 'new-complaint',
             title: 'Complaint Submitted',
-            message: `Your complaint about ${newComplaint.category} has been sent to the property manager.`,
+            message: `Your complaint about ${addedComplaint.category} has been sent to the property manager.`,
             link: `/tenants/complaints`,
-            targetId: newComplaint.id,
+            targetId: addedComplaint.id,
         }));
         
-        return newComplaint;
+        return addedComplaint;
     }
 );
 
 export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: RootState }>(
     'complaints/updateComplaint',
-    async (updatedComplaint, { getState, rejectWithValue }) => {
-        const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'complaints', updatedComplaint.id);
-            await setDoc(docRef, updatedComplaint, { merge: true });
-        }
-        return updatedComplaint;
+    async (updatedComplaint, { rejectWithValue }) => {
+        const res = await fetch(`/api/data/complaints/${updatedComplaint.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedComplaint)
+        });
+        if (!res.ok) return rejectWithValue('Failed to update complaint');
+        return await res.json();
     }
 );
 

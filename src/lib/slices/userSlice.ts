@@ -1,9 +1,8 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { User, Plan, PlanName, UserRole } from '../types';
+import type { User, Plan, PlanName } from '../types';
 import { plans } from '../mock-data';
-import { auth, db, isFirebaseConfigured } from '../firebase';
-import { doc, getDoc, setDoc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { auth } from '../firebase';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
 
@@ -21,57 +20,21 @@ const initialState: UserState = {
 export const initializeUser = createAsyncThunk<User, FirebaseUser>(
     'user/initializeUser',
     async (firebaseUser, { rejectWithValue }) => {
-        if (!isFirebaseConfigured() || !db) return rejectWithValue('Firebase not configured');
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-            return userDoc.data() as User;
-        } else {
-            const guestEmail = firebaseUser.email;
-            if (guestEmail) {
-                const inviteDocRef = doc(db, 'guest_invites', guestEmail);
-                const inviteDoc = await getDoc(inviteDocRef);
-
-                if (inviteDoc.exists()) {
-                    const { ownerId, guestId } = inviteDoc.data();
-                    
-                    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
-                    const guestDoc = await getDoc(guestDocRef);
-                    const guestData = guestDoc.exists() ? guestDoc.data() : {};
-
-                    const newTenantUser: User = {
-                        id: firebaseUser.uid,
-                        name: firebaseUser.displayName || (guestData as any).name || 'New Tenant',
-                        email: firebaseUser.email,
-                        role: 'tenant',
-                        guestId: guestId,
-                        ownerId: ownerId,
-                        avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || (guestData as any).name || 'NT')).slice(0, 2).toUpperCase()}`
-                    };
-
-                    const batch = writeBatch(db);
-                    batch.set(userDocRef, newTenantUser);
-                    
-                    batch.update(guestDocRef, { userId: firebaseUser.uid });
-                    
-                    batch.delete(inviteDocRef);
-
-                    await batch.commit();
-                    return newTenantUser;
-                }
-            }
-
-            const newUser: User = {
-                id: firebaseUser.uid,
-                name: firebaseUser.displayName || 'New User',
-                email: firebaseUser.email || undefined,
-                role: 'owner',
-                subscription: { planId: 'free', status: 'active' },
-                avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || 'NU').slice(0, 2).toUpperCase()}`
-            };
-            await setDoc(userDocRef, newUser);
-            return newUser;
+        try {
+            const res = await fetch('/api/user-init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    uid: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    displayName: firebaseUser.displayName,
+                    photoURL: firebaseUser.photoURL
+                }),
+            });
+            if (!res.ok) throw new Error('Failed to initialize user on backend');
+            return await res.json();
+        } catch (error: any) {
+            return rejectWithValue(error.message);
         }
     }
 );
@@ -79,82 +42,20 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser>(
 export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState }>(
     'user/updateUserPlan',
     async (planId, { getState, rejectWithValue }) => {
-        const state = getState();
-        const { currentUser, currentPlan: oldPlan } = state.user;
+        const { currentUser } = (getState() as RootState).user;
+        if (!currentUser) return rejectWithValue('User not logged in');
 
-        if (!currentUser || !oldPlan || !isFirebaseConfigured()) {
-            return rejectWithValue('User, old plan, or Firebase not available');
+        try {
+             const res = await fetch('/api/user-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ planId }),
+            });
+            if (!res.ok) throw new Error('Failed to update plan on backend');
+            return await res.json();
+        } catch (error: any) {
+            return rejectWithValue(error.message);
         }
-
-        const newPlan = plans[planId];
-        if (!newPlan) {
-            return rejectWithValue('Invalid plan ID');
-        }
-
-        if (oldPlan.id === newPlan.id) {
-            return currentUser; // No change needed
-        }
-        
-        const isUpgrading = !oldPlan.hasCloudSync && newPlan.hasCloudSync;
-        const isDowngrading = oldPlan.hasCloudSync && !newPlan.hasCloudSync;
-        
-        if (isUpgrading) {
-            // Push local data to cloud
-            try {
-                const { pgs } = state.pgs;
-                const { guests } = state.guests;
-                const { complaints } = state.complaints;
-                const { expenses } = state.expenses;
-                const { staff } = state.staff;
-                const { notifications } = state.notifications;
-                const batch = writeBatch(db);
-                const userId = currentUser.id;
-
-                pgs.forEach(pg => batch.set(doc(db, 'users_data', userId, 'pgs', pg.id), pg));
-                guests.forEach(guest => {
-                    batch.set(doc(db, 'users_data', userId, 'guests', guest.id), guest);
-                    if (guest.email && !guest.userId) {
-                        const inviteDocRef = doc(db, 'guest_invites', guest.email);
-                        batch.set(inviteDocRef, { ownerId: userId, guestId: guest.id });
-                    }
-                });
-                complaints.forEach(complaint => batch.set(doc(db, 'users_data', userId, 'complaints', complaint.id), complaint));
-                expenses.forEach(expense => batch.set(doc(db, 'users_data', userId, 'expenses', expense.id), expense));
-                staff.forEach(staffMember => batch.set(doc(db, 'users_data', userId, 'staff', staffMember.id), staffMember));
-                notifications.forEach(notification => batch.set(doc(db, 'users_data', userId, 'notifications', notification.id), notification));
-                
-                await batch.commit();
-            } catch (error) {
-                console.error("Failed to sync local data to cloud on upgrade:", error);
-                return rejectWithValue('Failed to sync data on upgrade.');
-            }
-        } else if (isDowngrading) {
-            // Save latest cloud data (already in state) to local storage
-            if (typeof window !== 'undefined') {
-                try {
-                    const { pgs, guests, complaints, expenses, staff, notifications } = getState() as RootState;
-                    localStorage.setItem('pgs', JSON.stringify(pgs.pgs));
-                    localStorage.setItem('guests', JSON.stringify(guests.guests));
-                    localStorage.setItem('complaints', JSON.stringify(complaints.complaints));
-                    localStorage.setItem('expenses', JSON.stringify(expenses.expenses));
-                    localStorage.setItem('staff', JSON.stringify(staff.staff));
-                    localStorage.setItem('notifications', JSON.stringify(notifications.notifications));
-                } catch (error) {
-                    console.error("Failed to sync cloud data to local on downgrade:", error);
-                    return rejectWithValue('Failed to save data locally on downgrade.');
-                }
-            }
-        }
-        
-        const updatedUser: User = {
-            ...currentUser,
-            subscription: { ...(currentUser.subscription || { status: 'active' }), planId },
-        };
-
-        const userDocRef = doc(db, 'users', currentUser.id);
-        await setDoc(userDocRef, updatedUser, { merge: true });
-
-        return updatedUser;
     }
 );
 
@@ -162,28 +63,27 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
     'user/disassociateAndCreateOwnerAccount',
     async (_, { getState, rejectWithValue }) => {
         const { currentUser } = (getState() as RootState).user;
-        if (!currentUser || !isFirebaseConfigured() || !db) return rejectWithValue('User or Firebase not available');
+        if (!currentUser) return rejectWithValue('User not logged in');
         
-        const { guestId, ownerId, ...restOfUser } = currentUser;
-        const updatedUser: User = { ...restOfUser, role: 'owner', subscription: { planId: 'free', status: 'active' } };
-
-        const userDocRef = doc(db, 'users', currentUser.id);
-        await setDoc(userDocRef, updatedUser, { merge: true });
-        
-        await auth.signOut(); // This will trigger the auth state listener to clear the state
-        return updatedUser;
+        try {
+             const res = await fetch('/api/user-role', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newRole: 'owner' }),
+            });
+            if (!res.ok) throw new Error('Failed to update role on backend');
+            await auth.signOut();
+            return await res.json();
+        } catch(error: any) {
+            return rejectWithValue(error.message);
+        }
     }
 );
 
 export const logoutUser = createAsyncThunk(
     'user/logoutUser',
     async () => {
-        if(isFirebaseConfigured() && auth) {
-            await auth.signOut();
-        }
-        if (typeof window !== 'undefined') {
-            localStorage.clear();
-        }
+        await auth.signOut();
         return null;
     }
 )

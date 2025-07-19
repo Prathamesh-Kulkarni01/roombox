@@ -1,10 +1,6 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { PG, Floor, Room, Bed, Guest } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
-import { defaultMenu } from '../mock-data';
+import type { PG, Guest } from '../types';
 import { RootState } from '../store';
 import { addGuest } from './guestsSlice';
 
@@ -19,80 +15,53 @@ const initialState: PgsState = {
 type NewPgData = Pick<PG, 'name' | 'location' | 'city' | 'gender'>;
 
 // Async Thunks
-export const fetchPgs = createAsyncThunk(
+export const fetchPgs = createAsyncThunk<PG[], void, { state: RootState }>(
     'pgs/fetchPgs',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const pgsCollection = collection(db, 'users_data', userId, 'pgs');
-            const pgsSnap = await getDocs(pgsCollection);
-            return pgsSnap.docs.map(d => d.data() as PG);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localPgs = localStorage.getItem('pgs');
-            return localPgs ? JSON.parse(localPgs) : [];
-        }
+    async (_, { getState }) => {
+        const { user } = getState();
+        if (!user.currentUser) return [];
+        const res = await fetch('/api/data/pgs');
+        return await res.json();
     }
 );
 
 export const addPg = createAsyncThunk<PG, NewPgData, { state: RootState }>(
     'pgs/addPg',
-    async (newPgData, { getState, rejectWithValue }) => {
-        const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
-        const newPg: PG = { 
-            id: `pg-${Date.now()}`, 
-            ...newPgData, 
-            ownerId: user.currentUser.id, 
-            images: ['https://placehold.co/600x400.png'], 
-            rating: 0, 
-            occupancy: 0, 
-            totalBeds: 0, 
-            rules: [], 
-            contact: '', 
-            priceRange: { min: 0, max: 0 }, 
-            amenities: ['wifi', 'food'], 
-            floors: [], 
-            menu: defaultMenu 
-        };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', newPg.id);
-            await setDoc(docRef, newPg);
-        }
-        return newPg;
+    async (newPgData, { rejectWithValue }) => {
+        const res = await fetch('/api/data/pgs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newPgData)
+        });
+        if (!res.ok) return rejectWithValue('Failed to add PG');
+        return await res.json();
     }
 );
 
 export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
     'pgs/updatePg',
-    async (updatedPg, { getState, rejectWithValue }) => {
-        const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            await setDoc(docRef, updatedPg);
-        }
-        return updatedPg;
+    async (updatedPg, { rejectWithValue }) => {
+        const res = await fetch(`/api/data/pgs/${updatedPg.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedPg)
+        });
+        if (!res.ok) return rejectWithValue('Failed to update PG');
+        return await res.json();
     }
 );
 
 export const deletePg = createAsyncThunk<string, string, { state: RootState }>(
     'pgs/deletePg',
     async (pgId, { getState, rejectWithValue }) => {
-        const { user, guests } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
+        const { guests } = getState();
         const hasActiveGuests = guests.guests.some(g => g.pgId === pgId && !g.exitDate);
         if (hasActiveGuests) {
             return rejectWithValue('Cannot delete property with active guests. Please vacate all guests first.');
         }
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', pgId);
-            await deleteDoc(docRef);
-        }
+        const res = await fetch(`/api/data/pgs/${pgId}`, { method: 'DELETE' });
+        if (!res.ok) return rejectWithValue('Failed to delete PG');
         return pgId;
     }
 );

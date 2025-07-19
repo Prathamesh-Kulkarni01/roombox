@@ -1,8 +1,6 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Staff } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 
 interface StaffState {
@@ -16,61 +14,47 @@ const initialState: StaffState = {
 type NewStaffData = Omit<Staff, 'id'>;
 
 // Async Thunks
-export const fetchStaff = createAsyncThunk(
+export const fetchStaff = createAsyncThunk<Staff[], void, { state: RootState }>(
     'staff/fetchStaff',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const staffCollection = collection(db, 'users_data', userId, 'staff');
-            const snap = await getDocs(staffCollection);
-            return snap.docs.map(d => d.data() as Staff);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localData = localStorage.getItem('staff');
-            return localData ? JSON.parse(localData) : [];
-        }
+    async (_, { getState }) => {
+        const { user } = getState();
+        if (!user.currentUser) return [];
+        const res = await fetch('/api/data/staff');
+        return await res.json();
     }
 );
 
 export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState }>(
     'staff/addStaff',
-    async (staffData, { getState, rejectWithValue }) => {
-        const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
-        const newStaff: Staff = { id: `staff-${Date.now()}`, ...staffData };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'staff', newStaff.id);
-            await setDoc(docRef, newStaff);
-        }
-        return newStaff;
+    async (staffData, { rejectWithValue }) => {
+        const res = await fetch('/api/data/staff', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(staffData)
+        });
+        if (!res.ok) return rejectWithValue('Failed to add staff');
+        return await res.json();
     }
 );
 
 export const updateStaff = createAsyncThunk<Staff, Staff, { state: RootState }>(
     'staff/updateStaff',
-    async (updatedStaff, { getState, rejectWithValue }) => {
-        const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'staff', updatedStaff.id);
-            await setDoc(docRef, updatedStaff, { merge: true });
-        }
-        return updatedStaff;
+    async (updatedStaff, { rejectWithValue }) => {
+        const res = await fetch(`/api/data/staff/${updatedStaff.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedStaff)
+        });
+        if (!res.ok) return rejectWithValue('Failed to update staff');
+        return await res.json();
     }
 );
 
 export const deleteStaff = createAsyncThunk<string, string, { state: RootState }>(
     'staff/deleteStaff',
-    async (staffId, { getState, rejectWithValue }) => {
-        const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'staff', staffId);
-            await deleteDoc(docRef);
-        }
+    async (staffId, { rejectWithValue }) => {
+        const res = await fetch(`/api/data/staff/${staffId}`, { method: 'DELETE' });
+        if (!res.ok) return rejectWithValue('Failed to delete staff');
         return staffId;
     }
 );
