@@ -124,7 +124,7 @@ export default function TenantComplaintsPage() {
             toast({ title: "Error", description: "Could not identify current guest.", variant: "destructive"})
             return;
         }
-        dispatch(addComplaint(data))
+        dispatch(addComplaintAction(data))
         toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
         form.reset()
         setImagePreviews([])
@@ -136,7 +136,7 @@ export default function TenantComplaintsPage() {
             toast({ variant: 'destructive', description: "You cannot upvote your own complaint." });
             return;
         }
-        dispatch(updateComplaint({ ...complaint, upvotes: (complaint.upvotes || 0) + 1}))
+        dispatch(updateComplaintAction({ ...complaint, upvotes: (complaint.upvotes || 0) + 1}))
         toast({ title: "Upvoted!", description: "The manager will see that this is a common issue."})
     }
 
@@ -167,7 +167,7 @@ export default function TenantComplaintsPage() {
                                     <Badge className={cn("capitalize border-transparent", statusColors[c.status])}>{c.status}</Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground">{c.description}</p>
-                                {c.imageUrls && c.imageUrls.length > 0 && c.guestId === currentGuest?.id && (
+                                {c.imageUrls && c.imageUrls.length > 0 && (
                                      <div className="flex gap-2">
                                         {c.imageUrls.map((url, i) => (
                                             <Image key={i} src={url} alt={`Complaint photo ${i+1}`} width={80} height={80} className="rounded-md object-cover"/>
