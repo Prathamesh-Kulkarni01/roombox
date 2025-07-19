@@ -1,30 +1,37 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription } from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, ThumbsUp, MessageSquarePlus, Send, PlusCircle } from "lucide-react"
+import { ThumbsUp, PlusCircle, Lightbulb, Image as ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from '@/hooks/use-toast'
 import type { Complaint } from '@/lib/types'
 import { formatDistanceToNow } from 'date-fns'
 import { addComplaint as addComplaintAction, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
+import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
+import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
+import { Alert, AlertTitle } from '@/components/ui/alert'
+import Image from 'next/image'
 
 const complaintSchema = z.object({
   category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other'], {
     required_error: "Please select a category.",
   }),
   description: z.string().min(10, "Please provide a detailed description (min. 10 characters)."),
+  imageUrls: z.array(z.string()).optional(),
+  isPublic: z.boolean().default(true),
 })
 type ComplaintFormValues = z.infer<typeof complaintSchema>
 
@@ -38,6 +45,10 @@ export default function TenantComplaintsPage() {
     const { toast } = useToast()
     const dispatch = useAppDispatch()
     const [isDialogOpen, setIsDialogOpen] = useState(false)
+    const [suggestion, setSuggestion] = useState<string>('')
+    const [isSuggesting, setIsSuggesting] = useState(false)
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+    
     const { complaints } = useAppSelector(state => state.complaints)
     const { currentUser } = useAppSelector(state => state.user)
     const { guests } = useAppSelector(state => state.guests)
@@ -49,15 +60,66 @@ export default function TenantComplaintsPage() {
 
     const pgComplaints = useMemo(() => {
         if (!currentGuest) return []
-        return complaints.filter(c => c.pgId === currentGuest.pgId).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        return complaints
+            .filter(c => c.pgId === currentGuest.pgId && (c.isPublic || c.guestId === currentGuest.id))
+            .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     }, [complaints, currentGuest])
 
     const form = useForm<ComplaintFormValues>({
         resolver: zodResolver(complaintSchema),
-        defaultValues: { description: '' },
+        defaultValues: { description: '', isPublic: true, imageUrls: [] },
     })
+
+    const complaintDescription = form.watch('description');
+    const complaintCategory = form.watch('category');
+
+    useEffect(() => {
+        const handler = setTimeout(async () => {
+            if (complaintDescription && complaintDescription.length > 20 && complaintCategory) {
+                setIsSuggesting(true);
+                try {
+                    const result = await suggestComplaintSolution({
+                        description: complaintDescription,
+                        category: complaintCategory,
+                    });
+                    setSuggestion(result.suggestion);
+                } catch (error) {
+                    console.error("AI suggestion failed", error);
+                } finally {
+                    setIsSuggesting(false);
+                }
+            } else {
+                setSuggestion('');
+            }
+        }, 1000); // Debounce for 1 second
+
+        return () => clearTimeout(handler);
+    }, [complaintDescription, complaintCategory]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length > 3) {
+            toast({ variant: 'destructive', title: 'Too many files', description: 'You can upload a maximum of 3 photos.' });
+            return;
+        }
+        const newPreviews: string[] = [];
+        const newImageUrls: string[] = [];
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const dataUri = event.target?.result as string;
+                newPreviews.push(dataUri);
+                newImageUrls.push(dataUri);
+                if (newPreviews.length === files.length) {
+                    setImagePreviews(newPreviews);
+                    form.setValue('imageUrls', newImageUrls, { shouldValidate: true });
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    };
     
-    const onSubmit = (data: ComplaintFormValues) => {
+    const onSubmit = async (data: ComplaintFormValues) => {
         if (!currentGuest) {
             toast({ title: "Error", description: "Could not identify current guest.", variant: "destructive"})
             return;
@@ -65,6 +127,7 @@ export default function TenantComplaintsPage() {
         dispatch(addComplaintAction(data))
         toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
         form.reset()
+        setImagePreviews([])
         setIsDialogOpen(false)
     }
 
@@ -104,11 +167,20 @@ export default function TenantComplaintsPage() {
                                     <Badge className={cn("capitalize border-transparent", statusColors[c.status])}>{c.status}</Badge>
                                 </div>
                                 <p className="text-sm text-muted-foreground">{c.description}</p>
+                                {c.imageUrls && c.imageUrls.length > 0 && c.guestId === currentGuest?.id && (
+                                     <div className="flex gap-2">
+                                        {c.imageUrls.map((url, i) => (
+                                            <Image key={i} src={url} alt={`Complaint photo ${i+1}`} width={80} height={80} className="rounded-md object-cover"/>
+                                        ))}
+                                    </div>
+                                )}
                             </CardContent>
                             <CardFooter className="bg-muted/40 p-2 flex justify-end gap-2">
+                               {c.isPublic && (
                                 <Button variant="ghost" size="sm" onClick={() => handleUpvote(c)} disabled={c.guestId === currentGuest?.id || c.status === 'resolved'}>
                                     <ThumbsUp className="mr-2 h-4 w-4"/> Upvote {c.upvotes && c.upvotes > 0 ? `(${c.upvotes})` : ''}
                                 </Button>
+                               )}
                             </CardFooter>
                         </Card>
                     )) : (
@@ -127,7 +199,7 @@ export default function TenantComplaintsPage() {
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} id="complaint-form" className="space-y-4 pt-4">
-                        <FormField control={form.control} name="category" render={({ field }) => (
+                         <FormField control={form.control} name="category" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Category</FormLabel>
                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -143,11 +215,45 @@ export default function TenantComplaintsPage() {
                                 <FormMessage />
                             </FormItem>
                         )} />
-                         <FormField control={form.control} name="description" render={({ field }) => (
+                        <FormField control={form.control} name="description" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Description</FormLabel>
                                 <FormControl><Textarea rows={5} placeholder="Please describe the issue in detail" {...field} /></FormControl>
                                 <FormMessage />
+                            </FormItem>
+                         )} />
+                         {suggestion && !isSuggesting && (
+                             <Alert>
+                                <Lightbulb className="h-4 w-4" />
+                                <AlertTitle>Quick Suggestion</AlertTitle>
+                                <AlertDescription>{suggestion}</AlertDescription>
+                             </Alert>
+                         )}
+                         <FormField control={form.control} name="imageUrls" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Upload Photos (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input type="file" accept="image/*" multiple onChange={handleFileChange} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                         )} />
+                         {imagePreviews.length > 0 && (
+                            <div className="flex gap-2">
+                                {imagePreviews.map((src, i) => (
+                                    <Image key={i} src={src} alt={`Preview ${i+1}`} width={60} height={60} className="rounded-md object-cover border" />
+                                ))}
+                            </div>
+                         )}
+                         <FormField control={form.control} name="isPublic" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                <div className="space-y-0.5">
+                                    <FormLabel>Make Public</FormLabel>
+                                    <FormDescription>Allow other tenants to see and upvote this complaint.</FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                </FormControl>
                             </FormItem>
                          )} />
                     </form>

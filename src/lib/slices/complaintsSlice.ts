@@ -4,7 +4,6 @@ import type { Complaint } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
-import { format } from 'date-fns';
 import { addNotification } from './notificationsSlice';
 
 interface ComplaintsState {
@@ -15,7 +14,7 @@ const initialState: ComplaintsState = {
     complaints: [],
 };
 
-type NewComplaintData = Pick<Complaint, 'category' | 'description'>;
+type NewComplaintData = Pick<Complaint, 'category' | 'description' | 'isPublic' | 'imageUrls'>;
 
 // Async Thunks
 export const fetchComplaints = createAsyncThunk(
@@ -32,8 +31,9 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
     async (complaintData, { getState, dispatch, rejectWithValue }) => {
         const { user, guests } = getState();
         const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
+        const ownerId = user.currentUser?.ownerId;
         
-        if (!user.currentUser || !currentGuest || !user.currentUser.ownerId) {
+        if (!user.currentUser || !currentGuest || !ownerId) {
              return rejectWithValue('User, guest, or owner information is missing');
         }
 
@@ -49,8 +49,10 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
             upvotes: 0
         };
 
-        const docRef = doc(db, 'users_data', user.currentUser.ownerId, 'complaints', newComplaint.id);
-        await setDoc(docRef, newComplaint);
+        if (isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', ownerId, 'complaints', newComplaint.id);
+            await setDoc(docRef, newComplaint);
+        }
 
         await dispatch(addNotification({
             type: 'new-complaint',
@@ -73,8 +75,10 @@ export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: R
         const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
         if (!ownerId) return rejectWithValue('Could not determine owner to update complaint');
 
-        const docRef = doc(db, 'users_data', ownerId, 'complaints', updatedComplaint.id);
-        await setDoc(docRef, updatedComplaint, { merge: true });
+        if(isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', ownerId, 'complaints', updatedComplaint.id);
+            await setDoc(docRef, updatedComplaint, { merge: true });
+        }
         
         return updatedComplaint;
     }
@@ -101,10 +105,6 @@ const complaintsSlice = createSlice({
                 const index = state.complaints.findIndex(c => c.id === action.payload.id);
                 if (index !== -1) {
                     state.complaints[index] = action.payload;
-                } else {
-                    // This case can happen if the data is not perfectly in sync.
-                    // Adding it prevents data loss, but the root cause of sync issues might need to be checked.
-                    state.complaints.push(action.payload);
                 }
             })
             .addCase('user/logoutUser/fulfilled', (state) => {

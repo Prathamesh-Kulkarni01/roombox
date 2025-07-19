@@ -107,32 +107,14 @@ function AuthHandler({ children }: { children: ReactNode }) {
             notifications: setNotifications,
         };
 
-        const promises = Object.entries(collectionsToSync).map(([collectionName]) => {
-            return getDocs(collection(db, 'users_data', currentUser.id, collectionName));
-        });
+        const collectionNames = Object.keys(collectionsToSync);
+        let loadedCount = 0;
 
-        Promise.all(promises).then((snapshots) => {
-            snapshots.forEach((snapshot, index) => {
-                const collectionName = Object.keys(collectionsToSync)[index];
-                const data = snapshot.docs.map(doc => doc.data());
-                 if (['complaints', 'expenses', 'notifications'].includes(collectionName)) {
-                    data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
-                }
-                if(collectionName === 'guests') {
-                    dispatch(setGuests(data.filter(g => !(g as Guest).isVacated) as Guest[]));
-                } else {
-                    dispatch(collectionsToSync[collectionName](data));
-                }
-            });
-            dispatch(setLoading(false));
-        }).catch(error => {
-            console.error("Error fetching initial data for owner:", error);
-            dispatch(setLoading(false));
-        });
-
-        // Setup real-time listeners after initial fetch
-        const newUnsubs = Object.entries(collectionsToSync).map(([collectionName, setDataAction]) => {
+        // Setup real-time listeners
+        const newUnsubs = collectionNames.map((collectionName) => {
+            const setDataAction = collectionsToSync[collectionName];
             const collRef = collection(db, 'users_data', currentUser.id, collectionName);
+            
             return onSnapshot(collRef, (snapshot) => {
                  const data = snapshot.docs.map(doc => doc.data());
                  if (['complaints', 'expenses', 'notifications'].includes(collectionName)) {
@@ -143,7 +125,22 @@ function AuthHandler({ children }: { children: ReactNode }) {
                 } else {
                     dispatch(setDataAction(data as any));
                 }
-            }, (error) => console.error(`Error listening to ${collectionName}:`, error));
+                
+                // Track loading status
+                if (loadedCount < collectionNames.length) {
+                    loadedCount++;
+                    if (loadedCount === collectionNames.length) {
+                         dispatch(setLoading(false));
+                    }
+                }
+
+            }, (error) => {
+                console.error(`Error listening to ${collectionName}:`, error);
+                loadedCount++;
+                if (loadedCount === collectionNames.length) {
+                    dispatch(setLoading(false));
+                }
+            });
         });
         unsubs.push(...newUnsubs);
 

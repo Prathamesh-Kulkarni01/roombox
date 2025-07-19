@@ -102,6 +102,8 @@ export interface Complaint {
   date: string;
   pgName?: string;
   upvotes?: number;
+  isPublic?: boolean;
+  imageUrls?: string[];
 }
 
 export interface Expense {
