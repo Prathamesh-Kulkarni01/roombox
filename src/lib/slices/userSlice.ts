@@ -1,5 +1,4 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole } from '../types';
 import { plans } from '../mock-data';
@@ -37,20 +36,23 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser>(
                 if (inviteDoc.exists()) {
                     const { ownerId, guestId } = inviteDoc.data();
                     
+                    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+                    const guestDoc = await getDoc(guestDocRef);
+                    const guestData = guestDoc.exists() ? guestDoc.data() : {};
+
                     const newTenantUser: User = {
                         id: firebaseUser.uid,
-                        name: firebaseUser.displayName || 'New Tenant',
+                        name: firebaseUser.displayName || (guestData as any).name || 'New Tenant',
                         email: firebaseUser.email,
                         role: 'tenant',
                         guestId: guestId,
                         ownerId: ownerId,
-                        avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || 'NT').slice(0, 2).toUpperCase()}`
+                        avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || (guestData as any).name || 'NT')).slice(0, 2).toUpperCase()}`
                     };
 
                     const batch = writeBatch(db);
                     batch.set(userDocRef, newTenantUser);
                     
-                    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
                     batch.update(guestDocRef, { userId: firebaseUser.uid });
                     
                     batch.delete(inviteDocRef);
@@ -180,13 +182,7 @@ export const logoutUser = createAsyncThunk(
             await auth.signOut();
         }
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('pgs');
-            localStorage.removeItem('guests');
-            localStorage.removeItem('complaints');
-            localStorage.removeItem('expenses');
-            localStorage.removeItem('staff');
-            localStorage.removeItem('notifications');
-            localStorage.removeItem('selectedPgId');
+            localStorage.clear();
         }
         return null;
     }

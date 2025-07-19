@@ -7,6 +7,7 @@ import TenantSidebar from "@/components/tenant-sidebar";
 import TenantBottomNav from "@/components/tenant-bottom-nav";
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppSelector } from '@/lib/hooks';
+import DebugPopover from '@/components/DebugPopover';
 
 export default function TenantDashboardLayout({
   children,
@@ -25,7 +26,7 @@ export default function TenantDashboardLayout({
 
   // If there's no user, or the user is not a tenant, show a loading skeleton.
   // The useEffect hook will handle redirection shortly.
-  if (!currentUser || currentUser.role !== 'tenant') {
+  if (isLoading || !currentUser || currentUser.role !== 'tenant') {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
          <div className="w-64 flex-col border-r bg-muted hidden md:flex p-4">
@@ -53,6 +54,7 @@ export default function TenantDashboardLayout({
             </main>
         </div>
         <TenantBottomNav />
+        {process.env.NODE_ENV === 'development' && <DebugPopover />}
       </div>
   )
 }
