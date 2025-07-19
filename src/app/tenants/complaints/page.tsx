@@ -7,14 +7,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { AlertTriangle, ThumbsUp, MessageSquarePlus, Send } from "lucide-react"
+import { AlertTriangle, ThumbsUp, MessageSquarePlus, Send, PlusCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from '@/hooks/use-toast'
 import type { Complaint } from '@/lib/types'
@@ -22,7 +21,9 @@ import { formatDistanceToNow } from 'date-fns'
 import { addComplaint as addComplaintAction, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 
 const complaintSchema = z.object({
-  category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other']),
+  category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other'], {
+    required_error: "Please select a category.",
+  }),
   description: z.string().min(10, "Please provide a detailed description (min. 10 characters)."),
 })
 type ComplaintFormValues = z.infer<typeof complaintSchema>
@@ -36,6 +37,7 @@ const statusColors: Record<Complaint['status'], string> = {
 export default function TenantComplaintsPage() {
     const { toast } = useToast()
     const dispatch = useAppDispatch()
+    const [isDialogOpen, setIsDialogOpen] = useState(false)
     const { complaints } = useAppSelector(state => state.complaints)
     const { currentUser } = useAppSelector(state => state.user)
     const { guests } = useAppSelector(state => state.guests)
@@ -63,60 +65,36 @@ export default function TenantComplaintsPage() {
         dispatch(addComplaintAction(data))
         toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
         form.reset()
+        setIsDialogOpen(false)
     }
 
     const handleUpvote = (complaint: Complaint) => {
+        if (complaint.guestId === currentGuest?.id) {
+            toast({ variant: 'destructive', description: "You cannot upvote your own complaint." });
+            return;
+        }
         dispatch(updateComplaintAction({ ...complaint, upvotes: (complaint.upvotes || 0) + 1}))
         toast({ title: "Upvoted!", description: "The manager will see that this is a common issue."})
     }
 
     return (
-        <div className="grid gap-8 lg:grid-cols-3 items-start">
-            <div className="lg:col-span-1 flex flex-col gap-8 sticky top-20">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Raise a Complaint</CardTitle>
-                        <CardDescription>Facing an issue? Let us know.</CardDescription>
-                    </CardHeader>
-                    <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)}>
-                        <CardContent className="grid gap-4">
-                            <FormField control={form.control} name="category" render={({ field }) => (
-                                <FormItem><FormLabel>Category</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger></FormControl>
-                                    <SelectContent><SelectItem value="maintenance">Maintenance</SelectItem><SelectItem value="cleanliness">Cleanliness</SelectItem><SelectItem value="wifi">Wi-Fi</SelectItem><SelectItem value="food">Food</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent>
-                                    </Select><FormMessage />
-                                </FormItem>
-                            )} />
-                             <FormField control={form.control} name="description" render={({ field }) => (
-                                <FormItem><FormLabel>Description</FormLabel>
-                                <FormControl><Textarea placeholder="Please describe the issue in detail" {...field} /></FormControl>
-                                <FormMessage />
-                                </FormItem>
-                             )} />
-                        </CardContent>
-                        <CardFooter>
-                            <Button type="submit" className="w-full"><MessageSquarePlus/> Submit Complaint</Button>
-                        </CardFooter>
-                    </form>
-                    </Form>
-                </Card>
-                 <Card className="bg-destructive/10 border-destructive/30">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle/> Emergency</CardTitle>
-                        <CardDescription className="text-destructive/80">For urgent issues like fire, medical, or security emergencies.</CardDescription>
-                    </CardHeader>
-                    <CardFooter>
-                        <Button variant="destructive" className="w-full">Contact Manager Immediately</Button>
-                    </CardFooter>
-                </Card>
-            </div>
-            <div className="lg:col-span-2">
-                <h2 className="text-2xl font-bold mb-4">Property Complaint Board</h2>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold">Complaint Board</h1>
+                        <p className="text-muted-foreground">View and raise issues in your property.</p>
+                    </div>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Raise Complaint
+                        </Button>
+                    </DialogTrigger>
+                </div>
+
                 <div className="space-y-4">
                     {pgComplaints.length > 0 ? pgComplaints.map(c => (
-                        <Card key={c.id}>
+                        <Card key={c.id} className="overflow-hidden">
                             <CardContent className="p-4 flex flex-col gap-3">
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -127,12 +105,9 @@ export default function TenantComplaintsPage() {
                                 </div>
                                 <p className="text-sm text-muted-foreground">{c.description}</p>
                             </CardContent>
-                            <CardFooter className="bg-muted/40 dark:bg-muted/20 p-2 flex justify-end gap-2">
+                            <CardFooter className="bg-muted/40 p-2 flex justify-end gap-2">
                                 <Button variant="ghost" size="sm" onClick={() => handleUpvote(c)} disabled={c.guestId === currentGuest?.id || c.status === 'resolved'}>
-                                    <ThumbsUp className="mr-2"/> Upvote {c.upvotes && c.upvotes > 0 ? `(${c.upvotes})` : ''}
-                                </Button>
-                                <Button variant="ghost" size="sm" disabled={c.status === 'resolved'}>
-                                    <Send className="mr-2" /> Remind Manager
+                                    <ThumbsUp className="mr-2 h-4 w-4"/> Upvote {c.upvotes && c.upvotes > 0 ? `(${c.upvotes})` : ''}
                                 </Button>
                             </CardFooter>
                         </Card>
@@ -144,6 +119,44 @@ export default function TenantComplaintsPage() {
                     )}
                 </div>
             </div>
-        </div>
+
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Raise a New Complaint</DialogTitle>
+                    <DialogDescription>Let the property manager know about an issue you're facing. Please be as detailed as possible.</DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} id="complaint-form" className="space-y-4 pt-4">
+                        <FormField control={form.control} name="category" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Category</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                                        <SelectItem value="cleanliness">Cleanliness</SelectItem>
+                                        <SelectItem value="wifi">Wi-Fi</SelectItem>
+                                        <SelectItem value="food">Food</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                         <FormField control={form.control} name="description" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Description</FormLabel>
+                                <FormControl><Textarea rows={5} placeholder="Please describe the issue in detail" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                         )} />
+                    </form>
+                </Form>
+                 <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
+                    <Button type="submit" form="complaint-form">Submit Complaint</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }

@@ -20,16 +20,10 @@ type NewComplaintData = Pick<Complaint, 'category' | 'description'>;
 // Async Thunks
 export const fetchComplaints = createAsyncThunk(
     'complaints/fetchComplaints',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const complaintsCollection = collection(db, 'users_data', userId, 'complaints');
-            const snap = await getDocs(complaintsCollection);
-            return snap.docs.map(d => d.data() as Complaint);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localData = localStorage.getItem('complaints');
-            return localData ? JSON.parse(localData) : [];
-        }
+    async (userId: string) => {
+        const complaintsCollection = collection(db, 'users_data', userId, 'complaints');
+        const snap = await getDocs(complaintsCollection);
+        return snap.docs.map(d => d.data() as Complaint);
     }
 );
 
@@ -38,7 +32,10 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
     async (complaintData, { getState, dispatch, rejectWithValue }) => {
         const { user, guests } = getState();
         const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
-        if (!user.currentUser || !currentGuest) return rejectWithValue('No user or guest');
+        
+        if (!user.currentUser || !currentGuest || !user.currentUser.ownerId) {
+             return rejectWithValue('User, guest, or owner information is missing');
+        }
 
         const newComplaint: Complaint = { 
             id: `c-${Date.now()}`, 
@@ -52,16 +49,14 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
             upvotes: 0
         };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'complaints', newComplaint.id);
-            await setDoc(docRef, newComplaint);
-        }
+        const docRef = doc(db, 'users_data', user.currentUser.ownerId, 'complaints', newComplaint.id);
+        await setDoc(docRef, newComplaint);
 
         await dispatch(addNotification({
             type: 'new-complaint',
-            title: 'Complaint Submitted',
-            message: `Your complaint about ${newComplaint.category} has been sent to the property manager.`,
-            link: `/tenants/complaints`,
+            title: 'New Complaint Received',
+            message: `${newComplaint.guestName} raised a complaint about ${newComplaint.category}.`,
+            link: `/dashboard/complaints`,
             targetId: newComplaint.id,
         }));
         
@@ -75,10 +70,12 @@ export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: R
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'complaints', updatedComplaint.id);
-            await setDoc(docRef, updatedComplaint, { merge: true });
-        }
+        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+        if (!ownerId) return rejectWithValue('Could not determine owner to update complaint');
+
+        const docRef = doc(db, 'users_data', ownerId, 'complaints', updatedComplaint.id);
+        await setDoc(docRef, updatedComplaint, { merge: true });
+        
         return updatedComplaint;
     }
 );
@@ -95,7 +92,7 @@ const complaintsSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(fetchComplaints.fulfilled, (state, action) => {
-                state.complaints = action.payload;
+                state.complaints = action.payload.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             })
             .addCase(addComplaint.fulfilled, (state, action) => {
                 state.complaints.unshift(action.payload);
