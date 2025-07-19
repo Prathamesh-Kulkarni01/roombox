@@ -128,9 +128,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (currentUser?.role !== 'tenant' || !currentUser?.ownerId || !currentUser?.guestId || !db) {
         if (currentUser && currentUser.role === 'tenant') {
-            dispatch(setGuests([]));
-            dispatch(setPgs([]));
-            dispatch(setComplaints([]));
+            dispatch(setLoading(false)); // Not enough info to fetch, stop loading
         }
         return;
     }
@@ -140,22 +138,17 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     let pgUnsubscribe: Unsubscribe | null = null;
     let complaintsUnsubscribe: Unsubscribe | null = null;
-    let guestDataLoaded = false;
-    let pgDataLoaded = false;
-    let complaintsDataLoaded = false;
+    let dataLoadedFlags = { guest: false, pg: false, complaints: false };
 
     const checkLoadingComplete = () => {
-        if (guestDataLoaded && pgDataLoaded && complaintsDataLoaded) {
+        if (Object.values(dataLoadedFlags).every(Boolean)) {
             dispatch(setLoading(false));
         }
     }
 
     const guestUnsubscribe = onSnapshot(doc(db, 'users_data', ownerId, 'guests', guestId), (guestSnap) => {
-        if (pgUnsubscribe) pgUnsubscribe();
-        if (complaintsUnsubscribe) complaintsUnsubscribe();
-
-        guestDataLoaded = true;
-
+        dataLoadedFlags.guest = true;
+        
         if (guestSnap.exists()) {
             const guestData = guestSnap.data() as Guest;
             dispatch(setGuests([guestData]));
@@ -163,7 +156,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
             if (guestData.pgId) {
                 const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
                 pgUnsubscribe = onSnapshot(pgDocRef, (pgSnap) => {
-                    pgDataLoaded = true;
+                    dataLoadedFlags.pg = true;
                     if (pgSnap.exists()) {
                         dispatch(setPgs([pgSnap.data() as PG]));
                     } else {
@@ -174,29 +167,35 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
                 const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
                 complaintsUnsubscribe = onSnapshot(complaintsQuery, (snapshot) => {
-                    complaintsDataLoaded = true;
+                    dataLoadedFlags.complaints = true;
                     const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
                     dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
                     checkLoadingComplete();
+                }, (error) => {
+                    console.error("Error fetching complaints:", error);
+                    dataLoadedFlags.complaints = true;
+                    checkLoadingComplete();
                 });
+
             } else {
                 dispatch(setPgs([]));
                 dispatch(setComplaints([]));
-                pgDataLoaded = true;
-                complaintsDataLoaded = true;
+                dataLoadedFlags.pg = true;
+                dataLoadedFlags.complaints = true;
                 checkLoadingComplete();
             }
         } else {
+            // Guest document doesn't exist, can't fetch anything else
             dispatch(setGuests([]));
             dispatch(setPgs([]));
             dispatch(setComplaints([]));
-            pgDataLoaded = true;
-            complaintsDataLoaded = true;
+            dataLoadedFlags.pg = true;
+            dataLoadedFlags.complaints = true;
             checkLoadingComplete();
         }
     }, (error) => {
         console.error("Error listening to guest document:", error);
-        dispatch(setLoading(false));
+        dispatch(setLoading(false)); // Stop loading on error
     });
 
     return () => {

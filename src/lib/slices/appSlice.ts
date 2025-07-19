@@ -78,7 +78,7 @@ const appSlice = createSlice({
                 state.isLoading = true;
             })
             .addCase('user/initializeUser/fulfilled', (state, action) => {
-                // For owners, loading is done. For tenants, we wait for data.
+                // For owners, loading is done. For tenants, we wait for their specific data to be fetched.
                 if (action.payload.role !== 'tenant') {
                     state.isLoading = false;
                 }

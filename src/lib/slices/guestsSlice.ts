@@ -63,7 +63,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
 
         if (isFirebaseConfigured() && auth) {
             const actionCodeSettings = {
-                url: `${window.location.origin}/login/verify`,
+                url: `${window.location.origin}/login/verify?ownerId=${user.currentUser.id}&guestId=${newGuest.id}`,
                 handleCodeInApp: true,
             };
             try {
@@ -132,8 +132,8 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
 
         const updatedGuest = { ...guestToUpdate, ...kycUpdate };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.ownerId || user.currentUser.id, 'guests', updatedGuest.id);
+        if (user.ownerId && isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', user.ownerId, 'guests', updatedGuest.id);
             await setDoc(docRef, updatedGuest, { merge: true });
         }
         

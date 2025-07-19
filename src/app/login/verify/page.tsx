@@ -2,7 +2,7 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth'
 import { auth, isFirebaseConfigured } from '@/lib/firebase'
 import { useToast } from '@/hooks/use-toast'
@@ -12,6 +12,7 @@ import { Loader2, AlertCircle } from 'lucide-react'
 function VerifyLogin() {
     const router = useRouter()
     const { toast } = useToast()
+    const searchParams = useSearchParams();
     const [error, setError] = useState<string | null>(null)
     const [message, setMessage] = useState("Verifying your login link...")
 
@@ -22,9 +23,8 @@ function VerifyLogin() {
                  return;
             }
 
-            if (isSignInWithEmailLink(auth, window.location.href)) {
-                // We don't have the email in localStorage because the owner, not the guest, initiated the flow.
-                // We must prompt the user for their email as a security measure.
+            const href = window.location.href;
+            if (isSignInWithEmailLink(auth, href)) {
                 let email = window.localStorage.getItem('emailForSignIn');
                 if (!email) {
                     email = window.prompt('For security, please re-enter your email address to complete sign-in.');
@@ -37,16 +37,17 @@ function VerifyLogin() {
 
                 try {
                     setMessage("Signing you in securely...");
-                    await signInWithEmailLink(auth, email, window.location.href);
+                    await signInWithEmailLink(auth, email, href);
                     window.localStorage.removeItem('emailForSignIn');
                     
-                    // The user is now signed in. The AuthHandler in StoreProvider will
-                    // detect this, run initializeUser, and handle redirection.
                     toast({
                       title: 'Success!',
-                      description: 'You have been signed in. Redirecting to your dashboard...',
+                      description: 'You have been signed in. Redirecting...',
                     });
-                    router.push('/tenants/my-pg');
+                    
+                    // The onAuthStateChanged listener will handle the final redirection after user initialization
+                    // No need to explicitly push here.
+
                 } catch (err: any) {
                     console.error(err);
                     setError("Failed to sign in. The link may be invalid or expired. Please try again.");
@@ -58,11 +59,8 @@ function VerifyLogin() {
         
         verifyLink();
 
-    }, [router, toast]);
+    }, [router, toast, searchParams]);
     
-    // The redirect is handled by the root layout's AuthHandler observing the auth state.
-    // This component just shows the status of the link verification.
-
     return (
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)] text-center p-4">
             {error ? (
