@@ -1,9 +1,11 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Staff } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
+import type { Staff, Invite } from '../types';
+import { db, isFirebaseConfigured, auth } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { RootState } from '../store';
+import { sendSignInLinkToEmail } from 'firebase/auth';
 
 interface StaffState {
     staff: Staff[];
@@ -35,13 +37,36 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
     'staff/addStaff',
     async (staffData, { getState, rejectWithValue }) => {
         const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
+        if (!user.currentUser || !staffData.email) return rejectWithValue('No user or staff email');
 
         const newStaff: Staff = { id: `staff-${Date.now()}`, ...staffData };
+        
+        const invite: Invite = {
+            email: newStaff.email,
+            ownerId: user.currentUser.id,
+            role: newStaff.role,
+            details: newStaff,
+        };
+
+        if (isFirebaseConfigured() && auth) {
+             const actionCodeSettings = {
+                url: `${window.location.origin}/login/verify`,
+                handleCodeInApp: true,
+            };
+            try {
+                await sendSignInLinkToEmail(auth, newStaff.email, actionCodeSettings);
+            } catch (error) {
+                console.error("Failed to send sign-in link:", error);
+            }
+        }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'staff', newStaff.id);
-            await setDoc(docRef, newStaff);
+            const staffDocRef = doc(db, 'users_data', user.currentUser.id, 'staff', newStaff.id);
+            const inviteDocRef = doc(db, 'invites', newStaff.email);
+            await Promise.all([
+                setDoc(staffDocRef, newStaff),
+                setDoc(inviteDocRef, invite),
+            ]);
         }
         return newStaff;
     }

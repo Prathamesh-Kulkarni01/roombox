@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useRef, type ReactNode, useEffect } from 'react'
@@ -123,72 +124,38 @@ function AuthHandler({ children }: { children: ReactNode }) {
     }
   }, [currentUser, currentPlan, dispatch]);
 
-  // Data fetching for Tenants
+  // Data fetching for Tenants (Optimized)
   useEffect(() => {
-    if (currentUser?.role !== 'tenant' || !currentUser?.ownerId || !currentUser?.guestId || !db) {
-        // Not a tenant or missing required IDs, so we return early.
-        // Also ensure no stale data is shown.
-        if (currentUser && currentUser.role === 'tenant') {
-            dispatch(setGuests([]));
-            dispatch(setPgs([]));
-            dispatch(setComplaints([]));
-        }
-        return;
+    if (currentUser?.role !== 'tenant' || !currentUser?.ownerId || !currentUser?.guestId || !currentUser?.pgId || !db) {
+      return;
     }
     
     initializeFirebaseMessaging();
-    const { ownerId, guestId } = currentUser;
+    const { ownerId, guestId, pgId } = currentUser;
 
-    let pgUnsubscribe: Unsubscribe | null = null;
-    let complaintsUnsubscribe: Unsubscribe | null = null;
+    const unsubs: Unsubscribe[] = [];
 
-    const guestUnsubscribe = onSnapshot(doc(db, 'users_data', ownerId, 'guests', guestId), (guestSnap) => {
-        // If the guest listener fires, it might mean the pgId has changed.
-        // We must clean up the old listeners before creating new ones.
-        if (pgUnsubscribe) pgUnsubscribe();
-        if (complaintsUnsubscribe) complaintsUnsubscribe();
+    // 1. Fetch Guest's own profile
+    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+    unsubs.push(onSnapshot(guestDocRef, (snap) => {
+        dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : []));
+    }));
 
-        if (guestSnap.exists()) {
-            const guestData = guestSnap.data() as Guest;
-            dispatch(setGuests([guestData]));
+    // 2. Fetch Guest's specific PG
+    const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', pgId);
+    unsubs.push(onSnapshot(pgDocRef, (snap) => {
+        dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []));
+    }));
 
-            if (guestData.pgId) {
-                // Set up new listener for the PG document
-                const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', guestData.pgId);
-                pgUnsubscribe = onSnapshot(pgDocRef, (pgSnap) => {
-                    if (pgSnap.exists()) {
-                        dispatch(setPgs([pgSnap.data() as PG]));
-                    } else {
-                        dispatch(setPgs([]));
-                    }
-                });
+    // 3. Fetch complaints for that PG
+    const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId));
+    unsubs.push(onSnapshot(complaintsQuery, (snapshot) => {
+        const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
+        dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+    }));
 
-                // Set up new listener for PG-specific complaints
-                const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', guestData.pgId));
-                complaintsUnsubscribe = onSnapshot(complaintsQuery, (snapshot) => {
-                    const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
-                    dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-                });
-            } else {
-                // Guest has no assigned PG, clear related state
-                dispatch(setPgs([]));
-                dispatch(setComplaints([]));
-            }
-        } else {
-            // Guest document doesn't exist, clear all tenant-related state
-            dispatch(setGuests([]));
-            dispatch(setPgs([]));
-            dispatch(setComplaints([]));
-        }
-    }, (error) => {
-        console.error("Error listening to guest document:", error);
-    });
-
-    // Main cleanup function for the effect
     return () => {
-        guestUnsubscribe();
-        if (pgUnsubscribe) pgUnsubscribe();
-        if (complaintsUnsubscribe) complaintsUnsubscribe();
+        unsubs.forEach(unsub => unsub());
     };
   }, [currentUser, dispatch]);
 

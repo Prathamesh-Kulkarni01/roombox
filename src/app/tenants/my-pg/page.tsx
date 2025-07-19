@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useAppSelector } from "@/lib/hooks"
@@ -33,15 +34,10 @@ export default function MyPgPage() {
     const { pgs } = useAppSelector(state => state.pgs)
     const { isLoading } = useAppSelector(state => state.app)
 
-    const currentGuest = useMemo(() => {
-        if (!currentUser || !currentUser.guestId) return null;
-        return guests.find(g => g.id === currentUser.guestId);
-    }, [currentUser, guests]);
-
-    const currentPg = useMemo(() => {
-        if (!currentGuest) return null;
-        return pgs.find(p => p.id === currentGuest.pgId);
-    }, [currentGuest, pgs]);
+    // The current guest and PG are now derived directly from the Redux state,
+    // which has been optimized to only load the necessary data for the tenant.
+    const currentGuest = guests.length > 0 ? guests[0] : null;
+    const currentPg = pgs.length > 0 ? pgs[0] : null;
 
     const bedDetails = useMemo(() => {
         if (!currentPg || !currentGuest) return { roomName: 'N/A', bedName: 'N/A' };

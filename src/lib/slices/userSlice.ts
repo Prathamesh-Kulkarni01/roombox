@@ -1,7 +1,7 @@
 
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { User, Plan, PlanName, UserRole } from '../types';
+import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite } from '../types';
 import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -29,37 +29,55 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser>(
         if (userDoc.exists()) {
             return userDoc.data() as User;
         } else {
-            const guestEmail = firebaseUser.email;
-            if (guestEmail) {
-                const inviteDocRef = doc(db, 'guest_invites', guestEmail);
+            const userEmail = firebaseUser.email;
+            if (userEmail) {
+                const inviteDocRef = doc(db, 'invites', userEmail);
                 const inviteDoc = await getDoc(inviteDocRef);
 
                 if (inviteDoc.exists()) {
-                    const { ownerId, guestId } = inviteDoc.data();
-                    
-                    const newTenantUser: User = {
-                        id: firebaseUser.uid,
-                        name: firebaseUser.displayName || 'New Tenant',
-                        email: firebaseUser.email,
-                        role: 'tenant',
-                        guestId: guestId,
-                        ownerId: ownerId,
-                        avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || 'NT').slice(0, 2).toUpperCase()}`
-                    };
+                    const inviteData = inviteDoc.data() as Invite;
+                    let newUser: User;
+
+                    if (inviteData.role === 'tenant') {
+                        const guestDetails = inviteData.details as Guest;
+                        newUser = {
+                            id: firebaseUser.uid,
+                            name: firebaseUser.displayName || guestDetails.name,
+                            email: firebaseUser.email,
+                            role: 'tenant',
+                            guestId: guestDetails.id,
+                            ownerId: inviteData.ownerId,
+                            pgId: guestDetails.pgId,
+                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || guestDetails.name).slice(0, 2).toUpperCase()}`
+                        };
+                        const guestDocRef = doc(db, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
+                        await setDoc(guestDocRef, { userId: firebaseUser.uid }, { merge: true });
+
+                    } else { // Handle staff roles
+                        const staffDetails = inviteData.details as Staff;
+                         newUser = {
+                            id: firebaseUser.uid,
+                            name: firebaseUser.displayName || staffDetails.name,
+                            email: firebaseUser.email,
+                            role: inviteData.role,
+                            ownerId: inviteData.ownerId,
+                            pgIds: [staffDetails.pgId],
+                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${(firebaseUser.displayName || staffDetails.name).slice(0, 2).toUpperCase()}`
+                        };
+                         const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
+                         await setDoc(staffDocRef, { userId: firebaseUser.uid }, { merge: true });
+                    }
 
                     const batch = writeBatch(db);
-                    batch.set(userDocRef, newTenantUser);
-                    
-                    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
-                    batch.update(guestDocRef, { userId: firebaseUser.uid });
-                    
-                    batch.delete(inviteDocRef);
-
+                    batch.set(userDocRef, newUser);
+                    batch.delete(inviteDocRef); // Delete the invitation now that it's been used
                     await batch.commit();
-                    return newTenantUser;
+                    
+                    return newUser;
                 }
             }
 
+            // Default to creating an owner account if no invite is found
             const newUser: User = {
                 id: firebaseUser.uid,
                 name: firebaseUser.displayName || 'New User',
@@ -112,8 +130,9 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
                 guests.forEach(guest => {
                     batch.set(doc(db, 'users_data', userId, 'guests', guest.id), guest);
                     if (guest.email && !guest.userId) {
-                        const inviteDocRef = doc(db, 'guest_invites', guest.email);
-                        batch.set(inviteDocRef, { ownerId: userId, guestId: guest.id });
+                        const inviteDocRef = doc(db, 'invites', guest.email);
+                        const invite: Invite = { email: guest.email, ownerId: userId, role: 'tenant', details: guest };
+                        batch.set(inviteDocRef, invite);
                     }
                 });
                 complaints.forEach(complaint => batch.set(doc(db, 'users_data', userId, 'complaints', complaint.id), complaint));

@@ -1,6 +1,7 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, PG } from '../types';
+import type { Guest, Invite, PG } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
@@ -27,11 +28,12 @@ export const fetchGuests = createAsyncThunk(
         if (useCloud) {
             const guestsCollection = collection(db, 'users_data', userId, 'guests');
             const guestsSnap = await getDocs(guestsCollection);
-            return guestsSnap.docs.map(d => d.data() as Guest);
+            return guestsSnap.docs.map(d => d.data() as Guest).filter(g => !g.isVacated);
         } else {
             if(typeof window === 'undefined') return [];
             const localGuests = localStorage.getItem('guests');
-            return localGuests ? JSON.parse(localGuests) : [];
+            const guests = localGuests ? JSON.parse(localGuests) : [];
+            return guests.filter((g: Guest) => !g.isVacated);
         }
     }
 );
@@ -49,6 +51,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             ...guestData, 
             id: `g-${Date.now()}`,
             kycStatus: 'not-started',
+            isVacated: false,
         };
 
         const updatedPg = produce(pg, draft => {
@@ -60,6 +63,13 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
                 bed.guestId = newGuest.id;
             }
         });
+        
+        const invite: Invite = {
+            email: newGuest.email,
+            ownerId: user.currentUser.id,
+            role: 'tenant',
+            details: newGuest
+        };
 
         if (isFirebaseConfigured() && auth) {
             const actionCodeSettings = {
@@ -77,11 +87,11 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', newGuest.id);
             const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            const inviteDocRef = doc(db, 'guest_invites', newGuest.email);
+            const inviteDocRef = doc(db, 'invites', newGuest.email);
             
             batch.set(guestDocRef, newGuest);
             batch.set(pgDocRef, updatedPg);
-            batch.set(inviteDocRef, { ownerId: user.currentUser.id, guestId: newGuest.id });
+            batch.set(inviteDocRef, invite);
 
             await batch.commit();
         }
@@ -108,8 +118,9 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
     async (kycData, { getState, dispatch, rejectWithValue }) => {
         const { user, guests } = getState();
         const guestToUpdate = guests.guests.find(g => g.id === user.currentUser?.guestId);
-
-        if (!user.currentUser || !guestToUpdate) {
+        const ownerId = user.currentUser?.role === 'owner' ? user.currentUser.id : user.currentUser?.ownerId;
+        
+        if (!user.currentUser || !guestToUpdate || !ownerId) {
             return rejectWithValue('User or guest not found');
         }
 
@@ -133,7 +144,7 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
         const updatedGuest = { ...guestToUpdate, ...kycUpdate };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.ownerId || user.currentUser.id, 'guests', updatedGuest.id);
+            const docRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
             await setDoc(docRef, updatedGuest, { merge: true });
         }
         
@@ -154,27 +165,32 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
     'guests/updateGuest',
     async ({ updatedGuest, updatedPg }, { getState, dispatch, rejectWithValue }) => {
         const { user, guests, pgs } = getState();
-        const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
-        if (!user.currentUser || !originalGuest) return rejectWithValue('No user or original guest');
+        if (!user.currentUser) return rejectWithValue('No user');
+        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+        if (!ownerId) return rejectWithValue('Owner ID not found');
 
-        const rentStatusChanged = updatedGuest.rentStatus !== originalGuest.rentStatus;
-        if (rentStatusChanged && updatedGuest.rentStatus === 'paid') {
-            await dispatch(addNotification({
-                type: 'rent-paid',
-                title: 'Rent Collected',
-                message: `You collected rent from ${updatedGuest.name}.`,
-                link: `/dashboard/tenant-management/${updatedGuest.id}`,
-                targetId: updatedGuest.id,
-            }));
+        const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
+
+        if (originalGuest) {
+            const rentStatusChanged = updatedGuest.rentStatus !== originalGuest.rentStatus;
+            if (rentStatusChanged && updatedGuest.rentStatus === 'paid') {
+                await dispatch(addNotification({
+                    type: 'rent-paid',
+                    title: 'Rent Collected',
+                    message: `You collected rent from ${updatedGuest.name}.`,
+                    link: `/dashboard/tenant-management/${updatedGuest.id}`,
+                    targetId: updatedGuest.id,
+                }));
+            }
         }
         
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const batch = writeBatch(db);
-            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
+            const guestDocRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
             batch.set(guestDocRef, updatedGuest, { merge: true });
 
             if (updatedPg) {
-                const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
+                const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', updatedPg.id);
                 batch.set(pgDocRef, updatedPg);
             }
              await batch.commit();
@@ -234,7 +250,7 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
             const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guestId);
             const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            batch.set(guestDocRef, updatedGuest); // Overwrite with vacated status
+            batch.set(guestDocRef, updatedGuest, { merge: true }); // Keep history by merging
             batch.set(pgDocRef, updatedPg);
             await batch.commit();
         }
@@ -278,7 +294,7 @@ const guestsSlice = createSlice({
                 }
             })
             .addCase(vacateGuest.fulfilled, (state, action) => {
-                // Remove guest from the list as they are now vacated
+                // Remove guest from the active list as they are now vacated
                 state.guests = state.guests.filter(g => g.id !== action.payload.guest.id);
             })
             .addCase('pgs/deletePg/fulfilled', (state, action) => {

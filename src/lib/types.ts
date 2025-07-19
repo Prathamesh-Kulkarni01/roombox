@@ -88,7 +88,7 @@ export interface Guest {
   noticePeriodDays: number;
   exitDate?: string;
   userId?: string;
-  isVacated?: boolean;
+  isVacated?: boolean; // True if the guest has permanently left the PG
 }
 
 export interface Complaint {
@@ -114,15 +114,18 @@ export interface Expense {
   date: string;
 }
 
+export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
+
 export interface Staff {
   id: string;
   name: string;
   email?: string;
-  role: 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
+  role: StaffRole;
   phone: string;
   salary: number;
   pgId: string;
   pgName: string;
+  userId?: string;
 }
 
 export interface Notification {
@@ -167,14 +170,22 @@ export interface User {
   email?: string;
   password?: string;
   role: UserRole;
-  pgIds?: string[];
+  pgIds?: string[]; // Kept for owners
   avatarUrl?: string;
   guestId?: string; // Link to a Guest record if the user is a tenant
-  ownerId?: string; // If role is tenant, this is the ID of their PG owner
+  ownerId?: string; // If role is tenant or staff, this is the ID of their PG owner
+  pgId?: string; // Tenant's specific PG ID for direct access
   subscription?: {
     planId: PlanName;
     status: 'active' | 'inactive';
   };
+}
+
+export interface Invite {
+  email: string;
+  ownerId: string;
+  role: UserRole;
+  details: Guest | Staff;
 }
 
 export interface SiteConfig {
