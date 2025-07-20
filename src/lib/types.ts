@@ -20,7 +20,44 @@ export interface Room {
   beds: Bed[];
   rent: number;
   deposit: number;
-  amenities?: Amenity[];
+  amenities?: string[];
+  floorId: string;
+  pgId: string;
+  // All fields from RoomDetails
+  roomTitle: string;
+  roomType: 'single' | 'double' | 'triple' | 'dormitory';
+  gender: 'male' | 'female' | 'unisex' | 'couples';
+  category: 'standard' | 'premium' | 'deluxe';
+  floor?: number;
+  block?: string;
+  monthlyRent: number;
+  securityDeposit: number;
+  lockInMonths?: number;
+  electricityBilling: 'included' | 'metered' | 'shared';
+  acCharge: {
+      included: boolean;
+      charge?: number;
+  };
+  maintenanceCharges?: number;
+  furnishingType: 'fully' | 'semi' | 'unfurnished';
+  rules: string[];
+  preferredTenants: string[];
+  foodIncluded: boolean;
+  meals?: string[];
+  vegNonVeg?: 'veg' | 'non-veg' | 'both';
+  housekeepingFrequency?: 'daily' | 'alternate' | 'weekly';
+  laundryServices: boolean;
+  images?: string[];
+  available: boolean;
+  availableFrom: string; // Stored as ISO string
+  virtualTourLink?: string;
+  address?: string;
+  landmark?: string;
+  distanceCollege?: string;
+  distanceOffice?: string;
+  distanceMetro?: string;
+  description?: string;
+  showLocation?: boolean;
 }
 
 export interface Floor {
@@ -209,44 +246,42 @@ export interface SiteConfig {
   testimonials?: { quote: string; author: string; }[];
 }
 
-// Full Room type for dedicated Room management
-export interface RoomDetails {
-    id: string;
-    ownerId: string;
-    pgId: string;
-    roomTitle: string;
-    roomType: 'single' | 'double' | 'triple' | 'dormitory';
-    gender: 'male' | 'female' | 'unisex' | 'couples';
-    category: 'standard' | 'premium' | 'deluxe';
-    floor?: number;
-    block?: string;
-    monthlyRent: number;
-    securityDeposit: number;
-    lockInMonths?: number;
-    electricityBilling: 'included' | 'metered' | 'shared';
-    acCharge: {
-        included: boolean;
-        charge?: number;
-    };
-    maintenanceCharges?: number;
-    amenities: string[];
-    furnishingType: 'fully' | 'semi' | 'unfurnished';
-    rules: string[];
-    preferredTenants: string[];
-    foodIncluded: boolean;
-    meals?: ('breakfast' | 'lunch' | 'dinner')[];
-    vegNonVeg?: 'veg' | 'non-veg' | 'both';
-    housekeepingFrequency?: 'daily' | 'alternate' | 'weekly';
-    laundryServices: boolean;
-    images?: string[];
-    available: boolean;
-    availableFrom: string; // ISO date string
-    virtualTourLink?: string;
-    address?: string;
-    landmark?: string;
-    distanceCollege?: string;
-    distanceOffice?: string;
-    distanceMetro?: string;
-    description?: string;
-    showLocation?: boolean;
+// Kept for Zod validation on the server action
+export interface RoomData {
+  ownerId: string;
+  roomTitle: string;
+  roomType: 'single' | 'double' | 'triple' | 'dormitory';
+  gender: 'male' | 'female' | 'unisex' | 'couples';
+  category: 'standard' | 'premium' | 'deluxe';
+  floor?: number;
+  block?: string;
+  monthlyRent: number;
+  securityDeposit: number;
+  lockInMonths?: number;
+  electricityBilling: 'included' | 'metered' | 'shared';
+  acCharge: {
+      included: boolean;
+      charge?: number;
+  };
+  maintenanceCharges?: number;
+  amenities: string[];
+  furnishingType: 'fully' | 'semi' | 'unfurnished';
+  rules: string[];
+  preferredTenants: string[];
+  foodIncluded: boolean;
+  meals?: ('breakfast' | 'lunch' | 'dinner')[];
+  vegNonVeg?: 'veg' | 'non-veg' | 'both';
+  housekeepingFrequency?: 'daily' | 'alternate' | 'weekly';
+  laundryServices: boolean;
+  images?: string[];
+  available: boolean;
+  availableFrom: string; // ISO date string
+  virtualTourLink?: string;
+  address?: string;
+  landmark?: string;
+  distanceCollege?: string;
+  distanceOffice?: string;
+  distanceMetro?: string;
+  description?: string;
+  showLocation?: boolean;
 }

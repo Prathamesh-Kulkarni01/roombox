@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
 import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2 } from "lucide-react"
-
+import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
 
@@ -51,8 +51,9 @@ export default function DashboardPage() {
 
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
-    isFloorDialogOpen, setIsFloorDialogOpen,
-    isBedDialogOpen, setIsBedDialogOpen,
+    isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom,
+    isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit, floorForm, handleFloorSubmit,
+    isBedDialogOpen, setIsBedDialogOpen, bedToEdit, bedForm, handleBedSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
     itemToDelete, setItemToDelete,
@@ -168,7 +169,7 @@ export default function DashboardPage() {
           <Building className="mx-auto h-16 w-16 text-muted-foreground" />
           <h2 className="mt-6 text-2xl font-semibold">Welcome to Your Dashboard!</h2>
           <p className="mt-2 text-muted-foreground max-w-md">
-            You haven&apos;t added any properties yet. Get started by adding your first one.
+            You haven't added any properties yet. Get started by adding your first one.
           </p>
           <Button 
             data-tour="add-first-pg-button" 
@@ -223,8 +224,9 @@ export default function DashboardPage() {
       
       {/* DIALOGS */}
       <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
-      <FloorDialog isFloorDialogOpen={isFloorDialogOpen} setIsFloorDialogOpen={setIsFloorDialogOpen} {...dashboardActions}/>
-      <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} {...dashboardActions} />
+      <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} roomToEdit={roomToEdit} roomForm={roomForm} handleRoomSubmit={handleRoomSubmit} isSavingRoom={isSavingRoom} />
+      <FloorDialog isFloorDialogOpen={isFloorDialogOpen} setIsFloorDialogOpen={setIsFloorDialogOpen} floorToEdit={floorToEdit} floorForm={floorForm} handleFloorSubmit={handleFloorSubmit} />
+      <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} bedToEdit={bedToEdit} bedForm={bedForm} handleBedSubmit={handleBedSubmit} />
       <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} {...dashboardActions} />
       <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} {...dashboardActions}/>
     

@@ -20,10 +20,12 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 
 import { Building, Layers, DoorOpen, BedDouble, PlusCircle, IndianRupee, Trash2, ArrowLeft, Pencil } from 'lucide-react'
 import type { PG, Floor, Room, Bed } from '@/lib/types'
 import { updatePg as updatePgAction } from '@/lib/slices/pgsSlice'
+import { useDashboard } from '@/hooks/use-dashboard'
 
 
 const floorSchema = z.object({ name: z.string().min(2, "Floor name must be at least 2 characters.") })
@@ -41,28 +43,27 @@ export default function ManagePgPage() {
   const { toast } = useToast()
 
   const [isEditMode, setIsEditMode] = useState(false)
-  const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
-  const [isBedDialogOpen, setIsBedDialogOpen] = useState(false)
-  const [floorToEdit, setFloorToEdit] = useState<Floor | null>(null)
-  const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null)
-  const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; pgId: string; } | null>(null)
-
-  const floorForm = useForm<z.infer<typeof floorSchema>>({ resolver: zodResolver(floorSchema), defaultValues: { name: '' } })
-  const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } })
   
+  const {
+      isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit,
+      isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit,
+      isBedDialogOpen, setIsBedDialogOpen, bedToEdit,
+      roomForm, floorForm, bedForm,
+      handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
+      handleOpenRoomDialog, handleOpenFloorDialog, handleOpenBedDialog,
+      handleDelete,
+      isSavingRoom
+  } = useDashboard({ pgs, guests });
+
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
   const canAddFloor = pg && currentPlan && (currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit)
 
   useEffect(() => {
     if (searchParams.get('setup') === 'true') {
         setIsEditMode(true);
-        // Clean the URL to prevent re-triggering on refresh
         router.replace(`/dashboard/pg-management/${pgId}`, { scroll: false });
     }
   }, [searchParams, router, pgId]);
-
-  useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm])
-  useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm])
 
   if (!pg) {
     return (
@@ -76,84 +77,14 @@ export default function ManagePgPage() {
       </div>
     )
   }
-  
-  const handleFloorSubmit = (values: z.infer<typeof floorSchema>) => {
-    if (!canAddFloor && !floorToEdit) return;
-    const nextState = produce(pg, draft => {
-      if (!draft.floors) draft.floors = [];
-      if (floorToEdit) {
-        const floor = draft.floors.find(f => f.id === floorToEdit.id);
-        if (floor) floor.name = values.name;
-      } else {
-        draft.floors.push({ id: `floor-${new Date().getTime()}`, name: values.name, rooms: [], pgId: pg.id });
-      }
-    });
-    dispatch(updatePgAction(nextState));
-    setIsFloorDialogOpen(false);
-    setFloorToEdit(null);
-  }
-  
-  const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
-    const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
-    const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
-    if (!floorId || !roomId) return;
-    const nextState = produce(pg, draft => {
-      const room = draft.floors?.find(f => f.id === floorId)?.rooms.find(r => r.id === roomId);
-      if (!room) return;
-      if (bedToEdit) {
-        const bed = room.beds.find(b => b.id === bedToEdit.bed.id);
-        if (bed) bed.name = values.name;
-      } else {
-        room.beds.push({ id: `bed-${Date.now()}`, name: values.name, guestId: null });
-        draft.totalBeds = (draft.totalBeds || 0) + 1;
-      }
-    });
-    dispatch(updatePgAction(nextState));
-    setIsBedDialogOpen(false);
-    setBedToEdit(null);
-    setSelectedRoomForBedAdd(null);
-  }
 
-  const handleDelete = (type: 'floor' | 'room' | 'bed', ids: { floorId: string; roomId?: string; bedId?: string }) => {
-    if (!confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) return;
-    const nextState = produce(pg, draft => {
-        const floorIndex = draft.floors?.findIndex(f => f.id === ids.floorId);
-        if (floorIndex === undefined || floorIndex === -1 || !draft.floors) return;
-        const floor = draft.floors[floorIndex];
-        if (type === 'floor') {
-            if (floor?.rooms.some(r => r.beds.some(b => b.guestId))) { alert("Cannot delete a floor with occupied rooms."); return; }
-            draft.totalBeds -= floor?.rooms.reduce((acc, room) => acc + room.beds.length, 0) || 0;
-            draft.floors.splice(floorIndex, 1);
-        } else if (type === 'room' && ids.roomId) {
-            const roomIndex = floor.rooms.findIndex(r => r.id === ids.roomId);
-            if (roomIndex === undefined || roomIndex === -1) return;
-            const room = floor.rooms[roomIndex];
-            if (room?.beds.some(b => b.guestId)) { alert("Cannot delete a room with occupied beds."); return; }
-            draft.totalBeds -= room?.beds.length || 0;
-            floor.rooms.splice(roomIndex, 1);
-        } else if (type === 'bed' && ids.roomId && ids.bedId) {
-            const room = floor.rooms.find(r => r.id === ids.roomId);
-            const bedIndex = room?.beds.findIndex(b => b.id === ids.bedId);
-            if (bedIndex === undefined || bedIndex === -1 || !room) return;
-            if (room.beds[bedIndex].guestId) { alert("Cannot delete an occupied bed."); return; }
-            room.beds.splice(bedIndex, 1);
-            draft.totalBeds -= 1;
-        }
-    });
-    dispatch(updatePgAction(nextState));
-  }
-
-  const openAddFloorDialog = () => {
+  const openAddFloor = () => {
     if (!canAddFloor) {
         toast({ variant: 'destructive', title: 'Floor Limit Reached', description: 'Please upgrade your plan to add more floors.'});
         return;
     }
-    setFloorToEdit(null);
-    setIsFloorDialogOpen(true);
+    handleOpenFloorDialog(null, pg);
   }
-  const openEditFloorDialog = (floor: Floor) => { setFloorToEdit(floor); setIsFloorDialogOpen(true) }
-  const openAddBedDialog = (floorId: string, roomId: string, pgId: string) => { setBedToEdit(null); setSelectedRoomForBedAdd({floorId, roomId, pgId}); setIsBedDialogOpen(true) }
-  const openEditBedDialog = (bed: Bed, roomId: string, floorId: string) => { setBedToEdit({bed, roomId, floorId}); setIsBedDialogOpen(true) }
 
   return (
     <div className="flex flex-col gap-8">
@@ -188,8 +119,8 @@ export default function ManagePgPage() {
                                 <CardTitle className="text-base flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name}</CardTitle>
                                 {isEditMode && (
                                     <div className="flex items-center -mt-2 -mr-2">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.push(`/dashboard/add-room?roomId=${room.id}`)}> <Pencil className="w-4 h-4" /> </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('room', { floorId: floor.id, roomId: room.id })}> <Trash2 className="w-4 h-4" /> </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('room', { floorId: floor.id, roomId: room.id, pgId: pg.id })}> <Trash2 className="w-4 h-4" /> </Button>
                                     </div>
                                 )}
                             </CardHeader>
@@ -210,14 +141,14 @@ export default function ManagePgPage() {
                                             </div>
                                             {isEditMode && (
                                                 <div className="flex items-center">
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditBedDialog(bed, room.id, floor.id)}> <Pencil className="w-3 h-3" /> </Button>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id })}> <Trash2 className="w-3 h-3" /> </Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}> <Pencil className="w-3 h-3" /> </Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}> <Trash2 className="w-3 h-3" /> </Button>
                                                 </div>
                                             )}
                                         </div>
                                     ))}
                                     {isEditMode && (
-                                        <button data-tour="add-bed-button" onClick={() => openAddBedDialog(floor.id, room.id, pg.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
+                                        <button data-tour="add-bed-button" onClick={() => handleOpenBedDialog(null, room.id, floor.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
                                             <PlusCircle className="w-3.5 h-3.5 mr-2" /> Add Bed
                                         </button>
                                     )}
@@ -226,7 +157,7 @@ export default function ManagePgPage() {
                         </Card>
                     ))}
                     {isEditMode && (
-                        <button data-tour="add-room-button" onClick={() => router.push('/dashboard/add-room')} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                        <button data-tour="add-room-button" onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                             <PlusCircle className="w-8 h-8 mb-2" />
                             <span className="font-medium">Add New Room</span>
                         </button>
@@ -237,12 +168,12 @@ export default function ManagePgPage() {
                   )}
                   <div className="mt-6 flex items-center gap-4">
                     {isEditMode && (
-                        <Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id }) }}>
+                        <Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id, pgId: pg.id }) }}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Floor
                         </Button>
                     )}
                      {isEditMode && (
-                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); openEditFloorDialog(floor) }}>
+                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); handleOpenFloorDialog(floor) }}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Floor
                         </Button>
                      )}
@@ -256,7 +187,7 @@ export default function ManagePgPage() {
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <div data-tour="add-floor-button" className="inline-block mt-6 w-full">
-                            <button onClick={openAddFloorDialog} disabled={!canAddFloor} className="w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:bg-muted/50 disabled:cursor-not-allowed">
+                            <button onClick={openAddFloor} disabled={!canAddFloor} className="w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:bg-muted/50 disabled:cursor-not-allowed">
                                 <PlusCircle className="mr-2 h-5 w-5" />
                                 <span className="font-medium">Add New Floor</span>
                             </button>
@@ -272,7 +203,8 @@ export default function ManagePgPage() {
         </CardContent>
       </Card>
       
-      {/* Floor Dialog */}
+      {/* DIALOGS */}
+      <RoomDialog {...{ isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom }} />
       <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}>
         <DialogContent><DialogHeader><DialogTitle>{floorToEdit ? 'Edit Floor' : 'Add New Floor'}</DialogTitle></DialogHeader>
           <Form {...floorForm}>
@@ -286,8 +218,7 @@ export default function ManagePgPage() {
         </DialogContent>
       </Dialog>
       
-      {/* Bed Dialog */}
-       <Dialog open={isBedDialogOpen} onOpenChange={setIsBedDialogOpen}>
+      <Dialog open={isBedDialogOpen} onOpenChange={setIsBedDialogOpen}>
         <DialogContent><DialogHeader><DialogTitle>{bedToEdit ? 'Edit Bed' : 'Add New Bed'}</DialogTitle></DialogHeader>
           <Form {...bedForm}>
             <form onSubmit={bedForm.handleSubmit(handleBedSubmit)} id="bed-form" className="space-y-4">

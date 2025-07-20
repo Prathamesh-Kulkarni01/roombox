@@ -18,7 +18,7 @@ interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
 }
 
 export default function BedCard(props: BedCardProps) {
-  const { room, floor, pg, isEditMode, setItemToDelete, openAddBedDialog, openEditBedDialog, isFirstAvailableBedFound } = props
+  const { room, floor, pg, isEditMode, setItemToDelete, handleOpenBedDialog, handleOpenRoomDialog, isFirstAvailableBedFound } = props
   const router = useRouter()
   const { guests, complaints } = useAppSelector(state => ({
     guests: state.guests.guests,
@@ -46,7 +46,7 @@ export default function BedCard(props: BedCardProps) {
     <>
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-semibold text-lg flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name} <span className="font-normal text-muted-foreground">({room.beds.length}-sharing)</span></h3>
-        {isEditMode && (<div className="flex items-center"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.push(`/dashboard/add-room?roomId=${room.id}`)}> <Pencil className="w-4 h-4" /> </Button><Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'room', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id } })}> <Trash2 className="w-4 h-4" /> </Button></div>)}
+        {isEditMode && (<div className="flex items-center"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button><Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'room', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id } })}> <Trash2 className="w-4 h-4" /> </Button></div>)}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
@@ -63,7 +63,7 @@ export default function BedCard(props: BedCardProps) {
                 <BedDouble className="w-8 h-8 mb-1" />
                 <span className="font-bold text-sm">Bed {bed.name}</span>
                 {bed.guestId && <Badge variant="outline" className="mt-1">Occupied</Badge>}
-                <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditBedDialog(bed, room.id, floor.id)}> <Pencil className="w-3 h-3" /> </Button><Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'bed', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id, bedId: bed.id } })}> <Trash2 className="w-3 h-3" /> </Button></div>
+                <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5"><Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}> <Pencil className="w-3 h-3" /> </Button><Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'bed', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id, bedId: bed.id } })}> <Trash2 className="w-3 h-3" /> </Button></div>
               </div>
             );
           }
@@ -90,7 +90,7 @@ export default function BedCard(props: BedCardProps) {
             </Popover>
           );
         })}
-        {isEditMode && (<button data-tour="add-bed-button" onClick={() => openAddBedDialog(floor.id, room.id, pg.id)} className="min-h-[110px] w-full flex flex-col items-center justify-center p-2 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-6 h-6 mb-1" /><span className="text-sm font-medium text-center">Add Bed</span></button>)}
+        {isEditMode && (<button data-tour="add-bed-button" onClick={() => handleOpenBedDialog(null, room.id, floor.id)} className="min-h-[110px] w-full flex flex-col items-center justify-center p-2 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-6 h-6 mb-1" /><span className="text-sm font-medium text-center">Add Bed</span></button>)}
       </div>
     </>
   )
