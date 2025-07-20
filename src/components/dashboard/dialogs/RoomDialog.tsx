@@ -49,39 +49,41 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
   return (
     <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-2">
+        <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>{roomToEdit ? 'Edit Room' : 'Add a New Room'}</DialogTitle>
           <DialogDescription>
             Fill out the details below. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto px-6">
-            <Form {...roomForm}>
-                <form onSubmit={roomForm.handleSubmit(onSubmit)} id="room-form" className="flex flex-col h-full">
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
-                        <ScrollArea className="w-full whitespace-nowrap -mx-6 px-6 pb-4 border-b">
-                            <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
-                                {tabs.map(tab => (
-                                    <TabsTrigger key={tab.value} value={tab.value} className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
-                                        {tab.label}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
-                        <div className="flex-1 overflow-y-auto pt-4 -mx-6 px-6">
-                            <TabsContent value="basics"><RoomBasicsForm form={roomForm} /></TabsContent>
-                            <TabsContent value="pricing"><PricingForm form={roomForm} /></TabsContent>
-                            <TabsContent value="amenities"><AmenitiesForm form={roomForm} /></TabsContent>
-                            <TabsContent value="rules"><RulesForm form={roomForm} /></TabsContent>
-                            <TabsContent value="food"><FoodServicesForm form={roomForm} /></TabsContent>
-                            <TabsContent value="media"><MediaForm form={roomForm} /></TabsContent>
-                        </div>
-                    </Tabs>
-                </form>
-            </Form>
-        </div>
-        <DialogFooter className="p-6 pt-4 border-t">
+        <Form {...roomForm}>
+          <form onSubmit={form.handleSubmit(onSubmit)} id="room-form" className="flex flex-col flex-1 overflow-hidden">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
+                <div className="px-6 border-b">
+                  <ScrollArea className="w-full whitespace-nowrap">
+                      <TabsList className="inline-flex h-10 items-center justify-start rounded-none bg-transparent p-0 w-full">
+                          {tabs.map(tab => (
+                              <TabsTrigger key={tab.value} value={tab.value} className="relative inline-flex items-center justify-center whitespace-nowrap rounded-none bg-transparent px-4 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:scale-x-0 data-[state=active]:after:scale-x-100 data-[state=active]:after:bg-primary after:transition-transform">
+                                  {tab.label}
+                              </TabsTrigger>
+                          ))}
+                      </TabsList>
+                      <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                </div>
+                <ScrollArea className="flex-1 overflow-y-auto">
+                    <div className="p-6">
+                        <TabsContent value="basics"><RoomBasicsForm form={roomForm} /></TabsContent>
+                        <TabsContent value="pricing"><PricingForm form={roomForm} /></TabsContent>
+                        <TabsContent value="amenities"><AmenitiesForm form={roomForm} /></TabsContent>
+                        <TabsContent value="rules"><RulesForm form={roomForm} /></TabsContent>
+                        <TabsContent value="food"><FoodServicesForm form={roomForm} /></TabsContent>
+                        <TabsContent value="media"><MediaForm form={roomForm} /></TabsContent>
+                    </div>
+                </ScrollArea>
+            </Tabs>
+          </form>
+        </Form>
+        <DialogFooter className="p-6 pt-4 border-t bg-background">
             <DialogClose asChild>
                 <Button type="button" variant="secondary">Cancel</Button>
             </DialogClose>
