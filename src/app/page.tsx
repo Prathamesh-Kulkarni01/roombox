@@ -92,19 +92,19 @@ export default function Home() {
     }
   }, [isLoading, currentUser, router]);
 
-  if (isLoading || currentUser) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)]">
-         <div className="container mx-auto px-4 text-center py-24 md:py-32">
-            <Skeleton className="h-12 md:h-16 w-3/4 mx-auto mb-6" />
-            <Skeleton className="h-6 w-full max-w-2xl mx-auto mb-10" />
-            <div className="flex justify-center gap-4">
-                <Skeleton className="h-12 w-48" />
-            </div>
-        </div>
-      </div>
-    );
-  }
+  // if (isLoading || currentUser) {
+  //   return (
+  //     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)]">
+  //        <div className="container mx-auto px-4 text-center py-24 md:py-32">
+  //           <Skeleton className="h-12 md:h-16 w-3/4 mx-auto mb-6" />
+  //           <Skeleton className="h-6 w-full max-w-2xl mx-auto mb-10" />
+  //           <div className="flex justify-center gap-4">
+  //               <Skeleton className="h-12 w-48" />
+  //           </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-56px)] bg-background">
