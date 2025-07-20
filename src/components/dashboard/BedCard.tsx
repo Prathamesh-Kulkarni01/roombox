@@ -8,6 +8,7 @@ import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircl
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
 import { MutableRefObject } from "react"
+import { useRouter } from "next/navigation"
 
 interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
   room: Room
@@ -17,7 +18,8 @@ interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
 }
 
 export default function BedCard(props: BedCardProps) {
-  const { room, floor, pg, isEditMode, openEditRoomDialog, setItemToDelete, openAddBedDialog, openEditBedDialog, isFirstAvailableBedFound } = props
+  const { room, floor, pg, isEditMode, setItemToDelete, openAddBedDialog, openEditBedDialog, isFirstAvailableBedFound } = props
+  const router = useRouter()
   const { guests, complaints } = useAppSelector(state => ({
     guests: state.guests.guests,
     complaints: state.complaints.complaints,
@@ -44,7 +46,7 @@ export default function BedCard(props: BedCardProps) {
     <>
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-semibold text-lg flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name} <span className="font-normal text-muted-foreground">({room.beds.length}-sharing)</span></h3>
-        {isEditMode && (<div className="flex items-center"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditRoomDialog(room, floor.id)}> <Pencil className="w-4 h-4" /> </Button><Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'room', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id } })}> <Trash2 className="w-4 h-4" /> </Button></div>)}
+        {isEditMode && (<div className="flex items-center"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.push(`/dashboard/add-room?roomId=${room.id}`)}> <Pencil className="w-4 h-4" /> </Button><Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'room', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id } })}> <Trash2 className="w-4 h-4" /> </Button></div>)}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">

@@ -19,7 +19,6 @@ import StatsCards from '@/components/dashboard/StatsCards'
 import PgLayout from '@/components/dashboard/PgLayout'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import FloorDialog from '@/components/dashboard/dialogs/FloorDialog'
-import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import BedDialog from '@/components/dashboard/dialogs/BedDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
@@ -53,7 +52,6 @@ export default function DashboardPage() {
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
     isFloorDialogOpen, setIsFloorDialogOpen,
-    isRoomDialogOpen, setIsRoomDialogOpen,
     isBedDialogOpen, setIsBedDialogOpen,
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
@@ -226,7 +224,6 @@ export default function DashboardPage() {
       {/* DIALOGS */}
       <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
       <FloorDialog isFloorDialogOpen={isFloorDialogOpen} setIsFloorDialogOpen={setIsFloorDialogOpen} {...dashboardActions}/>
-      <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} {...dashboardActions} />
       <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} {...dashboardActions} />
       <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} {...dashboardActions} />
       <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} {...dashboardActions}/>

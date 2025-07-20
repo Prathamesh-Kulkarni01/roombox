@@ -25,11 +25,6 @@ const addGuestSchema = z.object({
 })
 
 const floorSchema = z.object({ name: z.string().min(2, "Floor name must be at least 2 characters.") })
-const roomSchema = z.object({
-  name: z.string().min(2, "Room name must be at least 2 characters."),
-  rent: z.coerce.number().min(1, "Rent is required."),
-  deposit: z.coerce.number().min(0, "Deposit is required."),
-})
 const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is required.") })
 
 const paymentSchema = z.object({
@@ -53,13 +48,10 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   
   // States for layout editing
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false);
-  const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [isBedDialogOpen, setIsBedDialogOpen] = useState(false);
   const [floorToEdit, setFloorToEdit] = useState<Floor | null>(null);
-  const [roomToEdit, setRoomToEdit] = useState<{ room: Room; floorId: string } | null>(null);
   const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null);
   const [selectedPgForFloorAdd, setSelectedPgForFloorAdd] = useState<PG | null>(null);
-  const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<{ floorId: string, pgId: string } | null>(null);
   const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; pgId: string; } | null>(null);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string } } | null>(null)
   
@@ -80,7 +72,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     defaultValues: { name: '', phone: '', email: '', rentAmount: 0, depositAmount: 0 },
   });
   const floorForm = useForm<z.infer<typeof floorSchema>>({ resolver: zodResolver(floorSchema), defaultValues: { name: '' } });
-  const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema), defaultValues: { name: '', rent: 0, deposit: 0 } });
   const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } });
   const paymentForm = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema),
@@ -89,7 +80,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   // Effects for form resets
   useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm]);
-  useEffect(() => { if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: 0, deposit: 0 }); }, [roomToEdit, roomForm]);
   useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm]);
   useEffect(() => {
     if (selectedGuestForPayment) {
@@ -205,27 +195,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setFloorToEdit(null);
     setSelectedPgForFloorAdd(null);
   };
-
-  const handleRoomSubmit = (values: z.infer<typeof roomSchema>) => {
-    const floorId = roomToEdit?.floorId || selectedFloorForRoomAdd?.floorId;
-    const pgId = roomToEdit ? pgs.find(p => p.floors?.some(f => f.id === roomToEdit!.floorId))?.id : selectedFloorForRoomAdd?.pgId;
-    if (!floorId || !pgId) return;
-    const pg = pgs.find(p => p.id === pgId);
-    if(!pg) return;
-    const nextState = produce(pg, draft => {
-        const floor = draft.floors?.find(f => f.id === floorId);
-        if (!floor) return;
-        if (roomToEdit) {
-            const room = floor.rooms.find(r => r.id === roomToEdit.room.id);
-            if(room) { room.name = values.name; room.rent = values.rent; room.deposit = values.deposit; }
-        } else {
-             floor.rooms.push({ id: `room-${Date.now()}`, name: values.name, rent: values.rent, deposit: values.deposit, beds: [] });
-        }
-    });
-    dispatch(updatePgAction(nextState));
-    setIsRoomDialogOpen(false);
-    setRoomToEdit(null);
-  };
   
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
@@ -303,21 +272,17 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   
   const openAddFloorDialog = (pg: PG) => { setFloorToEdit(null); setSelectedPgForFloorAdd(pg); setIsFloorDialogOpen(true); };
   const openEditFloorDialog = (floor: Floor) => { setFloorToEdit(floor); setIsFloorDialogOpen(true); };
-  const openAddRoomDialog = (floorId: string, pgId: string) => { setRoomToEdit(null); setSelectedFloorForRoomAdd({floorId, pgId}); setIsRoomDialogOpen(true); };
-  const openEditRoomDialog = (room: Room, floorId: string) => { setRoomToEdit({room, floorId}); setIsRoomDialogOpen(true); };
   const openAddBedDialog = (floorId: string, roomId: string, pgId: string) => { setBedToEdit(null); setSelectedRoomForBedAdd({floorId, roomId, pgId}); setIsBedDialogOpen(true); };
   const openEditBedDialog = (bed: Bed, roomId: string, floorId: string) => { setBedToEdit({bed, roomId, floorId}); setIsBedDialogOpen(true); };
 
   return {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
     isFloorDialogOpen, setIsFloorDialogOpen,
-    isRoomDialogOpen, setIsRoomDialogOpen,
     isBedDialogOpen, setIsBedDialogOpen,
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
     selectedBedForGuestAdd,
     floorToEdit,
-    roomToEdit,
     bedToEdit,
     selectedGuestForPayment,
     selectedGuestForReminder,
@@ -330,7 +295,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleConfirmImmediateExit,
     addGuestForm,
     floorForm,
-    roomForm,
     bedForm,
     paymentForm,
     handleOpenAddGuestDialog,
@@ -339,13 +303,10 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handlePaymentSubmit,
     handleOpenReminderDialog,
     handleFloorSubmit,
-    handleRoomSubmit,
     handleBedSubmit,
     handleDelete,
     openAddFloorDialog,
     openEditFloorDialog,
-    openAddRoomDialog,
-    openEditRoomDialog,
     openAddBedDialog,
     openEditBedDialog,
   }

@@ -27,11 +27,6 @@ import { updatePg as updatePgAction } from '@/lib/slices/pgsSlice'
 
 
 const floorSchema = z.object({ name: z.string().min(2, "Floor name must be at least 2 characters.") })
-const roomSchema = z.object({
-  name: z.string().min(2, "Room name must be at least 2 characters."),
-  rent: z.coerce.number().min(1, "Rent is required."),
-  deposit: z.coerce.number().min(0, "Deposit is required."),
-})
 const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is required.") })
 
 export default function ManagePgPage() {
@@ -47,16 +42,12 @@ export default function ManagePgPage() {
 
   const [isEditMode, setIsEditMode] = useState(false)
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false)
-  const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false)
   const [isBedDialogOpen, setIsBedDialogOpen] = useState(false)
   const [floorToEdit, setFloorToEdit] = useState<Floor | null>(null)
-  const [roomToEdit, setRoomToEdit] = useState<{ room: Room; floorId: string } | null>(null)
   const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null)
-  const [selectedFloorForRoomAdd, setSelectedFloorForRoomAdd] = useState<string | null>(null)
   const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; pgId: string; } | null>(null)
 
   const floorForm = useForm<z.infer<typeof floorSchema>>({ resolver: zodResolver(floorSchema), defaultValues: { name: '' } })
-  const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema), defaultValues: { name: '', rent: 0, deposit: 0 } })
   const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } })
   
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
@@ -71,7 +62,6 @@ export default function ManagePgPage() {
   }, [searchParams, router, pgId]);
 
   useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm])
-  useEffect(() => { if (roomToEdit) roomForm.reset({ name: roomToEdit.room.name, rent: roomToEdit.room.rent, deposit: roomToEdit.room.deposit }); else roomForm.reset({ name: '', rent: undefined, deposit: undefined }); }, [roomToEdit, roomForm])
   useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm])
 
   if (!pg) {
@@ -101,25 +91,6 @@ export default function ManagePgPage() {
     dispatch(updatePgAction(nextState));
     setIsFloorDialogOpen(false);
     setFloorToEdit(null);
-  }
-
-  const handleRoomSubmit = (values: z.infer<typeof roomSchema>) => {
-    const floorId = roomToEdit?.floorId || selectedFloorForRoomAdd;
-    if (!floorId) return;
-    const nextState = produce(pg, draft => {
-        const floor = draft.floors?.find(f => f.id === floorId);
-        if (!floor) return;
-        if (roomToEdit) {
-            const room = floor.rooms.find(r => r.id === roomToEdit.room.id);
-            if(room) { room.name = values.name; room.rent = values.rent; room.deposit = values.deposit; }
-        } else {
-             floor.rooms.push({ id: `room-${new Date().getTime()}`, name: values.name, rent: values.rent, deposit: values.deposit, beds: [] });
-        }
-    });
-    dispatch(updatePgAction(nextState));
-    setIsRoomDialogOpen(false);
-    setRoomToEdit(null);
-    setSelectedFloorForRoomAdd(null);
   }
   
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
@@ -181,8 +152,6 @@ export default function ManagePgPage() {
     setIsFloorDialogOpen(true);
   }
   const openEditFloorDialog = (floor: Floor) => { setFloorToEdit(floor); setIsFloorDialogOpen(true) }
-  const openAddRoomDialog = (floorId: string) => { setRoomToEdit(null); setSelectedFloorForRoomAdd(floorId); setIsRoomDialogOpen(true) }
-  const openEditRoomDialog = (room: Room, floorId: string) => { setRoomToEdit({room, floorId}); setIsRoomDialogOpen(true) }
   const openAddBedDialog = (floorId: string, roomId: string, pgId: string) => { setBedToEdit(null); setSelectedRoomForBedAdd({floorId, roomId, pgId}); setIsBedDialogOpen(true) }
   const openEditBedDialog = (bed: Bed, roomId: string, floorId: string) => { setBedToEdit({bed, roomId, floorId}); setIsBedDialogOpen(true) }
 
@@ -219,7 +188,7 @@ export default function ManagePgPage() {
                                 <CardTitle className="text-base flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name}</CardTitle>
                                 {isEditMode && (
                                     <div className="flex items-center -mt-2 -mr-2">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditRoomDialog(room, floor.id)}> <Pencil className="w-4 h-4" /> </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => router.push(`/dashboard/add-room?roomId=${room.id}`)}> <Pencil className="w-4 h-4" /> </Button>
                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('room', { floorId: floor.id, roomId: room.id })}> <Trash2 className="w-4 h-4" /> </Button>
                                     </div>
                                 )}
@@ -257,7 +226,7 @@ export default function ManagePgPage() {
                         </Card>
                     ))}
                     {isEditMode && (
-                        <button data-tour="add-room-button" onClick={() => openAddRoomDialog(floor.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                        <button data-tour="add-room-button" onClick={() => router.push('/dashboard/add-room')} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                             <PlusCircle className="w-8 h-8 mb-2" />
                             <span className="font-medium">Add New Room</span>
                         </button>
@@ -317,26 +286,6 @@ export default function ManagePgPage() {
         </DialogContent>
       </Dialog>
       
-      {/* Room Dialog */}
-      <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
-        <DialogContent><DialogHeader><DialogTitle>{roomToEdit ? 'Edit Room' : 'Add New Room'}</DialogTitle></DialogHeader>
-          <Form {...roomForm}>
-            <form onSubmit={roomForm.handleSubmit(handleRoomSubmit)} id="room-form" className="space-y-4">
-              <FormField control={roomForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Room Name / Number</FormLabel><FormControl><Input placeholder="e.g., Room 101" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={roomForm.control} name="rent" render={({ field }) => (
-                <FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" placeholder="e.g., 8000" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={roomForm.control} name="deposit" render={({ field }) => (
-                <FormItem><FormLabel>Security Deposit</FormLabel><FormControl><Input type="number" placeholder="e.g., 16000" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-            </form>
-          </Form>
-          <DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="room-form">{roomToEdit ? 'Save Changes' : 'Add Room'}</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Bed Dialog */}
        <Dialog open={isBedDialogOpen} onOpenChange={setIsBedDialogOpen}>
         <DialogContent><DialogHeader><DialogTitle>{bedToEdit ? 'Edit Bed' : 'Add New Bed'}</DialogTitle></DialogHeader>

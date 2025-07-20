@@ -1,5 +1,4 @@
 
-
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -208,4 +207,46 @@ export interface SiteConfig {
   features?: { title: string; description: string; }[];
   faqs?: { q: string; a: string; }[];
   testimonials?: { quote: string; author: string; }[];
+}
+
+// Full Room type for dedicated Room management
+export interface RoomDetails {
+    id: string;
+    ownerId: string;
+    pgId: string;
+    roomTitle: string;
+    roomType: 'single' | 'double' | 'triple' | 'dormitory';
+    gender: 'male' | 'female' | 'unisex' | 'couples';
+    category: 'standard' | 'premium' | 'deluxe';
+    floor?: number;
+    block?: string;
+    monthlyRent: number;
+    securityDeposit: number;
+    lockInMonths?: number;
+    electricityBilling: 'included' | 'metered' | 'shared';
+    acCharge: {
+        included: boolean;
+        charge?: number;
+    };
+    maintenanceCharges?: number;
+    amenities: string[];
+    furnishingType: 'fully' | 'semi' | 'unfurnished';
+    rules: string[];
+    preferredTenants: string[];
+    foodIncluded: boolean;
+    meals?: ('breakfast' | 'lunch' | 'dinner')[];
+    vegNonVeg?: 'veg' | 'non-veg' | 'both';
+    housekeepingFrequency?: 'daily' | 'alternate' | 'weekly';
+    laundryServices: boolean;
+    images?: string[];
+    available: boolean;
+    availableFrom: string; // ISO date string
+    virtualTourLink?: string;
+    address?: string;
+    landmark?: string;
+    distanceCollege?: string;
+    distanceOffice?: string;
+    distanceMetro?: string;
+    description?: string;
+    showLocation?: boolean;
 }
