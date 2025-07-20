@@ -23,17 +23,18 @@ interface MultiSelectProps {
 
 export default function MultiSelect({ options, selected, onChange, className, placeholder = "Select..." }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const safeSelected = Array.isArray(selected) ? selected : [];
 
   const handleSelect = (optionId: string) => {
-    if (selected.includes(optionId)) {
-      onChange(selected.filter((id) => id !== optionId));
+    if (safeSelected.includes(optionId)) {
+      onChange(safeSelected.filter((id) => id !== optionId));
     } else {
-      onChange([...selected, optionId]);
+      onChange([...safeSelected, optionId]);
     }
   };
 
   const selectedLabels = options
-    .filter(option => selected.includes(option.id))
+    .filter(option => safeSelected.includes(option.id))
     .map(option => option.label);
 
   return (
@@ -66,7 +67,7 @@ export default function MultiSelect({ options, selected, onChange, className, pl
                   <Check
                     className={cn(
                       'mr-2 h-4 w-4',
-                      selected.includes(option.id) ? 'opacity-100' : 'opacity-0'
+                      safeSelected.includes(option.id) ? 'opacity-100' : 'opacity-0'
                     )}
                   />
                   {option.label}
