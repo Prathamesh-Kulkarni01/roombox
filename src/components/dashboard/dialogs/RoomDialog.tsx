@@ -19,6 +19,7 @@ import { RulesForm, rulesSchema } from '@/components/dashboard/add-room/RulesFor
 import { FoodServicesForm, foodServicesSchema } from '@/components/dashboard/add-room/FoodServicesForm';
 import { MediaForm, mediaSchema } from '@/components/dashboard/add-room/MediaForm';
 import type { UseDashboardReturn } from '@/hooks/use-dashboard';
+import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 
 const tabs = [
   { value: 'basics', label: 'Basics' },
@@ -58,13 +59,16 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
             <Form {...roomForm}>
                 <form onSubmit={roomForm.handleSubmit(onSubmit)} id="room-form" className="flex flex-col h-full">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
-                        <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                            {tabs.map(tab => (
-                                <TabsTrigger key={tab.value} value={tab.value}>
-                                    {tab.label}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
+                        <ScrollArea className="w-full whitespace-nowrap">
+                            <TabsList className="grid w-full grid-cols-6">
+                                {tabs.map(tab => (
+                                    <TabsTrigger key={tab.value} value={tab.value}>
+                                        {tab.label}
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
                         <div className="flex-1 overflow-y-auto pr-2 -mr-6 mt-4">
                             <TabsContent value="basics" forceMount className={activeTab === 'basics' ? '' : 'hidden'}><RoomBasicsForm form={roomForm} /></TabsContent>
                             <TabsContent value="pricing" forceMount className={activeTab === 'pricing' ? '' : 'hidden'}><PricingForm form={roomForm} /></TabsContent>
