@@ -69,14 +69,14 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
                             </TabsList>
                             <ScrollBar orientation="horizontal" />
                         </ScrollArea>
-                        <div className="flex-1 overflow-y-auto pr-2 -mr-6 mt-4">
-                            <TabsContent value="basics" forceMount className={activeTab === 'basics' ? '' : 'hidden'}><RoomBasicsForm form={roomForm} /></TabsContent>
-                            <TabsContent value="pricing" forceMount className={activeTab === 'pricing' ? '' : 'hidden'}><PricingForm form={roomForm} /></TabsContent>
-                            <TabsContent value="amenities" forceMount className={activeTab === 'amenities' ? '' : 'hidden'}><AmenitiesForm form={roomForm} /></TabsContent>
-                            <TabsContent value="rules" forceMount className={activeTab === 'rules' ? '' : 'hidden'}><RulesForm form={roomForm} /></TabsContent>
-                            <TabsContent value="food" forceMount className={activeTab === 'food' ? '' : 'hidden'}><FoodServicesForm form={roomForm} /></TabsContent>
-                            <TabsContent value="media" forceMount className={activeTab === 'media' ? '' : 'hidden'}><MediaForm form={roomForm} /></TabsContent>
-                        </div>
+                        <ScrollArea className="flex-1 mt-4 pr-6">
+                            <TabsContent value="basics"><RoomBasicsForm form={roomForm} /></TabsContent>
+                            <TabsContent value="pricing"><PricingForm form={roomForm} /></TabsContent>
+                            <TabsContent value="amenities"><AmenitiesForm form={roomForm} /></TabsContent>
+                            <TabsContent value="rules"><RulesForm form={roomForm} /></TabsContent>
+                            <TabsContent value="food"><FoodServicesForm form={roomForm} /></TabsContent>
+                            <TabsContent value="media"><MediaForm form={roomForm} /></TabsContent>
+                        </ScrollArea>
                     </Tabs>
                 </form>
             </Form>
