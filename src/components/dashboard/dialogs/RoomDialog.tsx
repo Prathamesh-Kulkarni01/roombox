@@ -1,7 +1,7 @@
 
 'use client'
 
-import React from 'react';
+import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,7 +18,6 @@ import { AmenitiesForm, amenitiesSchema } from '@/components/dashboard/add-room/
 import { RulesForm, rulesSchema } from '@/components/dashboard/add-room/RulesForm';
 import { FoodServicesForm, foodServicesSchema } from '@/components/dashboard/add-room/FoodServicesForm';
 import { MediaForm, mediaSchema } from '@/components/dashboard/add-room/MediaForm';
-import { LocationForm, locationSchema } from '@/components/dashboard/add-room/LocationForm';
 import type { UseDashboardReturn } from '@/hooks/use-dashboard';
 
 const tabs = [
@@ -28,7 +27,6 @@ const tabs = [
   { value: 'rules', label: 'Rules' },
   { value: 'food', label: 'Food' },
   { value: 'media', label: 'Media' },
-  { value: 'location', label: 'Location' },
 ];
 
 type RoomDialogProps = Pick<UseDashboardReturn, 
@@ -60,7 +58,7 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
             <Form {...roomForm}>
                 <form onSubmit={roomForm.handleSubmit(onSubmit)} id="room-form" className="flex flex-col h-full">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full overflow-hidden">
-                        <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+                        <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                             {tabs.map(tab => (
                                 <TabsTrigger key={tab.value} value={tab.value}>
                                     {tab.label}
@@ -74,7 +72,6 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
                             <TabsContent value="rules" forceMount className={activeTab === 'rules' ? '' : 'hidden'}><RulesForm form={roomForm} /></TabsContent>
                             <TabsContent value="food" forceMount className={activeTab === 'food' ? '' : 'hidden'}><FoodServicesForm form={roomForm} /></TabsContent>
                             <TabsContent value="media" forceMount className={activeTab === 'media' ? '' : 'hidden'}><MediaForm form={roomForm} /></TabsContent>
-                            <TabsContent value="location" forceMount className={activeTab === 'location' ? '' : 'hidden'}><LocationForm form={roomForm} /></TabsContent>
                         </div>
                     </Tabs>
                 </form>

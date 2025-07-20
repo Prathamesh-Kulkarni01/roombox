@@ -51,13 +51,6 @@ export interface Room {
   available: boolean;
   availableFrom: string; // Stored as ISO string
   virtualTourLink?: string;
-  address?: string;
-  landmark?: string;
-  distanceCollege?: string;
-  distanceOffice?: string;
-  distanceMetro?: string;
-  description?: string;
-  showLocation?: boolean;
 }
 
 export interface Floor {
@@ -277,11 +270,4 @@ export interface RoomData {
   available: boolean;
   availableFrom: string; // ISO date string
   virtualTourLink?: string;
-  address?: string;
-  landmark?: string;
-  distanceCollege?: string;
-  distanceOffice?: string;
-  distanceMetro?: string;
-  description?: string;
-  showLocation?: boolean;
 }

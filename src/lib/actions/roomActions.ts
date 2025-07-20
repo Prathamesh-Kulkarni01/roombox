@@ -56,12 +56,4 @@ export const roomSchema = z.object({
   available: z.boolean(),
   availableFrom: z.date(),
   virtualTourLink: z.string().url().optional().or(z.literal('')),
-
-  address: z.string().optional(),
-  landmark: z.string().optional(),
-  distanceCollege: z.string().optional(),
-  distanceOffice: z.string().optional(),
-  distanceMetro: z.string().optional(),
-  description: z.string().optional(),
-  showLocation: z.boolean().optional(),
 });
