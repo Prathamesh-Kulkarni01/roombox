@@ -10,20 +10,26 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, doc } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 
 // Initialize Firebase Admin SDK
-const serviceAccount = process.env.FIREBASE_ADMIN_SDK_CONFIG
+const serviceAccountKey = process.env.FIREBASE_ADMIN_SDK_CONFIG
   ? JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG)
   : undefined;
 
 if (getApps().length === 0) {
-  initializeApp({
-    credential: serviceAccount ? cert(serviceAccount) : undefined,
-  });
+    if (serviceAccountKey) {
+        initializeApp({
+            credential: cert(serviceAccountKey),
+        });
+    } else {
+        console.warn("Firebase Admin SDK config not found, notifications will not be sent.");
+        initializeApp();
+    }
 }
+
 
 const db = getFirestore();
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
