@@ -36,7 +36,9 @@ const paymentSchema = z.object({
 
 const sharedChargeSchema = z.object({
     description: z.string().min(3, "Description is required."),
-    totalAmount: z.coerce.number().min(1, "Total amount must be greater than 0."),
+    totalAmount: z.coerce.number().min(1, "Total amount must be greater than 0.").optional(),
+    unitCost: z.coerce.number().optional(),
+    units: z.coerce.number().optional(),
 });
 
 interface UseDashboardProps {
@@ -47,6 +49,7 @@ interface UseDashboardProps {
 export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const dispatch = useAppDispatch();
   const { toast } = useToast()
+  const { chargeTemplates } = useAppSelector(state => state.chargeTemplates);
   const { currentPlan } = useAppSelector(state => state.user)
   const [isSavingRoom, startRoomTransition] = useTransition();
 
@@ -164,12 +167,30 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       setIsSharedChargeDialogOpen(true);
   };
 
-  const handleSharedChargeSubmit = (values: z.infer<typeof sharedChargeSchema>) => {
-      if (!roomForSharedCharge) return;
-      dispatch(addSharedChargeToRoom({ ...values, roomId: roomForSharedCharge.room.id }));
-      toast({ title: 'Shared Charge Added', description: `The charge for "${values.description}" has been added to all guests in room ${roomForSharedCharge.room.name}.` });
-      setIsSharedChargeDialogOpen(false);
-  };
+    const handleSharedChargeSubmit = (values: z.infer<typeof sharedChargeSchema>) => {
+        if (!roomForSharedCharge) return;
+        const templateId = sharedChargeForm.getValues().description; // A bit of a hack, assumes description holds template name/id
+        const template = chargeTemplates.find(t => t.name === values.description);
+        let totalAmount = values.totalAmount;
+        
+        if(template?.calculation === 'unit'){
+            totalAmount = (values.units || 0) * (values.unitCost || 0);
+        }
+
+        if (!totalAmount || totalAmount <= 0) {
+            toast({ variant: 'destructive', title: 'Invalid Amount', description: 'Total charge amount must be greater than zero.' });
+            return;
+        }
+
+        dispatch(addSharedChargeToRoom({
+            roomId: roomForSharedCharge.room.id,
+            description: values.description,
+            totalAmount: totalAmount
+        }));
+        
+        toast({ title: 'Shared Charge Added', description: `The charge for "${values.description}" has been added to guests in room ${roomForSharedCharge.room.name}.` });
+        setIsSharedChargeDialogOpen(false);
+    };
 
   const handleConfirmInitiateExit = () => {
     if (!guestToInitiateExit) return;
