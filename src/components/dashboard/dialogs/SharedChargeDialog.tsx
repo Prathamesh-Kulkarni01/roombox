@@ -1,5 +1,6 @@
 
-import { useEffect, useState } from "react"
+
+import { useEffect, useState, useMemo } from "react"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,9 +10,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Users, IndianRupee } from "lucide-react"
+import { Users, IndianRupee, Calendar } from "lucide-react"
 import { useAppSelector } from "@/lib/hooks"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { format, startOfMonth, endOfMonth, subMonths, setDate } from 'date-fns'
 
 const sharedChargeSchema = z.object({
     description: z.string().min(3, "Description is required."),
@@ -31,18 +33,52 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
     const units = sharedChargeForm.watch('units');
     const unitCost = sharedChargeForm.watch('unitCost');
 
-    const occupiedGuests = roomForSharedCharge?.guests || [];
+    const activeTemplate = useMemo(() => {
+        return chargeTemplates.find(t => t.id === activeTab);
+    }, [activeTab, chargeTemplates]);
+
+    const { cycleStartDate, cycleEndDate } = useMemo(() => {
+        if (!activeTemplate || activeTemplate.frequency !== 'monthly') {
+            return { cycleStartDate: null, cycleEndDate: null };
+        }
+        const today = new Date();
+        const billingDay = activeTemplate.billingDayOfMonth;
+        let start = setDate(today, billingDay);
+        if (today.getDate() < billingDay) {
+            start = subMonths(start, 1);
+        }
+        let end = subMonths(setDate(start, billingDay -1), -1);
+        return { cycleStartDate: start, cycleEndDate: end };
+    }, [activeTemplate]);
+
+    const occupiedGuests = useMemo(() => {
+        const allGuestsInRoom = roomForSharedCharge?.guests || [];
+        if (!cycleStartDate || !cycleEndDate) {
+            return allGuestsInRoom; // For one-time or custom charges, include everyone
+        }
+        // Filter guests who were active during any part of the billing cycle
+        return allGuestsInRoom.filter(guest => {
+            const moveInDate = new Date(guest.moveInDate);
+            const exitDate = guest.exitDate ? new Date(guest.exitDate) : null;
+            // They are included if:
+            // 1. Their stay starts before the cycle ends.
+            // 2. Their stay ends after the cycle starts (or hasn't ended).
+            const startsBeforeCycleEnd = moveInDate <= cycleEndDate;
+            const endsAfterCycleStart = !exitDate || exitDate >= cycleStartDate;
+            return startsBeforeCycleEnd && endsAfterCycleStart;
+        });
+    }, [roomForSharedCharge, cycleStartDate, cycleEndDate]);
+
 
     const calculatedTotal = activeTab !== 'custom' && units && unitCost ? units * unitCost : totalAmount;
     const chargePerGuest = occupiedGuests.length > 0 && calculatedTotal ? (calculatedTotal / occupiedGuests.length) : 0;
   
     useEffect(() => {
         if (roomForSharedCharge) {
-            sharedChargeForm.reset({ description: '', totalAmount: undefined, units: undefined, unitCost: undefined });
             const defaultTab = chargeTemplates.find(t => t.autoAddToDialog)?.id || 'custom';
-            setActiveTab(defaultTab);
+            onTabChange(defaultTab);
         }
-    }, [roomForSharedCharge, chargeTemplates, sharedChargeForm]);
+    }, [roomForSharedCharge]);
 
     const onTabChange = (tabValue: string) => {
         setActiveTab(tabValue);
@@ -61,7 +97,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         <Dialog open={isSharedChargeDialogOpen} onOpenChange={setIsSharedChargeDialogOpen}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Add Shared Charge to Room {roomForSharedCharge?.name}</DialogTitle>
+                    <DialogTitle>Add Shared Charge to Room {roomForSharedCharge?.room.name}</DialogTitle>
                     <DialogDescription>Split a bill equally among all occupied beds in this room.</DialogDescription>
                 </DialogHeader>
                  <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
@@ -74,6 +110,12 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
 
                     <Form {...sharedChargeForm}>
                         <form onSubmit={sharedChargeForm.handleSubmit(handleSharedChargeSubmit)} id="shared-charge-form" className="space-y-4 pt-4">
+                             {cycleStartDate && cycleEndDate && (
+                                <div className="text-sm text-center text-muted-foreground p-2 bg-muted rounded-md flex items-center justify-center gap-2">
+                                    <Calendar className="w-4 h-4"/>
+                                    Billing Cycle: {format(cycleStartDate, 'do MMM')} - {format(cycleEndDate, 'do MMM')}
+                                </div>
+                            )}
                             {chargeTemplates.map(template => (
                                 <TabsContent key={template.id} value={template.id} forceMount hidden={activeTab !== template.id}>
                                     <div className="space-y-4">
@@ -81,7 +123,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                                         {template.calculation === 'unit' && (
                                             <div className="grid grid-cols-2 gap-4">
                                                 <FormField control={sharedChargeForm.control} name="units" render={({ field }) => (<FormItem><FormLabel>Total Units</FormLabel><FormControl><Input type="number" placeholder="e.g., 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                                <FormField control={sharedChargeForm.control} name="unitCost" render={({ field }) => (<FormItem><FormLabel>Cost per Unit (₹)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                                <FormField control={sharedChargeForm.control} name="unitCost" render={({ field }) => (<FormItem><FormLabel>Cost per Unit (₹)</FormLabel><FormControl><Input type="number" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
                                             </div>
                                         )}
                                         {template.calculation === 'fixed' && (
@@ -111,7 +153,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                             <div className="space-y-2">
                                 <p className="text-sm font-medium">Affected Guests:</p>
                                 <ul className="text-sm text-muted-foreground list-disc list-inside">
-                                    {occupiedGuests.map(guest => <li key={guest.id}>{guest.name}</li>)}
+                                    {occupiedGuests.length > 0 ? occupiedGuests.map(guest => <li key={guest.id}>{guest.name}</li>) : <li>No guests in this room for the selected cycle.</li>}
                                 </ul>
                             </div>
                         </form>
@@ -119,7 +161,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                 </Tabs>
                  <DialogFooter className="mt-4">
                     <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                    <Button type="submit" form="shared-charge-form" disabled={occupiedGuests.length === 0 || calculatedTotal <= 0}>Apply Charge</Button>
+                    <Button type="submit" form="shared-charge-form" disabled={occupiedGuests.length === 0 || !calculatedTotal || calculatedTotal <= 0}>Apply Charge</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

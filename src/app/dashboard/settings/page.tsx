@@ -31,6 +31,7 @@ const chargeTemplateSchema = z.object({
   splitMethod: z.enum(['equal', 'room', 'custom']),
   frequency: z.enum(['monthly', 'one-time']),
   autoAddToDialog: z.boolean().default(true),
+  billingDayOfMonth: z.coerce.number().min(1).max(28).default(1),
 })
 
 type ChargeTemplateFormValues = z.infer<typeof chargeTemplateSchema>;
@@ -62,6 +63,7 @@ export default function SettingsPage() {
             splitMethod: 'equal',
             frequency: 'monthly',
             autoAddToDialog: true,
+            billingDayOfMonth: 1,
         });
     }
     setIsTemplateDialogOpen(true);
@@ -128,7 +130,7 @@ export default function SettingsPage() {
                         <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
                             <div>
                                 <p className="font-semibold">{template.name}</p>
-                                <p className="text-sm text-muted-foreground capitalize">{template.frequency}, {template.calculation} based</p>
+                                <p className="text-sm text-muted-foreground capitalize">{template.frequency}, {template.calculation} based, cycle on day {template.billingDayOfMonth}</p>
                             </div>
                             <div className="flex items-center gap-1">
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenTemplateDialog(template)}><Pencil className="w-4 h-4" /></Button>
@@ -191,8 +193,11 @@ export default function SettingsPage() {
                      {calculationType === 'unit' && (
                         <FormField control={form.control} name="unitCost" render={({ field }) => (<FormItem><FormLabel>Cost per Unit (₹)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 8.50" {...field} /></FormControl><FormMessage /></FormItem>)} />
                      )}
-                     <FormField control={form.control} name="splitMethod" render={({ field }) => (<FormItem><FormLabel>Split Method</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="equal">Split Equally</SelectItem><SelectItem value="room" disabled>By Room Type (coming soon)</SelectItem><SelectItem value="custom" disabled>Custom (coming soon)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                     <FormField control={form.control} name="frequency" render={({ field }) => (<FormItem><FormLabel>Frequency</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="monthly">Monthly</SelectItem><SelectItem value="one-time">One-Time</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                     <div className="grid grid-cols-2 gap-4">
+                        <FormField control={form.control} name="frequency" render={({ field }) => (<FormItem><FormLabel>Frequency</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="monthly">Monthly</SelectItem><SelectItem value="one-time">One-Time</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="billingDayOfMonth" render={({ field }) => (<FormItem><FormLabel>Billing Day</FormLabel><FormControl><Input type="number" min="1" max="28" placeholder="e.g., 10" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                     </div>
+                     <FormField control={form.control} name="splitMethod" render={({ field }) => (<FormItem><FormLabel>Split Method</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="equal">Split Equally</SelectItem><SelectItem value="room" disabled>By Room Type (soon)</SelectItem><SelectItem value="custom" disabled>Custom (soon)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                      <FormField control={form.control} name="autoAddToDialog" render={({ field }) => (
                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                 <div className="space-y-0.5">
