@@ -4,11 +4,12 @@ import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import GuestPopoverContent from "./GuestPopoverContent"
 import type { Room, Bed, PG, Floor, Guest, Complaint } from "@/lib/types"
-import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee } from "lucide-react"
+import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee, Plus } from "lucide-react"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
 import { MutableRefObject } from "react"
 import { useRouter } from "next/navigation"
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
   room: Room
@@ -50,10 +51,20 @@ export default function BedCard(props: BedCardProps) {
         <h3 className="font-semibold text-lg flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name} <span className="font-normal text-muted-foreground">({room.beds.length}-sharing)</span></h3>
         <div className="flex items-center">
             {!isEditMode && occupiedBedsCount > 0 && (
-                <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => handleOpenSharedChargeDialog(room)}>
-                    <PlusCircle className="w-4 h-4"/>
-                    <span className="sr-only">Add Shared Charge</span>
-                </Button>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                             <Button variant="outline" size="sm" className="h-7 gap-1" onClick={() => handleOpenSharedChargeDialog(room)}>
+                                <IndianRupee className="w-4 h-4"/>
+                                <Plus className="w-4 h-4"/>
+                                <span className="sr-only">Add Shared Charge</span>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Add Shared Charge (e.g., electricity bill)</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             )}
             {isEditMode && (
                 <>
