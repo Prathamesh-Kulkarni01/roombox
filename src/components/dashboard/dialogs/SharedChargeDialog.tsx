@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Users, IndianRupee, Calendar } from "lucide-react"
 import { useAppSelector } from "@/lib/hooks"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { format, startOfMonth, endOfMonth, subMonths, setDate, addMonths } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths, setDate, addMonths, isValid } from 'date-fns'
 
 const sharedChargeSchema = z.object({
     description: z.string().min(3, "Description is required."),
@@ -43,11 +43,21 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         }
         const today = new Date();
         const billingDay = activeTemplate.billingDayOfMonth;
+        
+        if (!billingDay || billingDay < 1 || billingDay > 28) {
+            return { cycleStartDate: null, cycleEndDate: null };
+        }
+
         let start = setDate(today, billingDay);
         if (today.getDate() < billingDay) {
             start = subMonths(start, 1);
         }
         let end = setDate(addMonths(start, 1), billingDay - 1);
+        
+        if (!isValid(start) || !isValid(end)) {
+            return { cycleStartDate: null, cycleEndDate: null };
+        }
+
         return { cycleStartDate: start, cycleEndDate: end };
     }, [activeTemplate]);
 
@@ -56,7 +66,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
             return [];
         }
         const allGuestsInRoom = roomForSharedCharge.guests || [];
-        if (!cycleStartDate || !cycleEndDate) {
+        if (!cycleStartDate || !cycleEndDate || !isValid(cycleStartDate) || !isValid(cycleEndDate)) {
             return allGuestsInRoom; // For one-time or custom charges, include everyone
         }
         // Filter guests who were active during any part of the billing cycle
@@ -113,7 +123,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
 
                     <Form {...sharedChargeForm}>
                         <form onSubmit={sharedChargeForm.handleSubmit(handleSharedChargeSubmit)} id="shared-charge-form" className="space-y-4 pt-4">
-                             {cycleStartDate && cycleEndDate && (
+                             {cycleStartDate && cycleEndDate && isValid(cycleStartDate) && isValid(cycleEndDate) && (
                                 <div className="text-sm text-center text-muted-foreground p-2 bg-muted rounded-md flex items-center justify-center gap-2">
                                     <Calendar className="w-4 h-4"/>
                                     Billing Cycle: {format(cycleStartDate, 'do MMM')} - {format(cycleEndDate, 'do MMM')}
