@@ -47,7 +47,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         if (today.getDate() < billingDay) {
             start = subMonths(start, 1);
         }
-        let end = subMonths(setDate(start, billingDay -1), -1);
+        let end = setDate(addMonths(start, 1), billingDay - 1);
         return { cycleStartDate: start, cycleEndDate: end };
     }, [activeTemplate]);
 
@@ -110,7 +110,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
 
                     <Form {...sharedChargeForm}>
                         <form onSubmit={sharedChargeForm.handleSubmit(handleSharedChargeSubmit)} id="shared-charge-form" className="space-y-4 pt-4">
-                             {cycleStartDate instanceof Date && cycleEndDate instanceof Date && (
+                             {cycleStartDate && cycleEndDate && (
                                 <div className="text-sm text-center text-muted-foreground p-2 bg-muted rounded-md flex items-center justify-center gap-2">
                                     <Calendar className="w-4 h-4"/>
                                     Billing Cycle: {format(cycleStartDate, 'do MMM')} - {format(cycleEndDate, 'do MMM')}
