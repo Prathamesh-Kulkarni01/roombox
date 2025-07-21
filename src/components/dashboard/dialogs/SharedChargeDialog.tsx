@@ -17,7 +17,7 @@ import { format, startOfMonth, endOfMonth, subMonths, setDate } from 'date-fns'
 
 const sharedChargeSchema = z.object({
     description: z.string().min(3, "Description is required."),
-    totalAmount: z.coerce.number().min(1, "Total amount must be greater than 0."),
+    totalAmount: z.coerce.number().min(1, "Total amount must be greater than 0.").optional(),
     unitCost: z.coerce.number().optional(),
     units: z.coerce.number().optional(),
 });
@@ -70,7 +70,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
     }, [roomForSharedCharge, cycleStartDate, cycleEndDate]);
 
 
-    const calculatedTotal = activeTab !== 'custom' && units && unitCost ? units * unitCost : totalAmount;
+    const calculatedTotal = activeTemplate?.calculation === 'unit' ? (units || 0) * (unitCost || 0) : totalAmount;
     const chargePerGuest = occupiedGuests.length > 0 && calculatedTotal ? (calculatedTotal / occupiedGuests.length) : 0;
   
     useEffect(() => {
@@ -139,7 +139,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                                </div>
                             </TabsContent>
 
-                            {occupiedGuests.length > 0 && calculatedTotal > 0 && (
+                            {occupiedGuests.length > 0 && calculatedTotal && calculatedTotal > 0 && (
                                 <Alert>
                                     <Users className="h-4 w-4" />
                                     <AlertTitle>Charge Distribution</AlertTitle>
