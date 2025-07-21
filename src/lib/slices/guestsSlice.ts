@@ -1,10 +1,10 @@
 
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, Invite, PG, User } from '../types';
+import type { Guest, Invite, PG, User, AdditionalCharge } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
@@ -55,6 +55,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             id: `g-${Date.now()}`,
             kycStatus: 'not-started',
             isVacated: false,
+            additionalCharges: [],
         };
 
         const updatedPg = produce(pg, draft => {
@@ -203,6 +204,61 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
     }
 );
 
+export const addAdditionalCharge = createAsyncThunk<Guest, { guestId: string, charge: Omit<AdditionalCharge, 'id'> }, { state: RootState }>(
+    'guests/addAdditionalCharge',
+    async ({ guestId, charge }, { getState, rejectWithValue }) => {
+        const { user, guests } = getState();
+        const ownerId = user.currentUser?.id;
+        const guest = guests.guests.find(g => g.id === guestId);
+
+        if (!ownerId || !guest) return rejectWithValue('User or guest not found');
+        
+        const newCharge: AdditionalCharge = { ...charge, id: `charge-${Date.now()}` };
+        
+        if (isFirebaseConfigured()) {
+            const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+            await updateDoc(guestDocRef, {
+                additionalCharges: arrayUnion(newCharge)
+            });
+        }
+        
+        const updatedGuest = {
+            ...guest,
+            additionalCharges: [...(guest.additionalCharges || []), newCharge],
+        };
+
+        return updatedGuest;
+    }
+);
+
+export const removeAdditionalCharge = createAsyncThunk<Guest, { guestId: string, chargeId: string }, { state: RootState }>(
+    'guests/removeAdditionalCharge',
+    async ({ guestId, chargeId }, { getState, rejectWithValue }) => {
+        const { user, guests } = getState();
+        const ownerId = user.currentUser?.id;
+        const guest = guests.guests.find(g => g.id === guestId);
+
+        if (!ownerId || !guest) return rejectWithValue('User or guest not found');
+        
+        const chargeToRemove = (guest.additionalCharges || []).find(c => c.id === chargeId);
+        if (!chargeToRemove) return rejectWithValue('Charge not found');
+        
+        if (isFirebaseConfigured()) {
+            const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+            await updateDoc(guestDocRef, {
+                additionalCharges: arrayRemove(chargeToRemove)
+            });
+        }
+        
+        const updatedGuest = {
+            ...guest,
+            additionalCharges: (guest.additionalCharges || []).filter(c => c.id !== chargeId),
+        };
+
+        return updatedGuest;
+    }
+);
+
 export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootState }>(
     'guests/initiateGuestExit',
     async (guestId, { getState, rejectWithValue }) => {
@@ -290,6 +346,18 @@ const guestsSlice = createSlice({
                     state.guests[index] = action.payload;
                 }
             })
+            .addCase(addAdditionalCharge.fulfilled, (state, action) => {
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
+                if (index !== -1) {
+                    state.guests[index] = action.payload;
+                }
+            })
+             .addCase(removeAdditionalCharge.fulfilled, (state, action) => {
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
+                if (index !== -1) {
+                    state.guests[index] = action.payload;
+                }
+            })
             .addCase(initiateGuestExit.fulfilled, (state, action) => {
                  const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
@@ -310,4 +378,3 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
-

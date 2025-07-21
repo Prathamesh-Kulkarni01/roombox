@@ -23,34 +23,6 @@ export interface Room {
   amenities?: string[];
   floorId: string;
   pgId: string;
-  // All fields from RoomDetails
-  roomTitle: string;
-  roomType: 'single' | 'double' | 'triple' | 'dormitory';
-  gender: 'male' | 'female' | 'unisex' | 'couples';
-  category: 'standard' | 'premium' | 'deluxe';
-  floor?: number;
-  block?: string;
-  monthlyRent: number;
-  securityDeposit: number;
-  lockInMonths?: number;
-  electricityBilling: 'included' | 'metered' | 'shared';
-  acCharge: {
-      included: boolean;
-      charge?: number;
-  };
-  maintenanceCharges?: number;
-  furnishingType: 'fully' | 'semi' | 'unfurnished';
-  rules: string[];
-  preferredTenants: string[];
-  foodIncluded: boolean;
-  meals?: string[];
-  vegNonVeg?: 'veg' | 'non-veg' | 'both';
-  housekeepingFrequency?: 'daily' | 'alternate' | 'weekly';
-  laundryServices: boolean;
-  images?: string[];
-  available: boolean;
-  availableFrom: string; // Stored as ISO string
-  virtualTourLink?: string;
 }
 
 export interface Floor {
@@ -93,6 +65,12 @@ export interface PG {
   ownerId: string;
 }
 
+export interface AdditionalCharge {
+  id: string;
+  description: string;
+  amount: number;
+}
+
 export interface Guest {
   id: string;
   name: string;
@@ -118,6 +96,7 @@ export interface Guest {
   exitDate?: string;
   userId?: string;
   isVacated?: boolean; // True if the guest has permanently left the PG
+  additionalCharges?: AdditionalCharge[];
 }
 
 export interface Complaint {
@@ -237,37 +216,4 @@ export interface SiteConfig {
   features?: { title: string; description: string; }[];
   faqs?: { q: string; a: string; }[];
   testimonials?: { quote: string; author: string; }[];
-}
-
-// Kept for Zod validation on the server action
-export interface RoomData {
-  ownerId: string;
-  roomTitle: string;
-  roomType: 'single' | 'double' | 'triple' | 'dormitory';
-  gender: 'male' | 'female' | 'unisex' | 'couples';
-  category: 'standard' | 'premium' | 'deluxe';
-  floor?: number;
-  block?: string;
-  monthlyRent: number;
-  securityDeposit: number;
-  lockInMonths?: number;
-  electricityBilling: 'included' | 'metered' | 'shared';
-  acCharge: {
-      included: boolean;
-      charge?: number;
-  };
-  maintenanceCharges?: number;
-  amenities: string[];
-  furnishingType: 'fully' | 'semi' | 'unfurnished';
-  rules: string[];
-  preferredTenants: string[];
-  foodIncluded: boolean;
-  meals?: ('breakfast' | 'lunch' | 'dinner')[];
-  vegNonVeg?: 'veg' | 'non-veg' | 'both';
-  housekeepingFrequency?: 'daily' | 'alternate' | 'weekly';
-  laundryServices: boolean;
-  images?: string[];
-  available: boolean;
-  availableFrom: string; // ISO date string
-  virtualTourLink?: string;
 }

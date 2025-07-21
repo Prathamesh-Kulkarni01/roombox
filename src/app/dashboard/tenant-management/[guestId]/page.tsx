@@ -22,17 +22,22 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 
-import type { Guest, Complaint } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble } from "lucide-react"
+import type { Guest, Complaint, AdditionalCharge } from "@/lib/types"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
-import { updateGuest as updateGuestAction } from "@/lib/slices/guestsSlice"
+import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction } from "@/lib/slices/guestsSlice"
 
 const paymentSchema = z.object({
   amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
   paymentMethod: z.enum(['cash', 'upi', 'in-app']),
+});
+
+const chargeSchema = z.object({
+  description: z.string().min(3, "Description is required."),
+  amount: z.coerce.number().min(1, "Amount must be greater than 0."),
 });
 
 const rentStatusColors: Record<Guest['rentStatus'], string> = {
@@ -67,44 +72,89 @@ export default function GuestProfilePage() {
 
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
     const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
+    const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false)
     const [reminderMessage, setReminderMessage] = useState('')
     const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
 
     const guest = useMemo(() => guests.find(g => g.id === guestId), [guests, guestId])
     const guestComplaints = useMemo(() => complaints.filter(c => c.guestId === guestId), [complaints, guestId])
 
+    const totalDue = useMemo(() => {
+        if (!guest) return 0;
+        const baseDue = guest.rentAmount - (guest.rentPaidAmount || 0);
+        const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+        return baseDue + chargesDue;
+    }, [guest]);
+
     const paymentForm = useForm<z.infer<typeof paymentSchema>>({
         resolver: zodResolver(paymentSchema),
         defaultValues: { paymentMethod: 'cash' }
-    })
+    });
+    
+    const chargeForm = useForm<z.infer<typeof chargeSchema>>({
+        resolver: zodResolver(chargeSchema),
+        defaultValues: { description: '', amount: undefined }
+    });
 
     useEffect(() => {
         if (guest) {
-            const amountDue = guest.rentAmount - (guest.rentPaidAmount || 0)
-            paymentForm.reset({ paymentMethod: 'cash', amountPaid: amountDue > 0 ? Number(amountDue.toFixed(2)) : 0 })
+            paymentForm.reset({ paymentMethod: 'cash', amountPaid: totalDue > 0 ? Number(totalDue.toFixed(2)) : 0 })
         }
-    }, [guest, paymentForm])
-
+    }, [guest, totalDue, paymentForm]);
+    
     const handleInitiateExit = () => {
         if (!guest || guest.exitDate) return
         const exitDate = new Date()
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays)
         const updatedGuest = { ...guest, exitDate: exitDate.toISOString() }
-        dispatch(updateGuestAction(updatedGuest))
+        dispatch(updateGuestAction({updatedGuest}))
     }
 
     const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
-        if (!guest) return
-        const newTotalPaid = (guest.rentPaidAmount || 0) + values.amountPaid
-        let updatedGuest: Guest;
-        if (newTotalPaid >= guest.rentAmount) {
-            updatedGuest = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: addMonths(new Date(guest.dueDate), 1).toISOString() }
-        } else {
-            updatedGuest = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid }
+        if (!guest) return;
+
+        let remainingAmountToPay = values.amountPaid;
+        const charges = [...(guest.additionalCharges || [])];
+        const newCharges: AdditionalCharge[] = [];
+
+        // First, clear additional charges
+        for (const charge of charges) {
+            if (remainingAmountToPay <= 0) {
+                newCharges.push(charge);
+                continue;
+            }
+            if (remainingAmountToPay >= charge.amount) {
+                remainingAmountToPay -= charge.amount;
+                // Charge is fully paid, so it's removed
+            } else {
+                newCharges.push({ ...charge, amount: charge.amount - remainingAmountToPay });
+                remainingAmountToPay = 0;
+            }
         }
-        dispatch(updateGuestAction(updatedGuest))
-        setIsPaymentDialogOpen(false)
+        
+        let newTotalPaid = (guest.rentPaidAmount || 0) + remainingAmountToPay;
+        let updatedGuest: Guest;
+
+        if (newTotalPaid >= guest.rentAmount) {
+            updatedGuest = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: addMonths(new Date(guest.dueDate), 1).toISOString(), additionalCharges: [] };
+        } else {
+            updatedGuest = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid, additionalCharges: newCharges };
+        }
+        dispatch(updateGuestAction({ updatedGuest }));
+        setIsPaymentDialogOpen(false);
     }
+    
+    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>) => {
+        if (!guest) return;
+        dispatch(addChargeAction({ guestId: guest.id, charge: values }));
+        setIsChargeDialogOpen(false);
+        chargeForm.reset();
+    };
+
+    const handleRemoveCharge = (chargeId: string) => {
+        if (!guest) return;
+        dispatch(removeChargeAction({ guestId: guest.id, chargeId }));
+    };
 
     const handleOpenReminderDialog = async () => {
         if (!guest || !currentPlan?.hasAiRentReminders) return
@@ -115,7 +165,7 @@ export default function GuestProfilePage() {
         try {
             const input: GenerateRentReminderInput = {
                 guestName: guest.name,
-                rentAmount: guest.rentAmount - (guest.rentPaidAmount || 0),
+                rentAmount: totalDue,
                 dueDate: format(new Date(guest.dueDate), "do MMMM yyyy"),
                 pgName: guest.pgName,
             }
@@ -214,13 +264,27 @@ export default function GuestProfilePage() {
                                 <span>Rent Status:</span>
                                 <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[guest.rentStatus])}>{guest.rentStatus}</Badge>
                             </div>
-                            <div className="flex justify-between items-center">
+                             <div className="flex justify-between items-center">
                                 <span>Monthly Rent:</span>
                                 <span className="font-medium">₹{guest.rentAmount.toLocaleString('en-IN')}</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span>Amount Due:</span>
-                                <span className="font-bold text-lg text-primary">₹{(guest.rentAmount - (guest.rentPaidAmount || 0)).toLocaleString('en-IN')}</span>
+                            {guest.additionalCharges && guest.additionalCharges.length > 0 && (
+                                <div className="space-y-2 pt-2 border-t">
+                                    <p className="font-medium">Additional Charges:</p>
+                                    {guest.additionalCharges.map(charge => (
+                                        <div key={charge.id} className="flex justify-between items-center">
+                                            <span className="text-muted-foreground flex items-center gap-2">
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveCharge(charge.id)}><Trash2 className="w-3 h-3"/></Button>
+                                                {charge.description}
+                                            </span>
+                                            <span>₹{charge.amount.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center text-base pt-2 border-t">
+                                <span className="font-semibold">Total Amount Due:</span>
+                                <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
                             </div>
                              <div className="flex justify-between items-center">
                                 <span>Next Due Date:</span>
@@ -232,11 +296,12 @@ export default function GuestProfilePage() {
                             </div>
                         </CardContent>
                         <CardFooter className="flex flex-wrap gap-2">
-                             {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
+                             {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && (
                                 <Button onClick={() => setIsPaymentDialogOpen(true)}><Wallet className="mr-2 h-4 w-4" /> Collect Rent</Button>
                              )}
-                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && currentPlan?.hasAiRentReminders && (
-                                <Button variant="secondary" onClick={handleOpenReminderDialog}><MessageCircle className="mr-2 h-4 w-4" />Send Reminder</Button>
+                              <Button variant="secondary" onClick={() => setIsChargeDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Add Charge</Button>
+                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && currentPlan?.hasAiRentReminders && (
+                                <Button variant="outline" onClick={handleOpenReminderDialog}><MessageCircle className="mr-2 h-4 w-4" />Send Reminder</Button>
                             )}
                              {guest.phone && (
                                 <Button variant="outline" asChild>
@@ -318,11 +383,30 @@ export default function GuestProfilePage() {
 
             {/* Dialogs */}
             <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-                <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Collect Rent Payment</DialogTitle><DialogDescription>Record a full or partial payment for {guest.name}.</DialogDescription></DialogHeader><Form {...paymentForm}><form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4"><div className="space-y-2 py-2"><p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span></p><p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{(guest.rentAmount - (guest.rentPaidAmount || 0)).toLocaleString('en-IN')}</span></p></div><FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1"><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash" /></FormControl><FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl><FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="payment-form">Confirm Payment</Button></DialogFooter></DialogContent>
+                <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Collect Rent Payment</DialogTitle><DialogDescription>Record a full or partial payment for {guest.name}.</DialogDescription></DialogHeader><Form {...paymentForm}><form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4"><div className="space-y-2 py-2"><p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span></p><p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{totalDue.toLocaleString('en-IN')}</span></p></div><FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1"><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash" /></FormControl><FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl><FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="payment-form">Confirm Payment</Button></DialogFooter></DialogContent>
             </Dialog>
 
             <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
                 <DialogContent><DialogHeader><DialogTitle>Send Rent Reminder</DialogTitle><DialogDescription>A reminder message has been generated for {guest.name}. You can copy it or send it directly via WhatsApp.</DialogDescription></DialogHeader><div className="py-4">{isGeneratingReminder ? (<div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>) : (<Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />)}</div><DialogFooter className="gap-2 sm:justify-end"><Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}><Copy className="mr-2 h-4 w-4" /> Copy</Button><a href={`https://wa.me/${guest.phone}?text=${encodeURIComponent(reminderMessage)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto"><Button className="w-full bg-green-500 hover:bg-green-600 text-white"><MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp</Button></a></DialogFooter></DialogContent>
+            </Dialog>
+
+            <Dialog open={isChargeDialogOpen} onOpenChange={setIsChargeDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add Additional Charge</DialogTitle>
+                        <DialogDescription>Add a one-time charge to this guest's current bill.</DialogDescription>
+                    </DialogHeader>
+                    <Form {...chargeForm}>
+                        <form id="charge-form" onSubmit={chargeForm.handleSubmit(handleAddChargeSubmit)} className="space-y-4">
+                            <FormField control={chargeForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., AC usage for May" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={chargeForm.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        </form>
+                    </Form>
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                        <Button type="submit" form="charge-form">Add Charge</Button>
+                    </DialogFooter>
+                </DialogContent>
             </Dialog>
         </div>
     )
