@@ -19,7 +19,7 @@ import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2 } from "luci
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { updateUserPlan as updateUserPlanAction } from "@/lib/slices/userSlice"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { saveChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from "@/lib/slices/chargeTemplatesSlice"
