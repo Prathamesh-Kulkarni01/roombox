@@ -105,8 +105,10 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   useEffect(() => {
     if (selectedGuestForPayment) {
-        const amountDue = selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0);
-        paymentForm.reset({ paymentMethod: 'cash', amountPaid: amountDue > 0 ? Number(amountDue.toFixed(2)) : 0 });
+        const baseDue = selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0);
+        const chargesDue = (selectedGuestForPayment.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+        const totalDue = baseDue + chargesDue;
+        paymentForm.reset({ paymentMethod: 'cash', amountPaid: totalDue > 0 ? Number(totalDue.toFixed(2)) : 0 });
     }
   }, [selectedGuestForPayment, paymentForm]);
 
@@ -149,14 +151,35 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
       if (!selectedGuestForPayment) return;
       const guest = selectedGuestForPayment;
-      const newTotalPaid = (guest.rentPaidAmount || 0) + values.amountPaid;
-      let updatedGuestData: Guest;
-      if (newTotalPaid >= guest.rentAmount) {
-          updatedGuestData = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(guest.dueDate), 1), 'yyyy-MM-dd') };
-      } else {
-          updatedGuestData = { ...guest, rentStatus: 'partial', rentPaidAmount: newTotalPaid };
+      let remainingAmountToPay = values.amountPaid;
+      const charges = [...(guest.additionalCharges || [])];
+      const newCharges: AdditionalCharge[] = [];
+
+      // First, clear additional charges
+      for (const charge of charges) {
+          if (remainingAmountToPay <= 0) {
+              newCharges.push(charge);
+              continue;
+          }
+          if (remainingAmountToPay >= charge.amount) {
+              remainingAmountToPay -= charge.amount;
+              // Charge is fully paid, so it's removed
+          } else {
+              newCharges.push({ ...charge, amount: charge.amount - remainingAmountToPay });
+              remainingAmountToPay = 0;
+          }
       }
-      dispatch(updateGuestAction({updatedGuest: updatedGuestData}));
+      
+      let newTotalPaid = (guest.rentPaidAmount || 0) + remainingAmountToPay;
+      let updatedGuest: Guest;
+
+      if (newTotalPaid >= guest.rentAmount && newCharges.length === 0) {
+          updatedGuest = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(guest.dueDate), 1), 'yyyy-MM-dd'), additionalCharges: [] };
+      } else {
+          updatedGuest = { ...guest, rentStatus: newTotalPaid > 0 ? 'partial' : 'unpaid', rentPaidAmount: newTotalPaid, additionalCharges: newCharges };
+      }
+
+      dispatch(updateGuestAction({updatedGuest}));
       setIsPaymentDialogOpen(false);
       setSelectedGuestForPayment(null);
   };
