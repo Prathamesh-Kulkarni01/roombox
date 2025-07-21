@@ -56,13 +56,13 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
           </DialogDescription>
         </DialogHeader>
         <Form {...roomForm}>
-          <form onSubmit={form.handleSubmit(onSubmit)} id="room-form" className="flex flex-col flex-1 overflow-hidden">
+          <form onSubmit={roomForm.handleSubmit(onSubmit)} id="room-form" className="flex flex-col flex-1 overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
                 <div className="px-6 border-b">
                   <ScrollArea className="w-full whitespace-nowrap">
                       <TabsList className="inline-flex h-10 items-center justify-start rounded-none bg-transparent p-0 w-full">
                           {tabs.map(tab => (
-                              <TabsTrigger key={tab.value} value={tab.value} className="relative inline-flex items-center justify-center whitespace-nowrap rounded-none bg-transparent px-4 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:scale-x-0 data-[state=active]:after:scale-x-100 data-[state=active]:after:bg-primary after:transition-transform">
+                              <TabsTrigger key={tab.value} value={tab.value} className="relative inline-flex items-center justify-center whitespace-nowrap rounded-sm px-4 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary">
                                   {tab.label}
                               </TabsTrigger>
                           ))}
@@ -70,16 +70,18 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
                       <ScrollBar orientation="horizontal" />
                   </ScrollArea>
                 </div>
-                <ScrollArea className="flex-1 overflow-y-auto">
-                    <div className="p-6">
-                        <TabsContent value="basics"><RoomBasicsForm form={roomForm} /></TabsContent>
-                        <TabsContent value="pricing"><PricingForm form={roomForm} /></TabsContent>
-                        <TabsContent value="amenities"><AmenitiesForm form={roomForm} /></TabsContent>
-                        <TabsContent value="rules"><RulesForm form={roomForm} /></TabsContent>
-                        <TabsContent value="food"><FoodServicesForm form={roomForm} /></TabsContent>
-                        <TabsContent value="media"><MediaForm form={roomForm} /></TabsContent>
-                    </div>
-                </ScrollArea>
+                <div className="flex-1 overflow-y-auto">
+                    <ScrollArea className="h-full">
+                        <div className="p-6">
+                            <TabsContent value="basics" forceMount={true} hidden={activeTab !== 'basics'}><RoomBasicsForm form={roomForm} /></TabsContent>
+                            <TabsContent value="pricing" forceMount={true} hidden={activeTab !== 'pricing'}><PricingForm form={roomForm} /></TabsContent>
+                            <TabsContent value="amenities" forceMount={true} hidden={activeTab !== 'amenities'}><AmenitiesForm form={roomForm} /></TabsContent>
+                            <TabsContent value="rules" forceMount={true} hidden={activeTab !== 'rules'}><RulesForm form={roomForm} /></TabsContent>
+                            <TabsContent value="food" forceMount={true} hidden={activeTab !== 'food'}><FoodServicesForm form={roomForm} /></TabsContent>
+                            <TabsContent value="media" forceMount={true} hidden={activeTab !== 'media'}><MediaForm form={roomForm} /></TabsContent>
+                        </div>
+                    </ScrollArea>
+                </div>
             </Tabs>
           </form>
         </Form>
