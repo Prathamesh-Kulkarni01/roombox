@@ -204,7 +204,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const handleRoomSubmit = (values: z.infer<typeof roomSchema>) => {
+  const processRoomSubmit = (values: z.infer<typeof roomSchema>) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? getPgById(roomToEdit.pgId)?.id : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? pgs.find(p => p.id === pgId)?.floors?.find(f => f.rooms.some(r => r.id === roomToEdit.id))?.id : selectedLocationForRoomAdd?.floorId;
@@ -229,6 +229,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         setIsRoomDialogOpen(false);
     });
   }
+  const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;

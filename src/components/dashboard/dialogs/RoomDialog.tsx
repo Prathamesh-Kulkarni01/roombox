@@ -2,22 +2,18 @@
 'use client'
 
 import * as React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save } from 'lucide-react';
 
-import { RoomBasicsForm, roomBasicsSchema } from '@/components/dashboard/add-room/RoomBasicsForm';
-import { PricingForm, pricingSchema } from '@/components/dashboard/add-room/PricingForm';
-import { AmenitiesForm, amenitiesSchema } from '@/components/dashboard/add-room/AmenitiesForm';
-import { RulesForm, rulesSchema } from '@/components/dashboard/add-room/RulesForm';
-import { FoodServicesForm, foodServicesSchema } from '@/components/dashboard/add-room/FoodServicesForm';
-import { MediaForm, mediaSchema } from '@/components/dashboard/add-room/MediaForm';
+import { RoomBasicsForm } from '@/components/dashboard/add-room/RoomBasicsForm';
+import { PricingForm } from '@/components/dashboard/add-room/PricingForm';
+import { AmenitiesForm } from '@/components/dashboard/add-room/AmenitiesForm';
+import { RulesForm } from '@/components/dashboard/add-room/RulesForm';
+import { FoodServicesForm } from '@/components/dashboard/add-room/FoodServicesForm';
+import { MediaForm } from '@/components/dashboard/add-room/MediaForm';
 import type { UseDashboardReturn } from '@/hooks/use-dashboard';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
@@ -42,10 +38,6 @@ type RoomDialogProps = Pick<UseDashboardReturn,
 export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom }: RoomDialogProps) {
   const [activeTab, setActiveTab] = React.useState(tabs[0].value);
 
-  const onSubmit = (data: any) => {
-    handleRoomSubmit(data);
-  };
-  
   return (
     <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
@@ -56,7 +48,7 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
           </DialogDescription>
         </DialogHeader>
         <Form {...roomForm}>
-          <form onSubmit={roomForm.handleSubmit(onSubmit)} id="room-form" className="flex flex-col flex-1 overflow-hidden">
+          <form onSubmit={handleRoomSubmit} id="room-form" className="flex flex-col flex-1 overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
                 <div className="px-6 border-b">
                   <ScrollArea className="w-full whitespace-nowrap">
