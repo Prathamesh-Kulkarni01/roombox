@@ -17,6 +17,7 @@ import { setGuests } from '@/lib/slices/guestsSlice'
 import { setComplaints } from '@/lib/slices/complaintsSlice'
 import { setExpenses } from '@/lib/slices/expensesSlice'
 import { setStaff } from '@/lib/slices/staffSlice'
+import { setChargeTemplates } from '@/lib/slices/chargeTemplatesSlice'
 import { setNotifications } from '@/lib/slices/notificationsSlice'
 import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
@@ -105,6 +106,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
             expenses: setExpenses,
             staff: setStaff,
             notifications: setNotifications,
+            chargeTemplates: setChargeTemplates,
         };
 
         const collectionNames = Object.keys(collectionsToSync);

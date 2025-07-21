@@ -1,4 +1,5 @@
 
+
 import { configureStore, Middleware } from '@reduxjs/toolkit';
 import appReducer from './slices/appSlice';
 import userReducer from './slices/userSlice';
@@ -8,6 +9,7 @@ import complaintsReducer from './slices/complaintsSlice';
 import expensesReducer from './slices/expensesSlice';
 import staffReducer from './slices/staffSlice';
 import notificationsReducer from './slices/notificationsSlice';
+import chargeTemplatesReducer from './slices/chargeTemplatesSlice';
 
 const actionsToPersist = [
     'pgs/setPgs', 'pgs/addPg/fulfilled', 'pgs/updatePg/fulfilled', 'pgs/deletePg/fulfilled',
@@ -52,6 +54,7 @@ export const makeStore = () => {
         expenses: expensesReducer,
         staff: staffReducer,
         notifications: notificationsReducer,
+        chargeTemplates: chargeTemplatesReducer,
     },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware({
         // Recommended to turn off for performance, especially with large state.

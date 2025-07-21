@@ -1,4 +1,5 @@
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -216,4 +217,14 @@ export interface SiteConfig {
   features?: { title: string; description: string; }[];
   faqs?: { q: string; a: string; }[];
   testimonials?: { quote: string; author: string; }[];
+}
+
+export interface ChargeTemplate {
+    id: string;
+    name: string; // e.g., "Electricity Bill"
+    calculation: 'fixed' | 'unit'; // Fixed total amount or based on units
+    unitCost?: number; // Cost per unit (e.g., kWh)
+    splitMethod: 'equal' | 'room' | 'custom'; // Split equally, by room type, or custom
+    frequency: 'monthly' | 'one-time';
+    autoAddToDialog: boolean;
 }
