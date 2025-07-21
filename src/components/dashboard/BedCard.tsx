@@ -4,7 +4,7 @@ import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import GuestPopoverContent from "./GuestPopoverContent"
 import type { Room, Bed, PG, Floor, Guest, Complaint } from "@/lib/types"
-import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock } from "lucide-react"
+import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee } from "lucide-react"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
 import { MutableRefObject } from "react"
@@ -18,7 +18,7 @@ interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
 }
 
 export default function BedCard(props: BedCardProps) {
-  const { room, floor, pg, isEditMode, setItemToDelete, handleOpenBedDialog, handleOpenRoomDialog, isFirstAvailableBedFound } = props
+  const { room, floor, pg, isEditMode, setItemToDelete, handleOpenBedDialog, handleOpenRoomDialog, handleOpenSharedChargeDialog, isFirstAvailableBedFound } = props
   const router = useRouter()
   const { guests, complaints } = useAppSelector(state => ({
     guests: state.guests.guests,
@@ -34,6 +34,8 @@ export default function BedCard(props: BedCardProps) {
     return 'occupied'
   }
 
+  const occupiedBedsCount = room.beds.filter(bed => guests.some(g => g.id === bed.guestId)).length;
+
   const bedStatusClasses: Record<ReturnType<typeof getBedStatus>, string> = {
     available: 'bg-yellow-200 border-yellow-400 text-yellow-800 hover:bg-yellow-300',
     occupied: 'bg-slate-200 border-slate-400 text-slate-800 hover:bg-slate-300',
@@ -46,7 +48,19 @@ export default function BedCard(props: BedCardProps) {
     <>
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-semibold text-lg flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name} <span className="font-normal text-muted-foreground">({room.beds.length}-sharing)</span></h3>
-        {isEditMode && (<div className="flex items-center"><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button><Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'room', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id } })}> <Trash2 className="w-4 h-4" /> </Button></div>)}
+        <div className="flex items-center">
+            {!isEditMode && occupiedBedsCount > 0 && (
+                <Button variant="outline" size="sm" className="h-7" onClick={() => handleOpenSharedChargeDialog(room)}>
+                    <IndianRupee className="w-4 h-4 mr-1"/> Add Shared Charge
+                </Button>
+            )}
+            {isEditMode && (
+                <>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'room', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id } })}> <Trash2 className="w-4 h-4" /> </Button>
+                </>
+            )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">

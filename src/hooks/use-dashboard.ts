@@ -9,9 +9,9 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 
-import type { Guest, Bed, Room, PG, Floor, Complaint } from "@/lib/types"
+import type { Guest, Bed, Room, PG, Floor, Complaint, AdditionalCharge } from "@/lib/types"
 import { format, addMonths } from "date-fns"
-import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction } from "@/lib/slices/guestsSlice"
+import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
 import { roomSchema } from "@/lib/actions/roomActions"
@@ -34,13 +34,18 @@ const paymentSchema = z.object({
   paymentMethod: z.enum(['cash', 'upi', 'in-app']),
 });
 
+const sharedChargeSchema = z.object({
+    description: z.string().min(3, "Description is required."),
+    totalAmount: z.coerce.number().min(1, "Total amount must be greater than 0."),
+});
+
 interface UseDashboardProps {
   pgs: PG[];
   guests: Guest[];
 }
 
 export function useDashboard({ pgs, guests }: UseDashboardProps) {
-  const dispatch = useAppDispatch();
+  const dispatch = useAppAppDispatch();
   const { toast } = useToast()
   const { currentPlan } = useAppSelector(state => state.user)
   const [isSavingRoom, startRoomTransition] = useTransition();
@@ -70,6 +75,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [selectedGuestForReminder, setSelectedGuestForReminder] = useState<Guest | null>(null);
   const [guestToInitiateExit, setGuestToInitiateExit] = useState<Guest | null>(null);
   const [guestToExitImmediately, setGuestToExitImmediately] = useState<Guest | null>(null);
+  const [isSharedChargeDialogOpen, setIsSharedChargeDialogOpen] = useState(false);
+  const [roomForSharedCharge, setRoomForSharedCharge] = useState<{ room: Room, guests: Guest[] } | null>(null);
 
 
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
@@ -83,6 +90,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     defaultValues: { paymentMethod: 'cash' }
   });
   const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema) });
+  const sharedChargeForm = useForm<z.infer<typeof sharedChargeSchema>>({ resolver: zodResolver(sharedChargeSchema) });
+
 
   useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm]);
   useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm]);
@@ -149,6 +158,19 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       setSelectedGuestForPayment(null);
   };
 
+  const handleOpenSharedChargeDialog = (room: Room) => {
+      const roomGuests = guests.filter(g => room.beds.some(b => b.id === g.bedId));
+      setRoomForSharedCharge({ room, guests: roomGuests });
+      setIsSharedChargeDialogOpen(true);
+  };
+
+  const handleSharedChargeSubmit = (values: z.infer<typeof sharedChargeSchema>) => {
+      if (!roomForSharedCharge) return;
+      dispatch(addSharedChargeToRoom({ ...values, roomId: roomForSharedCharge.room.id }));
+      toast({ title: 'Shared Charge Added', description: `The charge for "${values.description}" has been added to all guests in room ${roomForSharedCharge.room.name}.` });
+      setIsSharedChargeDialogOpen(false);
+  };
+
   const handleConfirmInitiateExit = () => {
     if (!guestToInitiateExit) return;
     dispatch(initiateGuestExit(guestToInitiateExit.id));
@@ -206,8 +228,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   
   const processRoomSubmit = (values: z.infer<typeof roomSchema>) => {
     startRoomTransition(async () => {
-        const pgId = roomToEdit ? getPgById(roomToEdit.pgId)?.id : selectedLocationForRoomAdd?.pgId;
-        const floorId = roomToEdit ? pgs.find(p => p.id === pgId)?.floors?.find(f => f.rooms.some(r => r.id === roomToEdit.id))?.id : selectedLocationForRoomAdd?.floorId;
+        const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
+        const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
         if(!pgId || !floorId) return;
         
         const pg = getPgById(pgId);
@@ -256,7 +278,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     if (!pg) return;
 
     const hasGuests = (beds: Bed[]): boolean => {
-        return beds.some(bed => guests.some(g => g.bedId === bed.id && !g.exitDate));
+        return beds.some(bed => guests.some(g => g.id === bed.guestId && !g.exitDate));
     }
     
     const nextState = produce(pg, draft => {
@@ -328,18 +350,21 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     isBedDialogOpen, setIsBedDialogOpen,
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
+    isSharedChargeDialogOpen, setIsSharedChargeDialogOpen,
     selectedBedForGuestAdd,
     floorToEdit, bedToEdit, roomToEdit,
     selectedGuestForPayment, selectedGuestForReminder,
+    roomForSharedCharge,
     reminderMessage, isGeneratingReminder,
     itemToDelete, setItemToDelete,
     guestToInitiateExit, setGuestToInitiateExit,
     handleConfirmInitiateExit,
     guestToExitImmediately, setGuestToExitImmediately,
     handleConfirmImmediateExit,
-    addGuestForm, roomForm, floorForm, bedForm, paymentForm,
+    addGuestForm, roomForm, floorForm, bedForm, paymentForm, sharedChargeForm,
     handleOpenAddGuestDialog, handleAddGuestSubmit,
     handleOpenPaymentDialog, handlePaymentSubmit,
+    handleOpenSharedChargeDialog, handleSharedChargeSubmit,
     handleOpenReminderDialog,
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
     handleOpenRoomDialog, handleOpenFloorDialog, handleOpenBedDialog,

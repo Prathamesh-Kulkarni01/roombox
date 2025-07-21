@@ -22,6 +22,7 @@ import FloorDialog from '@/components/dashboard/dialogs/FloorDialog'
 import BedDialog from '@/components/dashboard/dialogs/BedDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
+import SharedChargeDialog from '@/components/dashboard/dialogs/SharedChargeDialog'
 import AddPgSheet from "@/components/add-pg-sheet"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
@@ -56,6 +57,7 @@ export default function DashboardPage() {
     isBedDialogOpen, setIsBedDialogOpen, bedToEdit, bedForm, handleBedSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
+    isSharedChargeDialogOpen, setIsSharedChargeDialogOpen,
     itemToDelete, setItemToDelete,
     guestToInitiateExit, setGuestToInitiateExit,
     handleConfirmInitiateExit,
@@ -229,6 +231,7 @@ export default function DashboardPage() {
       <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} bedToEdit={bedToEdit} bedForm={bedForm} handleBedSubmit={handleBedSubmit} />
       <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} {...dashboardActions} />
       <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} {...dashboardActions}/>
+      <SharedChargeDialog isSharedChargeDialogOpen={isSharedChargeDialogOpen} setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen} {...dashboardActions} />
     
       <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
         <AlertDialogContent>
