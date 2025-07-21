@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Users, IndianRupee, Calendar } from "lucide-react"
 import { useAppSelector } from "@/lib/hooks"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { format, startOfMonth, endOfMonth, subMonths, setDate } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths, setDate, addMonths } from 'date-fns'
 
 const sharedChargeSchema = z.object({
     description: z.string().min(3, "Description is required."),
@@ -52,7 +52,10 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
     }, [activeTemplate]);
 
     const occupiedGuests = useMemo(() => {
-        const allGuestsInRoom = roomForSharedCharge?.guests || [];
+        if (!roomForSharedCharge) {
+            return [];
+        }
+        const allGuestsInRoom = roomForSharedCharge.guests || [];
         if (!cycleStartDate || !cycleEndDate) {
             return allGuestsInRoom; // For one-time or custom charges, include everyone
         }
@@ -78,7 +81,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
             const defaultTab = chargeTemplates.find(t => t.autoAddToDialog)?.id || 'custom';
             onTabChange(defaultTab);
         }
-    }, [roomForSharedCharge]);
+    }, [roomForSharedCharge, chargeTemplates]);
 
     const onTabChange = (tabValue: string) => {
         setActiveTab(tabValue);
