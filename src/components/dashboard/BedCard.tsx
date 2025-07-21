@@ -50,8 +50,9 @@ export default function BedCard(props: BedCardProps) {
         <h3 className="font-semibold text-lg flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name} <span className="font-normal text-muted-foreground">({room.beds.length}-sharing)</span></h3>
         <div className="flex items-center">
             {!isEditMode && occupiedBedsCount > 0 && (
-                <Button variant="outline" size="sm" className="h-7" onClick={() => handleOpenSharedChargeDialog(room)}>
-                    <IndianRupee className="w-4 h-4 mr-1"/> Add Shared Charge
+                <Button variant="outline" size="icon" className="h-7 w-7 rounded-full" onClick={() => handleOpenSharedChargeDialog(room)}>
+                    <PlusCircle className="w-4 h-4"/>
+                    <span className="sr-only">Add Shared Charge</span>
                 </Button>
             )}
             {isEditMode && (
