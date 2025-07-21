@@ -45,7 +45,7 @@ interface UseDashboardProps {
 }
 
 export function useDashboard({ pgs, guests }: UseDashboardProps) {
-  const dispatch = useAppAppDispatch();
+  const dispatch = useAppDispatch();
   const { toast } = useToast()
   const { currentPlan } = useAppSelector(state => state.user)
   const [isSavingRoom, startRoomTransition] = useTransition();

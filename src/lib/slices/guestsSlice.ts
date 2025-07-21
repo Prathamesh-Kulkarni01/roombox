@@ -1,7 +1,7 @@
 
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, Invite, PG, User, AdditionalCharge } from '../types';
+import type { Guest, Invite, PG, User, AdditionalCharge, Room } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -259,6 +259,59 @@ export const removeAdditionalCharge = createAsyncThunk<Guest, { guestId: string,
     }
 );
 
+export const addSharedChargeToRoom = createAsyncThunk<Guest[], { roomId: string, description: string, totalAmount: number }, { state: RootState }>(
+    'guests/addSharedChargeToRoom',
+    async ({ roomId, description, totalAmount }, { getState, rejectWithValue }) => {
+        const { user, guests, pgs } = getState();
+        const ownerId = user.currentUser?.id;
+        if (!ownerId) return rejectWithValue('User not found');
+
+        const pg = pgs.pgs.find(p => p.floors?.some(f => f.rooms.some(r => r.id === roomId)));
+        if (!pg) return rejectWithValue('PG not found');
+
+        const room = pg.floors?.flatMap(f => f.rooms).find(r => r.id === roomId);
+        if (!room) return rejectWithValue('Room not found');
+
+        const guestsInRoom = guests.guests.filter(g => room.beds.some(b => b.id === g.bedId));
+        if (guestsInRoom.length === 0) return rejectWithValue('No guests in this room to apply charges to.');
+
+        const chargePerGuest = totalAmount / guestsInRoom.length;
+        const updatedGuests: Guest[] = [];
+
+        const batch = isFirebaseConfigured() ? writeBatch(db) : null;
+        
+        for (const guest of guestsInRoom) {
+            const newCharge: AdditionalCharge = {
+                id: `charge-${Date.now()}-${guest.id}`,
+                description: description,
+                amount: chargePerGuest,
+            };
+            
+            const updatedGuest = produce(guest, draft => {
+                if (!draft.additionalCharges) {
+                    draft.additionalCharges = [];
+                }
+                draft.additionalCharges.push(newCharge);
+            });
+            updatedGuests.push(updatedGuest);
+
+            if (batch) {
+                const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guest.id);
+                batch.update(guestDocRef, {
+                    additionalCharges: arrayUnion(newCharge)
+                });
+            }
+        }
+        
+        if (batch) {
+            await batch.commit();
+        }
+        
+        return updatedGuests;
+    }
+);
+
+
 export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootState }>(
     'guests/initiateGuestExit',
     async (guestId, { getState, rejectWithValue }) => {
@@ -357,6 +410,14 @@ const guestsSlice = createSlice({
                 if (index !== -1) {
                     state.guests[index] = action.payload;
                 }
+            })
+            .addCase(addSharedChargeToRoom.fulfilled, (state, action) => {
+                action.payload.forEach(updatedGuest => {
+                    const index = state.guests.findIndex(g => g.id === updatedGuest.id);
+                    if (index !== -1) {
+                        state.guests[index] = updatedGuest;
+                    }
+                });
             })
             .addCase(initiateGuestExit.fulfilled, (state, action) => {
                  const index = state.guests.findIndex(g => g.id === action.payload.id);
