@@ -28,7 +28,11 @@ export const saveChargeTemplate = createAsyncThunk<ChargeTemplate, Omit<ChargeTe
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        const newTemplate: ChargeTemplate = { id: `ct-${Date.now()}`, ...templateData };
+        const newTemplate: ChargeTemplate = { 
+            id: `ct-${Date.now()}`, 
+            ...templateData,
+            unitCost: templateData.unitCost ?? null,
+        };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', user.currentUser.id, 'chargeTemplates', newTemplate.id);
@@ -40,9 +44,14 @@ export const saveChargeTemplate = createAsyncThunk<ChargeTemplate, Omit<ChargeTe
 
 export const updateChargeTemplate = createAsyncThunk<ChargeTemplate, ChargeTemplate, { state: RootState }>(
     'chargeTemplates/updateChargeTemplate',
-    async (updatedTemplate, { getState, rejectWithValue }) => {
+    async (templateData, { getState, rejectWithValue }) => {
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
+        
+        const updatedTemplate = {
+            ...templateData,
+            unitCost: templateData.unitCost ?? null,
+        }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', user.currentUser.id, 'chargeTemplates', updatedTemplate.id);
