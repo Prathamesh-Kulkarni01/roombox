@@ -41,13 +41,13 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         if (!activeTemplate || activeTemplate.frequency !== 'monthly') {
             return { cycleStartDate: null, cycleEndDate: null };
         }
-        const today = new Date();
         const billingDay = activeTemplate.billingDayOfMonth;
         
         if (!billingDay || billingDay < 1 || billingDay > 28) {
             return { cycleStartDate: null, cycleEndDate: null };
         }
 
+        const today = new Date();
         let start = setDate(today, billingDay);
         if (today.getDate() < billingDay) {
             start = subMonths(start, 1);
@@ -66,7 +66,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
             return [];
         }
         const allGuestsInRoom = roomForSharedCharge.guests || [];
-        if (!cycleStartDate || !cycleEndDate || !isValid(cycleStartDate) || !isValid(cycleEndDate)) {
+        if (!cycleStartDate || !cycleEndDate) {
             return allGuestsInRoom; // For one-time or custom charges, include everyone
         }
         // Filter guests who were active during any part of the billing cycle
@@ -87,21 +87,34 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
     const chargePerGuest = occupiedGuests.length > 0 && calculatedTotal ? (calculatedTotal / occupiedGuests.length) : 0;
   
     useEffect(() => {
-        if (roomForSharedCharge) {
+        if (isSharedChargeDialogOpen && roomForSharedCharge) {
             const defaultTab = chargeTemplates.find(t => t.autoAddToDialog)?.id || 'custom';
             onTabChange(defaultTab);
         }
-    }, [roomForSharedCharge, chargeTemplates]);
+    }, [isSharedChargeDialogOpen, roomForSharedCharge, chargeTemplates]);
 
     const onTabChange = (tabValue: string) => {
         setActiveTab(tabValue);
         const template = chargeTemplates.find(t => t.id === tabValue);
-        sharedChargeForm.reset({
-            description: template ? template.name : '',
-            unitCost: template?.unitCost || undefined,
-            totalAmount: undefined,
-            units: undefined,
-        });
+        
+        const currentValues = sharedChargeForm.getValues();
+
+        if (tabValue === 'custom') {
+            // Reset completely for custom tab
+            sharedChargeForm.reset({
+                description: 'Custom Charge',
+                totalAmount: undefined,
+                units: undefined,
+                unitCost: undefined,
+            });
+        } else {
+            // For templates, keep amount/units, but update description/unitCost
+             sharedChargeForm.reset({
+                ...currentValues,
+                description: template ? template.name : '',
+                unitCost: template?.unitCost || undefined,
+            });
+        }
     }
 
     const visibleTemplates = chargeTemplates.filter(t => t.autoAddToDialog);
@@ -123,7 +136,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
 
                     <Form {...sharedChargeForm}>
                         <form onSubmit={sharedChargeForm.handleSubmit(handleSharedChargeSubmit)} id="shared-charge-form" className="space-y-4 pt-4">
-                             {cycleStartDate && cycleEndDate && isValid(cycleStartDate) && isValid(cycleEndDate) && (
+                             {cycleStartDate && cycleEndDate && (
                                 <div className="text-sm text-center text-muted-foreground p-2 bg-muted rounded-md flex items-center justify-center gap-2">
                                     <Calendar className="w-4 h-4"/>
                                     Billing Cycle: {format(cycleStartDate, 'do MMM')} - {format(cycleEndDate, 'do MMM')}

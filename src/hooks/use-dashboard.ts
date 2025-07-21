@@ -192,7 +192,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
     const handleSharedChargeSubmit = (values: z.infer<typeof sharedChargeSchema>) => {
         if (!roomForSharedCharge) return;
-        const templateId = sharedChargeForm.getValues().description; // A bit of a hack, assumes description holds template name/id
         const template = chargeTemplates.find(t => t.name === values.description);
         let totalAmount = values.totalAmount;
         
