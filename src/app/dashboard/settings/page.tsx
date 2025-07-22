@@ -23,8 +23,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { saveChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from "@/lib/slices/chargeTemplatesSlice"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
@@ -113,6 +112,19 @@ export default function SettingsPage() {
       dispatch(updateUserPlanAction(planId));
   }
 
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const dateValue = e.target.value;
+      if(dateValue) {
+          const date = new Date(dateValue);
+          // Add timezone offset to avoid date shifting
+          const timezoneOffset = date.getTimezoneOffset() * 60000;
+          const adjustedDate = new Date(date.getTime() + timezoneOffset);
+          dispatch(setMockDate(adjustedDate.toISOString()));
+      } else {
+          dispatch(setMockDate(null));
+      }
+  }
+
   return (
     <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
         <div className="flex flex-col gap-8">
@@ -168,25 +180,15 @@ export default function SettingsPage() {
                         <div className="space-y-2">
                              <Label>Time Travel</Label>
                              <div className="flex gap-2 items-center">
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn("w-[240px] justify-start text-left font-normal", !mockDate && "text-muted-foreground")}
-                                        >
-                                            <Calendar className="mr-2 h-4 w-4" />
-                                            {mockDate ? format(new Date(mockDate), "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={mockDate ? new Date(mockDate) : undefined}
-                                            onSelect={(date) => dispatch(setMockDate(date?.toISOString() || null))}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
+                                <div className="relative">
+                                    <Input
+                                        type="date"
+                                        value={mockDate ? format(parseISO(mockDate), 'yyyy-MM-dd') : ''}
+                                        onChange={handleDateChange}
+                                        className="w-[240px]"
+                                    />
+                                    {!mockDate && <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                                </div>
                                 <Button onClick={() => dispatch(setMockDate(null))} variant="secondary">Reset</Button>
                              </div>
                              <p className="text-xs text-muted-foreground">Simulate a different current date to test rent cycles.</p>

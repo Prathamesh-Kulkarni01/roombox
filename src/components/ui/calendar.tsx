@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -15,6 +16,9 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
+  // Destructure DayPicker-specific props to avoid passing them to the DOM
+  const { initialFocus, mode, selected, onSelect, ...restProps } = props;
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -57,7 +61,11 @@ function Calendar({
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
-      {...props}
+      initialFocus={initialFocus}
+      mode={mode}
+      selected={selected}
+      onSelect={onSelect}
+      {...restProps}
     />
   )
 }
