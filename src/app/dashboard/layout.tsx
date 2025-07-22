@@ -8,6 +8,7 @@ import DashboardBottomNav from "@/components/dashboard-bottom-nav";
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppSelector } from '@/lib/hooks';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { navPermissions } from '@/lib/permissions';
 
 export default function DashboardLayout({
   children,
@@ -18,17 +19,19 @@ export default function DashboardLayout({
   const { isLoading } = useAppSelector((state) => state.app);
   const router = useRouter();
 
+  const allowedDashboardRoles: (keyof typeof navPermissions)[] = ['owner', 'manager', 'cook', 'cleaner', 'security'];
+
   useEffect(() => {
-    // If loading is finished and there's no user, or user is not an owner, redirect to login.
-    if (!isLoading && (!currentUser || currentUser.role !== 'owner')) {
+    // If loading is finished and there's no user, or user is not an allowed dashboard role, redirect to login.
+    if (!isLoading && (!currentUser || !allowedDashboardRoles.includes(currentUser.role))) {
       router.replace('/login');
     }
   }, [isLoading, currentUser, router]);
 
 
   // Show a full-page skeleton while the initial user check is happening,
-  // or if user role is not owner.
-  if (isLoading || !currentUser || currentUser.role !== 'owner') {
+  // or if user role is not a valid dashboard role.
+  if (isLoading || !currentUser || !allowedDashboardRoles.includes(currentUser.role)) {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
         <div className="w-64 flex-col border-r bg-muted hidden md:flex p-4">
