@@ -14,6 +14,7 @@ import { Users, IndianRupee, Calendar } from "lucide-react"
 import { useAppSelector } from "@/lib/hooks"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, startOfMonth, endOfMonth, subMonths, setDate, addMonths, isValid } from 'date-fns'
+import type { Room } from "@/lib/types"
 
 const sharedChargeSchema = z.object({
     description: z.string().min(3, "Description is required."),
@@ -26,6 +27,7 @@ type SharedChargeDialogProps = Pick<UseDashboardReturn, 'isSharedChargeDialogOpe
 
 export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsSharedChargeDialogOpen, sharedChargeForm, handleSharedChargeSubmit, roomForSharedCharge }: SharedChargeDialogProps) {
     const { chargeTemplates } = useAppSelector(state => state.chargeTemplates);
+    const { guests } = useAppSelector(state => state.guests);
 
     const [activeTab, setActiveTab] = useState('custom');
 
@@ -62,13 +64,14 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
     }, [activeTemplate]);
 
     const occupiedGuests = useMemo(() => {
-        if (!roomForSharedCharge) {
-            return [];
-        }
-        const allGuestsInRoom = roomForSharedCharge.guests || [];
+        if (!roomForSharedCharge) return [];
+
+        const allGuestsInRoom = guests.filter(g => roomForSharedCharge.beds.some(b => b.id === g.bedId));
+
         if (!cycleStartDate || !cycleEndDate) {
-            return allGuestsInRoom; // For one-time or custom charges, include everyone
+            return allGuestsInRoom; // For one-time or custom charges, include everyone currently there
         }
+        
         // Filter guests who were active during any part of the billing cycle
         return allGuestsInRoom.filter(guest => {
             const moveInDate = new Date(guest.moveInDate);
@@ -80,7 +83,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
             const endsAfterCycleStart = !exitDate || exitDate >= cycleStartDate;
             return startsBeforeCycleEnd && endsAfterCycleStart;
         });
-    }, [roomForSharedCharge, cycleStartDate, cycleEndDate]);
+    }, [roomForSharedCharge, cycleStartDate, cycleEndDate, guests]);
 
 
     const calculatedTotal = activeTemplate?.calculation === 'unit' ? (units || 0) * (unitCost || 0) : totalAmount;
@@ -100,7 +103,6 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         const currentValues = sharedChargeForm.getValues();
 
         if (tabValue === 'custom') {
-            // Reset completely for custom tab
             sharedChargeForm.reset({
                 description: 'Custom Charge',
                 totalAmount: undefined,
@@ -108,11 +110,11 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                 unitCost: undefined,
             });
         } else {
-            // For templates, keep amount/units, but update description/unitCost
              sharedChargeForm.reset({
-                ...currentValues,
                 description: template ? template.name : '',
                 unitCost: template?.unitCost || undefined,
+                totalAmount: currentValues.totalAmount,
+                units: currentValues.units,
             });
         }
     }
@@ -123,7 +125,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         <Dialog open={isSharedChargeDialogOpen} onOpenChange={setIsSharedChargeDialogOpen}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Add Shared Charge to Room {roomForSharedCharge?.room.name}</DialogTitle>
+                    <DialogTitle>Add Shared Charge to Room {roomForSharedCharge?.name}</DialogTitle>
                     <DialogDescription>Split a bill equally among all occupied beds in this room.</DialogDescription>
                 </DialogHeader>
                  <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">

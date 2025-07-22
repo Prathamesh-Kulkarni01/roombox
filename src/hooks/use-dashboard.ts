@@ -79,7 +79,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [guestToInitiateExit, setGuestToInitiateExit] = useState<Guest | null>(null);
   const [guestToExitImmediately, setGuestToExitImmediately] = useState<Guest | null>(null);
   const [isSharedChargeDialogOpen, setIsSharedChargeDialogOpen] = useState(false);
-  const [roomForSharedCharge, setRoomForSharedCharge] = useState<{ room: Room, guests: Guest[] } | null>(null);
+  const [roomForSharedCharge, setRoomForSharedCharge] = useState<Room | null>(null);
 
 
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
@@ -118,7 +118,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsAddGuestDialogOpen(true);
   };
 
-  const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
+  const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>>) => {
     if (!selectedBedForGuestAdd) return;
     const { pg, bed } = selectedBedForGuestAdd;
     
@@ -150,43 +150,54 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
       if (!selectedGuestForPayment) return;
+      
       const guest = selectedGuestForPayment;
-      let remainingAmountToPay = values.amountPaid;
-      const charges = [...(guest.additionalCharges || [])];
-      const newCharges: AdditionalCharge[] = [];
+      let amountPaid = values.amountPaid;
 
-      // First, clear additional charges
-      for (const charge of charges) {
-          if (remainingAmountToPay <= 0) {
-              newCharges.push(charge);
-              continue;
-          }
-          if (remainingAmountToPay >= charge.amount) {
-              remainingAmountToPay -= charge.amount;
-              // Charge is fully paid, so it's removed
-          } else {
-              newCharges.push({ ...charge, amount: charge.amount - remainingAmountToPay });
-              remainingAmountToPay = 0;
-          }
+      // Create a mutable copy of charges to clear them as payment is applied
+      let remainingCharges = [...(guest.additionalCharges || [])];
+      let clearedCharges: AdditionalCharge[] = [];
+      
+      // First, apply payment to additional charges
+      for (const charge of remainingCharges) {
+          if (amountPaid <= 0) break;
+          const amountToClear = Math.min(amountPaid, charge.amount);
+          charge.amount -= amountToClear;
+          amountPaid -= amountToClear;
       }
       
-      let newTotalPaid = (guest.rentPaidAmount || 0) + remainingAmountToPay;
-      let updatedGuest: Guest;
+      // Filter out fully paid charges
+      clearedCharges = remainingCharges.filter(c => c.amount > 0);
 
-      if (newTotalPaid >= guest.rentAmount && newCharges.length === 0) {
-          updatedGuest = { ...guest, rentStatus: 'paid', rentPaidAmount: 0, dueDate: format(addMonths(new Date(guest.dueDate), 1), 'yyyy-MM-dd'), additionalCharges: [] };
-      } else {
-          updatedGuest = { ...guest, rentStatus: newTotalPaid > 0 ? 'partial' : 'unpaid', rentPaidAmount: newTotalPaid, additionalCharges: newCharges };
-      }
-
-      dispatch(updateGuestAction({updatedGuest}));
+      // Apply remaining payment to rent
+      let newRentPaidAmount = (guest.rentPaidAmount || 0) + amountPaid;
+      
+      const updatedGuest = produce(guest, draft => {
+          draft.additionalCharges = clearedCharges;
+          
+          if (newRentPaidAmount >= draft.rentAmount && clearedCharges.length === 0) {
+              // Cycle completes, rent is fully paid
+              draft.rentStatus = 'paid';
+              draft.rentPaidAmount = 0; // Reset for next cycle
+              draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
+          } else if (newRentPaidAmount > 0) {
+              // Partial payment
+              draft.rentStatus = 'partial';
+              draft.rentPaidAmount = newRentPaidAmount;
+          } else {
+              // No rent part paid, but charges might be
+              draft.rentStatus = 'unpaid';
+              draft.rentPaidAmount = 0;
+          }
+      });
+      
+      dispatch(updateGuestAction({ updatedGuest }));
       setIsPaymentDialogOpen(false);
       setSelectedGuestForPayment(null);
   };
 
   const handleOpenSharedChargeDialog = (room: Room) => {
-      const roomGuests = guests.filter(g => room.beds.some(b => b.id === g.bedId));
-      setRoomForSharedCharge({ room, guests: roomGuests });
+      setRoomForSharedCharge(room);
       setIsSharedChargeDialogOpen(true);
   };
 
@@ -196,7 +207,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         let totalAmount = values.totalAmount;
         
         if(template?.calculation === 'unit'){
-            totalAmount = (values.units || 0) * (values.unitCost || 0);
+            totalAmount = (values.units || 0) * (template.unitCost || 0);
         }
 
         if (!totalAmount || totalAmount <= 0) {
@@ -205,12 +216,12 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         }
 
         dispatch(addSharedChargeToRoom({
-            roomId: roomForSharedCharge.room.id,
+            roomId: roomForSharedCharge.id,
             description: values.description,
             totalAmount: totalAmount
         }));
         
-        toast({ title: 'Shared Charge Added', description: `The charge for "${values.description}" has been added to guests in room ${roomForSharedCharge.room.name}.` });
+        toast({ title: 'Shared Charge Added', description: `The charge for "${values.description}" has been added to guests in room ${roomForSharedCharge.name}.` });
         setIsSharedChargeDialogOpen(false);
     };
 
@@ -253,7 +264,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const getPgById = (pgId: string) => pgs.find(p => p.id === pgId);
   const getFloorById = (pgId: string, floorId: string) => getPgById(pgId)?.floors?.find(f => f.id === floorId);
 
-  const handleFloorSubmit = (values: z.infer<typeof floorSchema>) => {
+  const handleFloorSubmit = (values: z.infer<typeof floorSchema>>) => {
     const pg = floorToEdit ? getPgById(floorToEdit.pgId) : selectedPgForFloorAdd;
     if (!pg) return;
     const nextState = produce(pg, draft => {
@@ -269,7 +280,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const processRoomSubmit = (values: z.infer<typeof roomSchema>) => {
+  const processRoomSubmit = (values: z.infer<typeof roomSchema>>) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
@@ -296,7 +307,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   }
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
-  const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
+  const handleBedSubmit = (values: z.infer<typeof bedSchema>>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
     const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
     const pg = pgs.find(p => p.floors?.some(f => f.id === floorId));
@@ -374,12 +385,24 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       setIsRoomDialogOpen(true);
   }
 
+  const openAddFloorDialog = (pg: PG) => {
+      if (!currentPlan?.hasCloudSync && pg.floors && pg.floors.length >= 1) {
+          toast({ variant: 'destructive', title: 'Floor Limit Reached', description: 'The free plan allows only 1 floor per property. Please upgrade for more.'});
+          return;
+      }
+      handleOpenFloorDialog(null, pg);
+  }
+
   const handleOpenFloorDialog = (floor: Floor | null, pg?: PG) => { 
       setFloorToEdit(floor); 
       if (!floor && pg) setSelectedPgForFloorAdd(pg); 
       setIsFloorDialogOpen(true); 
   };
   
+  const openEditFloorDialog = (floor: Floor) => handleOpenFloorDialog(floor);
+  const openEditRoomDialog = (room: Room) => handleOpenRoomDialog(room);
+
+
   const handleOpenBedDialog = (bed: Bed | null, roomId: string, floorId: string) => {
     setBedToEdit(bed ? {bed, roomId, floorId} : null); 
     if(!bed) setSelectedRoomForBedAdd({floorId, roomId});
@@ -410,7 +433,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleOpenSharedChargeDialog, handleSharedChargeSubmit,
     handleOpenReminderDialog,
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
-    handleOpenRoomDialog, handleOpenFloorDialog, handleOpenBedDialog,
+    handleOpenRoomDialog, openAddFloorDialog, openEditFloorDialog, openEditRoomDialog, handleOpenBedDialog,
     handleDelete,
     isSavingRoom
   }
