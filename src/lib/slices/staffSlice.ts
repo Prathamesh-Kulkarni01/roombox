@@ -1,8 +1,9 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Staff, Invite, User } from '../types';
 import { db, isFirebaseConfigured, auth } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where, updateDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 
@@ -83,9 +84,17 @@ export const updateStaff = createAsyncThunk<Staff, Staff, { state: RootState }>(
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
+        const batch = writeBatch(db);
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'staff', updatedStaff.id);
-            await setDoc(docRef, updatedStaff, { merge: true });
+            const staffDocRef = doc(db, 'users_data', user.currentUser.id, 'staff', updatedStaff.id);
+            batch.set(staffDocRef, updatedStaff, { merge: true });
+
+            // Also update the role in the main user document if it exists
+            if (updatedStaff.userId) {
+                const userDocRef = doc(db, 'users', updatedStaff.userId);
+                batch.update(userDocRef, { role: updatedStaff.role });
+            }
+             await batch.commit();
         }
         return updatedStaff;
     }

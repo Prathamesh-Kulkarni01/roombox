@@ -20,9 +20,9 @@ const initialState: UserState = {
 };
 
 // Async Thunks
-export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: any }>(
+export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: any; state: RootState }>(
     'user/initializeUser',
-    async (firebaseUser, { dispatch, rejectWithValue }) => {
+    async (firebaseUser, { dispatch, getState, rejectWithValue }) => {
         if (!isFirebaseConfigured() || !db) {
             dispatch(setLoading(false));
             return rejectWithValue('Firebase not configured');
@@ -32,18 +32,28 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         let userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
-            // If user has an active guestId, ensure it's not for a vacated guest record.
-            // This handles cases where a returning tenant logs in before being assigned to a new room.
             const userData = userDoc.data() as User;
+            
+            // If user is not an owner, fetch owner's plan to determine their feature set
+            if (userData.role !== 'owner' && userData.ownerId) {
+                const ownerDocRef = doc(db, 'users', userData.ownerId);
+                const ownerDoc = await getDoc(ownerDocRef);
+                if (ownerDoc.exists()) {
+                    const ownerData = ownerDoc.data() as User;
+                    userData.subscription = ownerData.subscription;
+                }
+            }
+
+            // If user has an active guestId, ensure it's not for a vacated guest record.
             if (userData.role === 'tenant' && userData.guestId && userData.ownerId) {
                 const activeGuestDoc = await getDoc(doc(db, 'users_data', userData.ownerId, 'guests', userData.guestId));
                 if (!activeGuestDoc.exists() || activeGuestDoc.data()?.isVacated) {
-                    // The user's active guest record points to a vacated one. Clear it.
                     await updateDoc(userDocRef, { guestId: null, pgId: null });
                     userDoc = await getDoc(userDocRef); // Re-fetch the updated user doc
+                     return userDoc.data() as User;
                 }
             }
-            return userDoc.data() as User;
+            return userData;
         } else {
             const userEmail = firebaseUser.email;
             if (userEmail) {
