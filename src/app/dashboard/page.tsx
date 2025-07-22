@@ -18,6 +18,7 @@ import { setTourStepIndex } from '@/lib/slices/appSlice'
 import StatsCards from '@/components/dashboard/StatsCards'
 import PgLayout from '@/components/dashboard/PgLayout'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
+import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 import FloorDialog from '@/components/dashboard/dialogs/FloorDialog'
 import BedDialog from '@/components/dashboard/dialogs/BedDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
@@ -52,6 +53,7 @@ export default function DashboardPage() {
 
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
+    isEditGuestDialogOpen, setIsEditGuestDialogOpen,
     isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom,
     isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit, floorForm, handleFloorSubmit,
     isBedDialogOpen, setIsBedDialogOpen, bedToEdit, bedForm, handleBedSubmit,
@@ -226,6 +228,7 @@ export default function DashboardPage() {
       
       {/* DIALOGS */}
       <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
+      <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} {...dashboardActions} />
       <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} roomToEdit={roomToEdit} roomForm={roomForm} handleRoomSubmit={handleRoomSubmit} isSavingRoom={isSavingRoom} />
       <FloorDialog isFloorDialogOpen={isFloorDialogOpen} setIsFloorDialogOpen={setIsFloorDialogOpen} floorToEdit={floorToEdit} floorForm={floorForm} handleFloorSubmit={handleFloorSubmit} />
       <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} bedToEdit={bedToEdit} bedForm={bedForm} handleBedSubmit={handleBedSubmit} />

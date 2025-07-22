@@ -26,6 +26,13 @@ const addGuestSchema = z.object({
     kycDocument: z.any().optional()
 })
 
+const editGuestSchema = z.object({
+    name: z.string().min(2, "Name must be at least 2 characters."),
+    phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
+    email: z.string().email("Please enter a valid email address."),
+});
+
+
 const floorSchema = z.object({ name: z.string().min(2, "Floor name must be at least 2 characters.") })
 const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is required.") })
 
@@ -55,6 +62,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
+  const [isEditGuestDialogOpen, setIsEditGuestDialogOpen] = useState(false);
   const [selectedBedForGuestAdd, setSelectedBedForGuestAdd] = useState<{ bed: Bed; room: Room; pg: PG } | null>(null);
   
   const [isFloorDialogOpen, setIsFloorDialogOpen] = useState(false);
@@ -64,6 +72,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [floorToEdit, setFloorToEdit] = useState<Floor | null>(null);
   const [bedToEdit, setBedToEdit] = useState<{ bed: Bed; roomId: string; floorId: string } | null>(null);
   const [roomToEdit, setRoomToEdit] = useState<Room | null>(null);
+  const [guestToEdit, setGuestToEdit] = useState<Guest | null>(null);
   const [selectedPgForFloorAdd, setSelectedPgForFloorAdd] = useState<PG | null>(null);
   const [selectedLocationForRoomAdd, setSelectedLocationForRoomAdd] = useState<{ floorId: string; pgId: string; } | null>(null);
   const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; } | null>(null);
@@ -86,6 +95,9 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     resolver: zodResolver(addGuestSchema),
     defaultValues: { name: '', phone: '', email: '', rentAmount: 0, depositAmount: 0 },
   });
+  const editGuestForm = useForm<z.infer<typeof editGuestSchema>>({
+    resolver: zodResolver(editGuestSchema),
+  });
   const floorForm = useForm<z.infer<typeof floorSchema>>({ resolver: zodResolver(floorSchema), defaultValues: { name: '' } });
   const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } });
   const paymentForm = useForm<z.infer<typeof paymentSchema>>({
@@ -104,6 +116,16 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   }, [roomToEdit, roomForm]);
 
   useEffect(() => {
+    if (guestToEdit) {
+        editGuestForm.reset({
+            name: guestToEdit.name,
+            phone: guestToEdit.phone,
+            email: guestToEdit.email,
+        });
+    }
+  }, [guestToEdit, editGuestForm]);
+
+  useEffect(() => {
     if (selectedGuestForPayment) {
         const baseDue = selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0);
         const chargesDue = (selectedGuestForPayment.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
@@ -116,6 +138,11 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setSelectedBedForGuestAdd({ bed, room, pg });
     addGuestForm.reset({ rentAmount: room.rent, depositAmount: room.deposit });
     setIsAddGuestDialogOpen(true);
+  };
+  
+  const handleOpenEditGuestDialog = (guest: Guest) => {
+    setGuestToEdit(guest);
+    setIsEditGuestDialogOpen(true);
   };
 
   const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
@@ -142,6 +169,13 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     dispatch(addGuestAction(guestData));
     setIsAddGuestDialogOpen(false);
   };
+
+  const handleEditGuestSubmit = (values: z.infer<typeof editGuestSchema>) => {
+    if (!guestToEdit) return;
+    const updatedGuest = { ...guestToEdit, ...values };
+    dispatch(updateGuestAction({ updatedGuest }));
+    setIsEditGuestDialogOpen(false);
+  };
   
   const handleOpenPaymentDialog = (guest: Guest) => {
     setSelectedGuestForPayment(guest);
@@ -157,7 +191,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         date: new Date().toISOString(),
         amount: values.amountPaid,
         method: values.paymentMethod,
-        forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
+        forMonth: format(parseISO(guest.dueDate), 'MMMM yyyy'),
     };
 
     const updatedGuest = produce(guest, draft => {
@@ -267,7 +301,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const getPgById = (pgId: string) => pgs.find(p => p.id === pgId);
   const getFloorById = (pgId: string, floorId: string) => getPgById(pgId)?.floors?.find(f => f.id === floorId);
 
-  const handleFloorSubmit = (values: z.infer<typeof floorSchema>) => {
+  const handleFloorSubmit = (values: z.infer<typeof floorSchema>>) => {
     const pg = floorToEdit ? getPgById(floorToEdit.pgId) : selectedPgForFloorAdd;
     if (!pg) return;
     const nextState = produce(pg, draft => {
@@ -283,7 +317,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const processRoomSubmit = (values: z.infer<typeof roomSchema>) => {
+  const processRoomSubmit = (values: z.infer<typeof roomSchema>>) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
@@ -310,7 +344,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   }
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
-  const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
+  const handleBedSubmit = (values: z.infer<typeof bedSchema>>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
     const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
     const pg = pgs.find(p => p.floors?.some(f => f.id === floorId));
@@ -402,6 +436,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   
   return {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
+    isEditGuestDialogOpen, setIsEditGuestDialogOpen,
     isRoomDialogOpen, setIsRoomDialogOpen,
     isFloorDialogOpen, setIsFloorDialogOpen,
     isBedDialogOpen, setIsBedDialogOpen,
@@ -409,7 +444,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     isReminderDialogOpen, setIsReminderDialogOpen,
     isSharedChargeDialogOpen, setIsSharedChargeDialogOpen,
     selectedBedForGuestAdd,
-    floorToEdit, bedToEdit, roomToEdit,
+    floorToEdit, bedToEdit, roomToEdit, guestToEdit,
     selectedGuestForPayment, selectedGuestForReminder,
     roomForSharedCharge,
     reminderMessage, isGeneratingReminder,
@@ -418,8 +453,9 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleConfirmInitiateExit,
     guestToExitImmediately, setGuestToExitImmediately,
     handleConfirmImmediateExit,
-    addGuestForm, roomForm, floorForm, bedForm, paymentForm, sharedChargeForm,
+    addGuestForm, editGuestForm, roomForm, floorForm, bedForm, paymentForm, sharedChargeForm,
     handleOpenAddGuestDialog, handleAddGuestSubmit,
+    handleOpenEditGuestDialog, handleEditGuestSubmit,
     handleOpenPaymentDialog, handlePaymentSubmit,
     handleOpenSharedChargeDialog, handleSharedChargeSubmit,
     handleOpenReminderDialog,

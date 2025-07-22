@@ -5,10 +5,10 @@ import { useState, useMemo, useEffect } from "react"
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { produce } from "immer"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { produce } from 'immer'
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
@@ -23,14 +23,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
+import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
 import type { Guest, Complaint, AdditionalCharge, Payment } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History } from "lucide-react"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
 import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle } from "@/lib/slices/guestsSlice"
+import { useDashboard } from "@/hooks/use-dashboard"
 
 const paymentSchema = z.object({
   amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
@@ -67,10 +69,18 @@ export default function GuestProfilePage() {
     const { toast } = useToast()
     const guestId = params.guestId as string
     
-    const { guests } = useAppSelector(state => state.guests)
-    const { complaints } = useAppSelector(state => state.complaints)
+    const { guests, pgs } = useAppSelector(state => state)
     const { isLoading } = useAppSelector(state => state.app)
-    const { currentPlan } = useAppSelector(state => state.user)
+    const { currentUser, currentPlan } = useAppSelector(state => state.user)
+    
+    const {
+        isEditGuestDialogOpen,
+        setIsEditGuestDialogOpen,
+        editGuestForm,
+        handleEditGuestSubmit,
+        handleOpenEditGuestDialog,
+    } = useDashboard({ pgs: pgs.pgs, guests: guests.guests });
+
 
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
     const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
@@ -78,8 +88,8 @@ export default function GuestProfilePage() {
     const [reminderMessage, setReminderMessage] = useState('')
     const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
 
-    const guest = useMemo(() => guests.find(g => g.id === guestId), [guests, guestId])
-    const guestComplaints = useMemo(() => complaints.filter(c => c.guestId === guestId), [complaints, guestId])
+    const guest = useMemo(() => guests.guests.find(g => g.id === guestId), [guests, guestId])
+    const guestComplaints = useMemo(() => complaints.complaints.filter(c => c.guestId === guestId), [complaints, guestId])
 
     useEffect(() => {
         if (guest && guest.dueDate && isAfter(new Date(), parseISO(guest.dueDate))) {
@@ -240,6 +250,7 @@ export default function GuestProfilePage() {
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <h1 className="text-2xl font-bold">{guest.name}'s Profile</h1>
+                <Button variant="outline" size="icon" onClick={() => handleOpenEditGuestDialog(guest)}><Pencil className="h-4 w-4"/></Button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -452,6 +463,7 @@ export default function GuestProfilePage() {
             </Card>
 
             {/* Dialogs */}
+            <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guest} editGuestForm={editGuestForm} handleEditGuestSubmit={handleEditGuestSubmit}/>
             <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
                 <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Collect Rent Payment</DialogTitle><DialogDescription>Record a full or partial payment for {guest.name}.</DialogDescription></DialogHeader><Form {...paymentForm}><form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4"><div className="space-y-2 py-2"><p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span></p><p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{totalDue.toLocaleString('en-IN')}</span></p></div><FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1"><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash" /></FormControl><FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl><FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="payment-form">Confirm Payment</Button></DialogFooter></DialogContent>
             </Dialog>

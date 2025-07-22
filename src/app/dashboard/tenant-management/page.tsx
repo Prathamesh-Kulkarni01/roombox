@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, MoreHorizontal, IndianRupee, User, ShieldCheck, Building, History } from "lucide-react"
+import { PlusCircle, MoreHorizontal, IndianRupee, User, ShieldCheck, Building, History, Pencil } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,7 +37,12 @@ const kycStatusColors: Record<Guest['kycStatus'], string> = {
   'not-started': 'bg-gray-100 text-gray-800',
 };
 
-const GuestList = ({ guests }: { guests: Guest[] }) => {
+interface GuestListProps {
+    guests: Guest[];
+    onEdit: (guest: Guest) => void;
+}
+
+const GuestList = ({ guests, onEdit }: GuestListProps) => {
     if (guests.length === 0) {
         return <div className="text-center py-10 text-muted-foreground">No guests found.</div>
     }
@@ -98,6 +103,9 @@ const GuestList = ({ guests }: { guests: Guest[] }) => {
                                                     <User className="mr-2 h-4 w-4" /> View Profile
                                                 </Link>
                                             </DropdownMenuItem>
+                                             <DropdownMenuItem onClick={() => onEdit(guest)}>
+                                                <Pencil className="mr-2 h-4 w-4" /> Edit Guest
+                                            </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -138,6 +146,9 @@ const GuestList = ({ guests }: { guests: Guest[] }) => {
                                         <Link href={`/dashboard/tenant-management/${guest.id}`}>
                                             <User className="mr-2 h-4 w-4" /> View Profile
                                         </Link>
+                                    </DropdownMenuItem>
+                                     <DropdownMenuItem onClick={() => onEdit(guest)}>
+                                        <Pencil className="mr-2 h-4 w-4" /> Edit Guest
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -269,10 +280,10 @@ export default function GuestManagementPage() {
                             <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
                         </TabsList>
                         <TabsContent value="active-guests" className="mt-4">
-                            <GuestList guests={activeGuests} />
+                            <GuestList guests={activeGuests} onEdit={() => {}} />
                         </TabsContent>
                         <TabsContent value="exited-guests" className="mt-4">
-                            <GuestList guests={exitedGuests} />
+                            <GuestList guests={exitedGuests} onEdit={() => {}} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>
