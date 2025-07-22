@@ -1,6 +1,5 @@
 
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, Invite, PG, User, AdditionalCharge, Room } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
@@ -44,7 +43,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
         if (!userSnapshot.empty) {
             const existingUser = userSnapshot.docs[0].data() as User;
             if (existingUser.role === 'owner') {
-                return rejectWithValue('This email belongs to an owner. Please use a different email to invite a guest.');
+                return rejectWithValue('This email is associated with an owner account. Please use a different email.');
             }
         }
 

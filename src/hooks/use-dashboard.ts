@@ -1,4 +1,5 @@
 
+
 import { useState, useEffect, useMemo, useTransition } from "react"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,7 +10,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 
-import type { Guest, Bed, Room, PG, Floor, Complaint, AdditionalCharge, Payment } from "@/lib/types"
+import type { Guest, Bed, Room, PG, Floor, Payment } from "@/lib/types"
 import { format, addMonths, parseISO } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
@@ -145,7 +146,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsEditGuestDialogOpen(true);
   };
 
-  const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
+  const handleAddGuestSubmit = async (values: z.infer<typeof addGuestSchema>) => {
     if (!selectedBedForGuestAdd) return;
     const { pg, bed } = selectedBedForGuestAdd;
     
@@ -166,8 +167,16 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       noticePeriodDays: 30,
     };
     
-    dispatch(addGuestAction(guestData));
-    setIsAddGuestDialogOpen(false);
+    try {
+        await dispatch(addGuestAction(guestData)).unwrap();
+        setIsAddGuestDialogOpen(false);
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Could not add guest",
+            description: error || "An unexpected error occurred."
+        })
+    }
   };
 
   const handleEditGuestSubmit = (values: z.infer<typeof editGuestSchema>) => {
@@ -200,10 +209,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         if (!draft.paymentHistory) draft.paymentHistory = [];
         draft.paymentHistory.push(paymentRecord);
         
-        // Use a deep copy for mutable operations
-        let mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || [])) as AdditionalCharge[];
+        let mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || []));
         
-        // Apply payment to additional charges
         for (const charge of mutableCharges) {
             if (amountPaid <= 0) break;
             const amountToClear = Math.min(amountPaid, charge.amount);
@@ -212,10 +219,9 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         }
         draft.additionalCharges = mutableCharges.filter(c => c.amount > 0);
 
-        // Apply remaining to rent
         draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaid;
         
-        const totalDueAfterPayment = draft.rentAmount - (draft.rentPaidAmount || 0) + (draft.additionalCharges.reduce((sum, c) => sum + c.amount, 0));
+        const totalDueAfterPayment = draft.rentAmount - (draft.rentPaidAmount || 0) + (draft.additionalCharges?.reduce((sum, c) => sum + c.amount, 0) || 0);
 
         if (totalDueAfterPayment <= 0) {
             draft.rentStatus = 'paid';
@@ -421,12 +427,22 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       }
       setIsRoomDialogOpen(true);
   }
+  
+  const openAddFloorDialog = (pg: PG) => {
+    if (currentPlan && (currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit)) {
+        handleOpenFloorDialog(null, pg);
+    } else {
+        toast({ variant: 'destructive', title: 'Floor Limit Reached', description: 'Please upgrade your plan to add more floors.'});
+    }
+  };
 
   const handleOpenFloorDialog = (floor: Floor | null, pg?: PG) => { 
       setFloorToEdit(floor); 
       if (!floor && pg) setSelectedPgForFloorAdd(pg); 
       setIsFloorDialogOpen(true); 
   };
+  
+  const openEditFloorDialog = (floor: Floor) => handleOpenFloorDialog(floor);
   
   const handleOpenBedDialog = (bed: Bed | null, roomId: string, floorId: string) => {
     setBedToEdit(bed ? {bed, roomId, floorId} : null); 
@@ -460,12 +476,10 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleOpenSharedChargeDialog, handleSharedChargeSubmit,
     handleOpenReminderDialog,
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
-    handleOpenRoomDialog, handleOpenFloorDialog, handleOpenBedDialog,
+    handleOpenRoomDialog, openAddFloorDialog, openEditFloorDialog, handleOpenBedDialog,
     handleDelete,
     isSavingRoom
   }
 }
 
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
-
-    
