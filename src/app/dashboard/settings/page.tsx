@@ -12,10 +12,10 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { plans } from "@/lib/mock-data"
-import type { PlanName, ChargeTemplate } from "@/lib/types"
+import { plans, navItems as allNavItems } from "@/lib/mock-data"
+import type { PlanName, ChargeTemplate, UserRole } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { updateUserPlan as updateUserPlanAction } from "@/lib/slices/userSlice"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
@@ -23,6 +23,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { saveChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from "@/lib/slices/chargeTemplatesSlice"
+import { updatePermissions, type Permissions } from '@/lib/slices/permissionsSlice'
 import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
@@ -42,13 +43,16 @@ type ChargeTemplateFormValues = z.infer<typeof chargeTemplateSchema>;
 
 export default function SettingsPage() {
   const dispatch = useAppDispatch()
-  const [notificationMethod, setNotificationMethod] = useState("manual")
   const { currentUser, currentPlan } = useAppSelector((state) => state.user)
   const { chargeTemplates } = useAppSelector((state) => state.chargeTemplates)
   const { guests } = useAppSelector((state) => state.guests);
+  const { permissions } = useAppSelector((state) => state.permissions);
   const { mockDate } = useAppSelector((state) => state.app);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<ChargeTemplate | null>(null);
+  const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
+  const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const { toast } = useToast();
 
   const form = useForm<ChargeTemplateFormValues>({
@@ -73,6 +77,29 @@ export default function SettingsPage() {
         });
     }
     setIsTemplateDialogOpen(true);
+  }
+
+  const handleOpenPermissionsDialog = (role: UserRole) => {
+    setRoleToEdit(role);
+    setSelectedPermissions(permissions?.[role] || []);
+    setIsPermissionsDialogOpen(true);
+  }
+
+  const handlePermissionChange = (permission: string, checked: boolean) => {
+    setSelectedPermissions(prev =>
+        checked ? [...prev, permission] : prev.filter(p => p !== permission)
+    );
+  }
+
+  const handleSavePermissions = () => {
+    if (!roleToEdit || !permissions) return;
+    const updatedPermissions: Permissions = {
+        ...permissions,
+        [roleToEdit]: selectedPermissions
+    };
+    dispatch(updatePermissions(updatedPermissions));
+    toast({ title: "Permissions Updated", description: `Permissions for ${roleToEdit} have been saved.`});
+    setIsPermissionsDialogOpen(false);
   }
   
   const handleTemplateSubmit = async (data: ChargeTemplateFormValues) => {
@@ -125,6 +152,8 @@ export default function SettingsPage() {
       }
   }
 
+  const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security'];
+
   return (
     <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
         <div className="flex flex-col gap-8">
@@ -145,6 +174,25 @@ export default function SettingsPage() {
                 </div>
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Users /> Role Management</CardTitle>
+                    <CardDescription>Define what each staff role can see and do on the dashboard.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                    {staffRoles.map(role => (
+                        <div key={role} className="flex items-center justify-between p-3 border rounded-lg">
+                             <p className="font-semibold capitalize">{role}</p>
+                             <Button variant="outline" size="sm" onClick={() => handleOpenPermissionsDialog(role)}>
+                                <Pencil className="w-3 h-3 mr-2" />
+                                Edit Permissions
+                             </Button>
+                        </div>
+                    ))}
+                </CardContent>
+            </Card>
+
 
             <Card>
                 <CardHeader>
@@ -235,6 +283,37 @@ export default function SettingsPage() {
                 </CardContent>
             </Card>
         </div>
+
+        <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Permissions for <span className="capitalize">{roleToEdit}</span></DialogTitle>
+                    <DialogDescription>Select the dashboard sections this role can access.</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4 py-4">
+                    {allNavItems.map(item => {
+                        const isChecked = selectedPermissions.includes(item.href);
+                        return (
+                             <div key={item.href} className="flex items-center space-x-2">
+                                <Switch
+                                    id={`${roleToEdit}-${item.feature}`}
+                                    checked={isChecked}
+                                    onCheckedChange={(checked) => handlePermissionChange(item.href, checked)}
+                                />
+                                <Label htmlFor={`${roleToEdit}-${item.feature}`} className="flex items-center gap-2 font-normal">
+                                    <item.icon className="w-4 h-4 text-muted-foreground" />
+                                    {item.label}
+                                </Label>
+                            </div>
+                        )
+                    })}
+                </div>
+                 <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
+                    <Button onClick={handleSavePermissions}>Save Permissions</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
         <DialogContent className="sm:max-w-md">
              <DialogHeader>

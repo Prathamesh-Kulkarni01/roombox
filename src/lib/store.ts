@@ -10,6 +10,8 @@ import expensesReducer from './slices/expensesSlice';
 import staffReducer from './slices/staffSlice';
 import notificationsReducer from './slices/notificationsSlice';
 import chargeTemplatesReducer from './slices/chargeTemplatesSlice';
+import permissionsReducer from './slices/permissionsSlice';
+
 
 const actionsToPersist = [
     'pgs/addPg/fulfilled', 'pgs/updatePg/fulfilled', 'pgs/deletePg/fulfilled',
@@ -55,6 +57,7 @@ export const makeStore = () => {
         staff: staffReducer,
         notifications: notificationsReducer,
         chargeTemplates: chargeTemplatesReducer,
+        permissions: permissionsReducer,
     },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware({
         serializableCheck: false, 

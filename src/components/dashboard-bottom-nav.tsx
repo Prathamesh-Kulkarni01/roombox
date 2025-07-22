@@ -13,44 +13,30 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { navPermissions } from '@/lib/permissions';
+import { navItems as allNavItems } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
-
-const allMainNavItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'core' },
-  { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'core' },
-  { href: '/dashboard/rent-passbook', label: 'Passbook', icon: BookUser, feature: 'core' },
-  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
-  { href: '/dashboard/food', label: 'Food', icon: UtensilsCrossed, feature: 'core' },
-];
-
-const allMoreNavItems = [
-  { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'core' },
-  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
-  { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },
-  { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2, feature: 'hasSeoGenerator' },
-  { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'hasWebsiteBuilder' },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
-]
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
+  const { permissions } = useAppSelector((state) => state.permissions);
 
   if (!currentUser || !currentPlan) return null;
 
-  const allowedRoutes = navPermissions[currentUser.role] || [];
-  
-  const filterByPermissions = (item: typeof allMainNavItems[0]) => {
-      if (!allowedRoutes.includes(item.href)) return false;
-      if (item.feature !== 'core' && !currentPlan[item.feature as keyof typeof currentPlan]) {
-          return false;
+  const filterByPermissions = (item: typeof allNavItems[0]) => {
+      // Owner sees everything, regardless of plan.
+      if (currentUser.role === 'owner') return true;
+
+      // For staff, check against the owner's custom permissions.
+      if (permissions && permissions[currentUser.role]) {
+          return permissions[currentUser.role].includes(item.href);
       }
-      return true;
+      return false;
   }
 
-  const mainNavItems = allMainNavItems.filter(filterByPermissions);
-  const moreNavItems = allMoreNavItems.filter(filterByPermissions);
+  const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/expense', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/food'].includes(item.href)).filter(filterByPermissions);
+  const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href)).filter(filterByPermissions);
+
 
   const showMoreTab = moreNavItems.length > 0;
   const mainItemsCount = showMoreTab ? 4 : 5;
@@ -77,7 +63,7 @@ export default function DashboardBottomNav() {
           </Link>
         ))}
         
-        {overflowItems.length > 0 && (
+        {showMoreTab && (
           <Sheet>
             <SheetTrigger asChild>
               <button className="flex flex-col items-center justify-center gap-1 text-sidebar-foreground/70 transition-colors h-full hover:text-primary">

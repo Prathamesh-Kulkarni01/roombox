@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
 import type { Guest, PG, Complaint, Notification, Staff } from '@/lib/types'
 import { setLoading } from '@/lib/slices/appSlice'
+import { fetchPermissions } from '@/lib/slices/permissionsSlice'
 
 
 function AuthHandler({ children }: { children: ReactNode }) {
@@ -92,6 +93,10 @@ function AuthHandler({ children }: { children: ReactNode }) {
     setDataListeners([]);
 
     if (!currentUser || !currentPlan || !db) return;
+
+    if (currentUser.role === 'owner') {
+        dispatch(fetchPermissions({ ownerId: currentUser.id, plan: currentPlan }));
+    }
 
     initializeFirebaseMessaging(currentUser.id);
 

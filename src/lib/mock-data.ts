@@ -1,5 +1,8 @@
 
+
 import type { Menu, Plan, PlanName, PG } from './types';
+import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser } from 'lucide-react';
+
 
 export const defaultMenu: Menu = {
   monday: { breakfast: 'Poha, Tea', lunch: 'Roti, Mixed Veg, Dal Tadka, Rice', dinner: 'Paneer Butter Masala, Roti, Salad' },
@@ -98,6 +101,20 @@ export const plans: Record<PlanName, Plan> = {
     hasWebsiteBuilder: true,
   }
 };
+
+export const navItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'core', tourId: 'dashboard-nav' },
+  { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed, feature: 'core' },
+  { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet, feature: 'core' },
+  { href: '/dashboard/rent-passbook', label: 'Rent Passbook', icon: BookUser, feature: 'core' },
+  { href: '/dashboard/pg-management', label: 'Property Management', icon: Building, feature: 'core', tourId: 'pg-management-nav' },
+  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
+  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
+  { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },
+  { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2, feature: 'hasSeoGenerator' },
+  { href: '/dashboard/website', label: 'Website Builder', icon: Globe, feature: 'hasWebsiteBuilder' },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
+];
 
 // This is temporary mock data for the public PG pages.
 // In a real app, you would fetch this from a public Firestore collection.
