@@ -21,7 +21,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { saveChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from "@/lib/slices/chargeTemplatesSlice"
-import { updatePermissions, type FeaturePermissions, featurePermissionConfig } from '@/lib/slices/permissionsSlice'
+import { updatePermissions, type FeaturePermissions } from '@/lib/slices/permissionsSlice'
+import { featurePermissionConfig } from '@/lib/permissions';
 import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
@@ -139,7 +140,12 @@ export default function SettingsPage() {
   }
 
   const handlePlanChange = (planId: PlanName) => {
-      dispatch(updateUserPlanAction(planId));
+      // This is a mock action for demonstration. In a real app, this would trigger a subscription flow.
+      // dispatch(updateUserPlan(planId));
+      toast({
+          title: "Plan Change Not Implemented",
+          description: "This is a UI demonstration. Plan changes require a subscription provider integration.",
+      });
   }
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
