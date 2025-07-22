@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Building, Users, Wallet, MoreHorizontal, UtensilsCrossed, Wand2, Settings, MessageSquareWarning, Contact, Globe, BookUser } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -13,41 +13,54 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { navItems as allNavItems } from '@/lib/mock-data';
+import { navItems as allNavItems, type NavItem } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
+import type { FeaturePermissions } from '@/lib/permissions';
+
+
+// Helper function to check if a user has any permission for a given feature
+const hasAnyPermissionForFeature = (
+  feature: NavItem['feature'],
+  permissions: FeaturePermissions | null | undefined,
+  role: string | null | undefined
+): boolean => {
+  if (!feature || !permissions || !role || role === 'owner') return true;
+
+  const featurePerms = permissions[feature];
+  if (!featurePerms) return false;
+
+  // The user has access if any of the permissions for that feature are true
+  return Object.values(featurePerms).some(value => value === true);
+};
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
-  const { permissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = useAppSelector((state) => state.permissions);
 
   if (!currentUser || !currentPlan) return null;
 
-  const filterByPermissions = (item: typeof allNavItems[0]) => {
-      // Owner sees everything, regardless of plan.
-      if (currentUser.role === 'owner') return true;
+  const visibleNavItems = allNavItems.filter(item => 
+      hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role)
+  );
 
-      // For staff, check against the owner's custom permissions.
-      if (permissions && permissions[currentUser.role]) {
-          return permissions[currentUser.role].includes(item.href);
-      }
-      return false;
-  }
-
-  const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/expense', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/food'].includes(item.href)).filter(filterByPermissions);
-  const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href)).filter(filterByPermissions);
+  const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/expense', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/food'].includes(item.href));
+  const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href));
+  
+  const accessibleMainNavItems = mainNavItems.filter(item => hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role));
+  const accessibleMoreNavItems = moreNavItems.filter(item => hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role));
 
 
-  const showMoreTab = moreNavItems.length > 0;
+  const showMoreTab = accessibleMoreNavItems.length > 0 || accessibleMainNavItems.length > 4;
   const mainItemsCount = showMoreTab ? 4 : 5;
-  const visibleMainNavItems = mainNavItems.slice(0, mainItemsCount);
-  const overflowItems = [...mainNavItems.slice(mainItemsCount), ...moreNavItems];
+  const visibleItems = accessibleMainNavItems.slice(0, mainItemsCount);
+  const overflowItems = [...accessibleMainNavItems.slice(mainItemsCount), ...accessibleMoreNavItems];
 
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-sidebar-border z-50">
       <nav className="grid grid-cols-5 h-16 items-center">
-        {visibleMainNavItems.map((item) => (
+        {visibleItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}

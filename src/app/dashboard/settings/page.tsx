@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { plans, navItems as allNavItems } from "@/lib/mock-data"
@@ -17,13 +16,12 @@ import type { PlanName, ChargeTemplate, UserRole } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { updateUserPlan as updateUserPlanAction } from "@/lib/slices/userSlice"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { saveChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from "@/lib/slices/chargeTemplatesSlice"
-import { updatePermissions, type Permissions } from '@/lib/slices/permissionsSlice'
+import { updatePermissions, type FeaturePermissions, featurePermissionConfig } from '@/lib/slices/permissionsSlice'
 import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
@@ -46,13 +44,13 @@ export default function SettingsPage() {
   const { currentUser, currentPlan } = useAppSelector((state) => state.user)
   const { chargeTemplates } = useAppSelector((state) => state.chargeTemplates)
   const { guests } = useAppSelector((state) => state.guests);
-  const { permissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = useAppSelector((state) => state.permissions);
   const { mockDate } = useAppSelector((state) => state.app);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<ChargeTemplate | null>(null);
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
   const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = useState<FeaturePermissions>({});
   const { toast } = useToast();
 
   const form = useForm<ChargeTemplateFormValues>({
@@ -81,22 +79,27 @@ export default function SettingsPage() {
 
   const handleOpenPermissionsDialog = (role: UserRole) => {
     setRoleToEdit(role);
-    setSelectedPermissions(permissions?.[role] || []);
+    setSelectedPermissions(featurePermissions || {});
     setIsPermissionsDialogOpen(true);
   }
 
-  const handlePermissionChange = (permission: string, checked: boolean) => {
-    setSelectedPermissions(prev =>
-        checked ? [...prev, permission] : prev.filter(p => p !== permission)
-    );
+  const handlePermissionChange = (feature: string, action: string, checked: boolean) => {
+      const newPermissions = { ...selectedPermissions };
+      if (!newPermissions[feature]) {
+        newPermissions[feature] = {};
+      }
+      newPermissions[feature][action] = checked;
+      setSelectedPermissions(newPermissions);
   }
 
   const handleSavePermissions = () => {
-    if (!roleToEdit || !permissions) return;
-    const updatedPermissions: Permissions = {
-        ...permissions,
-        [roleToEdit]: selectedPermissions
-    };
+    if (!roleToEdit || !featurePermissions) return;
+
+    // Create a deep copy of the original permissions to modify
+    const updatedPermissions = JSON.parse(JSON.stringify(featurePermissions));
+    // Apply changes for the specific role being edited
+    updatedPermissions[roleToEdit] = selectedPermissions[roleToEdit];
+    
     dispatch(updatePermissions(updatedPermissions));
     toast({ title: "Permissions Updated", description: `Permissions for ${roleToEdit} have been saved.`});
     setIsPermissionsDialogOpen(false);
@@ -152,7 +155,8 @@ export default function SettingsPage() {
       }
   }
 
-  const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security'];
+  const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
+  const currentRolePermissions = roleToEdit ? selectedPermissions?.[roleToEdit] : {};
 
   return (
     <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
@@ -285,28 +289,29 @@ export default function SettingsPage() {
         </div>
 
         <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Edit Permissions for <span className="capitalize">{roleToEdit}</span></DialogTitle>
-                    <DialogDescription>Select the dashboard sections this role can access.</DialogDescription>
+                    <DialogDescription>Select the actions this role can perform on the dashboard.</DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 py-4">
-                    {allNavItems.map(item => {
-                        const isChecked = selectedPermissions.includes(item.href);
-                        return (
-                             <div key={item.href} className="flex items-center space-x-2">
-                                <Switch
-                                    id={`${roleToEdit}-${item.feature}`}
-                                    checked={isChecked}
-                                    onCheckedChange={(checked) => handlePermissionChange(item.href, checked)}
-                                />
-                                <Label htmlFor={`${roleToEdit}-${item.feature}`} className="flex items-center gap-2 font-normal">
-                                    <item.icon className="w-4 h-4 text-muted-foreground" />
-                                    {item.label}
-                                </Label>
+                <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto pr-2">
+                    {Object.entries(featurePermissionConfig).map(([featureKey, config]) => (
+                        <div key={featureKey}>
+                            <h4 className="font-semibold text-lg mb-2">{config.label}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l">
+                                {Object.entries(config.actions).map(([actionKey, actionLabel]) => (
+                                    <div key={actionKey} className="flex items-center space-x-2">
+                                        <Switch
+                                            id={`${roleToEdit}-${featureKey}-${actionKey}`}
+                                            checked={currentRolePermissions?.[featureKey]?.[actionKey] || false}
+                                            onCheckedChange={(checked) => handlePermissionChange(featureKey, actionKey, checked)}
+                                        />
+                                        <Label htmlFor={`${roleToEdit}-${featureKey}-${actionKey}`} className="font-normal">{actionLabel}</Label>
+                                    </div>
+                                ))}
                             </div>
-                        )
-                    })}
+                        </div>
+                    ))}
                 </div>
                  <DialogFooter>
                     <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>

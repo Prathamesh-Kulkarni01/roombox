@@ -40,9 +40,10 @@ const kycStatusColors: Record<Guest['kycStatus'], string> = {
 interface GuestListProps {
     guests: Guest[];
     onEdit: (guest: Guest) => void;
+    canEdit: boolean;
 }
 
-const GuestList = ({ guests, onEdit }: GuestListProps) => {
+const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
     if (guests.length === 0) {
         return <div className="text-center py-10 text-muted-foreground">No guests found.</div>
     }
@@ -103,9 +104,11 @@ const GuestList = ({ guests, onEdit }: GuestListProps) => {
                                                     <User className="mr-2 h-4 w-4" /> View Profile
                                                 </Link>
                                             </DropdownMenuItem>
-                                             <DropdownMenuItem onClick={() => onEdit(guest)}>
-                                                <Pencil className="mr-2 h-4 w-4" /> Edit Guest
-                                            </DropdownMenuItem>
+                                             {canEdit && (
+                                                <DropdownMenuItem onClick={() => onEdit(guest)}>
+                                                    <Pencil className="mr-2 h-4 w-4" /> Edit Guest
+                                                </DropdownMenuItem>
+                                             )}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -147,9 +150,11 @@ const GuestList = ({ guests, onEdit }: GuestListProps) => {
                                             <User className="mr-2 h-4 w-4" /> View Profile
                                         </Link>
                                     </DropdownMenuItem>
+                                    {canEdit && (
                                      <DropdownMenuItem onClick={() => onEdit(guest)}>
                                         <Pencil className="mr-2 h-4 w-4" /> Edit Guest
                                     </DropdownMenuItem>
+                                    )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                     </div>
@@ -179,6 +184,8 @@ export default function GuestManagementPage() {
     const { guests } = useAppSelector(state => state.guests);
     const { pgs } = useAppSelector(state => state.pgs);
     const { isLoading, selectedPgId } = useAppSelector(state => state.app);
+    const { currentUser } = useAppSelector(state => state.user);
+    const { featurePermissions } = useAppSelector(state => state.permissions);
     
     const [activeGuests, exitedGuests] = useMemo(() => {
         const active: Guest[] = [];
@@ -195,6 +202,11 @@ export default function GuestManagementPage() {
         
         return [active, exited];
     }, [guests, selectedPgId]);
+
+    const canEditGuests = useMemo(() => {
+        if (!featurePermissions || !currentUser) return false;
+        return featurePermissions.guests?.edit ?? false;
+    }, [featurePermissions, currentUser]);
 
     if (isLoading) {
         return (
@@ -280,10 +292,10 @@ export default function GuestManagementPage() {
                             <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
                         </TabsList>
                         <TabsContent value="active-guests" className="mt-4">
-                            <GuestList guests={activeGuests} onEdit={() => {}} />
+                            <GuestList guests={activeGuests} onEdit={() => {}} canEdit={canEditGuests}/>
                         </TabsContent>
                         <TabsContent value="exited-guests" className="mt-4">
-                            <GuestList guests={exitedGuests} onEdit={() => {}} />
+                            <GuestList guests={exitedGuests} onEdit={() => {}} canEdit={canEditGuests}/>
                         </TabsContent>
                     </Tabs>
                 </CardContent>

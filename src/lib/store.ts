@@ -20,7 +20,8 @@ const actionsToPersist = [
     'expenses/addExpense/fulfilled',
     'staff/addStaff/fulfilled', 'staff/updateStaff/fulfilled', 'staff/deleteStaff/fulfilled',
     'user/setCurrentUser',
-    'chargeTemplates/saveChargeTemplate/fulfilled', 'chargeTemplates/updateChargeTemplate/fulfilled', 'chargeTemplates/deleteChargeTemplate/fulfilled'
+    'chargeTemplates/saveChargeTemplate/fulfilled', 'chargeTemplates/updateChargeTemplate/fulfilled', 'chargeTemplates/deleteChargeTemplate/fulfilled',
+    'permissions/updatePermissions/fulfilled',
 ];
 
 const localStorageMiddleware: Middleware = store => next => action => {
@@ -37,6 +38,7 @@ const localStorageMiddleware: Middleware = store => next => action => {
             if (action.type.startsWith('expenses/')) localStorage.setItem('expenses', JSON.stringify(state.expenses.expenses));
             if (action.type.startsWith('staff/')) localStorage.setItem('staff', JSON.stringify(state.staff.staff));
             if (action.type.startsWith('chargeTemplates/')) localStorage.setItem('chargeTemplates', JSON.stringify(state.chargeTemplates.chargeTemplates));
+             if (action.type.startsWith('permissions/')) localStorage.setItem('featurePermissions', JSON.stringify(state.permissions.featurePermissions));
         } catch (e) {
             console.error("Could not save to localStorage", e);
         }

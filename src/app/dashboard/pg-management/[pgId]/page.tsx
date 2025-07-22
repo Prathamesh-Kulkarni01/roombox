@@ -38,7 +38,8 @@ export default function ManagePgPage() {
   const dispatch = useAppDispatch()
   const { pgs } = useAppSelector(state => state.pgs)
   const { guests } = useAppSelector(state => state.guests)
-  const { currentPlan } = useAppSelector(state => state.user)
+  const { currentUser, currentPlan } = useAppSelector(state => state.user)
+  const { featurePermissions } = useAppSelector(state => state.permissions);
   const pgId = params.pgId as string
   const { toast } = useToast()
 
@@ -58,6 +59,11 @@ export default function ManagePgPage() {
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
   const canAddFloor = pg && currentPlan && (currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit)
 
+  const permissions = useMemo(() => {
+    if (!featurePermissions || !currentUser) return {};
+    return featurePermissions.properties;
+  }, [featurePermissions, currentUser]);
+  
   useEffect(() => {
     if (searchParams.get('setup') === 'true') {
         setIsEditMode(true);
@@ -95,10 +101,12 @@ export default function ManagePgPage() {
             </Button>
             <h1 className="text-2xl font-bold">{pg.name} Layout</h1>
         </div>
-        <div data-tour="edit-mode-switch" className="flex items-center space-x-2">
-            <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
-            <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} />
-        </div>
+        {permissions?.edit && (
+          <div data-tour="edit-mode-switch" className="flex items-center space-x-2">
+              <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
+              <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} />
+          </div>
+        )}
       </div>
 
       <Card>
@@ -120,7 +128,7 @@ export default function ManagePgPage() {
                                 {isEditMode && (
                                     <div className="flex items-center -mt-2 -mr-2">
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('room', { floorId: floor.id, roomId: room.id, pgId: pg.id })}> <Trash2 className="w-4 h-4" /> </Button>
+                                        {permissions.delete && <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('room', { floorId: floor.id, roomId: room.id, pgId: pg.id })}> <Trash2 className="w-4 h-4" /> </Button>}
                                     </div>
                                 )}
                             </CardHeader>
@@ -142,12 +150,12 @@ export default function ManagePgPage() {
                                             {isEditMode && (
                                                 <div className="flex items-center">
                                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}> <Pencil className="w-3 h-3" /> </Button>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}> <Trash2 className="w-3 h-3" /> </Button>
+                                                     {permissions.delete && <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}> <Trash2 className="w-3 h-3" /> </Button>}
                                                 </div>
                                             )}
                                         </div>
                                     ))}
-                                    {isEditMode && (
+                                    {isEditMode && permissions.add && (
                                         <button data-tour="add-bed-button" onClick={() => handleOpenBedDialog(null, room.id, floor.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
                                             <PlusCircle className="w-3.5 h-3.5 mr-2" /> Add Bed
                                         </button>
@@ -156,7 +164,7 @@ export default function ManagePgPage() {
                             </CardContent>
                         </Card>
                     ))}
-                    {isEditMode && (
+                    {isEditMode && permissions.add && (
                         <button data-tour="add-room-button" onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                             <PlusCircle className="w-8 h-8 mb-2" />
                             <span className="font-medium">Add New Room</span>
@@ -167,7 +175,7 @@ export default function ManagePgPage() {
                     <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable Edit Mode to add one.</div>
                   )}
                   <div className="mt-6 flex items-center gap-4">
-                    {isEditMode && (
+                    {isEditMode && permissions.delete && (
                         <Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id, pgId: pg.id }) }}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Floor
                         </Button>
@@ -182,7 +190,7 @@ export default function ManagePgPage() {
               </AccordionItem>
             ))}
           </Accordion>
-          {isEditMode && (
+          {isEditMode && permissions.add && (
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>

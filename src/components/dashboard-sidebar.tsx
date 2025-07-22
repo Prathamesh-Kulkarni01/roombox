@@ -7,17 +7,33 @@ import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
-import { navItems } from '@/lib/mock-data';
+import { navItems, type NavItem } from '@/lib/mock-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut } from 'lucide-react';
+import type { FeaturePermissions } from '@/lib/permissions';
+
+// Helper function to check if a user has any permission for a given feature
+const hasAnyPermissionForFeature = (
+  feature: NavItem['feature'],
+  permissions: FeaturePermissions | null | undefined,
+  role: string | null | undefined
+): boolean => {
+  if (!feature || !permissions || !role || role === 'owner') return true;
+
+  const featurePerms = permissions[feature];
+  if (!featurePerms) return false;
+
+  // The user has access if any of the permissions for that feature are true
+  return Object.values(featurePerms).some(value => value === true);
+};
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
-  const { permissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = useAppSelector((state) => state.permissions);
 
   if (!currentUser || !currentPlan) {
     return (
@@ -29,19 +45,9 @@ export default function DashboardSidebar() {
     );
   }
 
-  const visibleNavItems = navItems.filter(item => {
-    // Owner sees everything
-    if (currentUser.role === 'owner') return true;
-
-    // For staff, check against custom permissions if available
-    if (permissions && permissions[currentUser.role]) {
-        return permissions[currentUser.role].includes(item.href);
-    }
-    
-    // Fallback for staff if permissions aren't loaded yet (or for non-owner/non-staff)
-    return false;
-  });
-
+  const visibleNavItems = navItems.filter(item => 
+      hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role)
+  );
 
   return (
     <aside className="w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground hidden md:flex">
