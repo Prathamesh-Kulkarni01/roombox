@@ -21,10 +21,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 
 import type { Guest, Complaint, AdditionalCharge, Payment } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle } from "lucide-react"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
@@ -173,7 +174,7 @@ export default function GuestProfilePage() {
         setIsPaymentDialogOpen(false);
     }
     
-    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>) => {
+    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>>) => {
         if (!guest) return;
         dispatch(addChargeAction({ guestId: guest.id, charge: values }));
         setIsChargeDialogOpen(false);
@@ -351,106 +352,103 @@ export default function GuestProfilePage() {
                             )}
                         </CardFooter>
                     </Card>
-                     <Card>
-                        <CardHeader>
-                            <CardTitle>Stay Details</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4 text-sm">
-                           <div className="flex justify-between items-center">
-                                <span>Move-in Date:</span>
-                                <span className="font-medium">{format(parseISO(guest.moveInDate), "do MMM, yyyy")}</span>
-                            </div>
-                             <div className="flex justify-between items-center">
-                                <span>Notice Period:</span>
-                                <span className="font-medium">{guest.noticePeriodDays} days</span>
-                            </div>
-                             <div className="flex justify-between items-center">
-                                <span>Exit Status:</span>
-                                {guest.exitDate ? (
-                                    <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                                        Exiting on {format(parseISO(guest.exitDate), "do MMMM, yyyy")} ({differenceInDays(parseISO(guest.exitDate), new Date())} days left)
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="secondary">Active</Badge>
-                                )}
-                            </div>
-                        </CardContent>
-                        <CardFooter>
-                            <Button variant="outline" onClick={handleInitiateExit} disabled={!!guest.exitDate}>
-                                <LogOut className="mr-2 h-4 w-4" />
-                                {guest.exitDate ? 'Exit Already Initiated' : 'Initiate Exit'}
-                            </Button>
-                        </CardFooter>
-                    </Card>
                 </div>
             </div>
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Payment History</CardTitle>
-                    <CardDescription>A log of all payments made by {guest.name}.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     {guest.paymentHistory && guest.paymentHistory.length > 0 ? (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Payment For</TableHead>
-                                    <TableHead>Method</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {guest.paymentHistory.map(payment => (
-                                    <TableRow key={payment.id}>
-                                        <TableCell>{format(parseISO(payment.date), 'dd MMM, yyyy')}</TableCell>
-                                        <TableCell>{payment.forMonth}</TableCell>
-                                        <TableCell className="capitalize">{payment.method}</TableCell>
-                                        <TableCell className="text-right font-semibold">₹{payment.amount.toLocaleString('en-IN')}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    ) : (
-                        <p className="text-muted-foreground text-center py-4">No payment history found.</p>
-                    )}
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Complaint History</CardTitle>
-                    <CardDescription>A log of all complaints raised by {guest.name}.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {guestComplaints.length === 0 ? (
-                        <p className="text-muted-foreground text-center py-4">No complaints from this guest. Yay!</p>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Category</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead>Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {guestComplaints.map(complaint => (
-                                    <TableRow key={complaint.id}>
-                                        <TableCell>{format(parseISO(complaint.date), 'dd MMM, yyyy')}</TableCell>
-                                        <TableCell className="capitalize">{complaint.category}</TableCell>
-                                        <TableCell className="max-w-xs truncate">{complaint.description}</TableCell>
-                                        <TableCell>
-                                            <Badge className={cn("capitalize", complaintStatusColors[complaint.status])}>{complaint.status}</Badge>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </CardContent>
+                <Tabs defaultValue="stay-details">
+                    <CardHeader>
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="stay-details">Stay Details</TabsTrigger>
+                            <TabsTrigger value="payment-history">Payment History</TabsTrigger>
+                            <TabsTrigger value="complaint-history">Complaint History</TabsTrigger>
+                        </TabsList>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                        <TabsContent value="stay-details">
+                            <div className="space-y-4 text-sm">
+                               <div className="flex justify-between items-center">
+                                    <span>Move-in Date:</span>
+                                    <span className="font-medium">{format(parseISO(guest.moveInDate), "do MMM, yyyy")}</span>
+                                </div>
+                                 <div className="flex justify-between items-center">
+                                    <span>Notice Period:</span>
+                                    <span className="font-medium">{guest.noticePeriodDays} days</span>
+                                </div>
+                                 <div className="flex justify-between items-center">
+                                    <span>Exit Status:</span>
+                                    {guest.exitDate ? (
+                                        <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                                            Exiting on {format(parseISO(guest.exitDate), "do MMMM, yyyy")} ({differenceInDays(parseISO(guest.exitDate), new Date())} days left)
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="secondary">Active</Badge>
+                                    )}
+                                </div>
+                                 <div className="pt-4">
+                                     <Button variant="outline" onClick={handleInitiateExit} disabled={!!guest.exitDate}>
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        {guest.exitDate ? 'Exit Already Initiated' : 'Initiate Exit'}
+                                    </Button>
+                                 </div>
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="payment-history">
+                            {guest.paymentHistory && guest.paymentHistory.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Date</TableHead>
+                                            <TableHead>Payment For</TableHead>
+                                            <TableHead>Method</TableHead>
+                                            <TableHead className="text-right">Amount</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {guest.paymentHistory.map(payment => (
+                                            <TableRow key={payment.id}>
+                                                <TableCell>{format(parseISO(payment.date), 'dd MMM, yyyy')}</TableCell>
+                                                <TableCell>{payment.forMonth}</TableCell>
+                                                <TableCell className="capitalize">{payment.method}</TableCell>
+                                                <TableCell className="text-right font-semibold">₹{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <p className="text-muted-foreground text-center py-4">No payment history found.</p>
+                            )}
+                        </TabsContent>
+                         <TabsContent value="complaint-history">
+                             {guestComplaints.length === 0 ? (
+                                <p className="text-muted-foreground text-center py-4">No complaints from this guest. Yay!</p>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Date</TableHead>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead>Description</TableHead>
+                                            <TableHead>Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {guestComplaints.map(complaint => (
+                                            <TableRow key={complaint.id}>
+                                                <TableCell>{format(parseISO(complaint.date), 'dd MMM, yyyy')}</TableCell>
+                                                <TableCell className="capitalize">{complaint.category}</TableCell>
+                                                <TableCell className="max-w-xs truncate">{complaint.description}</TableCell>
+                                                <TableCell>
+                                                    <Badge className={cn("capitalize", complaintStatusColors[complaint.status])}>{complaint.status}</Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                         </TabsContent>
+                    </CardContent>
+                </Tabs>
             </Card>
 
             {/* Dialogs */}
@@ -483,3 +481,4 @@ export default function GuestProfilePage() {
         </div>
     )
 }
+
