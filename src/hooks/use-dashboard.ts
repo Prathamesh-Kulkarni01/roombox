@@ -154,12 +154,11 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       const guest = selectedGuestForPayment;
       let amountPaid = values.amountPaid;
 
-      // Create a mutable copy of charges to clear them as payment is applied
-      let remainingCharges = [...(guest.additionalCharges || [])];
-      let clearedCharges: AdditionalCharge[] = [];
+      // Create a deep copy of charges to allow mutation
+      const mutableCharges = JSON.parse(JSON.stringify(guest.additionalCharges || [])) as AdditionalCharge[];
       
       // First, apply payment to additional charges
-      for (const charge of remainingCharges) {
+      for (const charge of mutableCharges) {
           if (amountPaid <= 0) break;
           const amountToClear = Math.min(amountPaid, charge.amount);
           charge.amount -= amountToClear;
@@ -167,15 +166,15 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       }
       
       // Filter out fully paid charges
-      clearedCharges = remainingCharges.filter(c => c.amount > 0);
+      const remainingCharges = mutableCharges.filter(c => c.amount > 0);
 
       // Apply remaining payment to rent
       let newRentPaidAmount = (guest.rentPaidAmount || 0) + amountPaid;
       
       const updatedGuest = produce(guest, draft => {
-          draft.additionalCharges = clearedCharges;
+          draft.additionalCharges = remainingCharges;
           
-          if (newRentPaidAmount >= draft.rentAmount && clearedCharges.length === 0) {
+          if (newRentPaidAmount >= draft.rentAmount && remainingCharges.length === 0) {
               // Cycle completes, rent is fully paid
               draft.rentStatus = 'paid';
               draft.rentPaidAmount = 0; // Reset for next cycle
