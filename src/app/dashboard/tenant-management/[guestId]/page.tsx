@@ -174,7 +174,7 @@ export default function GuestProfilePage() {
         setIsPaymentDialogOpen(false);
     }
     
-    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>>) => {
+    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>) => {
         if (!guest) return;
         dispatch(addChargeAction({ guestId: guest.id, charge: values }));
         setIsChargeDialogOpen(false);
@@ -481,4 +481,3 @@ export default function GuestProfilePage() {
         </div>
     )
 }
-
