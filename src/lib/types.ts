@@ -84,6 +84,7 @@ export interface Guest {
   dueDate: string;
   rentAmount: number;
   rentPaidAmount?: number;
+  balanceBroughtForward?: number; // For carrying over previous unpaid amounts
   depositAmount?: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
   aadhaarDataUri?: string;

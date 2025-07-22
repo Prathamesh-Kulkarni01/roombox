@@ -9,7 +9,7 @@ import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
 import { verifyKyc } from '@/ai/flows/verify-kyc-flow';
-import { format, addMonths } from 'date-fns';
+import { format, addMonths, isAfter, parseISO, differenceInMonths } from 'date-fns';
 
 interface GuestsState {
     guests: Guest[];
@@ -56,6 +56,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             kycStatus: 'not-started',
             isVacated: false,
             additionalCharges: [],
+            balanceBroughtForward: 0,
         };
 
         const updatedPg = produce(pg, draft => {
@@ -371,6 +372,46 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
     }
 );
 
+export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootState }>(
+    'guests/reconcileRentCycle',
+    async (guestId, { getState, rejectWithValue }) => {
+        const { user, guests } = getState();
+        const guest = guests.guests.find(g => g.id === guestId);
+
+        if (!user.currentUser || !guest || !guest.dueDate) return rejectWithValue('Guest or due date not found');
+
+        const now = new Date();
+        const dueDate = parseISO(guest.dueDate);
+
+        if (!isAfter(now, dueDate)) {
+            return rejectWithValue('Rent is not due yet');
+        }
+
+        const monthsOverdue = differenceInMonths(now, dueDate);
+        
+        const updatedGuest = produce(guest, draft => {
+            if (monthsOverdue >= 0) {
+                const rentForOverdueMonths = (monthsOverdue + 1) * draft.rentAmount;
+                draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + rentForOverdueMonths - (draft.rentPaidAmount || 0);
+                draft.dueDate = format(addMonths(dueDate, monthsOverdue + 1), 'yyyy-MM-dd');
+                draft.rentPaidAmount = 0; // Reset for the new cycle
+                draft.rentStatus = 'unpaid';
+            }
+        });
+
+        if (JSON.stringify(guest) !== JSON.stringify(updatedGuest)) {
+            if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+                const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+                if(ownerId) {
+                    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+                    await setDoc(guestDocRef, updatedGuest, { merge: true });
+                }
+            }
+        }
+        return updatedGuest;
+    }
+);
+
 const guestsSlice = createSlice({
     name: 'guests',
     initialState,
@@ -427,6 +468,12 @@ const guestsSlice = createSlice({
             })
             .addCase(vacateGuest.fulfilled, (state, action) => {
                 state.guests = state.guests.filter(g => g.id !== action.payload.guest.id);
+            })
+            .addCase(reconcileRentCycle.fulfilled, (state, action) => {
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
+                if (index !== -1) {
+                    state.guests[index] = action.payload;
+                }
             })
             .addCase('pgs/deletePg/fulfilled', (state, action) => {
                 state.guests = state.guests.filter(g => g.pgId !== action.payload);

@@ -24,11 +24,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 import type { Guest, Complaint, AdditionalCharge } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle } from "lucide-react"
-import { format, addMonths, differenceInDays, parseISO, isAfter } from "date-fns"
+import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
-import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction } from "@/lib/slices/guestsSlice"
+import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle } from "@/lib/slices/guestsSlice"
 
 const paymentSchema = z.object({
   amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
@@ -79,27 +79,22 @@ export default function GuestProfilePage() {
     const guest = useMemo(() => guests.find(g => g.id === guestId), [guests, guestId])
     const guestComplaints = useMemo(() => complaints.filter(c => c.guestId === guestId), [complaints, guestId])
 
-    const { totalDue, balanceBroughtForward, currentMonthRent } = useMemo(() => {
-        if (!guest) return { totalDue: 0, balanceBroughtForward: 0, currentMonthRent: 0 };
-        
-        const now = new Date();
-        const dueDate = parseISO(guest.dueDate);
-        let monthsOverdue = 0;
-        
-        if (isAfter(now, dueDate)) {
-            monthsOverdue = Math.floor(differenceInDays(now, dueDate) / 30);
+    useEffect(() => {
+        if (guest && guest.dueDate && isAfter(new Date(), parseISO(guest.dueDate))) {
+            dispatch(reconcileRentCycle(guest.id));
         }
+    }, [guest, dispatch]);
 
-        const rentForOverdueMonths = monthsOverdue * guest.rentAmount;
-        const previousBalance = (guest.rentPaidAmount || 0) < 0 ? Math.abs(guest.rentPaidAmount || 0) : 0;
+    const { totalDue, balanceBroughtForward } = useMemo(() => {
+        if (!guest) return { totalDue: 0, balanceBroughtForward: 0 };
         
-        const balanceBf = rentForOverdueMonths + previousBalance;
+        const balanceBf = guest.balanceBroughtForward || 0;
         const currentMonthRent = guest.rentAmount;
         const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
         
-        const total = balanceBf + currentMonthRent + chargesDue - (guest.rentPaidAmount || 0 > 0 ? guest.rentPaidAmount : 0);
+        const total = balanceBf + currentMonthRent + chargesDue - (guest.rentPaidAmount || 0);
 
-        return { totalDue: total, balanceBroughtForward: balanceBf, currentMonthRent };
+        return { totalDue: total, balanceBroughtForward: balanceBf };
     }, [guest]);
 
     const paymentForm = useForm<z.infer<typeof paymentSchema>>({
@@ -260,7 +255,7 @@ export default function GuestProfilePage() {
                             )}
                              <div className="flex justify-between items-center">
                                 <span>Current Month's Rent:</span>
-                                <span className="font-medium">₹{currentMonthRent.toLocaleString('en-IN')}</span>
+                                <span className="font-medium">₹{guest.rentAmount.toLocaleString('en-IN')}</span>
                             </div>
                              {(guest.rentPaidAmount ?? 0) > 0 && (
                                 <div className="flex justify-between items-center text-green-600">
@@ -329,7 +324,7 @@ export default function GuestProfilePage() {
                                 <span>Exit Status:</span>
                                 {guest.exitDate ? (
                                     <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                                        Exiting on {format(parseISO(guest.exitDate), "do MMM, yyyy")} ({differenceInDays(parseISO(guest.exitDate), new Date())} days left)
+                                        Exiting on {format(parseISO(guest.exitDate), "do MMMM, yyyy")} ({differenceInDays(parseISO(guest.exitDate), new Date())} days left)
                                     </Badge>
                                 ) : (
                                     <Badge variant="secondary">Active</Badge>
