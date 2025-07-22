@@ -1,5 +1,4 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Staff, Invite, User } from '../types';
 import { db, isFirebaseConfigured, auth } from '../firebase';
@@ -39,6 +38,9 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
             const existingUser = userSnapshot.docs[0].data() as User;
             if (existingUser.role === 'owner') {
                 return rejectWithValue('This email belongs to an owner. Please use a different email to invite staff.');
+            }
+            if (existingUser.role === 'tenant') {
+                return rejectWithValue('This email belongs to an active tenant. Please use a different email.');
             }
         }
 
