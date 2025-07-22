@@ -28,7 +28,7 @@ export const fetchGuests = createAsyncThunk(
     async (userId: string) => {
         const guestsCollection = collection(db, 'users_data', userId, 'guests');
         const guestsSnap = await getDocs(guestsCollection);
-        return guestsSnap.docs.map(d => d.data() as Guest).filter(g => !g.isVacated);
+        return guestsSnap.docs.map(d => d.data() as Guest);
     }
 );
 
@@ -469,7 +469,11 @@ const guestsSlice = createSlice({
                 }
             })
             .addCase(vacateGuest.fulfilled, (state, action) => {
-                state.guests = state.guests.filter(g => g.id !== action.payload.guest.id);
+                const index = state.guests.findIndex(g => g.id === action.payload.guest.id);
+                if (index !== -1) {
+                    // Instead of removing, we update the status to keep them in history
+                    state.guests[index] = action.payload.guest;
+                }
             })
             .addCase(reconcileRentCycle.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.id);
