@@ -1,9 +1,4 @@
-
-
 import { z } from 'zod';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-import { revalidatePath } from 'next/cache';
 
 const featureSchema = z.object({
   title: z.string().min(1),
