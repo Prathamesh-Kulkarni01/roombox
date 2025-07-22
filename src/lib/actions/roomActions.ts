@@ -1,5 +1,4 @@
 
-'use server'
 
 import { z } from 'zod';
 import { doc, setDoc } from 'firebase/firestore';
