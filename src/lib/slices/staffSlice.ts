@@ -3,7 +3,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Staff, Invite, User } from '../types';
 import { db, isFirebaseConfigured, auth } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, query, where, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where, updateDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 
@@ -89,10 +89,17 @@ export const updateStaff = createAsyncThunk<Staff, Staff, { state: RootState }>(
             const staffDocRef = doc(db, 'users_data', user.currentUser.id, 'staff', updatedStaff.id);
             batch.set(staffDocRef, updatedStaff, { merge: true });
 
-            // Also update the role in the main user document if it exists
             if (updatedStaff.userId) {
+                // If user has already logged in, update their main user document
                 const userDocRef = doc(db, 'users', updatedStaff.userId);
                 batch.update(userDocRef, { role: updatedStaff.role });
+            } else if (updatedStaff.email) {
+                // If user has not logged in yet, update their invite document
+                const inviteDocRef = doc(db, 'invites', updatedStaff.email);
+                const inviteDoc = await getDoc(inviteDocRef);
+                if (inviteDoc.exists()) {
+                    batch.update(inviteDocRef, { role: updatedStaff.role, 'details.role': updatedStaff.role });
+                }
             }
              await batch.commit();
         }
