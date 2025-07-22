@@ -140,8 +140,8 @@ export default function GuestProfilePage() {
             if (!draft.paymentHistory) draft.paymentHistory = [];
             draft.paymentHistory.push(paymentRecord);
 
-            // Create a mutable copy of charges to clear them as payment is applied
-            const mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || [])) as AdditionalCharge[];
+            // Create a deep copy for mutable operations
+            let mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || [])) as AdditionalCharge[];
             
             // First, apply payment to additional charges
             for (const charge of mutableCharges) {
@@ -150,8 +150,6 @@ export default function GuestProfilePage() {
                 charge.amount -= amountToClear;
                 amountPaid -= amountToClear;
             }
-            
-            // Filter out fully paid charges and update draft
             draft.additionalCharges = mutableCharges.filter(c => c.amount > 0);
 
             // Apply remaining payment to rent
@@ -162,7 +160,7 @@ export default function GuestProfilePage() {
             if (totalDueAfterPayment <= 0) {
                 // Cycle completes, rent is fully paid
                 draft.rentStatus = 'paid';
-                draft.balanceBroughtForward = Math.abs(totalDueAfterPayment); // Carry forward any overpayment
+                draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + Math.abs(totalDueAfterPayment);
                 draft.rentPaidAmount = 0; // Reset for next cycle
                 draft.additionalCharges = [];
                 draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
@@ -295,46 +293,44 @@ export default function GuestProfilePage() {
                                 <span>Rent Status:</span>
                                 <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[guest.rentStatus])}>{guest.rentStatus}</Badge>
                             </div>
-                            {balanceBroughtForward > 0 && (
-                                <div className="flex justify-between items-center text-destructive">
-                                    <span>Balance B/F:</span>
-                                    <span className="font-medium">₹{balanceBroughtForward.toLocaleString('en-IN')}</span>
+                            
+                            <div className="space-y-2 pt-4 border-t">
+                                <p className="font-semibold text-base">Current Bill Details (Due: {format(parseISO(guest.dueDate), "do MMM, yyyy")})</p>
+                                 <div className="flex justify-between items-center text-muted-foreground">
+                                    <span>Balance from previous months:</span>
+                                    <span className="font-medium text-foreground">₹{balanceBroughtForward.toLocaleString('en-IN')}</span>
                                 </div>
-                            )}
-                             <div className="flex justify-between items-center">
-                                <span>Current Month's Rent:</span>
-                                <span className="font-medium">₹{guest.rentAmount.toLocaleString('en-IN')}</span>
+                                 <div className="flex justify-between items-center text-muted-foreground">
+                                    <span>Current month's rent:</span>
+                                    <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span>
+                                </div>
+                                {guest.additionalCharges && guest.additionalCharges.length > 0 && (
+                                    <div className="space-y-1 pt-1">
+                                        {guest.additionalCharges.map(charge => (
+                                            <div key={charge.id} className="flex justify-between items-center text-muted-foreground">
+                                                <span className="flex items-center gap-2">
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive -ml-2" onClick={() => handleRemoveCharge(charge.id)}><Trash2 className="w-3 h-3"/></Button>
+                                                    {charge.description}
+                                                </span>
+                                                <span className="font-medium text-foreground">₹{charge.amount.toLocaleString('en-IN')}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {(guest.rentPaidAmount ?? 0) > 0 && (
+                                    <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+                                        <span>Paid this cycle:</span>
+                                        <span className="font-medium">- ₹{(guest.rentPaidAmount || 0).toLocaleString('en-IN')}</span>
+                                    </div>
+                                )}
                             </div>
-                             {(guest.rentPaidAmount ?? 0) > 0 && (
-                                <div className="flex justify-between items-center text-green-600">
-                                    <span>Amount Paid this cycle:</span>
-                                    <span className="font-medium">₹{(guest.rentPaidAmount || 0).toLocaleString('en-IN')}</span>
-                                </div>
-                            )}
-                            {guest.additionalCharges && guest.additionalCharges.length > 0 && (
-                                <div className="space-y-2 pt-2 border-t">
-                                    <p className="font-medium">Additional Charges:</p>
-                                    {guest.additionalCharges.map(charge => (
-                                        <div key={charge.id} className="flex justify-between items-center">
-                                            <span className="text-muted-foreground flex items-center gap-2">
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveCharge(charge.id)}><Trash2 className="w-3 h-3"/></Button>
-                                                {charge.description}
-                                            </span>
-                                            <span>₹{charge.amount.toLocaleString('en-IN')}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="flex justify-between items-center text-base pt-2 border-t">
+
+                            <div className="flex justify-between items-center text-base pt-4 border-t">
                                 <span className="font-semibold">Total Amount Due:</span>
                                 <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
                             </div>
-                             <div className="flex justify-between items-center">
-                                <span>Next Due Date:</span>
-                                <span className="font-medium">{format(parseISO(guest.dueDate), "do MMM, yyyy")}</span>
-                            </div>
-                             <div className="flex justify-between items-center">
-                                <span>Security Deposit:</span>
+                             <div className="flex justify-between items-center text-sm">
+                                <span>Security Deposit Paid:</span>
                                 <span className="font-medium">₹{(guest.depositAmount || 0).toLocaleString('en-IN')}</span>
                             </div>
                         </CardContent>
