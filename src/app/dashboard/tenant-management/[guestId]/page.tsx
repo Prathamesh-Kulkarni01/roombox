@@ -28,7 +28,7 @@ import { format, addMonths, differenceInDays, parseISO, isAfter } from "date-fns
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
-import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction } from "@/lib/slices/guestsSlice'
+import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction } from "@/lib/slices/guestsSlice"
 
 const paymentSchema = z.object({
   amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
@@ -79,25 +79,27 @@ export default function GuestProfilePage() {
     const guest = useMemo(() => guests.find(g => g.id === guestId), [guests, guestId])
     const guestComplaints = useMemo(() => complaints.filter(c => c.guestId === guestId), [complaints, guestId])
 
-    const { totalDue, balanceBroughtForward } = useMemo(() => {
-        if (!guest) return { totalDue: 0, balanceBroughtForward: 0 };
-        const rentDueForCurrentCycle = guest.rentAmount - (guest.rentPaidAmount || 0);
-        const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+    const { totalDue, balanceBroughtForward, currentMonthRent } = useMemo(() => {
+        if (!guest) return { totalDue: 0, balanceBroughtForward: 0, currentMonthRent: 0 };
         
-        let due = rentDueForCurrentCycle + chargesDue;
-        let balanceBf = 0;
-
-        // Check if due date is in the past, meaning new rent cycle has started
         const now = new Date();
         const dueDate = parseISO(guest.dueDate);
-        if (isAfter(now, dueDate)) {
-            const monthsOverdue = Math.floor(differenceInDays(now, dueDate) / 30) + 1;
-            const overdueRent = guest.rentAmount * monthsOverdue;
-            due += overdueRent - guest.rentAmount; // Add overdue rent, but subtract the current cycle's rent which is already included
-            balanceBf = due - guest.rentAmount - chargesDue; // Balance is what was due before this cycle's rent
-        }
+        let monthsOverdue = 0;
         
-        return { totalDue: due, balanceBroughtForward: balanceBf > 0 ? balanceBf : 0 };
+        if (isAfter(now, dueDate)) {
+            monthsOverdue = Math.floor(differenceInDays(now, dueDate) / 30);
+        }
+
+        const rentForOverdueMonths = monthsOverdue * guest.rentAmount;
+        const previousBalance = (guest.rentPaidAmount || 0) < 0 ? Math.abs(guest.rentPaidAmount || 0) : 0;
+        
+        const balanceBf = rentForOverdueMonths + previousBalance;
+        const currentMonthRent = guest.rentAmount;
+        const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+        
+        const total = balanceBf + currentMonthRent + chargesDue - (guest.rentPaidAmount || 0 > 0 ? guest.rentPaidAmount : 0);
+
+        return { totalDue: total, balanceBroughtForward: balanceBf, currentMonthRent };
     }, [guest]);
 
     const paymentForm = useForm<z.infer<typeof paymentSchema>>({
@@ -126,43 +128,7 @@ export default function GuestProfilePage() {
 
     const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
         if (!guest) return;
-
-        let amountPaid = values.amountPaid;
-        let guestToUpdate = { ...guest };
-
-        // 1. Pay off additional charges first
-        let remainingCharges = [...(guestToUpdate.additionalCharges || [])];
-        let newCharges: AdditionalCharge[] = [];
-        for (const charge of remainingCharges) {
-            if (amountPaid <= 0) {
-                newCharges.push(charge);
-                continue;
-            }
-            const amountToClear = Math.min(amountPaid, charge.amount);
-            amountPaid -= amountToClear;
-            if (charge.amount > amountToClear) {
-                newCharges.push({ ...charge, amount: charge.amount - amountToClear });
-            }
-        }
-        guestToUpdate.additionalCharges = newCharges;
-
-        // 2. Apply remaining payment to rent (including any brought-forward balance)
-        let totalRentPaidThisCycle = (guestToUpdate.rentPaidAmount || 0) + amountPaid;
-        const totalRentObligation = guestToUpdate.rentAmount; // Rent for *this* cycle
-
-        if (totalRentPaidThisCycle >= totalRentObligation && newCharges.length === 0) {
-            // Cycle complete, maybe with surplus
-            const surplus = totalRentPaidThisCycle - totalRentObligation;
-            guestToUpdate.rentStatus = 'paid';
-            guestToUpdate.rentPaidAmount = surplus; // Carry forward surplus as pre-payment for next cycle
-            guestToUpdate.dueDate = addMonths(new Date(guestToUpdate.dueDate), 1).toISOString();
-        } else {
-            // Partial payment for the current cycle
-            guestToUpdate.rentStatus = 'partial';
-            guestToUpdate.rentPaidAmount = totalRentPaidThisCycle;
-        }
-
-        dispatch(updateGuestAction({ updatedGuest: guestToUpdate }));
+        dispatch(updateGuestAction({ updatedGuest: { ...guest, rentPaidAmount: (guest.rentPaidAmount || 0) + values.amountPaid } }))
         setIsPaymentDialogOpen(false);
     }
     
@@ -288,14 +254,20 @@ export default function GuestProfilePage() {
                             </div>
                             {balanceBroughtForward > 0 && (
                                 <div className="flex justify-between items-center text-destructive">
-                                    <span>Previous Dues:</span>
+                                    <span>Balance B/F:</span>
                                     <span className="font-medium">₹{balanceBroughtForward.toLocaleString('en-IN')}</span>
                                 </div>
                             )}
                              <div className="flex justify-between items-center">
                                 <span>Current Month's Rent:</span>
-                                <span className="font-medium">₹{guest.rentAmount.toLocaleString('en-IN')}</span>
+                                <span className="font-medium">₹{currentMonthRent.toLocaleString('en-IN')}</span>
                             </div>
+                             {(guest.rentPaidAmount ?? 0) > 0 && (
+                                <div className="flex justify-between items-center text-green-600">
+                                    <span>Amount Paid this cycle:</span>
+                                    <span className="font-medium">₹{(guest.rentPaidAmount || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                            )}
                             {guest.additionalCharges && guest.additionalCharges.length > 0 && (
                                 <div className="space-y-2 pt-2 border-t">
                                     <p className="font-medium">Additional Charges:</p>
