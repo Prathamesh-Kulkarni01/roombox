@@ -118,7 +118,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsAddGuestDialogOpen(true);
   };
 
-  const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>>) => {
+  const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
     if (!selectedBedForGuestAdd) return;
     const { pg, bed } = selectedBedForGuestAdd;
     
@@ -383,15 +383,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
           setSelectedLocationForRoomAdd({ floorId, pgId });
       }
       setIsRoomDialogOpen(true);
-  }
-
-  const openAddFloorDialog = (pg: PG) => {
-      if (!currentPlan?.hasCloudSync && pg.floors && pg.floors.length >= 1) {
-          toast({ variant: 'destructive', title: 'Floor Limit Reached', description: 'The free plan allows only 1 floor per property. Please upgrade for more.'});
-          return;
-      }
-      handleOpenFloorDialog(null, pg);
-  }
+  };
 
   const handleOpenFloorDialog = (floor: Floor | null, pg?: PG) => { 
       setFloorToEdit(floor); 
@@ -399,10 +391,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       setIsFloorDialogOpen(true); 
   };
   
-  const openEditFloorDialog = (floor: Floor) => handleOpenFloorDialog(floor);
-  const openEditRoomDialog = (room: Room) => handleOpenRoomDialog(room);
-
-
   const handleOpenBedDialog = (bed: Bed | null, roomId: string, floorId: string) => {
     setBedToEdit(bed ? {bed, roomId, floorId} : null); 
     if(!bed) setSelectedRoomForBedAdd({floorId, roomId});
@@ -433,7 +421,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleOpenSharedChargeDialog, handleSharedChargeSubmit,
     handleOpenReminderDialog,
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
-    handleOpenRoomDialog, openAddFloorDialog, openEditFloorDialog, openEditRoomDialog, handleOpenBedDialog,
+    handleOpenRoomDialog, handleOpenFloorDialog, handleOpenBedDialog,
     handleDelete,
     isSavingRoom
   }
