@@ -26,7 +26,7 @@ const hasAnyPermissionForFeature = (
 ): boolean => {
   if (!feature || !permissions || !role || role === 'owner') return true;
 
-  const featurePerms = permissions[feature];
+  const featurePerms = permissions[feature as keyof typeof permissions];
   if (!featurePerms) return false;
 
   // The user has access if any of the permissions for that feature are true
@@ -44,7 +44,7 @@ export default function DashboardBottomNav() {
       hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role)
   );
 
-  const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/expense', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/food'].includes(item.href));
+  const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/expense'].includes(item.href));
   const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href));
   
   const accessibleMainNavItems = mainNavItems.filter(item => hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role));
