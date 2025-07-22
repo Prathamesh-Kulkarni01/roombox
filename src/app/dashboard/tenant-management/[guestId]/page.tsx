@@ -69,7 +69,7 @@ export default function GuestProfilePage() {
     const { toast } = useToast()
     const guestId = params.guestId as string
     
-    const { guests, pgs } = useAppSelector(state => state)
+    const { guests, pgs, complaints } = useAppSelector(state => state)
     const { isLoading } = useAppSelector(state => state.app)
     const { currentUser, currentPlan } = useAppSelector(state => state.user)
     
