@@ -126,6 +126,7 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
                 const { expenses } = state.expenses;
                 const { staff } = state.staff;
                 const { notifications } = state.notifications;
+                const { chargeTemplates } = state.chargeTemplates;
                 const batch = writeBatch(db);
                 const userId = currentUser.id;
 
@@ -142,6 +143,7 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
                 expenses.forEach(expense => batch.set(doc(db, 'users_data', userId, 'expenses', expense.id), expense));
                 staff.forEach(staffMember => batch.set(doc(db, 'users_data', userId, 'staff', staffMember.id), staffMember));
                 notifications.forEach(notification => batch.set(doc(db, 'users_data', userId, 'notifications', notification.id), notification));
+                chargeTemplates.forEach(template => batch.set(doc(db, 'users_data', userId, 'chargeTemplates', template.id), template));
                 
                 await batch.commit();
             } catch (error) {

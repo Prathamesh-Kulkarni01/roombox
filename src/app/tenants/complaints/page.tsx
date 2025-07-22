@@ -22,6 +22,7 @@ import { addComplaint as addComplaintAction, updateComplaint as updateComplaintA
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
+import { sendNotification } from '@/ai/flows/send-notification-flow'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import Image from 'next/image'
 
@@ -120,15 +121,29 @@ export default function TenantComplaintsPage() {
     };
     
     const onSubmit = async (data: ComplaintFormValues) => {
-        if (!currentGuest) {
+        if (!currentGuest || !currentUser?.ownerId) {
             toast({ title: "Error", description: "Could not identify current guest.", variant: "destructive"})
             return;
         }
-        dispatch(addComplaintAction(data))
-        toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
-        form.reset()
-        setImagePreviews([])
-        setIsDialogOpen(false)
+        const resultAction = await dispatch(addComplaintAction(data))
+
+        if(addComplaintAction.fulfilled.match(resultAction)){
+            const newComplaint = resultAction.payload;
+            // Send a push notification to the owner
+            await sendNotification({
+                userId: currentUser.ownerId,
+                title: `New Complaint: ${newComplaint.category}`,
+                body: `${newComplaint.guestName} reported: "${newComplaint.description.substring(0, 100)}${newComplaint.description.length > 100 ? '...' : ''}"`,
+                link: `/dashboard/complaints`
+            });
+            toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
+            form.reset()
+            setImagePreviews([])
+            setIsDialogOpen(false)
+        } else {
+             toast({ title: "Error", description: "Could not submit complaint.", variant: "destructive"})
+        }
+
     }
 
     const handleUpvote = (complaint: Complaint) => {
