@@ -42,6 +42,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 if (inviteDoc.exists()) {
                     const inviteData = inviteDoc.data() as Invite;
                     let newUser: User;
+                    const batch = writeBatch(db);
 
                     if (inviteData.role === 'tenant') {
                         const guestDetails = inviteData.details as Guest;
@@ -56,7 +57,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                             avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || guestDetails.name) || 'NT').slice(0, 2).toUpperCase()}`
                         };
                         const guestDocRef = doc(db, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
-                        await setDoc(guestDocRef, { userId: firebaseUser.uid }, { merge: true });
+                        batch.set(guestDocRef, { userId: firebaseUser.uid }, { merge: true });
                     } else { // Handle staff roles
                         const staffDetails = inviteData.details as Staff;
                          newUser = {
@@ -69,12 +70,11 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                             avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || staffDetails.name) || 'NS').slice(0, 2).toUpperCase()}`
                         };
                          const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
-                         await setDoc(staffDocRef, { userId: firebaseUser.uid }, { merge: true });
+                         batch.set(staffDocRef, { userId: firebaseUser.uid }, { merge: true });
                     }
-
-                    const batch = writeBatch(db);
+                    
                     batch.set(userDocRef, newUser);
-                    batch.delete(inviteDocRef);
+                    batch.delete(inviteDocRef); // Delete the invite after use
                     await batch.commit();
                     
                     return newUser;
