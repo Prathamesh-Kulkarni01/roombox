@@ -11,6 +11,7 @@ interface AppState {
     selectedPgId: string | null;
     tour: TourState;
     tourStepIndex: number;
+    mockDate: string | null; // For time travel debugging
 }
 
 const getInitialSelectedPgId = (): string | null => {
@@ -41,6 +42,7 @@ const initialState: AppState = {
         hasCompletedLayout: getInitialTourState('layout'),
     },
     tourStepIndex: 0,
+    mockDate: null,
 };
 
 const appSlice = createSlice({
@@ -71,6 +73,9 @@ const appSlice = createSlice({
         setTourStepIndex: (state, action: PayloadAction<number>) => {
             state.tourStepIndex = action.payload;
         },
+        setMockDate: (state, action: PayloadAction<string | null>) => {
+            state.mockDate = action.payload;
+        }
     },
     extraReducers: (builder) => {
         builder
@@ -98,5 +103,5 @@ const appSlice = createSlice({
     }
 });
 
-export const { setLoading, setSelectedPgId, endOnboardingTour, endLayoutTour, setTourStepIndex } = appSlice.actions;
+export const { setLoading, setSelectedPgId, endOnboardingTour, endLayoutTour, setTourStepIndex, setMockDate } = appSlice.actions;
 export default appSlice.reducer;

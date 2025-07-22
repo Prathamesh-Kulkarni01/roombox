@@ -1,5 +1,6 @@
 
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, Invite, PG, User, AdditionalCharge, Room } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
@@ -375,12 +376,13 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
 export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootState }>(
     'guests/reconcileRentCycle',
     async (guestId, { getState, rejectWithValue }) => {
-        const { user, guests } = getState();
+        const { user, guests, app } = getState();
         const guest = guests.guests.find(g => g.id === guestId);
 
         if (!user.currentUser || !guest || !guest.dueDate) return rejectWithValue('Guest or due date not found');
 
-        const now = new Date();
+        // Use mock date from dev tools if available, otherwise use real time
+        const now = app.mockDate ? new Date(app.mockDate) : new Date();
         const dueDate = parseISO(guest.dueDate);
 
         if (!isAfter(now, dueDate)) {

@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { plans } from "@/lib/mock-data"
 import type { PlanName, ChargeTemplate } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2 } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { updateUserPlan as updateUserPlanAction } from "@/lib/slices/userSlice"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
@@ -23,6 +23,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { saveChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from "@/lib/slices/chargeTemplatesSlice"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
+import { setMockDate } from "@/lib/slices/appSlice"
+import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -41,6 +46,8 @@ export default function SettingsPage() {
   const [notificationMethod, setNotificationMethod] = useState("manual")
   const { currentUser, currentPlan } = useAppSelector((state) => state.user)
   const { chargeTemplates } = useAppSelector((state) => state.chargeTemplates)
+  const { guests } = useAppSelector((state) => state.guests);
+  const { mockDate } = useAppSelector((state) => state.app);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<ChargeTemplate | null>(null);
   const { toast } = useToast();
@@ -89,6 +96,13 @@ export default function SettingsPage() {
         dispatch(deleteChargeTemplate(templateId));
         toast({ title: "Template Deleted" });
     }
+  }
+
+  const handleReconcileAll = () => {
+    toast({ title: 'Rent Reconciliation Started', description: 'Checking all guests for overdue rent based on the simulated date.' });
+    guests.forEach(guest => {
+        dispatch(reconcileRentCycle(guest.id));
+    });
   }
 
   if (!currentUser || !currentPlan) {
@@ -143,11 +157,52 @@ export default function SettingsPage() {
                     </Button>
                 </CardContent>
             </Card>
+
+            {process.env.NODE_ENV === 'development' && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><TestTube2 /> Developer Tools</CardTitle>
+                        <CardDescription>These tools are for testing purposes and are only available in the development environment.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                             <Label>Time Travel</Label>
+                             <div className="flex gap-2 items-center">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn("w-[240px] justify-start text-left font-normal", !mockDate && "text-muted-foreground")}
+                                        >
+                                            <Calendar className="mr-2 h-4 w-4" />
+                                            {mockDate ? format(new Date(mockDate), "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={mockDate ? new Date(mockDate) : undefined}
+                                            onSelect={(date) => dispatch(setMockDate(date?.toISOString() || null))}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                <Button onClick={() => dispatch(setMockDate(null))} variant="secondary">Reset</Button>
+                             </div>
+                             <p className="text-xs text-muted-foreground">Simulate a different current date to test rent cycles.</p>
+                        </div>
+                        <div>
+                             <Button onClick={handleReconcileAll}>Reconcile Rents Now</Button>
+                              <p className="text-xs text-muted-foreground mt-2">Manually trigger rent reconciliation for all guests using the simulated date.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
             
             <Card>
                 <CardHeader>
-                <CardTitle>Developer Settings</CardTitle>
-                <CardDescription>For development and testing purposes only.</CardDescription>
+                <CardTitle>Subscription Plan</CardTitle>
+                <CardDescription>Manage your subscription plan.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Alert variant="destructive">
