@@ -48,14 +48,16 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
             if (existingUser.role === 'owner') {
                 return rejectWithValue('This email is associated with an owner account. Please use a different email.');
             }
+             // Check if the user is already an active guest somewhere
+            if (existingUser.guestId && existingUser.ownerId) {
+                const oldGuestRef = doc(db, 'users_data', existingUser.ownerId, 'guests', existingUser.guestId);
+                const oldGuestDoc = await getDoc(oldGuestRef);
+                if (oldGuestDoc.exists() && !oldGuestDoc.data().isVacated) {
+                    return rejectWithValue(`This guest is already active in "${oldGuestDoc.data().pgName}". Please vacate their previous stay before adding them to a new one.`);
+                }
+            }
         }
         
-        // If it's a returning tenant, vacate their previous stay
-        if (existingUser && existingUser.guestId && existingUser.ownerId) {
-            const oldGuestRef = doc(db, 'users_data', existingUser.ownerId, 'guests', existingUser.guestId);
-            batch.update(oldGuestRef, { isVacated: true, exitDate: new Date().toISOString() });
-        }
-
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
 
@@ -447,16 +449,8 @@ const guestsSlice = createSlice({
             })
             .addCase(addGuest.fulfilled, (state, action) => {
                 if(!action.payload) return;
-                const { newGuest, existingUser } = action.payload;
+                const { newGuest } = action.payload;
                 state.guests.push(newGuest);
-
-                // If it was a returning user, mark their old guest record as vacated
-                if (existingUser && existingUser.guestId) {
-                    const oldGuestIndex = state.guests.findIndex(g => g.id === existingUser.guestId);
-                    if (oldGuestIndex !== -1) {
-                        state.guests[oldGuestIndex].isVacated = true;
-                    }
-                }
             })
             .addCase(updateGuest.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.updatedGuest.id);
@@ -519,3 +513,4 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
+
