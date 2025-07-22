@@ -31,20 +31,29 @@ export const fetchGuests = createAsyncThunk(
     }
 );
 
-export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, NewGuestData, { state: RootState }>(
+export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, existingUser?: User }, NewGuestData, { state: RootState }>(
     'guests/addGuest',
     async (guestData, { getState, dispatch, rejectWithValue }) => {
         const { user, pgs } = getState();
         if (!user.currentUser || !guestData.email) return rejectWithValue('No user or guest email');
         
-        // Check if a user with this email already exists and is an owner
+        const batch = writeBatch(db);
+        let existingUser: User | null = null;
+
+        // Check if a user with this email already exists
         const userQuery = query(collection(db, "users"), where("email", "==", guestData.email));
         const userSnapshot = await getDocs(userQuery);
         if (!userSnapshot.empty) {
-            const existingUser = userSnapshot.docs[0].data() as User;
+            existingUser = userSnapshot.docs[0].data() as User;
             if (existingUser.role === 'owner') {
                 return rejectWithValue('This email is associated with an owner account. Please use a different email.');
             }
+        }
+        
+        // If it's a returning tenant, vacate their previous stay
+        if (existingUser && existingUser.guestId && existingUser.ownerId) {
+            const oldGuestRef = doc(db, 'users_data', existingUser.ownerId, 'guests', existingUser.guestId);
+            batch.update(oldGuestRef, { isVacated: true, exitDate: new Date().toISOString() });
         }
 
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
@@ -55,6 +64,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             id: `g-${Date.now()}`,
             kycStatus: 'not-started',
             isVacated: false,
+            userId: existingUser ? existingUser.id : null,
             additionalCharges: [],
             balanceBroughtForward: 0,
         };
@@ -69,35 +79,34 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             }
         });
         
-        const invite: Invite = {
-            email: newGuest.email,
-            ownerId: user.currentUser.id,
-            role: 'tenant',
-            details: newGuest
-        };
+        if (existingUser) {
+            // Update existing user to point to new active guest record
+            const userDocRef = doc(db, 'users', existingUser.id);
+            batch.update(userDocRef, {
+                guestId: newGuest.id,
+                pgId: newGuest.pgId,
+                ownerId: user.currentUser.id,
+                guestHistoryIds: arrayUnion(existingUser.guestId)
+            });
+        } else {
+             // Create an invite for a completely new user
+            const invite: Invite = { email: newGuest.email, ownerId: user.currentUser.id, role: 'tenant', details: newGuest };
+            const inviteDocRef = doc(db, 'invites', newGuest.email);
+            batch.set(inviteDocRef, invite);
 
-        if (isFirebaseConfigured() && auth) {
-            const actionCodeSettings = {
-                url: `${window.location.origin}/login/verify`,
-                handleCodeInApp: true,
-            };
-            try {
-                await sendSignInLinkToEmail(auth, newGuest.email, actionCodeSettings);
-            } catch (error) {
-                console.error("Failed to send sign-in link:", error);
+            if (isFirebaseConfigured() && auth) {
+                const actionCodeSettings = { url: `${window.location.origin}/login/verify`, handleCodeInApp: true };
+                try {
+                    await sendSignInLinkToEmail(auth, newGuest.email, actionCodeSettings);
+                } catch (error) { console.error("Failed to send sign-in link:", error); }
             }
         }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', newGuest.id);
             const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            const inviteDocRef = doc(db, 'invites', newGuest.email);
-            
             batch.set(guestDocRef, newGuest);
             batch.set(pgDocRef, updatedPg);
-            batch.set(inviteDocRef, invite);
-
             await batch.commit();
         }
 
@@ -109,7 +118,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             targetId: newGuest.id,
         }));
         
-        return { newGuest, updatedPg };
+        return { newGuest, updatedPg, existingUser: existingUser || undefined };
     }
 );
 
@@ -365,6 +374,16 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
             const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
             batch.set(guestDocRef, updatedGuest, { merge: true }); // Keep history by merging
             batch.set(pgDocRef, updatedPg);
+
+            // Also update the user record to clear the active guestId
+            if (guest.userId) {
+                const userDocRef = doc(db, 'users', guest.userId);
+                batch.update(userDocRef, {
+                    guestId: null,
+                    pgId: null,
+                    guestHistoryIds: arrayUnion(guest.id)
+                });
+            }
             await batch.commit();
         }
 
@@ -427,7 +446,17 @@ const guestsSlice = createSlice({
                 state.guests = action.payload;
             })
             .addCase(addGuest.fulfilled, (state, action) => {
-                if(action.payload) state.guests.push(action.payload.newGuest);
+                if(!action.payload) return;
+                const { newGuest, existingUser } = action.payload;
+                state.guests.push(newGuest);
+
+                // If it was a returning user, mark their old guest record as vacated
+                if (existingUser && existingUser.guestId) {
+                    const oldGuestIndex = state.guests.findIndex(g => g.id === existingUser.guestId);
+                    if (oldGuestIndex !== -1) {
+                        state.guests[oldGuestIndex].isVacated = true;
+                    }
+                }
             })
             .addCase(updateGuest.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.updatedGuest.id);
@@ -470,7 +499,6 @@ const guestsSlice = createSlice({
             .addCase(vacateGuest.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.guest.id);
                 if (index !== -1) {
-                    // Instead of removing, we update the status to keep them in history
                     state.guests[index] = action.payload.guest;
                 }
             })

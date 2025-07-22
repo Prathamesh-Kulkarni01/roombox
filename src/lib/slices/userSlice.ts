@@ -4,7 +4,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite } from '../types';
 import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
-import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
 import { setLoading } from './appSlice';
@@ -29,9 +29,20 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         }
         
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
+        let userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
+            // If user has an active guestId, ensure it's not for a vacated guest record.
+            // This handles cases where a returning tenant logs in before being assigned to a new room.
+            const userData = userDoc.data() as User;
+            if (userData.role === 'tenant' && userData.guestId && userData.ownerId) {
+                const activeGuestDoc = await getDoc(doc(db, 'users_data', userData.ownerId, 'guests', userData.guestId));
+                if (!activeGuestDoc.exists() || activeGuestDoc.data()?.isVacated) {
+                    // The user's active guest record points to a vacated one. Clear it.
+                    await updateDoc(userDocRef, { guestId: null, pgId: null });
+                    userDoc = await getDoc(userDocRef); // Re-fetch the updated user doc
+                }
+            }
             return userDoc.data() as User;
         } else {
             const userEmail = firebaseUser.email;
@@ -52,12 +63,13 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                             email: firebaseUser.email,
                             role: 'tenant',
                             guestId: guestDetails.id,
+                            guestHistoryIds: [],
                             ownerId: inviteData.ownerId,
                             pgId: guestDetails.pgId,
                             avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || guestDetails.name) || 'NT').slice(0, 2).toUpperCase()}`
                         };
                         const guestDocRef = doc(db, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
-                        batch.set(guestDocRef, { userId: firebaseUser.uid }, { merge: true });
+                        batch.update(guestDocRef, { userId: firebaseUser.uid });
                     } else { // Handle staff roles
                         const staffDetails = inviteData.details as Staff;
                          newUser = {
@@ -70,11 +82,11 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                             avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || staffDetails.name) || 'NS').slice(0, 2).toUpperCase()}`
                         };
                          const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
-                         batch.set(staffDocRef, { userId: firebaseUser.uid }, { merge: true });
+                         batch.update(staffDocRef, { userId: firebaseUser.uid });
                     }
                     
                     batch.set(userDocRef, newUser);
-                    batch.delete(inviteDocRef); // Delete the invite after use
+                    batch.delete(inviteDocRef);
                     await batch.commit();
                     
                     return newUser;

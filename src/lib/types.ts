@@ -105,8 +105,8 @@ export interface Guest {
   moveInDate: string;
   noticePeriodDays: number;
   exitDate?: string;
-  userId?: string;
-  isVacated?: boolean; // True if the guest has permanently left the PG
+  userId?: string | null; // Link to the user account
+  isVacated: boolean; // True if the guest has permanently left the PG
   additionalCharges?: AdditionalCharge[];
   paymentHistory?: Payment[];
 }
@@ -194,9 +194,10 @@ export interface User {
   role: UserRole;
   pgIds?: string[]; // Kept for owners
   avatarUrl?: string;
-  guestId?: string; // Link to a Guest record if the user is a tenant
+  guestId: string | null; // The ID of the ACTIVE guest record
+  guestHistoryIds?: string[]; // IDs of previous, vacated guest records
   ownerId?: string; // If role is tenant or staff, this is the ID of their PG owner
-  pgId?: string; // Tenant's specific PG ID for direct access
+  pgId?: string; // Tenant's active PG ID for direct access
   subscription?: {
     planId: PlanName;
     status: 'active' | 'inactive';
