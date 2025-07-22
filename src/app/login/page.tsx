@@ -14,7 +14,7 @@ import { auth } from "@/lib/firebase"
 import { Loader2 } from 'lucide-react'
 import { useAppSelector } from '@/lib/hooks'
 import { Skeleton } from '@/components/ui/skeleton'
-import { navPermissions } from '@/lib/permissions'
+import type { UserRole } from '@/lib/types'
 
 const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
   <svg role="img" viewBox="0 0 24 24" {...props}>
@@ -40,15 +40,17 @@ export default function LoginPage() {
   
   const loading = appLoading || isSigningIn || isSendingLink;
 
+  const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security'];
+
   useEffect(() => {
     if (!appLoading && currentUser) {
       if (currentUser.role === 'tenant') {
         router.replace('/tenants/my-pg');
-      } else if (navPermissions[currentUser.role]?.length > 0) {
+      } else if (allowedDashboardRoles.includes(currentUser.role)) {
         router.replace('/dashboard');
       }
     }
-  }, [appLoading, currentUser, router]);
+  }, [appLoading, currentUser, router, allowedDashboardRoles]);
 
   if (appLoading || currentUser) {
     return (
