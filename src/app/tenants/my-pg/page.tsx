@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useAppSelector } from "@/lib/hooks"
@@ -22,9 +21,10 @@ const rentStatusColors: Record<string, string> = {
 };
 
 const kycStatusColors: Record<string, string> = {
-  verified: 'text-blue-600',
-  pending: 'text-yellow-600',
-  rejected: 'text-red-600'
+    verified: 'text-blue-600 dark:text-blue-400',
+    pending: 'text-yellow-600 dark:text-yellow-400',
+    rejected: 'text-red-600 dark:text-red-400',
+    'not-started': 'text-gray-600 dark:text-gray-400',
 };
 
 
@@ -34,8 +34,6 @@ export default function MyPgPage() {
     const { pgs } = useAppSelector(state => state.pgs)
     const { isLoading } = useAppSelector(state => state.app)
 
-    // The current guest and PG are now derived directly from the Redux state,
-    // which has been optimized to only load the necessary data for the tenant.
     const currentGuest = guests.length > 0 ? guests[0] : null;
     const currentPg = pgs.length > 0 ? pgs[0] : null;
 
@@ -51,6 +49,19 @@ export default function MyPgPage() {
         }
         return { roomName: 'N/A', bedName: 'N/A' };
     }, [currentPg, currentGuest]);
+
+     const { totalDue, balanceBroughtForward } = useMemo(() => {
+        if (!currentGuest) return { totalDue: 0, balanceBroughtForward: 0 };
+        
+        const balanceBf = currentGuest.balanceBroughtForward || 0;
+        const currentMonthRent = currentGuest.rentAmount;
+        const chargesDue = (currentGuest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+        
+        const total = balanceBf + currentMonthRent + chargesDue - (currentGuest.rentPaidAmount || 0);
+
+        return { totalDue: total, balanceBroughtForward: balanceBf };
+    }, [currentGuest]);
+
 
     if (isLoading || !currentGuest || !currentPg) {
         return (
@@ -131,12 +142,12 @@ export default function MyPgPage() {
                            <div className="flex items-center gap-3">
                                 <ShieldCheck className={cn("w-6 h-6", kycStatusColors[currentGuest.kycStatus])} />
                                 <div>
-                                    <p className="font-semibold">Your KYC is <span className="capitalize">{currentGuest.kycStatus}</span></p>
+                                    <p className="font-semibold">Your KYC is <span className="capitalize">{currentGuest.kycStatus.replace('-',' ')}</span></p>
                                     <p className="text-xs text-muted-foreground">
                                         {currentGuest.kycStatus === 'verified' && "All documents are verified."}
                                         {currentGuest.kycStatus === 'pending' && "Awaiting review by your property manager."}
                                         {currentGuest.kycStatus === 'rejected' && "There was an issue with your documents. Please contact the manager."}
-                                        {currentGuest.kycStatus === 'not-started' && "Please submit your documents to the property manager."}
+                                        {currentGuest.kycStatus === 'not-started' && "Please submit your documents to get verified."}
                                     </p>
                                 </div>
                            </div>
@@ -151,27 +162,44 @@ export default function MyPgPage() {
                 <Card className="sticky top-20">
                     <CardHeader>
                         <CardTitle className="text-xl">Rent Details</CardTitle>
+                        <CardDescription>Due on {format(new Date(currentGuest.dueDate), "do MMMM, yyyy")}</CardDescription>
                     </CardHeader>
                      <CardContent className="space-y-4">
                         <div className="flex justify-between items-center text-sm">
                             <span>Status:</span>
                             <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[currentGuest.rentStatus])}>{currentGuest.rentStatus}</Badge>
                         </div>
-                         <div className="flex justify-between items-center text-sm">
-                            <span>Monthly Rent:</span>
-                            <span className="font-medium">₹{currentGuest.rentAmount.toLocaleString('en-IN')}</span>
+                        <div className="space-y-2 pt-4 border-t text-sm">
+                            {balanceBroughtForward > 0 && (
+                                <div className="flex justify-between items-center text-muted-foreground">
+                                    <span>Previous Dues:</span>
+                                    <span className="font-medium text-foreground">₹{balanceBroughtForward.toLocaleString('en-IN')}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center text-muted-foreground">
+                                <span>Current Rent:</span>
+                                <span className="font-medium text-foreground">₹{currentGuest.rentAmount.toLocaleString('en-IN')}</span>
+                            </div>
+                            {(currentGuest.additionalCharges || []).map(charge => (
+                                <div key={charge.id} className="flex justify-between items-center text-muted-foreground">
+                                    <span>{charge.description}:</span>
+                                    <span className="font-medium text-foreground">₹{charge.amount.toLocaleString('en-IN')}</span>
+                                </div>
+                            ))}
+                             {(currentGuest.rentPaidAmount || 0) > 0 && (
+                                <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+                                    <span>Paid this cycle:</span>
+                                    <span className="font-medium">- ₹{(currentGuest.rentPaidAmount || 0).toLocaleString('en-IN')}</span>
+                                </div>
+                            )}
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-sm">Amount Due:</span>
-                            <span className="font-bold text-lg text-primary">₹{(currentGuest.rentAmount - (currentGuest.rentPaidAmount || 0)).toLocaleString('en-IN')}</span>
-                        </div>
-                         <div className="flex justify-between items-center text-sm">
-                            <span>Next Due Date:</span>
-                            <span className="font-medium">{format(new Date(currentGuest.dueDate), "do MMM, yyyy")}</span>
+                        <div className="flex justify-between items-center pt-4 border-t">
+                            <span className="text-base font-semibold">Total Due:</span>
+                            <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90">Pay Now</Button>
+                        <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={totalDue <= 0}>Pay Now</Button>
                     </CardFooter>
                 </Card>
             </div>
