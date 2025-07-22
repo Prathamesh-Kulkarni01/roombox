@@ -39,7 +39,7 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
             if (existingUser.role === 'owner') {
                 return rejectWithValue('This email belongs to an owner. Please use a different email to invite staff.');
             }
-            if (existingUser.role === 'tenant') {
+             if (existingUser.role === 'tenant') {
                 return rejectWithValue('This email belongs to an active tenant. Please use a different email.');
             }
         }
