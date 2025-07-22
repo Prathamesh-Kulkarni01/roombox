@@ -97,8 +97,10 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     let unsubs: Unsubscribe[] = [];
 
-    // Owner Data Fetching
-    if (currentUser.role === 'owner') {
+    const isDashboardUser = ['owner', 'manager', 'cook', 'cleaner', 'security'].includes(currentUser.role);
+    const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+
+    if (isDashboardUser && ownerIdForFetching) {
         const collectionsToSync: { [key: string]: (data: any) => { type: string; payload: any } } = {
             pgs: setPgs,
             guests: setGuests,
@@ -115,10 +117,14 @@ function AuthHandler({ children }: { children: ReactNode }) {
         // Setup real-time listeners
         const newUnsubs = collectionNames.map((collectionName) => {
             const setDataAction = collectionsToSync[collectionName];
-            const collRef = collection(db, 'users_data', currentUser.id, collectionName);
+            const collRef = collection(db, 'users_data', ownerIdForFetching, collectionName);
             
             return onSnapshot(collRef, (snapshot) => {
-                 const data = snapshot.docs.map(doc => doc.data());
+                 let data = snapshot.docs.map(doc => doc.data());
+
+                 if (collectionName === 'pgs' && currentUser.role !== 'owner' && currentUser.pgIds) {
+                    data = data.filter(pg => currentUser.pgIds?.includes((pg as PG).id));
+                 }
                  if (['complaints', 'expenses', 'notifications'].includes(collectionName)) {
                     data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
                 }
@@ -145,8 +151,6 @@ function AuthHandler({ children }: { children: ReactNode }) {
             });
         });
         unsubs.push(...newUnsubs);
-
-    // Tenant Data Fetching
     } else if (currentUser.role === 'tenant' && currentUser.ownerId && currentUser.pgId && currentUser.guestId) {
         const { ownerId, pgId, guestId } = currentUser;
 
