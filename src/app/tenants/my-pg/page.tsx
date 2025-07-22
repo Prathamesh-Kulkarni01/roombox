@@ -34,8 +34,8 @@ export default function MyPgPage() {
     const { pgs } = useAppSelector(state => state.pgs)
     const { isLoading } = useAppSelector(state => state.app)
 
-    const currentGuest = guests.length > 0 ? guests[0] : null;
-    const currentPg = pgs.length > 0 ? pgs[0] : null;
+    const currentGuest = guests.find(g => g.id === currentUser?.guestId);
+    const currentPg = currentGuest ? pgs.find(p => p.id === currentGuest.pgId) : null;
 
     const bedDetails = useMemo(() => {
         if (!currentPg || !currentGuest) return { roomName: 'N/A', bedName: 'N/A' };
@@ -122,7 +122,7 @@ export default function MyPgPage() {
                         <div className="flex items-center gap-3"><BedDouble className="w-5 h-5 text-primary" /><p>Room/Bed: <span className="font-medium">Room {bedDetails.roomName}, Bed {bedDetails.bedName}</span></p></div>
                         <div className="flex items-center gap-3"><FileText className="w-5 h-5 text-primary" /><p>Notice Period: <span className="font-medium">{currentGuest.noticePeriodDays} days</span></p></div>
                     </CardContent>
-                    {currentGuest.exitDate && (
+                    {currentGuest.exitDate && !currentGuest.isVacated && (
                          <CardFooter>
                              <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200 w-full">
                                 <AlertCircle className="text-blue-600 dark:text-blue-400" />
