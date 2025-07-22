@@ -155,8 +155,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       let amountPaid = values.amountPaid;
 
       // Create a mutable copy of charges to clear them as payment is applied
-      let remainingCharges = [...(guest.additionalCharges || [])];
-      let clearedCharges: AdditionalCharge[] = [];
+      let remainingCharges = produce((guest.additionalCharges || []), draft => draft);
       
       // First, apply payment to additional charges
       for (const charge of remainingCharges) {
@@ -167,18 +166,22 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       }
       
       // Filter out fully paid charges
-      clearedCharges = remainingCharges.filter(c => c.amount > 0);
+      const updatedCharges = remainingCharges.filter(c => c.amount > 0);
 
       // Apply remaining payment to rent
       let newRentPaidAmount = (guest.rentPaidAmount || 0) + amountPaid;
       
       const updatedGuest = produce(guest, draft => {
-          draft.additionalCharges = clearedCharges;
+          draft.additionalCharges = updatedCharges;
           
-          if (newRentPaidAmount >= draft.rentAmount && clearedCharges.length === 0) {
+          if (newRentPaidAmount >= draft.rentAmount && updatedCharges.length === 0) {
               // Cycle completes, rent is fully paid
               draft.rentStatus = 'paid';
+              const remainingBalance = newRentPaidAmount - draft.rentAmount;
               draft.rentPaidAmount = 0; // Reset for next cycle
+              if (remainingBalance > 0) {
+                // this is an advance, can be handled later
+              }
               draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
           } else if (newRentPaidAmount > 0) {
               // Partial payment
@@ -186,7 +189,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
               draft.rentPaidAmount = newRentPaidAmount;
           } else {
               // No rent part paid, but charges might be
-              draft.rentStatus = 'unpaid';
+              draft.rentStatus = updatedCharges.length < (guest.additionalCharges || []).length ? 'partial' : 'unpaid';
               draft.rentPaidAmount = 0;
           }
       });
@@ -264,7 +267,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const getPgById = (pgId: string) => pgs.find(p => p.id === pgId);
   const getFloorById = (pgId: string, floorId: string) => getPgById(pgId)?.floors?.find(f => f.id === floorId);
 
-  const handleFloorSubmit = (values: z.infer<typeof floorSchema>>) => {
+  const handleFloorSubmit = (values: z.infer<typeof floorSchema>) => {
     const pg = floorToEdit ? getPgById(floorToEdit.pgId) : selectedPgForFloorAdd;
     if (!pg) return;
     const nextState = produce(pg, draft => {
@@ -307,7 +310,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   }
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
-  const handleBedSubmit = (values: z.infer<typeof bedSchema>>) => {
+  const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
     const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
     const pg = pgs.find(p => p.floors?.some(f => f.id === floorId));
@@ -383,7 +386,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
           setSelectedLocationForRoomAdd({ floorId, pgId });
       }
       setIsRoomDialogOpen(true);
-  };
+  }
 
   const handleOpenFloorDialog = (floor: Floor | null, pg?: PG) => { 
       setFloorToEdit(floor); 
