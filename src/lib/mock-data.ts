@@ -22,6 +22,7 @@ export const plans: Record<PlanName, Plan> = {
     pricePeriod: 'Forever',
     description: "For single property owners using local storage. No cloud backup.",
     pgLimit: 1,
+    floorLimit: 2,
     hasComplaints: true,
     hasStaffManagement: false,
     hasAiRentReminders: false,
@@ -39,6 +40,7 @@ export const plans: Record<PlanName, Plan> = {
     pricePeriod: '/property/month',
     description: "For growing businesses managing up to 5 properties.",
     pgLimit: 5,
+    floorLimit: 10,
     hasComplaints: true,
     hasStaffManagement: true,
     hasAiRentReminders: true,
@@ -56,6 +58,7 @@ export const plans: Record<PlanName, Plan> = {
     pricePeriod: '/property/month',
     description: "Unlock powerful automation and analytics for unlimited properties.",
     pgLimit: 'unlimited',
+    floorLimit: 'unlimited',
     hasComplaints: true,
     hasStaffManagement: true,
     hasAiRentReminders: true,
@@ -73,6 +76,7 @@ export const plans: Record<PlanName, Plan> = {
       pricePeriod: '/property/month',
       description: "Advanced tools for scaling operators.",
       pgLimit: 10,
+      floorLimit: 'unlimited',
       hasComplaints: true,
       hasStaffManagement: true,
       hasAiRentReminders: true,
@@ -90,6 +94,7 @@ export const plans: Record<PlanName, Plan> = {
     pricePeriod: "",
     description: "List your property on our marketplace for maximum visibility.",
     pgLimit: 'unlimited',
+    floorLimit: 'unlimited',
     hasComplaints: true,
     hasStaffManagement: true,
     hasAiRentReminders: true,
@@ -102,17 +107,25 @@ export const plans: Record<PlanName, Plan> = {
   }
 };
 
-export const navItems = [
+export interface NavItem {
+    href: string;
+    label: string;
+    icon: React.ElementType;
+    feature?: keyof Omit<Plan, 'id' | 'name' | 'price' | 'pricePeriod' | 'description' | 'pgLimit' | 'bedLimit' | 'floorLimit'>;
+    tourId?: string;
+}
+
+export const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'core', tourId: 'dashboard-nav' },
-  { href: '/dashboard/food', label: 'Food Management', icon: UtensilsCrossed, feature: 'core' },
-  { href: '/dashboard/expense', label: 'Expense Tracking', icon: Wallet, feature: 'core' },
-  { href: '/dashboard/rent-passbook', label: 'Rent Passbook', icon: BookUser, feature: 'core' },
-  { href: '/dashboard/pg-management', label: 'Property Management', icon: Building, feature: 'core', tourId: 'pg-management-nav' },
-  { href: '/dashboard/tenant-management', label: 'Guest Management', icon: Users, feature: 'core' },
+  { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'core' },
   { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
-  { href: '/dashboard/staff', label: 'Staff Management', icon: Contact, feature: 'hasStaffManagement' },
-  { href: '/dashboard/seo-generator', label: 'AI SEO Generator', icon: Wand2, feature: 'hasSeoGenerator' },
-  { href: '/dashboard/website', label: 'Website Builder', icon: Globe, feature: 'hasWebsiteBuilder' },
+  { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'core' },
+  { href: '/dashboard/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'core' },
+  { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'core', tourId: 'pg-management-nav' },
+  { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'core' },
+  { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'hasStaffManagement' },
+  { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'hasWebsiteBuilder' },
+  { href: '/dashboard/seo-generator', label: 'AI SEO', icon: Wand2, feature: 'hasSeoGenerator' },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
 ];
 
