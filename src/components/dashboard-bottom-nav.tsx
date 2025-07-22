@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Building, Users, Wallet, MoreHorizontal, UtensilsCrossed, Wand2, Settings, MessageSquareWarning, Contact, Globe } from 'lucide-react';
+import { Home, Building, Users, Wallet, MoreHorizontal, UtensilsCrossed, Wand2, Settings, MessageSquareWarning, Contact, Globe, BookUser } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -19,6 +19,7 @@ import { useAppSelector } from '@/lib/hooks';
 const allMainNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'core' },
   { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'core' },
+  { href: '/dashboard/rent-passbook', label: 'Passbook', icon: BookUser, feature: 'core' },
   { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
   { href: '/dashboard/food', label: 'Food', icon: UtensilsCrossed, feature: 'core' },
 ];

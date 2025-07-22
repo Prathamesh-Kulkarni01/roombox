@@ -72,6 +72,15 @@ export interface AdditionalCharge {
   amount: number;
 }
 
+export interface Payment {
+    id: string;
+    date: string; // ISO string
+    amount: number;
+    method: 'cash' | 'upi' | 'in-app' | 'other';
+    forMonth: string; // e.g., "July 2024"
+    notes?: string;
+}
+
 export interface Guest {
   id: string;
   name: string;
@@ -99,6 +108,7 @@ export interface Guest {
   userId?: string;
   isVacated?: boolean; // True if the guest has permanently left the PG
   additionalCharges?: AdditionalCharge[];
+  paymentHistory?: Payment[];
 }
 
 export interface Complaint {

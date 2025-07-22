@@ -22,7 +22,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 
-import type { Guest, Complaint, AdditionalCharge } from "@/lib/types"
+import type { Guest, Complaint, AdditionalCharge, Payment } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -123,11 +123,58 @@ export default function GuestProfilePage() {
 
     const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
         if (!guest) return;
-        dispatch(updateGuestAction({ updatedGuest: { ...guest, rentPaidAmount: (guest.rentPaidAmount || 0) + values.amountPaid } }))
+        
+        const paymentRecord: Payment = {
+            id: `pay-${Date.now()}`,
+            date: new Date().toISOString(),
+            amount: values.amountPaid,
+            method: values.paymentMethod,
+            forMonth: format(parseISO(guest.dueDate), 'MMMM yyyy'),
+        };
+
+        const updatedGuest = produce(guest, draft => {
+            let amountPaid = values.amountPaid;
+            
+            // Add to payment history
+            if (!draft.paymentHistory) draft.paymentHistory = [];
+            draft.paymentHistory.push(paymentRecord);
+
+            // Create a mutable copy of charges to clear them as payment is applied
+            const mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || [])) as AdditionalCharge[];
+            
+            // First, apply payment to additional charges
+            for (const charge of mutableCharges) {
+                if (amountPaid <= 0) break;
+                const amountToClear = Math.min(amountPaid, charge.amount);
+                charge.amount -= amountToClear;
+                amountPaid -= amountToClear;
+            }
+            
+            // Filter out fully paid charges and update draft
+            draft.additionalCharges = mutableCharges.filter(c => c.amount > 0);
+
+            // Apply remaining payment to rent
+            draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaid;
+            
+            const totalDueAfterPayment = draft.rentAmount - (draft.rentPaidAmount || 0) + (draft.additionalCharges.reduce((sum, c) => sum + c.amount, 0));
+
+            if (totalDueAfterPayment <= 0) {
+                // Cycle completes, rent is fully paid
+                draft.rentStatus = 'paid';
+                draft.balanceBroughtForward = Math.abs(totalDueAfterPayment); // Carry forward any overpayment
+                draft.rentPaidAmount = 0; // Reset for next cycle
+                draft.additionalCharges = [];
+                draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
+            } else {
+                draft.rentStatus = 'partial';
+            }
+        });
+        
+        dispatch(updateGuestAction({ updatedGuest }));
         setIsPaymentDialogOpen(false);
     }
     
-    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>) => {
+    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>>) => {
         if (!guest) return;
         dispatch(addChargeAction({ guestId: guest.id, charge: values }));
         setIsChargeDialogOpen(false);
@@ -340,6 +387,39 @@ export default function GuestProfilePage() {
                     </Card>
                 </div>
             </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Payment History</CardTitle>
+                    <CardDescription>A log of all payments made by {guest.name}.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     {guest.paymentHistory && guest.paymentHistory.length > 0 ? (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Payment For</TableHead>
+                                    <TableHead>Method</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {guest.paymentHistory.map(payment => (
+                                    <TableRow key={payment.id}>
+                                        <TableCell>{format(parseISO(payment.date), 'dd MMM, yyyy')}</TableCell>
+                                        <TableCell>{payment.forMonth}</TableCell>
+                                        <TableCell className="capitalize">{payment.method}</TableCell>
+                                        <TableCell className="text-right font-semibold">₹{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <p className="text-muted-foreground text-center py-4">No payment history found.</p>
+                    )}
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader>

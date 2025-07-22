@@ -9,7 +9,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 
-import type { Guest, Bed, Room, PG, Floor, Complaint, AdditionalCharge } from "@/lib/types"
+import type { Guest, Bed, Room, PG, Floor, Complaint, AdditionalCharge, Payment } from "@/lib/types"
 import { format, addMonths } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
@@ -149,50 +149,54 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   };
 
   const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
-      if (!selectedGuestForPayment) return;
-      
-      const guest = selectedGuestForPayment;
-      let amountPaid = values.amountPaid;
+    if (!selectedGuestForPayment) return;
+    
+    const guest = selectedGuestForPayment;
+    const paymentRecord: Payment = {
+        id: `pay-${Date.now()}`,
+        date: new Date().toISOString(),
+        amount: values.amountPaid,
+        method: values.paymentMethod,
+        forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
+    };
 
-      // Create a deep copy of charges to allow mutation
-      const mutableCharges = JSON.parse(JSON.stringify(guest.additionalCharges || [])) as AdditionalCharge[];
-      
-      // First, apply payment to additional charges
-      for (const charge of mutableCharges) {
-          if (amountPaid <= 0) break;
-          const amountToClear = Math.min(amountPaid, charge.amount);
-          charge.amount -= amountToClear;
-          amountPaid -= amountToClear;
-      }
-      
-      // Filter out fully paid charges
-      const remainingCharges = mutableCharges.filter(c => c.amount > 0);
+    const updatedGuest = produce(guest, draft => {
+        let amountPaid = values.amountPaid;
 
-      // Apply remaining payment to rent
-      let newRentPaidAmount = (guest.rentPaidAmount || 0) + amountPaid;
-      
-      const updatedGuest = produce(guest, draft => {
-          draft.additionalCharges = remainingCharges;
-          
-          if (newRentPaidAmount >= draft.rentAmount && remainingCharges.length === 0) {
-              // Cycle completes, rent is fully paid
-              draft.rentStatus = 'paid';
-              draft.rentPaidAmount = 0; // Reset for next cycle
-              draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
-          } else if (newRentPaidAmount > 0) {
-              // Partial payment
-              draft.rentStatus = 'partial';
-              draft.rentPaidAmount = newRentPaidAmount;
-          } else {
-              // No rent part paid, but charges might be
-              draft.rentStatus = 'unpaid';
-              draft.rentPaidAmount = 0;
-          }
-      });
-      
-      dispatch(updateGuestAction({ updatedGuest }));
-      setIsPaymentDialogOpen(false);
-      setSelectedGuestForPayment(null);
+        if (!draft.paymentHistory) draft.paymentHistory = [];
+        draft.paymentHistory.push(paymentRecord);
+        
+        // Use a deep copy for mutable operations
+        let mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || [])) as AdditionalCharge[];
+        
+        // Apply payment to additional charges
+        for (const charge of mutableCharges) {
+            if (amountPaid <= 0) break;
+            const amountToClear = Math.min(amountPaid, charge.amount);
+            charge.amount -= amountToClear;
+            amountPaid -= amountToClear;
+        }
+        draft.additionalCharges = mutableCharges.filter(c => c.amount > 0);
+
+        // Apply remaining to rent
+        draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaid;
+        
+        const totalDueAfterPayment = draft.rentAmount - (draft.rentPaidAmount || 0) + (draft.additionalCharges.reduce((sum, c) => sum + c.amount, 0));
+
+        if (totalDueAfterPayment <= 0) {
+            draft.rentStatus = 'paid';
+            draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + Math.abs(totalDueAfterPayment);
+            draft.rentPaidAmount = 0;
+            draft.additionalCharges = [];
+            draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
+        } else {
+            draft.rentStatus = 'partial';
+        }
+    });
+    
+    dispatch(updateGuestAction({ updatedGuest }));
+    setIsPaymentDialogOpen(false);
+    setSelectedGuestForPayment(null);
   };
 
   const handleOpenSharedChargeDialog = (room: Room) => {

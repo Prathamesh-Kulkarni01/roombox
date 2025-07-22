@@ -9,6 +9,7 @@ export const navPermissions: Record<UserRole, string[]> = {
     '/dashboard/expense',
     '/dashboard/pg-management',
     '/dashboard/tenant-management',
+    '/dashboard/rent-passbook',
     '/dashboard/complaints',
     '/dashboard/staff',
     '/dashboard/seo-generator',
