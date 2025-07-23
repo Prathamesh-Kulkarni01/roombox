@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -12,13 +13,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut } from 'lucide-react';
-import type { RolePermissions } from '@/lib/permissions';
+import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
+import type { UserRole } from '@/lib/types';
 
 // Helper function to check if a user has any permission for a given feature
 const hasAnyPermissionForFeature = (
   feature: NavItem['feature'],
   permissions: RolePermissions | null | undefined,
-  role: string | null | undefined
+  role: UserRole | null | undefined
 ): boolean => {
   if (!feature || !permissions || !role) return false;
   if (role === 'owner') return true;

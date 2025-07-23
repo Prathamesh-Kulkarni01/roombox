@@ -8,6 +8,7 @@ import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, g
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
 import { setLoading } from './appSlice';
+import { fetchPermissions } from './permissionsSlice';
 
 interface UserState {
     currentUser: User | null;
@@ -31,6 +32,8 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         let userDoc = await getDoc(userDocRef);
 
+        let userDataToReturn: User | null = null;
+
         if (userDoc.exists()) {
             const userData = userDoc.data() as User;
             
@@ -49,11 +52,15 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 const activeGuestDoc = await getDoc(doc(db, 'users_data', userData.ownerId, 'guests', userData.guestId));
                 if (!activeGuestDoc.exists() || activeGuestDoc.data()?.isVacated) {
                     await updateDoc(userDocRef, { guestId: null, pgId: null });
-                    userDoc = await getDoc(userDocRef); // Re-fetch the updated user doc
-                     return userDoc.data() as User;
+                    const updatedUserDoc = await getDoc(userDocRef); // Re-fetch the updated user doc
+                    userDataToReturn = updatedUserDoc.data() as User;
                 }
             }
-            return userData;
+
+            if (!userDataToReturn) {
+                 userDataToReturn = userData;
+            }
+
         } else {
             const userEmail = firebaseUser.email;
             if (userEmail) {
@@ -99,22 +106,35 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                     batch.delete(inviteDocRef);
                     await batch.commit();
                     
-                    return newUser;
+                    userDataToReturn = newUser;
                 }
             }
             
-            // Default to creating an owner account if no invite is found
-            const newUser: User = {
-                id: firebaseUser.uid,
-                name: firebaseUser.displayName || 'New Owner',
-                email: firebaseUser.email,
-                role: 'owner',
-                subscription: { planId: 'free', status: 'active' },
-                avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName) || 'NO').slice(0, 2).toUpperCase()}`
-            };
-            await setDoc(userDocRef, newUser);
-            return newUser;
+            if(!userDataToReturn) {
+                 // Default to creating an owner account if no invite is found
+                const newUser: User = {
+                    id: firebaseUser.uid,
+                    name: firebaseUser.displayName || 'New Owner',
+                    email: firebaseUser.email,
+                    role: 'owner',
+                    subscription: { planId: 'free', status: 'active' },
+                    avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName) || 'NO').slice(0, 2).toUpperCase()}`
+                };
+                await setDoc(userDocRef, newUser);
+                userDataToReturn = newUser;
+            }
         }
+        
+        if (userDataToReturn) {
+            const finalPlan = plans[userDataToReturn.subscription?.planId || 'free'];
+            const ownerId = userDataToReturn.role === 'owner' ? userDataToReturn.id : userDataToReturn.ownerId;
+            if(ownerId) {
+                dispatch(fetchPermissions({ ownerId, plan: finalPlan }));
+            }
+            return userDataToReturn;
+        }
+
+        return rejectWithValue('Could not initialize user');
     }
 );
 

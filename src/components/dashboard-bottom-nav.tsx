@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -15,14 +16,14 @@ import {
 } from "@/components/ui/sheet";
 import { navItems as allNavItems, type NavItem } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
-import type { RolePermissions } from '@/lib/permissions';
+import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
 
 
 // Helper function to check if a user has any permission for a given feature
 const hasAnyPermissionForFeature = (
   feature: NavItem['feature'],
   permissions: RolePermissions | null | undefined,
-  role: string | null | undefined
+  role: UserRole | null | undefined
 ): boolean => {
   if (!feature || !permissions || !role) return false;
   if (role === 'owner') return true;
@@ -113,3 +114,4 @@ export default function DashboardBottomNav() {
     </div>
   );
 }
+

@@ -28,7 +28,7 @@ import { fetchPermissions } from '@/lib/slices/permissionsSlice'
 
 function AuthHandler({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
-  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
+  const { currentUser } = useAppSelector((state) => state.user);
   const authListenerStarted = useRef(false);
   const [dataListeners, setDataListeners] = useState<Unsubscribe[]>([]);
   const { toast } = useToast();
@@ -92,7 +92,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
     dataListeners.forEach(unsub => unsub());
     setDataListeners([]);
 
-    if (!currentUser || !currentPlan || !db) return;
+    if (!currentUser || !db) return;
     
     // Determine the correct ID for fetching data (owner's ID for everyone)
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
@@ -101,9 +101,6 @@ function AuthHandler({ children }: { children: ReactNode }) {
         dispatch(setLoading(false));
         return; // Can't fetch data without an owner ID
     }
-
-    // Always fetch permissions based on the owner's settings
-    dispatch(fetchPermissions({ ownerId: ownerIdForFetching, plan: currentPlan }));
 
     initializeFirebaseMessaging(currentUser.id);
 
@@ -191,7 +188,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
     return () => {
         unsubs.forEach(unsub => unsub());
     };
-  }, [currentUser, currentPlan, dispatch]);
+  }, [currentUser, dispatch]);
 
 
   return <>{children}</>;
