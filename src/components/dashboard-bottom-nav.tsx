@@ -15,18 +15,22 @@ import {
 } from "@/components/ui/sheet";
 import { navItems as allNavItems, type NavItem } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
-import type { FeaturePermissions } from '@/lib/permissions';
+import type { RolePermissions } from '@/lib/permissions';
 
 
 // Helper function to check if a user has any permission for a given feature
 const hasAnyPermissionForFeature = (
   feature: NavItem['feature'],
-  permissions: FeaturePermissions | null | undefined,
+  permissions: RolePermissions | null | undefined,
   role: string | null | undefined
 ): boolean => {
-  if (!feature || !permissions || !role || role === 'owner') return true;
+  if (!feature || !permissions || !role) return false;
+  if (role === 'owner') return true;
 
-  const featurePerms = permissions[feature as keyof typeof permissions];
+  const rolePermissions = permissions[role as keyof RolePermissions];
+  if (!rolePermissions) return false;
+  
+  const featurePerms = rolePermissions[feature as keyof typeof rolePermissions];
   if (!featurePerms) return false;
 
   // The user has access if any of the permissions for that feature are true
@@ -39,10 +43,6 @@ export default function DashboardBottomNav() {
   const { featurePermissions } = useAppSelector((state) => state.permissions);
 
   if (!currentUser || !currentPlan) return null;
-
-  const visibleNavItems = allNavItems.filter(item => 
-      hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role)
-  );
 
   const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/expense'].includes(item.href));
   const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href));

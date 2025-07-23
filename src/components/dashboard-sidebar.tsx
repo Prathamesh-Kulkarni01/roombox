@@ -12,17 +12,21 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut } from 'lucide-react';
-import type { FeaturePermissions } from '@/lib/permissions';
+import type { RolePermissions } from '@/lib/permissions';
 
 // Helper function to check if a user has any permission for a given feature
 const hasAnyPermissionForFeature = (
   feature: NavItem['feature'],
-  permissions: FeaturePermissions | null | undefined,
+  permissions: RolePermissions | null | undefined,
   role: string | null | undefined
 ): boolean => {
-  if (!feature || !permissions || !role || role === 'owner') return true;
+  if (!feature || !permissions || !role) return false;
+  if (role === 'owner') return true;
 
-  const featurePerms = permissions[feature];
+  const rolePermissions = permissions[role as keyof RolePermissions];
+  if (!rolePermissions) return false;
+  
+  const featurePerms = rolePermissions[feature as keyof typeof rolePermissions];
   if (!featurePerms) return false;
 
   // The user has access if any of the permissions for that feature are true
