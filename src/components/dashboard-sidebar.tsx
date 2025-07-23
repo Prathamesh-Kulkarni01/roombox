@@ -15,20 +15,31 @@ import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut } from 'lucide-react';
 import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
+import { plans } from '@/lib/mock-data';
 
 // Helper function to check if a user has any permission for a given feature
 const hasAnyPermissionForFeature = (
-  feature: NavItem['feature'],
+  item: NavItem,
   permissions: RolePermissions | null | undefined,
-  role: UserRole | null | undefined
+  role: UserRole | null | undefined,
+  plan: any
 ): boolean => {
-  if (!feature || !permissions || !role) return false;
+  if (!role) return false;
   if (role === 'owner') return true;
+  if (!permissions) return false;
 
   const rolePermissions = permissions[role as keyof RolePermissions];
   if (!rolePermissions) return false;
   
-  const featurePerms = rolePermissions[feature as keyof typeof rolePermissions];
+  // Special case for core features that don't have granular permissions
+  if (item.feature === 'core') return true;
+  
+  // Handle plan-based features first
+  if(item.feature && item.feature.startsWith('has')) {
+    return plan[item.feature as keyof typeof plan];
+  }
+
+  const featurePerms = rolePermissions[item.feature as keyof typeof rolePermissions];
   if (!featurePerms) return false;
 
   // The user has access if any of the permissions for that feature are true
@@ -52,7 +63,7 @@ export default function DashboardSidebar() {
   }
 
   const visibleNavItems = navItems.filter(item => 
-      hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role)
+      hasAnyPermissionForFeature(item, featurePermissions, currentUser.role, currentPlan)
   );
 
   return (

@@ -111,19 +111,19 @@ export interface NavItem {
     href: string;
     label: string;
     icon: React.ElementType;
-    feature?: keyof Omit<Plan, 'id' | 'name' | 'price' | 'pricePeriod' | 'description' | 'pgLimit' | 'bedLimit' | 'floorLimit'>;
+    feature?: string;
     tourId?: string;
 }
 
 export const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'core', tourId: 'dashboard-nav' },
-  { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'core' },
-  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'hasComplaints' },
-  { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'core' },
-  { href: '/dashboard/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'core' },
-  { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'core', tourId: 'pg-management-nav' },
-  { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'core' },
-  { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'hasStaffManagement' },
+  { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav' },
+  { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances' },
+  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints' },
+  { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances' },
+  { href: '/dashboard/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'food' },
+  { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav' },
+  { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'guests' },
+  { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff' },
   { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'hasWebsiteBuilder' },
   { href: '/dashboard/seo-generator', label: 'AI SEO', icon: Wand2, feature: 'hasSeoGenerator' },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },

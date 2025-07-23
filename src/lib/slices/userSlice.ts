@@ -33,6 +33,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         let userDoc = await getDoc(userDocRef);
 
         let userDataToReturn: User | null = null;
+        let ownerPlan: Plan | null = null;
 
         if (userDoc.exists()) {
             const userData = userDoc.data() as User;
@@ -44,7 +45,10 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 if (ownerDoc.exists()) {
                     const ownerData = ownerDoc.data() as User;
                     userData.subscription = ownerData.subscription;
+                    ownerPlan = plans[ownerData.subscription?.planId || 'free'];
                 }
+            } else {
+                ownerPlan = plans[userData.subscription?.planId || 'free'];
             }
 
             // If user has an active guestId, ensure it's not for a vacated guest record.
@@ -107,6 +111,14 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                     await batch.commit();
                     
                     userDataToReturn = newUser;
+                    
+                    // Fetch owner's plan for the newly created staff/tenant
+                    const ownerDocRef = doc(db, 'users', inviteData.ownerId);
+                    const ownerDoc = await getDoc(ownerDocRef);
+                    if (ownerDoc.exists()) {
+                        ownerPlan = plans[ownerDoc.data().subscription?.planId || 'free'];
+                    }
+
                 }
             }
             
@@ -122,14 +134,14 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 };
                 await setDoc(userDocRef, newUser);
                 userDataToReturn = newUser;
+                ownerPlan = plans.free;
             }
         }
         
         if (userDataToReturn) {
-            const finalPlan = plans[userDataToReturn.subscription?.planId || 'free'];
             const ownerId = userDataToReturn.role === 'owner' ? userDataToReturn.id : userDataToReturn.ownerId;
-            if(ownerId) {
-                dispatch(fetchPermissions({ ownerId, plan: finalPlan }));
+            if(ownerId && ownerPlan) {
+                dispatch(fetchPermissions({ ownerId, plan: ownerPlan }));
             }
             return userDataToReturn;
         }

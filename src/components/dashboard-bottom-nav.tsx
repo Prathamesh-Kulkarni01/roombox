@@ -14,29 +14,41 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { navItems as allNavItems, type NavItem } from '@/lib/mock-data';
+import { navItems as allNavItems, type NavItem, plans } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
 import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
+import type { UserRole } from '@/lib/types';
 
 
 // Helper function to check if a user has any permission for a given feature
 const hasAnyPermissionForFeature = (
-  feature: NavItem['feature'],
+  item: NavItem,
   permissions: RolePermissions | null | undefined,
-  role: UserRole | null | undefined
+  role: UserRole | null | undefined,
+  plan: any
 ): boolean => {
-  if (!feature || !permissions || !role) return false;
+  if (!role) return false;
   if (role === 'owner') return true;
+  if (!permissions) return false;
 
   const rolePermissions = permissions[role as keyof RolePermissions];
   if (!rolePermissions) return false;
   
-  const featurePerms = rolePermissions[feature as keyof typeof rolePermissions];
+  // Special case for core features that don't have granular permissions
+  if (item.feature === 'core') return true;
+  
+  // Handle plan-based features first
+  if(item.feature && item.feature.startsWith('has')) {
+    return plan[item.feature as keyof typeof plan];
+  }
+
+  const featurePerms = rolePermissions[item.feature as keyof typeof rolePermissions];
   if (!featurePerms) return false;
 
   // The user has access if any of the permissions for that feature are true
   return Object.values(featurePerms).some(value => value === true);
 };
+
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
@@ -48,8 +60,8 @@ export default function DashboardBottomNav() {
   const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/expense'].includes(item.href));
   const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href));
   
-  const accessibleMainNavItems = mainNavItems.filter(item => hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role));
-  const accessibleMoreNavItems = moreNavItems.filter(item => hasAnyPermissionForFeature(item.feature, featurePermissions, currentUser.role));
+  const accessibleMainNavItems = mainNavItems.filter(item => hasAnyPermissionForFeature(item, featurePermissions, currentUser.role, currentPlan));
+  const accessibleMoreNavItems = moreNavItems.filter(item => hasAnyPermissionForFeature(item, featurePermissions, currentUser.role, currentPlan));
 
 
   const showMoreTab = accessibleMoreNavItems.length > 0 || accessibleMainNavItems.length > 4;
@@ -114,4 +126,3 @@ export default function DashboardBottomNav() {
     </div>
   );
 }
-
