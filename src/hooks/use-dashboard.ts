@@ -88,7 +88,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [guestToInitiateExit, setGuestToInitiateExit] = useState<Guest | null>(null);
   const [guestToExitImmediately, setGuestToExitImmediately] = useState<Guest | null>(null);
   const [isSharedChargeDialogOpen, setIsSharedChargeDialogOpen] = useState(false);
-  const [roomForSharedCharge, setRoomForSharedCharge] = useState<Room | null>(null);
+  const [roomForSharedCharge, setRoomForSharedCharge] = useState<{ room: Room, guests: Guest[] } | null>(null);
 
 
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
@@ -191,55 +191,56 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   };
 
   const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
-    if (!selectedGuestForPayment) return;
-    
-    const guest = selectedGuestForPayment;
-    const paymentRecord: Payment = {
-        id: `pay-${Date.now()}`,
-        date: new Date().toISOString(),
-        amount: values.amountPaid,
-        method: values.paymentMethod,
-        forMonth: format(parseISO(guest.dueDate), 'MMMM yyyy'),
-    };
+      if (!selectedGuestForPayment) return;
+      
+      const guest = selectedGuestForPayment;
+      let amountPaid = values.amountPaid;
 
-    const updatedGuest = produce(guest, draft => {
-        let amountPaid = values.amountPaid;
+      // Create a mutable copy of charges to clear them as payment is applied
+      let remainingCharges = [...(guest.additionalCharges || [])];
+      let clearedCharges: AdditionalCharge[] = [];
+      
+      // First, apply payment to additional charges
+      for (const charge of remainingCharges) {
+          if (amountPaid <= 0) break;
+          const amountToClear = Math.min(amountPaid, charge.amount);
+          charge.amount -= amountToClear;
+          amountPaid -= amountToClear;
+      }
+      
+      // Filter out fully paid charges
+      clearedCharges = remainingCharges.filter(c => c.amount > 0);
 
-        if (!draft.paymentHistory) draft.paymentHistory = [];
-        draft.paymentHistory.push(paymentRecord);
-        
-        let mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || []));
-        
-        for (const charge of mutableCharges) {
-            if (amountPaid <= 0) break;
-            const amountToClear = Math.min(amountPaid, charge.amount);
-            charge.amount -= amountToClear;
-            amountPaid -= amountToClear;
-        }
-        draft.additionalCharges = mutableCharges.filter(c => c.amount > 0);
-
-        draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaid;
-        
-        const totalDueAfterPayment = draft.rentAmount - (draft.rentPaidAmount || 0) + (draft.additionalCharges?.reduce((sum, c) => sum + c.amount, 0) || 0);
-
-        if (totalDueAfterPayment <= 0) {
-            draft.rentStatus = 'paid';
-            draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + Math.abs(totalDueAfterPayment);
-            draft.rentPaidAmount = 0;
-            draft.additionalCharges = [];
-            draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
-        } else {
-            draft.rentStatus = 'partial';
-        }
-    });
-    
-    dispatch(updateGuestAction({ updatedGuest }));
-    setIsPaymentDialogOpen(false);
-    setSelectedGuestForPayment(null);
+      // Apply remaining payment to rent
+      let newRentPaidAmount = (guest.rentPaidAmount || 0) + amountPaid;
+      
+      const updatedGuest = produce(guest, draft => {
+          draft.additionalCharges = clearedCharges;
+          
+          if (newRentPaidAmount >= draft.rentAmount && clearedCharges.length === 0) {
+              // Cycle completes, rent is fully paid
+              draft.rentStatus = 'paid';
+              draft.rentPaidAmount = 0; // Reset for next cycle
+              draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
+          } else if (newRentPaidAmount > 0) {
+              // Partial payment
+              draft.rentStatus = 'partial';
+              draft.rentPaidAmount = newRentPaidAmount;
+          } else {
+              // No rent part paid, but charges might be
+              draft.rentStatus = 'unpaid';
+              draft.rentPaidAmount = 0;
+          }
+      });
+      
+      dispatch(updateGuestAction({ updatedGuest }));
+      setIsPaymentDialogOpen(false);
+      setSelectedGuestForPayment(null);
   };
 
   const handleOpenSharedChargeDialog = (room: Room) => {
-      setRoomForSharedCharge(room);
+      const roomGuests = guests.filter(g => room.beds.some(b => b.id === g.bedId));
+      setRoomForSharedCharge({ room, guests: roomGuests });
       setIsSharedChargeDialogOpen(true);
   };
 
@@ -258,12 +259,12 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         }
 
         dispatch(addSharedChargeToRoom({
-            roomId: roomForSharedCharge.id,
+            roomId: roomForSharedCharge.room.id,
             description: values.description,
             totalAmount: totalAmount
         }));
         
-        toast({ title: 'Shared Charge Added', description: `The charge for "${values.description}" has been added to guests in room ${roomForSharedCharge.name}.` });
+        toast({ title: 'Shared Charge Added', description: `The charge for "${values.description}" has been added to guests in room ${roomForSharedCharge.room.name}.` });
         setIsSharedChargeDialogOpen(false);
     };
 
@@ -322,7 +323,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const processRoomSubmit = (values: z.infer<typeof roomSchema>>) => {
+  const processRoomSubmit = (values: z.infer<typeof roomSchema>) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
