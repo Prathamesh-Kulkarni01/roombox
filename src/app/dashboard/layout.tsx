@@ -1,36 +1,67 @@
 
 'use client'
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import DashboardSidebar from "@/components/dashboard-sidebar";
 import DashboardBottomNav from "@/components/dashboard-bottom-nav";
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppSelector } from '@/lib/hooks';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { navPermissions } from '@/lib/permissions';
+import { isAfter, parseISO } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { plans } from '@/lib/mock-data';
+import type { PlanName } from '@/lib/types';
+import Link from 'next/link';
+import { ShieldAlert, Star } from 'lucide-react';
+
+
+const SubscriptionGate = () => (
+    <div className="flex items-center justify-center h-full">
+        <div className="text-center p-8 bg-card rounded-lg border max-w-lg">
+            <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+            <h2 className="mt-4 text-2xl font-semibold">Your Trial Has Ended</h2>
+            <p className="mt-2 text-muted-foreground">
+                Please subscribe to a plan to continue managing your properties and access all features.
+            </p>
+            <Button className="mt-6" asChild>
+                <Link href="/dashboard/settings">Choose Your Plan</Link>
+            </Button>
+        </div>
+    </div>
+);
+
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { currentUser } = useAppSelector((state) => state.user);
+  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const { isLoading } = useAppSelector((state) => state.app);
   const router = useRouter();
+  const pathname = usePathname();
 
   const allowedDashboardRoles: (keyof typeof navPermissions)[] = ['owner', 'manager', 'cook', 'cleaner', 'security'];
 
+  const hasActiveSubscription = useMemo(() => {
+    if (!currentUser || currentUser.role !== 'owner') return true; // Gatekeeping is only for owners
+    const sub = currentUser.subscription;
+    if (!sub) return false;
+    if (sub.status === 'active') return true;
+    if (sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date())) {
+        return true;
+    }
+    return false;
+  }, [currentUser]);
+
   useEffect(() => {
-    // If loading is finished and there's no user, or user is not an allowed dashboard role, redirect to login.
     if (!isLoading && (!currentUser || !allowedDashboardRoles.includes(currentUser.role))) {
       router.replace('/login');
     }
   }, [isLoading, currentUser, router]);
 
-
-  // Show a full-page skeleton while the initial user check is happening,
-  // or if user role is not a valid dashboard role.
   if (isLoading || !currentUser || !allowedDashboardRoles.includes(currentUser.role)) {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
@@ -88,6 +119,8 @@ export default function DashboardLayout({
       </div>
     );
   }
+  
+   const showSubscriptionGate = !hasActiveSubscription && pathname !== '/dashboard/settings';
 
   return (
     <>
@@ -95,7 +128,7 @@ export default function DashboardLayout({
         <DashboardSidebar />
         <div className="flex flex-1 flex-col overflow-auto">
           <main className="flex-1 p-4 bg-muted/40 pb-20 md:pb-4">
-            {children}
+            {showSubscriptionGate ? <SubscriptionGate /> : children}
           </main>
         </div>
         <DashboardBottomNav />

@@ -185,6 +185,8 @@ export interface Plan {
   description: string;
 }
 
+export type SubscriptionStatus = 'trialing' | 'active' | 'inactive' | 'past_due' | 'canceled';
+
 export interface User {
   id: string;
   name: string;
@@ -200,9 +202,10 @@ export interface User {
   pgId?: string; // Tenant's active PG ID for direct access
   subscription?: {
     planId: PlanName;
-    status: 'active' | 'inactive';
+    status: SubscriptionStatus;
     razorpay_subscription_id?: string;
     razorpay_payment_id?: string;
+    trialEndDate?: string; // ISO string
   };
   fcmToken?: string | null;
 }
