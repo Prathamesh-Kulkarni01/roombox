@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect, useMemo, useTransition } from "react"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,7 +9,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 
-import type { Guest, Bed, Room, PG, Floor, Payment } from "@/lib/types"
+import type { Guest, Bed, Room, PG, Floor, Payment, AdditionalCharge } from "@/lib/types"
 import { format, addMonths, parseISO } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
@@ -307,7 +306,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const getPgById = (pgId: string) => pgs.find(p => p.id === pgId);
   const getFloorById = (pgId: string, floorId: string) => getPgById(pgId)?.floors?.find(f => f.id === floorId);
 
-  const handleFloorSubmit = (values: z.infer<typeof floorSchema>>) => {
+  const handleFloorSubmit = (values: z.infer<typeof floorSchema>) => {
     const pg = floorToEdit ? getPgById(floorToEdit.pgId) : selectedPgForFloorAdd;
     if (!pg) return;
     const nextState = produce(pg, draft => {
