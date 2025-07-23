@@ -350,7 +350,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   }
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
-  const handleBedSubmit = (values: z.infer<typeof bedSchema>>) => {
+  const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
     const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
     const pg = pgs.find(p => p.floors?.some(f => f.id === floorId));
