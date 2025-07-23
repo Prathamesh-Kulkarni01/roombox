@@ -1,5 +1,4 @@
 
-
 import type { UserRole } from './types';
 
 // This defines the structure and labels for permissions.
@@ -53,7 +52,19 @@ export const featurePermissionConfig = {
       delete: "Delete Staff",
     }
   },
-  // Add other features here if needed
+  website: {
+    label: "Website Builder",
+    actions: {
+      view: "View Site Details",
+      edit: "Edit & Publish Site",
+    }
+  },
+  seo: {
+    label: "AI SEO Generator",
+    actions: {
+      use: "Use the AI SEO tool",
+    }
+  },
 };
 
 // Type definition for a single feature's permissions

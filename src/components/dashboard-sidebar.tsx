@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -8,40 +7,38 @@ import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
-import { navItems, type NavItem } from '@/lib/mock-data';
+import { navItems, type NavItem, plans } from '@/lib/mock-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut } from 'lucide-react';
 import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
-import { plans } from '@/lib/mock-data';
 
-// Helper function to check if a user has any permission for a given feature
-const hasAnyPermissionForFeature = (
+// Helper function to check if a user should see a navigation item.
+const hasAccessToFeature = (
   item: NavItem,
   permissions: RolePermissions | null | undefined,
-  role: UserRole | null | undefined,
+  role: UserRole,
   plan: any
 ): boolean => {
-  if (!role) return false;
+  // Always show core items like settings
+  if (item.feature === 'core') return true;
+  
+  // For Owners, visibility is determined by the feature existing,
+  // the page itself will handle the subscription gate.
   if (role === 'owner') return true;
+
+  // For Staff, visibility is determined by their specific permissions.
+  // If they have no permissions for a feature, they shouldn't even see the link.
   if (!permissions) return false;
 
   const rolePermissions = permissions[role as keyof RolePermissions];
   if (!rolePermissions) return false;
-  
-  // Special case for core features that don't have granular permissions
-  if (item.feature === 'core') return true;
-  
-  // Handle plan-based features first
-  if(item.feature && item.feature.startsWith('has')) {
-    return plan[item.feature as keyof typeof plan];
-  }
 
-  const featurePerms = rolePermissions[item.feature as keyof typeof rolePermissions];
+  const featurePerms = rolePermissions[item.feature as keyof FeaturePermissions];
   if (!featurePerms) return false;
-
+  
   // The user has access if any of the permissions for that feature are true
   return Object.values(featurePerms).some(value => value === true);
 };
@@ -63,7 +60,7 @@ export default function DashboardSidebar() {
   }
 
   const visibleNavItems = navItems.filter(item => 
-      hasAnyPermissionForFeature(item, featurePermissions, currentUser.role, currentPlan)
+      hasAccessToFeature(item, featurePermissions, currentUser.role, currentPlan)
   );
 
   return (

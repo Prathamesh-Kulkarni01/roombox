@@ -229,7 +229,7 @@ export default function WebsiteBuilderPage() {
         )
     }
     
-    if (!currentPlan?.hasWebsiteBuilder) {
+    if (currentPlan && !currentPlan.hasWebsiteBuilder) {
         return (
             <Card>
                 <CardHeader>
