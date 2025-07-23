@@ -20,9 +20,43 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
     throw new Error('Invalid plan selected for subscription.')
   }
 
+  // A plan needs to be created on Razorpay first.
+  // We'll create one on the fly if it doesn't exist, using the planId as a reference.
+  // Note: This is a simplified approach. A production app might pre-create plans on Razorpay.
+  let razorpayPlanId = '';
+  
   try {
+    // Check if a plan with our internal ID exists
+    const existingPlans = await razorpay.plans.all({ count: 100 });
+    const existingPlan = existingPlans.items.find(p => p.notes?.planId === planId);
+
+    if (existingPlan) {
+        razorpayPlanId = existingPlan.id;
+    } else {
+        // Create the plan on Razorpay if it doesn't exist
+        const newPlan = await razorpay.plans.create({
+            period: 'monthly',
+            interval: 1,
+            item: {
+                name: `${plan.name} Plan`,
+                amount: plan.price * 100, // Amount in paisa
+                currency: 'INR',
+                description: plan.description
+            },
+            notes: {
+                // Store our internal planId in the notes for future lookup
+                planId: planId
+            }
+        });
+        razorpayPlanId = newPlan.id;
+    }
+
+    if (!razorpayPlanId) {
+        throw new Error('Could not find or create a plan on Razorpay.');
+    }
+
     const subscription = await razorpay.subscriptions.create({
-      plan_id: planId, // In Razorpay, create plans with IDs matching your planIds ('starter', 'pro')
+      plan_id: razorpayPlanId,
       customer_notify: 1,
       quantity: 1,
       total_count: 120, // For 10 years
@@ -33,37 +67,7 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
     return { success: true, subscription }
   } catch (error) {
     console.error('Razorpay subscription creation failed:', error)
-    // A plan might not exist on Razorpay, so let's create it and retry.
-    try {
-        await razorpay.plans.create({
-            period: 'monthly',
-            interval: 1,
-            item: {
-                name: `${plan.name} Plan`,
-                amount: plan.price * 100, // Amount in paisa
-                currency: 'INR',
-                description: plan.description
-            },
-            notes: {
-                planId: planId
-            }
-        });
-        
-        // Retry creating subscription
-        const subscription = await razorpay.subscriptions.create({
-            plan_id: planId,
-            customer_notify: 1,
-            quantity: 1,
-            total_count: 120,
-            notes: { userId }
-        });
-
-        return { success: true, subscription };
-
-    } catch (creationError) {
-         console.error('Razorpay plan creation and subscription retry failed:', creationError);
-         return { success: false, error: 'Could not create subscription on payment gateway.' }
-    }
+    return { success: false, error: 'Could not create subscription on payment gateway.' }
   }
 }
 
