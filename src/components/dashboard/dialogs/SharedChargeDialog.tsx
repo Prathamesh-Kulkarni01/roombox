@@ -66,24 +66,19 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
     const occupiedGuests = useMemo(() => {
         if (!roomForSharedCharge) return [];
 
-        const allGuestsInRoom = guests.filter(g => roomForSharedCharge.beds.some(b => b.id === g.bedId));
-
-        if (!cycleStartDate || !cycleEndDate) {
-            return allGuestsInRoom; // For one-time or custom charges, include everyone currently there
-        }
+        // Get guest IDs from beds that are currently occupied
+        const occupiedBedGuestIds = roomForSharedCharge.beds
+            .map(bed => bed.guestId)
+            .filter((guestId): guestId is string => guestId !== null);
         
-        // Filter guests who were active during any part of the billing cycle
-        return allGuestsInRoom.filter(guest => {
-            const moveInDate = new Date(guest.moveInDate);
-            const exitDate = guest.exitDate ? new Date(guest.exitDate) : null;
-            // They are included if:
-            // 1. Their stay starts before the cycle ends.
-            // 2. Their stay ends after the cycle starts (or hasn't ended).
-            const startsBeforeCycleEnd = moveInDate <= cycleEndDate;
-            const endsAfterCycleStart = !exitDate || exitDate >= cycleStartDate;
-            return startsBeforeCycleEnd && endsAfterCycleStart;
-        });
-    }, [roomForSharedCharge, cycleStartDate, cycleEndDate, guests]);
+        // From the main guest list, find guests who match these IDs and are not vacated
+        const guestsInRoom = guests.filter(g => 
+            occupiedBedGuestIds.includes(g.id) && !g.isVacated
+        );
+
+        return guestsInRoom;
+
+    }, [roomForSharedCharge, guests]);
 
 
     const calculatedTotal = activeTemplate?.calculation === 'unit' ? (units || 0) * (unitCost || 0) : totalAmount;
@@ -173,7 +168,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                                     <AlertTitle>Charge Distribution</AlertTitle>
                                     <AlertDescription className="flex items-center justify-between">
                                         <span>
-                                            ₹{chargePerGuest.toFixed(2)} per guest ({occupiedGuests.length} guests)
+                                            ₹{chargePerGuest.toFixed(2)} per guest ({occupiedGuests.length} guest{occupiedGuests.length > 1 ? 's' : ''})
                                         </span>
                                     </AlertDescription>
                                 </Alert>
@@ -195,3 +190,4 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         </Dialog>
     )
 }
+
