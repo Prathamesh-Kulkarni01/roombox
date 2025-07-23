@@ -6,6 +6,7 @@ import Header from '@/components/header';
 import StoreProvider from '@/components/StoreProvider';
 import { ThemeProvider } from '@/components/theme-provider';
 import AppTour from '@/components/app-tour';
+import Script from 'next/script';
 
 const APP_NAME = "RentVastu";
 const APP_DESCRIPTION = "RentVastu is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
@@ -117,7 +118,11 @@ export default function RootLayout({
           key="product-jsonld"
         />
       </head>
-      <body className="font-body antialiased">
+      <body>
+        <Script
+          id="razorpay-checkout-js"
+          src="https://checkout.razorpay.com/v1/checkout.js"
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

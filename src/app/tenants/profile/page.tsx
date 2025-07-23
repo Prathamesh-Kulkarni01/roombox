@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { UserCog } from "lucide-react"
-import { disassociateAndCreateOwnerAccount as disassociateAction } from '@/lib/slices/userSlice'
+import { disassociateAndCreateOwnerAccount } from '@/lib/slices/userSlice'
 
 
 export default function TenantProfilePage() {
@@ -21,7 +21,7 @@ export default function TenantProfilePage() {
 
     const handleBecomeOwner = () => {
         if (confirm("Are you sure? This will convert your guest account into a new Property Owner account. You will be logged out and can log back in as an owner.")) {
-            dispatch(disassociateAction())
+            dispatch(disassociateAndCreateOwnerAccount())
         }
     }
 

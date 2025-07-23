@@ -1,4 +1,5 @@
 
+
 import Link from "next/link"
 import { PopoverContent } from "@/components/ui/popover"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -46,7 +47,7 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
             <span>Due Date:</span>
             <span className="font-medium">{format(new Date(guest.dueDate), "do MMM")}</span>
           </div>
-           {guest.exitDate && (
+           {guest.exitDate && !guest.isVacated && (
                 <div className="flex justify-between text-blue-600">
                     <span>Exiting In:</span>
                     <span className="font-medium">{differenceInDays(parseISO(guest.exitDate), new Date())} days</span>

@@ -1,4 +1,5 @@
 
+
 import { useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -6,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
+import type { Guest } from "@/lib/types"
 
 type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setIsPaymentDialogOpen' | 'selectedGuestForPayment' | 'paymentForm' | 'handlePaymentSubmit'>
 
@@ -13,9 +15,13 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
   
   const totalDue = useMemo(() => {
     if (!selectedGuestForPayment) return 0;
-    const baseDue = selectedGuestForPayment.rentAmount - (selectedGuestForPayment.rentPaidAmount || 0);
+    
+    const balanceBf = selectedGuestForPayment.balanceBroughtForward || 0;
+    const currentMonthRent = selectedGuestForPayment.rentAmount;
     const chargesDue = (selectedGuestForPayment.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-    return baseDue + chargesDue;
+    const total = balanceBf + currentMonthRent + chargesDue - (selectedGuestForPayment.rentPaidAmount || 0);
+
+    return total;
   }, [selectedGuestForPayment]);
 
   return (

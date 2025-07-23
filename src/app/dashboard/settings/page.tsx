@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -28,6 +28,8 @@ import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
+import { createRazorpaySubscription, verifySubscriptionPayment } from "@/lib/actions/subscriptionActions"
+import { updateUserPlan } from "@/lib/slices/userSlice"
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -54,6 +56,7 @@ export default function SettingsPage() {
   const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<RolePermissions>({});
   const { toast } = useToast();
+  const [isSubscribing, startSubscriptionTransition] = useTransition();
 
   const form = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
@@ -102,12 +105,9 @@ export default function SettingsPage() {
 
   const handleSavePermissions = () => {
     if (!roleToEdit || !featurePermissions) return;
-
-    // Create a deep copy of the original permissions to modify
-    const updatedPermissions = JSON.parse(JSON.stringify(featurePermissions));
-    // Apply changes for the specific role being edited
-    updatedPermissions[roleToEdit] = selectedPermissions[roleToEdit];
-    
+    const updatedPermissions = produce(featurePermissions, draft => {
+        draft[roleToEdit] = selectedPermissions[roleToEdit]!;
+    });
     dispatch(updatePermissions(updatedPermissions));
     toast({ title: "Permissions Updated", description: `Permissions for ${roleToEdit} have been saved.`});
     setIsPermissionsDialogOpen(false);
@@ -142,24 +142,52 @@ export default function SettingsPage() {
     });
   }
 
-  if (!currentUser || !currentPlan) {
-    return null // Or a loading state
-  }
+    const handlePlanChange = (planId: PlanName) => {
+        if (!currentUser || !currentPlan || planId === currentPlan.id) return;
+        const plan = plans[planId];
+        if (!plan || typeof plan.price !== 'number' || plan.price <= 0) {
+             toast({ variant: 'destructive', title: "Invalid Plan", description: "This plan cannot be subscribed to automatically."});
+            return;
+        }
 
-  const handlePlanChange = (planId: PlanName) => {
-      // This is a mock action for demonstration. In a real app, this would trigger a subscription flow.
-      // dispatch(updateUserPlan(planId));
-      toast({
-          title: "Plan Change Not Implemented",
-          description: "This is a UI demonstration. Plan changes require a subscription provider integration.",
-      });
-  }
+        startSubscriptionTransition(async () => {
+            const res = await createRazorpaySubscription(planId, currentUser.id);
+            if (!res.success || !res.subscription) {
+                toast({ variant: 'destructive', title: 'Error', description: res.error || 'Could not initiate subscription.' });
+                return;
+            }
+
+            const options = {
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                subscription_id: res.subscription.id,
+                name: 'RentVastu Subscription',
+                description: `${plan.name} Plan`,
+                handler: async (response: any) => {
+                    const verificationResult = await verifySubscriptionPayment({ ...response, userId: currentUser.id, planId });
+                    if (verificationResult.success) {
+                        dispatch(updateUserPlan(planId));
+                        toast({ title: 'Success!', description: `You've successfully subscribed to the ${plan.name} plan.` });
+                    } else {
+                        toast({ variant: 'destructive', title: 'Payment Failed', description: verificationResult.error || 'Payment verification failed.' });
+                    }
+                },
+                prefill: {
+                    name: currentUser.name,
+                    email: currentUser.email,
+                    contact: currentUser.phone,
+                },
+                theme: { color: '#2563EB' }
+            };
+            
+            const rzp = new (window as any).Razorpay(options);
+            rzp.open();
+        });
+    };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const dateValue = e.target.value;
       if(dateValue) {
           const date = new Date(dateValue);
-          // Add timezone offset to avoid date shifting
           const timezoneOffset = date.getTimezoneOffset() * 60000;
           const adjustedDate = new Date(date.getTime() + timezoneOffset);
           dispatch(setMockDate(adjustedDate.toISOString()));
@@ -170,6 +198,10 @@ export default function SettingsPage() {
 
   const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
   const currentRolePermissions = roleToEdit ? selectedPermissions?.[roleToEdit] : {};
+
+  if (!currentUser || !currentPlan) {
+    return null
+  }
 
   return (
     <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
@@ -272,30 +304,23 @@ export default function SettingsPage() {
                 <CardDescription>Manage your subscription plan.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Warning</AlertTitle>
-                        <AlertDescription>
-                            Changing your plan here is for development testing and does not reflect a real subscription change.
-                        </AlertDescription>
-                    </Alert>
                     <div className="grid gap-2 max-w-sm">
                         <Label htmlFor="plan-switcher">Switch Plan</Label>
-                        <Select
-                            value={currentPlan.id}
-                            onValueChange={(planId) => handlePlanChange(planId as PlanName)}
-                        >
-                            <SelectTrigger id="plan-switcher">
+                         <Select onValueChange={(planId) => handlePlanChange(planId as PlanName)} value={currentPlan.id}>
+                            <SelectTrigger id="plan-switcher" disabled={isSubscribing}>
                                 <SelectValue placeholder="Select a plan" />
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(plans).map(plan => (
-                                    <SelectItem key={plan.id} value={plan.id}>
-                                        {plan.name}
+                                    <SelectItem key={plan.id} value={plan.id} disabled={plan.id === currentPlan.id || typeof plan.price !== 'number' || plan.price < 0}>
+                                        {plan.name} {typeof plan.price === 'number' && plan.price > 0 && `(₹${plan.price}/mo)`}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                         {isSubscribing && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="animate-spin h-4 w-4"/> Processing, please follow payment instructions...</p>
+                         )}
                     </div>
                 </CardContent>
             </Card>

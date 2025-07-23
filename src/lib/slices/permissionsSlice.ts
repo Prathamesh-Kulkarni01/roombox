@@ -80,7 +80,11 @@ export const fetchPermissions = createAsyncThunk<RolePermissions, { ownerId: str
             // Only save to DB if it's a paying customer to avoid writing on every free user's first load.
             // Owner on free plan will just use these defaults in-memory.
             if(plan.id !== 'free') {
-                await setDoc(docRef, defaultPermissions);
+                try {
+                    await setDoc(docRef, defaultPermissions);
+                } catch (error) {
+                    console.error("Failed to set default permissions in Firestore:", error)
+                }
             }
             return defaultPermissions;
         }

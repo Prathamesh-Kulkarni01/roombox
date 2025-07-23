@@ -201,6 +201,8 @@ export interface User {
   subscription?: {
     planId: PlanName;
     status: 'active' | 'inactive';
+    razorpay_subscription_id?: string;
+    razorpay_payment_id?: string;
   };
   fcmToken?: string | null;
 }
