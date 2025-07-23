@@ -67,7 +67,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         if (!roomForSharedCharge) return [];
 
         // Get guest IDs from beds that are currently occupied
-        const occupiedBedGuestIds = roomForSharedCharge.beds
+        const occupiedBedGuestIds = roomForSharedCharge.room.beds
             .map(bed => bed.guestId)
             .filter((guestId): guestId is string => guestId !== null);
         
@@ -120,7 +120,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         <Dialog open={isSharedChargeDialogOpen} onOpenChange={setIsSharedChargeDialogOpen}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Add Shared Charge to Room {roomForSharedCharge?.name}</DialogTitle>
+                    <DialogTitle>Add Shared Charge to Room {roomForSharedCharge?.room.name}</DialogTitle>
                     <DialogDescription>Split a bill equally among all occupied beds in this room.</DialogDescription>
                 </DialogHeader>
                  <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
@@ -190,4 +190,3 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         </Dialog>
     )
 }
-
