@@ -93,19 +93,25 @@ function AuthHandler({ children }: { children: ReactNode }) {
     setDataListeners([]);
 
     if (!currentUser || !currentPlan || !db) return;
+    
+    // Determine the correct ID for fetching data (owner's ID for everyone)
+    const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
 
-    if (currentUser.role === 'owner') {
-        dispatch(fetchPermissions({ ownerId: currentUser.id, plan: currentPlan }));
+    if (!ownerIdForFetching) {
+        dispatch(setLoading(false));
+        return; // Can't fetch data without an owner ID
     }
+
+    // Always fetch permissions based on the owner's settings
+    dispatch(fetchPermissions({ ownerId: ownerIdForFetching, plan: currentPlan }));
 
     initializeFirebaseMessaging(currentUser.id);
 
     let unsubs: Unsubscribe[] = [];
 
     const isDashboardUser = ['owner', 'manager', 'cook', 'cleaner', 'security'].includes(currentUser.role);
-    const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
-
-    if (isDashboardUser && ownerIdForFetching) {
+    
+    if (isDashboardUser) {
         const collectionsToSync: { [key: string]: (data: any) => { type: string; payload: any } } = {
             pgs: setPgs,
             guests: setGuests,
@@ -134,7 +140,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
                     data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
                 }
                  if(collectionName === 'guests') {
-                    dispatch(setGuests(data.filter(g => !(g as Guest).isVacated) as Guest[]));
+                    dispatch(setGuests(data as Guest[]));
                 } else {
                     dispatch(setDataAction(data as any));
                 }

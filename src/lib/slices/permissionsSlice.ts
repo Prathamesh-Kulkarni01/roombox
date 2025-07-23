@@ -1,14 +1,14 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Plan, UserRole } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { navItems } from '../mock-data';
-import { featurePermissionConfig, type FeaturePermissions } from '../permissions';
+import { featurePermissionConfig, type FeaturePermissions, RolePermissions } from '../permissions';
 
 // This maps a UserRole to a full set of feature permissions
-export type RolePermissions = Record<UserRole, FeaturePermissions>;
 
 interface PermissionsState {
     featurePermissions: RolePermissions | null;
@@ -77,7 +77,11 @@ export const fetchPermissions = createAsyncThunk<RolePermissions, { ownerId: str
         } else {
             // No custom permissions found, create and set defaults
             const defaultPermissions = getDefaultPermissions(plan);
-            await setDoc(docRef, defaultPermissions);
+            // Only save to DB if it's a paying customer to avoid writing on every free user's first load.
+            // Owner on free plan will just use these defaults in-memory.
+            if(plan.id !== 'free') {
+                await setDoc(docRef, defaultPermissions);
+            }
             return defaultPermissions;
         }
     }
