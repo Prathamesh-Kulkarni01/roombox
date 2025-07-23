@@ -22,6 +22,7 @@ const hasAccessToFeature = (
   role: UserRole,
   plan: any
 ): boolean => {
+  console.log(item, permissions, role, plan)
   // Always show core items like settings
   if (item.feature === 'core') return true;
   

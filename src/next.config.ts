@@ -90,12 +90,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  ...(isTurbopack ? {} : {
-    webpack: (config, options) => {
-        // Important: return the original config
-        return config
-    },
-  }),
+  ...(isTurbopack
+    ? {}
+    : {
+        webpack: (config, options) => {
+          // Important: return the original config
+          return config
+        },
+      }),
 };
 
 export default withPWA(nextConfig);
