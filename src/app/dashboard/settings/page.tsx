@@ -5,13 +5,14 @@ import { useState } from "react"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { produce } from 'immer'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { plans, navItems as allNavItems } from "@/lib/mock-data"
+import { plans } from "@/lib/mock-data"
 import type { PlanName, ChargeTemplate, UserRole } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users } from "lucide-react"
@@ -21,7 +22,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { saveChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from "@/lib/slices/chargeTemplatesSlice"
-import { updatePermissions, type FeaturePermissions } from '@/lib/slices/permissionsSlice'
+import { updatePermissions, type FeaturePermissions, type RolePermissions } from '@/lib/slices/permissionsSlice'
 import { featurePermissionConfig } from '@/lib/permissions';
 import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -51,7 +52,7 @@ export default function SettingsPage() {
   const [templateToEdit, setTemplateToEdit] = useState<ChargeTemplate | null>(null);
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
   const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
-  const [selectedPermissions, setSelectedPermissions] = useState<FeaturePermissions>({});
+  const [selectedPermissions, setSelectedPermissions] = useState<RolePermissions>({});
   const { toast } = useToast();
 
   const form = useForm<ChargeTemplateFormValues>({
@@ -85,12 +86,18 @@ export default function SettingsPage() {
   }
 
   const handlePermissionChange = (feature: string, action: string, checked: boolean) => {
-      const newPermissions = { ...selectedPermissions };
-      if (!newPermissions[feature]) {
-        newPermissions[feature] = {};
-      }
-      newPermissions[feature][action] = checked;
-      setSelectedPermissions(newPermissions);
+      if (!roleToEdit) return;
+      
+      const nextState = produce(selectedPermissions, draft => {
+          if (!draft[roleToEdit]) {
+              draft[roleToEdit] = {};
+          }
+          if (!draft[roleToEdit]![feature]) {
+              draft[roleToEdit]![feature] = {};
+          }
+          draft[roleToEdit]![feature][action] = checked;
+      });
+      setSelectedPermissions(nextState);
   }
 
   const handleSavePermissions = () => {
