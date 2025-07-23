@@ -1,4 +1,5 @@
 
+'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite } from '../types';
@@ -9,6 +10,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
 import { setLoading } from './appSlice';
 import { fetchPermissions } from './permissionsSlice';
+import { isAfter } from 'date-fns';
 
 interface UserState {
     currentUser: User | null;
@@ -33,37 +35,42 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         let userDoc = await getDoc(userDocRef);
 
         let userDataToReturn: User | null = null;
-        let ownerPlan: Plan | null = null;
+        
+        const getPlanForUser = (user: User): Plan => {
+            if (!user.subscription) return plans.free;
+            
+            const isActive = user.subscription.status === 'active';
+            const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
+            
+            if (isActive || isTrialing) {
+                return plans[user.subscription.planId];
+            }
+            
+            return plans.free;
+        };
+
 
         if (userDoc.exists()) {
             const userData = userDoc.data() as User;
-            
-            // If user is not an owner, fetch owner's plan to determine their feature set
+            const ownerIdForPermissions = userData.role === 'owner' ? userData.id : userData.ownerId;
+            let finalUserData = userData;
+
             if (userData.role !== 'owner' && userData.ownerId) {
                 const ownerDocRef = doc(db, 'users', userData.ownerId);
                 const ownerDoc = await getDoc(ownerDocRef);
-                if (ownerDoc.exists()) {
+                if(ownerDoc.exists()) {
                     const ownerData = ownerDoc.data() as User;
-                    userData.subscription = ownerData.subscription;
-                    ownerPlan = plans[ownerData.subscription?.planId || 'free'];
-                }
-            } else {
-                ownerPlan = plans[userData.subscription?.planId || 'free'];
-            }
-
-            // If user has an active guestId, ensure it's not for a vacated guest record.
-            if (userData.role === 'tenant' && userData.guestId && userData.ownerId) {
-                const activeGuestDoc = await getDoc(doc(db, 'users_data', userData.ownerId, 'guests', userData.guestId));
-                if (!activeGuestDoc.exists() || activeGuestDoc.data()?.isVacated) {
-                    await updateDoc(userDocRef, { guestId: null, pgId: null });
-                    const updatedUserDoc = await getDoc(userDocRef); // Re-fetch the updated user doc
-                    userDataToReturn = updatedUserDoc.data() as User;
+                    finalUserData.subscription = ownerData.subscription;
                 }
             }
-
-            if (!userDataToReturn) {
-                 userDataToReturn = userData;
+            
+            const userPlan = getPlanForUser(finalUserData);
+            
+            if (ownerIdForPermissions) {
+                dispatch(fetchPermissions({ ownerId: ownerIdForPermissions, plan: userPlan }));
             }
+            
+            userDataToReturn = finalUserData;
 
         } else {
             const userEmail = firebaseUser.email;
@@ -112,11 +119,11 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                     
                     userDataToReturn = newUser;
                     
-                    // Fetch owner's plan for the newly created staff/tenant
                     const ownerDocRef = doc(db, 'users', inviteData.ownerId);
                     const ownerDoc = await getDoc(ownerDocRef);
                     if (ownerDoc.exists()) {
-                        ownerPlan = plans[ownerDoc.data().subscription?.planId || 'free'];
+                        const ownerPlan = getPlanForUser(ownerDoc.data() as User);
+                        dispatch(fetchPermissions({ ownerId: inviteData.ownerId, plan: ownerPlan }));
                     }
 
                 }
@@ -124,25 +131,25 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             
             if(!userDataToReturn) {
                  // Default to creating an owner account if no invite is found
+                const trialEndDate = new Date();
+                trialEndDate.setMonth(trialEndDate.getMonth() + 3);
+
                 const newUser: User = {
                     id: firebaseUser.uid,
                     name: firebaseUser.displayName || 'New Owner',
                     email: firebaseUser.email,
                     role: 'owner',
-                    subscription: { planId: 'free', status: 'active' },
+                    subscription: { planId: 'pro', status: 'trialing', trialEndDate: trialEndDate.toISOString() },
                     avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName) || 'NO').slice(0, 2).toUpperCase()}`
                 };
                 await setDoc(userDocRef, newUser);
                 userDataToReturn = newUser;
-                ownerPlan = plans.free;
+                const ownerPlan = getPlanForUser(newUser);
+                dispatch(fetchPermissions({ ownerId: newUser.id, plan: ownerPlan }));
             }
         }
         
         if (userDataToReturn) {
-            const ownerId = userDataToReturn.role === 'owner' ? userDataToReturn.id : userDataToReturn.ownerId;
-            if(ownerId && ownerPlan) {
-                dispatch(fetchPermissions({ ownerId, plan: ownerPlan }));
-            }
             return userDataToReturn;
         }
 
@@ -257,7 +264,14 @@ const userSlice = createSlice({
     reducers: {
         setCurrentUser: (state, action: PayloadAction<User | null>) => {
             state.currentUser = action.payload;
-            state.currentPlan = action.payload ? plans[action.payload.subscription?.planId || 'free'] : null;
+            if (action.payload?.subscription) {
+                const sub = action.payload.subscription;
+                const isActive = sub.status === 'active';
+                const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
+                state.currentPlan = (isActive || isTrialing) ? plans[sub.planId] : plans.free;
+            } else {
+                 state.currentPlan = action.payload ? plans.free : null;
+            }
         }
     },
     extraReducers: (builder) => {
@@ -268,7 +282,14 @@ const userSlice = createSlice({
             })
             .addCase(initializeUser.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
-                state.currentPlan = plans[action.payload.subscription?.planId || 'free'];
+                if (action.payload?.subscription) {
+                    const sub = action.payload.subscription;
+                    const isActive = sub.status === 'active';
+                    const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
+                    state.currentPlan = (isActive || isTrialing) ? plans[sub.planId] : plans.free;
+                } else {
+                    state.currentPlan = plans.free;
+                }
             })
             .addCase(initializeUser.rejected, (state, action) => {
                 console.error("Initialize user rejected:", action.payload);

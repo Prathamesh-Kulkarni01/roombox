@@ -20,6 +20,7 @@ import type { Staff } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction } from '@/lib/slices/staffSlice'
+import Link from 'next/link'
 
 const staffSchema = z.object({
   pgId: z.string().min(1, "Please select a property"),
@@ -92,19 +93,6 @@ export default function StaffPage() {
         return staff.filter(s => s.pgId === selectedPgId);
     }, [staff, selectedPgId]);
 
-    if (!currentPlan?.hasStaffManagement) {
-         return (
-          <div className="flex items-center justify-center h-full">
-              <div className="text-center p-8 bg-card rounded-lg border">
-                  <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                  <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                  <p className="mt-2 text-muted-foreground max-w-sm">Staff management is not included in your current plan. Please upgrade to access this feature.</p>
-                  <Button className="mt-4">Upgrade Plan</Button>
-              </div>
-          </div>
-        )
-    }
-
     if (isLoading) {
         return (
             <div className="flex flex-col gap-8">
@@ -129,6 +117,24 @@ export default function StaffPage() {
                    </CardContent>
                </Card>
            </div>
+        )
+    }
+
+    if (!currentPlan?.hasStaffManagement) {
+         return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Staff Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                        <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                        <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                        <p className="mt-2 text-muted-foreground max-w-sm">Staff Management is a premium feature. Please upgrade your plan to add and manage your team.</p>
+                        <Button className="mt-4" asChild><Link href="/dashboard/settings">Upgrade Plan</Link></Button>
+                    </div>
+                </CardContent>
+            </Card>
         )
     }
 

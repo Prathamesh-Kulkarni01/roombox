@@ -231,14 +231,19 @@ export default function WebsiteBuilderPage() {
     
     if (!currentPlan?.hasWebsiteBuilder) {
         return (
-         <div className="flex items-center justify-center h-full">
-             <div className="text-center p-8 bg-card rounded-lg border">
-                 <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                 <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                 <p className="mt-2 text-muted-foreground max-w-sm">The Website Builder is not included in your current plan. Please upgrade to access this feature.</p>
-                 <Button className="mt-4">Upgrade Plan</Button>
-             </div>
-         </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Website Builder</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                         <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                         <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                         <p className="mt-2 text-muted-foreground max-w-sm">The Website Builder is not included in your current plan. Please upgrade to access this feature.</p>
+                         <Button className="mt-4" asChild><Link href="/dashboard/settings">Upgrade Plan</Link></Button>
+                     </div>
+                </CardContent>
+            </Card>
        )
     }
     

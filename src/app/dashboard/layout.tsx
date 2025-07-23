@@ -45,17 +45,6 @@ export default function DashboardLayout({
 
   const allowedDashboardRoles: (keyof typeof navPermissions)[] = ['owner', 'manager', 'cook', 'cleaner', 'security'];
 
-  const hasActiveSubscription = useMemo(() => {
-    if (!currentUser || currentUser.role !== 'owner') return true; // Gatekeeping is only for owners
-    const sub = currentUser.subscription;
-    if (!sub) return false;
-    if (sub.status === 'active') return true;
-    if (sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date())) {
-        return true;
-    }
-    return false;
-  }, [currentUser]);
-
   useEffect(() => {
     if (!isLoading && (!currentUser || !allowedDashboardRoles.includes(currentUser.role))) {
       router.replace('/login');
@@ -120,7 +109,7 @@ export default function DashboardLayout({
     );
   }
   
-   const showSubscriptionGate = !hasActiveSubscription && pathname !== '/dashboard/settings';
+  const showSubscriptionGate = currentPlan && currentPlan.id === 'free' && currentUser.subscription?.status !== 'active' && currentUser.subscription?.status !== 'trialing' && pathname !== '/dashboard/settings';
 
   return (
     <>
