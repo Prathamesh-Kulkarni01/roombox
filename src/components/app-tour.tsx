@@ -3,7 +3,6 @@
 
 import { useEffect } from 'react'
 import { TourProvider, useTour, type StepType } from '@reactour/tour'
-import Popover from '@reactour/popover'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { endOnboardingTour, endLayoutTour, setTourStepIndex } from '@/lib/slices/appSlice'
 import { usePathname } from 'next/navigation'
@@ -78,11 +77,10 @@ function TourLogic() {
     return null;
 }
 
-const CustomPopover = (props: any) => (
-  <Popover {...props}>
-    {(popoverProps) => (
+const CustomPopover = (props: any) => {
+    return (
       <div
-        {...popoverProps}
+        {...props}
         className="rounded-lg border bg-popover text-popover-foreground p-6 shadow-lg max-w-sm w-full"
       >
         <h3 className="text-lg font-semibold mb-2">{props.steps[props.currentStep].title || 'RentVastu Tour'}</h3>
@@ -104,9 +102,8 @@ const CustomPopover = (props: any) => (
             </div>
         </div>
       </div>
-    )}
-  </Popover>
-);
+    )
+};
 
 export default function AppTour() {
     const dispatch = useAppDispatch();
