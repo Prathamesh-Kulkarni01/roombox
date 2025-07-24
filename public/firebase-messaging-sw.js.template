@@ -1,29 +1,22 @@
 
-// Scripts for firebase and firebase messaging
-importScripts("https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js");
+importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js');
 
-// Your web app's Firebase configuration
+// NOTE: This object will be populated by the build script.
 const firebaseConfig = {}
 
-// Initialize Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log(
-    "[firebase-messaging-sw.js] Received background message ",
-    payload
-  );
-  
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: payload.notification.icon || '/apple-touch-icon.png'
+    icon: '/apple-touch-icon.png'
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  self.registration.showNotification(notificationTitle,
+    notificationOptions);
 });
