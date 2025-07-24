@@ -9,31 +9,11 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-import { getFirestore, doc } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { z } from 'zod';
+import { doc } from 'firebase-admin/firestore';
+import { adminDb, adminMessaging } from '@/lib/firebaseAdmin';
 
-// Initialize Firebase Admin SDK
-const serviceAccountKey = process.env.FIREBASE_ADMIN_SDK_CONFIG
-  ? JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG)
-  : undefined;
-
-if (getApps().length === 0) {
-    if (serviceAccountKey) {
-        initializeApp({
-            credential: cert(serviceAccountKey),
-        });
-    } else {
-        console.warn("Firebase Admin SDK config not found, notifications will not be sent.");
-        initializeApp();
-    }
-}
-
-
-const db = getFirestore();
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
-
 
 const SendNotificationInputSchema = z.object({
   userId: z.string().describe('The ID of the user to send the notification to.'),
@@ -55,7 +35,7 @@ const sendNotificationFlow = ai.defineFlow(
   },
   async ({ userId, title, body, link }) => {
     try {
-      const userDocRef = doc(db, 'users', userId);
+      const userDocRef = doc(adminDb, 'users', userId);
       const userDoc = await userDocRef.get();
 
       if (!userDoc.exists()) {
@@ -105,7 +85,7 @@ const sendNotificationFlow = ai.defineFlow(
       };
       
       console.log("Sending notification:", message);
-      await getMessaging().send(message);
+      await adminMessaging.send(message);
       console.log('Successfully sent message for user:', userId);
 
     } catch (error) {

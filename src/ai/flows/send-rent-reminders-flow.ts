@@ -8,30 +8,13 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-import { getFirestore, collection, getDocs, query, where } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { z } from 'zod';
+import { collection, getDocs, query, where } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebaseAdmin';
 import { addDays, format, isBefore, parseISO } from 'date-fns';
 import { type User, type Guest } from '@/lib/types';
 import { sendNotification } from './send-notification-flow';
 
-// Initialize Firebase Admin SDK if not already initialized
-const serviceAccountKey = process.env.FIREBASE_ADMIN_SDK_CONFIG
-  ? JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG)
-  : undefined;
-
-if (getApps().length === 0) {
-    if (serviceAccountKey) {
-        initializeApp({
-            credential: cert(serviceAccountKey),
-        });
-    } else {
-        console.warn("Firebase Admin SDK config not found, scheduled tasks may not work.");
-        initializeApp();
-    }
-}
-
-const db = getFirestore();
 const REMINDER_DAYS_BEFORE_DUE = 3;
 
 export async function sendRentReminders(): Promise<{ success: boolean; notifiedCount: number }> {
@@ -52,7 +35,7 @@ const sendRentRemindersFlow = ai.defineFlow(
 
     try {
       const ownersQuery = query(
-        collection(db, 'users'),
+        collection(adminDb, 'users'),
         where('role', '==', 'owner'),
         where('subscription.status', '==', 'active'),
         where('subscription.planId', 'in', ['starter', 'pro', 'business', 'enterprise'])
@@ -65,7 +48,7 @@ const sendRentRemindersFlow = ai.defineFlow(
 
         // Fetch only active guests with rent due
         const guestsQuery = query(
-            collection(db, 'users_data', owner.id, 'guests'),
+            collection(adminDb, 'users_data', owner.id, 'guests'),
             where('isVacated', '==', false),
             where('rentStatus', 'in', ['unpaid', 'partial'])
         );
