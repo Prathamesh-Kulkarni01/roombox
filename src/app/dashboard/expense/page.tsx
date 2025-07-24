@@ -56,6 +56,7 @@ import type { Expense } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { addExpense as addExpenseAction } from '@/lib/slices/expensesSlice'
 import { canAccess } from '@/lib/permissions';
+import Access from '@/components/ui/PermissionWrapper';
 
 
 const expenseSchema = z.object({
@@ -227,6 +228,7 @@ export default function ExpensePage() {
     ]
 
     return (
+      <Access feature="finances" action="view">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <div className="flex flex-col gap-8">
             <div className="grid gap-4 md:grid-cols-3">
@@ -437,5 +439,6 @@ export default function ExpensePage() {
             </Form>
         </DialogContent>
         </Dialog>
+      </Access>
     )
 }

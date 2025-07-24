@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Guest } from '@/lib/types'
 import { format } from 'date-fns'
+import Access from '@/components/ui/PermissionWrapper';
 
 
 const rentStatusColors: Record<Guest['rentStatus'], string> = {
@@ -273,6 +274,7 @@ export default function GuestManagementPage() {
     }
 
     return (
+      <Access feature="guests" action="view">
         <div className="flex flex-col gap-8">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -301,5 +303,6 @@ export default function GuestManagementPage() {
                 </CardContent>
             </Card>
         </div>
+      </Access>
     )
 }

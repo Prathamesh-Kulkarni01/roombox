@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 import { canAccess } from '@/lib/permissions';
+import Access from '@/components/ui/PermissionWrapper';
 
 const statusColors: Record<Complaint['status'], string> = {
     open: "bg-red-100 text-red-800",
@@ -88,6 +89,7 @@ export default function ComplaintsDashboardPage() {
     }
 
     return (
+      <Access feature="complaints" action="view">
         <div className="flex flex-col gap-8">
             <Card>
                 <CardHeader>
@@ -182,5 +184,6 @@ export default function ComplaintsDashboardPage() {
                 </CardContent>
             </Card>
         </div>
+      </Access>
     )
 }
