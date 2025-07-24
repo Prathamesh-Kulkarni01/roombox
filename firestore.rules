@@ -2,62 +2,78 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can only read/write their own user document
+    // Users: Only allow users to read/write their own user document
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Properties (PGs) - Only users with access to the PG can read/write
+    // Properties (PGs): Only users with access to the PG can read/write
     match /pgs/{pgId} {
       allow read, write: if request.auth != null && (pgId in request.auth.token.pgs);
     }
 
-    // Guests - Only users with guests:view permission for the PG
+    // Guests: Only users with guests:view permission for the PG
     match /guests/{guestId} {
       allow read: if request.auth != null &&
         (resource.data.pgId in request.auth.token.pgs) &&
         (request.auth.token.permissions.guests.view == true);
-      allow write: if request.auth != null &&
+      allow create: if request.auth != null &&
+        (request.resource.data.pgId in request.auth.token.pgs) &&
+        (request.auth.token.permissions.guests.add == true) &&
+        // Validate required fields
+        (request.resource.data.name is string &&
+         request.resource.data.pgId is string &&
+         request.resource.data.email is string);
+      allow update: if request.auth != null &&
         (resource.data.pgId in request.auth.token.pgs) &&
-        (
-          (request.method == 'create' && request.auth.token.permissions.guests.add == true) ||
-          (request.method == 'update' && request.auth.token.permissions.guests.edit == true) ||
-          (request.method == 'delete' && request.auth.token.permissions.guests.delete == true)
-        );
+        (request.auth.token.permissions.guests.edit == true);
+      allow delete: if request.auth != null &&
+        (resource.data.pgId in request.auth.token.pgs) &&
+        (request.auth.token.permissions.guests.delete == true);
     }
 
-    // Complaints - Only users with complaints:view permission for the PG
+    // Complaints: Only users with complaints:view permission for the PG
     match /complaints/{complaintId} {
       allow read: if request.auth != null &&
         (resource.data.pgId in request.auth.token.pgs) &&
         (request.auth.token.permissions.complaints.view == true);
-      allow write: if request.auth != null &&
+      allow create, update, delete: if request.auth != null &&
         (resource.data.pgId in request.auth.token.pgs) &&
         (request.auth.token.permissions.complaints.edit == true);
     }
 
-    // Expenses/Finances - Only users with finances:view permission for the PG
+    // Expenses/Finances: Only users with finances:view permission for the PG
     match /expenses/{expenseId} {
       allow read: if request.auth != null &&
         (resource.data.pgId in request.auth.token.pgs) &&
         (request.auth.token.permissions.finances.view == true);
-      allow write: if request.auth != null &&
+      allow create: if request.auth != null &&
+        (request.resource.data.pgId in request.auth.token.pgs) &&
+        (request.auth.token.permissions.finances.add == true) &&
+        // Validate required fields
+        (request.resource.data.amount is number &&
+         request.resource.data.pgId is string);
+      allow update, delete: if request.auth != null &&
         (resource.data.pgId in request.auth.token.pgs) &&
         (request.auth.token.permissions.finances.add == true);
     }
 
-    // Staff - Only users with staff:view permission for the PG
+    // Staff: Only users with staff:view permission for the PG
     match /staff/{staffId} {
       allow read: if request.auth != null &&
         (resource.data.pgId in request.auth.token.pgs) &&
         (request.auth.token.permissions.staff.view == true);
-      allow write: if request.auth != null &&
+      allow create: if request.auth != null &&
+        (request.resource.data.pgId in request.auth.token.pgs) &&
+        (request.auth.token.permissions.staff.add == true) &&
+        (request.resource.data.name is string &&
+         request.resource.data.pgId is string);
+      allow update: if request.auth != null &&
         (resource.data.pgId in request.auth.token.pgs) &&
-        (
-          (request.method == 'create' && request.auth.token.permissions.staff.add == true) ||
-          (request.method == 'update' && request.auth.token.permissions.staff.edit == true) ||
-          (request.method == 'delete' && request.auth.token.permissions.staff.delete == true)
-        );
+        (request.auth.token.permissions.staff.edit == true);
+      allow delete: if request.auth != null &&
+        (resource.data.pgId in request.auth.token.pgs) &&
+        (request.auth.token.permissions.staff.delete == true);
     }
 
     // Add more collections as needed, following the same pattern
