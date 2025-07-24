@@ -1,0 +1,94 @@
+
+'use server';
+
+/**
+ * @fileOverview A scheduled flow to send rent reminders to tenants.
+ * This flow is designed to be run by a cron job.
+ * - sendRentReminders - Main function to find and notify tenants.
+ */
+
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { getFirestore, collection, getDocs } from 'firebase-admin/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { addDays, format, isBefore, parseISO } from 'date-fns';
+import { type User, type Guest } from '@/lib/types';
+import { sendNotification } from './send-notification-flow';
+
+// Initialize Firebase Admin SDK if not already initialized
+const serviceAccountKey = process.env.FIREBASE_ADMIN_SDK_CONFIG
+  ? JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG)
+  : undefined;
+
+if (getApps().length === 0) {
+    if (serviceAccountKey) {
+        initializeApp({
+            credential: cert(serviceAccountKey),
+        });
+    } else {
+        console.warn("Firebase Admin SDK config not found, scheduled tasks may not work.");
+        initializeApp();
+    }
+}
+
+const db = getFirestore();
+const REMINDER_DAYS_BEFORE_DUE = 3;
+
+export async function sendRentReminders(): Promise<{ success: boolean; notifiedCount: number }> {
+  return sendRentRemindersFlow();
+}
+
+const sendRentRemindersFlow = ai.defineFlow(
+  {
+    name: 'sendRentRemindersFlow',
+    inputSchema: z.void(),
+    outputSchema: z.object({ success: z.boolean(), notifiedCount: z.number() }),
+  },
+  async () => {
+    console.log('Starting daily rent reminder check...');
+    let notifiedCount = 0;
+    const today = new Date();
+    const reminderCutoffDate = addDays(today, REMINDER_DAYS_BEFORE_DUE);
+
+    try {
+      const ownersSnapshot = await getDocs(collection(db, 'users'));
+      
+      for (const ownerDoc of ownersSnapshot.docs) {
+        const owner = ownerDoc.data() as User;
+        if (owner.role !== 'owner') continue;
+        
+        console.log(`Checking guests for owner: ${owner.name} (${owner.id})`);
+
+        const guestsSnapshot = await getDocs(collection(db, 'users_data', owner.id, 'guests'));
+        
+        for (const guestDoc of guestsSnapshot.docs) {
+          const guest = guestDoc.data() as Guest;
+          
+          if (guest.isVacated || guest.rentStatus === 'paid' || !guest.userId) continue;
+
+          const dueDate = parseISO(guest.dueDate);
+
+          // Check if due date is within the next 3 days (and not past)
+          if (isBefore(dueDate, reminderCutoffDate) && isBefore(today, dueDate)) {
+            console.log(`Sending reminder to ${guest.name} (due on ${guest.dueDate})`);
+            
+            await sendNotification({
+              userId: guest.userId,
+              title: `Hi ${guest.name}, your rent is due soon!`,
+              body: `Your monthly rent of ₹${guest.rentAmount} for ${guest.pgName} is due on ${format(dueDate, 'do MMM, yyyy')}.`,
+              link: '/tenants/my-pg',
+            });
+            notifiedCount++;
+          }
+        }
+      }
+      
+      console.log(`Rent reminder check complete. Notified ${notifiedCount} tenants.`);
+      return { success: true, notifiedCount };
+
+    } catch (error) {
+      console.error('Error in sendRentRemindersFlow:', error);
+      return { success: false, notifiedCount: 0 };
+    }
+  }
+);
