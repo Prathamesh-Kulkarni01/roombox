@@ -14,6 +14,7 @@ import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader
 import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
+import { canAccess } from '@/lib/permissions';
 
 import StatsCards from '@/components/dashboard/StatsCards'
 import PgLayout from '@/components/dashboard/PgLayout'
@@ -27,13 +28,14 @@ import SharedChargeDialog from '@/components/dashboard/dialogs/SharedChargeDialo
 import AddPgSheet from "@/components/add-pg-sheet"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import Access from '@/components/ui/PermissionWrapper';
 
 const bedLegend: Record<string, { label: string, className: string }> = {
-    available: { label: 'Available', className: 'bg-yellow-200' },
-    occupied: { label: 'Occupied', className: 'bg-slate-200' },
-    'rent-pending': { label: 'Rent Pending', className: 'bg-red-300' },
-    'rent-partial': { label: 'Partial Payment', className: 'bg-orange-200' },
-    'notice-period': { label: 'Notice Period', className: 'bg-blue-200' },
+  available: { label: 'Available', className: 'bg-yellow-200' },
+  occupied: { label: 'Occupied', className: 'bg-slate-200' },
+  'rent-pending': { label: 'Rent Pending', className: 'bg-red-300' },
+  'rent-partial': { label: 'Partial Payment', className: 'bg-orange-200' },
+  'notice-period': { label: 'Notice Period', className: 'bg-blue-200' },
 };
 
 
@@ -68,12 +70,15 @@ export default function DashboardPage() {
     ...dashboardActions
   } = useDashboard({ pgs, guests });
 
+  const { currentUser } = useAppSelector(state => state.user);
+  const { featurePermissions } = useAppSelector(state => state.permissions);
+
   // Auto-enable edit mode if a PG exists but has no layout
   useEffect(() => {
     const hasPgs = pgs.length > 0;
     const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
     if (!isLoading && hasPgs && !hasLayout) {
-        setIsEditMode(true);
+      setIsEditMode(true);
     }
   }, [pgs, isLoading]);
 
@@ -89,24 +94,24 @@ export default function DashboardPage() {
     const totalBeds = pgsToDisplay.reduce((sum, pg) => sum + pg.totalBeds, 0);
     const monthlyRevenue = relevantGuests.filter(g => g.rentStatus === 'paid').reduce((sum, g) => sum + g.rentAmount, 0);
     const openComplaintsCount = relevantComplaints.filter(c => c.status === 'open').length;
-    
+
     const pendingDues = relevantGuests
       .filter(g => g.rentStatus === 'unpaid' || g.rentStatus === 'partial')
       .reduce((sum, g) => sum + (g.rentAmount - (g.rentPaidAmount || 0)), 0);
 
     return [
-      { title: "Occupancy", value: `${totalOccupancy}/${totalBeds}`, icon: Users },
-      { title: "Collected Rent", value: `₹${monthlyRevenue.toLocaleString('en-IN')}`, icon: IndianRupee },
-      { title: "Pending Dues", value: `₹${pendingDues.toLocaleString('en-IN')}`, icon: FileWarning },
-      { title: "Open Complaints", value: openComplaintsCount, icon: MessageSquareWarning },
+      { title: "Occupancy", value: `${totalOccupancy}/${totalBeds}`, icon: Users, feature: "properties", action: "view" },
+      { title: "Collected Rent", value: `₹${monthlyRevenue.toLocaleString('en-IN')}`, icon: IndianRupee, feature: "finances", action: "view" },
+      { title: "Pending Dues", value: `₹${pendingDues.toLocaleString('en-IN')}`, icon: FileWarning, feature: "finances", action: "view" },
+      { title: "Open Complaints", value: openComplaintsCount, icon: MessageSquareWarning, feature: "complaints", action: "view" },
     ];
   }, [pgsToDisplay, guests, complaints, selectedPgId]);
-  
+
   const handleSheetOpenChange = (open: boolean) => {
-      setIsAddPgSheetOpen(open);
-      if (!open && pgs.length === 0) {
-          dispatch(setTourStepIndex(1));
-      }
+    setIsAddPgSheetOpen(open);
+    if (!open && pgs.length === 0) {
+      dispatch(setTourStepIndex(1));
+    }
   }
 
   const handleDeleteConfirm = () => {
@@ -120,23 +125,23 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
-                        <Skeleton className="h-4 w-2/3" />
-                        <Skeleton className="h-4 w-4" />
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0">
-                        <Skeleton className="h-7 w-1/2" />
-                    </CardContent>
-                </Card>
-            ))}
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-4" />
+              </CardHeader>
+              <CardContent className="p-4 pt-0">
+                <Skeleton className="h-7 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
         <div className="flex justify-end">
-            <div className="flex items-center space-x-2">
-                <Skeleton className="h-5 w-20 rounded-md" />
-                <Skeleton className="h-6 w-10 rounded-md" />
-            </div>
+          <div className="flex items-center space-x-2">
+            <Skeleton className="h-5 w-20 rounded-md" />
+            <Skeleton className="h-6 w-10 rounded-md" />
+          </div>
         </div>
         <Card>
           <CardHeader>
@@ -146,15 +151,15 @@ export default function DashboardPage() {
           <CardContent className="p-4 md:p-6 space-y-4">
             <Skeleton className="h-12 w-full" />
             <div className="space-y-6 pl-4 border-l">
-                 <div className="space-y-4">
-                    <Skeleton className="h-8 w-1/3" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-                        <Skeleton className="aspect-square w-full rounded-lg" />
-                        <Skeleton className="aspect-square w-full rounded-lg" />
-                    </div>
+              <div className="space-y-4">
+                <Skeleton className="h-8 w-1/3" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                  <Skeleton className="aspect-square w-full rounded-lg" />
+                  <Skeleton className="aspect-square w-full rounded-lg" />
                 </div>
+              </div>
             </div>
-             <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
           </CardContent>
         </Card>
       </div>
@@ -164,27 +169,31 @@ export default function DashboardPage() {
   if (pgs.length === 0) {
     return (
       <>
-        <AddPgSheet
-          open={isAddPgSheetOpen}
-          onOpenChange={handleSheetOpenChange}
-          onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
-        />
+        <Access feature="properties" action="add">
+          <AddPgSheet
+            open={isAddPgSheetOpen}
+            onOpenChange={handleSheetOpenChange}
+            onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
+          />
+        </Access>
         <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-250px)] text-center p-8 bg-card border rounded-lg">
           <Building className="mx-auto h-16 w-16 text-muted-foreground" />
           <h2 className="mt-6 text-2xl font-semibold">Welcome to Your Dashboard!</h2>
           <p className="mt-2 text-muted-foreground max-w-md">
             You haven't added any properties yet. Get started by adding your first one.
           </p>
-          <Button 
-            data-tour="add-first-pg-button" 
-            onClick={() => {
+          <Access feature="properties" action="add">
+            <Button
+              data-tour="add-first-pg-button"
+              onClick={() => {
                 setIsAddPgSheetOpen(true);
                 dispatch(setTourStepIndex(1));
-            }} 
-            className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground"
-          >
-            Add Your First Property
-          </Button>
+              }}
+              className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground"
+            >
+              Add Your First Property
+            </Button>
+          </Access>
         </div>
       </>
     );
@@ -194,28 +203,29 @@ export default function DashboardPage() {
     <>
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
-        
+
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
-                <span className="font-semibold text-sm">Legend:</span>
-                {Object.values(bedLegend).map(item => (
-                    <div key={item.label} className="flex items-center gap-1.5">
-                        <div className={cn("w-3 h-3 rounded-full", item.className)}></div>
-                        <span>{item.label}</span>
-                    </div>
-                ))}
-            </div>
-            <div className="flex items-center space-x-2 self-end sm:self-center">
-                <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
-                <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch"/>
-            </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+            <span className="font-semibold text-sm">Legend:</span>
+            {Object.values(bedLegend).map(item => (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <div className={cn("w-3 h-3 rounded-full", item.className)}></div>
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center space-x-2 self-end sm:self-center">
+            <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
+            <Access feature="properties" action="edit">
+              <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch" />
+            </Access>
+          </div>
         </div>
 
-
         {pgsToDisplay.map(pg => (
-          <PgLayout 
-            key={pg.id} 
-            pg={pg} 
+          <PgLayout
+            key={pg.id}
+            pg={pg}
             isEditMode={isEditMode}
             isFirstAvailableBedFound={isFirstAvailableBedFound}
             setItemToDelete={setItemToDelete}
@@ -225,17 +235,27 @@ export default function DashboardPage() {
           />
         ))}
       </div>
-      
+
       {/* DIALOGS */}
-      <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
-      <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} {...dashboardActions} />
-      <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} roomToEdit={roomToEdit} roomForm={roomForm} handleRoomSubmit={handleRoomSubmit} isSavingRoom={isSavingRoom} />
-      <FloorDialog isFloorDialogOpen={isFloorDialogOpen} setIsFloorDialogOpen={setIsFloorDialogOpen} floorToEdit={floorToEdit} floorForm={floorForm} handleFloorSubmit={handleFloorSubmit} />
-      <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} bedToEdit={bedToEdit} bedForm={bedForm} handleBedSubmit={handleBedSubmit} />
-      <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} {...dashboardActions} />
-      <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} {...dashboardActions}/>
-      <SharedChargeDialog isSharedChargeDialogOpen={isSharedChargeDialogOpen} setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen} {...dashboardActions} />
-    
+      <Access feature="guests" action="add">
+        <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
+      </Access>
+      <Access feature="guests" action="edit">
+        <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} {...dashboardActions} />
+      </Access>
+      <Access feature="properties" action="edit">
+        <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} roomToEdit={roomToEdit} roomForm={roomForm} handleRoomSubmit={handleRoomSubmit} isSavingRoom={isSavingRoom} />
+        <FloorDialog isFloorDialogOpen={isFloorDialogOpen} setIsFloorDialogOpen={setIsFloorDialogOpen} floorToEdit={floorToEdit} floorForm={floorForm} handleFloorSubmit={handleFloorSubmit} />
+        <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} bedToEdit={bedToEdit} bedForm={bedForm} handleBedSubmit={handleBedSubmit} />
+      </Access>
+      <Access feature="finances" action="add">
+        <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} {...dashboardActions} />
+        <SharedChargeDialog isSharedChargeDialogOpen={isSharedChargeDialogOpen} setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen} {...dashboardActions} />
+      </Access>
+      <Access feature="complaints" action="edit">
+        <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} {...dashboardActions} />
+      </Access>
+
       <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -246,12 +266,14 @@ export default function DashboardPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
-              onClick={handleDeleteConfirm}
-            >
-              Continue
-            </AlertDialogAction>
+            <Access feature="properties" action="delete">
+              <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={handleDeleteConfirm}
+              >
+                Continue
+              </AlertDialogAction>
+            </Access>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -261,36 +283,40 @@ export default function DashboardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Initiate Exit Process</AlertDialogTitle>
             <AlertDialogDescription>
-                This will place {guestToInitiateExit?.name} on their notice period of {guestToInitiateExit?.noticePeriodDays} days. The bed will remain occupied until their exit date. Are you sure?
+              This will place {guestToInitiateExit?.name} on their notice period of {guestToInitiateExit?.noticePeriodDays} days. The bed will remain occupied until their exit date. Are you sure?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmInitiateExit}
-            >
-              Confirm Exit
-            </AlertDialogAction>
+            <Access feature="guests" action="edit">
+              <AlertDialogAction
+                onClick={handleConfirmInitiateExit}
+              >
+                Confirm Exit
+              </AlertDialogAction>
+            </Access>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       <AlertDialog open={!!guestToExitImmediately} onOpenChange={() => setGuestToExitImmediately(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Exit Guest Immediately?</AlertDialogTitle>
             <AlertDialogDescription>
-                This will immediately vacate {guestToExitImmediately?.name} from their bed, bypassing the notice period. This action cannot be undone.
+              This will immediately vacate {guestToExitImmediately?.name} from their bed, bypassing the notice period. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
-              onClick={handleConfirmImmediateExit}
-            >
-              Exit Immediately
-            </AlertDialogAction>
+            <Access feature="guests" action="delete">
+              <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={handleConfirmImmediateExit}
+              >
+                Exit Immediately
+              </AlertDialogAction>
+            </Access>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

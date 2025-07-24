@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction } from '@/lib/slices/staffSlice'
 import Link from 'next/link'
+import { canAccess } from '@/lib/permissions';
 
 const staffSchema = z.object({
   pgId: z.string().min(1, "Please select a property"),
@@ -47,6 +48,8 @@ export default function StaffPage() {
     const { staff } = useAppSelector(state => state.staff)
     const { isLoading, selectedPgId } = useAppSelector(state => state.app)
     const { currentPlan } = useAppSelector(state => state.user)
+    const { currentUser } = useAppSelector(state => state.user);
+    const { featurePermissions } = useAppSelector(state => state.permissions);
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null)
 
@@ -161,7 +164,7 @@ export default function StaffPage() {
                                 A list of all staff members {selectedPgId ? `at ${pgs.find(p => p.id === selectedPgId)?.name}` : 'across all properties'}.
                             </CardDescription>
                         </div>
-                        <Button onClick={() => openDialog()}>
+                        <Button onClick={() => openDialog()} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'add')}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Staff
                         </Button>
                     </CardHeader>
@@ -199,10 +202,10 @@ export default function StaffPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => openDialog(member)}>
+                                                    <DropdownMenuItem onClick={() => openDialog(member)} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'edit')}>
                                                         <Pencil className="mr-2 h-4 w-4" /> Edit
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(member.id)}>
+                                                    <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(member.id)} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'delete')}>
                                                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
@@ -255,7 +258,7 @@ export default function StaffPage() {
                         )} />
                         <DialogFooter>
                             <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                            <Button type="submit">{staffToEdit ? 'Save Changes' : 'Add Staff'}</Button>
+                            <Button type="submit" disabled={staffToEdit ? !canAccess(featurePermissions, currentUser?.role, 'staff', 'edit') : !canAccess(featurePermissions, currentUser?.role, 'staff', 'add')}>{staffToEdit ? 'Save Changes' : 'Add Staff'}</Button>
                         </DialogFooter>
                     </form>
                 </Form>

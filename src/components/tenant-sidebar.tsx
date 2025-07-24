@@ -11,6 +11,7 @@ import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { useMemo } from 'react';
 import { logoutUser } from '@/lib/slices/userSlice';
+import { canViewFeature } from '@/lib/permissions';
 
 const navItems = [
   { href: '/tenants/my-pg', label: 'My Property', icon: Home },
@@ -26,6 +27,7 @@ export default function TenantSidebar() {
   const dispatch = useAppDispatch();
   const { currentUser } = useAppSelector((state) => state.user);
   const { guests } = useAppSelector((state) => state.guests);
+  const { featurePermissions } = useAppSelector((state) => state.permissions);
 
   const currentGuest = useMemo(() => {
     if (!currentUser || !currentUser.guestId) return null;
@@ -55,12 +57,12 @@ export default function TenantSidebar() {
             <h2 className="text-xl font-bold text-primary font-headline">Guest Portal</h2>
         </div>
         <nav className="flex flex-col gap-1 p-4">
-          {navItems.map((item) => (
+          {navItems.filter(item => canViewFeature(featurePermissions, currentUser.role, item.label.toLowerCase().replace(/ /g, ''))).map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:text-primary',
                 (pathname === item.href) && 'bg-muted text-primary'
               )}
             >

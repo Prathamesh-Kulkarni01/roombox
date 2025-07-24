@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { Menu, DayOfWeek } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { updatePg } from '@/lib/slices/pgsSlice'
+import { canAccess } from '@/lib/permissions';
 
 const initialMenu: Menu = {
     monday: { breakfast: '', lunch: '', dinner: '' },
@@ -40,6 +41,9 @@ export default function FoodPage() {
     const { isLoading, selectedPgId } = useAppSelector(state => state.app)
     const [menu, setMenu] = useState<Menu>(initialMenu)
     const { toast } = useToast()
+    const { currentUser } = useAppSelector(state => state.user);
+    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const canEditMenu = canAccess(featurePermissions, currentUser?.role, 'food', 'edit');
 
     const selectedPg = pgs.find(pg => pg.id === selectedPgId)
 
@@ -168,7 +172,7 @@ export default function FoodPage() {
                     </Tabs>
                 </CardContent>
                 <CardFooter>
-                    <Button onClick={handleSaveMenu} disabled={!selectedPgId}>Save Changes</Button>
+                    <Button onClick={canEditMenu ? handleSaveMenu : undefined} disabled={!selectedPgId || !canEditMenu}>Save Changes</Button>
                 </CardFooter>
             </Card>
             

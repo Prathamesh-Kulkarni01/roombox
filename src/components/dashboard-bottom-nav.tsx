@@ -17,6 +17,7 @@ import { navItems as allNavItems, type NavItem, plans } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
 import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
+import { canViewFeature } from '@/lib/permissions';
 
 
 // Helper function to check if a user has any permission for a given feature
@@ -33,18 +34,8 @@ const hasAccessToFeature = (
   // the page itself will handle the subscription gate.
   if (role === 'owner') return true;
 
-  // For Staff, visibility is determined by their specific permissions.
-  // If they have no permissions for a feature, they shouldn't even see the link.
-  if (!permissions) return false;
-
-  const rolePermissions = permissions[role as keyof RolePermissions];
-  if (!rolePermissions) return false;
-  
-  const featurePerms = rolePermissions[item.feature as keyof FeaturePermissions];
-  if (!featurePerms) return false;
-  
-  // The user has access if any of the permissions for that feature are true
-  return Object.values(featurePerms).some(value => value === true);
+  // For Staff, only show if they have 'view' permission for the feature.
+  return canViewFeature(permissions, role, item.feature);
 };
 
 
@@ -58,8 +49,8 @@ export default function DashboardBottomNav() {
   const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/expense'].includes(item.href));
   const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href));
   
-  const accessibleMainNavItems = mainNavItems.filter(item => hasAccessToFeature(item, featurePermissions, currentUser.role, currentPlan));
-  const accessibleMoreNavItems = moreNavItems.filter(item => hasAccessToFeature(item, featurePermissions, currentUser.role, currentPlan));
+  const accessibleMainNavItems = mainNavItems.filter(item => item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature)));
+  const accessibleMoreNavItems = moreNavItems.filter(item => item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature)));
 
 
   const showMoreTab = accessibleMoreNavItems.length > 0 || accessibleMainNavItems.length > 4;

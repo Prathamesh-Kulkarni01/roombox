@@ -4,7 +4,8 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useAppDispatch } from '@/lib/hooks'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { canAccess } from '@/lib/permissions';
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -45,6 +46,8 @@ interface AddPgSheetProps {
 
 export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheetProps) {
   const dispatch = useAppDispatch()
+  const { currentUser } = useAppSelector(state => state.user);
+  const { featurePermissions } = useAppSelector(state => state.permissions);
 
   const form = useForm<PgFormValues>({
     resolver: zodResolver(pgSchema),
@@ -146,7 +149,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
           <SheetClose asChild>
             <Button type="button" variant="secondary">Cancel</Button>
           </SheetClose>
-          <Button type="submit" form="add-pg-form">Add Property</Button>
+          <Button type="submit" form="add-pg-form" disabled={!canAccess(featurePermissions, currentUser?.role, 'properties', 'add')}>Add Property</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

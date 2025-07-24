@@ -25,6 +25,7 @@ import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
 import { sendNotification } from '@/ai/flows/send-notification-flow'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import Image from 'next/image'
+import { canAccess } from '@/lib/permissions';
 
 const complaintSchema = z.object({
   category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other'], {
@@ -53,6 +54,8 @@ export default function TenantComplaintsPage() {
     const { complaints } = useAppSelector(state => state.complaints)
     const { currentUser } = useAppSelector(state => state.user)
     const { guests } = useAppSelector(state => state.guests)
+    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const canAddComplaint = canAccess(featurePermissions, currentUser?.role, 'complaints', 'add');
 
     const currentGuest = useMemo(() => {
         if (!currentUser || !currentUser.guestId) return null;
@@ -164,7 +167,7 @@ export default function TenantComplaintsPage() {
                         <p className="text-muted-foreground">View and raise issues in your property.</p>
                     </div>
                     <DialogTrigger asChild>
-                        <Button>
+                        <Button disabled={!canAddComplaint}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Raise Complaint
                         </Button>
                     </DialogTrigger>
@@ -275,7 +278,7 @@ export default function TenantComplaintsPage() {
                 </Form>
                  <DialogFooter>
                     <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
-                    <Button type="submit" form="complaint-form">Submit Complaint</Button>
+                    <Button type="submit" form="complaint-form" disabled={!canAddComplaint}>Submit Complaint</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

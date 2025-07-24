@@ -10,21 +10,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin, Pencil, Building, Trash2 } from "lucide-react"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
@@ -34,11 +34,13 @@ import { useToast } from '@/hooks/use-toast'
 import AddPgSheet from '@/components/add-pg-sheet'
 import { deletePg as deletePgAction } from '@/lib/slices/pgsSlice'
 import type { PG } from '@/lib/types'
+import { canAccess } from '@/lib/permissions';
+import Access from '@/components/ui/PermissionWrapper';
 
 const genderBadgeColor = {
-  male: 'bg-blue-100 text-blue-800',
-  female: 'bg-pink-100 text-pink-800',
-  'co-ed': 'bg-purple-100 text-purple-800',
+    male: 'bg-blue-100 text-blue-800',
+    female: 'bg-pink-100 text-pink-800',
+    'co-ed': 'bg-purple-100 text-purple-800',
 };
 
 
@@ -50,6 +52,8 @@ export default function PgManagementPage() {
     }));
     const { isLoading } = useAppSelector(state => state.app);
     const { currentPlan } = useAppSelector(state => state.user);
+    const { currentUser } = useAppSelector(state => state.user);
+    const { featurePermissions } = useAppSelector(state => state.permissions);
     const router = useRouter();
     const { toast } = useToast()
     const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false)
@@ -102,68 +106,79 @@ export default function PgManagementPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col gap-8">
-                 <div>
+                <div>
                     <Skeleton className="h-9 w-64 mb-2" />
                     <Skeleton className="h-5 w-80" />
                 </div>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                       <div className="space-y-2">
-                         <Skeleton className="h-7 w-24" />
-                         <Skeleton className="h-5 w-32" />
-                       </div>
+                        <div className="space-y-2">
+                            <Skeleton className="h-7 w-24" />
+                            <Skeleton className="h-5 w-32" />
+                        </div>
                         <Skeleton className="h-10 w-32" />
                     </CardHeader>
                     <CardContent>
                         {/* Mobile skeleton */}
                         <div className="md:hidden space-y-4">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                            <Skeleton key={i} className="h-32 w-full rounded-lg" />
-                        ))}
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <Skeleton key={i} className="h-32 w-full rounded-lg" />
+                            ))}
                         </div>
                         {/* Desktop skeleton */}
                         <div className="hidden md:block space-y-2">
-                           <Skeleton className="h-12 w-full" />
-                           <Skeleton className="h-12 w-full" />
-                           <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
                         </div>
                     </CardContent>
                 </Card>
             </div>
         )
     }
-    
+
     return (
         <div className="flex flex-col gap-8">
-            <AddPgSheet 
-                open={isAddPgSheetOpen} 
-                onOpenChange={setIsAddPgSheetOpen}
-                onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}?setup=true`)}
-            />
+            {isAddPgSheetOpen && <Access feature="properties" action="add" limitKey="pgs" currentCount={pgs.length}>
+                <AddPgSheet
+                    open={isAddPgSheetOpen}
+                    onOpenChange={setIsAddPgSheetOpen}
+                    onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}?setup=true`)}
+                />
+            </Access>}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Your Properties</CardTitle>
                         <CardDescription>You have {pgs.length} properties.</CardDescription>
                     </div>
-                     <div data-tour="add-pg-button">
+                    <div data-tour="add-pg-button">
                         <TooltipProvider>
                             <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className="inline-block">
-                                    <Button onClick={handleAddPgClick} disabled={!canAddPg}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Property
-                                </Button>
-                                </div>
-                            </TooltipTrigger>
-                            {!canAddPg && (
-                                    <TooltipContent>
-                                    <p>You have reached your plan's property limit.</p>
-                                    </TooltipContent>
-                            )}
+                                <TooltipTrigger asChild>
+                                    <div className="inline-block">
+                                        <Access feature="properties" action="add" limitKey="pgs" currentCount={pgs.length}>
+                                            <Button onClick={handleAddPgClick}>
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Add New Property
+                                            </Button>
+                                        </Access>
+                                    </div>
+                                </TooltipTrigger>
+                                {(() => {
+                                    const planLimit = currentPlan?.id ? (currentPlan.id === 'free' || currentPlan.id === 'starter' ? 1 : 'unlimited') : 0;
+                                    return (pgs.length >= 1 && (currentPlan?.id === 'free' || currentPlan?.id === 'starter')) ? (
+                                        <TooltipContent>
+                                            <p>You can only add 1 property on the {currentPlan?.name} plan. <Link href='/dashboard/settings' className='text-primary underline'>Upgrade to Pro</Link> to add more.</p>
+                                        </TooltipContent>
+                                    ) : !canAddPg ? (
+                                        <TooltipContent>
+                                            <p>You have reached your plan's property limit.</p>
+                                        </TooltipContent>
+                                    ) : null;
+                                })()}
                             </Tooltip>
                         </TooltipProvider>
-                     </div>
+                    </div>
 
                 </CardHeader>
                 <CardContent>
@@ -174,46 +189,86 @@ export default function PgManagementPage() {
                             <p className="mt-2 text-sm text-muted-foreground">
                                 Get started by adding your first property.
                             </p>
-                            <Button className="mt-4" onClick={handleAddPgClick}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add Property
-                            </Button>
+                            <Access feature="properties" action="add" limitKey="pgs" currentCount={pgs.length}>
+                                <Button className="mt-4" onClick={handleAddPgClick}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Property
+                                </Button>
+                            </Access>
                         </div>
                     ) : (
-                    <>
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Location</TableHead>
-                                    <TableHead>Gender</TableHead>
-                                    <TableHead>Occupancy</TableHead>
-                                    <TableHead>Price Range</TableHead>
-                                    <TableHead>
-                                        <span className="sr-only">Actions</span>
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                        <>
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Location</TableHead>
+                                            <TableHead>Gender</TableHead>
+                                            <TableHead>Occupancy</TableHead>
+                                            <TableHead>Price Range</TableHead>
+                                            <TableHead>
+                                                <span className="sr-only">Actions</span>
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {pgs.map((pg) => (
+                                            <TableRow key={pg.id}>
+                                                <TableCell className="font-medium">{pg.name}</TableCell>
+                                                <TableCell>{pg.location}</TableCell>
+                                                <TableCell>
+                                                    <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
+                                                        {pg.gender}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>{pg.occupancy}/{pg.totalBeds}</TableCell>
+                                                <TableCell className="flex items-center">
+                                                    <IndianRupee className="w-4 h-4 mr-1 text-muted-foreground" />
+                                                    {pg.priceRange.min} - {pg.priceRange.max}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                                <span className="sr-only">Toggle menu</span>
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                            <DropdownMenuItem onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}>
+                                                                <Pencil className="mr-2 h-4 w-4" /> Configure
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem>View Guests</DropdownMenuItem>
+                                                            <Access feature="properties" action="delete">
+                                                                <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
+                                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                </DropdownMenuItem>
+                                                            </Access>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            {/* Mobile Card View */}
+                            <div className="md:hidden grid gap-4">
                                 {pgs.map((pg) => (
-                                    <TableRow key={pg.id}>
-                                        <TableCell className="font-medium">{pg.name}</TableCell>
-                                        <TableCell>{pg.location}</TableCell>
-                                        <TableCell>
-                                            <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
-                                                {pg.gender}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{pg.occupancy}/{pg.totalBeds}</TableCell>
-                                        <TableCell className="flex items-center">
-                                          <IndianRupee className="w-4 h-4 mr-1 text-muted-foreground"/>
-                                          {pg.priceRange.min} - {pg.priceRange.max}
-                                        </TableCell>
-                                        <TableCell>
+                                    <div key={pg.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-bold">{pg.name}</p>
+                                                <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                                                    <MapPin className="w-3.5 h-3.5" />
+                                                    {pg.location}
+                                                </div>
+                                            </div>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                    <Button aria-haspopup="true" size="icon" variant="ghost" className="-mr-2 -mt-2">
                                                         <MoreHorizontal className="h-4 w-4" />
                                                         <span className="sr-only">Toggle menu</span>
                                                     </Button>
@@ -224,68 +279,34 @@ export default function PgManagementPage() {
                                                         <Pencil className="mr-2 h-4 w-4" /> Configure
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem>View Guests</DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
-                                                        <Trash2 className="mr-2 h-4 w-4"/> Delete
-                                                    </DropdownMenuItem>
+                                                    <Access feature="properties" action="delete">
+                                                        <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                        </DropdownMenuItem>
+                                                    </Access>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
+                                        </div>
+                                        <div className="flex justify-between items-end text-sm">
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Users className="w-4 h-4 text-muted-foreground" />
+                                                    <span>{pg.occupancy}/{pg.totalBeds} Occupancy</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                                                    <span>{pg.priceRange.min} - {pg.priceRange.max}</span>
+                                                </div>
+                                            </div>
+                                            <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
+                                                {pg.gender}
+                                            </Badge>
+                                        </div>
+                                    </div>
                                 ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    {/* Mobile Card View */}
-                    <div className="md:hidden grid gap-4">
-                        {pgs.map((pg) => (
-                            <div key={pg.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-bold">{pg.name}</p>
-                                        <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                                            <MapPin className="w-3.5 h-3.5" />
-                                            {pg.location}
-                                        </div>
-                                    </div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button aria-haspopup="true" size="icon" variant="ghost" className="-mr-2 -mt-2">
-                                                <MoreHorizontal className="h-4 w-4" />
-                                                <span className="sr-only">Toggle menu</span>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}>
-                                              <Pencil className="mr-2 h-4 w-4" /> Configure
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem>View Guests</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
-                                                 <Trash2 className="mr-2 h-4 w-4"/> Delete
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-                                <div className="flex justify-between items-end text-sm">
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <Users className="w-4 h-4 text-muted-foreground" />
-                                            <span>{pg.occupancy}/{pg.totalBeds} Occupancy</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                             <IndianRupee className="w-4 h-4 text-muted-foreground"/>
-                                             <span>{pg.priceRange.min} - {pg.priceRange.max}</span>
-                                        </div>
-                                    </div>
-                                    <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
-                                        {pg.gender}
-                                    </Badge>
-                                </div>
                             </div>
-                        ))}
-                    </div>
-                    </>
-                )}
+                        </>
+                    )}
                 </CardContent>
             </Card>
 
@@ -301,12 +322,14 @@ export default function PgManagementPage() {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setPgToDelete(null)}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            className="bg-destructive hover:bg-destructive/90"
-                            onClick={() => handleDeletePg(pgToDelete!.id, pgToDelete!.name)}
-                        >
-                            Continue
-                        </AlertDialogAction>
+                        <Access feature="properties" action="delete">
+                            <AlertDialogAction
+                                className="bg-destructive hover:bg-destructive/90"
+                                onClick={() => handleDeletePg(pgToDelete!.id, pgToDelete!.name)}
+                            >
+                                Continue
+                            </AlertDialogAction>
+                        </Access>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

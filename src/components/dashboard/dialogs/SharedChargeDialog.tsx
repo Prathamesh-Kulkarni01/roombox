@@ -15,6 +15,7 @@ import { useAppSelector } from "@/lib/hooks"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, startOfMonth, endOfMonth, subMonths, setDate, addMonths, isValid } from 'date-fns'
 import type { Room } from "@/lib/types"
+import Access from "@/components/ui/PermissionWrapper"
 
 const sharedChargeSchema = z.object({
     description: z.string().min(3, "Description is required."),
@@ -44,7 +45,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
             return { cycleStartDate: null, cycleEndDate: null };
         }
         const billingDay = activeTemplate.billingDayOfMonth;
-        
+
         if (!billingDay || billingDay < 1 || billingDay > 28) {
             return { cycleStartDate: null, cycleEndDate: null };
         }
@@ -55,7 +56,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
             start = subMonths(start, 1);
         }
         let end = setDate(addMonths(start, 1), billingDay - 1);
-        
+
         if (!isValid(start) || !isValid(end)) {
             return { cycleStartDate: null, cycleEndDate: null };
         }
@@ -70,9 +71,9 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         const occupiedBedGuestIds = roomForSharedCharge.room.beds
             .map(bed => bed.guestId)
             .filter((guestId): guestId is string => guestId !== null);
-        
+
         // From the main guest list, find guests who match these IDs and are not vacated
-        const guestsInRoom = guests.filter(g => 
+        const guestsInRoom = guests.filter(g =>
             occupiedBedGuestIds.includes(g.id) && !g.isVacated
         );
 
@@ -83,7 +84,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
 
     const calculatedTotal = activeTemplate?.calculation === 'unit' ? (units || 0) * (unitCost || 0) : totalAmount;
     const chargePerGuest = occupiedGuests.length > 0 && calculatedTotal ? (calculatedTotal / occupiedGuests.length) : 0;
-  
+
     useEffect(() => {
         if (isSharedChargeDialogOpen && roomForSharedCharge) {
             const defaultTab = chargeTemplates.find(t => t.autoAddToDialog)?.id || 'custom';
@@ -94,7 +95,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
     const onTabChange = (tabValue: string) => {
         setActiveTab(tabValue);
         const template = chargeTemplates.find(t => t.id === tabValue);
-        
+
         const currentValues = sharedChargeForm.getValues();
 
         if (tabValue === 'custom') {
@@ -105,7 +106,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                 unitCost: undefined,
             });
         } else {
-             sharedChargeForm.reset({
+            sharedChargeForm.reset({
                 description: template ? template.name : '',
                 unitCost: template?.unitCost || undefined,
                 totalAmount: currentValues.totalAmount,
@@ -123,69 +124,72 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                     <DialogTitle>Add Shared Charge to Room {roomForSharedCharge?.room.name}</DialogTitle>
                     <DialogDescription>Split a bill equally among all occupied beds in this room.</DialogDescription>
                 </DialogHeader>
-                 <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                        {visibleTemplates.map(template => (
-                           <TabsTrigger key={template.id} value={template.id}>{template.name}</TabsTrigger>
-                        ))}
-                        <TabsTrigger value="custom">Custom</TabsTrigger>
-                    </TabsList>
+                <Access feature="properties" action="sharedCharge">
+                    <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
+                        <TabsList className="grid w-full grid-cols-3">
+                            {visibleTemplates.map(template => (
+                                <TabsTrigger key={template.id} value={template.id}>{template.name}</TabsTrigger>
+                            ))}
+                            <TabsTrigger value="custom">Custom</TabsTrigger>
+                        </TabsList>
 
-                    <Form {...sharedChargeForm}>
-                        <form onSubmit={sharedChargeForm.handleSubmit(handleSharedChargeSubmit)} id="shared-charge-form" className="space-y-4 pt-4">
-                             {cycleStartDate && cycleEndDate && (
-                                <div className="text-sm text-center text-muted-foreground p-2 bg-muted rounded-md flex items-center justify-center gap-2">
-                                    <Calendar className="w-4 h-4"/>
-                                    Billing Cycle: {format(cycleStartDate, 'do MMM')} - {format(cycleEndDate, 'do MMM')}
-                                </div>
-                            )}
-                            {chargeTemplates.map(template => (
-                                <TabsContent key={template.id} value={template.id} forceMount hidden={activeTab !== template.id}>
+                        <Form {...sharedChargeForm}>
+                            <form onSubmit={sharedChargeForm.handleSubmit(handleSharedChargeSubmit)} id="shared-charge-form" className="space-y-4 pt-4">
+                                {cycleStartDate && cycleEndDate && (
+                                    <div className="text-sm text-center text-muted-foreground p-2 bg-muted rounded-md flex items-center justify-center gap-2">
+                                        <Calendar className="w-4 h-4" />
+                                        Billing Cycle: {format(cycleStartDate, 'do MMM')} - {format(cycleEndDate, 'do MMM')}
+                                    </div>
+                                )}
+                                {chargeTemplates.map(template => (
+                                    <TabsContent key={template.id} value={template.id} forceMount hidden={activeTab !== template.id}>
+                                        <div className="space-y-4">
+                                            <FormField control={sharedChargeForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            {template.calculation === 'unit' && (
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField control={sharedChargeForm.control} name="units" render={({ field }) => (<FormItem><FormLabel>Total Units</FormLabel><FormControl><Input type="number" placeholder="e.g., 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={sharedChargeForm.control} name="unitCost" render={({ field }) => (<FormItem><FormLabel>Cost per Unit (₹)</FormLabel><FormControl><Input type="number" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
+                                                </div>
+                                            )}
+                                            {template.calculation === 'fixed' && (
+                                                <FormField control={sharedChargeForm.control} name="totalAmount" render={({ field }) => (<FormItem><FormLabel>Total Bill Amount (₹)</FormLabel><FormControl><Input type="number" placeholder="e.g., 2500" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            )}
+                                        </div>
+                                    </TabsContent>
+                                ))}
+                                <TabsContent value="custom" forceMount hidden={activeTab !== 'custom'}>
                                     <div className="space-y-4">
-                                         <FormField control={sharedChargeForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        {template.calculation === 'unit' && (
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField control={sharedChargeForm.control} name="units" render={({ field }) => (<FormItem><FormLabel>Total Units</FormLabel><FormControl><Input type="number" placeholder="e.g., 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                                <FormField control={sharedChargeForm.control} name="unitCost" render={({ field }) => (<FormItem><FormLabel>Cost per Unit (₹)</FormLabel><FormControl><Input type="number" {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem>)} />
-                                            </div>
-                                        )}
-                                        {template.calculation === 'fixed' && (
-                                            <FormField control={sharedChargeForm.control} name="totalAmount" render={({ field }) => (<FormItem><FormLabel>Total Bill Amount (₹)</FormLabel><FormControl><Input type="number" placeholder="e.g., 2500" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        )}
+                                        <FormField control={sharedChargeForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Party Contribution" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                        <FormField control={sharedChargeForm.control} name="totalAmount" render={({ field }) => (<FormItem><FormLabel>Total Amount (₹)</FormLabel><FormControl><Input type="number" placeholder="e.g., 1000" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                     </div>
                                 </TabsContent>
-                            ))}
-                            <TabsContent value="custom" forceMount hidden={activeTab !== 'custom'}>
-                               <div className="space-y-4">
-                                <FormField control={sharedChargeForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., Party Contribution" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={sharedChargeForm.control} name="totalAmount" render={({ field }) => (<FormItem><FormLabel>Total Amount (₹)</FormLabel><FormControl><Input type="number" placeholder="e.g., 1000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                               </div>
-                            </TabsContent>
 
-                            {occupiedGuests.length > 0 && calculatedTotal && calculatedTotal > 0 && (
-                                <Alert>
-                                    <Users className="h-4 w-4" />
-                                    <AlertTitle>Charge Distribution</AlertTitle>
-                                    <AlertDescription className="flex items-center justify-between">
-                                        <span>
-                                            ₹{chargePerGuest.toFixed(2)} per guest ({occupiedGuests.length} guest{occupiedGuests.length > 1 ? 's' : ''})
-                                        </span>
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium">Affected Guests:</p>
-                                <ul className="text-sm text-muted-foreground list-disc list-inside">
-                                    {occupiedGuests.length > 0 ? occupiedGuests.map(guest => <li key={guest.id}>{guest.name}</li>) : <li>No guests in this room for the selected cycle.</li>}
-                                </ul>
-                            </div>
-                        </form>
-                    </Form>
-                </Tabs>
-                 <DialogFooter className="mt-4">
+                                {occupiedGuests.length > 0 && calculatedTotal && calculatedTotal > 0 && (
+                                    <Alert>
+                                        <Users className="h-4 w-4" />
+                                        <AlertTitle>Charge Distribution</AlertTitle>
+                                        <AlertDescription className="flex items-center justify-between">
+                                            <span>
+                                                ₹{chargePerGuest.toFixed(2)} per guest ({occupiedGuests.length} guest{occupiedGuests.length > 1 ? 's' : ''})
+                                            </span>
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">Affected Guests:</p>
+                                    <ul className="text-sm text-muted-foreground list-disc list-inside">
+                                        {occupiedGuests.length > 0 ? occupiedGuests.map(guest => <li key={guest.id}>{guest.name}</li>) : <li>No guests in this room for the selected cycle.</li>}
+                                    </ul>
+                                </div>
+                            </form>
+                        </Form>
+                    </Tabs>
+                </Access>
+                <DialogFooter className="mt-4">
                     <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                     <Button type="submit" form="shared-charge-form" disabled={occupiedGuests.length === 0 || !calculatedTotal || calculatedTotal <= 0}>Apply Charge</Button>
                 </DialogFooter>
+
             </DialogContent>
         </Dialog>
     )

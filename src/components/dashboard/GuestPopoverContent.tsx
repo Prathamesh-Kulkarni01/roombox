@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { Guest } from "@/lib/types"
 import { format, differenceInDays, parseISO } from "date-fns"
-import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle } from "lucide-react"
+import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle, Pencil } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
+import { canAccess } from '@/lib/permissions';
 
 interface GuestPopoverContentProps extends Omit<UseDashboardReturn, 'stats'> {
   guest: Guest
@@ -24,6 +25,8 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
 
 export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, handleOpenReminderDialog, setGuestToInitiateExit, setGuestToExitImmediately }: GuestPopoverContentProps) {
   const { currentPlan } = useAppSelector(state => state.user)
+  const { currentUser } = useAppSelector(state => state.user);
+  const { featurePermissions } = useAppSelector(state => state.permissions);
 
   return (
     <PopoverContent className="w-64 p-0">
@@ -80,6 +83,16 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
         ) : (
            <Button variant="ghost" size="sm" className="justify-start text-destructive hover:text-destructive" onClick={() => setGuestToExitImmediately(guest)}>
             <XCircle className="mr-2 h-4 w-4" /> Exit Immediately
+          </Button>
+        )}
+        {canAccess(featurePermissions, currentUser?.role, 'guests', 'edit') && (
+          <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleOpenEditGuestDialog(guest)}>
+            <Pencil className="mr-2 h-4 w-4" /> Edit Guest
+          </Button>
+        )}
+        {canAccess(featurePermissions, currentUser?.role, 'guests', 'delete') && !guest.exitDate && (
+          <Button variant="ghost" size="sm" className="justify-start text-destructive hover:text-destructive" onClick={() => setGuestToInitiateExit(guest)}>
+            <XCircle className="mr-2 h-4 w-4" /> Remove Guest
           </Button>
         )}
         <Button variant="ghost" size="sm" className="justify-start" asChild>

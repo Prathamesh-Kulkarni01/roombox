@@ -10,6 +10,7 @@ import { useAppSelector } from "@/lib/hooks"
 import { MutableRefObject } from "react"
 import { useRouter } from "next/navigation"
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { canAccess } from '@/lib/permissions';
 
 interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
   room: Room
@@ -25,6 +26,8 @@ export default function BedCard(props: BedCardProps) {
     guests: state.guests.guests,
     complaints: state.complaints.complaints,
   }))
+  const { currentUser } = useAppSelector(state => state.user);
+  const { featurePermissions } = useAppSelector(state => state.permissions);
 
   const getBedStatus = (bed: Bed): 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period' => {
     const guest = guests.find(g => g.id === bed.guestId)
@@ -95,7 +98,21 @@ export default function BedCard(props: BedCardProps) {
           }
 
           if (!guest) {
-            return (<button key={bed.id} onClick={() => props.handleOpenAddGuestDialog(bed, room, pg)} data-tour={isFirstAvailable ? 'add-guest-on-bed' : undefined} className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left ${bedStatusClasses[status]}`}><BedDouble className="w-8 h-8 mb-1" /><span className="font-bold text-sm">Bed {bed.name}</span><div className="absolute bottom-1 right-1 flex items-center justify-center h-6 w-6 rounded-full bg-black/10"><UserPlus className="h-4 w-4" /></div><span className="absolute top-1.5 left-1.5 text-xs font-semibold">Available</span></button>);
+            const canAddGuest = canAccess(featurePermissions, currentUser?.role, 'guests', 'add');
+            return (
+              <button
+                key={bed.id}
+                onClick={() => canAddGuest && props.handleOpenAddGuestDialog(bed, room, pg)}
+                data-tour={isFirstAvailable ? 'add-guest-on-bed' : undefined}
+                className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left ${bedStatusClasses[status]} ${!canAddGuest ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!canAddGuest}
+              >
+                <BedDouble className="w-8 h-8 mb-1" />
+                <span className="font-bold text-sm">Bed {bed.name}</span>
+                <div className="absolute bottom-1 right-1 flex items-center justify-center h-6 w-6 rounded-full bg-black/10"><UserPlus className="h-4 w-4" /></div>
+                <span className="absolute top-1.5 left-1.5 text-xs font-semibold">Available</span>
+              </button>
+            );
           }
 
           return (

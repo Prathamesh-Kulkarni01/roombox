@@ -55,6 +55,7 @@ import { format, startOfMonth, isWithinInterval } from 'date-fns'
 import type { Expense } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { addExpense as addExpenseAction } from '@/lib/slices/expensesSlice'
+import { canAccess } from '@/lib/permissions';
 
 
 const expenseSchema = z.object({
@@ -94,6 +95,9 @@ export default function ExpensePage() {
     const { pgs } = useAppSelector(state => state.pgs)
     const { expenses } = useAppSelector(state => state.expenses)
     const { isLoading, selectedPgId } = useAppSelector(state => state.app)
+    const { currentUser } = useAppSelector(state => state.user);
+    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const canAddExpense = canAccess(featurePermissions, currentUser?.role, 'finances', 'add');
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     const form = useForm<ExpenseFormValues>({
@@ -217,9 +221,9 @@ export default function ExpensePage() {
     }
 
     const stats = [
-        { title: "Total Expenses (This Month)", value: totalExpenses, icon: Wallet },
-        { title: "Food Expenses (This Month)", value: foodExpenses, icon: UtensilsCrossed },
-        { title: "Other Expenses (This Month)", value: otherExpenses, icon: Wrench },
+        { title: "Total Expenses (This Month)", value: totalExpenses, icon: Wallet, feature: 'finances', action: 'view' },
+        { title: "Food Expenses (This Month)", value: foodExpenses, icon: UtensilsCrossed, feature: 'finances', action: 'view' },
+        { title: "Other Expenses (This Month)", value: otherExpenses, icon: Wrench, feature: 'finances', action: 'view' },
     ]
 
     return (
@@ -268,7 +272,7 @@ export default function ExpensePage() {
                         <CardTitle>Recent Expenses</CardTitle>
                         <CardDescription>A log of your most recent expenses{selectedPgId ? ` for ${pgs.find(p=>p.id === selectedPgId)?.name}` : ' for all properties'}.</CardDescription>
                     </div>
-                     <Button onClick={openAddExpenseDialog}>
+                     <Button onClick={canAddExpense ? openAddExpenseDialog : undefined} disabled={!canAddExpense}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
                     </Button>
                 </CardHeader>
@@ -427,7 +431,7 @@ export default function ExpensePage() {
                     <DialogClose asChild>
                         <Button type="button" variant="secondary">Cancel</Button>
                     </DialogClose>
-                    <Button type="submit">Add Expense</Button>
+                    <Button type="submit" disabled={!canAddExpense}>Add Expense</Button>
                 </DialogFooter>
             </form>
             </Form>

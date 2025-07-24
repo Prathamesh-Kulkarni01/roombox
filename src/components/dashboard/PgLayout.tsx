@@ -8,10 +8,13 @@ import BedCard from "./BedCard"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { MutableRefObject, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Access from "../ui/PermissionWrapper";
 
 interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
   pg: PG
   isFirstAvailableBedFound: MutableRefObject<boolean>
+  isEditMode: boolean;
+  openEditRoomDialog: (...args: any[]) => void;
 }
 
 export default function PgLayout(props: PgLayoutProps) {
@@ -49,17 +52,39 @@ export default function PgLayout(props: PgLayoutProps) {
                        <BedCard {...props} room={room} floor={floor} />
                     </div>
                   ))}
-                  {isEditMode && (<button data-tour="add-room-button" onClick={() => props.handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>)}
+                  {isEditMode && (
+                    <Access feature="properties" action="add">
+                      <button data-tour="add-room-button" onClick={() => props.handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>
+                    </Access>
+                  )}
                 </div>
                  <div className="mt-6 flex items-center gap-4">
-                    {isEditMode && (<Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); setItemToDelete({ type: 'floor', ids: { pgId: pg.id, floorId: floor.id } }) }}><Trash2 className="mr-2 h-4 w-4" /> Delete {floor.name}</Button>)}
-                    {isEditMode && (<Button variant="ghost" onClick={(e) => { e.stopPropagation(); openEditFloorDialog(floor) }}><Pencil className="mr-2 h-4 w-4" /> Edit {floor.name}</Button>)}
+                    {isEditMode && (
+                      <Access feature="properties" action="delete">
+                        <Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); setItemToDelete({ type: 'floor', ids: { pgId: pg.id, floorId: floor.id } }) }}><Trash2 className="mr-2 h-4 w-4" /> Delete {floor.name}</Button>
+                      </Access>
+                    )}
+                    {isEditMode && (
+                      <Access feature="properties" action="edit">
+                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); openEditFloorDialog(floor) }}><Pencil className="mr-2 h-4 w-4" /> Edit {floor.name}</Button>
+                      </Access>
+                    )}
                  </div>
               </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
-        {isEditMode && (<button data-tour="add-floor-button" onClick={() => openAddFloorDialog(pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>)}
+        {isEditMode && (
+          <Access feature="properties" action="add">
+            <button data-tour="add-floor-button" onClick={() => openAddFloorDialog(pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
+          </Access>
+        )}
+        {/* Example: If you have a Manage Shared Charges button, wrap it as below: */}
+        {/*
+        <Access feature="properties" action="sharedCharge">
+          <Button>Manage Shared Charges</Button>
+        </Access>
+        */}
         {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Enable 'Edit Mode' to build the layout.</div>)}
       </CardContent>
     </Card>

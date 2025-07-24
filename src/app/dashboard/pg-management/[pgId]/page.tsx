@@ -26,6 +26,7 @@ import { Building, Layers, DoorOpen, BedDouble, PlusCircle, IndianRupee, Trash2,
 import type { PG, Floor, Room, Bed } from '@/lib/types'
 import { updatePg as updatePgAction } from '@/lib/slices/pgsSlice'
 import { useDashboard } from '@/hooks/use-dashboard'
+import { canAccess } from '@/lib/permissions';
 
 
 const floorSchema = z.object({ name: z.string().min(2, "Floor name must be at least 2 characters.") })
@@ -58,6 +59,10 @@ export default function ManagePgPage() {
 
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
   const canAddFloor = pg && currentPlan && (currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit)
+  const canEditProperty = canAccess(featurePermissions, currentUser?.role, 'properties', 'edit');
+  const canAdd = canAccess(featurePermissions, currentUser?.role, 'properties', 'add');
+  const canEdit = canAccess(featurePermissions, currentUser?.role, 'properties', 'edit');
+  const canDelete = canAccess(featurePermissions, currentUser?.role, 'properties', 'delete');
 
   const permissions = useMemo(() => {
     if (!featurePermissions || !currentUser) return {};
@@ -101,7 +106,7 @@ export default function ManagePgPage() {
             </Button>
             <h1 className="text-2xl font-bold">{pg.name} Layout</h1>
         </div>
-        {permissions?.edit && (
+        {canEditProperty && (
           <div data-tour="edit-mode-switch" className="flex items-center space-x-2">
               <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
               <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} />
@@ -125,10 +130,10 @@ export default function ManagePgPage() {
                         <Card key={room.id} className="flex flex-col">
                             <CardHeader className="flex-row items-start justify-between pb-2">
                                 <CardTitle className="text-base flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name}</CardTitle>
-                                {isEditMode && (
+                                {isEditMode && canEdit && (
                                     <div className="flex items-center -mt-2 -mr-2">
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button>
-                                        {permissions.delete && <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('room', { floorId: floor.id, roomId: room.id, pgId: pg.id })}> <Trash2 className="w-4 h-4" /> </Button>}
+                                        {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('room', { floorId: floor.id, roomId: room.id, pgId: pg.id })}> <Trash2 className="w-4 h-4" /> </Button>}
                                     </div>
                                 )}
                             </CardHeader>
@@ -155,7 +160,7 @@ export default function ManagePgPage() {
                                             )}
                                         </div>
                                     ))}
-                                    {isEditMode && permissions.add && (
+                                    {isEditMode && canAdd && (
                                         <button data-tour="add-bed-button" onClick={() => handleOpenBedDialog(null, room.id, floor.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
                                             <PlusCircle className="w-3.5 h-3.5 mr-2" /> Add Bed
                                         </button>
@@ -164,7 +169,7 @@ export default function ManagePgPage() {
                             </CardContent>
                         </Card>
                     ))}
-                    {isEditMode && permissions.add && (
+                    {isEditMode && canAdd && (
                         <button data-tour="add-room-button" onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                             <PlusCircle className="w-8 h-8 mb-2" />
                             <span className="font-medium">Add New Room</span>
@@ -175,12 +180,12 @@ export default function ManagePgPage() {
                     <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable Edit Mode to add one.</div>
                   )}
                   <div className="mt-6 flex items-center gap-4">
-                    {isEditMode && permissions.delete && (
+                    {isEditMode && canDelete && (
                         <Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id, pgId: pg.id }) }}>
                             <Trash2 className="mr-2 h-4 w-4" /> Delete Floor
                         </Button>
                     )}
-                     {isEditMode && (
+                     {isEditMode && canEdit && (
                         <Button variant="ghost" onClick={(e) => { e.stopPropagation(); handleOpenFloorDialog(floor) }}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Floor
                         </Button>
@@ -222,7 +227,7 @@ export default function ManagePgPage() {
               )} />
             </form>
           </Form>
-          <DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="floor-form">{floorToEdit ? 'Save Changes' : 'Add Floor'}</Button></DialogFooter>
+          <DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="floor-form" disabled={!canAdd && !canEdit}>{floorToEdit ? 'Save Changes' : 'Add Floor'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -235,7 +240,7 @@ export default function ManagePgPage() {
               )} />
             </form>
           </Form>
-          <DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="bed-form">{bedToEdit ? 'Save Changes' : 'Add Bed'}</Button></DialogFooter>
+          <DialogFooter><DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="bed-form" disabled={!canAdd && !canEdit}>{bedToEdit ? 'Save Changes' : 'Add Bed'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

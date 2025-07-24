@@ -14,6 +14,7 @@ import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut } from 'lucide-react';
 import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
+import { canViewFeature } from '@/lib/permissions';
 
 // Helper function to check if a user should see a navigation item.
 const hasAccessToFeature = (
@@ -22,26 +23,14 @@ const hasAccessToFeature = (
   role: UserRole,
   plan: any
 ): boolean => {
-  console.log(item, permissions, role, plan)
   // Always show core items like settings
   if (item.feature === 'core') return true;
-  
   // For Owners, visibility is determined by the feature existing,
   // the page itself will handle the subscription gate.
   if (role === 'owner') return true;
-
   // For Staff, visibility is determined by their specific permissions.
-  // If they have no permissions for a feature, they shouldn't even see the link.
-  if (!permissions) return false;
-
-  const rolePermissions = permissions[role as keyof RolePermissions];
-  if (!rolePermissions) return false;
-
-  const featurePerms = rolePermissions[item.feature as keyof FeaturePermissions];
-  if (!featurePerms) return false;
-  
-  // The user has access if any of the permissions for that feature are true
-  return Object.values(featurePerms).some(value => value === true);
+  // Only show if they have 'view' permission for the feature.
+  return canAccess(permissions, role, item.feature, 'view');
 };
 
 export default function DashboardSidebar() {
@@ -61,7 +50,7 @@ export default function DashboardSidebar() {
   }
 
   const visibleNavItems = navItems.filter(item => 
-      hasAccessToFeature(item, featurePermissions, currentUser.role, currentPlan)
+    item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature))
   );
 
   return (

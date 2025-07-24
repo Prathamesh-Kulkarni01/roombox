@@ -5,10 +5,15 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { format } from "date-fns"
+import { useAppSelector } from '@/lib/hooks';
+import { canAccess } from '@/lib/permissions';
 
 type AddGuestDialogProps = Pick<UseDashboardReturn, 'isAddGuestDialogOpen' | 'setIsAddGuestDialogOpen' | 'selectedBedForGuestAdd' | 'addGuestForm' | 'handleAddGuestSubmit'>
 
 export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit }: AddGuestDialogProps) {
+  const { currentUser } = useAppSelector((state) => state.user);
+  const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const canAddGuest = canAccess(featurePermissions, currentUser?.role, 'guests', 'add');
   return (
     <Dialog open={isAddGuestDialogOpen} onOpenChange={setIsAddGuestDialogOpen}>
       <DialogContent className="sm:max-w-lg flex flex-col max-h-[90dvh]">
@@ -66,7 +71,7 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
         </div>
         <DialogFooter className="pt-4">
           <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-          <Button type="submit" form="add-guest-form">Add Guest</Button>
+          <Button type="submit" form="add-guest-form" disabled={!canAddGuest}>Add Guest</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

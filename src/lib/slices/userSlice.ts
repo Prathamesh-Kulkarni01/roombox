@@ -9,8 +9,10 @@ import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, g
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
 import { setLoading } from './appSlice';
-import { fetchPermissions } from './permissionsSlice';
+import { fetchPermissions, updatePermissions } from './permissionsSlice';
 import { isAfter } from 'date-fns';
+import { planPermissionConfig } from '../permissions';
+import { RolePermissions } from '../permissions';
 
 interface UserState {
     currentUser: User | null;
@@ -88,7 +90,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                         newUser = {
                             id: firebaseUser.uid,
                             name: firebaseUser.displayName || guestDetails.name || 'New Tenant',
-                            email: firebaseUser.email,
+                            email: firebaseUser.email ?? undefined,
                             role: 'tenant',
                             guestId: guestDetails.id,
                             guestHistoryIds: [],
@@ -103,11 +105,12 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                          newUser = {
                             id: firebaseUser.uid,
                             name: firebaseUser.displayName || staffDetails.name || 'New Staff',
-                            email: firebaseUser.email,
+                            email: firebaseUser.email ?? undefined,
                             role: inviteData.role,
                             ownerId: inviteData.ownerId,
                             pgIds: [staffDetails.pgId],
-                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || staffDetails.name) || 'NS').slice(0, 2).toUpperCase()}`
+                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || staffDetails.name) || 'NS').slice(0, 2).toUpperCase()}`,
+                            guestId: undefined, // <-- Add this line
                         };
                          const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
                          batch.update(staffDocRef, { userId: firebaseUser.uid });
@@ -137,7 +140,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 const newUser: User = {
                     id: firebaseUser.uid,
                     name: firebaseUser.displayName || 'New Owner',
-                    email: firebaseUser.email,
+                    email: firebaseUser.email ?? undefined,
                     role: 'owner',
                     subscription: { planId: 'pro', status: 'trialing', trialEndDate: trialEndDate.toISOString() },
                     avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName) || 'NO').slice(0, 2).toUpperCase()}`
@@ -157,9 +160,9 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
     }
 );
 
-export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState }>(
+export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState; dispatch: any }>(
     'user/updateUserPlan',
-    async (planId, { getState, rejectWithValue }) => {
+    async (planId, { getState, rejectWithValue, dispatch }) => {
         const state = getState();
         const { currentUser, currentPlan: oldPlan } = state.user;
 
@@ -188,6 +191,7 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
                 const { staff } = state.staff;
                 const { notifications } = state.notifications;
                 const { chargeTemplates } = state.chargeTemplates;
+                if (!db) throw new Error('Firestore is not initialized.');
                 const batch = writeBatch(db);
                 const userId = currentUser.id;
 
@@ -218,8 +222,47 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
             subscription: { ...(currentUser.subscription || { status: 'active' }), planId },
         };
 
+        if (!db) throw new Error('Firestore is not initialized.');
         const userDocRef = doc(db, 'users', currentUser.id);
         await setDoc(userDocRef, updatedUser, { merge: true });
+
+        // --- Permissions cleanup after plan change ---
+        // Fetch current permissions
+        const ownerId = currentUser.id;
+        const docRef = doc(db, 'users_data', ownerId, 'permissions', 'staff_roles_v2');
+        let cleanedPermissions: RolePermissions = {
+            owner: {},
+            manager: {},
+            cook: {},
+            cleaner: {},
+            security: {},
+            other: {},
+            tenant: {}, // <-- Add this line
+        };
+        try {
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const perms = docSnap.data() as RolePermissions;
+                const allowedFeatures = Object.keys(planPermissionConfig[newPlan.id]);
+                // Clean up permissions for each role
+                for (const role of Object.keys(perms) as Array<keyof RolePermissions>) {
+                    const rolePerms = perms[role] || {};
+                    cleanedPermissions[role] = {};
+                    for (const feature of allowedFeatures) {
+                        if (rolePerms[feature]) {
+                            cleanedPermissions[role][feature] = rolePerms[feature];
+                        }
+                    }
+                }
+                // Save cleaned permissions
+                await setDoc(docRef, cleanedPermissions);
+                // Also update Redux state
+                dispatch(updatePermissions(cleanedPermissions));
+            }
+        } catch (e) {
+            console.error('Failed to clean up permissions after plan change', e);
+        }
+        // --- End permissions cleanup ---
 
         return updatedUser;
     }
@@ -234,6 +277,7 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
         const { guestId, ownerId, ...restOfUser } = currentUser;
         const updatedUser: User = { ...restOfUser, role: 'owner', subscription: { planId: 'free', status: 'active' } };
 
+        if (!db) throw new Error('Firestore is not initialized.');
         const userDocRef = doc(db, 'users', currentUser.id);
         await setDoc(userDocRef, updatedUser, { merge: true });
         
@@ -249,6 +293,7 @@ export const logoutUser = createAsyncThunk(
         if(isFirebaseConfigured() && auth) {
             if (currentUser && currentUser.fcmToken) {
                 // Clear the FCM token on logout
+                if (!db) throw new Error('Firestore is not initialized.');
                 const userDocRef = doc(db, 'users', currentUser.id);
                 await setDoc(userDocRef, { fcmToken: null }, { merge: true });
             }

@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/lib/hooks';
+import { canViewFeature } from '@/lib/permissions';
 
 const navItems = [
   { href: '/tenants/my-pg', label: 'My Property', icon: Home },
@@ -19,13 +20,14 @@ const navItems = [
 export default function TenantBottomNav() {
   const pathname = usePathname();
   const { currentUser } = useAppSelector((state) => state.user);
+  const { featurePermissions } = useAppSelector((state) => state.permissions);
 
   if (!currentUser) return null;
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t z-50">
       <nav className="grid grid-cols-5 h-16 items-center">
-        {navItems.map((item) => (
+        {navItems.filter(item => canViewFeature(featurePermissions, currentUser.role, item.label.toLowerCase().replace(/ /g, ''))).map((item) => (
           <Link
             key={item.href}
             href={item.href}

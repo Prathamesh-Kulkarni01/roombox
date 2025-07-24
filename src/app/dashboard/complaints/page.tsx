@@ -14,6 +14,7 @@ import type { Complaint } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
+import { canAccess } from '@/lib/permissions';
 
 const statusColors: Record<Complaint['status'], string> = {
     open: "bg-red-100 text-red-800",
@@ -27,6 +28,8 @@ export default function ComplaintsDashboardPage() {
     const { pgs } = useAppSelector(state => state.pgs)
     const { isLoading, selectedPgId } = useAppSelector(state => state.app)
     const { currentPlan } = useAppSelector(state => state.user)
+    const { currentUser } = useAppSelector(state => state.user);
+    const { featurePermissions } = useAppSelector(state => state.permissions);
 
     const filteredComplaints = useMemo(() => {
         if (!selectedPgId) return complaints;
@@ -120,7 +123,7 @@ export default function ComplaintsDashboardPage() {
                                             <TableCell className="capitalize">{complaint.category}</TableCell>
                                             <TableCell className="truncate">{complaint.description}</TableCell>
                                             <TableCell>
-                                                <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])}>
+                                                <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])} disabled={!canAccess(featurePermissions, currentUser?.role, 'complaints', 'edit')}>
                                                     <SelectTrigger className="w-[140px]">
                                                         <SelectValue />
                                                     </SelectTrigger>
@@ -155,7 +158,7 @@ export default function ComplaintsDashboardPage() {
                                     <p className="text-sm">{complaint.description}</p>
                                     <div className="flex justify-between items-center text-sm">
                                         <Badge variant="outline" className="capitalize">{complaint.category}</Badge>
-                                        <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])}>
+                                        <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])} disabled={!canAccess(featurePermissions, currentUser?.role, 'complaints', 'edit')}>
                                             <SelectTrigger className="w-[140px] h-9">
                                                 <SelectValue />
                                             </SelectTrigger>
