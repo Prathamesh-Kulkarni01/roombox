@@ -25,6 +25,7 @@ import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, updateSiteStat
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 
 const featureSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -72,6 +73,7 @@ export default function WebsiteBuilderPage() {
     const [viewMode, setViewMode] = useState<'loading' | 'display' | 'edit'>('loading');
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
 
     const [domain, setDomain] = useState('');
     const [isSaving, startTransition] = useTransition();
@@ -231,19 +233,22 @@ export default function WebsiteBuilderPage() {
     
     if (currentPlan && !currentPlan.hasWebsiteBuilder) {
         return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Website Builder</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
-                         <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                         <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                         <p className="mt-2 text-muted-foreground max-w-sm">The Website Builder is not included in your current plan. Please upgrade to access this feature.</p>
-                         <Button className="mt-4" asChild><Link href="/dashboard/settings">Upgrade Plan</Link></Button>
-                     </div>
-                </CardContent>
-            </Card>
+            <>
+                <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Website Builder</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                            <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                            <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                            <p className="mt-2 text-muted-foreground max-w-sm">The Website Builder is not included in your current plan. Please upgrade to access this feature.</p>
+                            <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </>
        )
     }
     

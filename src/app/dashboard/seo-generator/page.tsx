@@ -16,6 +16,7 @@ import { Wand2, Copy, ShieldAlert } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
+import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 
 const formSchema = z.object({
   pgName: z.string().min(1, 'PG Name is required'),
@@ -32,6 +33,7 @@ export default function SeoGeneratorPage() {
   const [seoResult, setSeoResult] = useState<{ title: string; description: string } | null>(null)
   const { toast } = useToast()
   const { currentPlan } = useAppSelector(state => state.user)
+  const [isSubDialogOpen, setIsSubDialogOpen] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -65,19 +67,22 @@ export default function SeoGeneratorPage() {
   
   if (!currentPlan?.hasSeoGenerator) {
        return (
-        <Card>
-            <CardHeader>
-                <CardTitle>AI SEO Generator</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
-                    <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                    <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                    <p className="mt-2 text-muted-foreground max-w-sm">The AI SEO Generator is not included in your current plan. Please upgrade to access this feature.</p>
-                    <Button className="mt-4" asChild><Link href="/dashboard/settings">Upgrade Plan</Link></Button>
-                </div>
-            </CardContent>
-        </Card>
+        <>
+            <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+            <Card>
+                <CardHeader>
+                    <CardTitle>AI SEO Generator</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                        <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                        <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                        <p className="mt-2 text-muted-foreground max-w-sm">The AI SEO Generator is not included in your current plan. Please upgrade to access this feature.</p>
+                        <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </>
       )
   }
 

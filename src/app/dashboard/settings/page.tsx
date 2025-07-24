@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { plans } from "@/lib/mock-data"
 import type { PlanName, ChargeTemplate, UserRole } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -28,7 +28,7 @@ import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
-import { createRazorpaySubscription, verifySubscriptionPayment } from "@/lib/actions/subscriptionActions"
+import SubscriptionDialog from "@/components/dashboard/dialogs/SubscriptionDialog"
 import { updateUserPlan } from "@/lib/slices/userSlice"
 
 const chargeTemplateSchema = z.object({
@@ -53,10 +53,10 @@ export default function SettingsPage() {
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<ChargeTemplate | null>(null);
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
+  const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
   const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<RolePermissions>({});
   const { toast } = useToast();
-  const [isSubscribing, startSubscriptionTransition] = useTransition();
 
   const form = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
@@ -142,48 +142,6 @@ export default function SettingsPage() {
     });
   }
 
-    const handlePlanChange = (planId: PlanName) => {
-        if (!currentUser || !currentPlan || planId === currentPlan.id) return;
-        const plan = plans[planId];
-        if (!plan || typeof plan.price !== 'number' || plan.price <= 0) {
-             toast({ variant: 'destructive', title: "Invalid Plan", description: "This plan cannot be subscribed to automatically."});
-            return;
-        }
-
-        startSubscriptionTransition(async () => {
-            const res = await createRazorpaySubscription(planId, currentUser.id);
-            if (!res.success || !res.subscription) {
-                toast({ variant: 'destructive', title: 'Error', description: res.error || 'Could not initiate subscription.' });
-                return;
-            }
-
-            const options = {
-                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-                subscription_id: res.subscription.id,
-                name: 'RentVastu Subscription',
-                description: `${plan.name} Plan`,
-                handler: async (response: any) => {
-                    const verificationResult = await verifySubscriptionPayment({ ...response, userId: currentUser.id, planId });
-                    if (verificationResult.success) {
-                        dispatch(updateUserPlan(planId));
-                        toast({ title: 'Success!', description: `You've successfully subscribed to the ${plan.name} plan.` });
-                    } else {
-                        toast({ variant: 'destructive', title: 'Payment Failed', description: verificationResult.error || 'Payment verification failed.' });
-                    }
-                },
-                prefill: {
-                    name: currentUser.name,
-                    email: currentUser.email,
-                    contact: currentUser.phone,
-                },
-                theme: { color: '#2563EB' }
-            };
-            
-            const rzp = new (window as any).Razorpay(options);
-            rzp.open();
-        });
-    };
-
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const dateValue = e.target.value;
       if(dateValue) {
@@ -204,6 +162,8 @@ export default function SettingsPage() {
   }
 
   return (
+    <>
+    <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
     <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
         <div className="flex flex-col gap-8">
             <Card>
@@ -300,28 +260,13 @@ export default function SettingsPage() {
             
             <Card>
                 <CardHeader>
-                <CardTitle>Subscription Plan</CardTitle>
-                <CardDescription>Manage your subscription plan.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><Star/> Subscription Plan</CardTitle>
+                <CardDescription>Your current plan is <span className="font-semibold text-primary">{currentPlan.name}</span>. Upgrade for more features.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid gap-2 max-w-sm">
-                        <Label htmlFor="plan-switcher">Switch Plan</Label>
-                         <Select onValueChange={(planId) => handlePlanChange(planId as PlanName)} value={currentPlan.id}>
-                            <SelectTrigger id="plan-switcher" disabled={isSubscribing}>
-                                <SelectValue placeholder="Select a plan" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {Object.values(plans).map(plan => (
-                                    <SelectItem key={plan.id} value={plan.id} disabled={plan.id === currentPlan.id || typeof plan.price !== 'number' || plan.price < 0}>
-                                        {plan.name} {typeof plan.price === 'number' && plan.price > 0 && `(₹${plan.price}/mo)`}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                         {isSubscribing && (
-                            <p className="text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="animate-spin h-4 w-4"/> Processing, please follow payment instructions...</p>
-                         )}
-                    </div>
+                <CardContent>
+                    <Button onClick={() => setIsSubDialogOpen(true)}>
+                        View & Manage Plans
+                    </Button>
                 </CardContent>
             </Card>
         </div>
@@ -394,5 +339,6 @@ export default function SettingsPage() {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+    </>
   )
 }

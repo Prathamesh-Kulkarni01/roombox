@@ -1,11 +1,13 @@
+
 // Access.tsx
 // Usage example:
 // <Access feature="properties" action="add" limitKey="pgs" currentCount={pgs.length}><Button>Add Property</Button></Access>
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppSelector } from '@/lib/hooks';
 import { canAccess, canPlanAccess, getPlanLimit } from '@/lib/permissions';
 import { Badge } from './badge';
+import SubscriptionDialog from '../dashboard/dialogs/SubscriptionDialog';
 
 /**
  * Props for Access
@@ -13,7 +15,7 @@ import { Badge } from './badge';
  * @param action - Action key (e.g., 'edit', 'add', 'view')
  * @param children - React children (should be a single element)
  * @param limitKey - (optional) plan limit key (e.g., 'pgs')
- * @param currentCount - (optional) current count for the limit (e.g., pgs.length)
+ * @param currentCount - (optional) current count for the limit
  */
 export interface AccessProps {
   feature: string;
@@ -24,6 +26,7 @@ export interface AccessProps {
 }
 
 const Access: React.FC<AccessProps> = ({ feature, action, children, limitKey, currentCount }) => {
+  const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
 
@@ -40,79 +43,49 @@ const Access: React.FC<AccessProps> = ({ feature, action, children, limitKey, cu
     }
   }
 
+  const GatedWrapper = ({ children, tooltipText }: { children: React.ReactNode, tooltipText: string }) => (
+    <>
+        <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+        <div 
+            className="relative inline-block cursor-pointer"
+            onClick={() => setIsSubDialogOpen(true)}
+            title={tooltipText}
+        >
+            <div style={{ pointerEvents: 'none' }}>
+                {React.isValidElement(children) ? React.cloneElement(children as React.ReactElement<any>, { disabled: true }) : children}
+            </div>
+            <div
+                style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    zIndex: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 'var(--radius)',
+                    backgroundColor: 'hsla(var(--card)/0.6)',
+                }}
+            >
+                 <Badge
+                    variant="default"
+                    className="bg-gradient-to-r from-orange-400 to-amber-500 text-white border-none shadow-lg text-xs md:text-sm px-3 py-1.5"
+                >
+                    Upgrade Plan
+                </Badge>
+            </div>
+        </div>
+    </>
+);
+
+
   // If limit reached, show badge and disable
   if (limitReached) {
-    if (React.isValidElement(children)) {
-      return (
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-          {React.cloneElement(children as React.ReactElement<any>, { disabled: true })}
-          <Badge
-            variant="secondary"
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'orange',
-              gap: 4,
-            }}
-          >
-            Upgrade
-          </Badge>
-        </div>
-      );
-    }
-    return (
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        {children}
-        <Badge variant="outline" style={{ position: 'absolute', top: 0, right: 0, zIndex: 2 }}>Pro plan</Badge>
-      </div>
-    );
+      return <GatedWrapper tooltipText="You've reached the limit for your current plan.">{children}</GatedWrapper>;
   }
-if(action==='sharedCharge'){
-console.log('sharedCharge',planAllows,roleAllows)
-}
+
   // If denied by plan (but not by role), show badge
   if (!planAllows && roleAllows) {
-    return (
-      <div style={{ position: 'relative', display: 'inline-block' }}>
-        {children}
-        <div
-        style={{
-          position: 'absolute',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(255, 255, 255, 0.7)',
-          zIndex: 10,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 8,
-          pointerEvents: 'none',
-        }}
-      >
-        <Badge
-          variant="outline"
-          style={{
-            fontSize: 18,
-            padding: '0.75em 1.5em',
-            background: 'linear-gradient(90deg, #fbbf24 0%, #f59e42 100%)',
-            color: '#fff',
-            border: 'none',
-            boxShadow: '0 2px 12px rgba(251,191,36,0.15)',
-            letterSpacing: 1,
-            fontWeight: 600,
-            borderRadius: 24,
-          }}
-        >
-         Upgrade Plan
-        </Badge>
-      </div>
-      </div>
-    );
+      return <GatedWrapper tooltipText="This feature requires a higher plan.">{children}</GatedWrapper>;
   }
 
   // If denied by role (but plan allows), hide
@@ -126,41 +99,7 @@ console.log('sharedCharge',planAllows,roleAllows)
   }
 
   // If both deny, treat as plan denial (show badge)
-  return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      {children}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(255, 255, 255, 0.7)',
-          zIndex: 10,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: 8,
-          pointerEvents: 'none',
-        }}
-      >
-        <Badge
-          variant="outline"
-          style={{
-            fontSize: 18,
-            padding: '0.75em 1.5em',
-            background: 'linear-gradient(90deg, #fbbf24 0%, #f59e42 100%)',
-            color: '#fff',
-            border: 'none',
-            boxShadow: '0 2px 12px rgba(251,191,36,0.15)',
-            letterSpacing: 1,
-            fontWeight: 600,
-            borderRadius: 24,
-          }}
-        >
-         Upgrade Plan
-        </Badge>
-      </div>
-    </div>
-  );
+  return <GatedWrapper tooltipText="This feature requires a higher plan.">{children}</GatedWrapper>;
 };
 
-export default Access; 
+export default Access;

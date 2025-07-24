@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils'
 import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction } from '@/lib/slices/staffSlice'
 import Link from 'next/link'
 import { canAccess } from '@/lib/permissions';
+import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 
 const staffSchema = z.object({
   pgId: z.string().min(1, "Please select a property"),
@@ -52,6 +53,7 @@ export default function StaffPage() {
     const { featurePermissions } = useAppSelector(state => state.permissions);
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null)
+    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false)
 
     const form = useForm<StaffFormValues>({
         resolver: zodResolver(staffSchema),
@@ -125,19 +127,22 @@ export default function StaffPage() {
 
     if (!currentPlan?.hasStaffManagement) {
          return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Staff Management</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
-                        <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                        <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                        <p className="mt-2 text-muted-foreground max-w-sm">Staff Management is a premium feature. Please upgrade your plan to add and manage your team.</p>
-                        <Button className="mt-4" asChild><Link href="/dashboard/settings">Upgrade Plan</Link></Button>
-                    </div>
-                </CardContent>
-            </Card>
+             <>
+                <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Staff Management</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                            <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                            <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                            <p className="mt-2 text-muted-foreground max-w-sm">Staff Management is a premium feature. Please upgrade your plan to add and manage your team.</p>
+                            <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
+                        </div>
+                    </CardContent>
+                </Card>
+             </>
         )
     }
 

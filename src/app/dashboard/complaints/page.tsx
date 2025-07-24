@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 import { canAccess } from '@/lib/permissions';
 import Access from '@/components/ui/PermissionWrapper';
+import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 
 const statusColors: Record<Complaint['status'], string> = {
     open: "bg-red-100 text-red-800",
@@ -31,6 +32,7 @@ export default function ComplaintsDashboardPage() {
     const { currentPlan } = useAppSelector(state => state.user)
     const { currentUser } = useAppSelector(state => state.user);
     const { featurePermissions } = useAppSelector(state => state.permissions);
+    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false)
 
     const filteredComplaints = useMemo(() => {
         if (!selectedPgId) return complaints;
@@ -46,19 +48,22 @@ export default function ComplaintsDashboardPage() {
 
     if (!currentPlan?.hasComplaints) {
          return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Complaints Management</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
-                        <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                        <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                        <p className="mt-2 text-muted-foreground max-w-sm">The complaints management feature is not included in your current plan. Please upgrade to access this feature.</p>
-                        <Button className="mt-4" asChild><Link href="/dashboard/settings">Upgrade Plan</Link></Button>
-                    </div>
-                </CardContent>
-            </Card>
+             <>
+                <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Complaints Management</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                            <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                            <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                            <p className="mt-2 text-muted-foreground max-w-sm">The complaints management feature is not included in your current plan. Please upgrade to access this feature.</p>
+                            <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
+                        </div>
+                    </CardContent>
+                </Card>
+             </>
         )
     }
 
