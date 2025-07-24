@@ -2,13 +2,13 @@
 import type {NextConfig} from 'next';
 import withPWAInit from '@ducanh2912/next-pwa';
 
-const isTurbopack = !!process.env.TURBOPACK;
-
 const withPWA = withPWAInit({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
   register: true,
   skipWaiting: true,
+  sw: 'service-worker.js', // This is the main PWA service worker
+  extendDefaultRuntimeCaching: true,
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
@@ -63,12 +63,15 @@ const withPWA = withPWAInit({
           maxEntries: 32,
           maxAgeSeconds: 24 * 60 * 60, // 24 hours
         },
+        networkTimeoutSeconds: 10,
       },
     },
   ],
   fallbacks: {
     document: '/offline',
-  }
+  },
+  // This tells our PWA about the Firebase service worker
+  importScripts: ["/firebase-messaging-sw.js"],
 });
 
 const nextConfig: NextConfig = {
@@ -90,14 +93,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  ...(isTurbopack
-    ? {}
-    : {
-        webpack: (config, options) => {
-          // Important: return the original config
-          return config
-        },
-      }),
 };
 
 export default withPWA(nextConfig);

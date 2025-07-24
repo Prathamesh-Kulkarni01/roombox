@@ -1,17 +1,18 @@
 
-// This file is intentionally blank in the template.
-// The build script will inject the Firebase config.
+// Scripts for firebase and firebase messaging
 importScripts("https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js");
 
-// This config will be replaced by the build script
+// Your web app's Firebase configuration
 const firebaseConfig = {}
 
-firebase.initializeApp(firebaseConfig);
+// Initialize Firebase
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 
 const messaging = firebase.messaging();
 
-// Optional: To handle background notifications
 messaging.onBackgroundMessage((payload) => {
   console.log(
     "[firebase-messaging-sw.js] Received background message ",
@@ -21,18 +22,8 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: payload.notification.icon || '/apple-touch-icon.png',
+    icon: payload.notification.icon || '/apple-touch-icon.png'
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
-});
-
-self.addEventListener('notificationclick', function(event) {
-  event.notification.close();
-  
-  const link = event.notification.data?.FCM_MSG?.notification?.click_action || event.notification.data?.link || '/';
-
-  event.waitUntil(
-    clients.openWindow(link)
-  );
 });
