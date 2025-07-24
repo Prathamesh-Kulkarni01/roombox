@@ -56,6 +56,16 @@ const sendRentRemindersFlow = ai.defineFlow(
       for (const ownerDoc of ownersSnapshot.docs) {
         const owner = ownerDoc.data() as User;
         if (owner.role !== 'owner') continue;
+
+        const planId = owner.subscription?.planId;
+        const subStatus = owner.subscription?.status;
+        const isPaidTier = planId && ['starter', 'pro', 'business', 'enterprise'].includes(planId);
+        const isActiveSub = subStatus === 'active' || subStatus === 'trialing';
+
+        if (!isPaidTier || !isActiveSub) {
+          console.log(`Skipping reminders for owner ${owner.name} (${owner.id}) on plan '${planId || 'none'}' with status '${subStatus || 'none'}'`);
+          continue;
+        }
         
         console.log(`Checking guests for owner: ${owner.name} (${owner.id})`);
 
