@@ -20,7 +20,7 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
     throw new Error('Invalid plan selected for subscription.')
   }
 
-  const razorpayPlanId = `plan_${planId}`;
+  const razorpayPlanId = `plan_${planId}_rentvastu`;
 
   try {
     const subscription = await razorpay.subscriptions.create({
@@ -37,7 +37,7 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
     // If the plan doesn't exist, create it and retry
     if (error.statusCode === 400 && error.error?.code === 'BAD_REQUEST_ERROR') {
       try {
-        await razorpay.plans.create({
+        const newPlan = await razorpay.plans.create({
           id: razorpayPlanId,
           period: 'monthly',
           interval: 1,
@@ -49,9 +49,9 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
           },
         });
         
-        // Retry creating the subscription
+        // Retry creating the subscription with the newly created plan ID
         const subscription = await razorpay.subscriptions.create({
-          plan_id: razorpayPlanId,
+          plan_id: newPlan.id, // Use the returned ID from plan creation
           customer_notify: 1,
           quantity: 1,
           total_count: 120,
