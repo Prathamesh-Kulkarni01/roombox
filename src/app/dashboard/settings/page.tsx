@@ -29,7 +29,6 @@ import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
 import SubscriptionDialog from "@/components/dashboard/dialogs/SubscriptionDialog"
-import { updateUserPlan } from "@/lib/slices/userSlice"
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),

@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 const planOrder: PlanName[] = ['starter', 'pro', 'business'];
 
 const getPlanFeatures = (plan: Plan) => [
-    { text: `${plan.pgLimit === 'unlimited' ? 'Unlimited' : `Up to ${plan.pgLimit}`} Properties`, included: true },
+    { text: `${plan.pgLimit === 'unlimited' ? 'Unlimited' : `Up to ${plan.pgLimit}`} Propert${plan.pgLimit !== 1 ? 'ies' : 'y'}`, included: true },
     { text: 'Staff Management', included: plan.hasStaffManagement },
     { text: 'AI Rent Reminders & SEO', included: plan.hasAiRentReminders },
     { text: 'Public Website Builder', included: plan.hasWebsiteBuilder },

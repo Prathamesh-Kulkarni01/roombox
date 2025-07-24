@@ -130,21 +130,23 @@ export default function ComplaintsDashboardPage() {
                                             <TableCell className="capitalize">{complaint.category}</TableCell>
                                             <TableCell className="truncate">{complaint.description}</TableCell>
                                             <TableCell>
-                                                <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])} disabled={!canAccess(featurePermissions, currentUser?.role, 'complaints', 'edit')}>
-                                                    <SelectTrigger className="w-[140px]">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {Object.keys(statusColors).map(status => (
-                                                            <SelectItem key={status} value={status}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className={cn("h-2 w-2 rounded-full", statusColors[status as Complaint['status']])} />
-                                                                    <span className="capitalize">{status}</span>
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <Access feature="complaints" action="edit">
+                                                    <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])}>
+                                                        <SelectTrigger className="w-[140px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {Object.keys(statusColors).map(status => (
+                                                                <SelectItem key={status} value={status}>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={cn("h-2 w-2 rounded-full", statusColors[status as Complaint['status']])} />
+                                                                        <span className="capitalize">{status}</span>
+                                                                    </div>
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </Access>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -165,21 +167,23 @@ export default function ComplaintsDashboardPage() {
                                     <p className="text-sm">{complaint.description}</p>
                                     <div className="flex justify-between items-center text-sm">
                                         <Badge variant="outline" className="capitalize">{complaint.category}</Badge>
-                                        <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])} disabled={!canAccess(featurePermissions, currentUser?.role, 'complaints', 'edit')}>
-                                            <SelectTrigger className="w-[140px] h-9">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {Object.keys(statusColors).map(status => (
-                                                    <SelectItem key={status} value={status}>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={cn("h-2 w-2 rounded-full", statusColors[status as Complaint['status']])} />
-                                                            <span className="capitalize">{status}</span>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Access feature="complaints" action="edit">
+                                            <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])}>
+                                                <SelectTrigger className="w-[140px] h-9">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.keys(statusColors).map(status => (
+                                                        <SelectItem key={status} value={status}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={cn("h-2 w-2 rounded-full", statusColors[status as Complaint['status']])} />
+                                                                <span className="capitalize">{status}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </Access>
                                     </div>
                                 </div>
                             ))}
