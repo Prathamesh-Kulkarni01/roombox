@@ -51,23 +51,17 @@ const sendRentRemindersFlow = ai.defineFlow(
     const reminderCutoffDate = addDays(today, REMINDER_DAYS_BEFORE_DUE);
 
     try {
-      const ownersSnapshot = await getDocs(collection(db, 'users'));
+      const ownersQuery = query(
+        collection(db, 'users'),
+        where('role', '==', 'owner'),
+        where('subscription.status', '==', 'active'),
+        where('subscription.planId', 'in', ['starter', 'pro', 'business', 'enterprise'])
+      );
+      const ownersSnapshot = await getDocs(ownersQuery);
       
       for (const ownerDoc of ownersSnapshot.docs) {
         const owner = ownerDoc.data() as User;
-        if (owner.role !== 'owner') continue;
-
-        const planId = owner.subscription?.planId;
-        const subStatus = owner.subscription?.status;
-        const isPaidTier = planId && ['starter', 'pro', 'business', 'enterprise'].includes(planId);
-        const isActiveSub = subStatus === 'active' || subStatus === 'trialing';
-
-        if (!isPaidTier || !isActiveSub) {
-          console.log(`Skipping reminders for owner ${owner.name} (${owner.id}) on plan '${planId || 'none'}' with status '${subStatus || 'none'}'`);
-          continue;
-        }
-        
-        console.log(`Checking guests for owner: ${owner.name} (${owner.id})`);
+        console.log(`Checking guests for subscribed owner: ${owner.name} (${owner.id})`);
 
         // Fetch only active guests with rent due
         const guestsQuery = query(
