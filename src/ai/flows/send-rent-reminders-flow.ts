@@ -9,7 +9,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, collection, getDocs } from 'firebase-admin/firestore';
+import { getFirestore, collection, getDocs, query, where } from 'firebase-admin/firestore';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { addDays, format, isBefore, parseISO } from 'date-fns';
 import { type User, type Guest } from '@/lib/types';
@@ -59,12 +59,18 @@ const sendRentRemindersFlow = ai.defineFlow(
         
         console.log(`Checking guests for owner: ${owner.name} (${owner.id})`);
 
-        const guestsSnapshot = await getDocs(collection(db, 'users_data', owner.id, 'guests'));
+        // Fetch only active guests with rent due
+        const guestsQuery = query(
+            collection(db, 'users_data', owner.id, 'guests'),
+            where('isVacated', '==', false),
+            where('rentStatus', 'in', ['unpaid', 'partial'])
+        );
+        const guestsSnapshot = await getDocs(guestsQuery);
         
         for (const guestDoc of guestsSnapshot.docs) {
           const guest = guestDoc.data() as Guest;
           
-          if (guest.isVacated || guest.rentStatus === 'paid' || !guest.userId) continue;
+          if (!guest.userId) continue;
 
           const dueDate = parseISO(guest.dueDate);
 
