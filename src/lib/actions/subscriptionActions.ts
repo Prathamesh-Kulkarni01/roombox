@@ -3,7 +3,6 @@
 
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
-import shortid from 'shortid'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { plans } from '../mock-data'
@@ -20,10 +19,32 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
     throw new Error('Invalid plan selected for subscription.')
   }
 
-  // A consistent, predictable ID for checking if a plan exists.
   const razorpayPlanId = `plan_${planId}_rentvastu`;
 
   try {
+    // First, try to fetch the plan to see if it exists
+    try {
+       await razorpay.plans.fetch(razorpayPlanId);
+    } catch(fetchError: any) {
+        if (fetchError.statusCode === 404) {
+             // Plan not found, create it
+            await razorpay.plans.create({
+                id: razorpayPlanId, // Now we provide the ID during creation
+                period: 'monthly',
+                interval: 1,
+                item: {
+                    name: `${plan.name} Plan`,
+                    amount: plan.price * 100, // Amount in paisa
+                    currency: 'INR',
+                    description: plan.description
+                },
+            });
+        } else {
+            throw fetchError; // Re-throw other errors
+        }
+    }
+      
+    // Create the subscription
     const subscription = await razorpay.subscriptions.create({
       plan_id: razorpayPlanId,
       customer_notify: 1,
@@ -35,38 +56,6 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
     })
     return { success: true, subscription }
   } catch (error: any) {
-    // If the plan doesn't exist (BAD_REQUEST_ERROR), create it and retry.
-    if (error.statusCode === 400 && error.error?.code === 'BAD_REQUEST_ERROR') {
-      try {
-        // Let Razorpay generate the plan ID. We'll use the one they return.
-        const newPlan = await razorpay.plans.create({
-          period: 'monthly',
-          interval: 1,
-          item: {
-            name: `${plan.name} Plan`,
-            amount: plan.price * 100, // Amount in paisa
-            currency: 'INR',
-            description: plan.description
-          },
-        });
-        
-        // Retry creating the subscription with the *newly created* plan ID.
-        const subscription = await razorpay.subscriptions.create({
-          plan_id: newPlan.id, // Use the ID returned by Razorpay
-          customer_notify: 1,
-          quantity: 1,
-          total_count: 120,
-          notes: {
-            userId: userId,
-          },
-        });
-        return { success: true, subscription };
-
-      } catch (retryError) {
-         console.error('Razorpay subscription retry failed:', retryError)
-         return { success: false, error: 'Could not create subscription plan on payment gateway.' }
-      }
-    }
     console.error('Razorpay subscription creation failed:', error)
     return { success: false, error: 'Could not create subscription on payment gateway.' }
   }
