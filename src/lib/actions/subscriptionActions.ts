@@ -45,7 +45,6 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
       plan_id: razorpayPlanId,
       customer_notify: 1,
       quantity: 1,
-      total_count: 12, // This was the error. Set to 12 for monthly billing over a year.
       notes: {
         userId: userId,
         planName: plan.name,
@@ -54,7 +53,7 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
     return { success: true, subscription }
   } catch (error: any) {
     console.error('Razorpay subscription creation failed:', error);
-    return { success: false, error: 'Could not create subscription on the payment gateway. Please ensure plan IDs are correct.' };
+    return { success: false, error: 'Could not create subscription on the payment gateway. Please ensure plan IDs are correct in your .env file and match your Razorpay dashboard.' };
   }
 }
 
