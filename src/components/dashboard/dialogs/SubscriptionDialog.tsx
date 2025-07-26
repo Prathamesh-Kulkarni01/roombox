@@ -92,7 +92,7 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
             {planOrder.map(planId => {
                 const plan = plans[planId];
                 const isCurrentPlan = currentPlan?.id === planId;
-                const isPopular = plan.id === 'pro';
+                const isPopular = plan.name === 'Pro';
                 const planFeatures = getPlanFeatures(plan);
                 return (
                     <Card key={plan.id} className={cn("flex flex-col h-full", isPopular && "border-2 border-primary", isCurrentPlan && "ring-2 ring-indigo-500")}>
