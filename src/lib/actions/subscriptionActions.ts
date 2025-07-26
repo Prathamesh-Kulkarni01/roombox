@@ -41,7 +41,7 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
   }
 
   try {
-    const subscription = await razorpay.subscriptions.create({
+    const subscription = razorpay.subscriptions.create({
       plan_id: razorpayPlanId,
       customer_notify: 1,
       quantity: 1,
@@ -49,11 +49,12 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
         userId: userId,
         planName: plan.name,
       },
+      total_count: 1
     })
     return { success: true, subscription }
   } catch (error: any) {
     console.error('Razorpay subscription creation failed:', error);
-    return { success: false, error: 'Could not create subscription on the payment gateway. Please ensure plan IDs are correct in your .env file and match your Razorpay dashboard.' };
+    return { success: false, error: `${razorpayPlanId},${error}, Could not create subscription on the payment gateway. Please ensure plan IDs are correct in your .env file and match your Razorpay dashboard.` };
   }
 }
 

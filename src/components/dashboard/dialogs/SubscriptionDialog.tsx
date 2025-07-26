@@ -45,6 +45,11 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
       return;
     }
 
+    if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
+      toast({ variant: 'destructive', title: 'Configuration Error', description: 'The payment gateway is not configured. Please contact support.' });
+      return;
+    }
+
     startSubscriptionTransition(async () => {
       const res = await createRazorpaySubscription(planId, currentUser.id);
       if (!res.success || !res.subscription) {
@@ -91,7 +96,7 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
         <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
             {planOrder.map(planId => {
                 const plan = plans[planId];
-                if (!plan) return null; // FIX: Add guard clause to prevent crash
+                if (!plan) return null;
                 const isCurrentPlan = currentPlan?.id === planId;
                 const isPopular = plan.name === 'Pro';
                 const planFeatures = getPlanFeatures(plan);
