@@ -91,6 +91,7 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
         <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
             {planOrder.map(planId => {
                 const plan = plans[planId];
+                if (!plan) return null; // FIX: Add guard clause to prevent crash
                 const isCurrentPlan = currentPlan?.id === planId;
                 const isPopular = plan.name === 'Pro';
                 const planFeatures = getPlanFeatures(plan);
