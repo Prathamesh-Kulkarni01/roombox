@@ -45,7 +45,7 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
       plan_id: razorpayPlanId,
       customer_notify: 1,
       quantity: 1,
-      total_count: 120, // For 10 years
+      total_count: 12, // This was the error. Set to 12 for monthly billing over a year.
       notes: {
         userId: userId,
         planName: plan.name,

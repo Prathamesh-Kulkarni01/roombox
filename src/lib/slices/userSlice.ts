@@ -219,7 +219,7 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
         
         const updatedUser: User = {
             ...currentUser,
-            subscription: { ...(currentUser.subscription || { status: 'active' }), planId },
+            subscription: { ...(currentUser.subscription || {}), planId, status: 'active' },
         };
 
         if (!db) throw new Error('Firestore is not initialized.');
