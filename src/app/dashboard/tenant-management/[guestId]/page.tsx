@@ -27,14 +27,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
 import type { Guest, Complaint, AdditionalCharge, Payment } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil } from "lucide-react"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
-import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle } from "@/lib/slices/guestsSlice"
+import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner } from "@/lib/slices/guestsSlice"
 import { useDashboard } from "@/hooks/use-dashboard"
 import { canAccess } from "@/lib/permissions"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+
 
 const paymentSchema = z.object({
   amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
@@ -89,6 +91,10 @@ export default function GuestProfilePage() {
     const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
     const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
     const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false)
+    const [isKycDialogOpen, setIsKycDialogOpen] = useState(false)
+    const [isSubmittingKyc, setIsSubmittingKyc] = useState(false)
+    const [aadhaarUri, setAadhaarUri] = useState<string | null>(null);
+    const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [reminderMessage, setReminderMessage] = useState('')
     const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
 
@@ -151,14 +157,11 @@ export default function GuestProfilePage() {
         const updatedGuest = produce(guest, draft => {
             let amountPaid = values.amountPaid;
             
-            // Add to payment history
             if (!draft.paymentHistory) draft.paymentHistory = [];
             draft.paymentHistory.push(paymentRecord);
 
-            // Create a deep copy for mutable operations
             let mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || [])) as AdditionalCharge[];
             
-            // First, apply payment to additional charges
             for (const charge of mutableCharges) {
                 if (amountPaid <= 0) break;
                 const amountToClear = Math.min(amountPaid, charge.amount);
@@ -167,16 +170,14 @@ export default function GuestProfilePage() {
             }
             draft.additionalCharges = mutableCharges.filter(c => c.amount > 0);
 
-            // Apply remaining payment to rent
             draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaid;
             
             const totalDueAfterPayment = draft.rentAmount - (draft.rentPaidAmount || 0) + (draft.additionalCharges.reduce((sum, c) => sum + c.amount, 0));
 
             if (totalDueAfterPayment <= 0) {
-                // Cycle completes, rent is fully paid
                 draft.rentStatus = 'paid';
                 draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + Math.abs(totalDueAfterPayment);
-                draft.rentPaidAmount = 0; // Reset for next cycle
+                draft.rentPaidAmount = 0;
                 draft.additionalCharges = [];
                 draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
             } else {
@@ -222,7 +223,35 @@ export default function GuestProfilePage() {
             setIsGeneratingReminder(false)
         }
     }
+
+    const handleKycFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (uri: string | null) => void) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => setter(event.target?.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
     
+    const handleKycSubmit = async () => {
+        if (!guest || !aadhaarUri || !photoUri) {
+            toast({ variant: 'destructive', title: 'Missing Documents', description: 'Please provide both an ID proof and a photo.' });
+            return;
+        }
+        setIsSubmittingKyc(true);
+        try {
+            await dispatch(updateGuestKycFromOwner({ guestId: guest.id, aadhaarDataUri: aadhaarUri, photoDataUri: photoUri })).unwrap();
+            toast({ title: 'KYC Submitted', description: 'The documents are being processed.' });
+            setIsKycDialogOpen(false);
+            setAadhaarUri(null);
+            setPhotoUri(null);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Submission Failed', description: error.message || 'Could not submit documents.' });
+        } finally {
+            setIsSubmittingKyc(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -292,9 +321,17 @@ export default function GuestProfilePage() {
                                     </Link>
                                 </div>
                             )}
-                             {guest.kycStatus === 'pending' && canAccess(featurePermissions, currentUser?.role, 'guests', 'edit') && (
-                                <Button className="w-full">Review & Verify</Button>
+                             {guest.kycStatus !== 'verified' && canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (
+                                <Button className="w-full" onClick={() => setIsKycDialogOpen(true)}>
+                                    {guest.kycStatus === 'rejected' ? 'Re-submit Documents' : 'Complete KYC'}
+                                </Button>
                              )}
+                              {guest.kycRejectReason && (
+                                <Alert variant="destructive" className="mt-2">
+                                    <AlertTitle>Reason for Rejection</AlertTitle>
+                                    <AlertDescription>{guest.kycRejectReason}</AlertDescription>
+                                </Alert>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
@@ -491,6 +528,48 @@ export default function GuestProfilePage() {
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                         <Button type="submit" form="charge-form">Add Charge</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+             <Dialog open={isKycDialogOpen} onOpenChange={setIsKycDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Complete KYC for {guest.name}</DialogTitle>
+                        <DialogDescription>Upload the guest's documents to initiate verification.</DialogDescription>
+                    </DialogHeader>
+                     <div className="grid md:grid-cols-2 gap-6 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="owner-aadhaar-upload">1. ID Proof</Label>
+                            <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                {aadhaarUri ? <Image src={aadhaarUri} alt="ID Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload ID</p>}
+                            </div>
+                            <div className="relative">
+                                <Input id="owner-aadhaar-upload" type="file" accept="image/*" onChange={(e) => handleKycFileChange(e, setAadhaarUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                <Button asChild variant="outline" className="w-full pointer-events-none">
+                                    <span><FileUp className="mr-2 h-4 w-4"/> {aadhaarUri ? "Change ID Proof" : "Upload ID Proof"}</span>
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="owner-photo-upload">2. Guest's Photo</Label>
+                            <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                {photoUri ? <Image src={photoUri} alt="Photo Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload Photo</p>}
+                            </div>
+                            <div className="relative">
+                                <Input id="owner-photo-upload" type="file" accept="image/*" onChange={(e) => handleKycFileChange(e, setPhotoUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                <Button asChild variant="outline" className="w-full pointer-events-none">
+                                    <span><FileUp className="mr-2 h-4 w-4"/> {photoUri ? "Change Photo" : "Upload Photo"}</span>
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                        <Button onClick={handleKycSubmit} disabled={isSubmittingKyc || !aadhaarUri || !photoUri}>
+                            {isSubmittingKyc ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                            Submit for Verification
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
