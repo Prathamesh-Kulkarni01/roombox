@@ -1,5 +1,4 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, Invite, PG, User, AdditionalCharge, Room } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
@@ -74,7 +73,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         const updatedPg = produce(pg, draft => {
             draft.occupancy += 1;
             const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.id === newGuest.bedId)));
-            const room = floor?.rooms.find(r => r.beds.some(b => b.id === newGuest.bedId));
+            const room = floor?.rooms.find(r => r.beds.some(r => r.id === newGuest.bedId));
             const bed = room?.beds.find(b => b.id === newGuest.bedId);
             if (bed) {
                 bed.guestId = newGuest.id;
