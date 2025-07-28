@@ -21,7 +21,7 @@ import { setChargeTemplates } from '@/lib/slices/chargeTemplatesSlice'
 import { setNotifications } from '@/lib/slices/notificationsSlice'
 import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
-import type { Guest, PG, Complaint, Notification, Staff } from '@/lib/types'
+import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense } from '@/lib/types'
 import { setLoading } from '@/lib/slices/appSlice'
 import { fetchPermissions } from '@/lib/slices/permissionsSlice'
 
@@ -175,6 +175,19 @@ function AuthHandler({ children }: { children: ReactNode }) {
         unsubs.push(onSnapshot(complaintsQuery, (snapshot) => {
             const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
             dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+        }));
+        
+        // Fetch staff for that PG
+        const staffQuery = query(collection(db, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId));
+        unsubs.push(onSnapshot(staffQuery, (snapshot) => {
+            dispatch(setStaff(snapshot.docs.map(d => d.data() as Staff)));
+        }));
+        
+        // Fetch notifications for the tenant
+        const notificationsQuery = query(collection(db, 'users_data', ownerId, 'notifications'), where('targetId', '==', guestId));
+         unsubs.push(onSnapshot(notificationsQuery, (snapshot) => {
+            const notificationsData = snapshot.docs.map(d => d.data() as Notification);
+            dispatch(setNotifications(notificationsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
         }));
 
         dispatch(setLoading(false)); // For tenants, loading is faster
