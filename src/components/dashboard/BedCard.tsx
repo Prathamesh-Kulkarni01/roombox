@@ -23,7 +23,7 @@ interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
 }
 
 export default function BedCard(props: BedCardProps) {
-  const { room, floor, pg, isEditMode, setItemToDelete, handleOpenBedDialog, handleOpenRoomDialog, handleOpenSharedChargeDialog, isFirstAvailableBedFound } = props
+  const { room, floor, pg, isEditMode, setItemToDelete, handleOpenBedDialog, handleOpenRoomDialog, handleOpenSharedChargeDialog, isFirstAvailableBedFound, setGuestToInitiateExit, setGuestToExitImmediately } = props
   const router = useRouter()
   const { guests, complaints } = useAppSelector(state => ({
     guests: state.guests.guests,
@@ -168,7 +168,7 @@ export default function BedCard(props: BedCardProps) {
                     </div>
                  </button>
               </PopoverTrigger>
-              <GuestPopoverContent guest={guest} {...props} />
+              <GuestPopoverContent guest={guest} setGuestToInitiateExit={setGuestToInitiateExit} setGuestToExitImmediately={setGuestToExitImmediately} {...props} />
             </Popover>
           );
         })}

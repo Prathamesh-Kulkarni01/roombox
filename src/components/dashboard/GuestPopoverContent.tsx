@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { Guest } from "@/lib/types"
 import { format, differenceInDays, parseISO } from "date-fns"
-import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle, Pencil } from "lucide-react"
+import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle, Pencil, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
@@ -23,7 +23,7 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
   partial: 'bg-orange-100 text-orange-800 border-orange-300',
 }
 
-export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, handleOpenReminderDialog, setGuestToInitiateExit, setGuestToExitImmediately }: GuestPopoverContentProps) {
+export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, handleOpenReminderDialog, handleOpenEditGuestDialog, setGuestToInitiateExit, setGuestToExitImmediately }: GuestPopoverContentProps) {
   const { currentPlan } = useAppSelector(state => state.user)
   const { currentUser } = useAppSelector(state => state.user);
   const { featurePermissions } = useAppSelector(state => state.permissions);
@@ -76,11 +76,12 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
             </a>
           </Button>
         )}
-        {!guest.exitDate ? (
+        {!guest.exitDate && canAccess(featurePermissions, currentUser?.role, 'guests', 'edit') ? (
           <Button variant="ghost" size="sm" className="justify-start" onClick={() => setGuestToInitiateExit(guest)}>
             <LogOut className="mr-2 h-4 w-4" /> Initiate Exit
           </Button>
-        ) : (
+        ) : null}
+        {guest.exitDate && canAccess(featurePermissions, currentUser?.role, 'guests', 'delete') && (
            <Button variant="ghost" size="sm" className="justify-start text-destructive hover:text-destructive" onClick={() => setGuestToExitImmediately(guest)}>
             <XCircle className="mr-2 h-4 w-4" /> Exit Immediately
           </Button>
@@ -88,11 +89,6 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
         {canAccess(featurePermissions, currentUser?.role, 'guests', 'edit') && (
           <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleOpenEditGuestDialog(guest)}>
             <Pencil className="mr-2 h-4 w-4" /> Edit Guest
-          </Button>
-        )}
-        {canAccess(featurePermissions, currentUser?.role, 'guests', 'delete') && !guest.exitDate && (
-          <Button variant="ghost" size="sm" className="justify-start text-destructive hover:text-destructive" onClick={() => setGuestToInitiateExit(guest)}>
-            <XCircle className="mr-2 h-4 w-4" /> Remove Guest
           </Button>
         )}
         <Button variant="ghost" size="sm" className="justify-start" asChild>

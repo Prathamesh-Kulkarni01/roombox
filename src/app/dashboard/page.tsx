@@ -340,6 +340,8 @@ export default function DashboardPage() {
             isEditMode={isEditMode}
             isFirstAvailableBedFound={isFirstAvailableBedFound}
             setItemToDelete={setItemToDelete}
+            setGuestToInitiateExit={setGuestToInitiateExit}
+            setGuestToExitImmediately={setGuestToExitImmediately}
             {...dashboardActions}
           />
         ))}
