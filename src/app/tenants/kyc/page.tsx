@@ -200,13 +200,13 @@ export default function KycPage() {
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <Label htmlFor="aadhaar-upload">1. ID Proof (Aadhaar/PAN)</Label>
+                        <Label htmlFor="aadhaar-upload">1. ID Proof (Aadhaar/PAN/PDF)</Label>
                         <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
                             {aadhaarUri ? <Image src={aadhaarUri} alt="ID Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload your ID</p>}
                         </div>
                         {canSubmit && (
                             <div className="relative">
-                                <Input id="aadhaar-upload" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAadhaarUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                <Input id="aadhaar-upload" type="file" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, setAadhaarUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
                                 <Button asChild variant="outline" className="w-full pointer-events-none">
                                     <span><FileUp className="mr-2 h-4 w-4"/> {aadhaarUri ? "Change ID Proof" : "Upload ID Proof"}</span>
                                 </Button>

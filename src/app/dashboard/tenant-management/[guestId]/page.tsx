@@ -23,11 +23,12 @@ import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
 import type { Guest, Complaint, AdditionalCharge, Payment, KycDocument } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp } from "lucide-react"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
@@ -69,6 +70,9 @@ const complaintStatusColors: Record<Complaint['status'], string> = {
     "in-progress": "bg-yellow-100 text-yellow-800",
     resolved: "bg-green-100 text-green-800",
 }
+
+const isImageUrl = (url: string) => /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
+
 
 export default function GuestProfilePage() {
     const params = useParams()
@@ -114,9 +118,11 @@ export default function GuestProfilePage() {
     
     useEffect(() => {
         const fetchKycDocs = async () => {
-            if (guest && (guest.kycStatus === 'pending' || guest.kycStatus === 'verified' || guest.kycStatus === 'rejected') && currentUser?.id) {
+            if (guest && (guest.kycStatus !== 'not-started') && currentUser?.id) {
+                 const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+                 if (!ownerId) return;
                 try {
-                    const docRef = doc(db, "users_data", currentUser.id, "guest_kyc_documents", guest.id);
+                    const docRef = doc(db, "users_data", ownerId, "guest_kyc_documents", guest.id);
                     const docSnap = await getDoc(docRef);
                     if (docSnap.exists()) {
                         setKycDocuments(docSnap.data() as KycDocument);
@@ -127,7 +133,7 @@ export default function GuestProfilePage() {
             }
         };
         fetchKycDocs();
-    }, [guest, currentUser?.id]);
+    }, [guest, currentUser?.id, currentUser?.role, currentUser?.ownerId]);
 
 
     const { totalDue, balanceBroughtForward } = useMemo(() => {
@@ -352,21 +358,27 @@ export default function GuestProfilePage() {
                             </div>
 
                              {kycDocuments && (
-                                <Alert className="mt-4">
-                                    <AlertTitle>Submitted Documents</AlertTitle>
-                                    <AlertDescription className="space-y-4 pt-2">
-                                        <div className="grid grid-cols-1 gap-2">
+                                <Accordion type="single" collapsible className="w-full">
+                                    <AccordionItem value="item-1">
+                                        <AccordionTrigger>View Submitted Documents</AccordionTrigger>
+                                        <AccordionContent className="space-y-4">
                                             <div>
-                                                <p className="text-xs font-semibold mb-1">ID Document</p>
-                                                <Image src={kycDocuments.aadhaarUrl} alt="ID Preview" width={200} height={120} className="rounded-md object-contain border" />
+                                                <Label>ID Document</Label>
+                                                {isImageUrl(kycDocuments.aadhaarUrl) ? (
+                                                     <Image src={kycDocuments.aadhaarUrl} alt="ID Preview" width={200} height={120} className="rounded-md object-contain border w-full h-auto" />
+                                                ) : (
+                                                    <a href={kycDocuments.aadhaarUrl} target="_blank" rel="noopener noreferrer">
+                                                        <Button variant="outline" className="w-full"><ExternalLink className="mr-2 h-4 w-4" /> View Document</Button>
+                                                    </a>
+                                                )}
                                             </div>
                                             <div>
-                                                <p className="text-xs font-semibold mb-1">Selfie</p>
-                                                <Image src={kycDocuments.photoUrl} alt="Selfie Preview" width={200} height={120} className="rounded-md object-contain border" />
+                                                <Label>Selfie</Label>
+                                                 <Image src={kycDocuments.photoUrl} alt="Selfie Preview" width={200} height={120} className="rounded-md object-contain border w-full h-auto" />
                                             </div>
-                                        </div>
-                                    </AlertDescription>
-                                </Alert>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
                             )}
 
                              {guest.kycStatus === 'pending' && (
@@ -605,7 +617,7 @@ export default function GuestProfilePage() {
                                 {aadhaarUri ? <Image src={aadhaarUri} alt="ID Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload ID</p>}
                             </div>
                             <div className="relative">
-                                <Input id="owner-aadhaar-upload" type="file" accept="image/*" onChange={(e) => handleKycFileChange(e, setAadhaarUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                <Input id="owner-aadhaar-upload" type="file" accept="image/*,application/pdf" onChange={(e) => handleKycFileChange(e, setAadhaarUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
                                 <Button asChild variant="outline" className="w-full pointer-events-none">
                                     <span><FileUp className="mr-2 h-4 w-4"/> {aadhaarUri ? "Change ID Proof" : "Upload ID Proof"}</span>
                                 </Button>
@@ -636,4 +648,3 @@ export default function GuestProfilePage() {
         </div>
     )
 }
-
