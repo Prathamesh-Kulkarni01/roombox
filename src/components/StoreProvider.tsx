@@ -184,7 +184,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
         }));
         
         // Fetch notifications for the tenant
-        const notificationsQuery = query(collection(db, 'users_data', ownerId, 'notifications'), where('targetId', '==', guestId));
+        const notificationsQuery = query(collection(db, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId]));
          unsubs.push(onSnapshot(notificationsQuery, (snapshot) => {
             const notificationsData = snapshot.docs.map(d => d.data() as Notification);
             dispatch(setNotifications(notificationsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));

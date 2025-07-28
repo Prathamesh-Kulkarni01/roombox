@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
-import type { Guest, Complaint, AdditionalCharge, Payment } from "@/lib/types"
+import type { Guest, Complaint, AdditionalCharge, Payment, KycDocument } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -37,6 +37,8 @@ import { useDashboard } from "@/hooks/use-dashboard"
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
+import { getDoc, doc } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 
 const paymentSchema = z.object({
@@ -99,6 +101,7 @@ export default function GuestProfilePage() {
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [reminderMessage, setReminderMessage] = useState('')
     const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
+    const [kycDocuments, setKycDocuments] = useState<KycDocument | null>(null);
 
     const guest = useMemo(() => guests.guests.find(g => g.id === guestId), [guests, guestId])
     const guestComplaints = useMemo(() => complaints.complaints.filter(c => c.guestId === guestId), [complaints, guestId])
@@ -108,6 +111,24 @@ export default function GuestProfilePage() {
             dispatch(reconcileRentCycle(guest.id));
         }
     }, [guest, dispatch]);
+    
+    useEffect(() => {
+        const fetchKycDocs = async () => {
+            if (guest && guest.kycStatus === 'pending' && currentUser?.id) {
+                try {
+                    const docRef = doc(db, "users_data", currentUser.id, "guest_kyc_documents", guest.id);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        setKycDocuments(docSnap.data() as KycDocument);
+                    }
+                } catch (error) {
+                    console.error("Error fetching KYC documents:", error);
+                }
+            }
+        };
+        fetchKycDocs();
+    }, [guest, currentUser?.id]);
+
 
     const { totalDue, balanceBroughtForward } = useMemo(() => {
         if (!guest) return { totalDue: 0, balanceBroughtForward: 0 };
@@ -333,9 +354,23 @@ export default function GuestProfilePage() {
                              {guest.kycStatus === 'pending' && guest.kycExtractedName && (
                                 <Alert>
                                     <AlertTitle>Review Needed</AlertTitle>
-                                    <AlertDescription>
-                                        <p>Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>
-                                        <p>Guest Name: <span className="font-semibold">{guest.name}</span></p>
+                                    <AlertDescription className="space-y-4">
+                                        <div className="space-y-2">
+                                            {kycDocuments && (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <p className="text-xs font-semibold mb-1">ID Document</p>
+                                                        <Image src={kycDocuments.aadhaarDataUri} alt="ID Preview" width={200} height={120} className="rounded-md object-contain border" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-semibold mb-1">Selfie</p>
+                                                        <Image src={kycDocuments.photoDataUri} alt="Selfie Preview" width={200} height={120} className="rounded-md object-contain border" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <p>Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>
+                                            <p>Guest Name: <span className="font-semibold">{guest.name}</span></p>
+                                        </div>
                                         <div className="flex gap-2 mt-4">
                                             <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
                                             <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>

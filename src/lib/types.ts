@@ -83,6 +83,12 @@ export interface Payment {
 
 export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period';
 
+export interface KycDocument {
+    guestId: string;
+    aadhaarDataUri: string;
+    photoDataUri: string;
+}
+
 export interface Guest {
   id: string;
   name: string;

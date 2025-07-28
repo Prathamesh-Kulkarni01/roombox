@@ -1,7 +1,7 @@
 
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, Invite, PG, User, AdditionalCharge, Room } from '../types';
+import type { Guest, Invite, PG, User, AdditionalCharge, Room, KycDocument } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -132,17 +132,24 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
     async (kycData, { getState, dispatch, rejectWithValue }) => {
         const { user, guests } = getState();
         const guestToUpdate = guests.guests.find(g => g.id === user.currentUser?.guestId);
-        const ownerId = user.currentUser?.role === 'owner' ? user.currentUser.id : user.currentUser?.ownerId;
-        
+        const ownerId = user.currentUser?.ownerId;
+
         if (!user.currentUser || !guestToUpdate || !ownerId) {
-            return rejectWithValue('User or guest not found');
+            return rejectWithValue('User, guest, or owner not found');
         }
 
+        const kycDocs: KycDocument = { guestId: guestToUpdate.id, ...kycData };
         const updatedGuest = { ...guestToUpdate, kycStatus: 'pending' as const };
-
+        
         if (isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
-            await setDoc(docRef, { kycStatus: 'pending' }, { merge: true });
+            const batch = writeBatch(db);
+            const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestToUpdate.id);
+            batch.update(guestDocRef, { kycStatus: 'pending' });
+            
+            const kycDocRef = doc(db, 'users_data', ownerId, 'guest_kyc_documents', guestToUpdate.id);
+            batch.set(kycDocRef, kycDocs);
+
+            await batch.commit();
         }
         
         dispatch(addNotification({
@@ -176,6 +183,8 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
         let kycUpdate: Partial<Guest> = {
             kycStatus: 'pending',
         };
+        
+        const kycDocs: KycDocument = { guestId, ...kycData };
 
         if (user.currentPlan?.hasKycVerification) {
             try {
@@ -183,6 +192,7 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
                 kycUpdate.kycExtractedName = verificationResult.extractedName;
                 kycUpdate.kycExtractedDob = verificationResult.extractedDob;
                 kycUpdate.kycExtractedIdNumber = verificationResult.extractedIdNumber;
+                kycUpdate.kycRejectReason = verificationResult.reason;
             } catch (e) {
                 console.error("AI KYC extraction failed for owner submission", e);
                 kycUpdate.kycRejectReason = 'AI extraction failed. Please review manually.';
@@ -192,14 +202,20 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
         const updatedGuest = { ...guestToUpdate, ...kycUpdate };
 
         if (isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
-            await setDoc(docRef, { 
+            const batch = writeBatch(db);
+            const guestDocRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
+            const kycDocRef = doc(db, 'users_data', ownerId, 'guest_kyc_documents', updatedGuest.id);
+
+            batch.set(kycDocRef, kycDocs);
+            batch.set(guestDocRef, { 
                 kycStatus: 'pending', 
                 kycExtractedName: kycUpdate.kycExtractedName || null,
                 kycExtractedDob: kycUpdate.kycExtractedDob || null,
                 kycExtractedIdNumber: kycUpdate.kycExtractedIdNumber || null,
                 kycRejectReason: kycUpdate.kycRejectReason || null,
             }, { merge: true });
+            
+            await batch.commit();
         }
         
         // Notify the tenant about the status update
@@ -602,4 +618,3 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
-
