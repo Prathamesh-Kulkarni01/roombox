@@ -57,7 +57,7 @@ export default function TenantSidebar() {
             <h2 className="text-xl font-bold text-primary font-headline">Guest Portal</h2>
         </div>
         <nav className="flex flex-col gap-1 p-4">
-          {navItems.filter(item => canViewFeature(featurePermissions, currentUser.role, item.label.toLowerCase().replace(/ /g, ''))).map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

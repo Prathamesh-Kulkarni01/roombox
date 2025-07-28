@@ -27,7 +27,7 @@ export default function TenantBottomNav() {
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t z-50">
       <nav className="grid grid-cols-5 h-16 items-center">
-        {navItems.filter(item => canViewFeature(featurePermissions, currentUser.role, item.label.toLowerCase().replace(/ /g, ''))).map((item) => (
+        {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
