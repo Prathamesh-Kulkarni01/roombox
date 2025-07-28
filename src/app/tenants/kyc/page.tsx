@@ -150,29 +150,36 @@ export default function KycPage() {
                     <CardDescription>Upload the documents required by your property owner.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-6">
-                    {kycConfigs.map(config => (
-                        <div key={config.id} className="space-y-2">
-                             <Label htmlFor={`doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
-                            <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                                {documentUris[config.id] && config.type === 'image' ? (
-                                    <Image src={documentUris[config.id]} alt="Document Preview" layout="fill" objectFit="contain" />
-                                ) : documentUris[config.id] && config.type === 'pdf' ? (
-                                     <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span>PDF Uploaded</span></div>
-                                ) : (
-                                    <p className="text-muted-foreground text-sm">Upload {config.label}</p>
+                    {kycConfigs.length > 0 ? (
+                        kycConfigs.map(config => (
+                            <div key={config.id} className="space-y-2">
+                                <Label htmlFor={`doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
+                                <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                    {documentUris[config.id] && config.type === 'image' ? (
+                                        <Image src={documentUris[config.id]} alt="Document Preview" layout="fill" objectFit="contain" />
+                                    ) : documentUris[config.id] && config.type === 'pdf' ? (
+                                        <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span>PDF Uploaded</span></div>
+                                    ) : (
+                                        <p className="text-muted-foreground text-sm">Upload {config.label}</p>
+                                    )}
+                                </div>
+                                {canSubmit && (
+                                    <div className="relative">
+                                        <Input id={`doc-${config.id}`} type="file" accept={config.type === 'pdf' ? '.pdf' : 'image/*'} onChange={(e) => handleFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                        <Button asChild variant="outline" className="w-full pointer-events-none"><span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change File" : "Upload File"}</span></Button>
+                                    </div>
                                 )}
                             </div>
-                            {canSubmit && (
-                                <div className="relative">
-                                    <Input id={`doc-${config.id}`} type="file" accept={config.type === 'pdf' ? '.pdf' : 'image/*'} onChange={(e) => handleFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                                    <Button asChild variant="outline" className="w-full pointer-events-none"><span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change File" : "Upload File"}</span></Button>
-                                </div>
-                            )}
+                        ))
+                    ) : (
+                         <div className="md:col-span-2 text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
+                            <p className="font-semibold">No Documents Required</p>
+                            <p className="text-sm">Your property owner has not configured any document requirements yet.</p>
                         </div>
-                    ))}
+                    )}
                 </CardContent>
                 <CardFooter>
-                     {canSubmit && (
+                     {canSubmit && kycConfigs.length > 0 && (
                         <Button onClick={handleSubmit} disabled={isSubmitting || !allRequiredSubmitted} className="w-full">
                             {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
                             {isSubmitting ? 'Submitting...' : 'Submit for Verification'}
