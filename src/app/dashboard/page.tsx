@@ -142,15 +142,22 @@ export default function DashboardPage() {
   }, [pgs, selectedPgId, searchTerm, activeFilters, guests]);
 
   const stats = useMemo(() => {
+    const relevantPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
     const relevantGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
     const relevantComplaints = selectedPgId ? complaints.filter(c => c.pgId === selectedPgId) : complaints;
-    const totalOccupancy = pgs.reduce((sum, pg) => sum + pg.occupancy, 0);
-    const totalBeds = pgs.reduce((sum, pg) => sum + pg.totalBeds, 0);
-    const monthlyRevenue = relevantGuests.filter(g => g.rentStatus === 'paid').reduce((sum, g) => sum + g.rentAmount, 0);
+    
+    // Correctly calculate total occupancy based on active guests
+    const totalOccupancy = relevantGuests.filter(g => !g.isVacated).length;
+    const totalBeds = relevantPgs.reduce((sum, pg) => sum + pg.totalBeds, 0);
+    
+    const monthlyRevenue = relevantGuests
+      .filter(g => g.rentStatus === 'paid' && !g.isVacated)
+      .reduce((sum, g) => sum + g.rentAmount, 0);
+
     const openComplaintsCount = relevantComplaints.filter(c => c.status === 'open').length;
 
     const pendingDues = relevantGuests
-      .filter(g => g.rentStatus === 'unpaid' || g.rentStatus === 'partial')
+      .filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'))
       .reduce((sum, g) => sum + (g.rentAmount - (g.rentPaidAmount || 0)), 0);
 
     return [
