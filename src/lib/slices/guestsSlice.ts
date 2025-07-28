@@ -138,35 +138,19 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
             return rejectWithValue('User or guest not found');
         }
 
-        let kycUpdate: Partial<Guest> = {
-            kycStatus: 'pending',
-        };
+        const updatedGuest = { ...guestToUpdate, kycStatus: 'pending' as const };
 
-        if (user.currentPlan?.hasKycVerification) {
-            try {
-                const verificationResult = await verifyKyc({ idDocumentUri: kycData.aadhaarDataUri, selfieUri: kycData.photoDataUri });
-                kycUpdate.kycStatus = (verificationResult.isIdValid && verificationResult.isFaceMatch) ? 'verified' : 'rejected';
-                kycUpdate.kycRejectReason = verificationResult.reason;
-            } catch (e) {
-                console.error("AI KYC verification failed", e);
-                kycUpdate.kycStatus = 'pending';
-                kycUpdate.kycRejectReason = 'AI verification failed. Needs manual review.';
-            }
-        }
-
-        const updatedGuest = { ...guestToUpdate, ...kycUpdate };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
-            await setDoc(docRef, { kycStatus: kycUpdate.kycStatus, kycRejectReason: kycUpdate.kycRejectReason }, { merge: true });
+            await setDoc(docRef, { kycStatus: 'pending' }, { merge: true });
         }
         
         dispatch(addNotification({
             type: 'kyc-submitted',
             title: `KYC Submitted by ${updatedGuest.name}`,
-            message: `KYC status: ${updatedGuest.kycStatus}. Review their documents.`,
+            message: `New documents are ready for your review.`,
             link: `/dashboard/tenant-management/${updatedGuest.id}`,
-            targetId: updatedGuest.id,
+            targetId: ownerId, // Notify the owner
         }));
 
         return updatedGuest;
@@ -196,12 +180,12 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
         if (user.currentPlan?.hasKycVerification) {
             try {
                 const verificationResult = await verifyKyc({ idDocumentUri: kycData.aadhaarDataUri, selfieUri: kycData.photoDataUri });
-                kycUpdate.kycStatus = (verificationResult.isIdValid && verificationResult.isFaceMatch) ? 'verified' : 'rejected';
-                kycUpdate.kycRejectReason = verificationResult.reason;
+                kycUpdate.kycExtractedName = verificationResult.extractedName;
+                kycUpdate.kycExtractedDob = verificationResult.extractedDob;
+                kycUpdate.kycExtractedIdNumber = verificationResult.extractedIdNumber;
             } catch (e) {
-                console.error("AI KYC verification failed for owner submission", e);
-                kycUpdate.kycStatus = 'pending';
-                kycUpdate.kycRejectReason = 'AI verification failed. Needs manual review.';
+                console.error("AI KYC extraction failed for owner submission", e);
+                kycUpdate.kycRejectReason = 'AI extraction failed. Please review manually.';
             }
         }
 
@@ -209,7 +193,13 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
 
         if (isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
-            await setDoc(docRef, { kycStatus: kycUpdate.kycStatus, kycRejectReason: kycUpdate.kycRejectReason }, { merge: true });
+            await setDoc(docRef, { 
+                kycStatus: 'pending', 
+                kycExtractedName: kycUpdate.kycExtractedName,
+                kycExtractedDob: kycUpdate.kycExtractedDob,
+                kycExtractedIdNumber: kycUpdate.kycExtractedIdNumber,
+                kycRejectReason: kycUpdate.kycRejectReason,
+            }, { merge: true });
         }
         
         // Notify the tenant about the status update
@@ -217,7 +207,7 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
             dispatch(addNotification({
                 type: 'kyc-submitted',
                 title: `KYC Status Updated`,
-                message: `Your KYC status is now: ${updatedGuest.kycStatus?.replace('-', ' ')}.`,
+                message: `Your property manager has submitted your documents for review.`,
                 link: `/tenants/kyc`,
                 targetId: updatedGuest.userId,
             }));
@@ -227,6 +217,40 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
     }
 );
 
+export const updateGuestKycStatus = createAsyncThunk<Guest, {
+    guestId: string;
+    status: 'verified' | 'rejected';
+    reason?: string;
+}, { state: RootState }>(
+    'guests/updateGuestKycStatus',
+    async ({ guestId, status, reason }, { getState, dispatch, rejectWithValue }) => {
+        const { user, guests } = getState();
+        const guestToUpdate = guests.guests.find(g => g.id === guestId);
+        const ownerId = user.currentUser?.id;
+
+        if (!user.currentUser || !guestToUpdate || !ownerId) {
+            return rejectWithValue('User or guest not found');
+        }
+
+        const updatedGuest = { ...guestToUpdate, kycStatus: status, kycRejectReason: reason || '' };
+
+        if (isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+            await setDoc(docRef, { kycStatus: status, kycRejectReason: reason || null }, { merge: true });
+        }
+
+        if (updatedGuest.userId) {
+            dispatch(addNotification({
+                type: 'kyc-submitted', // Re-using type
+                title: 'KYC Status Updated',
+                message: `Your KYC has been ${status}. ${reason ? `Reason: ${reason}` : ''}`,
+                link: '/tenants/kyc',
+                targetId: updatedGuest.userId,
+            }));
+        }
+        return updatedGuest;
+    }
+);
 
 
 export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, { updatedGuest: Guest, updatedPg?: PG }, { state: RootState }>(
@@ -381,15 +405,16 @@ export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootSt
     async (guestId, { getState, rejectWithValue }) => {
         const { user, guests } = getState();
         const guest = guests.guests.find(g => g.id === guestId);
+        const ownerId = user.currentUser?.id;
 
-        if (!user.currentUser || !guest) return rejectWithValue('User or guest not found');
+        if (!user.currentUser || !guest || !ownerId) return rejectWithValue('User or guest not found');
         
         const exitDate = new Date();
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays);
         const updatedGuest: Guest = { ...guest, exitDate: exitDate.toISOString() };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guestId);
+            const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
             await setDoc(guestDocRef, updatedGuest, { merge: true });
         }
 
@@ -517,6 +542,12 @@ const guestsSlice = createSlice({
                 }
             })
             .addCase(updateGuestKycFromOwner.fulfilled, (state, action) => {
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
+                if (index !== -1) {
+                    state.guests[index] = action.payload;
+                }
+            })
+             .addCase(updateGuestKycStatus.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
                     state.guests[index] = action.payload;
