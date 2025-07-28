@@ -36,6 +36,7 @@ import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeActio
 import { useDashboard } from "@/hooks/use-dashboard"
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import { Label } from "@/components/ui/label"
 
 
 const paymentSchema = z.object({
@@ -82,6 +83,7 @@ export default function GuestProfilePage() {
     const {
         isEditGuestDialogOpen,
         setIsEditGuestDialogOpen,
+        guestToEdit,
         editGuestForm,
         handleEditGuestSubmit,
         handleOpenEditGuestDialog,
