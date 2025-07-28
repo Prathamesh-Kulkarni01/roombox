@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useTransition, useMemo } from "react"
+import React, { useState, useTransition, useMemo } from "react"
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -44,7 +44,7 @@ const chargeTemplateSchema = z.object({
 const kycConfigItemSchema = z.object({
     id: z.string(),
     label: z.string().min(1, 'Label is required'),
-    type: z.enum(['image', 'pdf', 'text']),
+    type: z.enum(['image', 'pdf']),
     required: z.boolean(),
 });
 const kycConfigSchema = z.object({
@@ -259,7 +259,10 @@ export default function SettingsPage() {
                                     <FormItem className="md:col-span-2"><FormLabel>Type</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                            <SelectContent><SelectItem value="image">Image</SelectItem><SelectItem value="pdf">PDF</SelectItem></SelectContent>
+                                            <SelectContent>
+                                                <SelectItem value="image">Image</SelectItem>
+                                                <SelectItem value="pdf">PDF</SelectItem>
+                                            </SelectContent>
                                         </Select><FormMessage />
                                     </FormItem>
                                 )} />
