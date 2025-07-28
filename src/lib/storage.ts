@@ -1,8 +1,7 @@
 
 'use server'
 
-import { getStorage, getDownloadURL } from 'firebase-admin/storage';
-import { adminDb } from './firebaseAdmin';
+import { adminStorage } from './firebaseAdmin';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -12,8 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
  * @returns The public URL of the uploaded file.
  */
 export async function uploadDataUriToStorage(dataUri: string, path: string): Promise<string> {
-  const storage = getStorage();
-  const bucket = storage.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+  const bucket = adminStorage.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
 
   // Extract content type and base64 data from data URI
   const matches = dataUri.match(/^data:(.+);base64,(.*)$/);
@@ -40,4 +38,3 @@ export async function uploadDataUriToStorage(dataUri: string, path: string): Pro
   // Return the public URL
   return file.publicUrl();
 }
-
