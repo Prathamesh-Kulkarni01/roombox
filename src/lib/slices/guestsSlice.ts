@@ -1,4 +1,5 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, Invite, PG, User, AdditionalCharge, Room } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
@@ -194,10 +195,10 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
             const docRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
             await setDoc(docRef, { 
                 kycStatus: 'pending', 
-                kycExtractedName: kycUpdate.kycExtractedName,
-                kycExtractedDob: kycUpdate.kycExtractedDob,
-                kycExtractedIdNumber: kycUpdate.kycExtractedIdNumber,
-                kycRejectReason: kycUpdate.kycRejectReason,
+                kycExtractedName: kycUpdate.kycExtractedName || null,
+                kycExtractedDob: kycUpdate.kycExtractedDob || null,
+                kycExtractedIdNumber: kycUpdate.kycExtractedIdNumber || null,
+                kycRejectReason: kycUpdate.kycRejectReason || null,
             }, { merge: true });
         }
         
@@ -601,3 +602,4 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
+
