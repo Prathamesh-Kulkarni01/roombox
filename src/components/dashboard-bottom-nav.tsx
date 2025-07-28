@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -13,51 +13,34 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { navItems as allNavItems, type NavItem, plans } from '@/lib/mock-data';
+import { navItems as allNavItems, type NavItem } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
-import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
-
-
-// Helper function to check if a user has any permission for a given feature
-const hasAccessToFeature = (
-  item: NavItem,
-  permissions: RolePermissions | null | undefined,
-  role: UserRole,
-  plan: any
-): boolean => {
-  // Always show core items like settings
-  if (item.feature === 'core') return true;
-  
-  // For Owners, visibility is determined by the feature existing,
-  // the page itself will handle the subscription gate.
-  if (role === 'owner') return true;
-
-  // For Staff, only show if they have 'view' permission for the feature.
-  return canViewFeature(permissions, role, item.feature);
-};
-
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const { notifications } = useAppSelector((state) => state.notifications);
+
+  const unreadComplaints = useAppSelector(state => state.complaints.complaints.filter(c => c.status === 'open').length);
 
   if (!currentUser || !currentPlan) return null;
 
-  const mainNavItems = allNavItems.filter(item => ['/dashboard', '/dashboard/rent-passbook', '/dashboard/complaints', '/dashboard/expense'].includes(item.href));
-  const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href));
+  const mainNavItems = [
+    { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties' },
+    { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances' },
+    { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints', badge: unreadComplaints > 0 ? unreadComplaints : undefined },
+    { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances' },
+  ];
   
+  const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href) && item.href !== '/dashboard');
+
   const accessibleMainNavItems = mainNavItems.filter(item => item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature)));
   const accessibleMoreNavItems = moreNavItems.filter(item => item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature)));
 
-
-  const showMoreTab = accessibleMoreNavItems.length > 0 || accessibleMainNavItems.length > 4;
-  const mainItemsCount = showMoreTab ? 4 : 5;
-  const visibleItems = accessibleMainNavItems.slice(0, mainItemsCount);
-  const overflowItems = [...accessibleMainNavItems.slice(mainItemsCount), ...accessibleMoreNavItems];
-
+  const visibleItems = accessibleMainNavItems.slice(0, 4);
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-sidebar-border z-50">
@@ -67,19 +50,23 @@ export default function DashboardBottomNav() {
             key={item.href}
             href={item.href}
             className={cn(
-              'flex flex-col items-center justify-center gap-1 text-sidebar-foreground/70 transition-colors h-full',
+              'flex flex-col items-center justify-center gap-1 text-sidebar-foreground/70 transition-colors h-full relative',
               (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) 
                 ? 'text-primary bg-sidebar-accent' 
                 : 'hover:text-primary'
             )}
           >
+            {item.badge && item.badge > 0 && (
+              <span className="absolute top-1 right-3.5 text-xs bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center">
+                {item.badge}
+              </span>
+            )}
             <item.icon className="h-5 w-5" />
             <span className="text-xs font-medium">{item.label}</span>
           </Link>
         ))}
         
-        {showMoreTab && (
-          <Sheet>
+        <Sheet>
             <SheetTrigger asChild>
               <button className="flex flex-col items-center justify-center gap-1 text-sidebar-foreground/70 transition-colors h-full hover:text-primary">
                 <MoreHorizontal className="h-5 w-5" />
@@ -94,7 +81,7 @@ export default function DashboardBottomNav() {
                 </SheetDescription>
               </SheetHeader>
               <div className="flex flex-col gap-2">
-                {overflowItems.map((item) => (
+                {accessibleMoreNavItems.map((item) => (
                   <Link
                       key={item.href}
                       href={item.href}
@@ -110,7 +97,6 @@ export default function DashboardBottomNav() {
               </div>
             </SheetContent>
           </Sheet>
-        )}
       </nav>
     </div>
   );

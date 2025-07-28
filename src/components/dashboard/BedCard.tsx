@@ -11,6 +11,7 @@ import { MutableRefObject } from "react"
 import { useRouter } from "next/navigation"
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { canAccess } from '@/lib/permissions';
+import { cn } from "@/lib/utils"
 
 interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
   room: Room
@@ -104,7 +105,10 @@ export default function BedCard(props: BedCardProps) {
                 key={bed.id}
                 onClick={() => canAddGuest && props.handleOpenAddGuestDialog(bed, room, pg)}
                 data-tour={isFirstAvailable ? 'add-guest-on-bed' : undefined}
-                className={`group relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left ${bedStatusClasses[status]} ${!canAddGuest ? 'opacity-70 cursor-not-allowed' : 'hover:border-yellow-500 hover:bg-yellow-200'}`}
+                className={cn(`group relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left`,
+                    bedStatusClasses[status],
+                    !canAddGuest ? 'opacity-70 cursor-not-allowed' : 'hover:border-yellow-500 hover:bg-yellow-200'
+                )}
                 disabled={!canAddGuest}
               >
                 <div className="flex-1 flex flex-col items-center justify-center gap-1">
@@ -130,7 +134,7 @@ export default function BedCard(props: BedCardProps) {
                     {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
                     {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center gap-1 w-full">
+                  <div className="flex-1 flex flex-col items-center justify-center gap-1 w-full text-center">
                       <BedDouble className="w-8 h-8" />
                       <p className="text-xs w-full truncate font-semibold">{guest.name}</p>
                   </div>

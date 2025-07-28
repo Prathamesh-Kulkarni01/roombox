@@ -14,11 +14,10 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
   pg: PG
   isFirstAvailableBedFound: MutableRefObject<boolean>
   isEditMode: boolean;
-  openEditRoomDialog: (...args: any[]) => void;
 }
 
 export default function PgLayout(props: PgLayoutProps) {
-  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, openEditFloorDialog, openEditRoomDialog } = props
+  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, handleOpenFloorDialog } = props
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
   const router = useRouter();
 
@@ -66,7 +65,7 @@ export default function PgLayout(props: PgLayoutProps) {
                     )}
                     {isEditMode && (
                       <Access feature="properties" action="edit">
-                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); openEditFloorDialog(floor) }}><Pencil className="mr-2 h-4 w-4" /> Edit {floor.name}</Button>
+                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); handleOpenFloorDialog(floor) }}><Pencil className="mr-2 h-4 w-4" /> Edit {floor.name}</Button>
                       </Access>
                     )}
                  </div>
