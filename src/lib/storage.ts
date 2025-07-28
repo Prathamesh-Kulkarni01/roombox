@@ -1,40 +1,30 @@
 
 'use server'
 
-import { adminStorage } from './firebaseAdmin';
-import { v4 as uuidv4 } from 'uuid';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
 
 /**
- * Uploads a data URI to Firebase Storage and returns the public URL.
+ * Uploads a data URI to Cloudinary and returns the secure URL.
  * @param dataUri The data URI string (e.g., 'data:image/jpeg;base64,...').
- * @param path The path in Firebase Storage where the file should be saved.
+ * @param path The folder in Cloudinary where the file should be saved.
  * @returns The public URL of the uploaded file.
  */
 export async function uploadDataUriToStorage(dataUri: string, path: string): Promise<string> {
-  const bucket = adminStorage.bucket();
-
-  // Extract content type and base64 data from data URI
-  const matches = dataUri.match(/^data:(.+);base64,(.*)$/);
-  if (!matches || matches.length !== 3) {
-    throw new Error('Invalid data URI string');
+  try {
+    const result = await cloudinary.uploader.upload(dataUri, {
+      folder: path,
+      resource_type: "image",
+    });
+    return result.secure_url;
+  } catch (error) {
+    console.error("Error uploading to Cloudinary:", error);
+    throw new Error("Could not upload image.");
   }
-  const contentType = matches[1];
-  const base64Data = matches[2];
-  const buffer = Buffer.from(base64Data, 'base64');
-
-  // Generate a unique filename
-  const filename = `${path}/${uuidv4()}`;
-  const file = bucket.file(filename);
-
-  await file.save(buffer, {
-    metadata: {
-      contentType: contentType,
-    },
-  });
-
-  // Make the file public and get the URL
-  await file.makePublic();
-  
-  // Return the public URL
-  return file.publicUrl();
 }

@@ -94,7 +94,7 @@ const nextConfig: NextConfig = {
       },
        {
         protocol: 'https',
-        hostname: 'storage.googleapis.com',
+        hostname: 'res.cloudinary.com',
       }
     ],
   },
