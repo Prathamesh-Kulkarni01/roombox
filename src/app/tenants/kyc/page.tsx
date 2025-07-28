@@ -19,7 +19,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import { ShieldAlert } from 'lucide-react';
-import type { KycDocumentConfig } from '@/lib/types';
+import type { KycDocumentConfig, SubmittedKycDocument } from '@/lib/types';
 
 
 const kycStatusMeta = {
@@ -68,31 +68,32 @@ export default function KycPage() {
     };
 
     const handleSubmit = async () => {
-        // This is a placeholder for the multi-document submission logic.
-        // For now, we'll continue using the existing logic for Aadhaar and Photo
-        // to avoid breaking the backend flow. This should be expanded in a real scenario.
-        const aadhaarConfig = kycConfigs.find(c => c.label.toLowerCase().includes('aadhaar') || c.label.toLowerCase().includes('id'));
-        const photoConfig = kycConfigs.find(c => c.label.toLowerCase().includes('photo') || c.label.toLowerCase().includes('selfie'));
-
-        if (!aadhaarConfig || !photoConfig) {
-             toast({ variant: 'destructive', title: 'Configuration Error', description: 'The property owner has not set up the required documents (ID Proof and Photo/Selfie) correctly.' });
-             return;
+        const documentsToSubmit: { config: KycDocumentConfig; dataUri: string }[] = [];
+        
+        for (const config of kycConfigs) {
+            if (config.required && !documentUris[config.id]) {
+                toast({ variant: 'destructive', title: 'Missing Document', description: `Please upload the required document: ${config.label}.` });
+                return;
+            }
+            if (documentUris[config.id]) {
+                documentsToSubmit.push({
+                    config: config,
+                    dataUri: documentUris[config.id],
+                });
+            }
         }
-
-        const aadhaarUri = documentUris[aadhaarConfig.id];
-        const photoUri = documentUris[photoConfig.id];
-
-        if (!aadhaarUri || !photoUri) {
-            toast({ variant: 'destructive', title: 'Missing Documents', description: 'Please provide both an ID proof and a live photo as required.' });
+        
+        if (documentsToSubmit.length === 0) {
+            toast({ variant: 'destructive', title: 'No Documents', description: 'Please upload at least one document to submit.' });
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await dispatch(updateGuestKyc({ aadhaarDataUri: aadhaarUri, photoDataUri: photoUri })).unwrap();
+            await dispatch(updateGuestKyc({ documents: documentsToSubmit })).unwrap();
             toast({ title: 'KYC Submitted', description: 'Your documents are being processed.' });
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Submission Failed', description: 'Could not submit your documents. Please try again.' });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Submission Failed', description: error.message || 'Could not submit your documents. Please try again.' });
         } finally {
             setIsSubmitting(false);
         }

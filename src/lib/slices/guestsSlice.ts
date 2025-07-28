@@ -1,8 +1,9 @@
 
+
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, Invite, PG, User, AdditionalCharge, Room, KycDocument } from '../types';
+import type { Guest, Invite, PG, User, AdditionalCharge, Room, KycDocumentConfig, SubmittedKycDocument } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -127,8 +128,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
 );
 
 export const updateGuestKyc = createAsyncThunk<Guest, {
-    aadhaarDataUri: string;
-    photoDataUri: string;
+    documents: { config: KycDocumentConfig; dataUri: string }[]
 }, { state: RootState }>(
     'guests/updateGuestKyc',
     async (kycData, { getState, dispatch, rejectWithValue }) => {
@@ -140,21 +140,22 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
             return rejectWithValue('User, guest, or owner not found');
         }
 
-        const aadhaarUrl = await uploadDataUriToStorage(kycData.aadhaarDataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
-        const photoUrl = await uploadDataUriToStorage(kycData.photoDataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
-
-        const kycDocs: KycDocument = { guestId: guestToUpdate.id, aadhaarUrl, photoUrl };
-        const updatedGuest = { ...guestToUpdate, kycStatus: 'pending' as const };
+        const uploadedDocuments: SubmittedKycDocument[] = [];
+        for (const docData of kycData.documents) {
+            const url = await uploadDataUriToStorage(docData.dataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
+            uploadedDocuments.push({
+                configId: docData.config.id,
+                label: docData.config.label,
+                url: url,
+                status: 'pending'
+            });
+        }
+        
+        const updatedGuest = { ...guestToUpdate, kycStatus: 'pending' as const, documents: uploadedDocuments };
         
         if (isFirebaseConfigured()) {
-            const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestToUpdate.id);
-            batch.update(guestDocRef, { kycStatus: 'pending' });
-            
-            const kycDocRef = doc(db, 'users_data', ownerId, 'guest_kyc_documents', guestToUpdate.id);
-            batch.set(kycDocRef, kycDocs);
-
-            await batch.commit();
+            await setDoc(guestDocRef, updatedGuest, { merge: true });
         }
         
         dispatch(addNotification({
