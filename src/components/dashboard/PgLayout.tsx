@@ -30,8 +30,8 @@ export default function PgLayout(props: PgLayoutProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{pg.name} - {isEditMode ? 'Layout Editor' : 'Occupancy View'}</CardTitle>
+      <CardHeader className="py-4">
+        <CardTitle className="text-xl">{pg.name} - {isEditMode ? 'Layout Editor' : 'Occupancy View'}</CardTitle>
         <CardDescription>{isEditMode ? "Add, edit, or remove floors, rooms, and beds." : "Visualize bed occupancy and manage guests."}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
