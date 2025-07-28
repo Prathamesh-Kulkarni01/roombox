@@ -1,5 +1,6 @@
 
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -83,10 +84,18 @@ export interface Payment {
 
 export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period';
 
-export interface KycDocument {
-    guestId: string;
-    aadhaarUrl: string;
-    photoUrl: string;
+export interface KycDocumentConfig {
+  id: string;
+  label: string;
+  type: 'image' | 'pdf' | 'text';
+  required: boolean;
+}
+
+export interface SubmittedKycDocument {
+  configId: string;
+  url: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
 }
 
 export interface Guest {
@@ -104,10 +113,7 @@ export interface Guest {
   balanceBroughtForward?: number; // For carrying over previous unpaid amounts
   depositAmount?: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
-  kycRejectReason?: string | null;
-  kycExtractedName?: string;
-  kycExtractedDob?: string;
-  kycExtractedIdNumber?: string;
+  submittedKycDocuments?: SubmittedKycDocument[];
   hasMessage?: boolean;
   moveInDate: string;
   noticePeriodDays: number;
