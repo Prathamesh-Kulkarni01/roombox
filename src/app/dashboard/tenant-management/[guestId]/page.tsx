@@ -114,7 +114,7 @@ export default function GuestProfilePage() {
     
     useEffect(() => {
         const fetchKycDocs = async () => {
-            if (guest && (guest.kycStatus === 'pending' || guest.kycStatus === 'verified') && currentUser?.id) {
+            if (guest && (guest.kycStatus === 'pending' || guest.kycStatus === 'verified' || guest.kycStatus === 'rejected') && currentUser?.id) {
                 try {
                     const docRef = doc(db, "users_data", currentUser.id, "guest_kyc_documents", guest.id);
                     const docSnap = await getDoc(docRef);
@@ -350,36 +350,38 @@ export default function GuestProfilePage() {
                                 <span>Status:</span>
                                 <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                             </div>
-                            
-                             {guest.kycStatus === 'pending' && (
-                                <Alert>
-                                    <AlertTitle>Review Needed</AlertTitle>
-                                    <AlertDescription className="space-y-4">
-                                        <div className="space-y-2">
-                                            {kycDocuments && (
-                                                <div className="grid grid-cols-1 gap-2">
-                                                    <div>
-                                                        <p className="text-xs font-semibold mb-1">ID Document</p>
-                                                        <Image src={kycDocuments.aadhaarUrl} alt="ID Preview" width={200} height={120} className="rounded-md object-contain border" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs font-semibold mb-1">Selfie</p>
-                                                        <Image src={kycDocuments.photoUrl} alt="Selfie Preview" width={200} height={120} className="rounded-md object-contain border" />
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {guest.kycExtractedName && <p>Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>}
-                                            <p>Guest Name: <span className="font-semibold">{guest.name}</span></p>
-                                        </div>
-                                        <div className="flex gap-2 mt-4">
-                                            <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>
+
+                             {kycDocuments && (
+                                <Alert className="mt-4">
+                                    <AlertTitle>Submitted Documents</AlertTitle>
+                                    <AlertDescription className="space-y-4 pt-2">
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <div>
+                                                <p className="text-xs font-semibold mb-1">ID Document</p>
+                                                <Image src={kycDocuments.aadhaarUrl} alt="ID Preview" width={200} height={120} className="rounded-md object-contain border" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-semibold mb-1">Selfie</p>
+                                                <Image src={kycDocuments.photoUrl} alt="Selfie Preview" width={200} height={120} className="rounded-md object-contain border" />
+                                            </div>
                                         </div>
                                     </AlertDescription>
                                 </Alert>
                             )}
-                            
-                             {canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
+
+                             {guest.kycStatus === 'pending' && (
+                                <div className="p-4 border bg-muted/50 rounded-md">
+                                    <p className="font-semibold mb-2">Manual Verification</p>
+                                    {guest.kycExtractedName && <p className="text-sm">AI Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>}
+                                    <p className="text-sm">Guest's Name: <span className="font-semibold">{guest.name}</span></p>
+                                    <div className="flex gap-2 mt-4">
+                                        <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
+                                        <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
                                 <Button className="w-full" onClick={() => setIsKycDialogOpen(true)}>
                                     {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
                                 </Button>
@@ -634,3 +636,4 @@ export default function GuestProfilePage() {
         </div>
     )
 }
+
