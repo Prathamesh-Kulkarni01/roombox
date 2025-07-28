@@ -27,7 +27,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
-import type { Guest, Complaint, AdditionalCharge, Payment, KycDocument, KycDocumentConfig, SubmittedKycDocument } from "@/lib/types"
+import type { Guest, Complaint, AdditionalCharge, Payment, KycDocumentConfig, SubmittedKycDocument } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -104,7 +104,6 @@ export default function GuestProfilePage() {
     const [isSubmittingKyc, setIsSubmittingKyc] = useState(false)
     const [reminderMessage, setReminderMessage] = useState('')
     const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
-    const [kycDocuments, setKycDocuments] = useState<KycDocument | null>(null);
     const [documentUris, setDocumentUris] = useState<Record<string, string>>({});
 
 
@@ -118,23 +117,14 @@ export default function GuestProfilePage() {
     }, [guest, dispatch]);
     
     useEffect(() => {
-        const fetchKycDocs = async () => {
-            if (guest && (guest.kycStatus !== 'not-started') && currentUser?.id) {
-                 const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
-                 if (!ownerId) return;
-                try {
-                    const docRef = doc(db, "users_data", ownerId, "guest_kyc_documents", guest.id);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        setKycDocuments(docSnap.data() as KycDocument);
-                    }
-                } catch (error) {
-                    console.error("Error fetching KYC documents:", error);
-                }
-            }
-        };
-        fetchKycDocs();
-    }, [guest, currentUser?.id, currentUser?.role, currentUser?.ownerId]);
+        if (guest?.documents) {
+            const initialUris = guest.documents.reduce((acc, doc) => {
+                acc[doc.configId] = doc.url;
+                return acc;
+            }, {} as Record<string, string>);
+            setDocumentUris(initialUris);
+        }
+    }, [guest?.documents]);
 
 
     const { totalDue, balanceBroughtForward } = useMemo(() => {
@@ -378,25 +368,26 @@ export default function GuestProfilePage() {
                                 <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                             </div>
 
-                             {kycDocuments && (
+                             {guest.documents && guest.documents.length > 0 && (
                                 <Accordion type="single" collapsible className="w-full">
                                     <AccordionItem value="item-1">
                                         <AccordionTrigger>View Submitted Documents</AccordionTrigger>
                                         <AccordionContent className="space-y-4">
-                                            <div>
-                                                <Label>ID Document</Label>
-                                                {isImageUrl(kycDocuments.aadhaarUrl) ? (
-                                                     <Image src={kycDocuments.aadhaarUrl} alt="ID Preview" width={200} height={120} className="rounded-md object-contain border w-full h-auto" />
-                                                ) : (
-                                                    <a href={kycDocuments.aadhaarUrl} target="_blank" rel="noopener noreferrer">
-                                                        <Button variant="outline" className="w-full"><ExternalLink className="mr-2 h-4 w-4" /> View Document</Button>
-                                                    </a>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <Label>Selfie</Label>
-                                                 <Image src={kycDocuments.photoUrl} alt="Selfie Preview" width={200} height={120} className="rounded-md object-contain border w-full h-auto" />
-                                            </div>
+                                            {guest.documents.map(doc => {
+                                                const isDocImageUrl = isImageUrl(doc.url);
+                                                return (
+                                                    <div key={doc.configId}>
+                                                        <Label>{doc.label}</Label>
+                                                        {isDocImageUrl ? (
+                                                            <Image src={doc.url} alt={`${doc.label} Preview`} width={200} height={120} className="rounded-md object-contain border w-full h-auto mt-1" />
+                                                        ) : (
+                                                            <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                                                                <Button variant="outline" className="w-full mt-1"><ExternalLink className="mr-2 h-4 w-4" /> View Document</Button>
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })}
                                         </AccordionContent>
                                     </AccordionItem>
                                 </Accordion>
