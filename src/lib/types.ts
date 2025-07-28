@@ -98,10 +98,6 @@ export interface Guest {
   balanceBroughtForward?: number; // For carrying over previous unpaid amounts
   depositAmount?: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
-  aadhaarDataUri?: string;
-  photoDataUri?: string;
-  optionalDoc1DataUri?: string;
-  optionalDoc2DataUri?: string;
   kycRejectReason?: string;
   hasMessage?: boolean;
   moveInDate: string;

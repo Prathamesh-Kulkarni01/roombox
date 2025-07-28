@@ -315,17 +315,14 @@ export default function GuestProfilePage() {
                                 <span>Status:</span>
                                 <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                             </div>
-                            {guest.aadhaarDataUri && (
-                                <div>
-                                    <p className="text-sm font-medium mb-2">Submitted Document:</p>
-                                    <Link href={guest.aadhaarDataUri} target="_blank">
-                                        <Image src={guest.aadhaarDataUri} alt="KYC Document" width={200} height={150} className="rounded-md border hover:opacity-80 transition-opacity" />
-                                    </Link>
-                                </div>
-                            )}
+                            
+                            <p className="text-sm text-muted-foreground">
+                                Documents are submitted by the tenant and verified by AI. They are not stored here to protect privacy.
+                            </p>
+                            
                              {guest.kycStatus !== 'verified' && canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (
                                 <Button className="w-full" onClick={() => setIsKycDialogOpen(true)}>
-                                    {guest.kycStatus === 'rejected' ? 'Re-submit Documents' : 'Complete KYC'}
+                                    {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
                                 </Button>
                              )}
                               {guest.kycRejectReason && (

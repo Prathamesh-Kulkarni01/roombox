@@ -139,7 +139,6 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
         }
 
         let kycUpdate: Partial<Guest> = {
-            ...kycData,
             kycStatus: 'pending',
         };
 
@@ -159,7 +158,7 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
-            await setDoc(docRef, updatedGuest, { merge: true });
+            await setDoc(docRef, { kycStatus: kycUpdate.kycStatus, kycRejectReason: kycUpdate.kycRejectReason }, { merge: true });
         }
         
         dispatch(addNotification({
@@ -191,7 +190,6 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
         }
 
         let kycUpdate: Partial<Guest> = {
-            ...kycData,
             kycStatus: 'pending',
         };
 
@@ -211,7 +209,7 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
 
         if (isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
-            await setDoc(docRef, updatedGuest, { merge: true });
+            await setDoc(docRef, { kycStatus: kycUpdate.kycStatus, kycRejectReason: kycUpdate.kycRejectReason }, { merge: true });
         }
         
         // Notify the tenant about the status update
@@ -573,4 +571,3 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
-

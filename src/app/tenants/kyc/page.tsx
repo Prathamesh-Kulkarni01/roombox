@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -42,13 +43,6 @@ export default function KycPage() {
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
 
     const videoRef = useRef<HTMLVideoElement>(null);
-
-    useEffect(() => {
-        if (guest) {
-            setAadhaarUri(guest.aadhaarDataUri || null);
-            setPhotoUri(guest.photoDataUri || null);
-        }
-    }, [guest]);
 
     useEffect(() => {
         let stream: MediaStream;
