@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo, useEffect } from "react"
@@ -136,7 +137,7 @@ export default function GuestProfilePage() {
         dispatch(updateGuestAction({updatedGuest}))
     }
 
-    const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>>) => {
+    const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
         if (!guest) return;
         
         const paymentRecord: Payment = {
@@ -187,7 +188,7 @@ export default function GuestProfilePage() {
         setIsPaymentDialogOpen(false);
     }
     
-    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>>) => {
+    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>) => {
         if (!guest) return;
         dispatch(addChargeAction({ guestId: guest.id, charge: values }));
         setIsChargeDialogOpen(false);
