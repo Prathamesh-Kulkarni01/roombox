@@ -356,19 +356,20 @@ export default function GuestProfilePage() {
                                 <p className="flex items-center justify-center gap-2"><BedDouble className="w-4 h-4"/> Bed ID: {guest.bedId}</p>
                             </div>
                         </CardContent>
+                        <CardFooter className="flex flex-col gap-2 p-4 pt-0 border-t mt-4">
+                            <div className="flex justify-between items-center w-full">
+                                <span className="text-sm font-medium">KYC Status:</span>
+                                <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
+                            </div>
+                        </CardFooter>
                     </Card>
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>KYC Details</CardTitle>
+                            <CardTitle>KYC Documents</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <span>Status:</span>
-                                <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
-                            </div>
-
-                             {guest.documents && guest.documents.length > 0 && (
+                            {guest.documents && guest.documents.length > 0 ? (
                                 <Accordion type="single" collapsible className="w-full">
                                     <AccordionItem value="item-1">
                                         <AccordionTrigger>View Submitted Documents</AccordionTrigger>
@@ -391,7 +392,7 @@ export default function GuestProfilePage() {
                                         </AccordionContent>
                                     </AccordionItem>
                                 </Accordion>
-                            )}
+                            ) : <p className="text-sm text-muted-foreground text-center py-4">No documents submitted by the tenant yet.</p>}
 
                              {guest.kycStatus === 'pending' && (
                                 <div className="p-4 border bg-muted/50 rounded-md">
