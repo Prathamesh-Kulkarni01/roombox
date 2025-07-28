@@ -99,6 +99,9 @@ export interface Guest {
   depositAmount?: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
   kycRejectReason?: string;
+  kycExtractedName?: string;
+  kycExtractedDob?: string;
+  kycExtractedIdNumber?: string;
   hasMessage?: boolean;
   moveInDate: string;
   noticePeriodDays: number;

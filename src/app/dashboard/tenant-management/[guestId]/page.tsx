@@ -32,7 +32,7 @@ import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMon
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
-import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner } from "@/lib/slices/guestsSlice"
+import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner, updateGuestKycStatus } from "@/lib/slices/guestsSlice"
 import { useDashboard } from "@/hooks/use-dashboard"
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
@@ -56,7 +56,7 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
 };
 
 const kycStatusColors: Record<Guest['kycStatus'], string> = {
-  verified: 'bg-blue-100 text-blue-800 border-blue-300',
+  verified: 'bg-green-100 text-green-800 border-green-300',
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
   rejected: 'bg-red-100 text-red-800 border-red-300',
   'not-started': 'bg-gray-100 text-gray-800 border-gray-300',
@@ -243,7 +243,7 @@ export default function GuestProfilePage() {
         setIsSubmittingKyc(true);
         try {
             await dispatch(updateGuestKycFromOwner({ guestId: guest.id, aadhaarDataUri: aadhaarUri, photoDataUri: photoUri })).unwrap();
-            toast({ title: 'KYC Submitted', description: 'The documents are being processed.' });
+            toast({ title: 'KYC Submitted', description: 'The documents have been sent for review.' });
             setIsKycDialogOpen(false);
             setAadhaarUri(null);
             setPhotoUri(null);
@@ -253,6 +253,20 @@ export default function GuestProfilePage() {
             setIsSubmittingKyc(false);
         }
     };
+
+    const handleKycAction = async (action: 'verified' | 'rejected') => {
+        if (!guest) return;
+        let reason = '';
+        if (action === 'rejected') {
+            reason = prompt('Please provide a reason for rejecting the KYC documents.') || 'Documents were not clear or valid.';
+        }
+        try {
+            await dispatch(updateGuestKycStatus({ guestId: guest.id, status: action, reason })).unwrap();
+            toast({ title: 'KYC Status Updated', description: `Guest has been marked as ${action}.`})
+        } catch (error: any) {
+             toast({ variant: 'destructive', title: 'Update Failed', description: error.message || 'Could not update KYC status.' });
+        }
+    }
 
     if (isLoading) {
         return (
@@ -293,7 +307,7 @@ export default function GuestProfilePage() {
                     <Card>
                         <CardContent className="pt-6 flex flex-col items-center text-center">
                             <Avatar className="w-24 h-24 mb-4">
-                                <AvatarImage src={guest.photoDataUri || `https://placehold.co/100x100.png?text=${guest.name.charAt(0)}`} />
+                                <AvatarImage src={`https://placehold.co/100x100.png?text=${guest.name.charAt(0)}`} />
                                 <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <h2 className="text-xl font-semibold">{guest.name}</h2>
@@ -316,11 +330,21 @@ export default function GuestProfilePage() {
                                 <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                             </div>
                             
-                            <p className="text-sm text-muted-foreground">
-                                Documents are submitted by the tenant and verified by AI. They are not stored here to protect privacy.
-                            </p>
+                             {guest.kycStatus === 'pending' && guest.kycExtractedName && (
+                                <Alert>
+                                    <AlertTitle>Review Needed</AlertTitle>
+                                    <AlertDescription>
+                                        <p>Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>
+                                        <p>Guest Name: <span className="font-semibold">{guest.name}</span></p>
+                                        <div className="flex gap-2 mt-4">
+                                            <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>
+                                        </div>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             
-                             {guest.kycStatus !== 'verified' && canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (
+                             {canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
                                 <Button className="w-full" onClick={() => setIsKycDialogOpen(true)}>
                                     {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
                                 </Button>

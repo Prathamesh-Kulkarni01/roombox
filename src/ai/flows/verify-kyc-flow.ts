@@ -1,8 +1,8 @@
 
 'use server';
 /**
- * @fileOverview An AI flow to verify guest KYC documents.
- * - verifyKyc - Compares an ID document with a selfie for verification.
+ * @fileOverview An AI flow to extract information from guest KYC documents for manual verification.
+ * - verifyKyc - Extracts details from an ID document for an owner to review.
  * - VerifyKycInput - Input for the verification flow.
  * - VerifyKycOutput - Output from the verification flow.
  */
@@ -17,8 +17,11 @@ const VerifyKycInputSchema = z.object({
 export type VerifyKycInput = z.infer<typeof VerifyKycInputSchema>;
 
 const VerifyKycOutputSchema = z.object({
-  isIdValid: z.boolean().describe("Whether the provided ID document appears to be a legitimate government-issued ID card."),
-  isFaceMatch: z.boolean().describe("Whether the face in the ID document matches the face in the selfie."),
+  isIdValidDocument: z.boolean().describe("Whether the provided ID document appears to be a legitimate government-issued ID card and not a random image."),
+  isSelfieValid: z.boolean().describe("Whether the selfie image contains a clear human face."),
+  extractedName: z.string().optional().describe("The full name extracted from the ID document, if available."),
+  extractedDob: z.string().optional().describe("The date of birth extracted from the ID document, if available."),
+  extractedIdNumber: z.string().optional().describe("The ID number (e.g., Aadhaar number) extracted from the document, if available."),
   reason: z.string().describe("A brief explanation for the verification result, especially if it fails."),
 });
 export type VerifyKycOutput = z.infer<typeof VerifyKycOutputSchema>;
@@ -28,14 +31,19 @@ export async function verifyKyc(input: VerifyKycInput): Promise<VerifyKycOutput>
 }
 
 const kycPrompt = ai.definePrompt({
-  name: 'kycVerificationPrompt',
+  name: 'kycExtractionPrompt',
   input: {schema: VerifyKycInputSchema},
   output: {schema: VerifyKycOutputSchema},
-  prompt: `You are an expert KYC verification agent. Your task is to analyze the provided ID document and a selfie to verify a person's identity.
+  prompt: `You are an expert KYC verification agent. Your task is to analyze the provided ID document and a selfie.
 
-  1.  **Analyze the ID Document**: Examine the document image to determine if it looks like a valid, government-issued ID card (like an Aadhaar card, PAN card, or Driver's License). It should not be a random picture. Set \`isIdValid\` to true if it looks legitimate, otherwise false.
-  2.  **Compare Faces**: Compare the face on the ID document with the face in the selfie. **Important:** Be aware that the photo on the ID might be from childhood or many years ago. Look for consistent underlying facial features (like eye shape, nose structure) rather than an exact match of current appearance. If you detect a significant age gap but believe it's the same person, consider it a match.
-  3.  **Provide a Reason**: Briefly explain your decision in the \`reason\` field. For example, "ID is valid and faces match." or "The ID document does not look like a valid government ID." or "Faces match despite a significant age difference." or "The face in the selfie does not match the ID card."
+  1.  **Analyze the ID Document**: Examine the document image.
+      - Determine if it looks like a valid government-issued ID card (like an Aadhaar card, PAN card, or Driver's License). Set \`isIdValidDocument\` to true if it looks legitimate, otherwise false.
+      - Extract the full name, date of birth (DOB), and the main ID number from the document. If a field cannot be found, leave it empty.
+
+  2.  **Analyze the Selfie**: Examine the selfie image.
+      - Determine if it contains a clear, single human face. Set \`isSelfieValid\` to true if it does.
+
+  3.  **Provide a Reason**: Briefly summarize your findings in the \`reason\` field. For example, "Successfully extracted details from a valid-looking ID card." or "The ID document image is unclear."
 
   ID Document:
   {{media url=idDocumentUri}}
