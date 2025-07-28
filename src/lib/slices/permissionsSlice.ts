@@ -30,12 +30,13 @@ const getDefaultPermissions = (plan: Plan): RolePermissions => {
         
         // Sensible defaults for a manager on a paying plan
         if (role === 'manager' && plan.hasStaffManagement) {
-            perms.properties = { view: true, add: true, edit: true, delete: false };
+            perms.properties = { view: true, add: true, edit: true, delete: false, sharedCharge: true };
             perms.guests = { view: true, add: true, edit: true, delete: true };
             perms.finances = { view: true, add: true };
             perms.complaints = { view: true, edit: true };
             perms.food = { view: true, edit: true };
             perms.staff = { view: true, add: false, edit: false, delete: false };
+            perms.kyc = { view: true, edit: true, add: true };
         }
         
         // Defaults for a cook

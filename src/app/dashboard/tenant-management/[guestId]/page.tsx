@@ -33,6 +33,7 @@ import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows
 import { useToast } from "@/hooks/use-toast"
 import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle } from "@/lib/slices/guestsSlice"
 import { useDashboard } from "@/hooks/use-dashboard"
+import { canAccess } from "@/lib/permissions"
 
 const paymentSchema = z.object({
   amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
@@ -53,7 +54,8 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
 const kycStatusColors: Record<Guest['kycStatus'], string> = {
   verified: 'bg-blue-100 text-blue-800 border-blue-300',
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  rejected: 'bg-red-100 text-red-800 border-red-300'
+  rejected: 'bg-red-100 text-red-800 border-red-300',
+  'not-started': 'bg-gray-100 text-gray-800 border-gray-300',
 };
 
 const complaintStatusColors: Record<Complaint['status'], string> = {
@@ -72,6 +74,7 @@ export default function GuestProfilePage() {
     const { guests, pgs, complaints } = useAppSelector(state => state)
     const { isLoading } = useAppSelector(state => state.app)
     const { currentUser, currentPlan } = useAppSelector(state => state.user)
+    const { featurePermissions } = useAppSelector(state => state.permissions)
     
     const {
         isEditGuestDialogOpen,
@@ -133,7 +136,7 @@ export default function GuestProfilePage() {
         dispatch(updateGuestAction({updatedGuest}))
     }
 
-    const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
+    const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>>) => {
         if (!guest) return;
         
         const paymentRecord: Payment = {
@@ -184,7 +187,7 @@ export default function GuestProfilePage() {
         setIsPaymentDialogOpen(false);
     }
     
-    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>) => {
+    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>>) => {
         if (!guest) return;
         dispatch(addChargeAction({ guestId: guest.id, charge: values }));
         setIsChargeDialogOpen(false);
@@ -258,7 +261,7 @@ export default function GuestProfilePage() {
                     <Card>
                         <CardContent className="pt-6 flex flex-col items-center text-center">
                             <Avatar className="w-24 h-24 mb-4">
-                                <AvatarImage src={`https://placehold.co/100x100.png?text=${guest.name.charAt(0)}`} />
+                                <AvatarImage src={guest.photoDataUri || `https://placehold.co/100x100.png?text=${guest.name.charAt(0)}`} />
                                 <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <h2 className="text-xl font-semibold">{guest.name}</h2>
@@ -278,18 +281,18 @@ export default function GuestProfilePage() {
                         <CardContent className="space-y-4">
                             <div className="flex justify-between items-center">
                                 <span>Status:</span>
-                                <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus}</Badge>
+                                <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                             </div>
-                            {guest.kycDocUrl && guest.kycStatus === 'verified' && (
+                            {guest.aadhaarDataUri && (
                                 <div>
                                     <p className="text-sm font-medium mb-2">Submitted Document:</p>
-                                    <Link href={guest.kycDocUrl} target="_blank">
-                                        <Image src={guest.kycDocUrl} alt="KYC Document" width={200} height={150} className="rounded-md border hover:opacity-80 transition-opacity" />
+                                    <Link href={guest.aadhaarDataUri} target="_blank">
+                                        <Image src={guest.aadhaarDataUri} alt="KYC Document" width={200} height={150} className="rounded-md border hover:opacity-80 transition-opacity" />
                                     </Link>
                                 </div>
                             )}
-                             {guest.kycStatus !== 'verified' && (
-                                <Button className="w-full">Upload & Verify KYC</Button>
+                             {guest.kycStatus === 'pending' && canAccess(featurePermissions, currentUser?.role, 'guests', 'edit') && (
+                                <Button className="w-full">Review & Verify</Button>
                              )}
                         </CardContent>
                     </Card>

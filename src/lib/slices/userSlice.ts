@@ -237,7 +237,7 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
             cleaner: {},
             security: {},
             other: {},
-            tenant: {}, // <-- Add this line
+            tenant: {},
         };
         try {
             const docSnap = await getDoc(docRef);

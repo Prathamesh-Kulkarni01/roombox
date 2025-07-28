@@ -120,6 +120,14 @@ export const featurePermissionConfig = {
       use: "Use the AI SEO tool",
     }
   },
+  kyc: {
+    label: 'KYC Verification',
+    actions: {
+        view: 'View KYC Status & Docs',
+        edit: 'Approve/Reject KYC',
+        add: 'Request KYC from Tenant',
+    },
+  },
 };
 
 // Type definition for a single feature's permissions
@@ -190,6 +198,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     staff: { view: false, add: false, edit: false, delete: false },
     website: { view: false, edit: false },
     seo: { use: false },
+    kyc: { view: false, edit: false, add: false },
   },
   starter: {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: false },
@@ -200,6 +209,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     staff: { view: true, add: true, edit: true, delete: false },
     website: { view: false, edit: false },
     seo: { use: false },
+    kyc: { view: false, edit: false, add: false },
   },
   pro: {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
@@ -210,6 +220,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
     seo: { use: true },
+    kyc: { view: true, edit: true, add: true },
   },
   business: {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
@@ -220,6 +231,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
     seo: { use: true },
+    kyc: { view: true, edit: true, add: true },
   },
   enterprise: {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
@@ -230,6 +242,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
     seo: { use: true },
+    kyc: { view: true, edit: true, add: true },
   },
 };
 

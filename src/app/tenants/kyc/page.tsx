@@ -15,12 +15,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, CheckCircle, FileUp, Loader2, RefreshCw, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
+import { ShieldAlert } from 'lucide-react';
 
 const kycStatusMeta = {
-    'not-started': { text: 'Not Started', color: 'bg-gray-100 text-gray-800', icon: <></> },
-    'pending': { text: 'Pending Review', color: 'bg-yellow-100 text-yellow-800', icon: <Loader2 className="w-4 h-4 animate-spin" /> },
-    'verified': { text: 'Verified', color: 'bg-green-100 text-green-800', icon: <CheckCircle className="w-4 h-4" /> },
-    'rejected': { text: 'Rejected', color: 'bg-red-100 text-red-800', icon: <XCircle className="w-4 h-4" /> },
+    'not-started': { text: 'Not Started', color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', icon: <></> },
+    'pending': { text: 'Pending Review', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-800/20 dark:text-yellow-300', icon: <Loader2 className="w-4 h-4 animate-spin" /> },
+    'verified': { text: 'Verified', color: 'bg-green-100 text-green-800 dark:bg-green-800/20 dark:text-green-300', icon: <CheckCircle className="w-4 h-4" /> },
+    'rejected': { text: 'Rejected', color: 'bg-red-100 text-red-800 dark:bg-red-800/20 dark:text-red-300', icon: <XCircle className="w-4 h-4" /> },
 };
 
 
@@ -35,6 +38,9 @@ export default function KycPage() {
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [showCamera, setShowCamera] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [hasCameraPermission, setHasCameraPermission] = useState(true);
+    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
+
     const videoRef = useRef<HTMLVideoElement>(null);
 
     useEffect(() => {
@@ -45,28 +51,26 @@ export default function KycPage() {
     }, [guest]);
 
     useEffect(() => {
+        let stream: MediaStream;
         const enableCamera = async () => {
             if (showCamera) {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     if (videoRef.current) {
                         videoRef.current.srcObject = stream;
                     }
+                    setHasCameraPermission(true);
                 } catch (err) {
                     toast({ variant: 'destructive', title: 'Camera Error', description: 'Could not access camera. Please check permissions.' });
+                    setHasCameraPermission(false);
                     setShowCamera(false);
-                }
-            } else {
-                if (videoRef.current?.srcObject) {
-                    (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
                 }
             }
         };
         enableCamera();
+
         return () => {
-            if (videoRef.current?.srcObject) {
-                (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-            }
+            stream?.getTracks().forEach(track => track.stop());
         };
     }, [showCamera, toast]);
 
@@ -146,26 +150,33 @@ export default function KycPage() {
     
     if (currentPlan && !currentPlan.hasKycVerification) {
         return (
-            <Card>
+            <>
+            <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen}/>
+             <Card>
                 <CardHeader>
                     <CardTitle>KYC Verification</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Alert>
-                        <AlertTitle>Feature Not Available</AlertTitle>
-                        <AlertDescription>
-                            This feature is not enabled by your property owner. Please contact them for manual KYC verification.
-                             <br/><br/>
-                             <Button asChild><Link href="/tenants/my-pg">Go to Dashboard</Link></Button>
-                        </AlertDescription>
-                    </Alert>
+                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                        <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                        <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                        <p className="mt-2 text-muted-foreground max-w-sm">
+                            Your property owner has not enabled automatic KYC verification. Please contact them for manual verification.
+                        </p>
+                        <Button asChild className="mt-4">
+                           <Link href="/tenants/my-pg">Go to Dashboard</Link>
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
+            </>
         )
     }
 
     const isVerified = guest.kycStatus === 'verified';
+    const isPending = guest.kycStatus === 'pending';
     const isRejected = guest.kycStatus === 'rejected';
+    const canSubmit = isRejected || guest.kycStatus === 'not-started';
 
     return (
         <div className="space-y-6">
@@ -175,7 +186,7 @@ export default function KycPage() {
                     <CardDescription>Secure your profile by completing the KYC process.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="flex items-center gap-2 p-3 rounded-md border" style={{ backgroundColor: kycStatusMeta[guest.kycStatus].color }}>
+                    <div className={cn("flex items-center gap-2 p-3 rounded-md border", kycStatusMeta[guest.kycStatus].color)}>
                         {kycStatusMeta[guest.kycStatus].icon}
                         <p className="font-semibold">{kycStatusMeta[guest.kycStatus].text}</p>
                     </div>
@@ -199,16 +210,25 @@ export default function KycPage() {
                         <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
                             {aadhaarUri ? <Image src={aadhaarUri} alt="ID Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload your ID</p>}
                         </div>
-                        <Input id="aadhaar-upload" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAadhaarUri)} disabled={isVerified || isSubmitting} />
+                        {canSubmit && (
+                            <div className="relative">
+                                <Input id="aadhaar-upload" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAadhaarUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                <Button asChild variant="outline" className="w-full pointer-events-none">
+                                    <span><FileUp className="mr-2 h-4 w-4"/> {aadhaarUri ? "Change ID Proof" : "Upload ID Proof"}</span>
+                                </Button>
+                            </div>
+                        )}
                     </div>
                     <div className="space-y-2">
                         <Label>2. Live Photo</Label>
                         <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                            {showCamera ? (
-                                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                            ) : photoUri ? (
+                             <video ref={videoRef} autoPlay playsInline className={cn("w-full h-full object-cover", !showCamera && "hidden")} />
+                             {!showCamera && photoUri && (
                                 <Image src={photoUri} alt="Selfie Preview" layout="fill" objectFit="contain" />
-                            ) : <p className="text-muted-foreground text-sm">Take a live photo</p>}
+                             )}
+                              {!showCamera && !photoUri && (
+                                <p className="text-muted-foreground text-sm">Take a live photo</p>
+                              )}
                         </div>
                         {showCamera ? (
                             <div className="flex gap-2">
@@ -216,18 +236,31 @@ export default function KycPage() {
                                 <Button variant="secondary" onClick={() => setShowCamera(false)}>Cancel</Button>
                             </div>
                         ) : (
-                            <Button onClick={() => setShowCamera(true)} disabled={isVerified || isSubmitting}>
-                                {photoUri ? <RefreshCw className="mr-2"/> : <Camera className="mr-2"/>}
-                                {photoUri ? 'Retake Photo' : 'Open Camera'}
-                            </Button>
+                            canSubmit && (
+                                <Button onClick={() => setShowCamera(true)}>
+                                    {photoUri ? <RefreshCw className="mr-2"/> : <Camera className="mr-2"/>}
+                                    {photoUri ? 'Retake Photo' : 'Open Camera'}
+                                </Button>
+                            )
                         )}
+                         {!hasCameraPermission && (
+                            <Alert variant="destructive">
+                                <AlertTitle>Camera Access Required</AlertTitle>
+                                <AlertDescription>Please allow camera access in your browser settings to use this feature.</AlertDescription>
+                            </Alert>
+                         )}
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <Button onClick={handleSubmit} disabled={isVerified || isSubmitting || !aadhaarUri || !photoUri} className="w-full">
-                        {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
-                        {isVerified ? 'KYC Verified' : isSubmitting ? 'Submitting...' : 'Submit for Verification'}
-                    </Button>
+                     {canSubmit && (
+                        <Button onClick={handleSubmit} disabled={isSubmitting || !aadhaarUri || !photoUri} className="w-full">
+                            {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
+                            {isSubmitting ? 'Submitting...' : 'Submit for Verification'}
+                        </Button>
+                     )}
+                     {(isVerified || isPending) && (
+                        <Button disabled className="w-full">{isVerified ? 'KYC Already Verified' : 'Submission Under Review'}</Button>
+                     )}
                 </CardFooter>
             </Card>
         </div>
