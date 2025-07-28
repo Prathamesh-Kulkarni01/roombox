@@ -30,7 +30,7 @@ export default function BedCard(props: BedCardProps) {
   const { featurePermissions } = useAppSelector(state => state.permissions);
 
   const getBedStatus = (bed: Bed): 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period' => {
-    const guest = guests.find(g => g.id === bed.guestId)
+    const guest = guests.find(g => g.id === bed.guestId && !g.isVacated)
     if (!guest || guest.isVacated) return 'available'
     if (guest.exitDate) return 'notice-period'
     if (guest.rentStatus === 'unpaid') return 'rent-pending'
@@ -130,7 +130,7 @@ export default function BedCard(props: BedCardProps) {
                     {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
                     {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center gap-1">
+                  <div className="flex-1 flex flex-col items-center justify-center gap-1 w-full">
                       <BedDouble className="w-8 h-8" />
                       <p className="text-xs w-full truncate font-semibold">{guest.name}</p>
                   </div>
