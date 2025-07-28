@@ -85,7 +85,7 @@ export default function SettingsPage() {
     name: "configs",
   });
   
-  useEffect(() => {
+  React.useEffect(() => {
     kycConfigForm.reset({ configs: kycConfigs || [] })
   }, [kycConfigs, kycConfigForm]);
 
