@@ -3,6 +3,7 @@
 
 
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -95,6 +96,7 @@ export interface KycDocumentConfig {
 
 export interface SubmittedKycDocument {
   configId: string;
+  label: string;
   url: string;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;

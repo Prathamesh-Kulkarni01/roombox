@@ -155,7 +155,7 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
         
         if (isFirebaseConfigured()) {
             const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestToUpdate.id);
-            await setDoc(guestDocRef, updatedGuest, { merge: true });
+            await setDoc(guestDocRef, { kycStatus: 'pending', documents: uploadedDocuments }, { merge: true });
         }
         
         dispatch(addNotification({
@@ -169,7 +169,6 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
         return updatedGuest;
     }
 );
-
 
 export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
     guestId: string;

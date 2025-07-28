@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
@@ -110,7 +111,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                             ownerId: inviteData.ownerId,
                             pgIds: [staffDetails.pgId],
                             avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || staffDetails.name) || 'NS').slice(0, 2).toUpperCase()}`,
-                            guestId: undefined, // <-- Add this line
+                            guestId: null,
                         };
                          const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
                          batch.update(staffDocRef, { userId: firebaseUser.uid });

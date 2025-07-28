@@ -1,4 +1,5 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Notification } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
@@ -41,9 +42,13 @@ export const addNotification = createAsyncThunk<Notification, Omit<Notification,
             date: new Date().toISOString(),
             isRead: false,
         };
+        
+        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+        if (!ownerId) return rejectWithValue('Could not determine owner ID for notification');
+
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'notifications', newNotification.id);
+            const docRef = doc(db, 'users_data', ownerId, 'notifications', newNotification.id);
             await setDoc(docRef, newNotification);
         }
         return newNotification;
@@ -59,10 +64,13 @@ export const markNotificationAsRead = createAsyncThunk<string, string, { state: 
         const notification = notifications.notifications.find(n => n.id === notificationId);
         if (!notification) return rejectWithValue('Notification not found');
         
+        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+        if (!ownerId) return rejectWithValue('Could not determine owner ID');
+
         const updatedNotification = { ...notification, isRead: true };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'notifications', notificationId);
+            const docRef = doc(db, 'users_data', ownerId, 'notifications', notificationId);
             await setDoc(docRef, updatedNotification, { merge: true });
         }
         return notificationId;
@@ -75,13 +83,16 @@ export const markAllAsRead = createAsyncThunk<void, void, { state: RootState }>(
         const { user, notifications } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
         
+        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+        if (!ownerId) return rejectWithValue('Could not determine owner ID');
+        
         const unreadNotifications = notifications.notifications.filter(n => !n.isRead);
         if (unreadNotifications.length === 0) return;
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const batch = writeBatch(db);
             unreadNotifications.forEach(notification => {
-                const docRef = doc(db, 'users_data', user.currentUser.id, 'notifications', notification.id);
+                const docRef = doc(db, 'users_data', ownerId, 'notifications', notification.id);
                 batch.update(docRef, { isRead: true });
             });
             await batch.commit();
