@@ -1,6 +1,7 @@
 
 
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -98,6 +99,12 @@ export interface SubmittedKycDocument {
   rejectionReason?: string;
 }
 
+export interface KycDocument {
+    guestId: string;
+    aadhaarUrl: string;
+    photoUrl: string;
+}
+
 export interface Guest {
   id: string;
   name: string;
@@ -113,7 +120,10 @@ export interface Guest {
   balanceBroughtForward?: number; // For carrying over previous unpaid amounts
   depositAmount?: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
-  submittedKycDocuments?: SubmittedKycDocument[];
+  kycRejectReason?: string | null;
+  kycExtractedName?: string | null;
+  kycExtractedDob?: string | null;
+  kycExtractedIdNumber?: string | null;
   hasMessage?: boolean;
   moveInDate: string;
   noticePeriodDays: number;

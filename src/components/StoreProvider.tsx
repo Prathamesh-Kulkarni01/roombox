@@ -24,6 +24,7 @@ import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
 import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense } from '@/lib/types'
 import { setLoading } from '@/lib/slices/appSlice'
 import { fetchPermissions } from '@/lib/slices/permissionsSlice'
+import { fetchKycConfig } from '@/lib/slices/kycConfigSlice'
 
 
 function AuthHandler({ children }: { children: ReactNode }) {
@@ -121,6 +122,9 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
         const collectionNames = Object.keys(collectionsToSync);
         let loadedCount = 0;
+
+        // Fetch non-realtime settings first
+        dispatch(fetchKycConfig({ ownerId: ownerIdForFetching }));
 
         // Setup real-time listeners
         const newUnsubs = collectionNames.map((collectionName) => {

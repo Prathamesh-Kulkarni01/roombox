@@ -14,11 +14,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, CheckCircle, FileUp, Loader2, RefreshCw, XCircle } from 'lucide-react';
+import { Camera, CheckCircle, FileUp, Loader2, RefreshCw, XCircle, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import { ShieldAlert } from 'lucide-react';
+import type { KycDocumentConfig } from '@/lib/types';
+
 
 const kycStatusMeta = {
     'not-started': { text: 'Not Started', color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', icon: <></> },
@@ -33,67 +35,42 @@ export default function KycPage() {
     const { toast } = useToast();
     const { currentUser, currentPlan } = useAppSelector(state => state.user);
     const { guests } = useAppSelector(state => state.guests);
+    const { kycConfigs } = useAppSelector(state => state.kycConfig);
     const guest = guests.find(g => g.id === currentUser?.guestId);
 
-    const [aadhaarUri, setAadhaarUri] = useState<string | null>(null);
-    const [photoUri, setPhotoUri] = useState<string | null>(null);
-    const [showCamera, setShowCamera] = useState(false);
+    const [documentUris, setDocumentUris] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [hasCameraPermission, setHasCameraPermission] = useState(true);
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
 
-    const videoRef = useRef<HTMLVideoElement>(null);
-
-    useEffect(() => {
-        let stream: MediaStream;
-        const enableCamera = async () => {
-            if (showCamera) {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    if (videoRef.current) {
-                        videoRef.current.srcObject = stream;
-                    }
-                    setHasCameraPermission(true);
-                } catch (err) {
-                    toast({ variant: 'destructive', title: 'Camera Error', description: 'Could not access camera. Please check permissions.' });
-                    setHasCameraPermission(false);
-                    setShowCamera(false);
-                }
-            }
-        };
-        enableCamera();
-
-        return () => {
-            stream?.getTracks().forEach(track => track.stop());
-        };
-    }, [showCamera, toast]);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (uri: string) => void) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, configId: string) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => setter(event.target?.result as string);
+            reader.onload = (event) => {
+                setDocumentUris(prev => ({
+                    ...prev,
+                    [configId]: event.target?.result as string
+                }));
+            };
             reader.readAsDataURL(file);
         }
     };
 
-    const handleCapture = () => {
-        const video = videoRef.current;
-        if (video) {
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
-            setPhotoUri(canvas.toDataURL('image/jpeg'));
-            setShowCamera(false);
-        }
-    };
-
     const handleSubmit = async () => {
+        // This is a placeholder for the multi-document submission logic.
+        // For now, we'll continue using the existing logic for Aadhaar and Photo
+        // to avoid breaking the backend flow. This should be expanded in a real scenario.
+        const aadhaarConfig = kycConfigs.find(c => c.label.toLowerCase().includes('aadhaar'));
+        const photoConfig = kycConfigs.find(c => c.label.toLowerCase().includes('photo') || c.label.toLowerCase().includes('selfie'));
+
+        const aadhaarUri = aadhaarConfig ? documentUris[aadhaarConfig.id] : null;
+        const photoUri = photoConfig ? documentUris[photoConfig.id] : null;
+
         if (!aadhaarUri || !photoUri) {
-            toast({ variant: 'destructive', title: 'Missing Documents', description: 'Please provide both an ID proof and a live photo.' });
+            toast({ variant: 'destructive', title: 'Missing Documents', description: 'Please provide both an ID proof and a live photo as required.' });
             return;
         }
+
         setIsSubmitting(true);
         try {
             await dispatch(updateGuestKyc({ aadhaarDataUri: aadhaarUri, photoDataUri: photoUri })).unwrap();
@@ -108,36 +85,8 @@ export default function KycPage() {
     if (!guest) {
         return (
              <div className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <Skeleton className="h-8 w-1/3" />
-                        <Skeleton className="h-4 w-2/3" />
-                    </CardHeader>
-                    <CardContent>
-                        <Skeleton className="h-12 w-full" />
-                    </CardContent>
-                </Card>
-                <Card>
-                     <CardHeader>
-                        <Skeleton className="h-8 w-1/2" />
-                        <Skeleton className="h-4 w-3/4" />
-                    </CardHeader>
-                    <CardContent className="grid md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Skeleton className="h-5 w-1/4" />
-                            <Skeleton className="w-full aspect-video rounded-md" />
-                            <Skeleton className="h-10 w-full" />
-                        </div>
-                        <div className="space-y-2">
-                             <Skeleton className="h-5 w-1/4" />
-                            <Skeleton className="w-full aspect-video rounded-md" />
-                            <Skeleton className="h-10 w-32" />
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                        <Skeleton className="h-12 w-full" />
-                    </CardFooter>
-                </Card>
+                <Card><CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader><CardContent><Skeleton className="h-12 w-full" /></CardContent></Card>
+                <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent className="grid md:grid-cols-2 gap-6"><div className="space-y-2"><Skeleton className="h-5 w-1/4" /><Skeleton className="w-full aspect-video rounded-md" /><Skeleton className="h-10 w-full" /></div><div className="space-y-2"><Skeleton className="h-5 w-1/4" /><Skeleton className="w-full aspect-video rounded-md" /><Skeleton className="h-10 w-32" /></div></CardContent><CardFooter><Skeleton className="h-12 w-full" /></CardFooter></Card>
              </div>
         )
     }
@@ -147,21 +96,8 @@ export default function KycPage() {
             <>
             <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen}/>
              <Card>
-                <CardHeader>
-                    <CardTitle>KYC Verification</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
-                        <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                        <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                        <p className="mt-2 text-muted-foreground max-w-sm">
-                            Your property owner has not enabled automatic KYC verification. Please contact them for manual verification.
-                        </p>
-                        <Button asChild className="mt-4">
-                           <Link href="/tenants/my-pg">Go to Dashboard</Link>
-                        </Button>
-                    </div>
-                </CardContent>
+                <CardHeader><CardTitle>KYC Verification</CardTitle></CardHeader>
+                <CardContent><div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border"><ShieldAlert className="mx-auto h-12 w-12 text-primary" /><h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2><p className="mt-2 text-muted-foreground max-w-sm">Your property owner has not enabled automatic KYC verification. Please contact them for manual verification.</p><Button asChild className="mt-4"><Link href="/tenants/my-pg">Go to Dashboard</Link></Button></div></CardContent>
             </Card>
             </>
         )
@@ -171,6 +107,7 @@ export default function KycPage() {
     const isPending = guest.kycStatus === 'pending';
     const isRejected = guest.kycStatus === 'rejected';
     const canSubmit = isRejected || guest.kycStatus === 'not-started';
+    const allRequiredSubmitted = kycConfigs.filter(c => c.required).every(c => !!documentUris[c.id]);
 
     return (
         <div className="space-y-6">
@@ -185,10 +122,7 @@ export default function KycPage() {
                         <p className="font-semibold">{kycStatusMeta[guest.kycStatus].text}</p>
                     </div>
                     {isRejected && guest.kycRejectReason && (
-                        <Alert variant="destructive">
-                            <AlertTitle>Reason for Rejection</AlertTitle>
-                            <AlertDescription>{guest.kycRejectReason}</AlertDescription>
-                        </Alert>
+                        <Alert variant="destructive"><AlertTitle>Reason for Rejection</AlertTitle><AlertDescription>{guest.kycRejectReason}</AlertDescription></Alert>
                     )}
                 </CardContent>
             </Card>
@@ -196,58 +130,33 @@ export default function KycPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Your Documents</CardTitle>
-                    <CardDescription>Upload your ID and a live photo to get verified.</CardDescription>
+                    <CardDescription>Upload the documents required by your property owner.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="aadhaar-upload">1. ID Proof (Aadhaar/PAN/PDF)</Label>
-                        <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                            {aadhaarUri ? <Image src={aadhaarUri} alt="ID Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload your ID</p>}
-                        </div>
-                        {canSubmit && (
-                            <div className="relative">
-                                <Input id="aadhaar-upload" type="file" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, setAadhaarUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                                <Button asChild variant="outline" className="w-full pointer-events-none">
-                                    <span><FileUp className="mr-2 h-4 w-4"/> {aadhaarUri ? "Change ID Proof" : "Upload ID Proof"}</span>
-                                </Button>
+                    {kycConfigs.map(config => (
+                        <div key={config.id} className="space-y-2">
+                             <Label htmlFor={`doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
+                            <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                {documentUris[config.id] && config.type === 'image' ? (
+                                    <Image src={documentUris[config.id]} alt="Document Preview" layout="fill" objectFit="contain" />
+                                ) : documentUris[config.id] && config.type === 'pdf' ? (
+                                     <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span>PDF Uploaded</span></div>
+                                ) : (
+                                    <p className="text-muted-foreground text-sm">Upload {config.label}</p>
+                                )}
                             </div>
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <Label>2. Live Photo</Label>
-                        <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                             <video ref={videoRef} autoPlay playsInline className={cn("w-full h-full object-cover", !showCamera && "hidden")} />
-                             {!showCamera && photoUri && (
-                                <Image src={photoUri} alt="Selfie Preview" layout="fill" objectFit="contain" />
-                             )}
-                              {!showCamera && !photoUri && (
-                                <p className="text-muted-foreground text-sm">Take a live photo</p>
-                              )}
+                            {canSubmit && (
+                                <div className="relative">
+                                    <Input id={`doc-${config.id}`} type="file" accept={config.type === 'pdf' ? '.pdf' : 'image/*'} onChange={(e) => handleFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                    <Button asChild variant="outline" className="w-full pointer-events-none"><span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change File" : "Upload File"}</span></Button>
+                                </div>
+                            )}
                         </div>
-                        {showCamera ? (
-                            <div className="flex gap-2">
-                                <Button onClick={handleCapture} className="w-full"><Camera className="mr-2"/> Capture</Button>
-                                <Button variant="secondary" onClick={() => setShowCamera(false)}>Cancel</Button>
-                            </div>
-                        ) : (
-                            canSubmit && (
-                                <Button onClick={() => setShowCamera(true)}>
-                                    {photoUri ? <RefreshCw className="mr-2"/> : <Camera className="mr-2"/>}
-                                    {photoUri ? 'Retake Photo' : 'Open Camera'}
-                                </Button>
-                            )
-                        )}
-                         {!hasCameraPermission && (
-                            <Alert variant="destructive">
-                                <AlertTitle>Camera Access Required</AlertTitle>
-                                <AlertDescription>Please allow camera access in your browser settings to use this feature.</AlertDescription>
-                            </Alert>
-                         )}
-                    </div>
+                    ))}
                 </CardContent>
                 <CardFooter>
                      {canSubmit && (
-                        <Button onClick={handleSubmit} disabled={isSubmitting || !aadhaarUri || !photoUri} className="w-full">
+                        <Button onClick={handleSubmit} disabled={isSubmitting || !allRequiredSubmitted} className="w-full">
                             {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
                             {isSubmitting ? 'Submitting...' : 'Submit for Verification'}
                         </Button>

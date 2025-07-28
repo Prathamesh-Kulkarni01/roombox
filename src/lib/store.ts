@@ -11,6 +11,7 @@ import staffReducer from './slices/staffSlice';
 import notificationsReducer from './slices/notificationsSlice';
 import chargeTemplatesReducer from './slices/chargeTemplatesSlice';
 import permissionsReducer from './slices/permissionsSlice';
+import kycConfigReducer from './slices/kycConfigSlice';
 
 
 const actionsToPersist = [
@@ -60,6 +61,7 @@ export const makeStore = () => {
         notifications: notificationsReducer,
         chargeTemplates: chargeTemplatesReducer,
         permissions: permissionsReducer,
+        kycConfig: kycConfigReducer,
     },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware({
         serializableCheck: false, 
