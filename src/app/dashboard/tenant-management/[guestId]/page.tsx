@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useState, useMemo, useEffect } from "react"
@@ -14,7 +13,7 @@ import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,7 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
-import type { Guest, Complaint, AdditionalCharge, Payment, KycDocumentConfig, SubmittedKycDocument } from "@/lib/types"
+import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -105,6 +104,7 @@ export default function GuestProfilePage() {
     const [reminderMessage, setReminderMessage] = useState('')
     const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
     const [documentUris, setDocumentUris] = useState<Record<string, string>>({});
+    const [selectedDoc, setSelectedDoc] = useState<SubmittedKycDocument | null>(null);
 
 
     const guest = useMemo(() => guests.guests.find(g => g.id === guestId), [guests, guestId])
@@ -218,7 +218,7 @@ export default function GuestProfilePage() {
 
     const handleRemoveCharge = (chargeId: string) => {
         if (!guest) return;
-        dispatch(removeChargeAction({ guestId: guest.id, chargeId }));
+        dispatch(removeAdditionalCharge({ guestId: guest.id, chargeId }));
     };
 
     const handleOpenReminderDialog = async () => {
@@ -331,6 +331,7 @@ export default function GuestProfilePage() {
     }
 
     return (
+      <Dialog open={!!selectedDoc} onOpenChange={(isOpen) => !isOpen && setSelectedDoc(null)}>
         <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="icon" onClick={() => router.back()}>
@@ -445,16 +446,18 @@ export default function GuestProfilePage() {
                                 {guest.documents.map(doc => {
                                     const isDocImageUrl = isImageUrl(doc.url);
                                     return (
-                                        <div key={doc.configId} className="space-y-2">
-                                            <Label>{doc.label}</Label>
-                                            <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                                                {isDocImageUrl ? (
-                                                    <Image src={doc.url} alt={`${doc.label} Preview`} layout="fill" objectFit="contain" />
-                                                ) : (
-                                                    <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><a href={doc.url} target="_blank" rel="noopener noreferrer"><Button variant="link">View PDF</Button></a></div>
-                                                )}
-                                            </div>
-                                        </div>
+                                        <DialogTrigger key={doc.configId} asChild>
+                                            <button className="space-y-2 group" onClick={() => setSelectedDoc(doc)}>
+                                                <Label>{doc.label}</Label>
+                                                <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
+                                                    {isDocImageUrl ? (
+                                                        <Image src={doc.url} alt={`${doc.label} Preview`} layout="fill" objectFit="contain" />
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        </DialogTrigger>
                                     )
                                 })}
                             </div>
@@ -643,8 +646,29 @@ export default function GuestProfilePage() {
                 </DialogContent>
             </Dialog>
         </div>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogHeader>
+                 <DialogTitle>Document Preview: {selectedDoc?.label}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 flex items-center justify-center overflow-hidden">
+                {selectedDoc && (
+                    isImageUrl(selectedDoc.url) ? (
+                        <Image src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} width={800} height={600} className="max-w-full max-h-full object-contain" />
+                    ) : (
+                        <div className="text-center">
+                            <p className="mb-4">PDF preview is not available here. Please open it in a new tab.</p>
+                             <Button asChild>
+                                <a href={selectedDoc.url} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="mr-2 h-4 w-4"/> Open PDF
+                                </a>
+                            </Button>
+                        </div>
+                    )
+                )}
+            </div>
+        </DialogContent>
+      </Dialog>
     )
 }
-
 
     
