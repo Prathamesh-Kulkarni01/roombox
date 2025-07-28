@@ -172,11 +172,10 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
 
 export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
     guestId: string;
-    aadhaarDataUri: string;
-    photoDataUri: string;
+    documents: { config: KycDocumentConfig; dataUri: string }[];
 }, { state: RootState }>(
     'guests/updateGuestKycFromOwner',
-    async ({ guestId, ...kycData }, { getState, dispatch, rejectWithValue }) => {
+    async ({ guestId, documents }, { getState, dispatch, rejectWithValue }) => {
         const { user, guests } = getState();
         const guestToUpdate = guests.guests.find(g => g.id === guestId);
         const ownerId = user.currentUser?.id;
@@ -185,49 +184,34 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
             return rejectWithValue('User or guest not found');
         }
 
-        const aadhaarUrl = await uploadDataUriToStorage(kycData.aadhaarDataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
-        const photoUrl = await uploadDataUriToStorage(kycData.photoDataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
-        const kycDocs: KycDocument = { guestId, aadhaarUrl, photoUrl };
-
-        let kycUpdate: Partial<Guest> = { kycStatus: 'pending' };
-
-        if (user.currentPlan?.hasKycVerification) {
-            try {
-                const verificationResult = await verifyKyc({ idDocumentUri: aadhaarUrl, selfieUri: photoUrl });
-                kycUpdate.kycExtractedName = verificationResult.extractedName;
-                kycUpdate.kycExtractedDob = verificationResult.extractedDob;
-                kycUpdate.kycExtractedIdNumber = verificationResult.extractedIdNumber;
-                kycUpdate.kycRejectReason = verificationResult.reason;
-            } catch (e) {
-                console.error("AI KYC extraction failed for owner submission", e);
-                kycUpdate.kycRejectReason = 'AI extraction failed. Please review manually.';
-            }
+        const uploadedDocuments: SubmittedKycDocument[] = [];
+        for (const docData of documents) {
+            const url = await uploadDataUriToStorage(docData.dataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
+            uploadedDocuments.push({
+                configId: docData.config.id,
+                label: docData.config.label,
+                url: url,
+                status: 'pending'
+            });
         }
-
+        
+        let kycUpdate: Partial<Guest> = { kycStatus: 'pending', documents: uploadedDocuments };
+        
         const updatedGuest = { ...guestToUpdate, ...kycUpdate };
 
         if (isFirebaseConfigured()) {
-            const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', ownerId, 'guests', updatedGuest.id);
-            const kycDocRef = doc(db, 'users_data', ownerId, 'guest_kyc_documents', updatedGuest.id);
-
-            batch.set(kycDocRef, kycDocs);
-            batch.set(guestDocRef, { 
+            await setDoc(guestDocRef, { 
                 kycStatus: 'pending', 
-                kycExtractedName: kycUpdate.kycExtractedName || null,
-                kycExtractedDob: kycUpdate.kycExtractedDob || null,
-                kycExtractedIdNumber: kycUpdate.kycExtractedIdNumber || null,
-                kycRejectReason: kycUpdate.kycRejectReason || null,
+                documents: uploadedDocuments
             }, { merge: true });
-            
-            await batch.commit();
         }
         
         if(updatedGuest.userId) {
             dispatch(addNotification({
                 type: 'kyc-submitted',
                 title: `KYC Status Updated`,
-                message: `Your property manager has submitted your documents for review.`,
+                message: `Your property manager has submitted documents for you. They are now under review.`,
                 link: `/tenants/kyc`,
                 targetId: updatedGuest.userId,
             }));

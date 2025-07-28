@@ -27,7 +27,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
-import type { Guest, Complaint, AdditionalCharge, Payment, KycDocument } from "@/lib/types"
+import type { Guest, Complaint, AdditionalCharge, Payment, KycDocument, KycDocumentConfig, SubmittedKycDocument } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -85,6 +85,7 @@ export default function GuestProfilePage() {
     const { isLoading } = useAppSelector(state => state.app)
     const { currentUser, currentPlan } = useAppSelector(state => state.user)
     const { featurePermissions } = useAppSelector(state => state.permissions)
+    const { kycConfigs } = useAppSelector(state => state.kycConfig);
     
     const {
         isEditGuestDialogOpen,
@@ -101,11 +102,11 @@ export default function GuestProfilePage() {
     const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false)
     const [isKycDialogOpen, setIsKycDialogOpen] = useState(false)
     const [isSubmittingKyc, setIsSubmittingKyc] = useState(false)
-    const [aadhaarUri, setAadhaarUri] = useState<string | null>(null);
-    const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [reminderMessage, setReminderMessage] = useState('')
     const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
     const [kycDocuments, setKycDocuments] = useState<KycDocument | null>(null);
+    const [documentUris, setDocumentUris] = useState<Record<string, string>>({});
+
 
     const guest = useMemo(() => guests.guests.find(g => g.id === guestId), [guests, guestId])
     const guestComplaints = useMemo(() => complaints.complaints.filter(c => c.guestId === guestId), [complaints, guestId])
@@ -253,33 +254,53 @@ export default function GuestProfilePage() {
         }
     }
 
-    const handleKycFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (uri: string | null) => void) => {
+    const handleKycFileChange = (e: React.ChangeEvent<HTMLInputElement>, configId: string) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => setter(event.target?.result as string);
+            reader.onload = (event) => {
+                setDocumentUris(prev => ({
+                    ...prev,
+                    [configId]: event.target?.result as string
+                }));
+            };
             reader.readAsDataURL(file);
         }
     };
     
     const handleKycSubmit = async () => {
-        if (!guest || !aadhaarUri || !photoUri) {
-            toast({ variant: 'destructive', title: 'Missing Documents', description: 'Please provide both an ID proof and a photo.' });
+        const documentsToSubmit: { config: KycDocumentConfig; dataUri: string }[] = [];
+        
+        for (const config of kycConfigs) {
+            if (config.required && !documentUris[config.id]) {
+                toast({ variant: 'destructive', title: 'Missing Document', description: `Please upload the required document: ${config.label}.` });
+                return;
+            }
+            if (documentUris[config.id] && !documentUris[config.id].startsWith('http')) {
+                documentsToSubmit.push({
+                    config,
+                    dataUri: documentUris[config.id],
+                });
+            }
+        }
+        if (!guest || documentsToSubmit.length === 0) {
+            toast({ variant: 'destructive', title: 'No New Documents', description: 'Please upload at least one new document to submit.' });
             return;
         }
+
         setIsSubmittingKyc(true);
         try {
-            await dispatch(updateGuestKycFromOwner({ guestId: guest.id, aadhaarDataUri: aadhaarUri, photoDataUri: photoUri })).unwrap();
+            await dispatch(updateGuestKycFromOwner({ guestId: guest.id, documents: documentsToSubmit })).unwrap();
             toast({ title: 'KYC Submitted', description: 'The documents have been sent for review.' });
             setIsKycDialogOpen(false);
-            setAadhaarUri(null);
-            setPhotoUri(null);
+            setDocumentUris({});
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Submission Failed', description: error.message || 'Could not submit documents.' });
         } finally {
             setIsSubmittingKyc(false);
         }
     };
+
 
     const handleKycAction = async (action: 'verified' | 'rejected') => {
         if (!guest) return;
@@ -610,35 +631,25 @@ export default function GuestProfilePage() {
                         <DialogTitle>Complete KYC for {guest.name}</DialogTitle>
                         <DialogDescription>Upload the guest's documents to initiate verification.</DialogDescription>
                     </DialogHeader>
-                     <div className="grid md:grid-cols-2 gap-6 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="owner-aadhaar-upload">1. ID Proof</Label>
-                            <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                                {aadhaarUri ? <Image src={aadhaarUri} alt="ID Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload ID</p>}
+                    <div className="grid md:grid-cols-2 gap-6 py-4">
+                        {kycConfigs.map(config => (
+                             <div className="space-y-2" key={config.id}>
+                                <Label htmlFor={`owner-doc-${config.id}`}>{config.label}</Label>
+                                <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                     {documentUris[config.id] ? <Image src={documentUris[config.id]} alt="Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload {config.label}</p>}
+                                </div>
+                                <div className="relative">
+                                    <Input id={`owner-doc-${config.id}`} type="file" accept="image/*,application/pdf" onChange={(e) => handleKycFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                    <Button asChild variant="outline" className="w-full pointer-events-none">
+                                        <span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change" : "Upload"}</span>
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="relative">
-                                <Input id="owner-aadhaar-upload" type="file" accept="image/*,application/pdf" onChange={(e) => handleKycFileChange(e, setAadhaarUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                                <Button asChild variant="outline" className="w-full pointer-events-none">
-                                    <span><FileUp className="mr-2 h-4 w-4"/> {aadhaarUri ? "Change ID Proof" : "Upload ID Proof"}</span>
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="owner-photo-upload">2. Guest's Photo</Label>
-                            <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                                {photoUri ? <Image src={photoUri} alt="Photo Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload Photo</p>}
-                            </div>
-                            <div className="relative">
-                                <Input id="owner-photo-upload" type="file" accept="image/*" onChange={(e) => handleKycFileChange(e, setPhotoUri)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                                <Button asChild variant="outline" className="w-full pointer-events-none">
-                                    <span><FileUp className="mr-2 h-4 w-4"/> {photoUri ? "Change Photo" : "Upload Photo"}</span>
-                                </Button>
-                            </div>
-                        </div>
+                        ))}
                     </div>
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                        <Button onClick={handleKycSubmit} disabled={isSubmittingKyc || !aadhaarUri || !photoUri}>
+                        <Button onClick={handleKycSubmit} disabled={isSubmittingKyc}>
                             {isSubmittingKyc ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                             Submit for Verification
                         </Button>
