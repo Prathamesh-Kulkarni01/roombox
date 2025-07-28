@@ -4,7 +4,7 @@ import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import GuestPopoverContent from "./GuestPopoverContent"
 import type { Room, Bed, PG, Floor, Guest, Complaint } from "@/lib/types"
-import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee, Plus } from "lucide-react"
+import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee, Plus, CheckCircle } from "lucide-react"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
 import { MutableRefObject } from "react"
@@ -31,21 +31,21 @@ export default function BedCard(props: BedCardProps) {
 
   const getBedStatus = (bed: Bed): 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period' => {
     const guest = guests.find(g => g.id === bed.guestId)
-    if (!guest) return 'available'
+    if (!guest || guest.isVacated) return 'available'
     if (guest.exitDate) return 'notice-period'
     if (guest.rentStatus === 'unpaid') return 'rent-pending'
     if (guest.rentStatus === 'partial') return 'rent-partial'
     return 'occupied'
   }
 
-  const occupiedBedsCount = room.beds.filter(bed => guests.some(g => g.id === bed.guestId)).length;
+  const occupiedBedsCount = room.beds.filter(bed => guests.some(g => g.id === bed.guestId && !g.isVacated)).length;
 
   const bedStatusClasses: Record<ReturnType<typeof getBedStatus>, string> = {
-    available: 'bg-yellow-200 border-yellow-400 text-yellow-800 hover:bg-yellow-300',
-    occupied: 'bg-slate-200 border-slate-400 text-slate-800 hover:bg-slate-300',
-    'rent-pending': 'bg-red-300 border-red-500 text-red-900 hover:bg-red-400',
-    'rent-partial': 'bg-orange-200 border-orange-400 text-orange-800 hover:bg-orange-300',
-    'notice-period': 'bg-blue-200 border-blue-400 text-blue-800 hover:bg-blue-300',
+    available: 'bg-yellow-100 border-yellow-300 text-yellow-900',
+    occupied: 'bg-slate-200 border-slate-400 text-slate-800',
+    'rent-pending': 'bg-red-100 border-red-300 text-red-900',
+    'rent-partial': 'bg-orange-100 border-orange-300 text-orange-900',
+    'notice-period': 'bg-blue-100 border-blue-300 text-blue-800',
   }
 
   return (
@@ -80,7 +80,7 @@ export default function BedCard(props: BedCardProps) {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
         {room.beds.map(bed => {
-          const guest = guests.find(g => g.id === bed.guestId);
+          const guest = guests.find(g => g.id === bed.guestId && !g.isVacated);
           const status = getBedStatus(bed);
           const hasComplaint = guest && complaints.some(c => c.guestId === guest.id && c.status !== 'resolved');
           const isFirstAvailable = !guest && !isFirstAvailableBedFound.current;
@@ -104,13 +104,19 @@ export default function BedCard(props: BedCardProps) {
                 key={bed.id}
                 onClick={() => canAddGuest && props.handleOpenAddGuestDialog(bed, room, pg)}
                 data-tour={isFirstAvailable ? 'add-guest-on-bed' : undefined}
-                className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left ${bedStatusClasses[status]} ${!canAddGuest ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`group relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left ${bedStatusClasses[status]} ${!canAddGuest ? 'opacity-70 cursor-not-allowed' : 'hover:border-yellow-500 hover:bg-yellow-200'}`}
                 disabled={!canAddGuest}
               >
-                <BedDouble className="w-8 h-8 mb-1" />
-                <span className="font-bold text-sm">Bed {bed.name}</span>
-                <div className="absolute bottom-1 right-1 flex items-center justify-center h-6 w-6 rounded-full bg-black/10"><UserPlus className="h-4 w-4" /></div>
-                <span className="absolute top-1.5 left-1.5 text-xs font-semibold">Available</span>
+                <div className="flex-1 flex flex-col items-center justify-center gap-1">
+                    <BedDouble className="w-8 h-8" />
+                    <span className="font-bold text-sm">Bed {bed.name}</span>
+                </div>
+                <div className="w-full text-center">
+                    <div className="font-semibold text-xs bg-black/10 group-hover:bg-yellow-500 group-hover:text-white rounded-md px-2 py-1 flex items-center justify-center gap-1">
+                        <UserPlus className="w-3 h-3" />
+                        Add Guest
+                    </div>
+                </div>
               </button>
             );
           }
@@ -118,14 +124,21 @@ export default function BedCard(props: BedCardProps) {
           return (
             <Popover key={bed.id}>
               <PopoverTrigger asChild>
-                <button className={`relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2.5 text-center gap-1 transition-colors w-full ${bedStatusClasses[status]}`}>
-                  <BedDouble className="w-8 h-8 mb-1" />
-                  <span className="font-bold text-sm">Bed {bed.name}</span>
-                  <p className="text-xs w-full truncate">{guest.name}</p>
+                <button className={`group relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left w-full ${bedStatusClasses[status]} hover:brightness-105`}>
                   <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
                     {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
                     {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
                     {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
+                  </div>
+                  <div className="flex-1 flex flex-col items-center justify-center gap-1">
+                      <BedDouble className="w-8 h-8" />
+                      <p className="text-xs w-full truncate font-semibold">{guest.name}</p>
+                  </div>
+                  <div className="w-full text-center mt-auto">
+                    {status === 'rent-pending' && <div className="font-semibold text-xs bg-red-500 text-white rounded-md px-2 py-1">Collect Rent</div>}
+                    {status === 'rent-partial' && <div className="font-semibold text-xs bg-orange-500 text-white rounded-md px-2 py-1">Collect Balance</div>}
+                    {status === 'occupied' && <div className="font-semibold text-xs bg-green-500 text-white rounded-md px-2 py-1 flex items-center justify-center gap-1"><CheckCircle className="w-3 h-3"/> Rent Paid</div>}
+                    {status === 'notice-period' && <div className="font-semibold text-xs bg-blue-500 text-white rounded-md px-2 py-1">Notice Period</div>}
                   </div>
                 </button>
               </PopoverTrigger>
