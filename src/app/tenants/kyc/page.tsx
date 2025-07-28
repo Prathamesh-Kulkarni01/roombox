@@ -42,6 +42,17 @@ export default function KycPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
 
+    useEffect(() => {
+        if (guest?.documents) {
+            const initialUris = guest.documents.reduce((acc, doc) => {
+                acc[doc.configId] = doc.url;
+                return acc;
+            }, {} as Record<string, string>);
+            setDocumentUris(initialUris);
+        }
+    }, [guest?.documents]);
+
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, configId: string) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -60,11 +71,16 @@ export default function KycPage() {
         // This is a placeholder for the multi-document submission logic.
         // For now, we'll continue using the existing logic for Aadhaar and Photo
         // to avoid breaking the backend flow. This should be expanded in a real scenario.
-        const aadhaarConfig = kycConfigs.find(c => c.label.toLowerCase().includes('aadhaar'));
+        const aadhaarConfig = kycConfigs.find(c => c.label.toLowerCase().includes('aadhaar') || c.label.toLowerCase().includes('id'));
         const photoConfig = kycConfigs.find(c => c.label.toLowerCase().includes('photo') || c.label.toLowerCase().includes('selfie'));
 
-        const aadhaarUri = aadhaarConfig ? documentUris[aadhaarConfig.id] : null;
-        const photoUri = photoConfig ? documentUris[photoConfig.id] : null;
+        if (!aadhaarConfig || !photoConfig) {
+             toast({ variant: 'destructive', title: 'Configuration Error', description: 'The property owner has not set up the required documents (ID Proof and Photo/Selfie) correctly.' });
+             return;
+        }
+
+        const aadhaarUri = documentUris[aadhaarConfig.id];
+        const photoUri = documentUris[photoConfig.id];
 
         if (!aadhaarUri || !photoUri) {
             toast({ variant: 'destructive', title: 'Missing Documents', description: 'Please provide both an ID proof and a live photo as required.' });

@@ -2,6 +2,7 @@
 
 
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -88,7 +89,7 @@ export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partia
 export interface KycDocumentConfig {
   id: string;
   label: string;
-  type: 'image' | 'pdf' | 'text';
+  type: 'image' | 'pdf';
   required: boolean;
 }
 
@@ -132,6 +133,7 @@ export interface Guest {
   isVacated: boolean; // True if the guest has permanently left the PG
   additionalCharges?: AdditionalCharge[];
   paymentHistory?: Payment[];
+  documents?: SubmittedKycDocument[];
 }
 
 export interface Complaint {
