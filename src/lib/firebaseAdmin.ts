@@ -10,11 +10,14 @@ const serviceAccountKey = process.env.FIREBASE_ADMIN_SDK_CONFIG
   ? JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG)
   : undefined;
 
+const firebaseAdminConfig = {
+    credential: serviceAccountKey ? cert(serviceAccountKey) : undefined,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+};
+
 if (!getApps().length) {
   if (serviceAccountKey) {
-    app = initializeApp({
-      credential: cert(serviceAccountKey),
-    });
+    app = initializeApp(firebaseAdminConfig);
   } else {
     console.warn("Firebase Admin SDK config not found, server-side features may not work.");
     // Initialize without credentials if none are provided, for environments where it's auto-configured.

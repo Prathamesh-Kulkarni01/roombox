@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
  * @returns The public URL of the uploaded file.
  */
 export async function uploadDataUriToStorage(dataUri: string, path: string): Promise<string> {
-  const bucket = adminStorage.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+  const bucket = adminStorage.bucket();
 
   // Extract content type and base64 data from data URI
   const matches = dataUri.match(/^data:(.+);base64,(.*)$/);
