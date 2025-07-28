@@ -81,6 +81,8 @@ export interface Payment {
     notes?: string;
 }
 
+export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period';
+
 export interface Guest {
   id: string;
   name: string;

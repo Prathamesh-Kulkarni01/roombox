@@ -1,10 +1,11 @@
 
+
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import GuestPopoverContent from "./GuestPopoverContent"
-import type { Room, Bed, PG, Floor, Guest, Complaint } from "@/lib/types"
-import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee, Plus, CheckCircle } from "lucide-react"
+import type { Room, Bed, PG, Floor, Guest, Complaint, BedStatus } from "@/lib/types"
+import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee, Plus, CheckCircle, Wallet, User as UserIcon } from "lucide-react"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
 import { MutableRefObject } from "react"
@@ -12,6 +13,7 @@ import { useRouter } from "next/navigation"
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { canAccess } from '@/lib/permissions';
 import { cn } from "@/lib/utils"
+import { Avatar, AvatarFallback } from "../ui/avatar"
 
 interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
   room: Room
@@ -30,7 +32,7 @@ export default function BedCard(props: BedCardProps) {
   const { currentUser } = useAppSelector(state => state.user);
   const { featurePermissions } = useAppSelector(state => state.permissions);
 
-  const getBedStatus = (bed: Bed): 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period' => {
+  const getBedStatus = (bed: Bed): BedStatus => {
     const guest = guests.find(g => g.id === bed.guestId && !g.isVacated)
     if (!guest || guest.isVacated) return 'available'
     if (guest.exitDate) return 'notice-period'
@@ -111,12 +113,12 @@ export default function BedCard(props: BedCardProps) {
                 )}
                 disabled={!canAddGuest}
               >
-                <div className="flex-1 flex flex-col items-center justify-center gap-1">
+                 <div className="flex-1 flex flex-col items-center justify-center gap-1">
                     <BedDouble className="w-8 h-8" />
                     <span className="font-bold text-sm">Bed {bed.name}</span>
                 </div>
                 <div className="w-full text-center">
-                    <div className="font-semibold text-xs bg-black/10 group-hover:bg-yellow-500 group-hover:text-white rounded-md px-2 py-1 flex items-center justify-center gap-1">
+                    <div className="font-semibold text-xs bg-black/10 group-hover:bg-yellow-500 group-hover:text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
                         <UserPlus className="w-3 h-3" />
                         Add Guest
                     </div>
@@ -128,23 +130,43 @@ export default function BedCard(props: BedCardProps) {
           return (
             <Popover key={bed.id}>
               <PopoverTrigger asChild>
-                <button className={`group relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left w-full ${bedStatusClasses[status]} hover:brightness-105`}>
-                  <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
-                    {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
-                    {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
-                    {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
-                  </div>
-                  <div className="flex-1 flex flex-col items-center justify-center gap-1 w-full text-center">
-                      <BedDouble className="w-8 h-8" />
-                      <p className="text-xs w-full truncate font-semibold">{guest.name}</p>
-                  </div>
-                  <div className="w-full text-center mt-auto">
-                    {status === 'rent-pending' && <div className="font-semibold text-xs bg-red-500 text-white rounded-md px-2 py-1">Collect Rent</div>}
-                    {status === 'rent-partial' && <div className="font-semibold text-xs bg-orange-500 text-white rounded-md px-2 py-1">Collect Balance</div>}
-                    {status === 'occupied' && <div className="font-semibold text-xs bg-green-500 text-white rounded-md px-2 py-1 flex items-center justify-center gap-1"><CheckCircle className="w-3 h-3"/> Rent Paid</div>}
-                    {status === 'notice-period' && <div className="font-semibold text-xs bg-blue-500 text-white rounded-md px-2 py-1">Notice Period</div>}
-                  </div>
-                </button>
+                 <button className={cn(`group relative border-2 rounded-lg aspect-square flex flex-col items-center justify-center p-2 transition-colors text-left w-full hover:brightness-105`, bedStatusClasses[status])}>
+                    <div className="absolute top-1.5 right-1.5 flex flex-col gap-1.5">
+                        {hasComplaint && <ShieldAlert className="h-4 w-4 text-red-600" />}
+                        {guest?.hasMessage && <MessageCircle className="h-4 w-4 text-blue-600" />}
+                        {status === 'notice-period' && <Clock className="h-4 w-4 text-blue-600" />}
+                    </div>
+                    
+                     <div className="flex-1 flex flex-col items-center justify-center gap-2 w-full text-center">
+                        <Avatar className="w-8 h-8">
+                            <AvatarFallback className="bg-black/10 text-xs">
+                                {guest.name.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <p className="text-xs w-full truncate font-semibold">{guest.name}</p>
+                    </div>
+
+                     <div className="w-full text-center mt-auto">
+                        {status === 'rent-pending' && (
+                            <div className="font-semibold text-xs bg-red-500 text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
+                                <Wallet className="w-3 h-3"/> Collect Rent
+                            </div>
+                        )}
+                         {status === 'rent-partial' && (
+                            <div className="font-semibold text-xs bg-orange-500 text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
+                                <Wallet className="w-3 h-3"/> Collect Balance
+                            </div>
+                        )}
+                        {status === 'occupied' && (
+                             <div className="font-semibold text-xs bg-green-500 text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
+                                <CheckCircle className="w-3 h-3"/> Rent Paid
+                            </div>
+                        )}
+                        {status === 'notice-period' && (
+                            <div className="font-semibold text-xs bg-blue-500 text-white rounded-full px-2 py-1">Notice Period</div>
+                        )}
+                    </div>
+                 </button>
               </PopoverTrigger>
               <GuestPopoverContent guest={guest} {...props} />
             </Popover>

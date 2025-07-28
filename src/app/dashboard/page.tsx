@@ -7,10 +7,13 @@ import Link from 'next/link'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2 } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search } from "lucide-react"
 import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
@@ -29,8 +32,9 @@ import AddPgSheet from "@/components/add-pg-sheet"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import Access from '@/components/ui/PermissionWrapper';
+import type { BedStatus } from '@/lib/types'
 
-const bedLegend: Record<string, { label: string, className: string }> = {
+const bedLegend: Record<BedStatus, { label: string, className: string }> = {
   available: { label: 'Available', className: 'bg-yellow-200' },
   occupied: { label: 'Occupied', className: 'bg-slate-200' },
   'rent-pending': { label: 'Rent Pending', className: 'bg-red-300' },
@@ -52,6 +56,9 @@ export default function DashboardPage() {
   const isFirstAvailableBedFound = useRef(false);
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
   const router = useRouter();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
 
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
@@ -81,17 +88,64 @@ export default function DashboardPage() {
       setIsEditMode(true);
     }
   }, [pgs, isLoading]);
+  
+  const getBedStatus = (bed: any): BedStatus => {
+    const guest = guests.find(g => g.id === bed.guestId && !g.isVacated)
+    if (!guest || guest.isVacated) return 'available'
+    if (guest.exitDate) return 'notice-period'
+    if (guest.rentStatus === 'unpaid') return 'rent-pending'
+    if (guest.rentStatus === 'partial') return 'rent-partial'
+    return 'occupied'
+  }
 
   const pgsToDisplay = useMemo(() => {
     isFirstAvailableBedFound.current = false;
-    return selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
-  }, [pgs, selectedPgId]);
+    let filteredPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
+
+    if (!searchTerm && activeFilters.length === 0) {
+        return filteredPgs;
+    }
+    
+    const lowercasedSearchTerm = searchTerm.toLowerCase();
+
+    return filteredPgs.map(pg => {
+        const filteredFloors = (pg.floors || [])
+            .map(floor => {
+                const filteredRooms = (floor.rooms || [])
+                    .map(room => {
+                        const guestMap = new Map(guests.map(g => [g.id, g]));
+                        
+                        const filteredBeds = (room.beds || []).filter(bed => {
+                            const guest = bed.guestId ? guestMap.get(bed.guestId) : null;
+                            const bedStatus = getBedStatus(bed);
+
+                            const matchesSearch = 
+                                guest?.name.toLowerCase().includes(lowercasedSearchTerm) ||
+                                room.name.toLowerCase().includes(lowercasedSearchTerm) ||
+                                bed.name.toLowerCase().includes(lowercasedSearchTerm);
+                            
+                            const matchesFilter = activeFilters.length === 0 || activeFilters.includes(bedStatus);
+                            
+                            return matchesSearch && matchesFilter;
+                        });
+
+                        return filteredBeds.length > 0 ? { ...room, beds: filteredBeds } : null;
+                    })
+                    .filter((room): room is NonNullable<typeof room> => room !== null);
+
+                return filteredRooms.length > 0 ? { ...floor, rooms: filteredRooms } : null;
+            })
+            .filter((floor): floor is NonNullable<typeof floor> => floor !== null);
+
+        return filteredFloors.length > 0 ? { ...pg, floors: filteredFloors } : null;
+    }).filter((pg): pg is NonNullable<typeof pg> => pg !== null);
+  }, [pgs, selectedPgId, searchTerm, activeFilters, guests]);
 
   const stats = useMemo(() => {
     const relevantGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
     const relevantComplaints = selectedPgId ? complaints.filter(c => c.pgId === selectedPgId) : complaints;
-    const totalOccupancy = pgsToDisplay.reduce((sum, pg) => sum + pg.occupancy, 0);
-    const totalBeds = pgsToDisplay.reduce((sum, pg) => sum + pg.totalBeds, 0);
+    const totalOccupancy = pgs.reduce((sum, pg) => sum + pg.occupancy, 0);
+    const totalBeds = pgs.reduce((sum, pg) => sum + pg.totalBeds, 0);
     const monthlyRevenue = relevantGuests.filter(g => g.rentStatus === 'paid').reduce((sum, g) => sum + g.rentAmount, 0);
     const openComplaintsCount = relevantComplaints.filter(c => c.status === 'open').length;
 
@@ -105,7 +159,14 @@ export default function DashboardPage() {
       { title: "Pending Dues", value: `₹${pendingDues.toLocaleString('en-IN')}`, icon: FileWarning, feature: "finances", action: "view" },
       { title: "Open Complaints", value: openComplaintsCount, icon: MessageSquareWarning, feature: "complaints", action: "view" },
     ];
-  }, [pgsToDisplay, guests, complaints, selectedPgId]);
+  }, [pgs, guests, complaints, selectedPgId]);
+  
+  const handleFilterChange = (status: BedStatus, checked: boolean) => {
+    setActiveFilters(prev => 
+        checked ? [...prev, status] : prev.filter(s => s !== status)
+    );
+  };
+
 
   const handleSheetOpenChange = (open: boolean) => {
     setIsAddPgSheetOpen(open);
@@ -203,24 +264,67 @@ export default function DashboardPage() {
     <>
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
-
+        
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
-            <span className="font-semibold text-sm">Legend:</span>
-            {Object.values(bedLegend).map(item => (
-              <div key={item.label} className="flex items-center gap-1.5">
-                <div className={cn("w-3 h-3 rounded-full", item.className)}></div>
-                <span>{item.label}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center space-x-2 self-end sm:self-center">
-            <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
-            <Access feature="properties" action="edit">
-              <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch" />
-            </Access>
-          </div>
+             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                <span className="font-semibold text-sm">Legend:</span>
+                {Object.values(bedLegend).map(item => (
+                  <div key={item.label} className="flex items-center gap-1.5">
+                    <div className={cn("w-3 h-3 rounded-full", item.className)}></div>
+                    <span>{item.label}</span>
+                  </div>
+                ))}
+            </div>
+            <div className="flex items-center space-x-2 self-end sm:self-center">
+                <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
+                <Access feature="properties" action="edit">
+                <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch" />
+                </Access>
+            </div>
         </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+             <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Search by guest, room, or bed..."
+                    className="pl-8 sm:w-full"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full sm:w-auto justify-start">
+                        <Filter className="mr-2 h-4 w-4" />
+                        Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64">
+                    <div className="grid gap-4">
+                        <div className="space-y-2">
+                            <h4 className="font-medium leading-none">Filter by Status</h4>
+                            <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
+                        </div>
+                        <div className="grid gap-2">
+                            {Object.entries(bedLegend).map(([status, { label }]) => (
+                                <div key={status} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`filter-${status}`}
+                                        checked={activeFilters.includes(status as BedStatus)}
+                                        onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
+                                    />
+                                    <Label htmlFor={`filter-${status}`} className="font-normal">{label}</Label>
+                                </div>
+                            ))}
+                        </div>
+                         <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
+                    </div>
+                </PopoverContent>
+            </Popover>
+        </div>
+
 
         {pgsToDisplay.map(pg => (
           <PgLayout
@@ -229,11 +333,16 @@ export default function DashboardPage() {
             isEditMode={isEditMode}
             isFirstAvailableBedFound={isFirstAvailableBedFound}
             setItemToDelete={setItemToDelete}
-            setGuestToInitiateExit={setGuestToInitiateExit}
-            setGuestToExitImmediately={setGuestToExitImmediately}
             {...dashboardActions}
           />
         ))}
+         {pgsToDisplay.length === 0 && (
+            <Card>
+                <CardContent className="p-10 text-center text-muted-foreground">
+                    No results found for your search or filter criteria.
+                </CardContent>
+            </Card>
+        )}
       </div>
 
       {/* DIALOGS */}

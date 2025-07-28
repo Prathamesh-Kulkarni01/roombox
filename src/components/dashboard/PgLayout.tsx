@@ -2,7 +2,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from "../ui/button"
-import { Layers, PlusCircle, Trash2, Pencil } from "lucide-react"
+import { Layers, PlusCircle, Trash2, Pencil, DoorOpen } from "lucide-react"
 import type { PG } from "@/lib/types"
 import BedCard from "./BedCard"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
