@@ -84,7 +84,7 @@ export default function GuestProfilePage() {
     const { guests, pgs, complaints } = useAppSelector(state => state)
     const { isLoading } = useAppSelector(state => state.app)
     const { currentUser, currentPlan } = useAppSelector(state => state.user)
-    const { featurePermissions } = useAppSelector(state => state.permissions)
+    const { featurePermissions } = useAppSelector(state => state.permissions);
     const { kycConfigs } = useAppSelector(state => state.kycConfig);
     
     const {
@@ -363,62 +363,6 @@ export default function GuestProfilePage() {
                             </div>
                         </CardFooter>
                     </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>KYC Documents</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {guest.documents && guest.documents.length > 0 ? (
-                                <Accordion type="single" collapsible className="w-full">
-                                    <AccordionItem value="item-1">
-                                        <AccordionTrigger>View Submitted Documents</AccordionTrigger>
-                                        <AccordionContent className="space-y-4">
-                                            {guest.documents.map(doc => {
-                                                const isDocImageUrl = isImageUrl(doc.url);
-                                                return (
-                                                    <div key={doc.configId}>
-                                                        <Label>{doc.label}</Label>
-                                                        {isDocImageUrl ? (
-                                                            <Image src={doc.url} alt={`${doc.label} Preview`} width={200} height={120} className="rounded-md object-contain border w-full h-auto mt-1" />
-                                                        ) : (
-                                                            <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                                                                <Button variant="outline" className="w-full mt-1"><ExternalLink className="mr-2 h-4 w-4" /> View Document</Button>
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                )
-                                            })}
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                </Accordion>
-                            ) : <p className="text-sm text-muted-foreground text-center py-4">No documents submitted by the tenant yet.</p>}
-
-                             {guest.kycStatus === 'pending' && (
-                                <div className="p-4 border bg-muted/50 rounded-md">
-                                    <p className="font-semibold mb-2">Manual Verification</p>
-                                    {guest.kycExtractedName && <p className="text-sm">AI Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>}
-                                    <p className="text-sm">Guest's Name: <span className="font-semibold">{guest.name}</span></p>
-                                    <div className="flex gap-2 mt-4">
-                                        <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
-                                        <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
-                                <Button className="w-full" onClick={() => setIsKycDialogOpen(true)}>
-                                    {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
-                                </Button>
-                             )}
-                              {guest.kycRejectReason && (
-                                <Alert variant="destructive" className="mt-2">
-                                    <AlertTitle>Reason for Rejection</AlertTitle>
-                                    <AlertDescription>{guest.kycRejectReason}</AlertDescription>
-                                </Alert>
-                            )}
-                        </CardContent>
-                    </Card>
                 </div>
 
                 <div className="lg:col-span-2 space-y-6">
@@ -491,6 +435,56 @@ export default function GuestProfilePage() {
                     </Card>
                 </div>
             </div>
+
+            <Card>
+                <CardHeader><CardTitle>KYC Documents</CardTitle></CardHeader>
+                <CardContent>
+                    {guest.documents && guest.documents.length > 0 ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {guest.documents.map(doc => {
+                                    const isDocImageUrl = isImageUrl(doc.url);
+                                    return (
+                                        <div key={doc.configId} className="space-y-2">
+                                            <Label>{doc.label}</Label>
+                                            <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                                {isDocImageUrl ? (
+                                                    <Image src={doc.url} alt={`${doc.label} Preview`} layout="fill" objectFit="contain" />
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><a href={doc.url} target="_blank" rel="noopener noreferrer"><Button variant="link">View PDF</Button></a></div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                             {guest.kycStatus === 'pending' && (
+                                <div className="p-4 border bg-muted/50 rounded-md mt-6">
+                                    <p className="font-semibold mb-2">Manual Verification</p>
+                                    {guest.kycExtractedName && <p className="text-sm">AI Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>}
+                                    <p className="text-sm">Guest's Name: <span className="font-semibold">{guest.name}</span></p>
+                                    <div className="flex gap-2 mt-4">
+                                        <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
+                                        <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : <p className="text-sm text-muted-foreground text-center py-4">No documents submitted by the tenant yet.</p>}
+
+                     {canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
+                        <Button className="mt-4" onClick={() => setIsKycDialogOpen(true)}>
+                            {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
+                        </Button>
+                     )}
+                      {guest.kycRejectReason && (
+                        <Alert variant="destructive" className="mt-4">
+                            <AlertTitle>Reason for Rejection</AlertTitle>
+                            <AlertDescription>{guest.kycRejectReason}</AlertDescription>
+                        </Alert>
+                    )}
+                </CardContent>
+            </Card>
 
             <Card>
                 <Tabs defaultValue="stay-details">
@@ -651,3 +645,6 @@ export default function GuestProfilePage() {
         </div>
     )
 }
+
+
+    
