@@ -114,7 +114,7 @@ export default function GuestProfilePage() {
     
     useEffect(() => {
         const fetchKycDocs = async () => {
-            if (guest && guest.kycStatus === 'pending' && currentUser?.id) {
+            if (guest && (guest.kycStatus === 'pending' || guest.kycStatus === 'verified') && currentUser?.id) {
                 try {
                     const docRef = doc(db, "users_data", currentUser.id, "guest_kyc_documents", guest.id);
                     const docSnap = await getDoc(docRef);
@@ -351,24 +351,24 @@ export default function GuestProfilePage() {
                                 <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                             </div>
                             
-                             {guest.kycStatus === 'pending' && guest.kycExtractedName && (
+                             {guest.kycStatus === 'pending' && (
                                 <Alert>
                                     <AlertTitle>Review Needed</AlertTitle>
                                     <AlertDescription className="space-y-4">
                                         <div className="space-y-2">
                                             {kycDocuments && (
-                                                <div className="grid grid-cols-2 gap-2">
+                                                <div className="grid grid-cols-1 gap-2">
                                                     <div>
                                                         <p className="text-xs font-semibold mb-1">ID Document</p>
-                                                        <Image src={kycDocuments.aadhaarDataUri} alt="ID Preview" width={200} height={120} className="rounded-md object-contain border" />
+                                                        <Image src={kycDocuments.aadhaarUrl} alt="ID Preview" width={200} height={120} className="rounded-md object-contain border" />
                                                     </div>
                                                     <div>
                                                         <p className="text-xs font-semibold mb-1">Selfie</p>
-                                                        <Image src={kycDocuments.photoDataUri} alt="Selfie Preview" width={200} height={120} className="rounded-md object-contain border" />
+                                                        <Image src={kycDocuments.photoUrl} alt="Selfie Preview" width={200} height={120} className="rounded-md object-contain border" />
                                                     </div>
                                                 </div>
                                             )}
-                                            <p>Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>
+                                            {guest.kycExtractedName && <p>Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>}
                                             <p>Guest Name: <span className="font-semibold">{guest.name}</span></p>
                                         </div>
                                         <div className="flex gap-2 mt-4">
@@ -406,7 +406,7 @@ export default function GuestProfilePage() {
                             </div>
                             
                             <div className="space-y-2 pt-4 border-t">
-                                <p className="font-semibold text-base">Current Bill Details (Due: {format(parseISO(guest.dueDate), "do MMM, yyyy")})</p>
+                                <p className="font-semibold text-base">Current Bill Details (Due: {format(parseISO(guest.dueDate), "do MMMM, yyyy")})</p>
                                  <div className="flex justify-between items-center text-muted-foreground">
                                     <span>Balance from previous months:</span>
                                     <span className="font-medium text-foreground">₹{balanceBroughtForward.toLocaleString('en-IN')}</span>
@@ -428,7 +428,7 @@ export default function GuestProfilePage() {
                                         ))}
                                     </div>
                                 )}
-                                {(guest.rentPaidAmount ?? 0) > 0 && (
+                                {(guest.rentPaidAmount || 0) > 0 && (
                                     <div className="flex justify-between items-center text-green-600 dark:text-green-400">
                                         <span>Paid this cycle:</span>
                                         <span className="font-medium">- ₹{(guest.rentPaidAmount || 0).toLocaleString('en-IN')}</span>
@@ -562,9 +562,9 @@ export default function GuestProfilePage() {
             </Card>
 
             {/* Dialogs */}
-            <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guest} editGuestForm={editGuestForm} handleEditGuestSubmit={handleEditGuestSubmit}/>
+            <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guest} {...{editGuestForm, handleEditGuestSubmit}}/>
             <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-                <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Collect Rent Payment</DialogTitle><DialogDescription>Record a full or partial payment for {guest.name}.</DialogDescription></DialogHeader><Form {...paymentForm}><form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4"><div className="space-y-2 py-2"><p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span></p><p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{totalDue.toLocaleString('en-IN')}</span></p></div><FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1"><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash" /></FormControl><FormLabel htmlFor="cash" className="font-normal cursor-pointer">Cash</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><FormLabel htmlFor="upi" className="font-normal cursor-pointer">UPI</FormLabel></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl><FormLabel htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="payment-form">Confirm Payment</Button></DialogFooter></DialogContent>
+                <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Collect Rent Payment</DialogTitle><DialogDescription>Record a full or partial payment for {guest.name}.</DialogDescription></DialogHeader><Form {...paymentForm}><form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4"><div className="space-y-2 py-2"><p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span></p><p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{totalDue.toLocaleString('en-IN')}</span></p></div><FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1"><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash" /></FormControl><Label htmlFor="cash" className="font-normal cursor-pointer">Cash</Label></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><Label htmlFor="upi" className="font-normal cursor-pointer">UPI</Label></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl><Label htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="payment-form">Confirm Payment</Button></DialogFooter></DialogContent>
             </Dialog>
 
             <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>

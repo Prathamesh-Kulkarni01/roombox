@@ -85,8 +85,8 @@ export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partia
 
 export interface KycDocument {
     guestId: string;
-    aadhaarDataUri: string;
-    photoDataUri: string;
+    aadhaarUrl: string;
+    photoUrl: string;
 }
 
 export interface Guest {
@@ -104,7 +104,7 @@ export interface Guest {
   balanceBroughtForward?: number; // For carrying over previous unpaid amounts
   depositAmount?: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
-  kycRejectReason?: string;
+  kycRejectReason?: string | null;
   kycExtractedName?: string;
   kycExtractedDob?: string;
   kycExtractedIdNumber?: string;

@@ -1,4 +1,5 @@
 
+'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, Invite, PG, User, AdditionalCharge, Room, KycDocument } from '../types';
@@ -10,6 +11,7 @@ import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
 import { verifyKyc } from '@/ai/flows/verify-kyc-flow';
 import { format, addMonths, isAfter, parseISO, differenceInMonths } from 'date-fns';
+import { uploadDataUriToStorage } from '../storage';
 
 interface GuestsState {
     guests: Guest[];
@@ -138,7 +140,10 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
             return rejectWithValue('User, guest, or owner not found');
         }
 
-        const kycDocs: KycDocument = { guestId: guestToUpdate.id, ...kycData };
+        const aadhaarUrl = await uploadDataUriToStorage(kycData.aadhaarDataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
+        const photoUrl = await uploadDataUriToStorage(kycData.photoDataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
+
+        const kycDocs: KycDocument = { guestId: guestToUpdate.id, aadhaarUrl, photoUrl };
         const updatedGuest = { ...guestToUpdate, kycStatus: 'pending' as const };
         
         if (isFirebaseConfigured()) {
@@ -180,15 +185,15 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
             return rejectWithValue('User or guest not found');
         }
 
-        let kycUpdate: Partial<Guest> = {
-            kycStatus: 'pending',
-        };
-        
-        const kycDocs: KycDocument = { guestId, ...kycData };
+        const aadhaarUrl = await uploadDataUriToStorage(kycData.aadhaarDataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
+        const photoUrl = await uploadDataUriToStorage(kycData.photoDataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
+        const kycDocs: KycDocument = { guestId, aadhaarUrl, photoUrl };
+
+        let kycUpdate: Partial<Guest> = { kycStatus: 'pending' };
 
         if (user.currentPlan?.hasKycVerification) {
             try {
-                const verificationResult = await verifyKyc({ idDocumentUri: kycData.aadhaarDataUri, selfieUri: kycData.photoDataUri });
+                const verificationResult = await verifyKyc({ idDocumentUri: aadhaarUrl, selfieUri: photoUrl });
                 kycUpdate.kycExtractedName = verificationResult.extractedName;
                 kycUpdate.kycExtractedDob = verificationResult.extractedDob;
                 kycUpdate.kycExtractedIdNumber = verificationResult.extractedIdNumber;
@@ -218,7 +223,6 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
             await batch.commit();
         }
         
-        // Notify the tenant about the status update
         if(updatedGuest.userId) {
             dispatch(addNotification({
                 type: 'kyc-submitted',
@@ -248,7 +252,7 @@ export const updateGuestKycStatus = createAsyncThunk<Guest, {
             return rejectWithValue('User or guest not found');
         }
 
-        const updatedGuest = { ...guestToUpdate, kycStatus: status, kycRejectReason: reason || '' };
+        const updatedGuest = { ...guestToUpdate, kycStatus: status, kycRejectReason: reason || null };
 
         if (isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', ownerId, 'guests', guestId);

@@ -11,8 +11,8 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const VerifyKycInputSchema = z.object({
-  idDocumentUri: z.string().describe("A data URI of the guest's ID document (e.g., Aadhaar card). Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
-  selfieUri: z.string().describe("A data URI of the guest's live photo (selfie). Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+  idDocumentUri: z.string().describe("A public URL to the guest's ID document (e.g., Aadhaar card)."),
+  selfieUri: z.string().describe("A public URL to the guest's live photo (selfie)."),
 });
 export type VerifyKycInput = z.infer<typeof VerifyKycInputSchema>;
 
@@ -44,6 +44,7 @@ const kycPrompt = ai.definePrompt({
       - Determine if it contains a clear, single human face. Set \`isSelfieValid\` to true if it does.
 
   3.  **Provide a Reason**: Briefly summarize your findings in the \`reason\` field. For example, "Successfully extracted details from a valid-looking ID card." or "The ID document image is unclear."
+      - Important: When comparing the ID and selfie, account for potential age differences. A person's photo on an ID may be several years old. Focus on consistent facial features rather than an exact match. If features seem consistent despite an age gap, note that in the reason.
 
   ID Document:
   {{media url=idDocumentUri}}
