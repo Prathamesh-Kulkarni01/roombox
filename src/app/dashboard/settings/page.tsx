@@ -5,8 +5,8 @@ import React, { useState, useTransition, useMemo } from "react"
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { produce } from 'immer'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { produce } from "immer"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -214,7 +214,7 @@ export default function SettingsPage() {
             <CardContent className="flex items-center gap-4">
             <Avatar className="h-16 w-16">
                 <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()} </AvatarFallback>
             </Avatar>
             <div>
                 <p className="text-lg font-semibold">{currentUser.name}</p>
@@ -427,3 +427,5 @@ export default function SettingsPage() {
     </>
   )
 }
+
+    
