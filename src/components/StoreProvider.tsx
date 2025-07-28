@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useRef, type ReactNode, useEffect, useState } from 'react'
@@ -29,7 +28,7 @@ import { fetchKycConfig } from '@/lib/slices/kycConfigSlice'
 
 function AuthHandler({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
-  const { currentUser } = useAppSelector((state) => state.user);
+  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const authListenerStarted = useRef(false);
   const [dataListeners, setDataListeners] = useState<Unsubscribe[]>([]);
   const { toast } = useToast();
@@ -93,7 +92,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
     dataListeners.forEach(unsub => unsub());
     setDataListeners([]);
 
-    if (!currentUser || !db) return;
+    if (!currentUser || !currentPlan || !db) return;
     
     // Determine the correct ID for fetching data (owner's ID for everyone)
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
@@ -109,6 +108,10 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     const isDashboardUser = ['owner', 'manager', 'cook', 'cleaner', 'security'].includes(currentUser.role);
     
+    // Fetch non-realtime settings first, now that we have the plan
+    dispatch(fetchPermissions({ ownerId: ownerIdForFetching, plan: currentPlan }));
+    dispatch(fetchKycConfig({ ownerId: ownerIdForFetching }));
+
     if (isDashboardUser) {
         const collectionsToSync: { [key: string]: (data: any) => { type: string; payload: any } } = {
             pgs: setPgs,
@@ -122,9 +125,6 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
         const collectionNames = Object.keys(collectionsToSync);
         let loadedCount = 0;
-
-        // Fetch non-realtime settings first
-        dispatch(fetchKycConfig({ ownerId: ownerIdForFetching }));
 
         // Setup real-time listeners
         const newUnsubs = collectionNames.map((collectionName) => {
@@ -205,7 +205,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
     return () => {
         unsubs.forEach(unsub => unsub());
     };
-  }, [currentUser, dispatch]);
+  }, [currentUser, currentPlan, dispatch]);
 
 
   return <>{children}</>;
