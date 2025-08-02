@@ -112,6 +112,13 @@ export default function GuestProfilePage() {
                 pdf.text(text, x, y);
             }
 
+            const addLink = (text: string, url: string, x: number, y: number) => {
+                 pdf.setFontSize(8);
+                 pdf.setTextColor(0, 0, 255); // Blue color for links
+                 pdf.textWithLink(text, x, y, { url });
+                 pdf.setTextColor(0, 0, 0); // Reset color
+            }
+
             const pageHeight = pdf.internal.pageSize.getHeight();
             let y = 20;
 
@@ -177,11 +184,13 @@ export default function GuestProfilePage() {
                              addText(`Could not load image preview for ${doc.label}. URL: ${doc.url}`, 10, y, 8, 'normal');
                              y += 10;
                         }
-                    } else {
+                    } else { // Handle PDFs by adding a link
                         if (y + 10 > pageHeight - 20) {
                             pdf.addPage(); y = 20;
                         }
-                        addText(`Document is a PDF, please download separately.`, 10, y);
+                        addText(`This document is a PDF.`, 10, y);
+                        y += 5;
+                        addLink(`Click here to open ${doc.label}`, doc.url, 10, y);
                         y += 10;
                     }
                 }
