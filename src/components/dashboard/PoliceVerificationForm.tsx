@@ -1,18 +1,17 @@
 
 'use client'
 
-// This component is no longer used directly with forwardRef.
-// Its content has been moved into the GuestProfilePage for a more robust printing solution.
-// This file is now empty and can be removed in the future.
+// This component is now deprecated and its logic has been moved directly into
+// the GuestProfilePage to resolve a printing issue with react-to-print.
+// The new implementation uses a hidden div with a ref, which is a more robust
+// pattern for printing dynamic content. This file can be safely removed.
+// The new printable component is named PoliceVerificationFormContent inside
+// src/app/dashboard/tenant-management/[guestId]/page.tsx
 
 import React from 'react';
-import type { Guest, PG } from '@/lib/types';
 
-
-const PoliceVerificationForm = React.forwardRef<HTMLDivElement, { guest: Guest | null, pgs: PG[] }>((props, ref) => {
-    return <div ref={ref} />;
-});
-
-PoliceVerificationForm.displayName = 'PoliceVerificationForm';
+const PoliceVerificationForm = () => {
+    return null;
+};
 
 export default PoliceVerificationForm;
