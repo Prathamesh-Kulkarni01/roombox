@@ -9,6 +9,7 @@ import { produce } from "immer"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { v4 as uuidv4 } from 'uuid';
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
@@ -24,10 +25,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
-import PoliceVerificationForm from '@/components/dashboard/PoliceVerificationForm'
 import { useReactToPrint } from 'react-to-print'
 
-import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument } from "@/lib/types"
+import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, PG } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -72,6 +72,144 @@ const complaintStatusColors: Record<Complaint['status'], string> = {
 }
 
 const isImageUrl = (url: string) => /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
+
+
+// This component will be hidden but used for printing.
+const PoliceVerificationFormContent = ({ guest, pgs }: { guest: Guest | null; pgs: PG[] }) => {
+  if (!guest) return null;
+  const pg = pgs.find(p => p.id === guest.pgId);
+
+  const styles = {
+    page: {
+        width: '210mm',
+        minHeight: '297mm',
+        padding: '20mm',
+        margin: '10mm auto',
+        border: '1px #D3D3D3 solid',
+        borderRadius: '5px',
+        background: 'white',
+        boxShadow: '0 0 5px rgba(0, 0, 0, 0.1)',
+        fontFamily: 'Arial, sans-serif',
+        color: '#333',
+    },
+    header: {
+        textAlign: 'center' as 'center',
+        borderBottom: '2px solid #333',
+        paddingBottom: '10px',
+        marginBottom: '20px',
+    },
+    h1: {
+        margin: '0',
+        fontSize: '24px',
+    },
+    section: {
+        marginBottom: '20px',
+    },
+    h2: {
+        fontSize: '18px',
+        borderBottom: '1px solid #eee',
+        paddingBottom: '5px',
+        marginBottom: '10px',
+    },
+    grid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '10px',
+    },
+    gridItem: {
+        
+    },
+    label: {
+        fontWeight: 'bold' as 'bold',
+        display: 'block',
+        marginBottom: '5px',
+        fontSize: '14px',
+    },
+    value: {
+        fontSize: '14px',
+        padding: '8px',
+        border: '1px solid #ccc',
+        borderRadius: '4px',
+        backgroundColor: '#f9f9f9',
+    },
+    fullWidth: {
+      gridColumn: '1 / -1',
+    },
+    documentImage: {
+      width: '100%',
+      height: 'auto',
+      maxHeight: '400px',
+      objectFit: 'contain' as 'contain',
+      border: '1px solid #ddd',
+      borderRadius: '4px',
+      marginTop: '10px',
+    },
+    pageBreak: {
+        pageBreakAfter: 'always' as 'always'
+    }
+  };
+
+  return (
+    <div style={styles.page}>
+      <header style={styles.header}>
+        <h1 style={styles.h1}>Tenant Verification Form</h1>
+      </header>
+      
+      <section style={styles.section}>
+        <h2 style={styles.h2}>Tenant Details</h2>
+        <div style={styles.grid}>
+          <div style={styles.gridItem}>
+            <span style={styles.label}>Full Name:</span>
+            <div style={styles.value}>{guest.name}</div>
+          </div>
+          <div style={styles.gridItem}>
+            <span style={styles.label}>Phone Number:</span>
+            <div style={styles.value}>{guest.phone}</div>
+          </div>
+          <div style={styles.gridItem}>
+            <span style={styles.label}>Email Address:</span>
+            <div style={styles.value}>{guest.email}</div>
+          </div>
+           <div style={styles.gridItem}>
+            <span style={styles.label}>Move-in Date:</span>
+            <div style={styles.value}>{format(parseISO(guest.moveInDate), 'dd-MM-yyyy')}</div>
+          </div>
+        </div>
+      </section>
+
+      <section style={styles.section}>
+        <h2 style={styles.h2}>Property Details</h2>
+        <div style={styles.grid}>
+            <div style={styles.gridItem}>
+                <span style={styles.label}>Property Name:</span>
+                <div style={styles.value}>{pg?.name}</div>
+            </div>
+            <div style={{ ...styles.gridItem, ...styles.fullWidth }}>
+                <span style={styles.label}>Property Address:</span>
+                <div style={styles.value}>{pg?.location}, {pg?.city}</div>
+            </div>
+        </div>
+      </section>
+      
+      {guest.documents && guest.documents.map((doc, index) => (
+        <React.Fragment key={uuidv4()}>
+            <div style={styles.pageBreak}></div>
+             <section style={styles.section}>
+                <h2 style={styles.h2}>Document: {doc.label}</h2>
+                <Image
+                  src={doc.url}
+                  alt={doc.label}
+                  width={500}
+                  height={300}
+                  style={styles.documentImage}
+                />
+            </section>
+        </React.Fragment>
+      ))}
+
+    </div>
+  );
+};
 
 
 export default function GuestProfilePage() {
@@ -363,13 +501,11 @@ export default function GuestProfilePage() {
                                 <p className="flex items-center justify-center gap-2"><Building className="w-4 h-4"/> {guest.pgName}</p>
                                 <p className="flex items-center justify-center gap-2"><BedDouble className="w-4 h-4"/> Bed ID: {guest.bedId}</p>
                             </div>
-                        </CardContent>
-                        <CardFooter className="flex flex-col gap-2 p-4 pt-0 border-t mt-4">
-                            <div className="flex justify-between items-center w-full">
-                                <span className="text-sm font-medium">KYC Status:</span>
+                             <div className="flex items-center justify-center gap-2 mt-4 p-2 rounded-md w-full border" >
+                                <span className="text-sm font-medium">KYC:</span>
                                 <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                             </div>
-                        </CardFooter>
+                        </CardContent>
                     </Card>
                 </div>
 
@@ -449,22 +585,20 @@ export default function GuestProfilePage() {
                 <CardContent>
                     {guest.documents && guest.documents.length > 0 ? (
                         <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {guest.documents.map(doc => {
                                     const isDocImageUrl = isImageUrl(doc.url);
                                     return (
-                                        <DialogTrigger key={doc.configId} asChild>
-                                            <button className="space-y-2 group" onClick={() => setSelectedDoc(doc)}>
-                                                <Label>{doc.label}</Label>
-                                                <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
-                                                    {isDocImageUrl ? (
-                                                        <Image src={doc.url} alt={`${doc.label} Preview`} layout="fill" objectFit="contain" />
-                                                    ) : (
-                                                        <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        </DialogTrigger>
+                                        <button key={doc.configId} className="space-y-2 group" onClick={() => setSelectedDoc(doc)}>
+                                            <Label>{doc.label}</Label>
+                                            <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
+                                                {isDocImageUrl ? (
+                                                    <Image src={doc.url} alt={`${doc.label} Preview`} layout="fill" objectFit="contain" />
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
+                                                )}
+                                            </div>
+                                        </button>
                                     )
                                 })}
                             </div>
@@ -507,10 +641,11 @@ export default function GuestProfilePage() {
                 </CardContent>
             </Card>
 
-            <div className="hidden">
-              <PoliceVerificationForm ref={verificationFormRef} guest={guest} pgs={pgs.pgs}/>
+            <div className="hidden print:block">
+              <div ref={verificationFormRef}>
+                <PoliceVerificationFormContent guest={guest} pgs={pgs.pgs}/>
+              </div>
             </div>
-
 
             <Card>
                 <Tabs defaultValue="stay-details">
