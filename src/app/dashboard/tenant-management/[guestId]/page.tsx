@@ -764,24 +764,26 @@ export default function GuestProfilePage() {
                         <DialogTitle>Complete KYC for {guest.name}</DialogTitle>
                         <DialogDescription>Upload the guest's documents to initiate verification.</DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="flex-1 pr-6 -mr-6">
-                        <div className="flex flex-col gap-6 py-4">
-                            {kycConfigs.map(config => (
-                                <div className="space-y-2" key={config.id}>
-                                    <Label htmlFor={`owner-doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
-                                    <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                                        {documentUris[config.id] ? <Image src={documentUris[config.id]} alt="Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload {config.label}</p>}
+                    <div className="flex-1 overflow-hidden">
+                        <ScrollArea className="h-full pr-6 -mr-6">
+                            <div className="flex flex-col gap-6 py-4">
+                                {kycConfigs.map(config => (
+                                    <div className="space-y-2" key={config.id}>
+                                        <Label htmlFor={`owner-doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
+                                        <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                            {documentUris[config.id] ? <Image src={documentUris[config.id]} alt="Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload {config.label}</p>}
+                                        </div>
+                                        <div className="relative">
+                                            <Input id={`owner-doc-${config.id}`} type="file" accept="image/*,application/pdf" onChange={(e) => handleKycFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                            <Button asChild variant="outline" className="w-full pointer-events-none">
+                                                <span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change" : "Upload"}</span>
+                                            </Button>
+                                        </div>
                                     </div>
-                                    <div className="relative">
-                                        <Input id={`owner-doc-${config.id}`} type="file" accept="image/*,application/pdf" onChange={(e) => handleKycFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                                        <Button asChild variant="outline" className="w-full pointer-events-none">
-                                            <span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change" : "Upload"}</span>
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </ScrollArea>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </div>
                     <DialogFooter className="pt-4 border-t">
                         <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                         <Button onClick={handleKycSubmit} disabled={isSubmittingKyc}>
@@ -816,4 +818,3 @@ export default function GuestProfilePage() {
       </Dialog>
     )
 }
-
