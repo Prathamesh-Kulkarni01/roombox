@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import React, { useState, useMemo, useEffect, useRef } from "react"
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -363,7 +363,7 @@ export default function GuestProfilePage() {
 
     const handleRemoveCharge = (chargeId: string) => {
         if (!guest) return;
-        dispatch(removeAdditionalCharge({ guestId: guest.id, chargeId }));
+        dispatch(removeChargeAction({ guestId: guest.id, chargeId }));
     };
 
     const handleOpenReminderDialog = async () => {
@@ -579,9 +579,12 @@ export default function GuestProfilePage() {
                     </Card>
                 </div>
             </div>
-
+            
             <Card className="w-full">
-                <CardHeader><CardTitle>KYC Documents</CardTitle></CardHeader>
+                <CardHeader>
+                    <CardTitle>KYC Documents</CardTitle>
+                    <CardDescription>Review guest-submitted documents for verification.</CardDescription>
+                </CardHeader>
                 <CardContent>
                     {guest.documents && guest.documents.length > 0 ? (
                         <div className="space-y-4">
@@ -828,3 +831,6 @@ export default function GuestProfilePage() {
       </Dialog>
     )
 }
+
+
+    
