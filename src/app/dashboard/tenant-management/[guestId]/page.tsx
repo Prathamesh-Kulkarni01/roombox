@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from "react"
@@ -579,7 +580,7 @@ export default function GuestProfilePage() {
                                             <Label>{doc.label}</Label>
                                             <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
                                                 {isDocImageUrl ? (
-                                                    <Image src={doc.url} alt={`${doc.label} Preview`} width={300} height={200} className="w-full h-full object-contain" />
+                                                    <img src={doc.url} alt={`${doc.label} Preview`} className="w-full h-full object-contain" />
                                                 ) : (
                                                     <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
                                                 )}
@@ -763,7 +764,7 @@ export default function GuestProfilePage() {
                         <DialogTitle>Complete KYC for {guest.name}</DialogTitle>
                         <DialogDescription>Upload the guest's documents to initiate verification.</DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="pr-6 -mr-6 flex-1">
+                    <ScrollArea className="flex-1 pr-6 -mr-6">
                         <div className="flex flex-col gap-6 py-4">
                             {kycConfigs.map(config => (
                                 <div className="space-y-2" key={config.id}>
@@ -798,7 +799,7 @@ export default function GuestProfilePage() {
             <div className="flex-1 flex items-center justify-center overflow-hidden">
                 {selectedDoc && (
                     isImageUrl(selectedDoc.url) ? (
-                        <Image src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} width={800} height={600} className="max-w-full max-h-full object-contain" />
+                        <img src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} className="max-w-full max-h-full object-contain" />
                     ) : (
                         <div className="text-center">
                             <p className="mb-4">PDF preview is not available here. Please open it in a new tab.</p>
@@ -815,3 +816,4 @@ export default function GuestProfilePage() {
       </Dialog>
     )
 }
+
