@@ -149,9 +149,8 @@ const FormContent = ({ guest, pgs }: PoliceVerificationFormProps) => {
   );
 };
 
-
-// The issue is with react-to-print and functional components with forwardRef.
-// Wrapping it in a class component provides a stable node for the library to find.
+// Using a class component wrapper to provide a stable node for react-to-print
+// This avoids issues with forwardRef and findDOMNode in newer React versions.
 class PoliceVerificationForm extends React.Component<PoliceVerificationFormProps> {
   render() {
     return <FormContent {...this.props} />;
