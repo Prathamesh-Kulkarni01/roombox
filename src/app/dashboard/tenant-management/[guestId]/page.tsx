@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -22,12 +22,13 @@ import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
+import PoliceVerificationForm from '@/components/dashboard/PoliceVerificationForm'
+import { useReactToPrint } from 'react-to-print'
 
 import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink } from "lucide-react"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
@@ -85,6 +86,12 @@ export default function GuestProfilePage() {
     const { currentUser, currentPlan } = useAppSelector(state => state.user)
     const { featurePermissions } = useAppSelector(state => state.permissions);
     const { kycConfigs } = useAppSelector(state => state.kycConfig);
+    
+    const verificationFormRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+      content: () => verificationFormRef.current,
+      documentTitle: 'RentVastu-Police-Verification'
+    });
     
     const {
         isEditGuestDialogOpen,
@@ -437,7 +444,7 @@ export default function GuestProfilePage() {
                 </div>
             </div>
 
-            <Card>
+            <Card className="w-full">
                 <CardHeader><CardTitle>KYC Documents</CardTitle></CardHeader>
                 <CardContent>
                     {guest.documents && guest.documents.length > 0 ? (
@@ -488,6 +495,22 @@ export default function GuestProfilePage() {
                     )}
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader><CardTitle>Police Verification</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground mb-4">Generate a consolidated document with the guest's details and KYC proofs for police verification submission.</p>
+                     <Button onClick={handlePrint}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Generate Verification PDF
+                    </Button>
+                </CardContent>
+            </Card>
+
+            <div className="hidden">
+              <PoliceVerificationForm ref={verificationFormRef} guest={guest} pgs={pgs.pgs}/>
+            </div>
+
 
             <Card>
                 <Tabs defaultValue="stay-details">
@@ -670,5 +693,3 @@ export default function GuestProfilePage() {
       </Dialog>
     )
 }
-
-    

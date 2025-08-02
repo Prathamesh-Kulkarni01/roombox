@@ -19,7 +19,7 @@ export async function createRazorpaySubscription(planId: PlanName, userId: strin
     throw new Error('Invalid plan selected for subscription.')
   }
 
-  const razorpayPlanId = `plan_${planId}_rentvastu`;
+  const razorpayPlanId = `plan_${planId}_rentvastu`; 
 
   try {
     // First, try to fetch the plan to see if it exists
