@@ -12,83 +12,83 @@ interface PoliceVerificationFormProps {
   pgs: PG[];
 }
 
-const PoliceVerificationForm = React.forwardRef<HTMLDivElement, PoliceVerificationFormProps>(({ guest, pgs }, ref) => {
-  if (!guest) return null;
-
-  const pg = pgs.find(p => p.id === guest.pgId);
-  
-  const styles = {
-    page: {
-        width: '210mm',
-        minHeight: '297mm',
-        padding: '20mm',
-        margin: '10mm auto',
-        border: '1px #D3D3D3 solid',
-        borderRadius: '5px',
-        background: 'white',
-        boxShadow: '0 0 5px rgba(0, 0, 0, 0.1)',
-        fontFamily: 'Arial, sans-serif',
-        color: '#333',
-    },
-    header: {
-        textAlign: 'center' as 'center',
-        borderBottom: '2px solid #333',
-        paddingBottom: '10px',
-        marginBottom: '20px',
-    },
-    h1: {
-        margin: '0',
-        fontSize: '24px',
-    },
-    section: {
-        marginBottom: '20px',
-    },
-    h2: {
-        fontSize: '18px',
-        borderBottom: '1px solid #eee',
-        paddingBottom: '5px',
-        marginBottom: '10px',
-    },
-    grid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '10px',
-    },
-    gridItem: {
-        
-    },
-    label: {
-        fontWeight: 'bold' as 'bold',
-        display: 'block',
-        marginBottom: '5px',
-        fontSize: '14px',
-    },
-    value: {
-        fontSize: '14px',
-        padding: '8px',
-        border: '1px solid #ccc',
-        borderRadius: '4px',
-        backgroundColor: '#f9f9f9',
-    },
-    fullWidth: {
-      gridColumn: '1 / -1',
-    },
-    documentImage: {
-      width: '100%',
-      height: 'auto',
-      maxHeight: '400px',
-      objectFit: 'contain' as 'contain',
-      border: '1px solid #ddd',
+const styles = {
+  page: {
+      width: '210mm',
+      minHeight: '297mm',
+      padding: '20mm',
+      margin: '10mm auto',
+      border: '1px #D3D3D3 solid',
+      borderRadius: '5px',
+      background: 'white',
+      boxShadow: '0 0 5px rgba(0, 0, 0, 0.1)',
+      fontFamily: 'Arial, sans-serif',
+      color: '#333',
+  },
+  header: {
+      textAlign: 'center' as 'center',
+      borderBottom: '2px solid #333',
+      paddingBottom: '10px',
+      marginBottom: '20px',
+  },
+  h1: {
+      margin: '0',
+      fontSize: '24px',
+  },
+  section: {
+      marginBottom: '20px',
+  },
+  h2: {
+      fontSize: '18px',
+      borderBottom: '1px solid #eee',
+      paddingBottom: '5px',
+      marginBottom: '10px',
+  },
+  grid: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '10px',
+  },
+  gridItem: {
+      
+  },
+  label: {
+      fontWeight: 'bold' as 'bold',
+      display: 'block',
+      marginBottom: '5px',
+      fontSize: '14px',
+  },
+  value: {
+      fontSize: '14px',
+      padding: '8px',
+      border: '1px solid #ccc',
       borderRadius: '4px',
-      marginTop: '10px',
-    },
-    pageBreak: {
-        pageBreakAfter: 'always' as 'always'
-    }
-  };
+      backgroundColor: '#f9f9f9',
+  },
+  fullWidth: {
+    gridColumn: '1 / -1',
+  },
+  documentImage: {
+    width: '100%',
+    height: 'auto',
+    maxHeight: '400px',
+    objectFit: 'contain' as 'contain',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    marginTop: '10px',
+  },
+  pageBreak: {
+      pageBreakAfter: 'always' as 'always'
+  }
+};
+
+
+const FormContent = ({ guest, pgs }: PoliceVerificationFormProps) => {
+  if (!guest) return null;
+  const pg = pgs.find(p => p.id === guest.pgId);
 
   return (
-    <div ref={ref} style={styles.page}>
+    <div style={styles.page}>
       <header style={styles.header}>
         <h1 style={styles.h1}>Tenant Verification Form</h1>
       </header>
@@ -147,7 +147,15 @@ const PoliceVerificationForm = React.forwardRef<HTMLDivElement, PoliceVerificati
 
     </div>
   );
-});
+};
 
-PoliceVerificationForm.displayName = "PoliceVerificationForm";
+
+// The issue is with react-to-print and functional components with forwardRef.
+// Wrapping it in a class component provides a stable node for the library to find.
+class PoliceVerificationForm extends React.Component<PoliceVerificationFormProps> {
+  render() {
+    return <FormContent {...this.props} />;
+  }
+}
+
 export default PoliceVerificationForm;
