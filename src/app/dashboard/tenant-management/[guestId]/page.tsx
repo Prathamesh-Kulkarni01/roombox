@@ -1,8 +1,7 @@
 
-
 'use client'
 
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useState, useMemo, useEffect, useRef } from "react"
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -35,12 +34,13 @@ import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
 import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner, updateGuestKycStatus } from "@/lib/slices/guestsSlice"
-import { useDashboard } from '@/hooks/use-dashboard'
+import { useDashboard } from "@/hooks/use-dashboard"
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
 import { getDoc, doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import Access from '@/components/ui/PermissionWrapper';
 
 
 const paymentSchema = z.object({
@@ -531,7 +531,7 @@ export default function GuestProfilePage() {
                                 <span className="font-medium">₹{(guest.depositAmount || 0).toLocaleString('en-IN')}</span>
                             </div>
                         </CardContent>
-                        <CardFooter className="flex flex-wrap gap-2">
+                        <CardFooter className="flex-wrap gap-2">
                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && (
                                 <Access feature="finances" action="add"><Button onClick={() => setIsPaymentDialogOpen(true)}><Wallet className="mr-2 h-4 w-4" /> Collect Rent</Button></Access>
                              )}
@@ -550,7 +550,7 @@ export default function GuestProfilePage() {
                     </Card>
                 </div>
             </div>
-
+            
             <Card className="w-full">
                 <CardHeader>
                     <CardTitle>KYC Documents</CardTitle>
