@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from "react"
@@ -41,6 +42,7 @@ import { Label } from "@/components/ui/label"
 import { getDoc, doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import Access from '@/components/ui/PermissionWrapper';
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 
 const paymentSchema = z.object({
@@ -181,16 +183,18 @@ export default function GuestProfilePage() {
                              if (y + 10 > pageHeight - 20) {
                                 pdf.addPage(); y = 20;
                              }
-                             addText(`Could not load image preview for ${doc.label}. URL: ${doc.url}`, 10, y, 8, 'normal');
+                             addText(`Could not load image preview for ${doc.label}.`, 10, y, 8, 'normal');
+                             y += 5;
+                             addLink(doc.url, doc.url, 10, y);
                              y += 10;
                         }
                     } else { // Handle PDFs by adding a link
                         if (y + 10 > pageHeight - 20) {
                             pdf.addPage(); y = 20;
                         }
-                        addText(`This document is a PDF.`, 10, y);
+                        addText(`This document is a PDF. It can be accessed at the link below.`, 10, y);
                         y += 5;
-                        addLink(`Click here to open ${doc.label}`, doc.url, 10, y);
+                        addLink(doc.url, doc.url, 10, y);
                         y += 10;
                     }
                 }
@@ -755,28 +759,30 @@ export default function GuestProfilePage() {
             </Dialog>
 
              <Dialog open={isKycDialogOpen} onOpenChange={setIsKycDialogOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-xl flex flex-col max-h-[90vh]">
                     <DialogHeader>
                         <DialogTitle>Complete KYC for {guest.name}</DialogTitle>
                         <DialogDescription>Upload the guest's documents to initiate verification.</DialogDescription>
                     </DialogHeader>
-                    <div className="grid md:grid-cols-2 gap-6 py-4">
-                        {kycConfigs.map(config => (
-                             <div className="space-y-2" key={config.id}>
-                                <Label htmlFor={`owner-doc-${config.id}`}>{config.label}</Label>
-                                <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                                     {documentUris[config.id] ? <Image src={documentUris[config.id]} alt="Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload {config.label}</p>}
+                    <ScrollArea className="pr-6 -mr-6 flex-1">
+                        <div className="grid md:grid-cols-2 gap-6 py-4">
+                            {kycConfigs.map(config => (
+                                <div className="space-y-2" key={config.id}>
+                                    <Label htmlFor={`owner-doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
+                                    <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                        {documentUris[config.id] ? <Image src={documentUris[config.id]} alt="Preview" layout="fill" objectFit="contain" /> : <p className="text-muted-foreground text-sm">Upload {config.label}</p>}
+                                    </div>
+                                    <div className="relative">
+                                        <Input id={`owner-doc-${config.id}`} type="file" accept="image/*,application/pdf" onChange={(e) => handleKycFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                        <Button asChild variant="outline" className="w-full pointer-events-none">
+                                            <span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change" : "Upload"}</span>
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="relative">
-                                    <Input id={`owner-doc-${config.id}`} type="file" accept="image/*,application/pdf" onChange={(e) => handleKycFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                                    <Button asChild variant="outline" className="w-full pointer-events-none">
-                                        <span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change" : "Upload"}</span>
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <DialogFooter>
+                            ))}
+                        </div>
+                    </ScrollArea>
+                    <DialogFooter className="pt-4 border-t">
                         <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                         <Button onClick={handleKycSubmit} disabled={isSubmittingKyc}>
                             {isSubmittingKyc ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
