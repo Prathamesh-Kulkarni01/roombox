@@ -2,7 +2,7 @@
 
 'use client'
 
-import React, { useState, useMemo, useEffect, useRef } from "react"
+import React, { useState, useMemo, useEffect } from "react"
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -10,7 +10,8 @@ import { produce } from "immer"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { v4 as uuidv4 } from 'uuid';
+import jsPDF from 'jspdf';
+
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
@@ -26,16 +27,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
-import { useReactToPrint } from 'react-to-print'
 
-import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, PG, Payment } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer } from "lucide-react"
+import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment } from "@/lib/types"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
 import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner, updateGuestKycStatus } from "@/lib/slices/guestsSlice"
-import { useDashboard } from "@/hooks/use-dashboard"
+import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
@@ -74,142 +74,6 @@ const complaintStatusColors: Record<Complaint['status'], string> = {
 
 const isImageUrl = (url: string) => /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
 
-const PoliceVerificationFormContent = React.forwardRef<HTMLDivElement, { guest: Guest | null; pgs: PG[] }>(({ guest, pgs }, ref) => {
-    if (!guest) return null;
-    const pg = pgs.find(p => p.id === guest.pgId);
-
-    const styles = {
-        page: {
-            width: '210mm',
-            minHeight: '297mm',
-            padding: '20mm',
-            margin: '10mm auto',
-            border: '1px #D3D3D3 solid',
-            borderRadius: '5px',
-            background: 'white',
-            boxShadow: '0 0 5px rgba(0, 0, 0, 0.1)',
-            fontFamily: 'Arial, sans-serif',
-            color: '#333',
-        },
-        header: {
-            textAlign: 'center' as 'center',
-            borderBottom: '2px solid #333',
-            paddingBottom: '10px',
-            marginBottom: '20px',
-        },
-        h1: {
-            margin: '0',
-            fontSize: '24px',
-        },
-        section: {
-            marginBottom: '20px',
-        },
-        h2: {
-            fontSize: '18px',
-            borderBottom: '1px solid #eee',
-            paddingBottom: '5px',
-            marginBottom: '10px',
-        },
-        grid: {
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '10px',
-        },
-        gridItem: {
-            
-        },
-        label: {
-            fontWeight: 'bold' as 'bold',
-            display: 'block',
-            marginBottom: '5px',
-            fontSize: '14px',
-        },
-        value: {
-            fontSize: '14px',
-            padding: '8px',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            backgroundColor: '#f9f9f9',
-        },
-        fullWidth: {
-        gridColumn: '1 / -1',
-        },
-        documentImage: {
-            width: '100%',
-            height: 'auto',
-            maxHeight: '400px',
-            objectFit: 'contain' as 'contain',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            marginTop: '10px',
-        },
-        pageBreak: {
-            pageBreakAfter: 'always' as 'always'
-        }
-    };
-    
-  return (
-    <div ref={ref}>
-        <div style={styles.page}>
-        <header style={styles.header}>
-            <h1 style={styles.h1}>Tenant Verification Form</h1>
-        </header>
-        
-        <section style={styles.section}>
-            <h2 style={styles.h2}>Tenant Details</h2>
-            <div style={styles.grid}>
-            <div style={styles.gridItem}>
-                <span style={styles.label}>Full Name:</span>
-                <div style={styles.value}>{guest.name}</div>
-            </div>
-            <div style={styles.gridItem}>
-                <span style={styles.label}>Phone Number:</span>
-                <div style={styles.value}>{guest.phone}</div>
-            </div>
-            <div style={styles.gridItem}>
-                <span style={styles.label}>Email Address:</span>
-                <div style={styles.value}>{guest.email}</div>
-            </div>
-            <div style={styles.gridItem}>
-                <span style={styles.label}>Move-in Date:</span>
-                <div style={styles.value}>{format(parseISO(guest.moveInDate), 'dd-MM-yyyy')}</div>
-            </div>
-            </div>
-        </section>
-
-        <section style={styles.section}>
-            <h2 style={styles.h2}>Property Details</h2>
-            <div style={styles.grid}>
-                <div style={styles.gridItem}>
-                    <span style={styles.label}>Property Name:</span>
-                    <div style={styles.value}>{pg?.name}</div>
-                </div>
-                <div style={{ ...styles.gridItem, ...styles.fullWidth }}>
-                    <span style={styles.label}>Property Address:</span>
-                    <div style={styles.value}>{pg?.location}, {pg?.city}</div>
-                </div>
-            </div>
-        </section>
-        
-        {guest.documents && guest.documents.map((doc, index) => (
-            <React.Fragment key={uuidv4()}>
-                <div style={styles.pageBreak}></div>
-                 <section style={styles.section}>
-                    <h2 style={styles.h2}>Document: {doc.label}</h2>
-                    <img
-                        src={doc.url}
-                        alt={doc.label}
-                        style={styles.documentImage}
-                    />
-                </section>
-            </React.Fragment>
-        ))}
-        </div>
-    </div>
-  );
-});
-PoliceVerificationFormContent.displayName = 'PoliceVerificationFormContent';
-
 
 export default function GuestProfilePage() {
     const params = useParams()
@@ -224,11 +88,118 @@ export default function GuestProfilePage() {
     const { featurePermissions } = useAppSelector(state => state.permissions);
     const { kycConfigs } = useAppSelector(state => state.kycConfig);
     
-    const verificationFormRef = useRef<HTMLDivElement>(null);
-    const handlePrint = useReactToPrint({
-      content: () => verificationFormRef.current,
-      documentTitle: 'RentVastu-Police-Verification'
-    });
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    
+    const guest = useMemo(() => guests.guests.find(g => g.id === guestId), [guests, guestId])
+    const pg = useMemo(() => guest ? pgs.pgs.find(p => p.id === guest.pgId) : null, [guest, pgs])
+    
+    const handleGeneratePdf = async () => {
+        if (!guest || !pg) return;
+
+        setIsGeneratingPdf(true);
+        toast({ title: 'Generating PDF...', description: 'Please wait while we prepare your document.' });
+
+        try {
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const addText = (text: string, x: number, y: number, size: number = 10, style: 'normal' | 'bold' = 'normal') => {
+                pdf.setFontSize(size);
+                pdf.setFont('helvetica', style);
+                pdf.text(text, x, y);
+            }
+
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            let y = 20;
+
+            addText('Tenant Verification Form', 105, y, 16, 'bold');
+            y += 10;
+            pdf.line(10, y, 200, y);
+            y += 10;
+
+            addText('Tenant Details', 10, y, 12, 'bold');
+            y += 8;
+            addText(`Full Name: ${guest.name}`, 10, y);
+            addText(`Phone: ${guest.phone}`, 110, y);
+            y += 8;
+            addText(`Email: ${guest.email}`, 10, y);
+            addText(`Move-in Date: ${format(parseISO(guest.moveInDate), 'dd-MM-yyyy')}`, 110, y);
+            y += 15;
+
+            addText('Property Details', 10, y, 12, 'bold');
+            y += 8;
+            addText(`Property Name: ${pg.name}`, 10, y);
+            y += 8;
+            addText(`Address: ${pg.location}, ${pg.city}`, 10, y);
+            y += 15;
+
+            if (guest.documents && guest.documents.length > 0) {
+                for (const doc of guest.documents) {
+                    if (y + 10 > pageHeight - 20) { // Check if new section fits
+                        pdf.addPage();
+                        y = 20;
+                    }
+                    addText(`Document: ${doc.label}`, 10, y, 12, 'bold');
+                    y += 10;
+                    
+                    if (isImageUrl(doc.url)) {
+                        try {
+                            const response = await fetch(doc.url);
+                            const blob = await response.blob();
+                            const reader = new FileReader();
+                            const dataUrl = await new Promise<string>((resolve, reject) => {
+                                reader.onloadend = () => resolve(reader.result as string);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+
+                            const img = new window.Image();
+                            img.src = dataUrl;
+                            await new Promise(resolve => { img.onload = resolve; });
+
+                            const imgWidth = 180;
+                            const imgHeight = (img.height * imgWidth) / img.width;
+                            
+                            if (y + imgHeight > pageHeight - 20) {
+                                pdf.addPage();
+                                y = 20;
+                            }
+                            pdf.addImage(dataUrl, 'JPEG', 15, y, imgWidth, imgHeight);
+                            y += imgHeight + 10;
+
+                        } catch(e) {
+                             if (y + 10 > pageHeight - 20) {
+                                pdf.addPage(); y = 20;
+                             }
+                             addText(`Could not load image preview for ${doc.label}. URL: ${doc.url}`, 10, y, 8, 'normal');
+                             y += 10;
+                        }
+                    } else {
+                        if (y + 10 > pageHeight - 20) {
+                            pdf.addPage(); y = 20;
+                        }
+                        addText(`Document is a PDF, please download separately.`, 10, y);
+                        y += 10;
+                    }
+                }
+            }
+
+            pdf.save(`police-verification-${guest?.name}.pdf`);
+             toast({ title: 'PDF Generated!', description: 'Your document has been downloaded.' });
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            toast({
+                variant: 'destructive',
+                title: "PDF Generation Failed",
+                description: "There was an issue creating the PDF file. Check console for details."
+            });
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    };
     
     const {
         isEditGuestDialogOpen,
@@ -251,7 +222,6 @@ export default function GuestProfilePage() {
     const [selectedDoc, setSelectedDoc] = useState<SubmittedKycDocument | null>(null);
 
 
-    const guest = useMemo(() => guests.guests.find(g => g.id === guestId), [guests, guestId])
     const guestComplaints = useMemo(() => complaints.complaints.filter(c => c.guestId === guestId), [complaints, guestId])
 
     useEffect(() => {
@@ -482,7 +452,9 @@ export default function GuestProfilePage() {
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <h1 className="text-2xl font-bold">{guest.name}'s Profile</h1>
-                <Button variant="outline" size="icon" onClick={() => handleOpenEditGuestDialog(guest)}><Pencil className="h-4 w-4"/></Button>
+                <Access feature="guests" action="edit">
+                    <Button variant="outline" size="icon" onClick={() => handleOpenEditGuestDialog(guest)}><Pencil className="h-4 w-4"/></Button>
+                </Access>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -494,14 +466,14 @@ export default function GuestProfilePage() {
                                 <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <h2 className="text-xl font-semibold">{guest.name}</h2>
-                            <div className="text-sm text-muted-foreground space-y-2 mt-2">
+                             <div className="text-sm text-muted-foreground space-y-2 mt-2">
                                 <p className="flex items-center justify-center gap-2"><Phone className="w-4 h-4"/> {guest.phone || 'Not provided'}</p>
                                 <p className="flex items-center justify-center gap-2"><Mail className="w-4 h-4"/> {guest.email || 'Not provided'}</p>
                                 <p className="flex items-center justify-center gap-2"><Building className="w-4 h-4"/> {guest.pgName}</p>
                                 <p className="flex items-center justify-center gap-2"><BedDouble className="w-4 h-4"/> Bed ID: {guest.bedId}</p>
                             </div>
-                             <div className="flex items-center justify-center gap-2 mt-4 p-2 rounded-md w-full border" >
-                                <span className="text-sm font-medium">KYC:</span>
+                            <div className="flex items-center justify-between gap-2 mt-4 p-2 rounded-md w-full border" >
+                                <span className="text-sm font-medium">KYC Status:</span>
                                 <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                             </div>
                         </CardContent>
@@ -561,9 +533,9 @@ export default function GuestProfilePage() {
                         </CardContent>
                         <CardFooter className="flex flex-wrap gap-2">
                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && (
-                                <Button onClick={() => setIsPaymentDialogOpen(true)}><Wallet className="mr-2 h-4 w-4" /> Collect Rent</Button>
+                                <Access feature="finances" action="add"><Button onClick={() => setIsPaymentDialogOpen(true)}><Wallet className="mr-2 h-4 w-4" /> Collect Rent</Button></Access>
                              )}
-                              <Button variant="secondary" onClick={() => setIsChargeDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Add Charge</Button>
+                              <Access feature="finances" action="add"><Button variant="secondary" onClick={() => setIsChargeDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Add Charge</Button></Access>
                               {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && currentPlan?.hasAiRentReminders && (
                                 <Button variant="outline" onClick={handleOpenReminderDialog}><MessageCircle className="mr-2 h-4 w-4" />Send Reminder</Button>
                             )}
@@ -595,7 +567,7 @@ export default function GuestProfilePage() {
                                             <Label>{doc.label}</Label>
                                             <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
                                                 {isDocImageUrl ? (
-                                                    <Image src={doc.url} alt={`${doc.label} Preview`} layout="fill" objectFit="contain" />
+                                                    <Image src={doc.url} alt={`${doc.label} Preview`} width={300} height={200} className="w-full h-full object-contain" />
                                                 ) : (
                                                     <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
                                                 )}
@@ -605,24 +577,28 @@ export default function GuestProfilePage() {
                                 })}
                             </div>
                              {guest.kycStatus === 'pending' && (
-                                <div className="p-4 border bg-muted/50 rounded-md mt-6">
-                                    <p className="font-semibold mb-2">Manual Verification</p>
-                                    {guest.kycExtractedName && <p className="text-sm">AI Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>}
-                                    <p className="text-sm">Guest's Name: <span className="font-semibold">{guest.name}</span></p>
-                                    <div className="flex gap-2 mt-4">
-                                        <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
-                                        <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>
+                                <Access feature="kyc" action="edit">
+                                    <div className="p-4 border bg-muted/50 rounded-md mt-6">
+                                        <p className="font-semibold mb-2">Manual Verification</p>
+                                        {guest.kycExtractedName && <p className="text-sm">AI Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>}
+                                        <p className="text-sm">Guest's Name: <span className="font-semibold">{guest.name}</span></p>
+                                        <div className="flex gap-2 mt-4">
+                                            <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>
+                                        </div>
                                     </div>
-                                </div>
+                                </Access>
                             )}
                         </div>
                     ) : <p className="text-sm text-muted-foreground text-center py-4">No documents submitted by the tenant yet.</p>}
 
-                     {canAccess(featurePermissions, currentUser?.role, 'kyc', 'edit') && (guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
-                        <Button className="mt-4" onClick={() => setIsKycDialogOpen(true)}>
-                            {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
-                        </Button>
-                     )}
+                     <Access feature="kyc" action="add">
+                        {(guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
+                            <Button className="mt-4" onClick={() => setIsKycDialogOpen(true)}>
+                                {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
+                            </Button>
+                        )}
+                     </Access>
                       {guest.kycRejectReason && (
                         <Alert variant="destructive" className="mt-4">
                             <AlertTitle>Reason for Rejection</AlertTitle>
@@ -636,18 +612,13 @@ export default function GuestProfilePage() {
                 <CardHeader><CardTitle>Police Verification</CardTitle></CardHeader>
                 <CardContent>
                     <p className="text-muted-foreground mb-4">Generate a consolidated document with the guest's details and KYC proofs for police verification submission.</p>
-                     <div onClick={handlePrint} className="inline-block">
-                        <Button>
-                            <Printer className="mr-2 h-4 w-4" />
-                            Generate Verification PDF
-                        </Button>
-                    </div>
+                     <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
+                        {isGeneratingPdf && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                        <Printer className="mr-2 h-4 w-4" />
+                        {isGeneratingPdf ? 'Generating...' : 'Generate Verification PDF'}
+                    </Button>
                 </CardContent>
             </Card>
-
-            <div className="hidden">
-                <PoliceVerificationFormContent ref={verificationFormRef} guest={guest} pgs={pgs.pgs}/>
-            </div>
 
             <Card>
                 <Tabs defaultValue="stay-details">
