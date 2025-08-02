@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from "react"
@@ -765,7 +764,7 @@ export default function GuestProfilePage() {
                         <DialogDescription>Upload the guest's documents to initiate verification.</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="pr-6 -mr-6 flex-1">
-                        <div className="grid md:grid-cols-2 gap-6 py-4">
+                        <div className="flex flex-col gap-6 py-4">
                             {kycConfigs.map(config => (
                                 <div className="space-y-2" key={config.id}>
                                     <Label htmlFor={`owner-doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
