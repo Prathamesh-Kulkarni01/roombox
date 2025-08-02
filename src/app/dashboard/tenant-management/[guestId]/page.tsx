@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from "react"
@@ -27,7 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 import { useReactToPrint } from 'react-to-print'
 
-import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, PG } from "@/lib/types"
+import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, PG, Payment } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -134,13 +135,13 @@ const PoliceVerificationFormContent = React.forwardRef<HTMLDivElement, { guest: 
         gridColumn: '1 / -1',
         },
         documentImage: {
-        width: '100%',
-        height: 'auto',
-        maxHeight: '400px',
-        objectFit: 'contain' as 'contain',
-        border: '1px solid #ddd',
-        borderRadius: '4px',
-        marginTop: '10px',
+            width: '100%',
+            height: 'auto',
+            maxHeight: '400px',
+            objectFit: 'contain' as 'contain',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            marginTop: '10px',
         },
         pageBreak: {
             pageBreakAfter: 'always' as 'always'
@@ -193,14 +194,12 @@ const PoliceVerificationFormContent = React.forwardRef<HTMLDivElement, { guest: 
         {guest.documents && guest.documents.map((doc, index) => (
             <React.Fragment key={uuidv4()}>
                 <div style={styles.pageBreak}></div>
-                <section style={styles.section}>
+                 <section style={styles.section}>
                     <h2 style={styles.h2}>Document: {doc.label}</h2>
-                    <Image
-                    src={doc.url}
-                    alt={doc.label}
-                    width={500}
-                    height={300}
-                    style={styles.documentImage}
+                    <img
+                        src={doc.url}
+                        alt={doc.label}
+                        style={styles.documentImage}
                     />
                 </section>
             </React.Fragment>
