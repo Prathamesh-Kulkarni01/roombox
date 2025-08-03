@@ -43,12 +43,8 @@ import { getDoc, doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import Access from '@/components/ui/PermissionWrapper';
 import { ScrollArea } from "@/components/ui/scroll-area"
+import PaymentDialog from "@/components/dashboard/dialogs/PaymentDialog"
 
-
-const paymentSchema = z.object({
-  amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
-  paymentMethod: z.enum(['cash', 'upi', 'in-app']),
-});
 
 const chargeSchema = z.object({
   description: z.string().min(3, "Description is required."),
@@ -84,7 +80,7 @@ export default function GuestProfilePage() {
     const { toast } = useToast()
     const guestId = params.guestId as string
     
-    const { guests, pgs, complaints } = useAppSelector(state => state)
+    const { guests, pgs } = useAppSelector(state => state)
     const { isLoading } = useAppSelector(state => state.app)
     const { currentUser, currentPlan } = useAppSelector(state => state.user)
     const { featurePermissions } = useAppSelector(state => state.permissions);
@@ -95,125 +91,6 @@ export default function GuestProfilePage() {
     const guest = useMemo(() => guests.guests.find(g => g.id === guestId), [guests, guestId])
     const pg = useMemo(() => guest ? pgs.pgs.find(p => p.id === guest.pgId) : null, [guest, pgs])
     
-    const handleGeneratePdf = async () => {
-        if (!guest || !pg) return;
-
-        setIsGeneratingPdf(true);
-        toast({ title: 'Generating PDF...', description: 'Please wait while we prepare your document.' });
-
-        try {
-            const pdf = new jsPDF({
-                orientation: 'p',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            const addText = (text: string, x: number, y: number, size: number = 10, style: 'normal' | 'bold' = 'normal') => {
-                pdf.setFontSize(size);
-                pdf.setFont('helvetica', style);
-                pdf.text(text, x, y);
-            }
-
-            const addLink = (text: string, url: string, x: number, y: number) => {
-                 pdf.setFontSize(8);
-                 pdf.setTextColor(0, 0, 255); // Blue color for links
-                 pdf.textWithLink(text, x, y, { url });
-                 pdf.setTextColor(0, 0, 0); // Reset color
-            }
-
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            let y = 20;
-
-            addText('Tenant Verification Form', 105, y, 16, 'bold');
-            y += 10;
-            pdf.line(10, y, 200, y);
-            y += 10;
-
-            addText('Tenant Details', 10, y, 12, 'bold');
-            y += 8;
-            addText(`Full Name: ${guest.name}`, 10, y);
-            addText(`Phone: ${guest.phone}`, 110, y);
-            y += 8;
-            addText(`Email: ${guest.email}`, 10, y);
-            addText(`Move-in Date: ${format(parseISO(guest.moveInDate), 'dd-MM-yyyy')}`, 110, y);
-            y += 15;
-
-            addText('Property Details', 10, y, 12, 'bold');
-            y += 8;
-            addText(`Property Name: ${pg.name}`, 10, y);
-            y += 8;
-            addText(`Address: ${pg.location}, ${pg.city}`, 10, y);
-            y += 15;
-
-            if (guest.documents && guest.documents.length > 0) {
-                for (const doc of guest.documents) {
-                    if (y + 10 > pageHeight - 20) { // Check if new section fits
-                        pdf.addPage();
-                        y = 20;
-                    }
-                    addText(`Document: ${doc.label}`, 10, y, 12, 'bold');
-                    y += 10;
-                    
-                    if (isImageUrl(doc.url)) {
-                        try {
-                            const response = await fetch(doc.url);
-                            const blob = await response.blob();
-                            const reader = new FileReader();
-                            const dataUrl = await new Promise<string>((resolve, reject) => {
-                                reader.onloadend = () => resolve(reader.result as string);
-                                reader.onerror = reject;
-                                reader.readAsDataURL(blob);
-                            });
-
-                            const img = new window.Image();
-                            img.src = dataUrl;
-                            await new Promise(resolve => { img.onload = resolve; });
-
-                            const imgWidth = 180;
-                            const imgHeight = (img.height * imgWidth) / img.width;
-                            
-                            if (y + imgHeight > pageHeight - 20) {
-                                pdf.addPage();
-                                y = 20;
-                            }
-                            pdf.addImage(dataUrl, 'JPEG', 15, y, imgWidth, imgHeight);
-                            y += imgHeight + 10;
-
-                        } catch(e) {
-                             if (y + 10 > pageHeight - 20) {
-                                pdf.addPage(); y = 20;
-                             }
-                             addText(`Could not load image preview for ${doc.label}.`, 10, y, 8, 'normal');
-                             y += 5;
-                             addLink(doc.url, doc.url, 10, y);
-                             y += 10;
-                        }
-                    } else { // Handle PDFs by adding a link
-                        if (y + 10 > pageHeight - 20) {
-                            pdf.addPage(); y = 20;
-                        }
-                        addText(`This document is a PDF. It can be accessed at the link below.`, 10, y);
-                        y += 5;
-                        addLink(doc.url, doc.url, 10, y);
-                        y += 10;
-                    }
-                }
-            }
-
-            pdf.save(`police-verification-${guest?.name}.pdf`);
-             toast({ title: 'PDF Generated!', description: 'Your document has been downloaded.' });
-        } catch (error) {
-            console.error("Error generating PDF:", error);
-            toast({
-                variant: 'destructive',
-                title: "PDF Generation Failed",
-                description: "There was an issue creating the PDF file. Check console for details."
-            });
-        } finally {
-            setIsGeneratingPdf(false);
-        }
-    };
-    
     const {
         isEditGuestDialogOpen,
         setIsEditGuestDialogOpen,
@@ -221,10 +98,15 @@ export default function GuestProfilePage() {
         editGuestForm,
         handleEditGuestSubmit,
         handleOpenEditGuestDialog,
+        isPaymentDialogOpen,
+        setIsPaymentDialogOpen,
+        paymentForm,
+        handlePaymentSubmit,
+        selectedGuestForPayment,
+        handleOpenPaymentDialog
     } = useDashboard({ pgs: pgs.pgs, guests: guests.guests });
 
 
-    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
     const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
     const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false)
     const [isKycDialogOpen, setIsKycDialogOpen] = useState(false)
@@ -265,11 +147,6 @@ export default function GuestProfilePage() {
 
         return { totalDue: total, balanceBroughtForward: balanceBf };
     }, [guest]);
-
-    const paymentForm = useForm<z.infer<typeof paymentSchema>>({
-        resolver: zodResolver(paymentSchema),
-        defaultValues: { paymentMethod: 'cash' }
-    });
     
     const chargeForm = useForm<z.infer<typeof chargeSchema>>({
         resolver: zodResolver(chargeSchema),
@@ -288,52 +165,6 @@ export default function GuestProfilePage() {
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays)
         const updatedGuest = { ...guest, exitDate: exitDate.toISOString() }
         dispatch(updateGuestAction({updatedGuest}))
-    }
-
-    const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
-        if (!guest) return;
-        
-        const paymentRecord: Payment = {
-            id: `pay-${Date.now()}`,
-            date: new Date().toISOString(),
-            amount: values.amountPaid,
-            method: values.paymentMethod,
-            forMonth: format(parseISO(guest.dueDate), 'MMMM yyyy'),
-        };
-
-        const updatedGuest = produce(guest, draft => {
-            let amountPaid = values.amountPaid;
-            
-            if (!draft.paymentHistory) draft.paymentHistory = [];
-            draft.paymentHistory.push(paymentRecord);
-
-            let mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || [])) as AdditionalCharge[];
-            
-            for (const charge of mutableCharges) {
-                if (amountPaid <= 0) break;
-                const amountToClear = Math.min(amountPaid, charge.amount);
-                charge.amount -= amountToClear;
-                amountPaid -= amountToClear;
-            }
-            draft.additionalCharges = mutableCharges.filter(c => c.amount > 0);
-
-            draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaid;
-            
-            const totalDueAfterPayment = draft.rentAmount - (draft.rentPaidAmount || 0) + (draft.additionalCharges.reduce((sum, c) => sum + c.amount, 0));
-
-            if (totalDueAfterPayment <= 0) {
-                draft.rentStatus = 'paid';
-                draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + Math.abs(totalDueAfterPayment);
-                draft.rentPaidAmount = 0;
-                draft.additionalCharges = [];
-                draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
-            } else {
-                draft.rentStatus = 'partial';
-            }
-        });
-        
-        dispatch(updateGuestAction({ updatedGuest }));
-        setIsPaymentDialogOpen(false);
     }
     
     const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>) => {
@@ -546,7 +377,7 @@ export default function GuestProfilePage() {
                         </CardContent>
                         <CardFooter className="flex-wrap gap-2">
                              {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && (
-                                <Access feature="finances" action="add"><Button onClick={() => setIsPaymentDialogOpen(true)}><Wallet className="mr-2 h-4 w-4" /> Collect Rent</Button></Access>
+                                <Access feature="finances" action="add"><Button onClick={() => handleOpenPaymentDialog(guest)}><Wallet className="mr-2 h-4 w-4" /> Collect Rent</Button></Access>
                              )}
                               <Access feature="finances" action="add"><Button variant="secondary" onClick={() => setIsChargeDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Add Charge</Button></Access>
                               {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && currentPlan?.hasAiRentReminders && (
@@ -625,7 +456,7 @@ export default function GuestProfilePage() {
                 <CardHeader><CardTitle>Police Verification</CardTitle></CardHeader>
                 <CardContent>
                     <p className="text-muted-foreground mb-4">Generate a consolidated document with the guest's details and KYC proofs for police verification submission.</p>
-                     <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
+                     <Button onClick={() => {}} disabled={isGeneratingPdf}>
                         {isGeneratingPdf && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                         <Printer className="mr-2 h-4 w-4" />
                         {isGeneratingPdf ? 'Generating...' : 'Generate Verification PDF'}
@@ -731,9 +562,7 @@ export default function GuestProfilePage() {
 
             {/* Dialogs */}
             <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guest} {...{editGuestForm, handleEditGuestSubmit}}/>
-            <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-                <DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Collect Rent Payment</DialogTitle><DialogDescription>Record a full or partial payment for {guest.name}.</DialogDescription></DialogHeader><Form {...paymentForm}><form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4"><div className="space-y-2 py-2"><p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span></p><p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{totalDue.toLocaleString('en-IN')}</span></p></div><FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (<FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>)} /><FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1"><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash" /></FormControl><Label htmlFor="cash" className="font-normal cursor-pointer">Cash</Label></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><Label htmlFor="upi" className="font-normal cursor-pointer">UPI</Label></FormItem><FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="in-app" id="in-app" disabled /></FormControl><Label htmlFor="in-app" className="font-normal text-muted-foreground">In-App (soon)</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} /></form></Form><DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose><Button type="submit" form="payment-form">Confirm Payment</Button></DialogFooter></DialogContent>
-            </Dialog>
+            <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} selectedGuestForPayment={selectedGuestForPayment} paymentForm={paymentForm} handlePaymentSubmit={handlePaymentSubmit}/>
 
             <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
                 <DialogContent><DialogHeader><DialogTitle>Send Rent Reminder</DialogTitle><DialogDescription>A reminder message has been generated for {guest.name}. You can copy it or send it directly via WhatsApp.</DialogDescription></DialogHeader><div className="py-4">{isGeneratingReminder ? (<div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>) : (<Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />)}</div><DialogFooter className="gap-2 sm:justify-end"><Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}><Copy className="mr-2 h-4 w-4" /> Copy</Button><a href={`https://wa.me/${guest.phone}?text=${encodeURIComponent(reminderMessage)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto"><Button className="w-full bg-green-500 hover:bg-green-600 text-white"><MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp</Button></a></DialogFooter></DialogContent>
