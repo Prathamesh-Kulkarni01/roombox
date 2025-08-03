@@ -13,15 +13,18 @@ type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setI
 
 export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit }: PaymentDialogProps) {
   
-  const totalDue = useMemo(() => {
-    if (!selectedGuestForPayment) return 0;
+  const { totalDue, balanceBroughtForward, totalBillForCycle } = useMemo(() => {
+    if (!selectedGuestForPayment) return { totalDue: 0, balanceBroughtForward: 0, totalBillForCycle: 0 };
     
     const balanceBf = selectedGuestForPayment.balanceBroughtForward || 0;
     const currentMonthRent = selectedGuestForPayment.rentAmount;
     const chargesDue = (selectedGuestForPayment.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-    const total = balanceBf + currentMonthRent + chargesDue - (selectedGuestForPayment.rentPaidAmount || 0);
+    const amountPaidInCycle = selectedGuestForPayment.rentPaidAmount || 0;
+    
+    const totalBill = balanceBf + currentMonthRent + chargesDue;
+    const due = totalBill - amountPaidInCycle;
 
-    return total;
+    return { totalDue: due, balanceBroughtForward: balanceBf, totalBillForCycle: totalBill };
   }, [selectedGuestForPayment]);
 
   return (
@@ -34,9 +37,10 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
         {selectedGuestForPayment && (
           <Form {...paymentForm}>
             <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4">
-              <div className="space-y-2 py-2">
-                <p className="text-sm text-muted-foreground">Total Rent: <span className="font-medium text-foreground">₹{selectedGuestForPayment.rentAmount.toLocaleString('en-IN')}</span></p>
-                <p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-foreground">₹{totalDue.toLocaleString('en-IN')}</span></p>
+              <div className="space-y-2 py-2 border-y my-2">
+                {balanceBroughtForward > 0 && <p className="text-sm text-muted-foreground">Previous Balance: <span className="font-medium text-foreground">₹{balanceBroughtForward.toLocaleString('en-IN')}</span></p>}
+                <p className="text-sm text-muted-foreground">Current Month Bill: <span className="font-medium text-foreground">₹{(totalBillForCycle - balanceBroughtForward).toLocaleString('en-IN')}</span></p>
+                <p className="text-sm text-muted-foreground">Amount Due: <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span></p>
               </div>
               <FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (
                 <FormItem><FormLabel>Amount to Collect</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>

@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
 import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner, updateGuestKycStatus } from "@/lib/slices/guestsSlice"
-import { useDashboard } from "@/hooks/use-dashboard"
+import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
@@ -80,7 +80,7 @@ export default function GuestProfilePage() {
     const { toast } = useToast()
     const guestId = params.guestId as string
     
-    const { guests, pgs, complaints } = useAppSelector(state => state)
+    const { guests: guestsState, pgs, complaints } = useAppSelector(state => state)
     const { isLoading } = useAppSelector(state => state.app)
     const { currentUser, currentPlan } = useAppSelector(state => state.user)
     const { featurePermissions } = useAppSelector(state => state.permissions);
@@ -88,7 +88,7 @@ export default function GuestProfilePage() {
     
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     
-    const guest = useMemo(() => guests.guests.find(g => g.id === guestId), [guests, guestId])
+    const guest = useMemo(() => guestsState.guests.find(g => g.id === guestId), [guestsState.guests, guestId])
     const pg = useMemo(() => guest ? pgs.pgs.find(p => p.id === guest.pgId) : null, [guest, pgs])
     
     const {
@@ -104,7 +104,7 @@ export default function GuestProfilePage() {
         handlePaymentSubmit,
         selectedGuestForPayment,
         handleOpenPaymentDialog
-    } = useDashboard({ pgs: pgs.pgs, guests: guests.guests });
+    } = useDashboard({ pgs: pgs.pgs, guests: guestsState.guests });
 
 
     const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
@@ -117,7 +117,7 @@ export default function GuestProfilePage() {
     const [selectedDoc, setSelectedDoc] = useState<SubmittedKycDocument | null>(null);
 
 
-    const guestComplaints = useMemo(() => complaints.complaints.filter(c => c.guestId === guestId), [complaints, guestId])
+    const guestComplaints = useMemo(() => complaints.complaints.filter(c => c.guestId === guestId), [complaints.complaints, guestId])
 
     useEffect(() => {
         if (guest && guest.dueDate && isAfter(new Date(), parseISO(guest.dueDate))) {
@@ -152,12 +152,6 @@ export default function GuestProfilePage() {
         resolver: zodResolver(chargeSchema),
         defaultValues: { description: '', amount: undefined }
     });
-
-    useEffect(() => {
-        if (guest) {
-            paymentForm.reset({ paymentMethod: 'cash', amountPaid: totalDue > 0 ? Number(totalDue.toFixed(2)) : 0 })
-        }
-    }, [guest, totalDue, paymentForm]);
     
     const handleInitiateExit = () => {
         if (!guest || guest.exitDate) return

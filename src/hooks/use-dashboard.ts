@@ -186,55 +186,40 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   };
 
  const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
-      if (!selectedGuestForPayment) return;
-      
-      const guest = selectedGuestForPayment;
-      let amountPaid = values.amountPaid;
+    if (!selectedGuestForPayment) return;
+    
+    const guest = selectedGuestForPayment;
+    const amountPaidThisTime = values.amountPaid;
 
-      const updatedGuest = produce(guest, draft => {
-          // 1. Clear previous balance first
-          let balanceToClear = draft.balanceBroughtForward || 0;
-          if (balanceToClear > 0) {
-              const paymentForBalance = Math.min(amountPaid, balanceToClear);
-              draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) - paymentForBalance;
-              amountPaid -= paymentForBalance;
-          }
+    const updatedGuest = produce(guest, draft => {
+        // Calculate the total bill for the current cycle
+        const totalBillForCycle = (draft.balanceBroughtForward || 0) +
+                                  draft.rentAmount +
+                                  (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
 
-          // 2. Clear additional charges
-          let mutableCharges = JSON.parse(JSON.stringify(draft.additionalCharges || [])) as AdditionalCharge[];
-          for (let i = 0; i < mutableCharges.length; i++) {
-              if (amountPaid <= 0) break;
-              const charge = mutableCharges[i];
-              const paymentForCharge = Math.min(amountPaid, charge.amount);
-              charge.amount -= paymentForCharge;
-              amountPaid -= paymentForCharge;
-          }
-          draft.additionalCharges = mutableCharges.filter(c => c.amount > 0);
+        // Add the new payment to the amount already paid in this cycle
+        draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaidThisTime;
+        
+        // Check if the cycle is complete
+        if (draft.rentPaidAmount >= totalBillForCycle) {
+            // Cycle complete
+            const surplus = draft.rentPaidAmount - totalBillForCycle;
+            
+            draft.rentStatus = 'paid';
+            draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
+            draft.rentPaidAmount = 0; // Reset for next cycle
+            draft.additionalCharges = []; // Clear charges for next cycle
+            draft.balanceBroughtForward = -surplus; // Negative balance is an advance payment
+        } else {
+            // Partial payment
+            draft.rentStatus = 'partial';
+            // rentPaidAmount and other dues are carried forward as is.
+        }
+    });
 
-          // 3. Apply remaining to current month's rent
-          draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaid;
-          
-          const totalOwed = draft.rentAmount + (draft.additionalCharges.reduce((sum, c) => sum + c.amount, 0));
-          const totalPaidThisCycle = draft.rentPaidAmount || 0;
-
-          if (totalPaidThisCycle >= totalOwed && (draft.balanceBroughtForward || 0) <= 0) {
-              // Cycle completes, rent is fully paid
-              draft.rentStatus = 'paid';
-              const surplus = totalPaidThisCycle - totalOwed;
-              draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) - surplus; // a negative balance means advance
-              draft.rentPaidAmount = 0; // Reset for next cycle
-              draft.additionalCharges = []; // Clear charges for next cycle
-              draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
-          } else if (totalPaidThisCycle > 0 || (values.amountPaid > 0 && totalOwed === 0)) {
-              draft.rentStatus = 'partial';
-          } else {
-              draft.rentStatus = 'unpaid';
-          }
-      });
-      
-      dispatch(updateGuestAction({ updatedGuest }));
-      setIsPaymentDialogOpen(false);
-      setSelectedGuestForPayment(null);
+    dispatch(updateGuestAction({ updatedGuest }));
+    setIsPaymentDialogOpen(false);
+    setSelectedGuestForPayment(null);
   };
 
   const handleOpenSharedChargeDialog = (room: Room) => {
