@@ -11,7 +11,7 @@ import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
 import { verifyKyc } from '@/ai/flows/verify-kyc-flow';
-import { format, addMonths, isAfter, parseISO, differenceInMonths } from 'date-fns';
+import { format, addMonths, isAfter, parseISO, differenceInMonths, isSameDay } from 'date-fns';
 import { uploadDataUriToStorage } from '../storage';
 
 interface GuestsState {
@@ -482,27 +482,37 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
 
         if (!user.currentUser || !guest || !guest.dueDate) return rejectWithValue('Guest or due date not found');
 
-        // Use mock date from dev tools if available, otherwise use real time
         const now = app.mockDate ? new Date(app.mockDate) : new Date();
         const dueDate = parseISO(guest.dueDate);
 
-        if (!isAfter(now, dueDate)) {
-            return rejectWithValue('Rent is not due yet');
+        // Check if the current date is on or after the due date, AND if the guest's rent is currently marked as 'paid'.
+        // This prevents incorrectly marking someone as 'unpaid' if their payment is just late from a previous cycle.
+        if ((isAfter(now, dueDate) || isSameDay(now, dueDate)) && guest.rentStatus === 'paid') {
+            const updatedGuest = produce(guest, draft => {
+                // Rent is due, change status to unpaid.
+                draft.rentStatus = 'unpaid';
+            });
+
+            if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+                const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+                if (ownerId) {
+                    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+                    await setDoc(guestDocRef, updatedGuest, { merge: true });
+                }
+            }
+            return updatedGuest;
         }
 
+        // Handle cases where the due date is significantly in the past (more than a month)
         const monthsOverdue = differenceInMonths(now, dueDate);
-        
-        const updatedGuest = produce(guest, draft => {
-            if (monthsOverdue >= 0) {
-                const rentForOverdueMonths = (monthsOverdue + 1) * draft.rentAmount;
-                draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + rentForOverdueMonths - (draft.rentPaidAmount || 0);
-                draft.dueDate = format(addMonths(dueDate, monthsOverdue + 1), 'yyyy-MM-dd');
-                draft.rentPaidAmount = 0; // Reset for the new cycle
-                draft.rentStatus = 'unpaid';
-            }
-        });
+        if (monthsOverdue > 0) {
+            const updatedGuest = produce(guest, draft => {
+                const rentForOverdueMonths = monthsOverdue * draft.rentAmount;
+                draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + rentForOverdueMonths;
+                draft.dueDate = format(addMonths(dueDate, monthsOverdue), 'yyyy-MM-dd');
+                if(draft.rentStatus === 'paid') draft.rentStatus = 'unpaid'; // Mark as unpaid if it was somehow paid
+            });
 
-        if (JSON.stringify(guest) !== JSON.stringify(updatedGuest)) {
             if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
                 const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
                 if(ownerId) {
@@ -510,10 +520,13 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
                     await setDoc(guestDocRef, updatedGuest, { merge: true });
                 }
             }
+            return updatedGuest;
         }
-        return updatedGuest;
+
+        return rejectWithValue('Rent is not due or is already handled.');
     }
 );
+
 
 const guestsSlice = createSlice({
     name: 'guests',
@@ -606,3 +619,6 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
+
+
+    
