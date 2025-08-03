@@ -374,8 +374,14 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     const pg = getPgById(ids.pgId);
     if (!pg) return;
 
-    const hasGuests = (beds: Bed[]): boolean => {
-        return beds.some(bed => guests.some(g => g.id === bed.guestId && !g.exitDate));
+    // This helper function checks if any bed has an *active* guest.
+    const hasActiveGuests = (beds: Bed[]): boolean => {
+        return beds.some(bed => {
+            if (!bed.guestId) return false;
+            const guest = guests.find(g => g.id === bed.guestId);
+            // An active guest is one who exists and is NOT marked as vacated.
+            return guest && !guest.isVacated;
+        });
     }
     
     const nextState = produce(pg, draft => {
@@ -384,29 +390,30 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         
         const floor = draft.floors[floorIndex];
         if (type === 'floor') {
-            const floorHasGuests = floor.rooms.some(r => hasGuests(r.beds));
-            if (floorHasGuests) {
-                toast({ variant: 'destructive', title: "Cannot Delete", description: "This floor has occupied beds. Please vacate all guests first." });
+            const allBedsInFloor = floor.rooms.flatMap(r => r.beds);
+            if (hasActiveGuests(allBedsInFloor)) {
+                toast({ variant: 'destructive', title: "Cannot Delete", description: "This floor has active guests. Please vacate all guests first." });
                 return;
             }
-            draft.totalBeds -= floor?.rooms.reduce((acc, room) => acc + room.beds.length, 0) || 0;
+            draft.totalBeds -= allBedsInFloor.length;
             draft.floors.splice(floorIndex, 1);
         } else if (type === 'room' && ids.roomId) {
             const roomIndex = floor.rooms.findIndex(r => r.id === ids.roomId);
             if (roomIndex === -1) return;
-            const room = floor.rooms[roomIndex];
-            if (hasGuests(room.beds)) {
-                 toast({ variant: 'destructive', title: "Cannot Delete", description: "This room has occupied beds. Please vacate all guests first." });
+            const roomToDelete = floor.rooms[roomIndex];
+            if (hasActiveGuests(roomToDelete.beds)) {
+                 toast({ variant: 'destructive', title: "Cannot Delete", description: "This room has active guests. Please vacate all guests first." });
                 return;
             }
-            draft.totalBeds -= room?.beds.length || 0;
+            draft.totalBeds -= roomToDelete.beds.length;
             floor.rooms.splice(roomIndex, 1);
         } else if (type === 'bed' && ids.roomId && ids.bedId) {
             const room = floor.rooms.find(r => r.id === ids.roomId);
             if (!room) return;
             const bedIndex = room.beds.findIndex(b => b.id === ids.bedId);
             if (bedIndex === -1) return;
-            if (room.beds[bedIndex].guestId) {
+            const bedToDelete = room.beds[bedIndex];
+             if (hasActiveGuests([bedToDelete])) {
                  toast({ variant: 'destructive', title: "Cannot Delete", description: "This bed is occupied. Please vacate the guest first." });
                 return;
             }
