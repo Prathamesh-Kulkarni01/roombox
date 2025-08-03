@@ -40,7 +40,9 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         let userDataToReturn: User | null = null;
         
         const getPlanForUser = (user: User): Plan => {
-            if (!user.subscription) return plans.free;
+            if (!user.subscription || user.subscription.status === 'inactive') {
+                return plans.free;
+            }
             
             const isActive = user.subscription.status === 'active';
             const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
@@ -312,7 +314,7 @@ const userSlice = createSlice({
             state.currentUser = action.payload;
             if (action.payload?.subscription) {
                 const sub = action.payload.subscription;
-                const isActive = sub.status === 'active';
+                 const isActive = sub.status === 'active';
                 const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
                 state.currentPlan = (isActive || isTrialing) ? plans[sub.planId] : plans.free;
             } else {
