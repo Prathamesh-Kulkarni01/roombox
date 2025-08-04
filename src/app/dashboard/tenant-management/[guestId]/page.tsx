@@ -399,69 +399,92 @@ export default function GuestProfilePage() {
                 </div>
             </div>
             
-            <Card className="w-full">
-                <CardHeader>
-                    <CardTitle>KYC Documents</CardTitle>
-                    <CardDescription>Review guest-submitted documents for verification.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {guest.documents && guest.documents.length > 0 ? (
-                        <div className="space-y-4">
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {guest.documents.map(doc => {
-                                    const isDocImageUrl = isImageUrl(doc.url);
-                                    return (
-                                        <DialogTrigger key={doc.configId} asChild>
-                                            <button className="space-y-2 group" onClick={() => setSelectedDoc(doc)}>
-                                                <Label>{doc.label}</Label>
-                                                <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
-                                                    {isDocImageUrl ? (
-                                                        <img src={doc.url} alt={`${doc.label} Preview`} className="w-full h-full object-contain" />
-                                                    ) : (
-                                                        <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        </DialogTrigger>
-                                    )
-                                })}
+            <Dialog>
+                <Card className="w-full">
+                    <CardHeader>
+                        <CardTitle>KYC Documents</CardTitle>
+                        <CardDescription>Review guest-submitted documents for verification.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {guest.documents && guest.documents.length > 0 ? (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {guest.documents.map(doc => {
+                                        const isDocImageUrl = isImageUrl(doc.url);
+                                        return (
+                                            <DialogTrigger key={doc.configId} asChild>
+                                                <button className="space-y-2 group" onClick={() => setSelectedDoc(doc)}>
+                                                    <Label>{doc.label}</Label>
+                                                    <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
+                                                        {isDocImageUrl ? (
+                                                            <img src={doc.url} alt={`${doc.label} Preview`} className="w-full h-full object-contain" />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            </DialogTrigger>
+                                        )
+                                    })}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 mt-4">
+                                    {guest.kycStatus === 'pending' && (
+                                        <Access feature="kyc" action="edit">
+                                            <div className="flex items-center gap-2 p-4 border bg-muted/50 rounded-md">
+                                                <p className="font-semibold mr-4">Verification Action:</p>
+                                                <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}><CheckCircle className="mr-2 h-4 w-4"/>Approve</Button>
+                                                <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}><XCircle className="mr-2 h-4 w-4"/>Reject</Button>
+                                            </div>
+                                        </Access>
+                                    )}
+                                    {(guest.kycStatus === 'verified' || guest.kycStatus === 'pending') && (
+                                        <Access feature="kyc" action="edit">
+                                            <Button variant="secondary" size="sm" onClick={() => setIsResetKycDialogOpen(true)}>
+                                                <RefreshCcw className="mr-2 h-4 w-4"/> Re-initiate KYC
+                                            </Button>
+                                        </Access>
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 mt-4">
-                                {guest.kycStatus === 'pending' && (
-                                    <Access feature="kyc" action="edit">
-                                        <div className="flex items-center gap-2 p-4 border bg-muted/50 rounded-md">
-                                            <p className="font-semibold mr-4">Verification Action:</p>
-                                            <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}><CheckCircle className="mr-2 h-4 w-4"/>Approve</Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}><XCircle className="mr-2 h-4 w-4"/>Reject</Button>
-                                        </div>
-                                    </Access>
-                                )}
-                                {(guest.kycStatus === 'verified' || guest.kycStatus === 'pending') && (
-                                    <Access feature="kyc" action="edit">
-                                        <Button variant="secondary" size="sm" onClick={() => setIsResetKycDialogOpen(true)}>
-                                            <RefreshCcw className="mr-2 h-4 w-4"/> Re-initiate KYC
-                                        </Button>
-                                    </Access>
-                                )}
-                            </div>
-                        </div>
-                    ) : <p className="text-sm text-muted-foreground text-center py-4">No documents submitted by the tenant yet.</p>}
+                        ) : <p className="text-sm text-muted-foreground text-center py-4">No documents submitted by the tenant yet.</p>}
 
-                     <Access feature="kyc" action="add">
-                        {(guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
-                            <Button className="mt-4" onClick={() => setIsKycDialogOpen(true)}>
-                                {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
-                            </Button>
+                        <Access feature="kyc" action="add">
+                            {(guest.kycStatus === 'not-started' || guest.kycStatus === 'rejected') && (
+                                <Button className="mt-4" onClick={() => setIsKycDialogOpen(true)}>
+                                    {guest.kycStatus === 'rejected' ? 'Re-submit for Guest' : 'Complete KYC for Guest'}
+                                </Button>
+                            )}
+                        </Access>
+                        {guest.kycRejectReason && (
+                            <Alert variant="destructive" className="mt-4">
+                                <AlertTitle>Reason for Rejection</AlertTitle>
+                                <AlertDescription>{guest.kycRejectReason}</AlertDescription>
+                            </Alert>
                         )}
-                     </Access>
-                      {guest.kycRejectReason && (
-                        <Alert variant="destructive" className="mt-4">
-                            <AlertTitle>Reason for Rejection</AlertTitle>
-                            <AlertDescription>{guest.kycRejectReason}</AlertDescription>
-                        </Alert>
-                    )}
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Document Preview: {selectedDoc?.label}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 flex items-center justify-center overflow-hidden">
+                        {selectedDoc && (
+                            isImageUrl(selectedDoc.url) ? (
+                                <img src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} className="max-w-full max-h-full object-contain" />
+                            ) : (
+                                <div className="text-center">
+                                    <p className="mb-4">PDF preview is not available here. Please open it in a new tab.</p>
+                                    <Button asChild>
+                                        <a href={selectedDoc.url} target="_blank" rel="noopener noreferrer">
+                                            <ExternalLink className="mr-2 h-4 w-4"/> Open PDF
+                                        </a>
+                                    </Button>
+                                </div>
+                            )
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Card>
                 <CardHeader><CardTitle>Police Verification</CardTitle></CardHeader>
@@ -648,29 +671,7 @@ export default function GuestProfilePage() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-        <Dialog open={!!selectedDoc} onOpenChange={(isOpen) => !isOpen && setSelectedDoc(null)}>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>Document Preview: {selectedDoc?.label}</DialogTitle>
-                </DialogHeader>
-                <div className="flex-1 flex items-center justify-center overflow-hidden">
-                    {selectedDoc && (
-                        isImageUrl(selectedDoc.url) ? (
-                            <img src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} className="max-w-full max-h-full object-contain" />
-                        ) : (
-                            <div className="text-center">
-                                <p className="mb-4">PDF preview is not available here. Please open it in a new tab.</p>
-                                <Button asChild>
-                                    <a href={selectedDoc.url} target="_blank" rel="noopener noreferrer">
-                                        <ExternalLink className="mr-2 h-4 w-4"/> Open PDF
-                                    </a>
-                                </Button>
-                            </div>
-                        )
-                    )}
-                </div>
-            </DialogContent>
-        </Dialog>
+        
       </>
     )
 }
