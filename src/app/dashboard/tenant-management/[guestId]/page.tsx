@@ -29,12 +29,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
 import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle } from "lucide-react"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
-import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner, updateGuestKycStatus } from "@/lib/slices/guestsSlice"
+import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner, updateGuestKycStatus, resetGuestKyc } from "@/lib/slices/guestsSlice"
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
@@ -257,6 +257,15 @@ export default function GuestProfilePage() {
              toast({ variant: 'destructive', title: 'Update Failed', description: error.message || 'Could not update KYC status.' });
         }
     }
+    
+    const handleResetKyc = () => {
+        if(!guest) return;
+        if(confirm("Are you sure? This will reset the guest's KYC status and remove all uploaded documents, requiring them to submit again.")){
+            dispatch(resetGuestKyc(guest.id));
+            toast({ title: "KYC Reset", description: "The guest can now re-submit their documents."})
+        }
+    }
+
 
     if (isLoading) {
         return (
@@ -414,19 +423,24 @@ export default function GuestProfilePage() {
                                     )
                                 })}
                             </div>
-                             {guest.kycStatus === 'pending' && (
-                                <Access feature="kyc" action="edit">
-                                    <div className="p-4 border bg-muted/50 rounded-md mt-6">
-                                        <p className="font-semibold mb-2">Manual Verification</p>
-                                        {guest.kycExtractedName && <p className="text-sm">AI Extracted Name: <span className="font-semibold">{guest.kycExtractedName}</span></p>}
-                                        <p className="text-sm">Guest's Name: <span className="font-semibold">{guest.name}</span></p>
-                                        <div className="flex gap-2 mt-4">
-                                            <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}>Approve</Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}>Reject</Button>
+                            <div className="flex flex-wrap items-center gap-2 mt-4">
+                                {guest.kycStatus === 'pending' && (
+                                    <Access feature="kyc" action="edit">
+                                        <div className="flex items-center gap-2 p-4 border bg-muted/50 rounded-md">
+                                            <p className="font-semibold mr-4">Verification Action:</p>
+                                            <Button size="sm" variant="outline" onClick={() => handleKycAction('verified')}><CheckCircle className="mr-2 h-4 w-4"/>Approve</Button>
+                                            <Button size="sm" variant="destructive" onClick={() => handleKycAction('rejected')}><XCircle className="mr-2 h-4 w-4"/>Reject</Button>
                                         </div>
-                                    </div>
-                                </Access>
-                            )}
+                                    </Access>
+                                )}
+                                {(guest.kycStatus === 'verified' || guest.kycStatus === 'pending') && (
+                                    <Access feature="kyc" action="edit">
+                                        <Button variant="secondary" size="sm" onClick={handleResetKyc}>
+                                            <RefreshCcw className="mr-2 h-4 w-4"/> Re-initiate KYC
+                                        </Button>
+                                    </Access>
+                                )}
+                            </div>
                         </div>
                     ) : <p className="text-sm text-muted-foreground text-center py-4">No documents submitted by the tenant yet.</p>}
 
