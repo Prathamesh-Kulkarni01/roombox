@@ -6,258 +6,566 @@ import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/lib/hooks';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check, LayoutDashboard, Wallet, Cloud, BotMessageSquare, X, Loader2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import InstallPWA from '@/components/install-pwa';
-import { plans } from '@/lib/mock-data';
-import type { Plan, PlanName } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3 } from "lucide-react";
 import Image from 'next/image';
-import { Skeleton } from '@/components/ui/skeleton';
 
-
-const features = [
-    {
-        icon: <LayoutDashboard className="h-8 w-8 text-primary" />,
-        title: 'Visual Occupancy Dashboard',
-        description: 'Ditch spreadsheets. Our intuitive property management dashboard lets you manage floors, rooms, and beds visually. See vacancies and guest details at a glance.',
-      },
-      {
-        icon: <Wallet className="h-8 w-8 text-primary" />,
-        title: 'Automated Finance Tracking',
-        description: 'Effortlessly log expenses, track monthly revenue, and simplify rent collection. Get a clear, real-time view of your property’s financial health.',
-      },
-      {
-        icon: <BotMessageSquare className="h-8 w-8 text-primary" />,
-        title: 'AI-Powered Communication',
-        description: 'Save time with AI-generated rent reminders and create SEO-friendly property listings to attract more high-quality tenants.',
-      },
-      {
-        icon: <Cloud className="h-8 w-8 text-primary" />,
-        title: 'Cloud Sync & Backup',
-        description: 'Never lose your data. Paid plans securely back up your property data to the cloud, making it accessible from any device, anytime.',
-      },
-];
-
-const faqs = [
-    {
-        question: "Is my data secure?",
-        answer: "Absolutely. We use industry-standard encryption and security protocols to ensure your data is safe and private. You own your data, and we're committed to protecting it."
-    },
-    {
-        question: "Can I manage multiple properties with one account?",
-        answer: "Yes! RentVastu is designed to scale with your business. You can add and manage multiple properties, PGs, or hostels from a single, centralized dashboard, making it easy to oversee your entire rental portfolio."
-    },
-    {
-        question: "How does the AI work?",
-        answer: "Our AI tools are designed to be your smart assistant. For example, when you need to send a rent reminder, the AI analyzes the guest's details and generates a polite, professional message, saving you time and effort."
-    },
-    {
-        question: "Is there a free trial?",
-        answer: "RentVastu offers a free basic plan that's perfect for getting started. You can explore our core features and see how they fit your needs. When you're ready, you can upgrade to a paid plan for more advanced capabilities."
-    }
-]
-
-const planOrder: PlanName[] = ['free', 'starter', 'pro'];
-
-const getPlanFeatures = (plan: Plan) => [
-    { text: `${plan.pgLimit === 'unlimited' ? 'Unlimited' : `Up to ${plan.pgLimit}`} Propert${plan.pgLimit !== 1 ? 'ies' : 'y'}`, included: true },
-    { text: 'Rent Management', included: true },
-    { text: 'Complaint Management', included: plan.hasComplaints },
-    { text: 'Staff Management', included: plan.hasStaffManagement },
-    { text: 'AI Rent Reminders', included: plan.hasAiRentReminders },
-    { text: 'AI SEO Generator', included: plan.hasSeoGenerator },
-    { text: 'Cloud Sync & Backup', included: plan.hasCloudSync },
-    { text: 'WhatsApp Automation', included: plan.hasAutomatedWhatsapp },
-    { text: 'Marketplace Listing', included: plan.hasMarketplace, isComingSoon: plan.id !== 'enterprise' },
-];
-
-
-export default function Home() {
-  const router = useRouter();
-  const { currentUser, isLoading } = useAppSelector((state) => ({
-    currentUser: state.user.currentUser,
-    isLoading: state.app.isLoading,
-  }));
-
-  useEffect(() => {
-    if (!isLoading && currentUser) {
-      if (currentUser.role === 'tenant') {
-        router.replace('/tenants/my-pg');
-      } else {
-        router.replace('/dashboard');
+const Index = () => {
+    const router = useRouter();
+    const { currentUser, isLoading } = useAppSelector((state) => ({
+      currentUser: state.user.currentUser,
+      isLoading: state.app.isLoading,
+    }));
+  
+    useEffect(() => {
+      if (!isLoading && currentUser) {
+        if (currentUser.role === 'tenant') {
+          router.replace('/tenants/my-pg');
+        } else {
+          router.replace('/dashboard');
+        }
       }
-    }
-  }, [isLoading, currentUser, router]);
-
-  // if (isLoading || currentUser) {
-  //   return (
-  //     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)]">
-  //        <div className="container mx-auto px-4 text-center py-24 md:py-32">
-  //           <Skeleton className="h-12 md:h-16 w-3/4 mx-auto mb-6" />
-  //           <Skeleton className="h-6 w-full max-w-2xl mx-auto mb-10" />
-  //           <div className="flex justify-center gap-4">
-  //               <Skeleton className="h-12 w-48" />
-  //           </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+    }, [isLoading, currentUser, router]);
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-56px)] bg-background">
-      <main className="flex-1">
-        {/* Hero Section */}
-        <section className="py-24 md:py-32">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 animate-in fade-in slide-in-from-top-8 duration-700 ease-out">
-              The Modern OS for Your Rental Property
-            </h1>
-            <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto animate-in fade-in slide-in-from-top-8 duration-700 ease-out delay-100">
-              Stop juggling spreadsheets. RentVastu automates your operations, from rent collection to guest management, all in one simple platform.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in zoom-in-95 duration-500 ease-out delay-200">
-              <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Link href="/login">
-                    Get Started Now
-                </Link>
-              </Button>
+    <div className="min-h-screen bg-gradient-warm">
+      {/* Navigation */}
+      <nav className="bg-white/90 backdrop-blur-md border-b border-border/50 sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-saffron rounded-lg flex items-center justify-center">
+              <Building2 className="h-6 w-6 text-white" />
             </div>
-            <div className="mt-6">
-                <InstallPWA />
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section id="features" className="py-16 md:py-24 bg-muted/40">
-            <div className="container mx-auto px-4">
-                <div className="text-center mb-12">
-                    <Badge variant="outline" className="mb-4">Our Features</Badge>
-                    <h2 className="text-3xl md:text-4xl font-bold">Everything You Need. Nothing You Don't.</h2>
-                    <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-                        RentVastu is built to solve the real problems of rental management.
-                    </p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {features.map((feature, index) => (
-                        <div key={feature.title} className="text-center p-2" >
-                             <div className="flex items-center justify-center w-16 h-16 rounded-full bg-background mx-auto mb-6 ring-1 ring-border">
-                                {feature.icon}
-                             </div>
-                            <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                            <p className="text-muted-foreground text-sm">{feature.description}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </section>
-        
-        {/* Pricing Section */}
-        <section id="pricing" className="py-16 md:py-24 bg-background">
-            <div className="container mx-auto px-4">
-                <div className="text-center mb-12">
-                    <Badge variant="outline" className="mb-4">Simple Pricing</Badge>
-                    <h2 className="text-3xl md:text-4xl font-bold">Choose Your Plan</h2>
-                    <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-                        Start for free, upgrade when you're ready. No hidden fees, cancel anytime.
-                    </p>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-5xl mx-auto items-start">
-                    {planOrder.map(planId => {
-                        const plan = plans[planId];
-                        const isPopular = plan.id === 'starter';
-                        const planFeatures = getPlanFeatures(plan);
-                        return (
-                            <Card key={plan.id} className={cn("p-6 flex flex-col", isPopular && "border-2 border-primary relative")}>
-                                {isPopular && <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Most Popular</Badge>}
-                                <CardContent className="p-0 flex-grow">
-                                    <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
-                                    <p className="text-muted-foreground mb-6 h-10">{plan.description}</p>
-                                    <div className="mb-6">
-                                        <span className="text-4xl font-bold">
-                                            {typeof plan.price === 'number' && plan.price > 0 ? `₹${plan.price}` : plan.price === 0 ? 'Free' : plan.price}
-                                        </span>
-                                        <span className="text-muted-foreground text-sm ml-1">{plan.pricePeriod}</span>
-                                    </div>
-                                    <ul className="space-y-3 mb-8 text-sm">
-                                        {planFeatures.map(feature => (
-                                            <li key={feature.text} className={cn("flex items-start gap-3", !feature.included && "text-muted-foreground")}>
-                                                {feature.included ? <Check className="w-5 h-5 text-green-500 mt-0.5 shrink-0"/> : <X className="w-5 h-5 text-red-500 mt-0.5 shrink-0"/>}
-                                                <span>
-                                                    {feature.text}
-                                                    {feature.isComingSoon && <Badge variant="outline" className="ml-2 text-xs">Soon</Badge>}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </CardContent>
-                                <Button asChild variant={isPopular ? 'default' : 'outline'} className={cn("w-full mt-4", isPopular && "bg-accent hover:bg-accent/90 text-accent-foreground")}>
-                                    <Link href="/login">
-                                      {plan.price === 0 ? 'Get Started' : 'Choose Plan'}
-                                    </Link>
-                                </Button>
-                            </Card>
-                        )
-                    })}
-                </div>
-                 <div className="text-center mt-12">
-                    <Card className="inline-block p-6 max-w-lg mx-auto">
-                        <CardContent className="p-0 text-left">
-                           <h3 className="text-xl font-bold mb-4 text-center">Enterprise Plan</h3>
-                           <p className="text-muted-foreground mb-4">Need a custom solution? We offer tailored plans for large-scale operations with features like marketplace listings, dedicated support, and custom integrations.</p>
-                           <Button variant="link" className="p-0 h-auto">Contact Sales &rarr;</Button>
-                        </CardContent>
-                    </Card>
-                 </div>
-            </div>
-        </section>
-
-        {/* FAQ Section */}
-        <section className="py-16 md:py-24 bg-muted/40">
-            <div className="container mx-auto px-4">
-                <div className="text-center mb-12">
-                    <h2 className="text-3xl md:text-4xl font-bold">Frequently Asked Questions</h2>
-                </div>
-                <div className="max-w-3xl mx-auto">
-                    <Accordion type="single" collapsible className="w-full">
-                       {faqs.map((faq, index) => (
-                           <AccordionItem value={`item-${index}`} key={index}>
-                                <AccordionTrigger className="text-lg text-left">{faq.question}</AccordionTrigger>
-                                <AccordionContent className="text-base text-muted-foreground">
-                                    {faq.answer}
-                                </AccordionContent>
-                           </AccordionItem>
-                       ))}
-                    </Accordion>
-                </div>
-            </div>
-        </section>
-
-        {/* Final CTA Section */}
-        <section className="py-24 md:py-32 bg-background">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to Simplify Your Rental Management?
-            </h2>
-            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Join hundreds of property owners who have switched to a smarter way of working. Get started in minutes, no credit card required.
-            </p>
-            <Button size="lg" asChild className="bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-6 px-8">
-              <Link href="/login">Start for Free</Link>
+            <span className="text-2xl font-bold bg-gradient-saffron bg-clip-text text-transparent">
+              RentVastu
+            </span>
+          </Link>
+          <div className="hidden md:flex items-center space-x-8">
+            <a href="#features" className="text-foreground hover:text-primary transition-colors">
+              Features
+            </a>
+            <a href="#pricing" className="text-foreground hover:text-primary transition-colors">
+              Pricing
+            </a>
+            <a href="#contact" className="text-foreground hover:text-primary transition-colors">
+              Contact
+            </a>
+             <Button variant="outline" size="sm" asChild>
+              <Link href="/login">Login</Link>
             </Button>
           </div>
-        </section>
-      </main>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-16 lg:py-24">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="space-y-8">
+            <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2">
+              <Star className="w-4 h-4 mr-2" />
+              भारत का #1 PG Management Platform
+            </Badge>
+            
+            <div className="space-y-6">
+              <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
+                <span className="bg-gradient-saffron bg-clip-text text-transparent">
+                  अपना PG Business
+                </span>
+                <br />
+                <span className="text-foreground">Effortlessly Manage करें</span>
+              </h1>
+              
+              <p className="text-xl text-muted-foreground leading-relaxed">
+                Stop juggling spreadsheets and manual entries. RentVastu automates your entire PG operations - 
+                from rent collection to tenant management, all in one simple platform built specifically for Indian PG owners.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <div className="flex -space-x-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="w-10 h-10 rounded-full bg-gradient-saffron border-2 border-white flex items-center justify-center">
+                    <UserCheck className="w-5 h-5 text-white" />
+                  </div>
+                ))}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">2000+ PG Owners</span> ने पहले ही join कर लिया है
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button size="lg" variant="hero" className="text-lg px-8 py-4" asChild>
+                 <Link href="/login">
+                    <Smartphone className="mr-2 h-5 w-5" />
+                    Start Free Today
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" className="text-lg px-8 py-4">
+                <Phone className="mr-2 h-5 w-5" />
+                Request Demo
+              </Button>
+            </div>
+
+            <div className="flex items-center space-x-8 text-sm text-muted-foreground">
+              <div className="flex items-center">
+                <Check className="w-4 h-4 text-accent mr-2" />
+                Free Forever Plan
+              </div>
+              <div className="flex items-center">
+                <Check className="w-4 h-4 text-accent mr-2" />
+                No Credit Card Required
+              </div>
+              <div className="flex items-center">
+                <Check className="w-4 h-4 text-accent mr-2" />
+                Setup in 5 Minutes
+              </div>
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-hero rounded-3xl blur-2xl opacity-30 animate-pulse-slow"></div>
+            <Image 
+              src="https://placehold.co/600x600.png"
+              alt="Happy Indian PG Owner using RentVastu app"
+              width={600}
+              height={600}
+              className="relative z-10 w-full h-auto rounded-3xl shadow-trust animate-float"
+              data-ai-hint="happy person"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Trust Indicators */}
+      <section className="bg-white/50 backdrop-blur-sm py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-primary">₹50Cr+</div>
+              <div className="text-sm text-muted-foreground">Monthly Rent Managed</div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-primary">2000+</div>
+              <div className="text-sm text-muted-foreground">Happy PG Owners</div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-primary">25000+</div>
+              <div className="text-sm text-muted-foreground">Tenants Served</div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-primary">98%</div>
+              <div className="text-sm text-muted-foreground">Success Rate</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="container mx-auto px-4 py-20">
+        <div className="text-center space-y-4 mb-16">
+          <Badge className="bg-accent/10 text-accent border-accent/20">
+            <Zap className="w-4 h-4 mr-2" />
+            Complete Solution
+          </Badge>
+          <h2 className="text-4xl lg:text-5xl font-bold">
+            Everything You Need.{" "}
+            <span className="bg-gradient-saffron bg-clip-text text-transparent">
+              Nothing You Don't.
+            </span>
+          </h2>
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            RentVastu is built specifically for Indian PG owners to solve real problems of rental management.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-12 items-center mb-20">
+          <div className="order-2 lg:order-1">
+            <Image
+              src="https://placehold.co/600x400.png"
+              alt="Indian PG owners successfully managing properties"
+              width={600}
+              height={400}
+              className="w-full h-auto rounded-2xl shadow-card-soft"
+              data-ai-hint="business people"
+            />
+          </div>
+          <div className="order-1 lg:order-2 space-y-8">
+            <div className="space-y-6">
+              <h3 className="text-3xl font-bold">
+                Made for <span className="text-primary">Indian PG Owners</span>
+              </h3>
+              <p className="text-lg text-muted-foreground">
+                Understanding the unique challenges of managing PGs in India - from diverse tenant needs to 
+                complex rent structures, our platform is designed by Indians, for Indians.
+              </p>
+            </div>
+            
+            <div className="grid gap-4">
+              {[
+                { icon: IndianRupee, title: "Indian Payment Methods", desc: "UPI, IMPS, NetBanking support" },
+                { icon: MessageSquare, title: "Hindi + English Support", desc: "Communicate in your preferred language" },
+                { icon: MapPin, title: "India-Specific Features", desc: "Festivals, local laws, tax compliance" }
+              ].map((feature, index) => (
+                <div key={index} className="flex items-start space-x-4 p-4 rounded-lg hover:bg-white/50 transition-colors">
+                  <div className="w-10 h-10 bg-gradient-saffron rounded-lg flex items-center justify-center flex-shrink-0">
+                    <feature.icon className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground">{feature.title}</h4>
+                    <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {[
+            {
+              icon: Building2,
+              title: "Visual Property Dashboard",
+              description: "Ditch spreadsheets. Manage floors, rooms, and beds visually. See vacancies and tenant details at a glance.",
+              color: "text-primary"
+            },
+            {
+              icon: BarChart3,
+              title: "Automated Finance Tracking",
+              description: "Effortlessly log expenses, track monthly revenue, and simplify rent collection. Real-time financial health insights.",
+              color: "text-accent"
+            },
+            {
+              icon: MessageSquare,
+              title: "AI-Powered Communication",
+              description: "Auto-generate rent reminders in Hindi/English and create SEO-friendly listings to attract quality tenants.",
+              color: "text-primary"
+            },
+            {
+              icon: Shield,
+              title: "Secure Cloud Backup",
+              description: "Never lose your data. Secure cloud backup makes your property data accessible from any device, anytime.",
+              color: "text-accent"
+            },
+            {
+              icon: Users,
+              title: "Tenant Management",
+              description: "Complete tenant lifecycle - from enquiry to move-out. Digital agreements, KYC, and communication history.",
+              color: "text-primary"
+            },
+            {
+              icon: Clock,
+              title: "Smart Automation",
+              description: "Automate rent reminders, maintenance requests, and follow-ups. Save 10+ hours every week.",
+              color: "text-accent"
+            }
+          ].map((feature, index) => (
+            <Card key={index} className="group hover:shadow-trust transition-all duration-300 hover:-translate-y-2 border-0 shadow-card-soft">
+              <CardHeader className="space-y-4">
+                <div className={`w-12 h-12 bg-gradient-saffron rounded-xl flex items-center justify-center ${feature.color}`}>
+                  <feature.icon className="h-6 w-6 text-white" />
+                </div>
+                <CardTitle className="text-xl font-semibold group-hover:text-primary transition-colors">
+                  {feature.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="bg-white/30 backdrop-blur-sm py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-16">
+            <Badge className="bg-primary/10 text-primary border-primary/20">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Simple Pricing
+            </Badge>
+            <h2 className="text-4xl lg:text-5xl font-bold">
+              Choose Your <span className="bg-gradient-saffron bg-clip-text text-transparent">Perfect Plan</span>
+            </h2>
+            <p className="text-xl text-muted-foreground">
+              Start for free, upgrade when you're ready. No hidden fees, cancel anytime.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {/* Free Plan */}
+            <Card className="relative border-2 border-border shadow-card-soft">
+              <CardHeader className="text-center space-y-4">
+                <CardTitle className="text-2xl">Free</CardTitle>
+                <CardDescription>Perfect for single property owners</CardDescription>
+                <div className="space-y-2">
+                  <div className="text-4xl font-bold text-primary">Free</div>
+                  <div className="text-sm text-muted-foreground">Forever</div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  {[
+                    "Up to 1 Property",
+                    "Rent Management",
+                    "Tenant Management", 
+                    "Basic Reports",
+                    "Mobile App Access"
+                  ].map((feature, index) => (
+                    <div key={index} className="flex items-center">
+                      <Check className="w-5 h-5 text-accent mr-3" />
+                      <span className="text-sm">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button className="w-full" variant="outline" asChild>
+                  <Link href="/login">Get Started Free</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Starter Plan */}
+            <Card className="relative border-2 border-primary shadow-trust transform scale-105">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                <Badge className="bg-gradient-saffron text-white px-4 py-1">
+                  <Star className="w-4 h-4 mr-1" />
+                  Most Popular
+                </Badge>
+              </div>
+              <CardHeader className="text-center space-y-4">
+                <CardTitle className="text-2xl">Starter</CardTitle>
+                <CardDescription>For growing PG businesses</CardDescription>
+                <div className="space-y-2">
+                  <div className="text-4xl font-bold text-primary">₹99</div>
+                  <div className="text-sm text-muted-foreground">per property per month</div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  {[
+                    "Up to 5 Properties",
+                    "All Free Features",
+                    "Cloud Sync & Backup",
+                    "AI Rent Reminders",
+                    "Advanced Analytics",
+                    "WhatsApp Integration",
+                    "Priority Support"
+                  ].map((feature, index) => (
+                    <div key={index} className="flex items-center">
+                      <Check className="w-5 h-5 text-accent mr-3" />
+                      <span className="text-sm">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button className="w-full" variant="hero" asChild>
+                  <Link href="/login">Choose Starter</Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Pro Plan */}
+            <Card className="relative border-2 border-border shadow-card-soft">
+              <CardHeader className="text-center space-y-4">
+                <CardTitle className="text-2xl">Pro</CardTitle>
+                <CardDescription>For large-scale operations</CardDescription>
+                <div className="space-y-2">
+                  <div className="text-4xl font-bold text-primary">₹199</div>
+                  <div className="text-sm text-muted-foreground">per property per month</div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  {[
+                    "Unlimited Properties",
+                    "All Starter Features",
+                    "Advanced Automation",
+                    "Custom Reports",
+                    "API Access",
+                    "Dedicated Support",
+                    "White-label Option"
+                  ].map((feature, index) => (
+                    <div key={index} className="flex items-center">
+                      <Check className="w-5 h-5 text-accent mr-3" />
+                      <span className="text-sm">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button className="w-full" variant="success" asChild>
+                  <Link href="/login">Choose Pro</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="text-center mt-12">
+            <p className="text-muted-foreground mb-4">
+              Need a custom solution? Enterprise plans available for large-scale operations.
+            </p>
+            <Button variant="outline" size="lg">
+              Contact Sales →
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="text-center space-y-4 mb-16">
+          <Badge className="bg-accent/10 text-accent border-accent/20">
+            <Heart className="w-4 h-4 mr-2" />
+            Customer Love
+          </Badge>
+          <h2 className="text-4xl lg:text-5xl font-bold">
+            What PG Owners <span className="bg-gradient-saffron bg-clip-text text-transparent">Say About Us</span>
+          </h2>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          {[
+            {
+              name: "Rajesh Kumar",
+              location: "Delhi",
+              text: "RentVastu ने मेरा PG business completely transform कर दिया। Now I can manage 3 properties effortlessly!",
+              rating: 5
+            },
+            {
+              name: "Priya Sharma", 
+              location: "Bangalore",
+              text: "The automated rent reminders and tenant management features have saved me 15+ hours every week. Highly recommended!",
+              rating: 5
+            },
+            {
+              name: "Mohammed Ali",
+              location: "Pune", 
+              text: "Finally, a software that understands Indian PG business. The Hindi support और local features are amazing!",
+              rating: 5
+            }
+          ].map((testimonial, index) => (
+            <Card key={index} className="border-0 shadow-card-soft hover:shadow-trust transition-all duration-300">
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="flex space-x-1">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 fill-primary text-primary" />
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground italic leading-relaxed">
+                    "{testimonial.text}"
+                  </p>
+                  <div className="border-t pt-4">
+                    <div className="font-semibold text-foreground">{testimonial.name}</div>
+                    <div className="text-sm text-muted-foreground">{testimonial.location}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section id="contact" className="bg-gradient-hero py-20">
+        <div className="container mx-auto px-4 text-center space-y-8">
+          <div className="space-y-4">
+            <h2 className="text-4xl lg:text-5xl font-bold text-white">
+              Ready to Transform Your PG Business?
+            </h2>
+            <p className="text-xl text-white/90 max-w-3xl mx-auto">
+              Join thousands of PG owners who have switched to a smarter way of working. 
+              Get started in minutes, no credit card required.
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" className="bg-white text-primary hover:bg-white/90 font-semibold px-8 py-4 text-lg" asChild>
+              <Link href="/login">
+                <Smartphone className="mr-2 h-5 w-5" />
+                Start Free Today
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-primary px-8 py-4 text-lg">
+              <Phone className="mr-2 h-5 w-5" />
+              Book Demo Call
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-center space-x-8 text-sm text-white/80">
+            <div className="flex items-center">
+              <Check className="w-4 h-4 mr-2" />
+              Free Forever Plan
+            </div>
+            <div className="flex items-center">
+              <Check className="w-4 h-4 mr-2" />
+              Setup in 5 Minutes
+            </div>
+            <div className="flex items-center">
+              <Check className="w-4 h-4 mr-2" />
+              No Credit Card Required
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="bg-muted/40 border-t">
-        <div className="container mx-auto px-4 py-6 text-center text-muted-foreground text-sm">
-          <p>&copy; {new Date().getFullYear()} RentVastu. All rights reserved.</p>
+      <footer className="bg-foreground text-white py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-4 gap-8">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-saffron rounded-lg flex items-center justify-center">
+                  <Building2 className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-2xl font-bold">RentVastu</span>
+              </div>
+              <p className="text-white/70">
+                India's most trusted PG management platform. Built by Indians, for Indians.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-semibold text-lg">Product</h4>
+              <ul className="space-y-2 text-white/70">
+                <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
+                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Mobile App</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">API</a></li>
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-semibold text-lg">Support</h4>
+              <ul className="space-y-2 text-white/70">
+                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="#contact" className="hover:text-white transition-colors">Contact Us</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">WhatsApp Support</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Video Tutorials</a></li>
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="font-semibold text-lg">Connect</h4>
+              <ul className="space-y-2 text-white/70">
+                <li className="flex items-center">
+                  <Phone className="w-4 h-4 mr-2" />
+                  +91 9999-123-456
+                </li>
+                <li className="flex items-center">
+                  <Globe className="w-4 h-4 mr-2" />
+                  hello@rentvastu.com
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-white/20 mt-8 pt-8 text-center text-white/70">
+            <p>&copy; {new Date().getFullYear()} RentVastu. All rights reserved. Made with ❤️ in India.</p>
+          </div>
         </div>
       </footer>
     </div>
   );
-}
+};
+
+export default Index;

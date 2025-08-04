@@ -9,6 +9,46 @@ export default {
   ],
   theme: {
     extend: {
+      backgroundImage: {
+        'gradient-warm': 'linear-gradient(135deg, #FFF7F0 0%, #F3F8FF 100%)',
+        'gradient-saffron': 'linear-gradient(90deg, #FF9933 0%, #F472B6 100%)',
+        'gradient-hero': 'linear-gradient(135deg, #FF9933 0%, #F472B6 50%, #2563EB 100%)',
+      },
+      boxShadow: {
+        'trust': '0 10px 30px -10px rgba(255, 153, 51, 0.4)',
+        'card-soft': '0 4px 16px rgba(0, 0, 0, 0.05)',
+      },
+      animation: {
+        'accordion-down': 'accordion-down 0.2s ease-out',
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'float': 'float 6s ease-in-out infinite',
+        'pulse-slow': 'pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      },
+      keyframes: {
+        'accordion-down': {
+          from: {
+            height: '0',
+          },
+          to: {
+            height: 'var(--radix-accordion-content-height)',
+          },
+        },
+        'accordion-up': {
+          from: {
+            height: 'var(--radix-accordion-content-height)',
+          },
+          to: {
+            height: '0',
+          },
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-20px)' },
+        },
+        'pulse-slow': {
+          '50%': { opacity: '.5' },
+        },
+      },
       fontFamily: {
         body: ['Inter', 'sans-serif'],
         headline: ['Inter', 'sans-serif'],
@@ -70,28 +110,6 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
-      },
-      keyframes: {
-        'accordion-down': {
-          from: {
-            height: '0',
-          },
-          to: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-        },
-        'accordion-up': {
-          from: {
-            height: 'var(--radix-accordion-content-height)',
-          },
-          to: {
-            height: '0',
-          },
-        },
-      },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },
