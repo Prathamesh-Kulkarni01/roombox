@@ -256,6 +256,31 @@ export const updateGuestKycStatus = createAsyncThunk<Guest, {
     }
 );
 
+export const resetGuestKyc = createAsyncThunk<string, string, { state: RootState }>(
+    'guests/resetGuestKyc',
+    async (guestId, { getState, rejectWithValue }) => {
+        const { user, guests } = getState();
+        const guestToUpdate = guests.guests.find(g => g.id === guestId);
+        const ownerId = user.currentUser?.id;
+
+        if (!user.currentUser || !guestToUpdate || !ownerId) {
+            return rejectWithValue('User or guest not found');
+        }
+        
+        // Don't need to do anything with Cloudinary files for now, they can be orphaned.
+
+        if (isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+            await updateDoc(docRef, {
+                kycStatus: 'not-started',
+                kycRejectReason: null,
+                documents: [],
+            });
+        }
+        return guestId;
+    }
+);
+
 
 export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, { updatedGuest: Guest, updatedPg?: PG }, { state: RootState }>(
     'guests/updateGuest',
@@ -570,6 +595,14 @@ const guestsSlice = createSlice({
                     state.guests[index] = action.payload;
                 }
             })
+            .addCase(resetGuestKyc.fulfilled, (state, action) => {
+                const guest = state.guests.find(g => g.id === action.payload);
+                if (guest) {
+                    guest.kycStatus = 'not-started';
+                    guest.documents = [];
+                    guest.kycRejectReason = null;
+                }
+            })
             .addCase(addAdditionalCharge.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
@@ -620,5 +653,7 @@ const guestsSlice = createSlice({
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
 
+
+    
 
     
