@@ -301,7 +301,7 @@ const Index = () => {
               <Card className="relative border-2 border-border shadow-card-soft">
                 <CardHeader className="text-center space-y-4">
                   <CardTitle className="text-2xl">Free</CardTitle>
-                  <CardDescription>Perfect for single property owners</CardDescription>
+                  <CardDescription>For single property owners just starting out</CardDescription>
                   <div className="space-y-2">
                     <div className="text-4xl font-bold text-primary">Free</div>
                     <div className="text-sm text-muted-foreground">Forever</div>
@@ -311,10 +311,10 @@ const Index = () => {
                   <div className="space-y-3">
                     {[
                       "Up to 1 Property",
-                      "Rent Management",
-                      "Tenant Management", 
-                      "Basic Reports",
-                      "Mobile App Access"
+                      "Up to 2 Floors",
+                      "Basic Rent & Tenant Tracking",
+                      "Complaint Management",
+                      "Local Data Storage"
                     ].map((feature, index) => (
                       <div key={index} className="flex items-center">
                         <Check className="w-5 h-5 text-accent mr-3" />
@@ -348,12 +348,11 @@ const Index = () => {
                   <div className="space-y-3">
                     {[
                       "Up to 5 Properties",
+                      "Up to 10 Floors per Property",
                       "All Free Features",
                       "Cloud Sync & Backup",
-                      "AI Rent Reminders",
-                      "Advanced Analytics",
-                      "WhatsApp Integration",
-                      "Priority Support"
+                      "Staff Management",
+                      "AI Rent Reminders & SEO",
                     ].map((feature, index) => (
                       <div key={index} className="flex items-center">
                         <Check className="w-5 h-5 text-accent mr-3" />
@@ -382,11 +381,11 @@ const Index = () => {
                     {[
                       "Unlimited Properties",
                       "All Starter Features",
+                      "Website Builder",
+                      "Automated KYC",
+                      "Shared Charge Management",
                       "Advanced Automation",
-                      "Custom Reports",
-                      "API Access",
-                      "Dedicated Support",
-                      "White-label Option"
+                      "Priority Support"
                     ].map((feature, index) => (
                       <div key={index} className="flex items-center">
                         <Check className="w-5 h-5 text-accent mr-3" />
@@ -566,5 +565,3 @@ const Index = () => {
 };
 
 export default Index;
-
-    
