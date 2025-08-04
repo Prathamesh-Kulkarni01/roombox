@@ -8,8 +8,9 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot } from "lucide-react";
+import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog } from "lucide-react";
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 const Index = () => {
     const router = useRouter();
@@ -193,19 +194,92 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="bg-muted/50 py-20">
+      {/* How it Works Flowchart */}
+      <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center space-y-4 mb-16">
-            <Badge className="bg-accent/10 text-accent border-accent/20">
-              <Heart className="w-4 h-4 mr-2" />
-              Customer Love
-            </Badge>
             <h2 className="text-4xl lg:text-5xl font-bold">
-              What PG Owners <span className="bg-gradient-saffron bg-clip-text text-transparent">Say About Us</span>
+              Just 4 Steps to <span className="bg-gradient-saffron bg-clip-text text-transparent">Full Automation</span>
             </h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Transform your property management in minutes with our intuitive workflow.
+            </p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="relative">
+            {/* The connecting line */}
+            <div className="absolute left-1/2 top-12 bottom-12 w-0.5 bg-border/80 hidden lg:block" aria-hidden="true"></div>
+
+            <div className="space-y-16 lg:space-y-24">
+              {[
+                {
+                  step: 1,
+                  icon: LayoutTemplate,
+                  title: "Setup Your Property",
+                  description: "Visually create floors, rooms, and beds to match your property layout. Set rent and sharing types for each room.",
+                  align: "left"
+                },
+                {
+                  step: 2,
+                  icon: UserPlus,
+                  title: "Onboard Your Guests",
+                  description: "Add new guests to available beds with just a few clicks. The system automatically tracks their rent cycle and dues.",
+                  align: "right"
+                },
+                {
+                  step: 3,
+                  icon: Zap,
+                  title: "Automate Your Operations",
+                  description: "Collect rent, send AI-powered reminders, log expenses, and manage complaints from a single, unified dashboard.",
+                  align: "left"
+                },
+                {
+                  step: 4,
+                  icon: Smartphone,
+                  title: "Empower Your Tenants",
+                  description: "Invite tenants to the app where they can view their dues, see the menu, and raise complaints, giving them a professional experience.",
+                  align: "right"
+                }
+              ].map((item) => (
+                <div key={item.step} className="relative flex flex-col lg:flex-row items-center gap-8">
+                  {/* Step Circle */}
+                  <div className={cn("relative z-10 flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground text-2xl font-bold shadow-lg",
+                    item.align === "left" ? "lg:order-2 lg:ml-auto" : "lg:order-1 lg:mr-auto"
+                  )}>
+                    {item.step}
+                  </div>
+                  
+                  {/* Content Card */}
+                  <div className={cn("w-full lg:w-5/12 p-8 bg-card rounded-lg shadow-card-soft border",
+                    item.align === "left" ? "lg:order-1" : "lg:order-2"
+                  )}>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center">
+                        <item.icon className="w-6 h-6 text-accent"/>
+                      </div>
+                      <h3 className="text-2xl font-bold">{item.title}</h3>
+                    </div>
+                    <p className="text-muted-foreground">{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      {/* Testimonials */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="text-center space-y-4 mb-16">
+          <Badge className="bg-accent/10 text-accent border-accent/20">
+            <Heart className="w-4 h-4 mr-2" />
+            Customer Love
+          </Badge>
+          <h2 className="text-4xl lg:text-5xl font-bold">
+            What PG Owners <span className="bg-gradient-saffron bg-clip-text text-transparent">Say About Us</span>
+          </h2>
+        </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
                 name: "Rajesh Kumar, Delhi",
@@ -223,7 +297,7 @@ const Index = () => {
                 rating: 5
               }
             ].map((testimonial, index) => (
-              <Card key={index} className="border-0 shadow-card-soft bg-card">
+              <Card key={index} className="border-0 shadow-card-soft hover:shadow-trust transition-all duration-300">
                 <CardContent className="pt-6">
                   <div className="space-y-4">
                     <div className="flex space-x-1">
@@ -242,7 +316,6 @@ const Index = () => {
               </Card>
             ))}
           </div>
-        </div>
       </section>
       
       {/* CTA Section */}
