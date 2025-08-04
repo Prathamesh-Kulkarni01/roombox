@@ -38,6 +38,7 @@ import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeActio
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { getDoc, doc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
