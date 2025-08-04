@@ -111,6 +111,7 @@ export default function GuestProfilePage() {
     const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false)
     const [isKycDialogOpen, setIsKycDialogOpen] = useState(false)
     const [isSubmittingKyc, setIsSubmittingKyc] = useState(false)
+    const [isResetKycDialogOpen, setIsResetKycDialogOpen] = useState(false)
     const [reminderMessage, setReminderMessage] = useState('')
     const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
     const [documentUris, setDocumentUris] = useState<Record<string, string>>({});
@@ -258,12 +259,11 @@ export default function GuestProfilePage() {
         }
     }
     
-    const handleResetKyc = () => {
+    const handleConfirmResetKyc = () => {
         if(!guest) return;
-        if(confirm("Are you sure? This will reset the guest's KYC status and remove all uploaded documents, requiring them to submit again.")){
-            dispatch(resetGuestKyc(guest.id));
-            toast({ title: "KYC Reset", description: "The guest can now re-submit their documents."})
-        }
+        dispatch(resetGuestKyc(guest.id));
+        toast({ title: "KYC Reset", description: "The guest can now re-submit their documents."});
+        setIsResetKycDialogOpen(false);
     }
 
 
@@ -292,7 +292,7 @@ export default function GuestProfilePage() {
     }
 
     return (
-      <Dialog open={!!selectedDoc} onOpenChange={(isOpen) => !isOpen && setSelectedDoc(null)}>
+      <>
         <div className="flex flex-col gap-6">
             <div className="flex items-center gap-4">
                 <Button variant="outline" size="icon" onClick={() => router.back()}>
@@ -410,16 +410,18 @@ export default function GuestProfilePage() {
                                 {guest.documents.map(doc => {
                                     const isDocImageUrl = isImageUrl(doc.url);
                                     return (
-                                        <button key={doc.configId} className="space-y-2 group" onClick={() => setSelectedDoc(doc)}>
-                                            <Label>{doc.label}</Label>
-                                            <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
-                                                {isDocImageUrl ? (
-                                                    <img src={doc.url} alt={`${doc.label} Preview`} className="w-full h-full object-contain" />
-                                                ) : (
-                                                    <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
-                                                )}
-                                            </div>
-                                        </button>
+                                        <DialogTrigger key={doc.configId} asChild>
+                                            <button className="space-y-2 group" onClick={() => setSelectedDoc(doc)}>
+                                                <Label>{doc.label}</Label>
+                                                <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
+                                                    {isDocImageUrl ? (
+                                                        <img src={doc.url} alt={`${doc.label} Preview`} className="w-full h-full object-contain" />
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs">Click to view PDF</span></div>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        </DialogTrigger>
                                     )
                                 })}
                             </div>
@@ -435,7 +437,7 @@ export default function GuestProfilePage() {
                                 )}
                                 {(guest.kycStatus === 'verified' || guest.kycStatus === 'pending') && (
                                     <Access feature="kyc" action="edit">
-                                        <Button variant="secondary" size="sm" onClick={handleResetKyc}>
+                                        <Button variant="secondary" size="sm" onClick={() => setIsResetKycDialogOpen(true)}>
                                             <RefreshCcw className="mr-2 h-4 w-4"/> Re-initiate KYC
                                         </Button>
                                     </Access>
@@ -631,27 +633,43 @@ export default function GuestProfilePage() {
                 </DialogContent>
             </Dialog>
         </div>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-            <DialogHeader>
-                 <DialogTitle>Document Preview: {selectedDoc?.label}</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
-                {selectedDoc && (
-                    isImageUrl(selectedDoc.url) ? (
-                        <img src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} className="max-w-full max-h-full object-contain" />
-                    ) : (
-                        <div className="text-center">
-                            <p className="mb-4">PDF preview is not available here. Please open it in a new tab.</p>
-                             <Button asChild>
-                                <a href={selectedDoc.url} target="_blank" rel="noopener noreferrer">
-                                    <ExternalLink className="mr-2 h-4 w-4"/> Open PDF
-                                </a>
-                            </Button>
-                        </div>
-                    )
-                )}
-            </div>
-        </DialogContent>
-      </Dialog>
+        <AlertDialog open={isResetKycDialogOpen} onOpenChange={setIsResetKycDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will reset the guest's KYC status and remove all uploaded documents, requiring them to submit again.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleConfirmResetKyc}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        <Dialog open={!!selectedDoc} onOpenChange={(isOpen) => !isOpen && setSelectedDoc(null)}>
+            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>Document Preview: {selectedDoc?.label}</DialogTitle>
+                </DialogHeader>
+                <div className="flex-1 flex items-center justify-center overflow-hidden">
+                    {selectedDoc && (
+                        isImageUrl(selectedDoc.url) ? (
+                            <img src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} className="max-w-full max-h-full object-contain" />
+                        ) : (
+                            <div className="text-center">
+                                <p className="mb-4">PDF preview is not available here. Please open it in a new tab.</p>
+                                <Button asChild>
+                                    <a href={selectedDoc.url} target="_blank" rel="noopener noreferrer">
+                                        <ExternalLink className="mr-2 h-4 w-4"/> Open PDF
+                                    </a>
+                                </Button>
+                            </div>
+                        )
+                    )}
+                </div>
+            </DialogContent>
+        </Dialog>
+      </>
     )
 }
