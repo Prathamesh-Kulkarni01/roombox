@@ -8,15 +8,15 @@ import { ThemeProvider } from '@/components/theme-provider';
 import AppTour from '@/components/app-tour';
 import Script from 'next/script';
 
-const APP_NAME = "RentVastu";
-const APP_DESCRIPTION = "RentVastu is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://vasturent.app";
+const APP_NAME = "RentSutra";
+const APP_DESCRIPTION = "RentSutra is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   applicationName: APP_NAME,
   title: {
-    default: "RentVastu | All-in-One Rental Management Software",
+    default: "RentSutra | All-in-One Rental Management Software",
     template: `%s - ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
@@ -36,15 +36,15 @@ export const metadata: Metadata = {
       "rent collection",
       "expense tracking",
       "occupancy management",
-      "RentVastu"
+      "RentSutra"
   ],
-  authors: [{ name: "RentVastu Team" }],
-  creator: "RentVastu",
+  authors: [{ name: "RentSutra Team" }],
+  creator: "RentSutra",
   openGraph: {
     type: "website",
     url: "/",
     title: {
-      default: "RentVastu | All-in-One Rental Management Software",
+      default: "RentSutra | All-in-One Rental Management Software",
       template: `%s - ${APP_NAME}`,
     },
     description: APP_DESCRIPTION,
@@ -54,19 +54,19 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "A preview of the RentVastu dashboard showing occupancy and revenue.",
+        alt: "A preview of the RentSutra dashboard showing occupancy and revenue.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: {
-      default: "RentVastu | All-in-One Rental Management Software",
+      default: "RentSutra | All-in-One Rental Management Software",
       template: `%s - ${APP_NAME}`,
     },
     description: APP_DESCRIPTION,
     images: ["/og-image.png"],
-    creator: "@vasturent_app",
+    creator: "@rentsutra_app",
   },
 };
 
@@ -85,10 +85,10 @@ export default function RootLayout({
   const jsonLd = {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "RentVastu",
+      "name": "RentSutra",
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web",
-      "description": "Simplify your rental property management with RentVastu. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
+      "description": "Simplify your rental property management with RentSutra. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -142,5 +142,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    

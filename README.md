@@ -1,6 +1,6 @@
-# RentVastu - The Modern OS for Your Rental Property
+# RentSutra - The Modern OS for Your Rental Property
 
-RentVastu is a comprehensive, all-in-one rental management software designed for Paying Guest (PG) accommodations, hostels, and co-living spaces. It simplifies property management by providing a suite of tools to handle everything from tenant onboarding and rent collection to expense tracking and AI-powered communication.
+RentSutra is a comprehensive, all-in-one rental management software designed for Paying Guest (PG) accommodations, hostels, and co-living spaces. It simplifies property management by providing a suite of tools to handle everything from tenant onboarding and rent collection to expense tracking and AI-powered communication.
 
 ## Key Features
 

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Menu, HomeIcon } from 'lucide-react';
+import { Menu, HomeIcon, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import NotificationsPopover from './notifications-popover';
@@ -32,6 +32,7 @@ export default function Header() {
 
   const isDashboard = pathname.startsWith('/dashboard');
   const isTenantDashboard = pathname.startsWith('/tenants');
+  const isLandingPage = pathname === '/';
 
   const handleValueChange = (pgId: string) => {
     dispatch(setSelectedPgId(pgId === 'all' ? null : pgId));
@@ -41,14 +42,20 @@ export default function Header() {
     dispatch(logoutUser());
     router.push('/login');
   }
+  
+  if (isLandingPage) {
+      return null;
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 gap-4">
         <div className="flex items-center gap-2 md:gap-4 flex-1 md:flex-none">
             <Link href="/" className="flex items-center gap-2 mr-2">
-                <HomeIcon className="h-6 w-6 text-primary" />
-                <span className="font-bold text-lg font-headline hidden sm:inline-block">RentVastu</span>
+                <div className="w-8 h-8 bg-gradient-saffron rounded-lg flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-white" />
+                </div>
+                <span className="font-bold text-lg font-headline hidden sm:inline-block">RentSutra</span>
             </Link>
              {isDashboard && currentUser && (
                 isLoading ? (
@@ -124,8 +131,10 @@ export default function Header() {
               </SheetHeader>
               <div className="flex flex-col gap-4 py-6">
                 <Link href="/" className="flex items-center gap-2 mb-4">
-                    <HomeIcon className="h-6 w-6 text-primary" />
-                    <span className="font-bold text-lg font-headline">RentVastu</span>
+                    <div className="w-8 h-8 bg-gradient-saffron rounded-lg flex items-center justify-center">
+                        <Building2 className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="font-bold text-lg font-headline">RentSutra</span>
                 </Link>
                 {navLinks.map((link) => {
                    if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;

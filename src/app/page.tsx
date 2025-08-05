@@ -62,7 +62,7 @@ const Index = () => {
                 </h1>
                 
                 <p className="text-xl text-muted-foreground leading-relaxed">
-                  Stop juggling spreadsheets and manual entries. RentVastu automates your entire PG operations - 
+                  Stop juggling spreadsheets and manual entries. RentSutra automates your entire PG operations - 
                   from rent collection to tenant management, all in one simple platform built specifically for Indian PG owners.
                 </p>
               </div>
@@ -105,7 +105,7 @@ const Index = () => {
               <div className="absolute inset-0 bg-gradient-hero rounded-3xl blur-2xl opacity-30 animate-pulse-slow"></div>
               <Image 
                 src="https://placehold.co/600x600.png"
-                alt="Happy Indian PG Owner using RentVastu app"
+                alt="Happy Indian PG Owner using RentSutra app"
                 width={600}
                 height={600}
                 className="relative z-10 w-full h-auto rounded-3xl shadow-trust animate-float"
@@ -153,7 +153,7 @@ const Index = () => {
               </span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              RentVastu is built specifically for Indian PG owners to solve real problems of rental management.
+              RentSutra is built specifically for Indian PG owners to solve real problems of rental management.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -428,7 +428,7 @@ const Index = () => {
               {
                 name: "Rajesh Kumar",
                 location: "Delhi",
-                text: "RentVastu ने मेरा PG business completely transform कर दिया। Now I can manage 3 properties effortlessly!",
+                text: "RentSutra ने मेरा PG business completely transform कर दिया। Now I can manage 3 properties effortlessly!",
                 rating: 5
               },
               {
@@ -514,7 +514,7 @@ const Index = () => {
                   <div className="w-10 h-10 bg-gradient-saffron rounded-lg flex items-center justify-center">
                     <Building2 className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-2xl font-bold">RentVastu</span>
+                  <span className="text-2xl font-bold">RentSutra</span>
                 </div>
                 <p className="text-muted-foreground">
                   India's most trusted PG management platform. Built by Indians, for Indians.
@@ -548,14 +548,14 @@ const Index = () => {
                   </li>
                   <li className="flex items-center">
                     <Globe className="w-4 h-4 mr-2" />
-                    hello@rentvastu.com
+                    hello@rentsutra.com
                   </li>
                 </ul>
               </div>
             </div>
 
             <div className="border-t mt-8 pt-8 text-center text-sm text-muted-foreground">
-              <p>&copy; {new Date().getFullYear()} RentVastu. All rights reserved. Made with ❤️ in India.</p>
+              <p>&copy; {new Date().getFullYear()} RentSutra. All rights reserved. Made with ❤️ in India.</p>
             </div>
           </div>
         </footer>
