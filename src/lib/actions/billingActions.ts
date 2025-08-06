@@ -1,3 +1,4 @@
+
 'use server'
 
 import { getAdminDb } from '../firebaseAdmin';
@@ -7,7 +8,8 @@ import { calculateAndCreateAddons } from './subscriptionActions';
 const PRICING_CONFIG = {
     perProperty: 100,
     perTenant: 10,
-    perFeature: 150,
+    proFeaturesCharge: 499, // A fixed monthly charge for the Pro feature bundle
+    freeTenantQuota: 10,
 };
 
 import Razorpay from "razorpay";
@@ -121,17 +123,21 @@ export async function calculateOwnerBill(owner: User) {
         .collection('users_data')
         .doc(owner.id)
         .collection('guests')
+        .where('isVacated', '==', false)
         .get();
 
-    const activeTenants = guestsSnapshot.docs.filter(doc => !(doc.data() as Guest)?.isVacated);
+    const activeTenants = guestsSnapshot.docs.map(doc => doc.data() as Guest);
 
-    const plan = owner.subscription?.planId || '';
-    const premiumPlans = ['pro', 'business', 'enterprise'];
-    const enabledFeaturesCount = premiumPlans.includes(plan) ? 2 : 0;
+    const plan = owner.subscription?.planId || 'free';
+    
+    // Pro features charge is applied if the flag is active
+    const featureCharge = owner.subscription?.proFeaturesActive ? PRICING_CONFIG.proFeaturesCharge : 0;
+    
+    // Tenants over the free quota
+    const billableTenants = Math.max(0, activeTenants.length - PRICING_CONFIG.freeTenantQuota);
 
     const propertyCharge = activeProperties.length * PRICING_CONFIG.perProperty;
-    const tenantCharge = activeTenants.length * PRICING_CONFIG.perTenant;
-    const featureCharge = enabledFeaturesCount * PRICING_CONFIG.perFeature;
+    const tenantCharge = billableTenants * PRICING_CONFIG.perTenant;
 
     const totalAmount = propertyCharge + tenantCharge + featureCharge;
 
@@ -140,7 +146,9 @@ export async function calculateOwnerBill(owner: User) {
         details: {
             propertyCount: activeProperties.length,
             tenantCount: activeTenants.length,
-            featureCount: enabledFeaturesCount,
+            billableTenantCount: billableTenants,
+            freeTenantQuota: PRICING_CONFIG.freeTenantQuota,
+            proFeaturesActive: owner.subscription?.proFeaturesActive || false,
             propertyCharge,
             tenantCharge,
             featureCharge,

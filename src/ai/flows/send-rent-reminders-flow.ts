@@ -21,7 +21,7 @@ const sendRentRemindersFlow = ai.defineFlow(
   },
   async () => {
     const adminDb = await getAdminDb();
-    console.log('Starting daily rent reminder check...');
+    console.log('🔔 Starting daily rent reminder check...');
     let notifiedCount = 0;
     const today = new Date();
     const reminderCutoffDate = addDays(today, REMINDER_DAYS_BEFORE_DUE);
@@ -34,9 +34,14 @@ const sendRentRemindersFlow = ai.defineFlow(
         .where('subscription.planId', 'in', ['starter', 'pro', 'business', 'enterprise'])
         .get();
 
+      if (ownersSnapshot.empty) {
+        console.log('No active owners found.');
+        return { success: true, notifiedCount: 0 };
+      }
+
       for (const ownerDoc of ownersSnapshot.docs) {
-        const owner = ownerDoc.data() as User;
-        console.log(`Checking guests for subscribed owner: ${owner.name} (${owner.id})`);
+        const owner = { id: ownerDoc.id, ...ownerDoc.data() } as User;
+        console.log(`👤 Checking guests for subscribed owner: ${owner.name} (${owner.id})`);
 
         const guestsSnapshot = await adminDb
           .collection('users_data')
@@ -46,15 +51,25 @@ const sendRentRemindersFlow = ai.defineFlow(
           .where('rentStatus', 'in', ['unpaid', 'partial'])
           .get();
 
-        for (const guestDoc of guestsSnapshot.docs) {
-          const guest = guestDoc.data() as Guest;
+        if (guestsSnapshot.empty) {
+          console.log(`No active guests with unpaid/partial rent for owner ${owner.id}`);
+          continue;
+        }
 
+        for (const guestDoc of guestsSnapshot.docs) {
+          const guest = { id: guestDoc.id, ...guestDoc.data() } as Guest;
+
+          // Skip if no associated user or already reminded today
           if (!guest.userId) continue;
+          if (guest.lastReminderSentAt && isBefore(today, parseISO(guest.lastReminderSentAt))) {
+            console.log(`⏭️ Skipping ${guest.name} - already reminded recently.`);
+            continue;
+          }
 
           const dueDate = parseISO(guest.dueDate);
 
-          if (isBefore(dueDate, reminderCutoffDate) && isBefore(today, dueDate)) {
-            console.log(`Sending reminder to ${guest.name} (due on ${guest.dueDate})`);
+          if (isBefore(dueDate, reminderCutoffDate) && !isBefore(dueDate, today)) {
+            console.log(`📨 Sending reminder to ${guest.name} (due on ${guest.dueDate})`);
 
             await sendNotification({
               userId: guest.userId,
@@ -65,16 +80,22 @@ const sendRentRemindersFlow = ai.defineFlow(
               )}.`,
               link: '/tenants/my-pg',
             });
+
+            // Mark reminder as sent to avoid duplicate notifications
+            await guestDoc.ref.update({
+              lastReminderSentAt: today.toISOString(),
+            });
+
             notifiedCount++;
           }
         }
       }
 
-      console.log(`Rent reminder check complete. Notified ${notifiedCount} tenants.`);
+      console.log(`✅ Rent reminder check complete. Notified ${notifiedCount} tenants.`);
       return { success: true, notifiedCount };
     } catch (error) {
-      console.error('Error in sendRentRemindersFlow:', error);
-      throw new Error(`sendRentRemindersFlow failed: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('❌ Error in sendRentRemindersFlow:', error);
+      return { success: false, notifiedCount: 0 };
     }
   }
 );

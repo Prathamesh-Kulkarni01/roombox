@@ -47,9 +47,16 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
             
             // Any active or trialing subscription grants access to 'pro' level features.
-            // The actual billing is handled by usage, not the plan name.
+            // The actual billing is based on usage, not the plan name.
             if (isActive || isTrialing) {
-                return plans['pro'];
+                const plan = { ...plans['pro'] };
+                // Dynamically set feature access based on pro features status for subscribed users
+                if(isActive && !user.subscription.proFeaturesActive) {
+                    plan.hasWebsiteBuilder = false;
+                    plan.hasSeoGenerator = false;
+                    plan.hasKycVerification = false;
+                }
+                return plan;
             }
             
             return plans.free;
@@ -139,14 +146,19 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             if(!userDataToReturn) {
                  // Default to creating an owner account if no invite is found
                 const trialEndDate = new Date();
-                trialEndDate.setMonth(trialEndDate.getMonth() + 3);
+                trialEndDate.setDate(trialEndDate.getDate() + 15);
 
                 const newUser: User = {
                     id: firebaseUser.uid,
                     name: firebaseUser.displayName || 'New Owner',
                     email: firebaseUser.email ?? undefined,
                     role: 'owner',
-                    subscription: { planId: 'pro', status: 'trialing', trialEndDate: trialEndDate.toISOString() },
+                    subscription: { 
+                        planId: 'pro', 
+                        status: 'trialing', 
+                        trialEndDate: trialEndDate.toISOString(),
+                        proFeaturesActive: true,
+                    },
                     avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName) || 'NO').slice(0, 2).toUpperCase()}`
                 };
                 await setDoc(userDocRef, newUser);
@@ -164,14 +176,14 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
     }
 );
 
-export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState; dispatch: any }>(
+export const updateUserPlan = createAsyncThunk<User, { planId: PlanName, proFeatures?: boolean }, { state: RootState; dispatch: any }>(
     'user/updateUserPlan',
-    async (planId, { getState, rejectWithValue, dispatch }) => {
+    async ({ planId, proFeatures }, { getState, rejectWithValue, dispatch }) => {
         const state = getState();
-        const { currentUser, currentPlan: oldPlan } = state.user;
+        const { currentUser } = state.user;
 
-        if (!currentUser || !oldPlan || !isFirebaseConfigured()) {
-            return rejectWithValue('User, old plan, or Firebase not available');
+        if (!currentUser || !isFirebaseConfigured()) {
+            return rejectWithValue('User or Firebase not available');
         }
 
         const newPlan = plans[planId];
@@ -179,22 +191,24 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
             return rejectWithValue('Invalid plan ID');
         }
 
-        // With the addon model, the planId in the DB is mainly for unlocking features.
-        // All active subscribers are effectively on the "pro" feature set.
-        const newPlanIdForDb: PlanName = (planId === 'free') ? 'free' : 'pro';
-
-        if (currentUser.subscription?.planId === newPlanIdForDb) {
-            return currentUser; // No change needed
-        }
+        const updatedSubscription = { 
+            ...(currentUser.subscription || {}), 
+            planId: planId,
+            status: planId === 'free' ? 'inactive' : 'active',
+        };
         
+        if (proFeatures !== undefined) {
+            updatedSubscription.proFeaturesActive = proFeatures;
+        }
+
         const updatedUser: User = {
             ...currentUser,
-            subscription: { ...(currentUser.subscription || { status: 'active' }), planId: newPlanIdForDb },
+            subscription: updatedSubscription,
         };
 
         if (!db) throw new Error('Firestore is not initialized.');
         const userDocRef = doc(db, 'users', currentUser.id);
-        await setDoc(userDocRef, updatedUser, { merge: true });
+        await setDoc(userDocRef, { subscription: updatedSubscription }, { merge: true });
 
         return updatedUser;
     }
@@ -246,7 +260,15 @@ const userSlice = createSlice({
                  const isActive = sub.status === 'active';
                 const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
                  // Any active/trialing subscription is considered 'pro' for feature access
-                state.currentPlan = (isActive || isTrialing) ? plans['pro'] : plans.free;
+                const userPlan = (isActive || isTrialing) ? { ...plans['pro'] } : plans.free;
+
+                if (isActive && !sub.proFeaturesActive) {
+                    userPlan.hasWebsiteBuilder = false;
+                    userPlan.hasSeoGenerator = false;
+                    userPlan.hasKycVerification = false;
+                }
+                state.currentPlan = userPlan;
+
             } else {
                  state.currentPlan = action.payload ? plans.free : null;
             }
@@ -264,7 +286,15 @@ const userSlice = createSlice({
                     const sub = action.payload.subscription;
                     const isActive = sub.status === 'active';
                     const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
-                    state.currentPlan = (isActive || isTrialing) ? plans['pro'] : plans.free;
+                    const userPlan = (isActive || isTrialing) ? { ...plans['pro'] } : plans.free;
+
+                    if (isActive && !sub.proFeaturesActive) {
+                        userPlan.hasWebsiteBuilder = false;
+                        userPlan.hasSeoGenerator = false;
+                        userPlan.hasKycVerification = false;
+                    }
+                    state.currentPlan = userPlan;
+
                 } else {
                     state.currentPlan = plans.free;
                 }
@@ -276,7 +306,21 @@ const userSlice = createSlice({
             })
             .addCase(updateUserPlan.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
-                state.currentPlan = plans[action.payload.subscription?.planId || 'free'];
+                 if (action.payload?.subscription) {
+                    const sub = action.payload.subscription;
+                    const isActive = sub.status === 'active';
+                    const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
+                    const userPlan = (isActive || isTrialing) ? { ...plans['pro'] } : plans.free;
+                    
+                    if (isActive && !sub.proFeaturesActive) {
+                        userPlan.hasWebsiteBuilder = false;
+                        userPlan.hasSeoGenerator = false;
+                        userPlan.hasKycVerification = false;
+                    }
+                    state.currentPlan = userPlan;
+                } else {
+                    state.currentPlan = plans.free;
+                }
             })
             .addCase(logoutUser.fulfilled, (state) => {
                 state.currentUser = null;
@@ -291,3 +335,4 @@ const userSlice = createSlice({
 
 export const { setCurrentUser } = userSlice.actions;
 export default userSlice.reducer;
+

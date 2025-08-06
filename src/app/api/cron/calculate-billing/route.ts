@@ -1,5 +1,5 @@
 
-import { calculateAndCreateAddons } from '@/lib/actions/billingActions';
+import { calculateAndCreateAddons } from '@/lib/actions/subscriptionActions.ts';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic'; // Ensures this route is always executed dynamically
