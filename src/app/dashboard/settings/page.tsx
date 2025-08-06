@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { plans } from "@/lib/mock-data"
 import type { PlanName, ChargeTemplate, UserRole, KycDocumentConfig, PremiumFeatures } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, Message, BotIcon } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, Message, BotIcon, UserCheck } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -30,10 +30,10 @@ import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
-import SubscriptionDialog from "@/components/dashboard/dialogs/SubscriptionDialog"
+import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import { testOwnerBilling } from "@/lib/actions/billingActions"
 import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
-import { togglePremiumFeature } from "@/lib/actions/userActions"
+import { togglePremiumFeature, updateUserPlan } from "@/lib/actions/userActions"
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -76,6 +76,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [isTestingBilling, startBillingTest] = useTransition();
   const [isTestingReminders, startReminderTest] = useTransition();
+  const [isSaving, startTransition] = useTransition();
 
   const chargeTemplateForm = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
