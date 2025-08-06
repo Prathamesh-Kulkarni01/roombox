@@ -219,7 +219,12 @@ export default function SettingsPage() {
             <div>
                 <p className="text-lg font-semibold">{currentUser.name}</p>
                 <p className="text-muted-foreground">{currentUser.email}</p>
-                <p className="text-sm text-muted-foreground capitalize">{currentUser.role} - <span className="font-medium text-primary">{currentPlan.name} Plan</span></p>
+                 <p className="text-sm text-muted-foreground capitalize">
+                    {currentUser.role} - 
+                    <span className="font-medium text-primary">
+                        {currentUser.subscription?.status === 'trialing' ? ` Pro Trial` : ` ${currentPlan.name} Plan`}
+                    </span>
+                </p>
             </div>
             </CardContent>
         </Card>
@@ -344,12 +349,17 @@ export default function SettingsPage() {
         
         <Card>
             <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Star/> Subscription Plan</CardTitle>
-            <CardDescription>Your current plan is <span className="font-semibold text-primary">{currentPlan.name}</span>. Upgrade for more features.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Star/> Subscription</CardTitle>
+            <CardDescription>
+                {currentPlan.id === 'free' 
+                    ? 'Upgrade to a paid plan to unlock more features.'
+                    : `You are currently on the ${currentPlan.name} plan.`
+                }
+            </CardDescription>
             </CardHeader>
             <CardContent>
                 <Button onClick={() => setIsSubDialogOpen(true)}>
-                    View & Manage Plans
+                    {currentPlan.id === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}
                 </Button>
             </CardContent>
         </Card>
@@ -427,5 +437,3 @@ export default function SettingsPage() {
     </>
   )
 }
-
-    

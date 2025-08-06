@@ -4,6 +4,7 @@
 
 
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
