@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import React, { useState, useTransition, useMemo } from "react"
@@ -33,7 +32,8 @@ import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import { testOwnerBilling } from "@/lib/actions/billingActions"
 import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
-import { togglePremiumFeature, updateUserPlan } from "@/lib/actions/userActions"
+import { togglePremiumFeature } from "@/lib/actions/userActions"
+import { updateUserPlan } from "@/lib/slices/userSlice"
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
