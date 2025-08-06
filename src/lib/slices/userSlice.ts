@@ -12,8 +12,7 @@ import { RootState } from '../store';
 import { setLoading } from './appSlice';
 import { fetchPermissions, updatePermissions } from './permissionsSlice';
 import { isAfter } from 'date-fns';
-import { planPermissionConfig } from '../permissions';
-import { RolePermissions } from '../permissions';
+import { planPermissionConfig, type RolePermissions } from '../permissions';
 
 interface UserState {
     currentUser: User | null;
@@ -47,8 +46,10 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             const isActive = user.subscription.status === 'active';
             const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
             
+            // Any active or trialing subscription grants access to 'pro' level features.
+            // The actual billing is handled by usage, not the plan name.
             if (isActive || isTrialing) {
-                return plans[user.subscription.planId];
+                return plans['pro'];
             }
             
             return plans.free;
@@ -178,94 +179,22 @@ export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootStat
             return rejectWithValue('Invalid plan ID');
         }
 
-        if (oldPlan.id === newPlan.id) {
+        // With the addon model, the planId in the DB is mainly for unlocking features.
+        // All active subscribers are effectively on the "pro" feature set.
+        const newPlanIdForDb: PlanName = (planId === 'free') ? 'free' : 'pro';
+
+        if (currentUser.subscription?.planId === newPlanIdForDb) {
             return currentUser; // No change needed
         }
         
-        const isUpgrading = !oldPlan.hasCloudSync && newPlan.hasCloudSync;
-        
-        if (isUpgrading) {
-            // Push local data to cloud
-            try {
-                const { pgs } = state.pgs;
-                const { guests } = state.guests;
-                const { complaints } = state.complaints;
-                const { expenses } = state.expenses;
-                const { staff } = state.staff;
-                const { notifications } = state.notifications;
-                const { chargeTemplates } = state.chargeTemplates;
-                if (!db) throw new Error('Firestore is not initialized.');
-                const batch = writeBatch(db);
-                const userId = currentUser.id;
-
-                pgs.forEach(pg => batch.set(doc(db, 'users_data', userId, 'pgs', pg.id), pg));
-                guests.forEach(guest => {
-                    batch.set(doc(db, 'users_data', userId, 'guests', guest.id), guest);
-                    if (guest.email && !guest.userId) {
-                        const inviteDocRef = doc(db, 'invites', guest.email);
-                        const invite: Invite = { email: guest.email, ownerId: userId, role: 'tenant', details: guest };
-                        batch.set(inviteDocRef, invite);
-                    }
-                });
-                complaints.forEach(complaint => batch.set(doc(db, 'users_data', userId, 'complaints', complaint.id), complaint));
-                expenses.forEach(expense => batch.set(doc(db, 'users_data', userId, 'expenses', expense.id), expense));
-                staff.forEach(staffMember => batch.set(doc(db, 'users_data', userId, 'staff', staffMember.id), staffMember));
-                notifications.forEach(notification => batch.set(doc(db, 'users_data', userId, 'notifications', notification.id), notification));
-                chargeTemplates.forEach(template => batch.set(doc(db, 'users_data', userId, 'chargeTemplates', template.id), template));
-                
-                await batch.commit();
-            } catch (error) {
-                console.error("Failed to sync local data to cloud on upgrade:", error);
-                return rejectWithValue('Failed to sync data on upgrade.');
-            }
-        } 
-        
         const updatedUser: User = {
             ...currentUser,
-            subscription: { ...(currentUser.subscription || { status: 'active' }), planId },
+            subscription: { ...(currentUser.subscription || { status: 'active' }), planId: newPlanIdForDb },
         };
 
         if (!db) throw new Error('Firestore is not initialized.');
         const userDocRef = doc(db, 'users', currentUser.id);
         await setDoc(userDocRef, updatedUser, { merge: true });
-
-        // --- Permissions cleanup after plan change ---
-        // Fetch current permissions
-        const ownerId = currentUser.id;
-        const docRef = doc(db, 'users_data', ownerId, 'permissions', 'staff_roles_v2');
-        let cleanedPermissions: RolePermissions = {
-            owner: {},
-            manager: {},
-            cook: {},
-            cleaner: {},
-            security: {},
-            other: {},
-            tenant: {},
-        };
-        try {
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                const perms = docSnap.data() as RolePermissions;
-                const allowedFeatures = Object.keys(planPermissionConfig[newPlan.id]);
-                // Clean up permissions for each role
-                for (const role of Object.keys(perms) as Array<keyof RolePermissions>) {
-                    const rolePerms = perms[role] || {};
-                    cleanedPermissions[role] = {};
-                    for (const feature of allowedFeatures) {
-                        if (rolePerms[feature]) {
-                            cleanedPermissions[role][feature] = rolePerms[feature];
-                        }
-                    }
-                }
-                // Save cleaned permissions
-                await setDoc(docRef, cleanedPermissions);
-                // Also update Redux state
-                dispatch(updatePermissions(cleanedPermissions));
-            }
-        } catch (e) {
-            console.error('Failed to clean up permissions after plan change', e);
-        }
-        // --- End permissions cleanup ---
 
         return updatedUser;
     }
@@ -316,7 +245,8 @@ const userSlice = createSlice({
                 const sub = action.payload.subscription;
                  const isActive = sub.status === 'active';
                 const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
-                state.currentPlan = (isActive || isTrialing) ? plans[sub.planId] : plans.free;
+                 // Any active/trialing subscription is considered 'pro' for feature access
+                state.currentPlan = (isActive || isTrialing) ? plans['pro'] : plans.free;
             } else {
                  state.currentPlan = action.payload ? plans.free : null;
             }
@@ -334,7 +264,7 @@ const userSlice = createSlice({
                     const sub = action.payload.subscription;
                     const isActive = sub.status === 'active';
                     const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
-                    state.currentPlan = (isActive || isTrialing) ? plans[sub.planId] : plans.free;
+                    state.currentPlan = (isActive || isTrialing) ? plans['pro'] : plans.free;
                 } else {
                     state.currentPlan = plans.free;
                 }

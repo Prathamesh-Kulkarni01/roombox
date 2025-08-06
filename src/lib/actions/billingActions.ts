@@ -2,7 +2,7 @@
 
 import { getAdminDb } from '../firebaseAdmin';
 import type { User, PG, Guest } from '../types';
-import { createRazorpayAddon } from './subscriptionActions';
+import { calculateAndCreateAddons } from './subscriptionActions';
 
 const PRICING_CONFIG = {
     perProperty: 100,
@@ -69,7 +69,7 @@ async function processOwnerBilling(owner: User): Promise<boolean> {
             return true;
         }
 
-        const addonResult = await createRazorpayAddon(
+        const addonResult = await calculateAndCreateAddons(
             subscription.razorpay_subscription_id,
             `Monthly Charge (${year}-${month})`,
             totalAmount,

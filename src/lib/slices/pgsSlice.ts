@@ -84,7 +84,7 @@ export const deletePg = createAsyncThunk<string, string, { state: RootState }>(
         const { user, guests } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        const hasActiveGuests = guests.guests.some(g => g.pgId === pgId && !g.exitDate);
+        const hasActiveGuests = guests.guests.some(g => g.pgId === pgId && !g.isVacated);
         if (hasActiveGuests) {
             return rejectWithValue('Cannot delete property with active guests. Please vacate all guests first.');
         }

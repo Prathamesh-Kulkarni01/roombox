@@ -4,59 +4,18 @@ import type { UserRole } from './types';
 /**
  * # Plan Permissions Matrix
  *
- * | Plan        | Feature     | View | Add | Edit | Delete | Use (SEO) | PG Limit |
- * |-------------|-------------|------|-----|------|--------|-----------|----------|
- * | **free**    | properties  | ✅   | ✅  | ✅   | ✅     |           | 1        |
- * |             | guests      | ✅   | ✅  | ❌   | ❌     |           |          |
- * |             | finances    | ✅   | ❌  |      |        |           |          |
- * |             | complaints  | ✅   |     | ❌   |        |           |          |
- * |             | food        | ✅   |     | ❌   |        |           |          |
- * |             | staff       | ❌   | ❌  | ❌   | ❌     |           |          |
- * |             | website     | ❌   |     | ❌   |        |           |          |
- * |             | seo         |     |     |      |        | ❌        |          |
- * | **starter** | properties  | ✅   | ✅  | ✅   | ✅     |           | 1        |
- * |             | guests      | ✅   | ✅  | ✅   | ✅     |           |          |
- * |             | finances    | ✅   | ✅  |      |        |           |          |
- * |             | complaints  | ✅   |     | ✅   |        |           |          |
- * |             | food        | ✅   |     | ✅   |        |           |          |
- * |             | staff       | ✅   | ✅  | ✅   | ❌     |           |          |
- * |             | website     | ❌   |     | ❌   |        |           |          |
- * |             | seo         |     |     |      |        | ✅        |          |
- * | **pro**     | properties  | ✅   | ✅  | ✅   | ✅     |           | unlimited|
- * |             | guests      | ✅   | ✅  | ✅   | ✅     |           |          |
- * |             | finances    | ✅   | ✅  |      |        |           |          |
- * |             | complaints  | ✅   |     | ✅   |        |           |          |
- * |             | food        | ✅   |     | ✅   |        |           |          |
- * |             | staff       | ✅   | ✅  | ✅   | ✅     |           |          |
- * |             | website     | ✅   |     | ✅   |        |           |          |
- * |             | seo         |     |     |      |        | ✅        |          |
- * | **business**| properties  | ✅   | ✅  | ✅   | ✅     |           | unlimited|
- * |             | guests      | ✅   | ✅  | ✅   | ✅     |           |          |
- * |             | finances    | ✅   | ✅  |      |        |           |          |
- * |             | complaints  | ✅   |     | ✅   |        |           |          |
- * |             | food        | ✅   |     | ✅   |        |           |          |
- * |             | staff       | ✅   | ✅  | ✅   | ✅     |           |          |
- * |             | website     | ✅   |     | ✅   |        |           |          |
- * |             | seo         |     |     |      |        | ✅        |          |
- * | **enterprise**| properties| ✅   | ✅  | ✅   | ✅     |           | unlimited|
- * |             | guests      | ✅   | ✅  | ✅   | ✅     |           |          |
- * |             | finances    | ✅   | ✅  |      |        |           |          |
- * |             | complaints  | ✅   |     | ✅   |        |           |          |
- * |             | food        | ✅   |     | ✅   |        |           |          |
- * |             | staff       | ✅   | ✅  | ✅   | ✅     |           |          |
- * |             | website     | ✅   |     | ✅   |        |           |          |
- * |             | seo         |     |     |      |        | ✅        |          |
+ * This file defines the feature access rules for different subscription plans and user roles.
  *
- * Legend:
- *   - ✅ = Allowed
- *   - ❌ = Not allowed
- *   - Blank = Not applicable
- *   - PG Limit = Maximum number of properties (PGs) allowed for the plan
+ * ## Plan-Based Access (What features are unlocked for a subscription?)
+ * - **Free Plan**: Core features for local management with strict limits.
+ * - **Pro Plan (Subscribed Users)**: All features are unlocked. Billing is based on usage, not the plan itself.
  *
- * Note: Plan feature/action permissions and plan limits are now managed in separate config objects for type safety.
+ * ## Role-Based Access (What can a specific user type do?)
+ * - **Owner**: Has full control over all features enabled by their plan.
+ * - **Staff (Manager, Cook, etc.)**: Permissions are granularly controlled by the owner on the Settings page. For example, a 'cook' can be given access to edit the 'food' menu but not view 'finances'.
+ *
+ * This dual system ensures both subscription tier limitations and fine-grained staff delegation are handled correctly.
  */
-// This defines the structure and labels for permissions.
-// It's used to build the UI on the Settings page.
 export const featurePermissionConfig = {
   properties: {
     label: "Properties",
@@ -191,49 +150,16 @@ export type PlanPermissions = { [feature: string]: PlanFeatureActions };
 export const planPermissionConfig: Record<string, PlanPermissions> = {
   free: {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: false },
-    guests: { view: true, add: true, edit: false, delete: false },
-    finances: { view: true, add: false },
-    complaints: { view: true, edit: false },
-    food: { view: true, edit: false },
+    guests: { view: true, add: true, edit: true, delete: true },
+    finances: { view: true, add: true },
+    complaints: { view: true, edit: true },
+    food: { view: true, edit: true },
     staff: { view: false, add: false, edit: false, delete: false },
     website: { view: false, edit: false },
     seo: { use: false },
     kyc: { view: false, edit: false, add: false },
   },
-  starter: {
-    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: false },
-    guests: { view: true, add: true, edit: true, delete: true },
-    finances: { view: true, add: true },
-    complaints: { view: true, edit: true },
-    food: { view: true, edit: true },
-    staff: { view: true, add: true, edit: true, delete: false },
-    website: { view: false, edit: false },
-    seo: { use: false },
-    kyc: { view: false, edit: false, add: false },
-  },
-  pro: {
-    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
-    guests: { view: true, add: true, edit: true, delete: true },
-    finances: { view: true, add: true },
-    complaints: { view: true, edit: true },
-    food: { view: true, edit: true },
-    staff: { view: true, add: true, edit: true, delete: true },
-    website: { view: true, edit: true },
-    seo: { use: true },
-    kyc: { view: true, edit: true, add: true },
-  },
-  business: {
-    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
-    guests: { view: true, add: true, edit: true, delete: true },
-    finances: { view: true, add: true },
-    complaints: { view: true, edit: true },
-    food: { view: true, edit: true },
-    staff: { view: true, add: true, edit: true, delete: true },
-    website: { view: true, edit: true },
-    seo: { use: true },
-    kyc: { view: true, edit: true, add: true },
-  },
-  enterprise: {
+  pro: { // 'pro' now represents any active subscription
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
@@ -249,28 +175,25 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
 /**
  * Plan limits (e.g., max number of PGs per plan)
  */
-export const planLimitsConfig: Record<string, { pgs: number | 'unlimited' }> = {
-  free: { pgs: 1 },
-  starter: { pgs: 1 },
-  pro: { pgs: 'unlimited' },
-  business: { pgs: 'unlimited' },
-  enterprise: { pgs: 'unlimited' },
+export const planLimitsConfig: Record<string, { pgs: number | 'unlimited', floors: number | 'unlimited' }> = {
+  free: { pgs: 1, floors: 2 },
+  pro: { pgs: 'unlimited', floors: 'unlimited' },
 };
 
 /**
- * Get a plan's limit for a given key (currently only 'pgs' is supported)
+ * Get a plan's limit for a given key
  */
-export function getPlanLimit(planId: string | undefined, key: 'pgs'): number | 'unlimited' {
+export function getPlanLimit(planId: string | undefined, key: 'pgs' | 'floors'): number | 'unlimited' {
   if (!planId) return 0;
   const plan = planLimitsConfig[planId];
   if (!plan) return 0;
-  return plan.pgs;
-  // If you add more keys to planLimitsConfig, extend this function accordingly.
+  return plan[key];
 }
+
 
 /**
  * Checks if a plan allows a specific action on a feature.
- * @param planId The plan id (e.g., 'free', 'starter')
+ * @param planId The plan id (e.g., 'free', 'pro')
  * @param feature The feature key
  * @param action The action key
  * @returns boolean

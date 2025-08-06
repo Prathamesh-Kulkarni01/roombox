@@ -91,7 +91,7 @@ export async function verifySubscriptionPayment(data: {
 /**
  * Creates a one-time addon to an existing subscription for the monthly dynamic charge.
  */
-export async function createRazorpayAddon(
+export async function calculateAndCreateAddons(
     subscriptionId: string, 
     itemName: string, 
     amount: number,
