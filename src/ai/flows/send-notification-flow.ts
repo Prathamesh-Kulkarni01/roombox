@@ -35,8 +35,8 @@ const sendNotificationFlow = ai.defineFlow(
   },
   async ({ userId, title, body, link }) => {
     try {
-      const adminDb = getAdminDb();
-      const adminMessaging = getAdminMessaging();
+      const adminDb = await getAdminDb();
+      const adminMessaging = await getAdminMessaging();
 
       const userDocRef = doc(adminDb, 'users', userId);
       const userDoc = await userDocRef.get();

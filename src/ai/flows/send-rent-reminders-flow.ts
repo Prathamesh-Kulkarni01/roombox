@@ -28,7 +28,7 @@ const sendRentRemindersFlow = ai.defineFlow(
     outputSchema: z.object({ success: z.boolean(), notifiedCount: z.number() }),
   },
   async () => {
-    const adminDb = getAdminDb();
+    const adminDb = await getAdminDb();
     console.log('Starting daily rent reminder check...');
     let notifiedCount = 0;
     const today = new Date();

@@ -15,7 +15,7 @@ const PRICING_CONFIG = {
 
 // --- Main Billing Logic ---
 export async function calculateAndCreateAddons() {
-    const adminDb = getAdminDb();
+    const adminDb = await getAdminDb();
     let processedCount = 0;
     try {
         // 1. Fetch all subscribed owners
@@ -57,7 +57,7 @@ export async function calculateAndCreateAddons() {
  * This function is idempotent for the current month.
  */
 async function processOwnerBilling(owner: User): Promise<boolean> {
-    const adminDb = getAdminDb();
+    const adminDb = await getAdminDb();
     const { id: ownerId, subscription } = owner;
 
     if (!subscription || !subscription.razorpay_subscription_id) {
@@ -142,7 +142,7 @@ async function processOwnerBilling(owner: User): Promise<boolean> {
  * Calculates the total billable amount for an owner for the current cycle.
  */
 export async function calculateOwnerBill(owner: User) {
-    const adminDb = getAdminDb();
+    const adminDb = await getAdminDb();
     const pgsSnapshot = await getDocs(collection(adminDb, 'users_data', owner.id, 'pgs'));
     const activeProperties = pgsSnapshot.docs.map(doc => doc.data() as PG);
 
@@ -175,7 +175,7 @@ export async function calculateOwnerBill(owner: User) {
 
 // --- Test Function ---
 export async function testOwnerBilling(ownerId: string) {
-    const adminDb = getAdminDb();
+    const adminDb = await getAdminDb();
     try {
         const ownerDoc = await getDoc(doc(adminDb, 'users', ownerId));
         if (!ownerDoc.exists()) {

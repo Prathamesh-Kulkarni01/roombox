@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const event = JSON.parse(body);
-    const adminDb = getAdminDb();
+    const adminDb = await getAdminDb();
 
     // We are interested in failed subscription payments
     if (event.event === 'subscription.charged' && event.payload.payment.entity.status === 'failed') {

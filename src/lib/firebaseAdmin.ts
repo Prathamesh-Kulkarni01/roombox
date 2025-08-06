@@ -6,58 +6,47 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
 import { getStorage, Storage } from 'firebase-admin/storage';
 
-let app: App | null = null;
+let adminApp: App;
 
-function initializeAdminApp(): App {
-    if (getApps().length > 0) {
-        app = getApps()[0];
-        return app;
-    }
-    
-    const serviceAccount = getServiceAccount();
-    if (serviceAccount) {
-        app = initializeApp({
-            credential: cert(serviceAccount),
-            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-        });
-        return app;
-    }
-    
-    throw new Error("Firebase Admin SDK could not be initialized. Service account key is missing or invalid.");
-}
+const initializeAdminApp = () => {
+  if (getApps().length > 0) {
+    return getApps()[0];
+  }
 
-const getServiceAccount = () => {
-    const key = process.env.FIREBASE_ADMIN_SDK_CONFIG;
-    if (!key) {
-        console.warn("FIREBASE_ADMIN_SDK_CONFIG environment variable not found.");
-        return undefined;
-    }
-    try {
-        if (typeof key === 'object') return key;
-        return JSON.parse(key);
-    } catch (e) {
-        console.error("Failed to parse FIREBASE_ADMIN_SDK_CONFIG:", e);
-        return undefined;
-    }
+  const serviceAccountKey = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+  if (!serviceAccountKey) {
+    throw new Error('FIREBASE_ADMIN_SDK_CONFIG is not set.');
+  }
+
+  try {
+    const serviceAccount = JSON.parse(serviceAccountKey);
+    return initializeApp({
+      credential: cert(serviceAccount),
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    });
+  } catch (error) {
+    console.error('Error initializing Firebase Admin SDK:', error);
+    throw new Error('Failed to initialize Firebase Admin SDK. Check your service account key.');
+  }
 };
 
-function getAdminApp(): App {
-    if (!app) {
-        app = initializeAdminApp();
-    }
-    return app;
+function getAdminAppInstance(): App {
+  if (!adminApp) {
+    adminApp = initializeAdminApp();
+  }
+  return adminApp;
 }
 
 export async function getAdminDb(): Promise<Firestore> {
-    return getFirestore(getAdminApp());
+  return getFirestore(getAdminAppInstance());
 }
 
 export async function getAdminMessaging(): Promise<Messaging> {
-    return getMessaging(getAdminApp());
+  return getMessaging(getAdminAppInstance());
 }
 
 export async function getAdminStorage(): Promise<Storage> {
-    return getStorage(getAdminApp());
+    return getStorage(getAdminAppInstance());
 }
 
-export { getAdminApp as adminApp };
+export { getAdminAppInstance as adminApp };
