@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 import { collection, query, where, getDocs, writeBatch } from 'firebase-admin/firestore';
 
 const razorpay = new Razorpay({
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     }
 
     const event = JSON.parse(body);
+    const adminDb = getAdminDb();
 
     // We are interested in failed subscription payments
     if (event.event === 'subscription.charged' && event.payload.payment.entity.status === 'failed') {

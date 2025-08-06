@@ -11,7 +11,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { doc } from 'firebase-admin/firestore';
-import { adminDb, adminMessaging } from '@/lib/firebaseAdmin';
+import { getAdminDb, getAdminMessaging } from '@/lib/firebaseAdmin';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
 
@@ -35,6 +35,9 @@ const sendNotificationFlow = ai.defineFlow(
   },
   async ({ userId, title, body, link }) => {
     try {
+      const adminDb = getAdminDb();
+      const adminMessaging = getAdminMessaging();
+
       const userDocRef = doc(adminDb, 'users', userId);
       const userDoc = await userDocRef.get();
 

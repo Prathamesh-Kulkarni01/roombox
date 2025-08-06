@@ -2,11 +2,29 @@
 'use server';
 
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
-import { getStorage } from 'firebase-admin/storage';
+import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { getMessaging, Messaging } from 'firebase-admin/messaging';
+import { getStorage, Storage } from 'firebase-admin/storage';
 
 let app: App | null = null;
+
+function initializeAdminApp(): App {
+    if (getApps().length > 0) {
+        app = getApps()[0];
+        return app;
+    }
+    
+    const serviceAccount = getServiceAccount();
+    if (serviceAccount) {
+        app = initializeApp({
+            credential: cert(serviceAccount),
+            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        });
+        return app;
+    }
+    
+    throw new Error("Firebase Admin SDK could not be initialized. Service account key is missing or invalid.");
+}
 
 const getServiceAccount = () => {
     const key = process.env.FIREBASE_ADMIN_SDK_CONFIG;
@@ -15,7 +33,6 @@ const getServiceAccount = () => {
         return undefined;
     }
     try {
-        // Attempt to parse the key. If it's already an object (e.g., in some environments), use it directly.
         if (typeof key === 'object') return key;
         return JSON.parse(key);
     } catch (e) {
@@ -24,43 +41,23 @@ const getServiceAccount = () => {
     }
 };
 
-function initializeAdminApp() {
-    if (getApps().length > 0) {
-        return getApps()[0];
+function getAdminApp(): App {
+    if (!app) {
+        app = initializeAdminApp();
     }
-    
-    const serviceAccount = getServiceAccount();
-    if (serviceAccount) {
-        return initializeApp({
-            credential: cert(serviceAccount),
-            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-        });
-    }
-    
-    console.error("Firebase Admin SDK could not be initialized. Service account key is missing or invalid.");
-    return null;
+    return app;
 }
 
-app = initializeAdminApp();
-
-function getAdminDb() {
-    if (!app) throw new Error("Firebase Admin SDK is not initialized.");
-    return getFirestore(app);
+export async function getAdminDb(): Promise<Firestore> {
+    return getFirestore(getAdminApp());
 }
 
-function getAdminMessaging() {
-    if (!app) throw new Error("Firebase Admin SDK is not initialized.");
-    return getMessaging(app);
+export async function getAdminMessaging(): Promise<Messaging> {
+    return getMessaging(getAdminApp());
 }
 
-function getAdminStorage() {
-    if (!app) throw new Error("Firebase Admin SDK is not initialized.");
-    return getStorage(app);
+export async function getAdminStorage(): Promise<Storage> {
+    return getStorage(getAdminApp());
 }
 
-// Export functions instead of objects to comply with 'use server' constraints.
-const adminDb = getAdminDb();
-const adminMessaging = getAdminMessaging();
-const adminStorage = getAdminStorage();
-
-export { adminDb, adminMessaging, adminStorage, app as adminApp };
+export { getAdminApp as adminApp };

@@ -10,7 +10,7 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { collection, getDocs, query, where } from 'firebase-admin/firestore';
-import { adminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 import { addDays, format, isBefore, parseISO } from 'date-fns';
 import { type User, type Guest } from '@/lib/types';
 import { sendNotification } from './send-notification-flow';
@@ -28,6 +28,7 @@ const sendRentRemindersFlow = ai.defineFlow(
     outputSchema: z.object({ success: z.boolean(), notifiedCount: z.number() }),
   },
   async () => {
+    const adminDb = getAdminDb();
     console.log('Starting daily rent reminder check...');
     let notifiedCount = 0;
     const today = new Date();
