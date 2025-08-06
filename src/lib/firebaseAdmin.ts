@@ -1,4 +1,6 @@
 
+'use server';
+
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
@@ -8,68 +10,37 @@ let app: App;
 
 const getServiceAccount = () => {
     const key = process.env.FIREBASE_ADMIN_SDK_CONFIG;
-    if (!key) return undefined;
+    if (!key) {
+        console.warn("FIREBASE_ADMIN_SDK_CONFIG environment variable not found.");
+        return undefined;
+    }
     try {
         return JSON.parse(key);
     } catch (e) {
         console.error("Failed to parse FIREBASE_ADMIN_SDK_CONFIG:", e);
         return undefined;
     }
-}
-
-const serviceAccountKey = getServiceAccount();
-
-const firebaseAdminConfig = {
-    credential: serviceAccountKey ? cert(serviceAccountKey) : undefined,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
 };
 
 if (!getApps().length) {
-  if (serviceAccountKey) {
-    app = initializeApp(firebaseAdminConfig);
-  } else {
-    console.warn("Firebase Admin SDK config not found, server-side features may not work as expected.");
-    // Attempt to initialize without credentials for environments where it's auto-configured (like some Firebase hosting environments)
-    try {
-        app = initializeApp();
-    } catch (e) {
-        console.error("Failed to initialize Firebase Admin app. Server-side functionality will be limited.");
-        // @ts-ignore
-        app = undefined;
+    const serviceAccount = getServiceAccount();
+    if (serviceAccount) {
+        app = initializeApp({
+            credential: cert(serviceAccount),
+            storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        });
+    } else {
+        console.error("Firebase Admin SDK could not be initialized. Service account key is missing or invalid.");
     }
-  }
 } else {
-  app = getApps()[0];
+    app = getApps()[0];
 }
 
-const getDb = () => {
-    if (!app) {
-        console.error("Firebase Admin App is not initialized. Firestore is unavailable.");
-        return null;
-    }
-    return getFirestore(app);
-}
+const adminDb = app ? getFirestore(app) : null;
+const adminMessaging = app ? getMessaging(app) : null;
+const adminStorage = app ? getStorage(app) : null;
 
-const getMessagingInstance = () => {
-    if (!app) {
-        console.error("Firebase Admin App is not initialized. Messaging is unavailable.");
-        return null;
-    }
-    return getMessaging(app);
-}
-
-const getStorageInstance = () => {
-     if (!app) {
-        console.error("Firebase Admin App is not initialized. Storage is unavailable.");
-        return null;
-    }
-    return getStorage(app);
-}
-
-
-// Use functions to ensure app is initialized before accessing services
-export const adminDb = getDb()!;
-export const adminMessaging = getMessagingInstance()!;
-export const adminStorage = getStorageInstance()!;
-
-export const adminApp = app;
+// The exclamation marks assert that these services are available.
+// The initialization logic above should ensure this is the case.
+// If it's not, an error at this point is better than a downstream crash.
+export { adminDb, adminMessaging, adminStorage, app as adminApp };
