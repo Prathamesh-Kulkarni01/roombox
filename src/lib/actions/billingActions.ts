@@ -139,7 +139,7 @@ async function processOwnerBilling(owner: User): Promise<boolean> {
 /**
  * Calculates the total billable amount for an owner for the current cycle.
  */
-async function calculateOwnerBill(owner: User) {
+export async function calculateOwnerBill(owner: User) {
     const pgsSnapshot = await getDocs(collection(adminDb, 'users_data', owner.id, 'pgs'));
     const activeProperties = pgsSnapshot.docs.map(doc => doc.data() as PG);
 
@@ -167,4 +167,21 @@ async function calculateOwnerBill(owner: User) {
             pricingConfig: PRICING_CONFIG,
         }
     };
+}
+
+
+// --- Test Function ---
+export async function testOwnerBilling(ownerId: string) {
+    try {
+        const ownerDoc = await getDoc(doc(adminDb, 'users', ownerId));
+        if (!ownerDoc.exists()) {
+            return { success: false, error: "Owner not found." };
+        }
+        const owner = ownerDoc.data() as User;
+        const billingData = await calculateOwnerBill(owner);
+        return { success: true, data: billingData };
+    } catch (error: any) {
+        console.error('Error in testOwnerBilling:', error);
+        return { success: false, error: error.message };
+    }
 }
