@@ -2,31 +2,23 @@
 'use server'
 
 import { getAdminDb } from '../firebaseAdmin';
-import type { User, PG, Guest } from '../types';
+import type { User, PG, Guest, PremiumFeatures } from '../types';
 import { calculateAndCreateAddons } from './subscriptionActions';
 
 const PRICING_CONFIG = {
     perProperty: 100,
     perTenant: 10,
-    proFeaturesCharge: 499, // A fixed monthly charge for the Pro feature bundle
     freeTenantQuota: 10,
+    premiumFeatures: {
+        website: {
+            monthlyCharge: 20
+        },
+        whatsapp: {
+            perTenantCharge: 30
+        },
+        // Future features can be added here
+    }
 };
-
-import Razorpay from "razorpay";
-
-let razorpayClient: Razorpay | null = null;
-
-function getRazorpayClient() {
-  if (!razorpayClient) {
-    razorpayClient = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID || "",
-      key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-    });
-  }
-  return razorpayClient;
-}
-
-
 
 async function processOwnerBilling(owner: User): Promise<boolean> {
     const adminDb = await getAdminDb();
@@ -127,19 +119,28 @@ export async function calculateOwnerBill(owner: User) {
         .get();
 
     const activeTenants = guestsSnapshot.docs.map(doc => doc.data() as Guest);
-
-    const plan = owner.subscription?.planId || 'free';
-    
-    // Pro features charge is applied if the flag is active
-    const featureCharge = owner.subscription?.proFeaturesActive ? PRICING_CONFIG.proFeaturesCharge : 0;
-    
-    // Tenants over the free quota
     const billableTenants = Math.max(0, activeTenants.length - PRICING_CONFIG.freeTenantQuota);
 
     const propertyCharge = activeProperties.length * PRICING_CONFIG.perProperty;
     const tenantCharge = billableTenants * PRICING_CONFIG.perTenant;
 
-    const totalAmount = propertyCharge + tenantCharge + featureCharge;
+    let totalPremiumFeaturesCharge = 0;
+    const premiumFeaturesDetails: Record<string, number> = {};
+
+    const enabledFeatures = owner.subscription?.premiumFeatures || {};
+
+    if (enabledFeatures.website?.enabled) {
+        const charge = PRICING_CONFIG.premiumFeatures.website.monthlyCharge;
+        premiumFeaturesDetails['website'] = charge;
+        totalPremiumFeaturesCharge += charge;
+    }
+    if (enabledFeatures.whatsapp?.enabled) {
+        const charge = activeTenants.length * PRICING_CONFIG.premiumFeatures.whatsapp.perTenantCharge;
+        premiumFeaturesDetails['whatsapp'] = charge;
+        totalPremiumFeaturesCharge += charge;
+    }
+    
+    const totalAmount = propertyCharge + tenantCharge + totalPremiumFeaturesCharge;
 
     return {
         totalAmount,
@@ -148,10 +149,11 @@ export async function calculateOwnerBill(owner: User) {
             tenantCount: activeTenants.length,
             billableTenantCount: billableTenants,
             freeTenantQuota: PRICING_CONFIG.freeTenantQuota,
-            proFeaturesActive: owner.subscription?.proFeaturesActive || false,
+            enabledPremiumFeatures: enabledFeatures,
             propertyCharge,
             tenantCharge,
-            featureCharge,
+            premiumFeaturesCharge: totalPremiumFeaturesCharge,
+            premiumFeaturesDetails,
             pricingConfig: PRICING_CONFIG,
         }
     };

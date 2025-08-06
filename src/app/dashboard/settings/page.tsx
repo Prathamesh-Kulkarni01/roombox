@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useState, useTransition, useMemo } from "react"
@@ -13,9 +14,9 @@ import { Label } from "@/components/ui/label"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { plans } from "@/lib/mock-data"
-import type { PlanName, ChargeTemplate, UserRole, KycDocumentConfig } from "@/lib/types"
+import type { PlanName, ChargeTemplate, UserRole, KycDocumentConfig, PremiumFeatures } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, Message, BotIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -32,6 +33,7 @@ import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
 import SubscriptionDialog from "@/components/dashboard/dialogs/SubscriptionDialog"
 import { testOwnerBilling } from "@/lib/actions/billingActions"
 import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
+import { togglePremiumFeature } from "@/lib/actions/userActions"
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -236,6 +238,19 @@ export default function SettingsPage() {
       }
     });
   }
+  
+  const handleToggleFeature = (feature: keyof PremiumFeatures, enabled: boolean) => {
+    if(!currentUser) return;
+    startTransition(async () => {
+        const result = await togglePremiumFeature({ userId: currentUser.id, feature, enabled });
+        if(result.success) {
+            dispatch(updateUserPlan({ planId: 'pro' })); // This will re-evaluate local state
+            toast({ title: "Feature Updated", description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${feature}.` });
+        } else {
+            toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
+        }
+    });
+  };
 
   const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
   const currentRolePermissions = roleToEdit ? selectedPermissions?.[roleToEdit] : {};
@@ -271,6 +286,40 @@ export default function SettingsPage() {
             </div>
             </CardContent>
         </Card>
+        
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Star /> Premium Feature Add-ons</CardTitle>
+                <CardDescription>Enable powerful features to supercharge your PG management. Changes will reflect in your next monthly bill.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
+                        <Label htmlFor="website-builder" className="flex items-center gap-2 font-semibold text-base"><Globe/> Website Builder</Label>
+                        <p className="text-muted-foreground text-sm">Get a professional website for your PG. (₹20/month)</p>
+                    </div>
+                    <Switch id="website-builder" checked={!!currentUser.subscription?.premiumFeatures?.website?.enabled} onCheckedChange={(c) => handleToggleFeature('website', c)} disabled={isSaving}/>
+                </div>
+                 <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
+                        <Label htmlFor="kyc" className="flex items-center gap-2 font-semibold text-base"><UserCheck/> Automated KYC</Label>
+                        <p className="text-muted-foreground text-sm">AI-powered document verification.</p>
+                    </div>
+                    <Switch id="kyc" checked={!!currentUser.subscription?.premiumFeatures?.kyc?.enabled} onCheckedChange={(c) => handleToggleFeature('kyc', c)} disabled={isSaving}/>
+                </div>
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="space-y-1">
+                        <Label htmlFor="whatsapp" className="flex items-center gap-2 font-semibold text-base"><BotIcon/> WhatsApp Automation</Label>
+                        <p className="text-muted-foreground text-sm">Automated reminders and notifications. (₹30/tenant/month)</p>
+                    </div>
+                    <Switch id="whatsapp" checked={!!currentUser.subscription?.premiumFeatures?.whatsapp?.enabled} onCheckedChange={(c) => handleToggleFeature('whatsapp', c)} disabled={isSaving}/>
+                </div>
+            </CardContent>
+             <CardFooter>
+                <p className="text-xs text-muted-foreground">Note: Billing is usage-based. You will be charged at the end of your monthly cycle for enabled features.</p>
+             </CardFooter>
+        </Card>
+
 
         <Card>
             <CardHeader>

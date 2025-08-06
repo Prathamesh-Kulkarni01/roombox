@@ -3,7 +3,7 @@
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite } from '../types';
+import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures } from '../types';
 import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -39,27 +39,25 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         let userDataToReturn: User | null = null;
         
         const getPlanForUser = (user: User): Plan => {
-            if (!user.subscription || user.subscription.status === 'inactive') {
+             if (!user.subscription || user.subscription.status === 'inactive') {
                 return plans.free;
             }
             
             const isActive = user.subscription.status === 'active';
             const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
             
-            // Any active or trialing subscription grants access to 'pro' level features.
-            // The actual billing is based on usage, not the plan name.
-            if (isActive || isTrialing) {
-                const plan = { ...plans['pro'] };
-                // Dynamically set feature access based on pro features status for subscribed users
-                if(isActive && !user.subscription.proFeaturesActive) {
-                    plan.hasWebsiteBuilder = false;
-                    plan.hasSeoGenerator = false;
-                    plan.hasKycVerification = false;
-                }
-                return plan;
+            const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
+            const finalPlan = { ...plans[basePlanId] };
+
+            if (isActive) {
+                const premiumFeatures = user.subscription.premiumFeatures;
+                finalPlan.hasWebsiteBuilder = !!premiumFeatures?.website?.enabled;
+                finalPlan.hasSeoGenerator = !!premiumFeatures?.website?.enabled; // Linked to website builder
+                finalPlan.hasKycVerification = !!premiumFeatures?.kyc?.enabled;
+                finalPlan.hasAutomatedWhatsapp = !!premiumFeatures?.whatsapp?.enabled;
             }
             
-            return plans.free;
+            return finalPlan;
         };
 
 
@@ -157,7 +155,11 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                         planId: 'pro', 
                         status: 'trialing', 
                         trialEndDate: trialEndDate.toISOString(),
-                        proFeaturesActive: true,
+                        premiumFeatures: {
+                            website: { enabled: true },
+                            kyc: { enabled: true },
+                            whatsapp: { enabled: true }
+                        }
                     },
                     avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName) || 'NO').slice(0, 2).toUpperCase()}`
                 };
@@ -197,10 +199,6 @@ export const updateUserPlan = createAsyncThunk<User, { planId: PlanName, proFeat
             status: planId === 'free' ? 'inactive' : 'active',
         };
         
-        if (proFeatures !== undefined) {
-            updatedSubscription.proFeaturesActive = proFeatures;
-        }
-
         const updatedUser: User = {
             ...currentUser,
             subscription: updatedSubscription,
@@ -257,17 +255,19 @@ const userSlice = createSlice({
             state.currentUser = action.payload;
             if (action.payload?.subscription) {
                 const sub = action.payload.subscription;
-                 const isActive = sub.status === 'active';
+                const isActive = sub.status === 'active';
                 const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
-                 // Any active/trialing subscription is considered 'pro' for feature access
-                const userPlan = (isActive || isTrialing) ? { ...plans['pro'] } : plans.free;
+                const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
+                const finalPlan = { ...plans[basePlanId] };
 
-                if (isActive && !sub.proFeaturesActive) {
-                    userPlan.hasWebsiteBuilder = false;
-                    userPlan.hasSeoGenerator = false;
-                    userPlan.hasKycVerification = false;
+                if (isActive || isTrialing) {
+                    const premiumFeatures = sub.premiumFeatures;
+                    finalPlan.hasWebsiteBuilder = !!premiumFeatures?.website?.enabled;
+                    finalPlan.hasSeoGenerator = !!premiumFeatures?.website?.enabled;
+                    finalPlan.hasKycVerification = !!premiumFeatures?.kyc?.enabled;
+                    finalPlan.hasAutomatedWhatsapp = !!premiumFeatures?.whatsapp?.enabled;
                 }
-                state.currentPlan = userPlan;
+                state.currentPlan = finalPlan;
 
             } else {
                  state.currentPlan = action.payload ? plans.free : null;
@@ -286,15 +286,17 @@ const userSlice = createSlice({
                     const sub = action.payload.subscription;
                     const isActive = sub.status === 'active';
                     const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
-                    const userPlan = (isActive || isTrialing) ? { ...plans['pro'] } : plans.free;
+                    const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
+                    const finalPlan = { ...plans[basePlanId] };
 
-                    if (isActive && !sub.proFeaturesActive) {
-                        userPlan.hasWebsiteBuilder = false;
-                        userPlan.hasSeoGenerator = false;
-                        userPlan.hasKycVerification = false;
+                    if (isActive || isTrialing) {
+                        const premiumFeatures = sub.premiumFeatures;
+                        finalPlan.hasWebsiteBuilder = !!premiumFeatures?.website?.enabled;
+                        finalPlan.hasSeoGenerator = !!premiumFeatures?.website?.enabled;
+                        finalPlan.hasKycVerification = !!premiumFeatures?.kyc?.enabled;
+                        finalPlan.hasAutomatedWhatsapp = !!premiumFeatures?.whatsapp?.enabled;
                     }
-                    state.currentPlan = userPlan;
-
+                    state.currentPlan = finalPlan;
                 } else {
                     state.currentPlan = plans.free;
                 }
@@ -310,14 +312,17 @@ const userSlice = createSlice({
                     const sub = action.payload.subscription;
                     const isActive = sub.status === 'active';
                     const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
-                    const userPlan = (isActive || isTrialing) ? { ...plans['pro'] } : plans.free;
-                    
-                    if (isActive && !sub.proFeaturesActive) {
-                        userPlan.hasWebsiteBuilder = false;
-                        userPlan.hasSeoGenerator = false;
-                        userPlan.hasKycVerification = false;
+                    const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
+                    const finalPlan = { ...plans[basePlanId] };
+
+                     if (isActive || isTrialing) {
+                        const premiumFeatures = sub.premiumFeatures;
+                        finalPlan.hasWebsiteBuilder = !!premiumFeatures?.website?.enabled;
+                        finalPlan.hasSeoGenerator = !!premiumFeatures?.website?.enabled;
+                        finalPlan.hasKycVerification = !!premiumFeatures?.kyc?.enabled;
+                        finalPlan.hasAutomatedWhatsapp = !!premiumFeatures?.whatsapp?.enabled;
                     }
-                    state.currentPlan = userPlan;
+                    state.currentPlan = finalPlan;
                 } else {
                     state.currentPlan = plans.free;
                 }
@@ -335,4 +340,3 @@ const userSlice = createSlice({
 
 export const { setCurrentUser } = userSlice.actions;
 export default userSlice.reducer;
-
