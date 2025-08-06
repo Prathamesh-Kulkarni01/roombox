@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { plans } from "@/lib/mock-data"
 import type { PlanName, ChargeTemplate, UserRole, KycDocumentConfig } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -31,6 +31,7 @@ import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
 import SubscriptionDialog from "@/components/dashboard/dialogs/SubscriptionDialog"
 import { testOwnerBilling } from "@/lib/actions/billingActions"
+import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -72,6 +73,7 @@ export default function SettingsPage() {
   const [selectedPermissions, setSelectedPermissions] = useState<RolePermissions>({});
   const { toast } = useToast();
   const [isTestingBilling, startBillingTest] = useTransition();
+  const [isTestingReminders, startReminderTest] = useTransition();
 
   const chargeTemplateForm = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
@@ -215,6 +217,24 @@ export default function SettingsPage() {
             toast({ variant: 'destructive', title: 'Test Failed', description: result.error });
         }
     })
+  }
+
+  const handleTestRentReminders = () => {
+    startReminderTest(async () => {
+      const result = await sendRentReminders();
+      if(result.success) {
+        toast({
+          title: "Reminder Test Complete",
+          description: `Successfully sent ${result.notifiedCount} rent reminders.`
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Reminder Test Failed',
+          description: 'Could not complete the rent reminder flow.'
+        });
+      }
+    });
   }
 
   const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
@@ -366,13 +386,21 @@ export default function SettingsPage() {
                          <Button onClick={handleReconcileAll}>Reconcile Rents Now</Button>
                           <p className="text-xs text-muted-foreground mt-2">Manually trigger rent reconciliation for all guests using the simulated date.</p>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                          <Button onClick={handleRunBillingTest} disabled={isTestingBilling}>
                             {isTestingBilling && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             <IndianRupee className="mr-2 h-4 w-4"/>
                             Test Monthly Billing
                         </Button>
-                        <p className="text-xs text-muted-foreground mt-2">Simulate the monthly cron job and see the calculated bill amount.</p>
+                        <p className="text-xs text-muted-foreground">Simulate the monthly billing cron job and see the calculated bill amount.</p>
+                    </div>
+                     <div className="space-y-2">
+                         <Button onClick={handleTestRentReminders} disabled={isTestingReminders}>
+                            {isTestingReminders && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            <BellRing className="mr-2 h-4 w-4"/>
+                            Test Rent Reminders
+                        </Button>
+                        <p className="text-xs text-muted-foreground">Manually run the rent reminder job and send notifications.</p>
                     </div>
                 </CardContent>
             </Card>
