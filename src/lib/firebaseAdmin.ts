@@ -6,7 +6,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { getStorage } from 'firebase-admin/storage';
 
-let app: App;
+let app: App | null = null;
 
 const getServiceAccount = () => {
     const key = process.env.FIREBASE_ADMIN_SDK_CONFIG;
@@ -15,6 +15,8 @@ const getServiceAccount = () => {
         return undefined;
     }
     try {
+        // Attempt to parse the key. If it's already an object (e.g., in some environments), use it directly.
+        if (typeof key === 'object') return key;
         return JSON.parse(key);
     } catch (e) {
         console.error("Failed to parse FIREBASE_ADMIN_SDK_CONFIG:", e);
@@ -22,25 +24,43 @@ const getServiceAccount = () => {
     }
 };
 
-if (!getApps().length) {
+function initializeAdminApp() {
+    if (getApps().length > 0) {
+        return getApps()[0];
+    }
+    
     const serviceAccount = getServiceAccount();
     if (serviceAccount) {
-        app = initializeApp({
+        return initializeApp({
             credential: cert(serviceAccount),
             storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
         });
-    } else {
-        console.error("Firebase Admin SDK could not be initialized. Service account key is missing or invalid.");
     }
-} else {
-    app = getApps()[0];
+    
+    console.error("Firebase Admin SDK could not be initialized. Service account key is missing or invalid.");
+    return null;
 }
 
-const adminDb = app ? getFirestore(app) : null;
-const adminMessaging = app ? getMessaging(app) : null;
-const adminStorage = app ? getStorage(app) : null;
+app = initializeAdminApp();
 
-// The exclamation marks assert that these services are available.
-// The initialization logic above should ensure this is the case.
-// If it's not, an error at this point is better than a downstream crash.
+function getAdminDb() {
+    if (!app) throw new Error("Firebase Admin SDK is not initialized.");
+    return getFirestore(app);
+}
+
+function getAdminMessaging() {
+    if (!app) throw new Error("Firebase Admin SDK is not initialized.");
+    return getMessaging(app);
+}
+
+function getAdminStorage() {
+    if (!app) throw new Error("Firebase Admin SDK is not initialized.");
+    return getStorage(app);
+}
+
+// Export functions instead of objects to comply with 'use server' constraints.
+const adminDb = getAdminDb();
+const adminMessaging = getAdminMessaging();
+const adminStorage = getAdminStorage();
+
 export { adminDb, adminMessaging, adminStorage, app as adminApp };
