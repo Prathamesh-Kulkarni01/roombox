@@ -34,20 +34,20 @@ export default function MyPgPage() {
     const { pgs } = useAppSelector(state => state.pgs)
     const { isLoading } = useAppSelector(state => state.app)
 
-    const currentGuest = guests.find(g => g.id === currentUser?.guestId);
-    const currentPg = currentGuest ? pgs.find(p => p.id === currentGuest.pgId) : null;
+    const currentGuest = currentUser?.guestId
+    const currentPg =  currentUser?.pgId    
 
     const bedDetails = useMemo(() => {
         if (!currentPg || !currentGuest) return { roomName: 'N/A', bedName: 'N/A' };
-        for (const floor of currentPg.floors || []) {
-            for (const room of floor.rooms) {
-                const bed = room.beds.find(b => b.id === currentGuest.bedId);
-                if (bed) {
-                    return { roomName: room.name, bedName: bed.name };
-                }
-            }
-        }
-        return { roomName: 'N/A', bedName: 'N/A' };
+        const pg = pgs.find(p => p.id === currentPg)
+        if (!pg) return { roomName: 'N/A', bedName: 'N/A' };
+        const floor = pg.floors.find(f => f.id === currentGuest.floorId)
+        if (!floor) return { roomName: 'N/A', bedName: 'N/A' };
+        const room = floor.rooms.find(r => r.id === currentGuest.roomId)
+        if (!room) return { roomName: 'N/A', bedName: 'N/A' };
+        const bed = room.beds.find(b => b.id === currentGuest.bedId)
+        if (!bed) return { roomName: 'N/A', bedName: 'N/A' };
+        return { roomName: room.name, bedName: bed.name };  
     }, [currentPg, currentGuest]);
 
      const { totalDue, balanceBroughtForward } = useMemo(() => {
@@ -61,9 +61,9 @@ export default function MyPgPage() {
 
         return { totalDue: total, balanceBroughtForward: balanceBf };
     }, [currentGuest]);
+console.log({currentGuest, currentPg})
 
-
-    if (isLoading || !currentGuest || !currentPg) {
+    if ( !currentGuest || !currentPg) {
         return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="lg:col-span-2 space-y-6">

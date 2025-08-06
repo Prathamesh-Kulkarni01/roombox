@@ -104,11 +104,11 @@ const Index = () => {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-hero rounded-3xl blur-2xl opacity-30 animate-pulse-slow"></div>
               <Image 
-                src="https://placehold.co/600x600.png"
+                src="/images/indian-pg-owner-hero.webp"
                 alt="Happy Indian PG Owner using RentSutra app"
                 width={600}
                 height={600}
-                className="relative z-10 w-full h-auto rounded-3xl shadow-trust animate-float"
+                className="relative z-10 w-full h-auto rounded-3xl animate-float"
                 data-ai-hint="happy indian property manager"
               />
             </div>
