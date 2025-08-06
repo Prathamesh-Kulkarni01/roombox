@@ -6,9 +6,9 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
 import { getStorage, Storage } from 'firebase-admin/storage';
 
-let adminApp: App;
+let adminApp: App | null = null;
 
-const initializeAdminApp = () => {
+function initializeAdminApp(): App {
   if (getApps().length > 0) {
     return getApps()[0];
   }
@@ -30,23 +30,23 @@ const initializeAdminApp = () => {
   }
 };
 
-function getAdminAppInstance(): App {
-  if (!adminApp) {
-    adminApp = initializeAdminApp();
-  }
-  return adminApp;
+function getAdminApp(): App {
+    if(!adminApp) {
+        adminApp = initializeAdminApp();
+    }
+    return adminApp;
 }
 
 export async function getAdminDb(): Promise<Firestore> {
-  return getFirestore(getAdminAppInstance());
+  return getFirestore(getAdminApp());
 }
 
 export async function getAdminMessaging(): Promise<Messaging> {
-  return getMessaging(getAdminAppInstance());
+  return getMessaging(getAdminApp());
 }
 
 export async function getAdminStorage(): Promise<Storage> {
-    return getStorage(getAdminAppInstance());
+    return getStorage(getAdminApp());
 }
 
-export { getAdminAppInstance as adminApp };
+export { getAdminApp as adminApp };

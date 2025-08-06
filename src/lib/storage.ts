@@ -2,6 +2,8 @@
 'use server'
 
 import { v2 as cloudinary } from 'cloudinary';
+import { getAdminStorage } from './firebaseAdmin';
+
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
