@@ -7,6 +7,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { PlanName, User, PremiumFeatures } from '../types'
 import { getAdminDb } from '../firebaseAdmin'
+import { calculateOwnerBill } from './billingActions'
 
 
 const razorpay = new Razorpay({
@@ -90,31 +91,59 @@ export async function verifySubscriptionPayment(data: {
 }
 
 /**
- * Creates a one-time addon to an existing subscription for the monthly dynamic charge.
+ * Calculates the total monthly bill and creates a single addon for it on Razorpay.
  */
-export async function calculateAndCreateAddons(
-    subscriptionId: string, 
-    itemName: string, 
-    amount: number,
-    idempotencyKey: string,
-) {
-    if (amount <= 0) {
-      return { success: true, addon: null, message: 'Amount is zero, no addon created.' };
-    }
+export async function calculateAndCreateAddons() {
+  const adminDb = await getAdminDb();
+  console.log('Running monthly billing cron job...');
+  let processedCount = 0;
 
-    try {
-        const addon = await razorpay.subscriptions.createAddon(subscriptionId, {
-            item: {
-                name: idempotencyKey, // Using our key for Razorpay's idempotency
-                amount: amount * 100, // Amount in paisa
-                currency: 'INR',
-                description: itemName,
-            },
-            quantity: 1,
-        });
-        return { success: true, addon };
-    } catch (error: any) {
-        console.error(`Failed to create addon for subscription ${subscriptionId}:`, error);
-        return { success: false, error: error.description || 'Could not create addon on payment gateway.' };
+  try {
+    const ownersSnapshot = await adminDb
+        .collection('users')
+        .where('subscription.status', '==', 'active')
+        .get();
+        
+    for (const userDoc of ownersSnapshot.docs) {
+        const owner = { id: userDoc.id, ...userDoc.data() } as User;
+        const subscriptionId = owner.subscription?.razorpay_subscription_id;
+        
+        if (!subscriptionId) {
+            console.warn(`Owner ${owner.id} is active but has no Razorpay subscription ID. Skipping.`);
+            continue;
+        }
+
+        const billingDetails = await calculateOwnerBill(owner);
+        const totalAmount = billingDetails.totalAmount;
+        
+        if (totalAmount <= 0) {
+            console.log(`Owner ${owner.id} has no charges this month. Skipping.`);
+            continue;
+        }
+
+        const idempotencyKey = `bill-${owner.id}-${new Date().toISOString().slice(0, 7)}`; // e.g., bill-userId-2024-08
+        const itemName = `Monthly Bill for ${new Date().toLocaleString('default', { month: 'long' })}`;
+
+        try {
+            await razorpay.subscriptions.createAddon(subscriptionId, {
+                item: {
+                    name: idempotencyKey,
+                    amount: totalAmount * 100, // Amount in paisa
+                    currency: 'INR',
+                    description: itemName,
+                },
+                quantity: 1,
+            });
+            console.log(`Successfully created addon for ${owner.id} of ₹${totalAmount}`);
+            processedCount++;
+        } catch (error: any) {
+            console.error(`Failed to create addon for ${owner.id} (Sub ID: ${subscriptionId}):`, error.error?.description || error.message);
+        }
     }
+    console.log(`Billing cron job finished. Processed ${processedCount} owner(s).`);
+    return { success: true, processedCount };
+  } catch(error: any) {
+    console.error("Error running billing cron job:", error);
+    return { success: false, error: error.message };
+  }
 }

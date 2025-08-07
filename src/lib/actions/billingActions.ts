@@ -3,23 +3,22 @@
 
 import { getAdminDb } from '../firebaseAdmin';
 import type { User, PG, Guest, PremiumFeatures } from '../types';
-import { calculateAndCreateAddons } from './subscriptionActions';
 
-const PRICING_CONFIG = {
-    perProperty: 100, // Base charge per property
-    perTenant: 10, // Charge for each tenant
-    freeTenantQuota: 10, // Free tenants before charging begins
+// Centralized pricing configuration
+export const PRICING_CONFIG = {
+    perTenant: 20, // ₹20 per tenant per month
     premiumFeatures: {
         website: {
             monthlyCharge: 20, // Flat monthly fee
+            billingType: 'monthly' as const,
         },
         kyc: {
-            // This might be per-verification in a real scenario, but for simplicity, we'll do a flat fee if enabled.
-            // Let's assume for now it's part of a "Pro" bundle.
-            monthlyCharge: 50,
+            monthlyCharge: 50, // Flat monthly fee for KYC access
+            billingType: 'monthly' as const,
         },
         whatsapp: {
             perTenantCharge: 30, // Per-tenant charge for WhatsApp services
+            billingType: 'per_tenant' as const,
         }
     }
 };
@@ -27,12 +26,7 @@ const PRICING_CONFIG = {
 export interface BillingDetails {
     totalAmount: number;
     details: {
-        propertyCount: number;
         tenantCount: number;
-        billableTenantCount: number;
-        freeTenantQuota: number;
-        enabledPremiumFeatures: PremiumFeatures;
-        propertyCharge: number;
         tenantCharge: number;
         premiumFeaturesCharge: number;
         premiumFeaturesDetails: Record<string, { charge: number; description: string; }>;
@@ -44,16 +38,7 @@ export interface BillingDetails {
 export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     const adminDb = await getAdminDb();
 
-    // Fetch active properties
-    const pgsSnapshot = await adminDb
-        .collection('users_data')
-        .doc(owner.id)
-        .collection('pgs')
-        .get();
-
-    const activeProperties = pgsSnapshot.docs.map(doc => doc.data() as PG);
-
-    // Fetch active tenants
+    // Fetch active tenants, as they are the primary driver of usage
     const guestsSnapshot = await adminDb
         .collection('users_data')
         .doc(owner.id)
@@ -62,11 +47,9 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
         .get();
 
     const activeTenants = guestsSnapshot.docs.map(doc => doc.data() as Guest);
-    const billableTenants = Math.max(0, activeTenants.length - PRICING_CONFIG.freeTenantQuota);
 
-    // Calculate base charges
-    const propertyCharge = activeProperties.length * PRICING_CONFIG.perProperty;
-    const tenantCharge = billableTenants * PRICING_CONFIG.perTenant;
+    // Calculate base tenant charge
+    const tenantCharge = activeTenants.length * PRICING_CONFIG.perTenant;
 
     // Calculate premium feature charges
     let totalPremiumFeaturesCharge = 0;
@@ -90,17 +73,12 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     }
     
     // Calculate total bill
-    const totalAmount = propertyCharge + tenantCharge + totalPremiumFeaturesCharge;
+    const totalAmount = tenantCharge + totalPremiumFeaturesCharge;
 
     return {
         totalAmount,
         details: {
-            propertyCount: activeProperties.length,
             tenantCount: activeTenants.length,
-            billableTenantCount: billableTenants,
-            freeTenantQuota: PRICING_CONFIG.freeTenantQuota,
-            enabledPremiumFeatures: enabledFeatures,
-            propertyCharge,
             tenantCharge,
             premiumFeaturesCharge: totalPremiumFeaturesCharge,
             premiumFeaturesDetails,
