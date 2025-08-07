@@ -5,8 +5,9 @@ import Razorpay from 'razorpay'
 import crypto from 'crypto'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { plans } from '../mock-data'
-import type { PlanName, User } from '../types'
+import type { PlanName, User, PremiumFeatures } from '../types'
+import { getAdminDb } from '../firebaseAdmin'
+
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -74,9 +75,9 @@ export async function verifySubscriptionPayment(data: {
 
   // Signature is valid, update user's subscription in Firestore
   try {
-    const userDocRef = doc(db, 'users', userId);
+    const adminDb = await getAdminDb();
+    const userDocRef = doc(adminDb, 'users', userId);
     await updateDoc(userDocRef, {
-        'subscription.planId': 'pro', // Set to pro to unlock features, billing is separate
         'subscription.status': 'active',
         'subscription.razorpay_subscription_id': razorpay_subscription_id,
         'subscription.razorpay_payment_id': razorpay_payment_id, // For the initial setup
@@ -97,6 +98,10 @@ export async function calculateAndCreateAddons(
     amount: number,
     idempotencyKey: string,
 ) {
+    if (amount <= 0) {
+      return { success: true, addon: null, message: 'Amount is zero, no addon created.' };
+    }
+
     try {
         const addon = await razorpay.subscriptions.createAddon(subscriptionId, {
             item: {

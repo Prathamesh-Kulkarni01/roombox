@@ -6,103 +6,29 @@ import type { User, PG, Guest, PremiumFeatures } from '../types';
 import { calculateAndCreateAddons } from './subscriptionActions';
 
 const PRICING_CONFIG = {
-    perProperty: 100,
-    perTenant: 10,
-    freeTenantQuota: 10,
+    perProperty: 100, // Base charge per property
+    perTenant: 10, // Charge for each tenant
+    freeTenantQuota: 10, // Free tenants before charging begins
     premiumFeatures: {
         website: {
-            monthlyCharge: 20
+            monthlyCharge: 20, // Flat monthly fee
+        },
+        kyc: {
+            // This might be per-verification in a real scenario, but for simplicity, we'll do a flat fee if enabled.
+            // Let's assume for now it's part of a "Pro" bundle.
+            monthlyCharge: 50,
         },
         whatsapp: {
-            perTenantCharge: 30
-        },
-        // Future features can be added here
+            perTenantCharge: 30, // Per-tenant charge for WhatsApp services
+        }
     }
 };
 
-async function processOwnerBilling(owner: User): Promise<boolean> {
-    const adminDb = await getAdminDb();
-    const { id: ownerId, subscription } = owner;
-
-    if (!subscription?.razorpay_subscription_id) {
-        console.log(`Skipping owner ${ownerId}: no subscription ID.`);
-        return false;
-    }
-
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const idempotencyKey = `billing-addon-${year}-${month}`;
-
-    const billingRecordRef = adminDb
-        .collection('users_data')
-        .doc(ownerId)
-        .collection('billing')
-        .doc(idempotencyKey);
-
-    const billingRecordSnap = await billingRecordRef.get();
-
-    if (billingRecordSnap.exists && billingRecordSnap.data()?.status === 'created') {
-        console.log(`Skipping owner ${ownerId}: already billed for ${year}-${month}.`);
-        return false;
-    }
-
-    try {
-        const { totalAmount, details } = await calculateOwnerBill(owner);
-
-        if (totalAmount === 0) {
-            console.log(`Skipping owner ${ownerId}: billing amount is zero.`);
-            await billingRecordRef.set({
-                id: idempotencyKey,
-                ownerId,
-                status: 'skipped_zero_amount',
-                amount: 0,
-                details,
-                createdAt: new Date().toISOString(),
-            }, { merge: true });
-            return true;
-        }
-
-        const addonResult = await calculateAndCreateAddons(
-            subscription.razorpay_subscription_id,
-            `Monthly Charge (${year}-${month})`,
-            totalAmount,
-            idempotencyKey
-        );
-
-        if (!addonResult?.success || !addonResult?.addon?.id) {
-            throw new Error(addonResult?.error || 'Addon creation failed');
-        }
-
-        await billingRecordRef.set({
-            id: idempotencyKey,
-            ownerId,
-            status: 'created',
-            amount: totalAmount,
-            details,
-            razorpay_addon_id: addonResult.addon.id,
-            createdAt: new Date().toISOString(),
-        }, { merge: true });
-
-        console.log(`Successfully created addon for owner ${ownerId} for amount ₹${totalAmount}.`);
-        return true;
-    } catch (error: any) {
-        console.error(`Failed to process billing for owner ${ownerId}:`, error);
-        await billingRecordRef.set({
-            id: idempotencyKey,
-            ownerId,
-            status: 'failed',
-            error: error.message,
-            retries: (billingRecordSnap.data()?.retries || 0) + 1,
-            failedAt: new Date().toISOString(),
-        }, { merge: true });
-        return false;
-    }
-}
 
 export async function calculateOwnerBill(owner: User) {
     const adminDb = await getAdminDb();
 
+    // Fetch active properties
     const pgsSnapshot = await adminDb
         .collection('users_data')
         .doc(owner.id)
@@ -111,6 +37,7 @@ export async function calculateOwnerBill(owner: User) {
 
     const activeProperties = pgsSnapshot.docs.map(doc => doc.data() as PG);
 
+    // Fetch active tenants
     const guestsSnapshot = await adminDb
         .collection('users_data')
         .doc(owner.id)
@@ -121,25 +48,32 @@ export async function calculateOwnerBill(owner: User) {
     const activeTenants = guestsSnapshot.docs.map(doc => doc.data() as Guest);
     const billableTenants = Math.max(0, activeTenants.length - PRICING_CONFIG.freeTenantQuota);
 
+    // Calculate base charges
     const propertyCharge = activeProperties.length * PRICING_CONFIG.perProperty;
     const tenantCharge = billableTenants * PRICING_CONFIG.perTenant;
 
+    // Calculate premium feature charges
     let totalPremiumFeaturesCharge = 0;
-    const premiumFeaturesDetails: Record<string, number> = {};
-
+    const premiumFeaturesDetails: Record<string, { charge: number, description: string }> = {};
     const enabledFeatures = owner.subscription?.premiumFeatures || {};
 
     if (enabledFeatures.website?.enabled) {
         const charge = PRICING_CONFIG.premiumFeatures.website.monthlyCharge;
-        premiumFeaturesDetails['website'] = charge;
+        premiumFeaturesDetails['website'] = { charge, description: `Website Builder @ ₹${charge}/mo` };
+        totalPremiumFeaturesCharge += charge;
+    }
+    if (enabledFeatures.kyc?.enabled) {
+        const charge = PRICING_CONFIG.premiumFeatures.kyc.monthlyCharge;
+        premiumFeaturesDetails['kyc'] = { charge, description: `Automated KYC @ ₹${charge}/mo` };
         totalPremiumFeaturesCharge += charge;
     }
     if (enabledFeatures.whatsapp?.enabled) {
         const charge = activeTenants.length * PRICING_CONFIG.premiumFeatures.whatsapp.perTenantCharge;
-        premiumFeaturesDetails['whatsapp'] = charge;
+        premiumFeaturesDetails['whatsapp'] = { charge, description: `${activeTenants.length} tenants x ₹${PRICING_CONFIG.premiumFeatures.whatsapp.perTenantCharge} for WhatsApp` };
         totalPremiumFeaturesCharge += charge;
     }
     
+    // Calculate total bill
     const totalAmount = propertyCharge + tenantCharge + totalPremiumFeaturesCharge;
 
     return {

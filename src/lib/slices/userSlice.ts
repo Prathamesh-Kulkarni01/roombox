@@ -47,14 +47,10 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
             
             const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
-            const finalPlan = { ...plans[basePlanId] };
+            let finalPlan = { ...plans[basePlanId] };
 
-            if (isActive) {
-                const premiumFeatures = user.subscription.premiumFeatures;
-                finalPlan.hasWebsiteBuilder = !!premiumFeatures?.website?.enabled;
-                finalPlan.hasSeoGenerator = !!premiumFeatures?.website?.enabled; // Linked to website builder
-                finalPlan.hasKycVerification = !!premiumFeatures?.kyc?.enabled;
-                finalPlan.hasAutomatedWhatsapp = !!premiumFeatures?.whatsapp?.enabled;
+            if (isActive || isTrialing) {
+                 finalPlan = { ...plans.pro }; // A subscribed user always has Pro capabilities
             }
             
             return finalPlan;
@@ -219,7 +215,22 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
         if (!currentUser || !isFirebaseConfigured() || !db) return rejectWithValue('User or Firebase not available');
         
         const { guestId, ownerId, ...restOfUser } = currentUser;
-        const updatedUser: User = { ...restOfUser, role: 'owner', subscription: { planId: 'free', status: 'active' } };
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 15);
+        const updatedUser: User = { 
+            ...restOfUser, 
+            role: 'owner', 
+            subscription: { 
+                planId: 'pro',
+                status: 'trialing',
+                trialEndDate: trialEndDate.toISOString(),
+                premiumFeatures: {
+                    website: { enabled: true },
+                    kyc: { enabled: true },
+                    whatsapp: { enabled: true }
+                }
+            } 
+        };
 
         if (!db) throw new Error('Firestore is not initialized.');
         const userDocRef = doc(db, 'users', currentUser.id);
@@ -253,24 +264,18 @@ const userSlice = createSlice({
     reducers: {
         setCurrentUser: (state, action: PayloadAction<User | null>) => {
             state.currentUser = action.payload;
-            if (action.payload?.subscription) {
+            if (action.payload) {
                 const sub = action.payload.subscription;
+                 if (!sub || sub.status === 'inactive') {
+                    state.currentPlan = plans.free;
+                    return;
+                }
                 const isActive = sub.status === 'active';
                 const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
                 const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
-                const finalPlan = { ...plans[basePlanId] };
-
-                if (isActive || isTrialing) {
-                    const premiumFeatures = sub.premiumFeatures;
-                    finalPlan.hasWebsiteBuilder = !!premiumFeatures?.website?.enabled;
-                    finalPlan.hasSeoGenerator = !!premiumFeatures?.website?.enabled;
-                    finalPlan.hasKycVerification = !!premiumFeatures?.kyc?.enabled;
-                    finalPlan.hasAutomatedWhatsapp = !!premiumFeatures?.whatsapp?.enabled;
-                }
-                state.currentPlan = finalPlan;
-
+                state.currentPlan = { ...plans[basePlanId] };
             } else {
-                 state.currentPlan = action.payload ? plans.free : null;
+                 state.currentPlan = null;
             }
         }
     },
@@ -282,21 +287,12 @@ const userSlice = createSlice({
             })
             .addCase(initializeUser.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
-                if (action.payload?.subscription) {
+                 if (action.payload?.subscription) {
                     const sub = action.payload.subscription;
                     const isActive = sub.status === 'active';
                     const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
                     const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
-                    const finalPlan = { ...plans[basePlanId] };
-
-                    if (isActive || isTrialing) {
-                        const premiumFeatures = sub.premiumFeatures;
-                        finalPlan.hasWebsiteBuilder = !!premiumFeatures?.website?.enabled;
-                        finalPlan.hasSeoGenerator = !!premiumFeatures?.website?.enabled;
-                        finalPlan.hasKycVerification = !!premiumFeatures?.kyc?.enabled;
-                        finalPlan.hasAutomatedWhatsapp = !!premiumFeatures?.whatsapp?.enabled;
-                    }
-                    state.currentPlan = finalPlan;
+                    state.currentPlan = { ...plans[basePlanId] };
                 } else {
                     state.currentPlan = plans.free;
                 }
@@ -308,21 +304,12 @@ const userSlice = createSlice({
             })
             .addCase(updateUserPlan.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
-                 if (action.payload?.subscription) {
+                if (action.payload?.subscription) {
                     const sub = action.payload.subscription;
                     const isActive = sub.status === 'active';
                     const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
                     const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
-                    const finalPlan = { ...plans[basePlanId] };
-
-                     if (isActive || isTrialing) {
-                        const premiumFeatures = sub.premiumFeatures;
-                        finalPlan.hasWebsiteBuilder = !!premiumFeatures?.website?.enabled;
-                        finalPlan.hasSeoGenerator = !!premiumFeatures?.website?.enabled;
-                        finalPlan.hasKycVerification = !!premiumFeatures?.kyc?.enabled;
-                        finalPlan.hasAutomatedWhatsapp = !!premiumFeatures?.whatsapp?.enabled;
-                    }
-                    state.currentPlan = finalPlan;
+                    state.currentPlan = { ...plans[basePlanId] };
                 } else {
                     state.currentPlan = plans.free;
                 }
