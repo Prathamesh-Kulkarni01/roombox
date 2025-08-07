@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { plans } from "@/lib/mock-data"
 import type { PlanName, ChargeTemplate, UserRole, KycDocumentConfig, PremiumFeatures } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, Message, BotIcon, UserCheck } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, Message, BotIcon, UserCheck, History, CreditCard } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -34,6 +34,8 @@ import { testOwnerBilling } from "@/lib/actions/billingActions"
 import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
 import { togglePremiumFeature } from "@/lib/actions/userActions"
 import { updateUserPlan } from "@/lib/slices/userSlice"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -58,6 +60,123 @@ const kycConfigSchema = z.object({
 type ChargeTemplateFormValues = z.infer<typeof chargeTemplateSchema>;
 type KycConfigFormValues = z.infer<typeof kycConfigSchema>;
 
+const SubscriptionTab = () => {
+    const dispatch = useAppDispatch();
+    const { toast } = useToast();
+    const { currentUser, currentPlan } = useAppSelector((state) => state.user);
+    const [isSaving, startTransition] = useTransition();
+    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
+
+    if (!currentUser || !currentPlan) return null;
+
+    const handleToggleFeature = (feature: keyof PremiumFeatures, enabled: boolean) => {
+        if(!currentUser) return;
+        startTransition(async () => {
+            const result = await togglePremiumFeature({ userId: currentUser.id, feature, enabled });
+            if(result.success) {
+                dispatch(updateUserPlan({ planId: currentUser.subscription?.planId || 'free' }));
+                toast({ title: "Feature Updated", description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${feature}. Changes will apply on your next bill.` });
+            } else {
+                toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
+            }
+        });
+    };
+
+    return (
+        <div className="space-y-6">
+            <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Star /> Premium Feature Add-ons</CardTitle>
+                    <CardDescription>Enable powerful features to supercharge your PG management. Your monthly bill will be updated based on your usage.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Billing Information</AlertTitle>
+                        <AlertDescription>
+                            Changes to features will apply from your next billing cycle. You will be charged for the current cycle if a feature was used.
+                        </AlertDescription>
+                    </Alert>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                            <Label htmlFor="website-builder" className="flex items-center gap-2 font-semibold text-base"><Globe/> Website Builder</Label>
+                            <p className="text-muted-foreground text-sm">Get a professional website for your PG. (₹20/month)</p>
+                        </div>
+                        <Switch id="website-builder" checked={!!currentUser.subscription?.premiumFeatures?.website?.enabled} onCheckedChange={(c) => handleToggleFeature('website', c)} disabled={isSaving}/>
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                            <Label htmlFor="kyc" className="flex items-center gap-2 font-semibold text-base"><UserCheck/> Automated KYC</Label>
+                            <p className="text-muted-foreground text-sm">AI-powered document verification.</p>
+                        </div>
+                        <Switch id="kyc" checked={!!currentUser.subscription?.premiumFeatures?.kyc?.enabled} onCheckedChange={(c) => handleToggleFeature('kyc', c)} disabled={isSaving}/>
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                            <Label htmlFor="whatsapp" className="flex items-center gap-2 font-semibold text-base"><BotIcon/> WhatsApp Automation</Label>
+                            <p className="text-muted-foreground text-sm">Automated reminders and notifications. (₹30/tenant/month)</p>
+                        </div>
+                        <Switch id="whatsapp" checked={!!currentUser.subscription?.premiumFeatures?.whatsapp?.enabled} onCheckedChange={(c) => handleToggleFeature('whatsapp', c)} disabled={isSaving}/>
+                    </div>
+                </CardContent>
+                 <CardFooter>
+                    <p className="text-xs text-muted-foreground">Note: Billing is usage-based. You will be charged at the end of your monthly cycle for enabled features.</p>
+                 </CardFooter>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><CreditCard /> Current Subscription</CardTitle>
+                    <CardDescription>
+                        You are currently on the {currentPlan.name} plan.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={() => setIsSubDialogOpen(true)}>
+                        {currentPlan.id === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}
+                    </Button>
+                </CardContent>
+            </Card>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><History/> Payment History</CardTitle>
+                    <CardDescription>
+                        Your record of past subscription payments.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Amount</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Invoice</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {(currentUser.subscription?.paymentHistory || []).length > 0 ? currentUser.subscription?.paymentHistory?.map(payment => (
+                                <TableRow key={payment.id}>
+                                    <TableCell>{format(parseISO(payment.date), 'do MMM, yyyy')}</TableCell>
+                                    <TableCell>₹{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                    <TableCell><Badge variant={payment.status === 'paid' ? 'default' : 'destructive'}>{payment.status}</Badge></TableCell>
+                                    <TableCell className="text-right"><Button variant="link" size="sm">View</Button></TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="text-center h-24">No payment history found.</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
 
 export default function SettingsPage() {
   const dispatch = useAppDispatch()
@@ -70,13 +189,11 @@ export default function SettingsPage() {
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<ChargeTemplate | null>(null);
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
-  const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
   const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<RolePermissions>({});
   const { toast } = useToast();
   const [isTestingBilling, startBillingTest] = useTransition();
   const [isTestingReminders, startReminderTest] = useTransition();
-  const [isSaving, startTransition] = useTransition();
 
   const chargeTemplateForm = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
@@ -240,19 +357,6 @@ export default function SettingsPage() {
     });
   }
   
-  const handleToggleFeature = (feature: keyof PremiumFeatures, enabled: boolean) => {
-    if(!currentUser) return;
-    startTransition(async () => {
-        const result = await togglePremiumFeature({ userId: currentUser.id, feature, enabled });
-        if(result.success) {
-            dispatch(updateUserPlan({ planId: 'pro' })); // This will re-evaluate local state
-            toast({ title: "Feature Updated", description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${feature}.` });
-        } else {
-            toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
-        }
-    });
-  };
-
   const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
   const currentRolePermissions = roleToEdit ? selectedPermissions?.[roleToEdit] : {};
 
@@ -262,216 +366,174 @@ export default function SettingsPage() {
 
   return (
     <>
-    <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
-    
     <div className="flex flex-col gap-8">
-        <Card>
-            <CardHeader>
-            <CardTitle>Owner Profile</CardTitle>
-            <CardDescription>Your account and subscription details.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()} </AvatarFallback>
-            </Avatar>
-            <div>
-                <p className="text-lg font-semibold">{currentUser.name}</p>
-                <p className="text-muted-foreground">{currentUser.email}</p>
-                 <p className="text-sm text-muted-foreground capitalize">
-                    {currentUser.role} - 
-                    <span className="font-medium text-primary">
-                        {currentUser.subscription?.status === 'trialing' ? ` Pro Trial` : ` ${currentPlan.name} Plan`}
-                    </span>
-                </p>
-            </div>
-            </CardContent>
-        </Card>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Star /> Premium Feature Add-ons</CardTitle>
-                <CardDescription>Enable powerful features to supercharge your PG management. Changes will reflect in your next monthly bill.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                        <Label htmlFor="website-builder" className="flex items-center gap-2 font-semibold text-base"><Globe/> Website Builder</Label>
-                        <p className="text-muted-foreground text-sm">Get a professional website for your PG. (₹20/month)</p>
+        <Tabs defaultValue="subscription" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="subscription">My Subscription</TabsTrigger>
+                <TabsTrigger value="general">General Settings</TabsTrigger>
+            </TabsList>
+            <TabsContent value="subscription" className="mt-6">
+                <SubscriptionTab />
+            </TabsContent>
+            <TabsContent value="general" className="mt-6 space-y-6">
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Owner Profile</CardTitle>
+                    <CardDescription>Your account and subscription details.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16">
+                        <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+                        <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()} </AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <p className="text-lg font-semibold">{currentUser.name}</p>
+                        <p className="text-muted-foreground">{currentUser.email}</p>
+                        <p className="text-sm text-muted-foreground capitalize">
+                            {currentUser.role} - 
+                            <span className="font-medium text-primary">
+                                {currentUser.subscription?.status === 'trialing' ? ` Pro Trial` : ` ${currentPlan.name} Plan`}
+                            </span>
+                        </p>
                     </div>
-                    <Switch id="website-builder" checked={!!currentUser.subscription?.premiumFeatures?.website?.enabled} onCheckedChange={(c) => handleToggleFeature('website', c)} disabled={isSaving}/>
-                </div>
-                 <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                        <Label htmlFor="kyc" className="flex items-center gap-2 font-semibold text-base"><UserCheck/> Automated KYC</Label>
-                        <p className="text-muted-foreground text-sm">AI-powered document verification.</p>
-                    </div>
-                    <Switch id="kyc" checked={!!currentUser.subscription?.premiumFeatures?.kyc?.enabled} onCheckedChange={(c) => handleToggleFeature('kyc', c)} disabled={isSaving}/>
-                </div>
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                        <Label htmlFor="whatsapp" className="flex items-center gap-2 font-semibold text-base"><BotIcon/> WhatsApp Automation</Label>
-                        <p className="text-muted-foreground text-sm">Automated reminders and notifications. (₹30/tenant/month)</p>
-                    </div>
-                    <Switch id="whatsapp" checked={!!currentUser.subscription?.premiumFeatures?.whatsapp?.enabled} onCheckedChange={(c) => handleToggleFeature('whatsapp', c)} disabled={isSaving}/>
-                </div>
-            </CardContent>
-             <CardFooter>
-                <p className="text-xs text-muted-foreground">Note: Billing is usage-based. You will be charged at the end of your monthly cycle for enabled features.</p>
-             </CardFooter>
-        </Card>
+                    </CardContent>
+                </Card>
 
-
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Users /> Role Management</CardTitle>
-                <CardDescription>Define what each staff role can see and do on the dashboard.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-                {staffRoles.map(role => (
-                    <div key={role} className="flex items-center justify-between p-3 border rounded-lg">
-                         <p className="font-semibold capitalize">{role}</p>
-                         <Button variant="outline" size="sm" onClick={() => handleOpenPermissionsDialog(role)}>
-                            <Pencil className="w-3 h-3 mr-2" />
-                            Edit Permissions
-                         </Button>
-                    </div>
-                ))}
-            </CardContent>
-        </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><FileText /> KYC Document Configuration</CardTitle>
-                <CardDescription>Define which documents are required for tenant verification.</CardDescription>
-            </CardHeader>
-             <CardContent>
-                <Form {...kycConfigForm}>
-                    <form id="kyc-config-form" onSubmit={kycConfigForm.handleSubmit(handleSaveKycConfig)} className="space-y-4">
-                        {fields.map((field, index) => (
-                            <div key={field.id} className="grid grid-cols-1 md:grid-cols-8 gap-2 items-end p-2 border rounded-md">
-                                <FormField control={kycConfigForm.control} name={`configs.${index}.label`} render={({ field }) => (
-                                    <FormItem className="md:col-span-3"><FormLabel>Document Label</FormLabel><FormControl><Input placeholder="e.g., Aadhaar Card" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={kycConfigForm.control} name={`configs.${index}.type`} render={({ field }) => (
-                                    <FormItem className="md:col-span-2"><FormLabel>Type</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="image">Image</SelectItem>
-                                                <SelectItem value="pdf">PDF</SelectItem>
-                                            </SelectContent>
-                                        </Select><FormMessage />
-                                    </FormItem>
-                                )} />
-                                 <FormField control={kycConfigForm.control} name={`configs.${index}.required`} render={({ field }) => (
-                                    <FormItem className="flex flex-col justify-end h-full md:col-span-2">
-                                        <div className="flex items-center space-x-2 h-10">
-                                            <Switch id={`required-${index}`} checked={field.value} onCheckedChange={field.onChange} />
-                                            <Label htmlFor={`required-${index}`}>Required</Label>
-                                        </div>
-                                    </FormItem>
-                                )} />
-                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Users /> Role Management</CardTitle>
+                        <CardDescription>Define what each staff role can see and do on the dashboard.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        {staffRoles.map(role => (
+                            <div key={role} className="flex items-center justify-between p-3 border rounded-lg">
+                                <p className="font-semibold capitalize">{role}</p>
+                                <Button variant="outline" size="sm" onClick={() => handleOpenPermissionsDialog(role)}>
+                                    <Pencil className="w-3 h-3 mr-2" />
+                                    Edit Permissions
+                                </Button>
                             </div>
                         ))}
-                         <Button type="button" variant="outline" onClick={addNewKycDoc} className="border-dashed"><PlusCircle className="mr-2 h-4 w-4" /> Add Document Requirement</Button>
-                    </form>
-                </Form>
-             </CardContent>
-              <CardFooter>
-                 <Button type="submit" form="kyc-config-form">Save KYC Configuration</Button>
-            </CardFooter>
-        </Card>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><FileText /> KYC Document Configuration</CardTitle>
+                        <CardDescription>Define which documents are required for tenant verification.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Form {...kycConfigForm}>
+                            <form id="kyc-config-form" onSubmit={kycConfigForm.handleSubmit(handleSaveKycConfig)} className="space-y-4">
+                                {fields.map((field, index) => (
+                                    <div key={field.id} className="grid grid-cols-1 md:grid-cols-8 gap-2 items-end p-2 border rounded-md">
+                                        <FormField control={kycConfigForm.control} name={`configs.${index}.label`} render={({ field }) => (
+                                            <FormItem className="md:col-span-3"><FormLabel>Document Label</FormLabel><FormControl><Input placeholder="e.g., Aadhaar Card" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField control={kycConfigForm.control} name={`configs.${index}.type`} render={({ field }) => (
+                                            <FormItem className="md:col-span-2"><FormLabel>Type</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="image">Image</SelectItem>
+                                                        <SelectItem value="pdf">PDF</SelectItem>
+                                                    </SelectContent>
+                                                </Select><FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={kycConfigForm.control} name={`configs.${index}.required`} render={({ field }) => (
+                                            <FormItem className="flex flex-col justify-end h-full md:col-span-2">
+                                                <div className="flex items-center space-x-2 h-10">
+                                                    <Switch id={`required-${index}`} checked={field.value} onCheckedChange={field.onChange} />
+                                                    <Label htmlFor={`required-${index}`}>Required</Label>
+                                                </div>
+                                            </FormItem>
+                                        )} />
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" onClick={addNewKycDoc} className="border-dashed"><PlusCircle className="mr-2 h-4 w-4" /> Add Document Requirement</Button>
+                            </form>
+                        </Form>
+                    </CardContent>
+                    <CardFooter>
+                        <Button type="submit" form="kyc-config-form">Save KYC Configuration</Button>
+                    </CardFooter>
+                </Card>
 
 
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Settings /> Shared Rent Settings</CardTitle>
-                <CardDescription>Configure predefined charge types like electricity, water, etc., to automate bill splitting.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {chargeTemplates.map(template => (
-                    <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                            <p className="font-semibold">{template.name}</p>
-                            <p className="text-sm text-muted-foreground capitalize">{template.frequency}, {template.calculation} based, cycle on day {template.billingDayOfMonth}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleOpenTemplateDialog(template)}><Pencil className="w-4 h-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTemplate(template.id)}><Trash2 className="w-4 h-4"/></Button>
-                        </div>
-                    </div>
-                ))}
-                <Button variant="outline" className="w-full border-dashed" onClick={() => handleOpenTemplateDialog(null)}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Charge Template
-                </Button>
-            </CardContent>
-        </Card>
-
-        {process.env.NODE_ENV === 'development' && (
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><TestTube2 /> Developer Tools</CardTitle>
-                    <CardDescription>These tools are for testing purposes and are only available in the development environment.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                         <Label>Time Travel</Label>
-                         <div className="flex gap-2 items-center">
-                            <div className="relative">
-                                <Input
-                                    type="date"
-                                    value={mockDate ? format(parseISO(mockDate), 'yyyy-MM-dd') : ''}
-                                    onChange={handleDateChange}
-                                    className="w-[240px]"
-                                />
-                                {!mockDate && <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Settings /> Shared Rent Settings</CardTitle>
+                        <CardDescription>Configure predefined charge types like electricity, water, etc., to automate bill splitting.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {chargeTemplates.map(template => (
+                            <div key={template.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div>
+                                    <p className="font-semibold">{template.name}</p>
+                                    <p className="text-sm text-muted-foreground capitalize">{template.frequency}, {template.calculation} based, cycle on day {template.billingDayOfMonth}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleOpenTemplateDialog(template)}><Pencil className="w-4 h-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTemplate(template.id)}><Trash2 className="w-4 h-4"/></Button>
+                                </div>
                             </div>
-                            <Button onClick={() => dispatch(setMockDate(null))} variant="secondary">Reset</Button>
-                         </div>
-                         <p className="text-xs text-muted-foreground">Simulate a different current date to test rent cycles.</p>
-                    </div>
-                    <div>
-                         <Button onClick={handleReconcileAll}>Reconcile Rents Now</Button>
-                          <p className="text-xs text-muted-foreground mt-2">Manually trigger rent reconciliation for all guests using the simulated date.</p>
-                    </div>
-                    <div className="space-y-2">
-                         <Button onClick={handleRunBillingTest} disabled={isTestingBilling}>
-                            {isTestingBilling && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                            <IndianRupee className="mr-2 h-4 w-4"/>
-                            Test Monthly Billing
+                        ))}
+                        <Button variant="outline" className="w-full border-dashed" onClick={() => handleOpenTemplateDialog(null)}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add New Charge Template
                         </Button>
-                        <p className="text-xs text-muted-foreground">Simulate the monthly billing cron job and see the calculated bill amount.</p>
-                    </div>
-                     <div className="space-y-2">
-                         <Button onClick={handleTestRentReminders} disabled={isTestingReminders}>
-                            {isTestingReminders && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                            <BellRing className="mr-2 h-4 w-4"/>
-                            Test Rent Reminders
-                        </Button>
-                        <p className="text-xs text-muted-foreground">Manually run the rent reminder job and send notifications.</p>
-                    </div>
-                </CardContent>
-            </Card>
-        )}
-        
-        <Card>
-            <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Star/> Subscription</CardTitle>
-            <CardDescription>
-                {currentPlan.id === 'free' 
-                    ? 'Upgrade to a paid plan to unlock more features.'
-                    : `You are currently on the ${currentPlan.name} plan.`
-                }
-            </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button onClick={() => setIsSubDialogOpen(true)}>
-                    {currentPlan.id === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}
-                </Button>
-            </CardContent>
-        </Card>
+                    </CardContent>
+                </Card>
+
+                {process.env.NODE_ENV === 'development' && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><TestTube2 /> Developer Tools</CardTitle>
+                            <CardDescription>These tools are for testing purposes and are only available in the development environment.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Time Travel</Label>
+                                <div className="flex gap-2 items-center">
+                                    <div className="relative">
+                                        <Input
+                                            type="date"
+                                            value={mockDate ? format(parseISO(mockDate), 'yyyy-MM-dd') : ''}
+                                            onChange={handleDateChange}
+                                            className="w-[240px]"
+                                        />
+                                        {!mockDate && <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />}
+                                    </div>
+                                    <Button onClick={() => dispatch(setMockDate(null))} variant="secondary">Reset</Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">Simulate a different current date to test rent cycles.</p>
+                            </div>
+                            <div>
+                                <Button onClick={handleReconcileAll}>Reconcile Rents Now</Button>
+                                <p className="text-xs text-muted-foreground mt-2">Manually trigger rent reconciliation for all guests using the simulated date.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Button onClick={handleRunBillingTest} disabled={isTestingBilling}>
+                                    {isTestingBilling && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    <IndianRupee className="mr-2 h-4 w-4"/>
+                                    Test Monthly Billing
+                                </Button>
+                                <p className="text-xs text-muted-foreground">Simulate the monthly billing cron job and see the calculated bill amount.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Button onClick={handleTestRentReminders} disabled={isTestingReminders}>
+                                    {isTestingReminders && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    <BellRing className="mr-2 h-4 w-4"/>
+                                    Test Rent Reminders
+                                </Button>
+                                <p className="text-xs text-muted-foreground">Manually run the rent reminder job and send notifications.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </TabsContent>
+        </Tabs>
     </div>
 
     <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>

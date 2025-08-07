@@ -1,11 +1,5 @@
 
 
-
-
-
-
-
-
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -222,6 +216,14 @@ export interface PremiumFeatures {
     whatsapp?: { enabled: boolean };
 }
 
+export interface UserSubscriptionPayment {
+  id: string; // Razorpay Payment ID or internal ID
+  date: string; // ISO string
+  amount: number;
+  status: 'paid' | 'failed';
+  invoiceUrl?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -242,6 +244,7 @@ export interface User {
     razorpay_payment_id?: string;
     trialEndDate?: string; // ISO string
     premiumFeatures?: PremiumFeatures;
+    paymentHistory?: UserSubscriptionPayment[];
   };
   fcmToken?: string | null;
 }
