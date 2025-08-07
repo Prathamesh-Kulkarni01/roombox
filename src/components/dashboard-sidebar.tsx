@@ -35,7 +35,7 @@ const hasAccessToFeature = (
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
-  const dispatch = useAppAppDispatch();
+  const dispatch = useAppDispatch();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
 
