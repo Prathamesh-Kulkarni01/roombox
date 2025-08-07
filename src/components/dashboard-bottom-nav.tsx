@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet } from 'lucide-react';
+import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -32,7 +32,7 @@ export default function DashboardBottomNav() {
     { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties' },
     { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances' },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints', badge: unreadComplaints > 0 ? unreadComplaints : undefined },
-    { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances' },
+    { href: '/dashboard/subscription', label: 'Billing', icon: CreditCard, feature: 'core' },
   ];
   
   const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href) && item.href !== '/dashboard');

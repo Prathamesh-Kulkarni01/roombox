@@ -1,6 +1,6 @@
 
 import type { Menu, Plan, PlanName, PG } from './types';
-import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser } from 'lucide-react';
+import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard } from 'lucide-react';
 
 
 export const defaultMenu: Menu = {
@@ -71,7 +71,8 @@ export const navItems: NavItem[] = [
   { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff' },
   { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website' },
   { href: '/dashboard/seo-generator', label: 'AI SEO', icon: Wand2, feature: 'seo' },
-  { href: '/dashboard/settings', label: 'Subscription & Settings', icon: Settings, feature: 'core' },
+  { href: '/dashboard/subscription', label: 'Subscription', icon: CreditCard, feature: 'core' },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
 ];
 
 // This is temporary mock data for the public PG pages.
