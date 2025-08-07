@@ -1,12 +1,13 @@
 
-
 'use server'
 
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
-import { getAdminDb } from '../firebaseAdmin';
-import type { User, PremiumFeatures, BillingDetails, BillingCycleDetails } from '../types';
-import { PRICING_CONFIG } from '../mock-data';
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '../firebase'
+import type { User, PremiumFeatures, BillingDetails, BillingCycleDetails } from '../types'
+import { getAdminDb } from '../firebaseAdmin'
+import { PRICING_CONFIG } from '../mock-data'
 
 
 /**
@@ -37,30 +38,33 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     // Gracefully handle cases where subscription or premiumFeatures might not exist
     const subscription = owner.subscription || {};
     const premiumFeatures = subscription.premiumFeatures || {};
+    const isSubscribed = subscription.status === 'active' || subscription.status === 'trialing';
 
     const calculateCycleDetails = (features: PremiumFeatures): BillingCycleDetails => {
-        const propertyCharge = propertyCount * PRICING_CONFIG.perProperty;
-        const tenantCharge = billableTenantCount * PRICING_CONFIG.perTenant;
+        const propertyCharge = isSubscribed ? propertyCount * PRICING_CONFIG.perProperty : 0;
+        const tenantCharge = isSubscribed ? billableTenantCount * PRICING_CONFIG.perTenant : 0;
 
         let premiumCharge = 0;
         const premiumDetails: BillingCycleDetails['premiumFeaturesDetails'] = {};
 
-        for (const [key, config] of Object.entries(PRICING_CONFIG.premiumFeatures)) {
-            const featureKey = key as keyof PremiumFeatures;
-            if (features[featureKey]?.enabled) {
-                let charge = 0;
-                let description = `${config.name}`;
+        if (isSubscribed) {
+            for (const [key, config] of Object.entries(PRICING_CONFIG.premiumFeatures)) {
+                const featureKey = key as keyof PremiumFeatures;
+                if (features[featureKey]?.enabled) {
+                    let charge = 0;
+                    let description = `${config.name}`;
 
-                if (config.billingType === 'monthly') {
-                    charge = config.monthlyCharge;
-                    description = `${config.name}`;
-                } else if (config.billingType === 'per_tenant') {
-                    charge = billableTenantCount * config.perTenantCharge;
-                    description = `${config.name} (${billableTenantCount} tenants × ₹${config.perTenantCharge})`;
+                    if (config.billingType === 'monthly') {
+                        charge = config.monthlyCharge;
+                        description = `${config.name}`;
+                    } else if (config.billingType === 'per_tenant') {
+                        charge = billableTenantCount * config.perTenantCharge;
+                        description = `${config.name} (${billableTenantCount} tenants × ₹${config.perTenantCharge})`;
+                    }
+
+                    premiumCharge += charge;
+                    premiumDetails[key] = { charge, description };
                 }
-
-                premiumCharge += charge;
-                premiumDetails[key] = { charge, description };
             }
         }
         
@@ -74,6 +78,7 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     };
     
     const currentCycle = calculateCycleDetails(premiumFeatures);
+    // For estimation, we assume the same state.
     const nextCycleEstimate = calculateCycleDetails(premiumFeatures);
 
     return {
@@ -103,6 +108,79 @@ export async function getBillingDetails(ownerId: string): Promise<{ success: boo
         console.error('Error in getBillingDetails:', error);
         return { success: false, error: error.message };
     }
+}
+
+/**
+ * Creates a base subscription for a new user on Razorpay.
+ * This subscription has a ₹0 cost and serves as the anchor for monthly addons.
+ */
+export async function createRazorpaySubscription(userId: string) {
+  try {
+    const BASE_PLAN_ID = process.env.RAZORPAY_BASE_PLAN_ID || 'plan_base_monthly';
+    // Check if the base plan exists on Razorpay
+    try {
+       await razorpay.plans.fetch(BASE_PLAN_ID);
+    } catch(fetchError: any) {
+        if (fetchError.statusCode === 404) {
+            console.error(`FATAL: Razorpay plan with ID "${BASE_PLAN_ID}" not found. Please create it in your Razorpay dashboard.`);
+            return { success: false, error: 'Base subscription plan is not configured.' };
+        }
+        throw fetchError;
+    }
+      
+    const subscription = await razorpay.subscriptions.create({
+      plan_id: BASE_PLAN_ID,
+      customer_notify: 1,
+      quantity: 1,
+      total_count: 120, // Keep it long-running, e.g., 10 years
+      notes: {
+        userId: userId,
+        type: 'base_subscription'
+      },
+    });
+
+    return { success: true, subscription };
+  } catch (error: any) {
+    console.error('Razorpay base subscription creation failed:', error);
+    return { success: false, error: 'Could not create base subscription on payment gateway.' };
+  }
+}
+
+/**
+ * Verifies the initial base subscription payment and updates the user record.
+ */
+export async function verifySubscriptionPayment(data: {
+  razorpay_payment_id: string
+  razorpay_subscription_id: string
+  razorpay_signature: string
+  userId: string
+}) {
+  const { userId, razorpay_subscription_id, razorpay_payment_id, razorpay_signature } = data;
+  
+  const generated_signature = crypto
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+    .update(razorpay_payment_id + '|' + razorpay_subscription_id)
+    .digest('hex');
+
+  if (generated_signature !== razorpay_signature) {
+    return { success: false, error: 'Payment verification failed. Signature mismatch.' };
+  }
+
+  // Signature is valid, update user's subscription in Firestore
+  try {
+    const adminDb = await getAdminDb();
+    const userDocRef = doc(adminDb, 'users', userId);
+    await updateDoc(userDocRef, {
+        'subscription.status': 'active',
+        'subscription.planId': 'pro',
+        'subscription.razorpay_subscription_id': razorpay_subscription_id,
+        'subscription.razorpay_payment_id': razorpay_payment_id, // For the initial setup
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating user subscription:", error);
+    return { success: false, error: 'Failed to update subscription status in our system.' };
+  }
 }
 
 /**

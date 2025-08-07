@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import React, { useState, useTransition, useEffect } from "react"
@@ -57,10 +56,12 @@ export default function SubscriptionPage() {
             if (togglePremiumFeature.fulfilled.match(resultAction)) {
                  toast({ title: "Feature Updated", description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${resultAction.payload.feature}. Changes will apply on your next bill.` });
                  // Refetch billing details after state change
-                 const result = await getBillingDetails(currentUser.id);
-                 if (result.success && result.data) {
-                    setBillingDetails(result.data);
-                }
+                 if (currentUser?.id) {
+                    const result = await getBillingDetails(currentUser.id);
+                    if (result.success && result.data) {
+                        setBillingDetails(result.data);
+                    }
+                 }
             } else {
                  toast({ variant: 'destructive', title: 'Update Failed', description: resultAction.payload as string || "An unknown error occurred" });
             }
@@ -70,14 +71,18 @@ export default function SubscriptionPage() {
     const BillingBreakdown = ({ cycle, title, details }: { cycle: BillingCycleDetails, title: string, details: BillingDetails['details'] }) => (
         <div className="space-y-2">
             <h4 className="font-semibold">{title}</h4>
-            <div className="flex justify-between text-sm">
-                <span>Properties ({details.propertyCount} × ₹{details.pricingConfig.perProperty})</span>
-                <span>₹{cycle.propertyCharge.toLocaleString('en-IN')}</span>
-            </div>
-             <div className="flex justify-between text-sm">
-                <span>Tenants ({details.billableTenantCount} × ₹{details.pricingConfig.perTenant})</span>
-                <span>₹{cycle.tenantCharge.toLocaleString('en-IN')}</span>
-            </div>
+            {cycle.propertyCharge > 0 &&
+                <div className="flex justify-between text-sm">
+                    <span>Properties ({details.propertyCount} × ₹{details.pricingConfig.perProperty})</span>
+                    <span>₹{cycle.propertyCharge.toLocaleString('en-IN')}</span>
+                </div>
+            }
+             {cycle.tenantCharge > 0 &&
+                <div className="flex justify-between text-sm">
+                    <span>Tenants ({details.billableTenantCount} × ₹{details.pricingConfig.perTenant})</span>
+                    <span>₹{cycle.tenantCharge.toLocaleString('en-IN')}</span>
+                </div>
+             }
             {Object.entries(cycle.premiumFeaturesDetails).map(([key, feature]) => (
                  <div key={key} className="flex justify-between text-sm">
                     <span>{feature.description}</span> 
