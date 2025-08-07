@@ -1,6 +1,8 @@
 
 'use server'
 
+import Razorpay from 'razorpay'
+import crypto from 'crypto'
 import { getAdminDb } from '../firebaseAdmin';
 import type { User, PremiumFeatures, BillingDetails, BillingCycleDetails } from '../types';
 import { PRICING_CONFIG } from '../mock-data';
@@ -30,33 +32,34 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
         .get();
 
     const billableTenantCount = guestsSnapshot.docs.length;
+    
+    // Gracefully handle cases where subscription or premiumFeatures might not exist
+    const subscription = owner.subscription || {};
+    const premiumFeatures = subscription.premiumFeatures || {};
 
-    const calculateCycleDetails = (features: PremiumFeatures | undefined): BillingCycleDetails => {
+    const calculateCycleDetails = (features: PremiumFeatures): BillingCycleDetails => {
         const propertyCharge = propertyCount * PRICING_CONFIG.perProperty;
         const tenantCharge = billableTenantCount * PRICING_CONFIG.perTenant;
 
         let premiumCharge = 0;
         const premiumDetails: BillingCycleDetails['premiumFeaturesDetails'] = {};
 
-        // Safely iterate over premium features, even if the features object is undefined
-        if (features) {
-            for (const [key, config] of Object.entries(PRICING_CONFIG.premiumFeatures)) {
-                const featureKey = key as keyof PremiumFeatures;
-                if (features[featureKey]?.enabled) {
-                    let charge = 0;
-                    let description = `${config.name}`;
+        for (const [key, config] of Object.entries(PRICING_CONFIG.premiumFeatures)) {
+            const featureKey = key as keyof PremiumFeatures;
+            if (features[featureKey]?.enabled) {
+                let charge = 0;
+                let description = `${config.name}`;
 
-                    if (config.billingType === 'monthly') {
-                        charge = config.monthlyCharge;
-                        description = `${config.name} (${billableTenantCount} tenants × ₹0)`; // Clarify flat fee
-                    } else if (config.billingType === 'per_tenant') {
-                        charge = billableTenantCount * config.perTenantCharge;
-                        description = `${config.name} (${billableTenantCount} tenants × ₹${config.perTenantCharge})`;
-                    }
-
-                    premiumCharge += charge;
-                    premiumDetails[key] = { charge, description };
+                if (config.billingType === 'monthly') {
+                    charge = config.monthlyCharge;
+                    description = `${config.name}`;
+                } else if (config.billingType === 'per_tenant') {
+                    charge = billableTenantCount * config.perTenantCharge;
+                    description = `${config.name} (${billableTenantCount} tenants × ₹${config.perTenantCharge})`;
                 }
+
+                premiumCharge += charge;
+                premiumDetails[key] = { charge, description };
             }
         }
         
@@ -68,17 +71,9 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
             premiumFeaturesDetails: premiumDetails,
         };
     };
-
-    // For current cycle, we use all features that were ever enabled during the cycle.
-    // This is a simplified model. A real system would track usage more granularly.
-    // We assume any feature object present was used.
-    const currentCycleFeatures = owner.subscription?.premiumFeatures || {};
     
-    // For next cycle, it's based on what is currently enabled.
-    const nextCycleFeatures = owner.subscription?.premiumFeatures || {};
-    
-    const currentCycle = calculateCycleDetails(currentCycleFeatures);
-    const nextCycleEstimate = calculateCycleDetails(nextCycleFeatures);
+    const currentCycle = calculateCycleDetails(premiumFeatures);
+    const nextCycleEstimate = calculateCycleDetails(premiumFeatures);
 
     return {
         currentCycle,
@@ -116,6 +111,10 @@ export async function calculateAndCreateAddons() {
   const adminDb = await getAdminDb();
   console.log('Running monthly billing cron job...');
   let processedCount = 0;
+  const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+  });
 
   try {
     const ownersSnapshot = await adminDb

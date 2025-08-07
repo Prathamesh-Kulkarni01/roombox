@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useState, useTransition, useEffect } from "react"
-import { useAppDispatch, useAppSelector } from "@/lib/hooks"
+import { useAppSelector, useAppDispatch } from "@/lib/hooks"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, Loader2, Star, CreditCard, History, ShieldAlert, Globe, UserCheck, BotIcon } from "lucide-react"
@@ -29,21 +29,23 @@ export default function SubscriptionPage() {
     const [billingDetails, setBillingDetails] = useState<BillingDetails | null>(null);
     const [isLoadingBill, setIsLoadingBill] = useState(true);
 
-    const fetchBillingDetails = async () => {
-        if (!currentUser) return;
-        setIsLoadingBill(true);
-        const result = await getBillingDetails(currentUser.id);
-        if (result.success && result.data) {
-            setBillingDetails(result.data);
-        } else {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load billing details.' });
-        }
-        setIsLoadingBill(false);
-    };
-    
     useEffect(() => {
-        fetchBillingDetails();
-    }, [currentUser?.id]);
+        const fetchBillingDetails = async () => {
+            if (!currentUser) return;
+            setIsLoadingBill(true);
+            const result = await getBillingDetails(currentUser.id);
+            if (result.success && result.data) {
+                setBillingDetails(result.data);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Could not load billing details.' });
+            }
+            setIsLoadingBill(false);
+        };
+        
+        if (currentUser?.id) {
+            fetchBillingDetails();
+        }
+    }, [currentUser?.id, toast]);
 
 
     if (!currentUser || !currentPlan) return null;
@@ -53,7 +55,11 @@ export default function SubscriptionPage() {
             const resultAction = await dispatch(togglePremiumFeature({ feature, enabled }));
             if (togglePremiumFeature.fulfilled.match(resultAction)) {
                  toast({ title: "Feature Updated", description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${resultAction.payload.feature}. Changes will apply on your next bill.` });
-                 await fetchBillingDetails(); // Refetch billing details after state change
+                 // Refetch billing details after state change
+                 const result = await getBillingDetails(currentUser.id);
+                 if (result.success && result.data) {
+                    setBillingDetails(result.data);
+                }
             } else {
                  toast({ variant: 'destructive', title: 'Update Failed', description: resultAction.payload as string || "An unknown error occurred" });
             }

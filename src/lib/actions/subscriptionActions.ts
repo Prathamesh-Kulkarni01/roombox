@@ -97,6 +97,10 @@ export async function calculateAndCreateAddons() {
   const adminDb = await getAdminDb();
   console.log('Running monthly billing cron job...');
   let processedCount = 0;
+  const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+  });
 
   try {
     const ownersSnapshot = await adminDb
@@ -114,7 +118,7 @@ export async function calculateAndCreateAddons() {
         }
 
         const billingDetails = await calculateOwnerBill(owner);
-        const totalAmount = billingDetails.totalAmount;
+        const totalAmount = billingDetails.currentCycle.totalAmount;
         
         if (totalAmount <= 0) {
             console.log(`Owner ${owner.id} has no charges this month. Skipping.`);
