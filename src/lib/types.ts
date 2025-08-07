@@ -186,7 +186,7 @@ export interface Notification {
 
 export type UserRole = 'owner' | 'manager' | 'cook' | 'cleaner' | 'security' | 'other' | 'tenant';
 
-export type PlanName = 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
+export type PlanName = 'free' | 'pro' | 'business' | 'enterprise';
 
 export interface Plan {
   id: PlanName;

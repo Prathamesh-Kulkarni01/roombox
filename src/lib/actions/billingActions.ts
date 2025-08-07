@@ -24,8 +24,24 @@ const PRICING_CONFIG = {
     }
 };
 
+export interface BillingDetails {
+    totalAmount: number;
+    details: {
+        propertyCount: number;
+        tenantCount: number;
+        billableTenantCount: number;
+        freeTenantQuota: number;
+        enabledPremiumFeatures: PremiumFeatures;
+        propertyCharge: number;
+        tenantCharge: number;
+        premiumFeaturesCharge: number;
+        premiumFeaturesDetails: Record<string, { charge: number; description: string; }>;
+        pricingConfig: typeof PRICING_CONFIG;
+    };
+}
 
-export async function calculateOwnerBill(owner: User) {
+
+export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     const adminDb = await getAdminDb();
 
     // Fetch active properties
@@ -93,7 +109,7 @@ export async function calculateOwnerBill(owner: User) {
     };
 }
 
-export async function testOwnerBilling(ownerId: string) {
+export async function getBillingDetails(ownerId: string): Promise<{ success: boolean; data?: BillingDetails; error?: string }> {
     const adminDb = await getAdminDb();
     try {
         const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
@@ -105,7 +121,7 @@ export async function testOwnerBilling(ownerId: string) {
         const billingData = await calculateOwnerBill(owner);
         return { success: true, data: billingData };
     } catch (error: any) {
-        console.error('Error in testOwnerBilling:', error);
+        console.error('Error in getBillingDetails:', error);
         return { success: false, error: error.message };
     }
 }

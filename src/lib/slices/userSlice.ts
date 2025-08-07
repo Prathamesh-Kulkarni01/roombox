@@ -174,9 +174,9 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
     }
 );
 
-export const updateUserPlan = createAsyncThunk<User, { planId: PlanName, proFeatures?: boolean }, { state: RootState; dispatch: any }>(
+export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState; dispatch: any }>(
     'user/updateUserPlan',
-    async ({ planId, proFeatures }, { getState, rejectWithValue, dispatch }) => {
+    async (planId, { getState, rejectWithValue, dispatch }) => {
         const state = getState();
         const { currentUser } = state.user;
 
