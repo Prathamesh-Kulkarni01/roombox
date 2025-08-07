@@ -13,6 +13,25 @@ export const defaultMenu: Menu = {
   sunday: { breakfast: 'Puri Sabji', lunch: 'Special Thali (Chef\'s choice)', dinner: 'Noodles, Manchurian' },
 }
 
+export const PRICING_CONFIG = {
+    perProperty: 100, // ₹100 per property per month
+    perTenant: 20, // ₹20 per tenant per month
+    premiumFeatures: {
+        website: {
+            monthlyCharge: 20, // Flat monthly fee
+            billingType: 'monthly' as const,
+        },
+        kyc: {
+            monthlyCharge: 50, // Flat monthly fee for KYC access
+            billingType: 'monthly' as const,
+        },
+        whatsapp: {
+            perTenantCharge: 30, // Per-tenant charge for WhatsApp services
+            billingType: 'per_tenant' as const,
+        }
+    }
+};
+
 export const plans: Record<PlanName, Plan> = {
   free: {
     id: 'free',

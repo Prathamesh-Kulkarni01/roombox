@@ -3,30 +3,15 @@
 
 import { getAdminDb } from '../firebaseAdmin';
 import type { User, PG, Guest, PremiumFeatures } from '../types';
-
-// Centralized pricing configuration
-export const PRICING_CONFIG = {
-    perTenant: 20, // ₹20 per tenant per month
-    premiumFeatures: {
-        website: {
-            monthlyCharge: 20, // Flat monthly fee
-            billingType: 'monthly' as const,
-        },
-        kyc: {
-            monthlyCharge: 50, // Flat monthly fee for KYC access
-            billingType: 'monthly' as const,
-        },
-        whatsapp: {
-            perTenantCharge: 30, // Per-tenant charge for WhatsApp services
-            billingType: 'per_tenant' as const,
-        }
-    }
-};
+import { PRICING_CONFIG } from '../mock-data';
 
 export interface BillingDetails {
     totalAmount: number;
     details: {
+        propertyCount: number;
+        propertyCharge: number;
         tenantCount: number;
+        billableTenantCount: number;
         tenantCharge: number;
         premiumFeaturesCharge: number;
         premiumFeaturesDetails: Record<string, { charge: number; description: string; }>;
@@ -38,6 +23,17 @@ export interface BillingDetails {
 export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     const adminDb = await getAdminDb();
 
+    // Fetch active properties
+    const pgsSnapshot = await adminDb
+        .collection('users_data')
+        .doc(owner.id)
+        .collection('pgs')
+        .get();
+    
+    const propertyCount = pgsSnapshot.docs.length;
+    const propertyCharge = propertyCount * PRICING_CONFIG.perProperty;
+
+
     // Fetch active tenants, as they are the primary driver of usage
     const guestsSnapshot = await adminDb
         .collection('users_data')
@@ -47,7 +43,7 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
         .get();
 
     const activeTenants = guestsSnapshot.docs.map(doc => doc.data() as Guest);
-
+    
     // Calculate base tenant charge
     const tenantCharge = activeTenants.length * PRICING_CONFIG.perTenant;
 
@@ -73,12 +69,15 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     }
     
     // Calculate total bill
-    const totalAmount = tenantCharge + totalPremiumFeaturesCharge;
+    const totalAmount = propertyCharge + tenantCharge + totalPremiumFeaturesCharge;
 
     return {
         totalAmount,
         details: {
+            propertyCount,
+            propertyCharge,
             tenantCount: activeTenants.length,
+            billableTenantCount: activeTenants.length, // This can be adjusted later if needed
             tenantCharge,
             premiumFeaturesCharge: totalPremiumFeaturesCharge,
             premiumFeaturesDetails,

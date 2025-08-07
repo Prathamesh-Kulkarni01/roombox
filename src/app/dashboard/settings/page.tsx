@@ -27,11 +27,13 @@ import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
-import { testOwnerBilling } from "@/lib/actions/billingActions"
+import { getBillingDetails } from "@/lib/actions/billingActions"
 import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
-import { disassociateAndCreateOwnerAccount } from "@/lib/slices/userSlice"
+import { disassociateAndCreateOwnerAccount, updateUserPlan } from "@/lib/slices/userSlice"
+import { togglePremiumFeature } from "@/lib/actions/userActions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { KycDocumentConfig, ChargeTemplate, UserRole } from '@/lib/types'
+import { PRICING_CONFIG } from '@/lib/mock-data';
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -199,7 +201,7 @@ export default function SettingsPage() {
   const handleRunBillingTest = () => {
     if(!currentUser) return;
     startBillingTest(async () => {
-        const result = await testOwnerBilling(currentUser.id);
+        const result = await getBillingDetails(currentUser.id);
         if (result.success && result.data) {
             const { totalAmount, details } = result.data;
             const description = `
@@ -398,6 +400,14 @@ export default function SettingsPage() {
                         </Button>
                         <p className="text-xs text-muted-foreground">Manually run the rent reminder job and send notifications.</p>
                     </div>
+                    <div className="space-y-2">
+                         <h4 className="font-semibold pt-4 border-t">Premium Feature Pricing Config</h4>
+                         <pre className="text-xs bg-muted p-4 rounded-md whitespace-pre-wrap">
+                            <code>
+                                {JSON.stringify(PRICING_CONFIG, null, 2)}
+                            </code>
+                         </pre>
+                    </div>
                 </CardContent>
             </Card>
         )}
@@ -475,5 +485,3 @@ export default function SettingsPage() {
     </>
   )
 }
-
-    
