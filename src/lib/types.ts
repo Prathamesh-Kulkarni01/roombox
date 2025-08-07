@@ -1,4 +1,5 @@
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -257,4 +258,23 @@ export interface ChargeTemplate {
     frequency: 'monthly' | 'one-time';
     autoAddToDialog: boolean;
     billingDayOfMonth: number;
+}
+
+
+export interface BillingCycleDetails {
+    totalAmount: number;
+    propertyCharge: number;
+    tenantCharge: number;
+    premiumFeaturesCharge: number;
+    premiumFeaturesDetails: Record<string, { charge: number; description: string; }>;
+}
+
+export interface BillingDetails {
+    currentCycle: BillingCycleDetails;
+    nextCycleEstimate: BillingCycleDetails;
+    details: {
+        propertyCount: number;
+        billableTenantCount: number;
+        pricingConfig: typeof import('./mock-data').PRICING_CONFIG;
+    };
 }

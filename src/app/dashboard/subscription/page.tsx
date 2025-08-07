@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { format, parseISO } from "date-fns"
 import { Badge } from "@/components/ui/badge"
-import type { PremiumFeatures } from '@/lib/types'
-import { getBillingDetails, type BillingDetails } from "@/lib/actions/billingActions"
+import type { PremiumFeatures, BillingDetails, BillingCycleDetails } from '@/lib/types'
+import { getBillingDetails } from "@/lib/actions/billingActions"
 import { IndianRupee } from 'lucide-react'
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -43,7 +43,7 @@ export default function SubscriptionPage() {
     
     useEffect(() => {
         fetchBillingDetails();
-    }, [currentUser]);
+    }, [currentUser?.id]);
 
 
     if (!currentUser || !currentPlan) return null;
@@ -60,15 +60,28 @@ export default function SubscriptionPage() {
         });
     };
     
-    const BillingBreakdown = ({ cycle, title }: { cycle: BillingDetails['currentCycle'], title: string }) => (
+    const BillingBreakdown = ({ cycle, title, details }: { cycle: BillingCycleDetails, title: string, details: BillingDetails['details'] }) => (
         <div className="space-y-2">
             <h4 className="font-semibold">{title}</h4>
-            <div className="flex justify-between text-sm"><span>Base Plan (Properties & Tenants):</span> <span>₹{cycle.propertyCharge + cycle.tenantCharge}</span></div>
+            <div className="flex justify-between text-sm">
+                <span>Properties ({details.propertyCount} × ₹{details.pricingConfig.perProperty})</span>
+                <span>₹{cycle.propertyCharge.toLocaleString('en-IN')}</span>
+            </div>
+             <div className="flex justify-between text-sm">
+                <span>Tenants ({details.billableTenantCount} × ₹{details.pricingConfig.perTenant})</span>
+                <span>₹{cycle.tenantCharge.toLocaleString('en-IN')}</span>
+            </div>
             {Object.entries(cycle.premiumFeaturesDetails).map(([key, feature]) => (
-                 <div key={key} className="flex justify-between text-sm"><span>{feature.description}:</span> <span>₹{feature.charge}</span></div>
+                 <div key={key} className="flex justify-between text-sm">
+                    <span>{feature.description}</span> 
+                    <span>₹{feature.charge.toLocaleString('en-IN')}</span>
+                </div>
             ))}
             <hr className="my-2"/>
-            <div className="flex justify-between font-bold text-base"><span>Total:</span> <span>₹{cycle.totalAmount}</span></div>
+            <div className="flex justify-between font-bold text-base">
+                <span>Total:</span> 
+                <span>₹{cycle.totalAmount.toLocaleString('en-IN')}</span>
+            </div>
         </div>
     );
 
@@ -169,8 +182,8 @@ export default function SubscriptionPage() {
                                 </div>
                             ) : billingDetails ? (
                                 <div className="space-y-6">
-                                    <BillingBreakdown cycle={billingDetails.currentCycle} title="This Month's Bill" />
-                                    <BillingBreakdown cycle={billingDetails.nextCycleEstimate} title="Next Month's Estimate" />
+                                    <BillingBreakdown cycle={billingDetails.currentCycle} title="This Month's Bill" details={billingDetails.details}/>
+                                    <BillingBreakdown cycle={billingDetails.nextCycleEstimate} title="Next Month's Estimate" details={billingDetails.details} />
                                      <p className="text-xs text-muted-foreground pt-2 border-t">Based on {billingDetails.details.propertyCount} properties and {billingDetails.details.billableTenantCount} billable tenants.</p>
                                 </div>
                             ) : (
