@@ -11,6 +11,8 @@ interface ToggleFeatureParams {
     enabled: boolean;
 }
 
+// This is now a pure server action that only updates the database.
+// The Redux thunk in userSlice will handle the business logic and state updates.
 export async function togglePremiumFeature({ userId, feature, enabled }: ToggleFeatureParams) {
     try {
         if(!db) throw new Error("Database not connected");
@@ -33,7 +35,10 @@ export async function togglePremiumFeature({ userId, feature, enabled }: ToggleF
             [`subscription.premiumFeatures.${feature}.enabled`]: enabled
         });
 
-        return { success: true };
+        const updatedDoc = await getDoc(userDocRef);
+        const updatedUser = updatedDoc.data();
+
+        return { success: true, updatedUser };
     } catch (error: any) {
         console.error("Error toggling premium feature:", error);
         return { success: false, error: error.message || "An unexpected error occurred." };

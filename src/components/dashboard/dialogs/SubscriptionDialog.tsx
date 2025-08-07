@@ -12,8 +12,9 @@ import { useToast } from '@/hooks/use-toast';
 import { plans } from '@/lib/mock-data';
 import type { Plan, PlanName } from '@/lib/types';
 import { createRazorpaySubscription, verifySubscriptionPayment } from '@/lib/actions/subscriptionActions';
-import { updateUserPlan } from '@/lib/slices/userSlice';
+import { initializeUser } from '@/lib/slices/userSlice';
 import { Badge } from '@/components/ui/badge';
+import { auth } from '@/lib/firebase';
 
 const getPlanFeatures = (plan: Plan) => [
     { text: `${plan.pgLimit === 'unlimited' ? 'Unlimited' : `Up to ${plan.pgLimit}`} Propert${plan.pgLimit !== 1 ? 'ies' : 'y'}`, included: true },
@@ -53,8 +54,10 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
         handler: async (response: any) => {
           const verificationResult = await verifySubscriptionPayment({ ...response, userId: currentUser.id });
           if (verificationResult.success) {
-            // Plan is now 'pro' to unlock features, billing is dynamic
-            dispatch(updateUserPlan('pro')); 
+            // Re-initialize user to fetch the latest subscription status
+            if(auth.currentUser) {
+              dispatch(initializeUser(auth.currentUser));
+            }
             toast({ title: 'Success!', description: `You've successfully subscribed!` });
             onOpenChange(false);
           } else {

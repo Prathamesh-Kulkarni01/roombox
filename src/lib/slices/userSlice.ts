@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
@@ -13,6 +12,8 @@ import { setLoading } from './appSlice';
 import { fetchPermissions, updatePermissions } from './permissionsSlice';
 import { isAfter } from 'date-fns';
 import { planPermissionConfig, type RolePermissions } from '../permissions';
+import { togglePremiumFeature as togglePremiumFeatureAction } from '../actions/userActions';
+
 
 interface UserState {
     currentUser: User | null;
@@ -174,39 +175,26 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
     }
 );
 
-export const updateUserPlan = createAsyncThunk<User, PlanName, { state: RootState; dispatch: any }>(
-    'user/updateUserPlan',
-    async (planId, { getState, rejectWithValue, dispatch }) => {
-        const state = getState();
-        const { currentUser } = state.user;
+export const togglePremiumFeature = createAsyncThunk<
+    { feature: keyof PremiumFeatures, enabled: boolean, updatedUser: User },
+    { feature: keyof PremiumFeatures, enabled: boolean },
+    { state: RootState }
+>(
+    'user/togglePremiumFeature',
+    async ({ feature, enabled }, { getState, rejectWithValue }) => {
+        const { currentUser } = (getState() as RootState).user;
+        if (!currentUser) return rejectWithValue('User not found.');
 
-        if (!currentUser || !isFirebaseConfigured()) {
-            return rejectWithValue('User or Firebase not available');
+        const result = await togglePremiumFeatureAction({ userId: currentUser.id, feature, enabled });
+
+        if (result.success && result.updatedUser) {
+            return { feature, enabled, updatedUser: result.updatedUser as User };
+        } else {
+            return rejectWithValue(result.error);
         }
-
-        const newPlan = plans[planId];
-        if (!newPlan) {
-            return rejectWithValue('Invalid plan ID');
-        }
-
-        const updatedSubscription = { 
-            ...(currentUser.subscription || {}), 
-            planId: planId,
-            status: planId === 'free' ? 'inactive' : 'active',
-        };
-        
-        const updatedUser: User = {
-            ...currentUser,
-            subscription: updatedSubscription,
-        };
-
-        if (!db) throw new Error('Firestore is not initialized.');
-        const userDocRef = doc(db, 'users', currentUser.id);
-        await setDoc(userDocRef, { subscription: updatedSubscription }, { merge: true });
-
-        return updatedUser;
     }
 );
+
 
 export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { state: RootState }>(
     'user/disassociateAndCreateOwnerAccount',
@@ -302,17 +290,8 @@ const userSlice = createSlice({
                 state.currentUser = null;
                 state.currentPlan = null;
             })
-            .addCase(updateUserPlan.fulfilled, (state, action) => {
-                state.currentUser = action.payload;
-                if (action.payload?.subscription) {
-                    const sub = action.payload.subscription;
-                    const isActive = sub.status === 'active';
-                    const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
-                    const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
-                    state.currentPlan = { ...plans[basePlanId] };
-                } else {
-                    state.currentPlan = plans.free;
-                }
+            .addCase(togglePremiumFeature.fulfilled, (state, action) => {
+                state.currentUser = action.payload.updatedUser;
             })
             .addCase(logoutUser.fulfilled, (state) => {
                 state.currentUser = null;

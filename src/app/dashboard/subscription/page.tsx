@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button"
 import { AlertCircle, Loader2, Star, CreditCard, History, ShieldAlert, Globe, UserCheck, BotIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
-import { togglePremiumFeature } from "@/lib/actions/userActions"
-import { updateUserPlan } from "@/lib/slices/userSlice"
+import { togglePremiumFeature } from "@/lib/slices/userSlice"
 import { useToast } from "@/hooks/use-toast"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
@@ -30,34 +29,33 @@ export default function SubscriptionPage() {
     const [billingDetails, setBillingDetails] = useState<BillingDetails | null>(null);
     const [isLoadingBill, setIsLoadingBill] = useState(true);
 
+    const fetchBillingDetails = async () => {
+        if (!currentUser) return;
+        setIsLoadingBill(true);
+        const result = await getBillingDetails(currentUser.id);
+        if (result.success && result.data) {
+            setBillingDetails(result.data);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load billing details.' });
+        }
+        setIsLoadingBill(false);
+    };
+    
     useEffect(() => {
-        const fetchBillingDetails = async () => {
-            if (!currentUser) return;
-            setIsLoadingBill(true);
-            const result = await getBillingDetails(currentUser.id);
-            if (result.success && result.data) {
-                setBillingDetails(result.data);
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not load billing details.' });
-            }
-            setIsLoadingBill(false);
-        };
-
         fetchBillingDetails();
-    }, [currentUser, toast]);
+    }, [currentUser]);
 
 
     if (!currentUser || !currentPlan) return null;
 
     const handleToggleFeature = (feature: keyof PremiumFeatures, enabled: boolean) => {
-        if(!currentUser) return;
         startTransition(async () => {
-            const result = await togglePremiumFeature({ userId: currentUser.id, feature, enabled });
-            if(result.success) {
-                toast({ title: "Feature Updated", description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${feature}. Changes will apply on your next bill.` });
-                dispatch(updateUserPlan({ planId: currentUser.subscription?.planId || 'free' }));
+            const resultAction = await dispatch(togglePremiumFeature({ feature, enabled }));
+            if (togglePremiumFeature.fulfilled.match(resultAction)) {
+                 toast({ title: "Feature Updated", description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${resultAction.payload.feature}. Changes will apply on your next bill.` });
+                 await fetchBillingDetails(); // Refetch billing details after state change
             } else {
-                toast({ variant: 'destructive', title: 'Update Failed', description: result.error });
+                 toast({ variant: 'destructive', title: 'Update Failed', description: resultAction.payload as string || "An unknown error occurred" });
             }
         });
     };
@@ -185,4 +183,3 @@ export default function SubscriptionPage() {
         </div>
     )
 }
-
