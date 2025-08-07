@@ -1,6 +1,5 @@
 
 
-
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -212,7 +211,7 @@ export interface User {
   guestHistoryIds?: string[]; // IDs of previous, vacated guest records
   ownerId?: string; // If role is tenant or staff, this is the ID of their PG owner
   pgId?: string; // Tenant's active PG ID for direct access
-  subscription?: {
+  subscription?: { // Only owners should have this object
     planId: PlanName;
     status: SubscriptionStatus;
     razorpay_subscription_id?: string;

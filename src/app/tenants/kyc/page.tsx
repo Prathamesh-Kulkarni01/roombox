@@ -31,7 +31,7 @@ const kycStatusMeta = {
 export default function KycPage() {
     const dispatch = useAppDispatch();
     const { toast } = useToast();
-    const { currentUser, currentPlan } = useAppSelector(state => state.user);
+    const { currentUser } = useAppSelector(state => state.user);
     const { guests } = useAppSelector(state => state.guests);
     const { kycConfigs } = useAppSelector(state => state.kycConfig);
     const guest = guests.find(g => g.id === currentUser?.guestId);
@@ -162,18 +162,6 @@ export default function KycPage() {
         )
     }
     
-    if (currentPlan && !currentPlan.hasKycVerification) {
-        return (
-            <>
-            <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen}/>
-             <Card>
-                <CardHeader><CardTitle>KYC Verification</CardTitle></CardHeader>
-                <CardContent><div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border"><ShieldAlert className="mx-auto h-12 w-12 text-primary" /><h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2><p className="mt-2 text-muted-foreground max-w-sm">Your property owner has not enabled automatic KYC verification. Please contact them for manual verification.</p><Button asChild className="mt-4"><Link href="/tenants/my-pg">Go to Dashboard</Link></Button></div></CardContent>
-            </Card>
-            </>
-        )
-    }
-
     const isVerified = guest.kycStatus === 'verified';
     const isPending = guest.kycStatus === 'pending';
     const isRejected = guest.kycStatus === 'rejected';
