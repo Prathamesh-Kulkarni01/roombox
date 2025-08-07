@@ -31,29 +31,32 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
 
     const billableTenantCount = guestsSnapshot.docs.length;
 
-    const calculateCycleDetails = (features: PremiumFeatures): BillingCycleDetails => {
+    const calculateCycleDetails = (features: PremiumFeatures | undefined): BillingCycleDetails => {
         const propertyCharge = propertyCount * PRICING_CONFIG.perProperty;
         const tenantCharge = billableTenantCount * PRICING_CONFIG.perTenant;
 
         let premiumCharge = 0;
         const premiumDetails: BillingCycleDetails['premiumFeaturesDetails'] = {};
 
-        for (const [key, config] of Object.entries(PRICING_CONFIG.premiumFeatures)) {
-            const featureKey = key as keyof PremiumFeatures;
-            if (features[featureKey]?.enabled) {
-                let charge = 0;
-                let description = `${config.name}`;
+        // Safely iterate over premium features, even if the features object is undefined
+        if (features) {
+            for (const [key, config] of Object.entries(PRICING_CONFIG.premiumFeatures)) {
+                const featureKey = key as keyof PremiumFeatures;
+                if (features[featureKey]?.enabled) {
+                    let charge = 0;
+                    let description = `${config.name}`;
 
-                if (config.billingType === 'monthly') {
-                    charge = config.monthlyCharge;
-                    description = `${config.name} (Flat Fee)`;
-                } else if (config.billingType === 'per_tenant') {
-                    charge = billableTenantCount * config.perTenantCharge;
-                    description = `${config.name} (${billableTenantCount} tenants × ₹${config.perTenantCharge})`;
+                    if (config.billingType === 'monthly') {
+                        charge = config.monthlyCharge;
+                        description = `${config.name} (${billableTenantCount} tenants × ₹0)`; // Clarify flat fee
+                    } else if (config.billingType === 'per_tenant') {
+                        charge = billableTenantCount * config.perTenantCharge;
+                        description = `${config.name} (${billableTenantCount} tenants × ₹${config.perTenantCharge})`;
+                    }
+
+                    premiumCharge += charge;
+                    premiumDetails[key] = { charge, description };
                 }
-
-                premiumCharge += charge;
-                premiumDetails[key] = { charge, description };
             }
         }
         
@@ -104,4 +107,62 @@ export async function getBillingDetails(ownerId: string): Promise<{ success: boo
         console.error('Error in getBillingDetails:', error);
         return { success: false, error: error.message };
     }
+}
+
+/**
+ * Calculates the total monthly bill and creates a single addon for it on Razorpay.
+ */
+export async function calculateAndCreateAddons() {
+  const adminDb = await getAdminDb();
+  console.log('Running monthly billing cron job...');
+  let processedCount = 0;
+
+  try {
+    const ownersSnapshot = await adminDb
+        .collection('users')
+        .where('subscription.status', '==', 'active')
+        .get();
+        
+    for (const userDoc of ownersSnapshot.docs) {
+        const owner = { id: userDoc.id, ...userDoc.data() } as User;
+        const subscriptionId = owner.subscription?.razorpay_subscription_id;
+        
+        if (!subscriptionId) {
+            console.warn(`Owner ${owner.id} is active but has no Razorpay subscription ID. Skipping.`);
+            continue;
+        }
+
+        const billingDetails = await calculateOwnerBill(owner);
+        const totalAmount = billingDetails.currentCycle.totalAmount;
+        
+        if (totalAmount <= 0) {
+            console.log(`Owner ${owner.id} has no charges this month. Skipping.`);
+            continue;
+        }
+
+        const idempotencyKey = `bill-${owner.id}-${new Date().toISOString().slice(0, 7)}`; // e.g., bill-userId-2024-08
+        const itemName = `Monthly Bill for ${new Date().toLocaleString('default', { month: 'long' })}`;
+
+        try {
+            await razorpay.subscriptions.createAddon(subscriptionId, {
+                item: {
+                    name: idempotencyKey,
+                    amount: totalAmount * 100, // Amount in paisa
+                    currency: 'INR',
+                    description: itemName,
+                },
+                quantity: 1,
+            });
+            console.log(`Successfully created addon for ${owner.id} of ₹${totalAmount}`);
+            processedCount++;
+        } catch (error: any) {
+            console.error(`Failed to create addon for ${owner.id} (Sub ID: ${subscriptionId}):`, error.error?.description || error.message);
+        }
+    }
+    console.log(`Billing cron job finished. Processed ${processedCount} owner(s).`);
+    return { success: true, processedCount };
+  } catch(error: any) {
+    console.error("Error running billing cron job:", error);
+    return { success: false, error: error.message };
+  }
 }
