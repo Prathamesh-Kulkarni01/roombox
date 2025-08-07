@@ -2,24 +2,31 @@
 'use server'
 
 import { getAdminDb } from '../firebaseAdmin';
-import type { User, PG, Guest, PremiumFeatures } from '../types';
+import type { User, PremiumFeatures } from '../types';
 import { PRICING_CONFIG } from '../mock-data';
 
-export interface BillingDetails {
+export interface BillingCycleDetails {
     totalAmount: number;
+    propertyCharge: number;
+    tenantCharge: number;
+    premiumFeaturesCharge: number;
+    premiumFeaturesDetails: Record<string, { charge: number; description: string }>;
+}
+
+export interface BillingDetails {
+    currentCycle: BillingCycleDetails;
+    nextCycleEstimate: BillingCycleDetails;
     details: {
         propertyCount: number;
-        propertyCharge: number;
-        tenantCount: number;
         billableTenantCount: number;
-        tenantCharge: number;
-        premiumFeaturesCharge: number;
-        premiumFeaturesDetails: Record<string, { charge: number; description: string; }>;
         pricingConfig: typeof PRICING_CONFIG;
     };
 }
 
 
+/**
+ * Calculates the billing details for a given owner for both the current and next cycle.
+ */
 export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     const adminDb = await getAdminDb();
 
@@ -31,10 +38,8 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
         .get();
     
     const propertyCount = pgsSnapshot.docs.length;
-    const propertyCharge = propertyCount * PRICING_CONFIG.perProperty;
-
-
-    // Fetch active tenants, as they are the primary driver of usage
+    
+    // Fetch active tenants
     const guestsSnapshot = await adminDb
         .collection('users_data')
         .doc(owner.id)
@@ -42,49 +47,62 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
         .where('isVacated', '==', false)
         .get();
 
-    const activeTenants = guestsSnapshot.docs.map(doc => doc.data() as Guest);
-    
-    // Calculate base tenant charge
-    const tenantCharge = activeTenants.length * PRICING_CONFIG.perTenant;
+    const billableTenantCount = guestsSnapshot.docs.length;
 
-    // Calculate premium feature charges
-    let totalPremiumFeaturesCharge = 0;
-    const premiumFeaturesDetails: Record<string, { charge: number, description: string }> = {};
-    const enabledFeatures = owner.subscription?.premiumFeatures || {};
+    // --- Calculate Next Cycle's Estimated Bill ---
+    const nextCyclePropertyCharge = propertyCount * PRICING_CONFIG.perProperty;
+    const nextCycleTenantCharge = billableTenantCount * PRICING_CONFIG.perTenant;
 
-    if (enabledFeatures.website?.enabled) {
-        const charge = PRICING_CONFIG.premiumFeatures.website.monthlyCharge;
-        premiumFeaturesDetails['website'] = { charge, description: `Website Builder @ ₹${charge}/mo` };
-        totalPremiumFeaturesCharge += charge;
-    }
-    if (enabledFeatures.kyc?.enabled) {
-        const charge = PRICING_CONFIG.premiumFeatures.kyc.monthlyCharge;
-        premiumFeaturesDetails['kyc'] = { charge, description: `Automated KYC @ ₹${charge}/mo` };
-        totalPremiumFeaturesCharge += charge;
-    }
-    if (enabledFeatures.whatsapp?.enabled) {
-        const charge = activeTenants.length * PRICING_CONFIG.premiumFeatures.whatsapp.perTenantCharge;
-        premiumFeaturesDetails['whatsapp'] = { charge, description: `${activeTenants.length} tenants x ₹${PRICING_CONFIG.premiumFeatures.whatsapp.perTenantCharge} for WhatsApp` };
-        totalPremiumFeaturesCharge += charge;
-    }
+    let nextCyclePremiumCharge = 0;
+    const nextCycleFeaturesDetails: Record<string, { charge: number; description: string; }> = {};
+    const currentFeatures = owner.subscription?.premiumFeatures || {};
     
-    // Calculate total bill
-    const totalAmount = propertyCharge + tenantCharge + totalPremiumFeaturesCharge;
+    // Logic for next cycle is based on what is currently ENABLED
+    for (const [key, config] of Object.entries(PRICING_CONFIG.premiumFeatures)) {
+        if (currentFeatures[key as keyof PremiumFeatures]?.enabled) {
+            let charge = 0;
+            if (config.billingType === 'monthly') {
+                charge = config.monthlyCharge;
+            } else if (config.billingType === 'per_tenant') {
+                charge = billableTenantCount * config.perTenantCharge;
+            }
+            nextCyclePremiumCharge += charge;
+            nextCycleFeaturesDetails[key] = { charge, description: `${config.name}` };
+        }
+    }
+    const nextCycleTotal = nextCyclePropertyCharge + nextCycleTenantCharge + nextCyclePremiumCharge;
+
+    // --- Calculate Current Cycle's Bill ---
+    // For the current cycle, we assume any feature that was ever enabled is billed for the full cycle.
+    // A more complex system could prorate, but for now, we bill if it was used.
+    // This logic is simplified here; a real system might check historical usage flags.
+    // For this implementation, we'll assume the current cycle bill is the same as the next cycle estimate
+    // as we don't track historical feature usage within the cycle.
+    const currentCycleDetails = {
+        totalAmount: nextCycleTotal,
+        propertyCharge: nextCyclePropertyCharge,
+        tenantCharge: nextCycleTenantCharge,
+        premiumFeaturesCharge: nextCyclePremiumCharge,
+        premiumFeaturesDetails: nextCycleFeaturesDetails,
+    };
 
     return {
-        totalAmount,
+        currentCycle: currentCycleDetails,
+        nextCycleEstimate: {
+             totalAmount: nextCycleTotal,
+            propertyCharge: nextCyclePropertyCharge,
+            tenantCharge: nextCycleTenantCharge,
+            premiumFeaturesCharge: nextCyclePremiumCharge,
+            premiumFeaturesDetails: nextCycleFeaturesDetails,
+        },
         details: {
             propertyCount,
-            propertyCharge,
-            tenantCount: activeTenants.length,
-            billableTenantCount: activeTenants.length, // This can be adjusted later if needed
-            tenantCharge,
-            premiumFeaturesCharge: totalPremiumFeaturesCharge,
-            premiumFeaturesDetails,
+            billableTenantCount,
             pricingConfig: PRICING_CONFIG,
         }
     };
 }
+
 
 export async function getBillingDetails(ownerId: string): Promise<{ success: boolean; data?: BillingDetails; error?: string }> {
     const adminDb = await getAdminDb();

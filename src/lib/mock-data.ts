@@ -18,14 +18,17 @@ export const PRICING_CONFIG = {
     perTenant: 20, // ₹20 per tenant per month
     premiumFeatures: {
         website: {
+            name: 'Website Builder',
             monthlyCharge: 20, // Flat monthly fee
             billingType: 'monthly' as const,
         },
         kyc: {
+            name: 'Automated KYC',
             monthlyCharge: 50, // Flat monthly fee for KYC access
             billingType: 'monthly' as const,
         },
         whatsapp: {
+            name: 'WhatsApp Automation',
             perTenantCharge: 30, // Per-tenant charge for WhatsApp services
             billingType: 'per_tenant' as const,
         }

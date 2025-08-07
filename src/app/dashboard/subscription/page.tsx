@@ -59,6 +59,18 @@ export default function SubscriptionPage() {
             }
         });
     };
+    
+    const BillingBreakdown = ({ cycle, title }: { cycle: BillingDetails['currentCycle'], title: string }) => (
+        <div className="space-y-2">
+            <h4 className="font-semibold">{title}</h4>
+            <div className="flex justify-between text-sm"><span>Base Plan (Properties & Tenants):</span> <span>₹{cycle.propertyCharge + cycle.tenantCharge}</span></div>
+            {Object.entries(cycle.premiumFeaturesDetails).map(([key, feature]) => (
+                 <div key={key} className="flex justify-between text-sm"><span>{feature.description}:</span> <span>₹{feature.charge}</span></div>
+            ))}
+            <hr className="my-2"/>
+            <div className="flex justify-between font-bold text-base"><span>Total:</span> <span>₹{cycle.totalAmount}</span></div>
+        </div>
+    );
 
     return (
         <div className="space-y-6">
@@ -89,7 +101,7 @@ export default function SubscriptionPage() {
                             <div className="flex items-center justify-between p-4 border rounded-lg">
                                 <div className="space-y-1">
                                     <Label htmlFor="kyc" className="flex items-center gap-2 font-semibold text-base"><UserCheck/> Automated KYC</Label>
-                                    <p className="text-muted-foreground text-sm">AI-powered document verification.</p>
+                                    <p className="text-muted-foreground text-sm">AI-powered document verification. (₹50/month)</p>
                                 </div>
                                 <Switch id="kyc" checked={!!currentUser.subscription?.premiumFeatures?.kyc?.enabled} onCheckedChange={(c) => handleToggleFeature('kyc', c)} disabled={isSaving}/>
                             </div>
@@ -145,11 +157,8 @@ export default function SubscriptionPage() {
                      <Card className="sticky top-20">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><CreditCard /> Billing Summary</CardTitle>
-                            <CardDescription>
-                                Estimated charges for the current cycle.
-                            </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-4">
                             {isLoadingBill ? (
                                 <div className="space-y-3">
                                     <Skeleton className="h-5 w-3/4" />
@@ -159,14 +168,10 @@ export default function SubscriptionPage() {
                                     <Skeleton className="h-8 w-2/3" />
                                 </div>
                             ) : billingDetails ? (
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between"><span>Properties:</span> <span>{billingDetails.details.propertyCount} x ₹{billingDetails.details.pricingConfig.perProperty}</span></div>
-                                    <div className="flex justify-between"><span>Tenants ({billingDetails.details.billableTenantCount} billable):</span> <span>{billingDetails.details.billableTenantCount} x ₹{billingDetails.details.pricingConfig.perTenant}</span></div>
-                                    {Object.values(billingDetails.details.premiumFeaturesDetails).map(feature => (
-                                         <div key={feature.description} className="flex justify-between"><span>{feature.description.split('@')[0].trim()}:</span> <span>₹{feature.charge}</span></div>
-                                    ))}
-                                    <hr className="my-2"/>
-                                    <div className="flex justify-between font-bold text-base"><span>Est. Total:</span> <span>₹{billingDetails.totalAmount}</span></div>
+                                <div className="space-y-6">
+                                    <BillingBreakdown cycle={billingDetails.currentCycle} title="This Month's Bill" />
+                                    <BillingBreakdown cycle={billingDetails.nextCycleEstimate} title="Next Month's Estimate" />
+                                     <p className="text-xs text-muted-foreground pt-2 border-t">Based on {billingDetails.details.propertyCount} properties and {billingDetails.details.billableTenantCount} billable tenants.</p>
                                 </div>
                             ) : (
                                 <p className="text-muted-foreground text-sm">Could not load billing details.</p>

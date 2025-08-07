@@ -74,6 +74,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [isTestingBilling, startBillingTest] = useTransition();
   const [isTestingReminders, startReminderTest] = useTransition();
+  const [isSaving, startSavingTransition] = useTransition();
 
   const chargeTemplateForm = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
@@ -203,11 +204,13 @@ export default function SettingsPage() {
     startBillingTest(async () => {
         const result = await getBillingDetails(currentUser.id);
         if (result.success && result.data) {
-            const { totalAmount, details } = result.data;
+            const { currentCycle, nextCycleEstimate, details } = result.data;
             const description = `
-                Properties: ${details.propertyCount} x ₹${details.pricingConfig.perProperty} = ₹${details.propertyCharge}
-                Tenants: ${details.tenantCount} x ₹${details.pricingConfig.perTenant} = ₹${details.tenantCharge}
-                Total Bill: ₹${totalAmount}
+Current Cycle Estimate: ₹${currentCycle.totalAmount}
+Next Cycle Estimate:    ₹${nextCycleEstimate.totalAmount}
+---------------------------
+Properties: ${details.propertyCount} x ₹${details.pricingConfig.perProperty} = ₹${currentCycle.propertyCharge}
+Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} = ₹${currentCycle.tenantCharge}
             `;
             toast({
                 title: "Billing Test Result",

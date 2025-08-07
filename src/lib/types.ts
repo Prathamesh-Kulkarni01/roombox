@@ -158,34 +158,9 @@ export interface Expense {
   date: string;
 }
 
-export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
+export type StaffRole = 'owner' | 'manager' | 'cleaner' | 'cook' | 'security' | 'other' | 'tenant';
 
-export interface Staff {
-  id: string;
-  name: string;
-  email?: string;
-  role: StaffRole;
-  phone: string;
-  salary: number;
-  pgId: string;
-  pgName: string;
-  userId?: string;
-}
-
-export interface Notification {
-  id: string;
-  type: 'rent-due' | 'checkout-soon' | 'new-complaint' | 'rent-paid' | 'new-guest' | 'kyc-submitted';
-  title: string;
-  message: string;
-  link: string;
-  date: string;
-  isRead: boolean;
-  targetId: string; // guestId or complaintId
-}
-
-export type UserRole = 'owner' | 'manager' | 'cook' | 'cleaner' | 'security' | 'other' | 'tenant';
-
-export type PlanName = 'free' | 'pro' | 'business' | 'enterprise';
+export type PlanName = 'free' | 'pro'; // Simplified plans
 
 export interface Plan {
   id: PlanName;
@@ -193,7 +168,6 @@ export interface Plan {
   price: number | 'Custom';
   pricePeriod: string;
   pgLimit: number | 'unlimited';
-  bedLimit?: number | 'unlimited';
   floorLimit?: number | 'unlimited';
   hasStaffManagement: boolean;
   hasComplaints: boolean;
