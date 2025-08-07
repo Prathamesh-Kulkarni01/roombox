@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck } from "lucide-react"
-import { format, differenceInDays, parseISO } from "date-fns"
+import { format, differenceInDays, parseISO, isValid } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -34,21 +34,28 @@ export default function MyPgPage() {
     const { pgs } = useAppSelector(state => state.pgs)
     const { isLoading } = useAppSelector(state => state.app)
 
-    const currentGuest = currentUser?.guestId
-    const currentPg =  currentUser?.pgId    
+    const currentGuest = useMemo(() => {
+        if (!currentUser || !currentUser.guestId) return null;
+        return guests.find(g => g.id === currentUser.guestId);
+    }, [currentUser, guests]);
+
+    const currentPg = useMemo(() => {
+        if (!currentGuest) return null;
+        return pgs.find(p => p.id === currentGuest.pgId);
+    }, [currentGuest, pgs]);
 
     const bedDetails = useMemo(() => {
         if (!currentPg || !currentGuest) return { roomName: 'N/A', bedName: 'N/A' };
-        const pg = pgs.find(p => p.id === currentPg)
+        const pg = pgs.find(p => p.id === currentPg.id)
         if (!pg) return { roomName: 'N/A', bedName: 'N/A' };
-        const floor = pg.floors.find(f => f.id === currentGuest.floorId)
+        const floor = pg.floors?.find(f => f.rooms?.some(r => r.beds.some(b => b.id === currentGuest.bedId)));
         if (!floor) return { roomName: 'N/A', bedName: 'N/A' };
-        const room = floor.rooms.find(r => r.id === currentGuest.roomId)
+        const room = floor.rooms.find(r => r.beds.some(b => b.id === currentGuest.bedId));
         if (!room) return { roomName: 'N/A', bedName: 'N/A' };
-        const bed = room.beds.find(b => b.id === currentGuest.bedId)
+        const bed = room.beds.find(b => b.id === currentGuest.bedId);
         if (!bed) return { roomName: 'N/A', bedName: 'N/A' };
         return { roomName: room.name, bedName: bed.name };  
-    }, [currentPg, currentGuest]);
+    }, [currentPg, currentGuest, pgs]);
 
      const { totalDue, balanceBroughtForward } = useMemo(() => {
         if (!currentGuest) return { totalDue: 0, balanceBroughtForward: 0 };
@@ -61,9 +68,8 @@ export default function MyPgPage() {
 
         return { totalDue: total, balanceBroughtForward: balanceBf };
     }, [currentGuest]);
-console.log({currentGuest, currentPg})
 
-    if ( !currentGuest || !currentPg) {
+    if (isLoading || !currentGuest || !currentPg) {
         return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="lg:col-span-2 space-y-6">
@@ -104,7 +110,10 @@ console.log({currentGuest, currentPg})
         )
     }
 
-    const stayDuration = differenceInDays(new Date(), new Date(currentGuest.moveInDate))
+    const moveInDate = currentGuest.moveInDate ? parseISO(currentGuest.moveInDate) : null;
+    const exitDate = currentGuest.exitDate ? parseISO(currentGuest.exitDate) : null;
+    const dueDate = currentGuest.dueDate ? parseISO(currentGuest.dueDate) : null;
+    const stayDuration = moveInDate && isValid(moveInDate) ? differenceInDays(new Date(), moveInDate) : 0;
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -117,17 +126,17 @@ console.log({currentGuest, currentPg})
                         <CardDescription>Here are the details about your stay.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid md:grid-cols-2 gap-6 text-sm">
-                        <div className="flex items-center gap-3"><Calendar className="w-5 h-5 text-primary" /><p>Moved In: <span className="font-medium">{format(new Date(currentGuest.moveInDate), "do MMM, yyyy")}</span></p></div>
+                        <div className="flex items-center gap-3"><Calendar className="w-5 h-5 text-primary" /><p>Moved In: <span className="font-medium">{moveInDate && isValid(moveInDate) ? format(moveInDate, "do MMM, yyyy") : 'N/A'}</span></p></div>
                         <div className="flex items-center gap-3"><Clock className="w-5 h-5 text-primary" /><p>Stay Duration: <span className="font-medium">{stayDuration} days</span></p></div>
                         <div className="flex items-center gap-3"><BedDouble className="w-5 h-5 text-primary" /><p>Room/Bed: <span className="font-medium">Room {bedDetails.roomName}, Bed {bedDetails.bedName}</span></p></div>
                         <div className="flex items-center gap-3"><FileText className="w-5 h-5 text-primary" /><p>Notice Period: <span className="font-medium">{currentGuest.noticePeriodDays} days</span></p></div>
                     </CardContent>
-                    {currentGuest.exitDate && !currentGuest.isVacated && (
+                    {exitDate && isValid(exitDate) && !currentGuest.isVacated && (
                          <CardFooter>
                              <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200 w-full">
                                 <AlertCircle className="text-blue-600 dark:text-blue-400" />
                                 <AlertTitle className="font-semibold">Notice Period Active</AlertTitle>
-                                <AlertDescription>Your final day to vacate is <span className="font-bold">{format(new Date(currentGuest.exitDate), "do MMMM, yyyy")}</span>.</AlertDescription>
+                                <AlertDescription>Your final day to vacate is <span className="font-bold">{format(exitDate, "do MMMM, yyyy")}</span>.</AlertDescription>
                             </Alert>
                         </CardFooter>
                     )}
@@ -162,7 +171,7 @@ console.log({currentGuest, currentPg})
                 <Card className="sticky top-20">
                     <CardHeader>
                         <CardTitle className="text-xl">Rent Details</CardTitle>
-                        <CardDescription>Due on {format(new Date(currentGuest.dueDate), "do MMMM, yyyy")}</CardDescription>
+                        <CardDescription>Due on {dueDate && isValid(dueDate) ? format(dueDate, "do MMMM, yyyy") : 'N/A'}</CardDescription>
                     </CardHeader>
                      <CardContent className="space-y-4">
                         <div className="flex justify-between items-center text-sm">
