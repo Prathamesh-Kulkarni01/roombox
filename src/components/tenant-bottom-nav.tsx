@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import Link from 'next/link';
@@ -34,7 +33,7 @@ export default function TenantBottomNav() {
             className={cn(
               'flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors h-full',
               (pathname === item.href || (item.href !== '/tenants/my-pg' && pathname.startsWith(item.href))) 
-                ? 'text-primary' 
+                ? 'text-primary bg-primary/10' 
                 : 'hover:text-primary'
             )}
           >

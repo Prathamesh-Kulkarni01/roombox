@@ -17,6 +17,7 @@ import { navItems as allNavItems, type NavItem } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
+import { Button } from './ui/button';
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
@@ -52,8 +53,8 @@ export default function DashboardBottomNav() {
             className={cn(
               'flex flex-col items-center justify-center gap-1 text-sidebar-foreground/70 transition-colors h-full relative',
               (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) 
-                ? 'text-primary bg-sidebar-accent' 
-                : 'hover:text-primary'
+                ? 'text-sidebar-primary bg-sidebar-accent' 
+                : 'hover:text-sidebar-primary'
             )}
           >
             {item.badge && item.badge > 0 && (
