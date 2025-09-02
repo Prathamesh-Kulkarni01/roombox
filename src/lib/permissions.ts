@@ -118,10 +118,10 @@ export function canAccess(
   if (role === 'owner' && ownerHasAll) return true;
   if (!permissions) return false;
   const rolePerms = permissions[role];
-  if (!rolePerms) return false;
-  const featurePerms = rolePerms[feature || ''];
+  if (!rolePerms || !feature || !action) return false;
+  const featurePerms = rolePerms[feature];
   if (!featurePerms) return false;
-  return !!featurePerms[action || ''];
+  return !!featurePerms[action];
 }
 
 /**

@@ -58,16 +58,20 @@ export default function ManagePgPage() {
   } = useDashboard({ pgs, guests });
 
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
-  const canAddFloor = pg && currentPlan && (currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit)
-  const canEditProperty = canAccess(featurePermissions, currentUser?.role, 'properties', 'edit');
   const canAdd = canAccess(featurePermissions, currentUser?.role, 'properties', 'add');
   const canEdit = canAccess(featurePermissions, currentUser?.role, 'properties', 'edit');
   const canDelete = canAccess(featurePermissions, currentUser?.role, 'properties', 'delete');
-
+  const canEditProperty = canEdit;
+  
   const permissions = useMemo(() => {
-    if (!featurePermissions || !currentUser) return {};
+    if (!featurePermissions || !currentUser) return null;
     return featurePermissions.properties;
   }, [featurePermissions, currentUser]);
+
+  const canAddFloor = useMemo(() => {
+      if (!pg || !currentPlan || !permissions?.add) return false;
+      return currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit;
+  }, [pg, currentPlan, permissions]);
   
   useEffect(() => {
     if (searchParams.get('setup') === 'true') {
@@ -155,7 +159,7 @@ export default function ManagePgPage() {
                                             {isEditMode && (
                                                 <div className="flex items-center">
                                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}> <Pencil className="w-3 h-3" /> </Button>
-                                                     {permissions.delete && <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}> <Trash2 className="w-3 h-3" /> </Button>}
+                                                     {permissions?.delete && <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}> <Trash2 className="w-3 h-3" /> </Button>}
                                                 </div>
                                             )}
                                         </div>
@@ -195,7 +199,7 @@ export default function ManagePgPage() {
               </AccordionItem>
             ))}
           </Accordion>
-          {isEditMode && permissions.add && (
+          {isEditMode && permissions?.add && (
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
