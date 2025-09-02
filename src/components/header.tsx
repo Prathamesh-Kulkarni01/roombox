@@ -70,8 +70,8 @@ export default function Header() {
                         </SelectTrigger>
                         <SelectContent>
                              <SelectItem value="all">All Properties</SelectItem>
-                            {pgs.map((pg) => (
-                                <SelectItem key={pg.id} value={pg.id}>
+                            {pgs.map((pg, index) => (
+                                <SelectItem key={`${pg.id}-${index}`} value={pg.id}>
                                     {pg.name}
                                 </SelectItem>
                             ))}
