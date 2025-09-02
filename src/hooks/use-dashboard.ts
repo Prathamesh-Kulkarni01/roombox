@@ -1,5 +1,4 @@
 
-
 import { useState, useEffect, useMemo, useTransition } from "react"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,7 +14,7 @@ import { format, addMonths } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
-import { roomSchema } from "@/lib/actions/roomActions"
+import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
 
 const addGuestSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -105,16 +104,32 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     resolver: zodResolver(paymentSchema),
     defaultValues: { paymentMethod: 'cash' }
   });
-  const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema) });
+  const roomForm = useForm<RoomFormValues>({ resolver: zodResolver(roomSchema) });
   const sharedChargeForm = useForm<z.infer<typeof sharedChargeSchema>>({ resolver: zodResolver(sharedChargeSchema) });
 
 
   useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm]);
   useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm]);
-  useEffect(() => { 
-    if(roomToEdit) roomForm.reset(roomToEdit);
-    else roomForm.reset({ rent: 0, deposit: 0, amenities: [], beds: [] });
-  }, [roomToEdit, roomForm]);
+  
+  useEffect(() => {
+    if (roomToEdit) {
+      roomForm.reset({
+        roomTitle: roomToEdit.name,
+        monthlyRent: roomToEdit.rent,
+        securityDeposit: roomToEdit.deposit,
+        amenities: roomToEdit.amenities,
+        // Reset other fields as well if they exist on roomToEdit
+      });
+    } else {
+      roomForm.reset({
+        roomTitle: '',
+        monthlyRent: 0,
+        securityDeposit: 0,
+        amenities: [],
+        // Reset other fields to their defaults
+      });
+    }
+  }, [isRoomDialogOpen, roomToEdit, roomForm]);
 
   useEffect(() => {
     if (guestToEdit) {
@@ -167,6 +182,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       kycStatus: 'pending',
       moveInDate: format(values.moveInDate, 'yyyy-MM-dd'),
       noticePeriodDays: 30,
+      isVacated: false
     };
     
     dispatch(addGuestAction(guestData));
@@ -307,7 +323,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const processRoomSubmit = (values: z.infer<typeof roomSchema>) => {
+  const processRoomSubmit = (values: RoomFormValues) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
@@ -321,9 +337,26 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
             if (!floor) return;
             if (roomToEdit) {
                 const roomIndex = floor.rooms.findIndex(r => r.id === roomToEdit.id);
-                if (roomIndex !== -1) floor.rooms[roomIndex] = { ...floor.rooms[roomIndex], ...values, rent: values.monthlyRent, deposit: values.securityDeposit, name: values.roomTitle };
+                if (roomIndex !== -1) {
+                    floor.rooms[roomIndex] = { 
+                        ...floor.rooms[roomIndex], 
+                        name: values.roomTitle,
+                        rent: values.monthlyRent || floor.rooms[roomIndex].rent,
+                        deposit: values.securityDeposit || floor.rooms[roomIndex].deposit,
+                        amenities: values.amenities,
+                    };
+                }
             } else {
-                const newRoom = { id: `room-${Date.now()}`, ...values, pgId: pg.id, floorId, beds: [], rent: values.monthlyRent, deposit: values.securityDeposit, name: values.roomTitle };
+                const newRoom: Room = { 
+                    id: `room-${Date.now()}`, 
+                    pgId,
+                    floorId,
+                    beds: [],
+                    name: values.roomTitle,
+                    rent: values.monthlyRent || 0,
+                    deposit: values.securityDeposit || 0,
+                    amenities: values.amenities || [],
+                };
                 floor.rooms.push(newRoom);
             }
         });
@@ -460,7 +493,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleConfirmInitiateExit,
     guestToExitImmediately, setGuestToExitImmediately,
     handleConfirmImmediateExit,
-    addGuestForm, editGuestForm, roomForm, floorForm, bedForm, paymentForm, sharedChargeForm,
+    addGuestForm, editGuestForm,
+    roomForm, floorForm, bedForm, paymentForm, sharedChargeForm,
     handleOpenAddGuestDialog, handleAddGuestSubmit,
     handleOpenEditGuestDialog, handleEditGuestSubmit,
     handleOpenPaymentDialog, handlePaymentSubmit,

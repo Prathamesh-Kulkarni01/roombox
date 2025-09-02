@@ -16,6 +16,7 @@ import { FoodServicesForm } from '@/components/dashboard/add-room/FoodServicesFo
 import { MediaForm } from '@/components/dashboard/add-room/MediaForm';
 import type { UseDashboardReturn } from '@/hooks/use-dashboard';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { RoomFormValues } from '@/lib/actions/roomActions';
 
 const tabs = [
   { value: 'basics', label: 'Basics' },
@@ -38,13 +39,36 @@ type RoomDialogProps = Pick<UseDashboardReturn,
 export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom }: RoomDialogProps) {
   const [activeTab, setActiveTab] = React.useState(tabs[0].value);
 
+  React.useEffect(() => {
+    if (isRoomDialogOpen && roomToEdit) {
+      // When editing, map the room data to the form values
+      const formValues: Partial<RoomFormValues> = {
+        roomTitle: roomToEdit.name,
+        monthlyRent: roomToEdit.rent,
+        securityDeposit: roomToEdit.deposit,
+        amenities: roomToEdit.amenities,
+        // Map other fields from roomToEdit to form schema if they exist
+        // This ensures the form is pre-filled correctly.
+      };
+      roomForm.reset(formValues);
+    } else if(isRoomDialogOpen) {
+      // When adding, reset to default
+      roomForm.reset({
+        roomTitle: '',
+        monthlyRent: 0,
+        securityDeposit: 0,
+        amenities: [],
+      });
+    }
+  }, [isRoomDialogOpen, roomToEdit, roomForm]);
+
   return (
     <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle>{roomToEdit ? 'Edit Room' : 'Add a New Room'}</DialogTitle>
           <DialogDescription>
-            Fill out the details below. Click save when you're done.
+            {roomToEdit ? `Editing room: ${roomToEdit.name}.` : "Fill out the details below. Click save when you're done."}
           </DialogDescription>
         </DialogHeader>
         <Form {...roomForm}>

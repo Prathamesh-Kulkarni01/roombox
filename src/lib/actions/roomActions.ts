@@ -16,38 +16,43 @@ const testimonialSchema = z.object({
 });
 
 export const roomSchema = z.object({
+  // RoomBasicsForm
   roomTitle: z.string().min(1, "Room name/number is required."),
-  roomType: z.enum(['single', 'double', 'triple', 'dormitory']),
-  gender: z.enum(['male', 'female', 'unisex', 'couples']),
-  category: z.enum(['standard', 'premium', 'deluxe']),
+  roomType: z.enum(['single', 'double', 'triple', 'dormitory']).optional(),
+  gender: z.enum(['male', 'female', 'unisex', 'couples']).optional(),
+  category: z.enum(['standard', 'premium', 'deluxe']).optional(),
   floor: z.coerce.number().optional(),
   block: z.string().optional(),
   
-  monthlyRent: z.coerce.number().min(0, "Monthly rent must be a positive number."),
-  securityDeposit: z.coerce.number().min(0, "Security deposit must be a positive number."),
+  // PricingForm
+  monthlyRent: z.coerce.number().min(0, "Monthly rent must be a positive number.").optional(),
+  securityDeposit: z.coerce.number().min(0, "Security deposit must be a positive number.").optional(),
   lockInMonths: z.coerce.number().optional(),
-  electricityBilling: z.enum(['included', 'metered', 'shared']),
+  electricityBilling: z.enum(['included', 'metered', 'shared']).optional(),
   acCharge: z.object({
-    included: z.boolean(),
+    included: z.boolean().optional(),
     charge: z.coerce.number().optional(),
-  }),
+  }).optional(),
   maintenanceCharges: z.coerce.number().optional(),
 
-  amenities: z.array(z.string()),
-  furnishingType: z.enum(['fully', 'semi', 'unfurnished']),
+  // AmenitiesForm
+  amenities: z.array(z.string()).optional(),
+  furnishingType: z.enum(['fully', 'semi', 'unfurnished']).optional(),
 
-  rules: z.array(z.string()),
-  preferredTenants: z.array(z.string()),
+  // RulesForm
+  rules: z.array(z.string()).optional(),
+  preferredTenants: z.array(z.string()).optional(),
   
-  foodIncluded: z.boolean(),
+  // FoodServicesForm
+  foodIncluded: z.boolean().optional(),
   meals: z.array(z.string()).optional(),
   vegNonVeg: z.enum(['veg', 'non-veg', 'both']).optional(),
-  
   housekeepingFrequency: z.enum(['daily', 'alternate', 'weekly']).optional(),
-  laundryServices: z.boolean(),
+  laundryServices: z.boolean().optional(),
   
+  // MediaForm
   images: z.array(z.string()).optional(),
-  available: z.boolean(),
-  availableFrom: z.date(),
+  available: z.boolean().optional(),
+  availableFrom: z.date().optional(),
   virtualTourLink: z.string().url().optional().or(z.literal('')),
 });
