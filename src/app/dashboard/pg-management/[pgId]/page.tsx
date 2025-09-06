@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -35,7 +35,6 @@ const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is require
 export default function ManagePgPage() {
   const router = useRouter()
   const params = useParams()
-  const searchParams = useSearchParams()
   const dispatch = useAppDispatch()
   const { pgs } = useAppSelector(state => state.pgs)
   const { guests } = useAppSelector(state => state.guests)
@@ -73,13 +72,6 @@ export default function ManagePgPage() {
       return currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit;
   }, [pg, currentPlan, permissions]);
   
-  useEffect(() => {
-    if (searchParams.get('setup') === 'true') {
-        setIsEditMode(true);
-        router.replace(`/dashboard/pg-management/${pgId}`, { scroll: false });
-    }
-  }, [searchParams, router, pgId]);
-
   if (!pg) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -105,13 +97,13 @@ export default function ManagePgPage() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => router.back()}>
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard')}>
             <ArrowLeft />
             </Button>
             <h1 className="text-2xl font-bold">{pg.name} Layout</h1>
         </div>
         {canEditProperty && (
-          <div data-tour="edit-mode-switch" className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
               <Label htmlFor="edit-mode" className="font-medium">Edit Mode</Label>
               <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} />
           </div>
@@ -165,7 +157,7 @@ export default function ManagePgPage() {
                                         </div>
                                     ))}
                                     {isEditMode && canAdd && (
-                                        <button data-tour="add-bed-button" onClick={() => handleOpenBedDialog(null, room.id, floor.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
+                                        <button onClick={() => handleOpenBedDialog(null, room.id, floor.id)} className="w-full mt-2 flex justify-center items-center p-1.5 rounded-md border-2 border-dashed hover:bg-muted text-sm">
                                             <PlusCircle className="w-3.5 h-3.5 mr-2" /> Add Bed
                                         </button>
                                     )}
@@ -174,7 +166,7 @@ export default function ManagePgPage() {
                         </Card>
                     ))}
                     {isEditMode && canAdd && (
-                        <button data-tour="add-room-button" onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                        <button onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                             <PlusCircle className="w-8 h-8 mb-2" />
                             <span className="font-medium">Add New Room</span>
                         </button>
@@ -203,7 +195,7 @@ export default function ManagePgPage() {
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <div data-tour="add-floor-button" className="inline-block mt-6 w-full">
+                        <div className="inline-block mt-6 w-full">
                             <button onClick={openAddFloor} disabled={!canAddFloor} className="w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:bg-muted/50 disabled:cursor-not-allowed">
                                 <PlusCircle className="mr-2 h-5 w-5" />
                                 <span className="font-medium">Add New Floor</span>

@@ -214,9 +214,19 @@ export default function DashboardPage() {
             <AddPgSheet
                 open={isAddPgSheetOpen}
                 onOpenChange={setIsAddPgSheetOpen}
-                onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
+                onPgAdded={() => { setIsAddPgSheetOpen(false) }}
             />
-            <GuidedSetup pgs={pgs} guests={guests} onAddProperty={() => setIsAddPgSheetOpen(true)} />
+            <GuidedSetup 
+                pgs={pgs} 
+                guests={guests} 
+                onAddProperty={() => setIsAddPgSheetOpen(true)}
+                onSetupLayout={() => setIsEditMode(true)}
+                onAddGuest={() => {
+                    const firstBed = document.querySelector('[data-tour="add-guest-on-bed"]');
+                    firstBed?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    (firstBed as HTMLElement)?.click();
+                }}
+            />
         </>
     );
   }
@@ -224,7 +234,24 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <GuidedSetup pgs={pgs} guests={guests} onAddProperty={() => setIsAddPgSheetOpen(true)} />
+        <GuidedSetup 
+            pgs={pgs} 
+            guests={guests} 
+            onAddProperty={() => setIsAddPgSheetOpen(true)}
+            onSetupLayout={() => setIsEditMode(true)}
+            onAddGuest={() => {
+                const firstAvailableBed = pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).flatMap(r => r.beds).find(b => !b.guestId);
+                if (firstAvailableBed) {
+                    const room = pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).find(r => r.beds.some(b => b.id === firstAvailableBed.id));
+                    const pg = pgs.find(p => p.id === room?.pgId);
+                    if(room && pg) {
+                        dashboardActions.handleOpenAddGuestDialog(firstAvailableBed, room, pg);
+                    }
+                } else {
+                    alert("No available beds to add a guest to.");
+                }
+            }}
+        />
         <StatsCards stats={stats} />
         
         <div className="space-y-4">
@@ -318,7 +345,7 @@ export default function DashboardPage() {
          <AddPgSheet
             open={isAddPgSheetOpen}
             onOpenChange={setIsAddPgSheetOpen}
-            onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
+            onPgAdded={() => { setIsAddPgSheetOpen(false) }}
           />
       </Access>
       <Access feature="guests" action="add">

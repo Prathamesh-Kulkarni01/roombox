@@ -65,7 +65,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
       const newPgId = resultAction.payload.id;
       form.reset()
       onOpenChange(false)
-      if(onPgAdded && newPgId) {
+      if(onPgAdded) {
           onPgAdded(newPgId)
       }
     }
