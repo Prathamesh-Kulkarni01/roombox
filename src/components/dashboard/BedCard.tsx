@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 import GuestPopoverContent from "./GuestPopoverContent"
-import type { Room, Bed, PG, Floor, Guest, Complaint, BedStatus } from "@/lib/types"
+import type { Room, Bed, PG, Floor, Guest, BedStatus } from "@/lib/types"
 import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee, Plus, CheckCircle, Wallet, User as UserIcon } from "lucide-react"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
@@ -120,7 +120,7 @@ export default function BedCard(props: BedCardProps) {
                 <div className="w-full text-center">
                     <div className="font-semibold text-xs bg-black/10 group-hover:bg-yellow-500 group-hover:text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
                         <UserPlus className="w-3 h-3" />
-                        Available
+                        Add Guest
                     </div>
                 </div>
               </button>
