@@ -16,7 +16,6 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
   pg: PG
   isFirstAvailableBedFound: MutableRefObject<boolean>
   isEditMode: boolean;
-  viewMode: 'bed' | 'room' | 'floor' | 'property';
 }
 
 const RoomAccordionTrigger = ({ floor, room }: { floor: Floor, room: Room }) => {
@@ -32,48 +31,34 @@ const RoomAccordionTrigger = ({ floor, room }: { floor: Floor, room: Room }) => 
     }, [room, guests]);
 
     return (
-        <AccordionTrigger className="text-lg font-medium hover:no-underline w-full">
-            <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-4">
-                    <DoorOpen className="w-5 h-5" /> 
-                    <div className="text-left">
-                        <p>{room.name}</p>
-                        <p className="text-sm font-normal text-muted-foreground">{room.beds.length}-Sharing</p>
-                    </div>
+       <div className="flex flex-col w-full space-y-2">
+            <div className="flex justify-between items-center w-full">
+                <div className="flex flex-col text-left">
+                    <span className="font-semibold text-lg">{room.name}</span>
+                    <span className="text-sm text-muted-foreground">{room.beds.length}-Sharing</span>
                 </div>
                 <div className="flex items-center gap-4 text-sm font-normal pr-2">
-                    <span className={cn(roomSummary.availableBeds > 0 ? 'text-green-600' : 'text-muted-foreground')}>
-                        {roomSummary.availableBeds} Available
-                    </span>
-                     <span className={cn(roomSummary.rentPending > 0 ? 'text-red-600' : 'text-muted-foreground')}>
-                        {roomSummary.rentPending} Rent Pending
-                    </span>
+                    <div className="text-center">
+                        <p className="font-bold text-lg text-green-600">{roomSummary.availableBeds}</p>
+                        <p className="text-xs text-muted-foreground">Available</p>
+                    </div>
+                    <div className="text-center">
+                         <p className="font-bold text-lg text-red-600">{roomSummary.rentPending}</p>
+                        <p className="text-xs text-muted-foreground">Rent Due</p>
+                    </div>
                 </div>
             </div>
-        </AccordionTrigger>
+            <AccordionTrigger className="text-sm font-medium hover:no-underline w-full py-1 justify-center text-primary">
+                View Beds
+            </AccordionTrigger>
+       </div>
     );
 };
 
 export default function PgLayout(props: PgLayoutProps) {
-  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, handleOpenFloorDialog, viewMode } = props
-  const [openFloorItems, setOpenFloorItems] = useState<string[]>([]);
-  const [openRoomItems, setOpenRoomItems] = useState<string[]>([]);
-
-  useEffect(() => {
-    const allFloorIds = pg.floors?.map(f => f.id) || [];
-    const allRoomIds = pg.floors?.flatMap(f => f.rooms.map(r => r.id)) || [];
-
-    if (viewMode === 'bed') {
-      setOpenFloorItems(allFloorIds);
-      setOpenRoomItems(allRoomIds);
-    } else if (viewMode === 'room') {
-      setOpenFloorItems(allFloorIds);
-      setOpenRoomItems([]);
-    } else if (viewMode === 'floor' || viewMode === 'property') {
-      setOpenFloorItems([]);
-      setOpenRoomItems([]);
-    }
-  }, [pg.floors, viewMode]);
+  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, handleOpenFloorDialog } = props
+  const [openFloorItems, setOpenFloorItems] = useState<string[]>(pg.floors?.map(f => f.id) || []);
+  const [openRoomItems, setOpenRoomItems] = useState<string[]>(pg.floors?.flatMap(f => f.rooms.map(r => r.id)) || []);
 
   return (
     <Card>
@@ -84,14 +69,14 @@ export default function PgLayout(props: PgLayoutProps) {
       <CardContent className="space-y-4">
         <Accordion 
           type="multiple" 
-          className="w-full" 
+          className="w-full space-y-4" 
           value={openFloorItems}
           onValueChange={setOpenFloorItems}
         >
           {pg.floors?.map(floor => (
             <AccordionItem value={floor.id} key={floor.id} className="border-b-0">
-              <div className="flex items-center border-b">
-                 <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1">
+              <div className="flex items-center border rounded-lg p-4">
+                 <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 py-0">
                     <div className="flex items-center gap-4 w-full">
                       <Layers /> {floor.name}
                     </div>
@@ -107,20 +92,24 @@ export default function PgLayout(props: PgLayoutProps) {
                   </div>
                 )}
               </div>
-              <AccordionContent className="pt-4 pl-4 border-l">
-                <Accordion type="multiple" className="w-full" value={openRoomItems} onValueChange={setOpenRoomItems}>
-                  <div className="space-y-6">
+              <AccordionContent className="pt-4 pl-4">
+                <Accordion type="multiple" className="w-full space-y-4" value={openRoomItems} onValueChange={setOpenRoomItems}>
+                  <div className="space-y-4">
                     {floor.rooms.map(room => (
-                      <AccordionItem value={room.id} key={room.id} className="border-b-0">
-                          <RoomAccordionTrigger floor={floor} room={room} />
-                          <AccordionContent className="pt-4">
-                            <BedCard {...props} room={room} floor={floor} />
-                          </AccordionContent>
-                      </AccordionItem>
+                      <Card key={room.id} className="overflow-hidden">
+                        <CardContent className="p-4">
+                            <AccordionItem value={room.id} key={room.id} className="border-b-0">
+                                <RoomAccordionTrigger floor={floor} room={room} />
+                                <AccordionContent className="pt-4">
+                                    <BedCard {...props} room={room} floor={floor} />
+                                </AccordionContent>
+                            </AccordionItem>
+                        </CardContent>
+                      </Card>
                     ))}
                     {isEditMode && (
                       <Access feature="properties" action="add">
-                        <button data-tour="add-room-button" onClick={() => props.handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[200px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>
+                        <button data-tour="add-room-button" onClick={() => props.handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[100px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>
                       </Access>
                     )}
                   </div>

@@ -44,7 +44,6 @@ import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const noticeSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long."),
@@ -185,7 +184,6 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
   const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'bed' | 'room' | 'floor' | 'property'>('bed');
 
 
   const {
@@ -454,7 +452,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
         
-        <div className="hidden md:block">
+        <div className="md:block">
             <QuickActions 
                 pgs={pgs}
                 guests={guests}
@@ -465,43 +463,21 @@ export default function DashboardPage() {
             />
         </div>
 
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)}>
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <TabsList>
-                    <TabsTrigger value="bed">Bed View</TabsTrigger>
-                    <TabsTrigger value="room">Room View</TabsTrigger>
-                    <TabsTrigger value="floor">Floor View</TabsTrigger>
-                </TabsList>
-                <div className="flex items-center space-x-2">
-                    <Label htmlFor="edit-mode" className="font-medium">Edit Building</Label>
-                    <Access feature="properties" action="edit">
-                        <Button
-                            onClick={() => setIsEditMode(!isEditMode)}
-                            variant={isEditMode ? "success" : "outline"}
-                            className="w-full sm:w-auto"
-                            data-tour="edit-mode-switch"
-                        >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            {isEditMode ? "Done" : "Edit"}
-                        </Button>
-                    </Access>
-                </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4 mt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="grid sm:grid-cols-2 gap-4 w-full">
                 <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         type="search"
                         placeholder="Search by guest, room, or bed..."
-                        className="pl-8 sm:w-full"
+                        className="pl-8 w-full"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full sm:w-auto justify-start">
+                        <Button variant="outline" className="w-full justify-start">
                             <Filter className="mr-2 h-4 w-4" />
                             Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
                         </Button>
@@ -529,21 +505,34 @@ export default function DashboardPage() {
                     </PopoverContent>
                 </Popover>
             </div>
+             <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0">
+                <Label htmlFor="edit-mode" className="font-medium">Edit Building</Label>
+                <Access feature="properties" action="edit">
+                    <Button
+                        onClick={() => setIsEditMode(!isEditMode)}
+                        variant={isEditMode ? "success" : "outline"}
+                        className="w-full sm:w-auto"
+                        data-tour="edit-mode-switch"
+                    >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        {isEditMode ? "Done" : "Edit"}
+                    </Button>
+                </Access>
+            </div>
+        </div>
 
-            {pgsToDisplay.map(pg => (
-              <PgLayout
-                key={pg.id}
-                pg={pg}
-                isEditMode={isEditMode}
-                viewMode={viewMode}
-                isFirstAvailableBedFound={isFirstAvailableBedFound}
-                setItemToDelete={setItemToDelete}
-                setGuestToInitiateExit={setGuestToInitiateExit}
-                setGuestToExitImmediately={setGuestToExitImmediately}
-                {...dashboardActions}
-              />
-            ))}
-        </Tabs>
+        {pgsToDisplay.map(pg => (
+          <PgLayout
+            key={pg.id}
+            pg={pg}
+            isEditMode={isEditMode}
+            isFirstAvailableBedFound={isFirstAvailableBedFound}
+            setItemToDelete={setItemToDelete}
+            setGuestToInitiateExit={setGuestToInitiateExit}
+            setGuestToExitImmediately={setGuestToExitImmediately}
+            {...dashboardActions}
+          />
+        ))}
 
         {pgsToDisplay.length === 0 && (
             <Card>

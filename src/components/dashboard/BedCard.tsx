@@ -52,7 +52,7 @@ export default function BedCard(props: BedCardProps) {
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4">
         {room.beds.map(bed => {
           const guest = guests.find(g => g.id === bed.guestId && !g.isVacated);
           const status = getBedStatus(bed);
