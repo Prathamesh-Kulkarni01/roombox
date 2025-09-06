@@ -332,9 +332,7 @@ export default function DashboardPage() {
     }
 
   const handleSendAnnouncement = () => {
-     // TODO: This should open a general announcement dialog.
-     // For now, we can show a placeholder toast.
-     toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
+    router.push('/dashboard/complaints');
   }
 
 
