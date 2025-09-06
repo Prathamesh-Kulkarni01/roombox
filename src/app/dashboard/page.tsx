@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -461,36 +461,31 @@ export default function DashboardPage() {
             />
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-                 <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)}>
-                    <ToggleGroupItem value="bed" aria-label="Beds View">
-                        <View className="mr-2 h-4 w-4"/>
-                        Beds View
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="room" aria-label="Rooms View">
-                        <Rows className="mr-2 h-4 w-4"/>
-                        Rooms View
-                    </ToggleGroupItem>
-                </ToggleGroup>
-            </div>
-            <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0 justify-end">
-                <Access feature="properties" action="edit">
-                    <Button
-                        onClick={() => setIsEditMode(!isEditMode)}
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        data-tour="edit-mode-switch"
-                    >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        {isEditMode ? "Done" : "Edit Building"}
-                    </Button>
-                </Access>
-            </div>
-        </div>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)} className="w-full sm:w-auto">
+              <ToggleGroupItem value="bed" aria-label="Beds View" className="w-full">
+                <View className="mr-2 h-4 w-4"/> Beds View
+              </ToggleGroupItem>
+              <ToggleGroupItem value="room" aria-label="Rooms View" className="w-full">
+                <Rows className="mr-2 h-4 w-4"/> Rooms View
+              </ToggleGroupItem>
+            </ToggleGroup>
+             <Access feature="properties" action="edit">
+                <Button
+                    onClick={() => setIsEditMode(!isEditMode)}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    data-tour="edit-mode-switch"
+                >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    {isEditMode ? "Done" : "Edit Building"}
+                </Button>
+            </Access>
+          </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
-             <div className="relative">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
@@ -529,8 +524,8 @@ export default function DashboardPage() {
                     </div>
                 </PopoverContent>
             </Popover>
+          </div>
         </div>
-
 
         {pgsToDisplay.map(pg => (
           <PgLayout
