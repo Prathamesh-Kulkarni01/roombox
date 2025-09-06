@@ -38,7 +38,7 @@ import { sendNotification } from '@/ai/flows/send-notification-flow'
 import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "../ui/badge"
+import { Badge } from "@/components/ui/badge"
 
 const bedLegend: Record<BedStatus, { label: string, className: string }> = {
   available: { label: 'Available', className: 'bg-yellow-200' },
@@ -420,7 +420,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
         
-        <div className="grid grid-cols-1 md:block">
+        <div className="grid grid-cols-1">
             <QuickActions 
                 pgs={pgs}
                 guests={guests}
