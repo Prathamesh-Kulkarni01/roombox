@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Textarea } from '@/components/ui/textarea'
@@ -44,14 +44,6 @@ import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-
-const bedLegend: Record<BedStatus, { label: string, className: string }> = {
-  available: { label: 'Available', className: 'bg-yellow-200' },
-  occupied: { label: 'Occupied', className: 'bg-slate-200' },
-  'rent-pending': { label: 'Rent Pending', className: 'bg-red-300' },
-  'rent-partial': { label: 'Partial Payment', className: 'bg-orange-200' },
-  'notice-period': { label: 'Notice Period', className: 'bg-blue-200' },
-};
 
 const noticeSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long."),
@@ -459,64 +451,77 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
         
-        <QuickActions 
-            pgs={pgs}
-            guests={guests}
-            handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
-            handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
-            onSendMassReminder={handleSendMassReminder}
-            onSendAnnouncement={() => setIsNoticeDialogOpen(true)}
-        />
-
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-2 self-end sm:self-center ml-auto">
-                <Label htmlFor="edit-mode" className="font-medium">Layout Editor</Label>
-                <Access feature="properties" action="edit">
-                <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch" />
-                </Access>
-            </div>
+        <div className="block md:hidden">
+            <QuickActions 
+                pgs={pgs}
+                guests={guests}
+                handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
+                handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
+                onSendMassReminder={handleSendMassReminder}
+                onSendAnnouncement={() => setIsNoticeDialogOpen(true)}
+            />
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
-             <div className="relative">
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative flex-1 w-full">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
                     placeholder="Search by guest, room, or bed..."
-                    className="pl-8 sm:w-full"
+                    className="pl-8 w-full"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full sm:w-auto justify-start">
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+            <div className="flex w-full sm:w-auto items-center justify-between sm:justify-end gap-2">
+              <Popover>
+                  <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full sm:w-auto justify-center">
+                          <Filter className="mr-2 h-4 w-4" />
+                          Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+                      </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64">
+                      <div className="grid gap-4">
+                          <div className="space-y-2">
+                              <h4 className="font-medium leading-none">Filter by Status</h4>
+                              <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
+                          </div>
+                          <div className="grid gap-2">
+                              {Object.entries({
+                                available: 'Available',
+                                occupied: 'Occupied',
+                                'rent-pending': 'Rent Pending',
+                                'rent-partial': 'Partial Payment',
+                                'notice-period': 'Notice Period',
+                              }).map(([status, label]) => (
+                                  <div key={status} className="flex items-center space-x-2">
+                                      <Checkbox
+                                          id={`filter-${status}`}
+                                          checked={activeFilters.includes(status as BedStatus)}
+                                          onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
+                                      />
+                                      <Label htmlFor={`filter-${status}`} className="font-normal">{label}</Label>
+                                  </div>
+                              ))}
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
+                      </div>
+                  </PopoverContent>
+              </Popover>
+               <Access feature="properties" action="edit">
+                    <Button
+                        onClick={() => setIsEditMode(!isEditMode)}
+                        variant={isEditMode ? "success" : "outline"}
+                        className="w-full sm:w-auto"
+                        data-tour="edit-mode-switch"
+                    >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        {isEditMode ? "Done" : "Edit Building"}
                     </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64">
-                    <div className="grid gap-4">
-                        <div className="space-y-2">
-                            <h4 className="font-medium leading-none">Filter by Status</h4>
-                            <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
-                        </div>
-                        <div className="grid gap-2">
-                            {Object.entries(bedLegend).map(([status, { label }]) => (
-                                <div key={status} className="flex items-center space-x-2">
-                                    <Checkbox
-                                        id={`filter-${status}`}
-                                        checked={activeFilters.includes(status as BedStatus)}
-                                        onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
-                                    />
-                                    <Label htmlFor={`filter-${status}`} className="font-normal">{label}</Label>
-                                </div>
-                            ))}
-                        </div>
-                         <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
-                    </div>
-                </PopoverContent>
-            </Popover>
+                </Access>
+            </div>
         </div>
 
 
