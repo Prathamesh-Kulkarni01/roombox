@@ -64,7 +64,7 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
 }
 
 export default function PgLayout(props: PgLayoutProps) {
-  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, handleOpenFloorDialog, handleOpenRoomDialog, viewMode } = props
+  const { pg, isEditMode, setItemToDelete, handleOpenFloorDialog, handleOpenRoomDialog, viewMode } = props
   
   const floorDefaultValues = useMemo(() => {
     return pg.floors?.map(f => f.id) || [];
@@ -103,9 +103,9 @@ export default function PgLayout(props: PgLayoutProps) {
             )}
           </div>
           <AccordionContent className="pt-4 px-4">
-            <Accordion type="multiple" defaultValue={roomDefaultValues} className="space-y-4">
+            <Accordion type="multiple" defaultValue={roomDefaultValues} key={viewMode}>
               {floor.rooms.map(room => (
-                 <AccordionItem key={room.id} value={room.id} className="border rounded-lg overflow-hidden">
+                 <AccordionItem key={room.id} value={room.id} className="border rounded-lg overflow-hidden mb-4">
                     <AccordionTrigger className="p-4 hover:no-underline data-[state=open]:border-b">
                         <RoomAccordionTrigger room={room} />
                     </AccordionTrigger>
@@ -128,7 +128,7 @@ export default function PgLayout(props: PgLayoutProps) {
       ))}
        {isEditMode && (
           <Access feature="properties" action="add">
-            <button data-tour="add-floor-button" onClick={() => openAddFloorDialog(pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
+            <button data-tour="add-floor-button" onClick={() => dashboardActions.openAddFloorDialog(pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
           </Access>
         )}
         {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Click 'Edit Building' to start.</div>)}
