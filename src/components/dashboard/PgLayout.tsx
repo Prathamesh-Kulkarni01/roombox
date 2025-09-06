@@ -3,7 +3,7 @@
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from "../ui/button"
-import { Layers, PlusCircle, Trash2, Pencil } from "lucide-react"
+import { Layers, PlusCircle, Trash2, Pencil, DoorOpen, BedDouble, IndianRupee } from "lucide-react"
 import type { PG, Floor, Room } from "@/lib/types"
 import BedCard from "./BedCard"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
@@ -26,9 +26,24 @@ const RoomSummaryCard = ({ room }: { room: Room }) => {
     }, [room, guests]);
 
     return (
-        <div className="text-center">
-            <p className="text-2xl font-bold">{room.name}</p>
-            <p className="text-sm text-muted-foreground">{summary.totalBeds}-Sharing</p>
+        <div className="flex justify-between items-center w-full">
+            <div className="flex items-center gap-4">
+                <DoorOpen className="w-6 h-6 text-primary" />
+                <div>
+                    <p className="font-bold text-lg">{room.name}</p>
+                    <p className="text-sm text-muted-foreground">{summary.totalBeds}-Sharing</p>
+                </div>
+            </div>
+            <div className="flex gap-4 text-center">
+                <div>
+                    <p className="font-bold text-lg">{summary.availableBeds}</p>
+                    <p className="text-xs text-muted-foreground">Available</p>
+                </div>
+                <div>
+                    <p className="font-bold text-lg text-destructive">{summary.rentPending}</p>
+                    <p className="text-xs text-muted-foreground">Rent Due</p>
+                </div>
+            </div>
         </div>
     );
 };
@@ -73,17 +88,9 @@ export default function PgLayout(props: PgLayoutProps) {
               {floor.rooms.map(room => (
                  <Accordion key={room.id} type="single" collapsible className="w-full border rounded-lg">
                     <AccordionItem value={room.id} className="border-b-0">
-                         <div className="p-4">
-                            <div className="flex justify-between items-center w-full">
-                                <RoomSummaryCard room={room} />
-                                <div className="flex items-center gap-4 text-sm font-normal pr-2">
-                                  {/* Placeholder for stats */}
-                                </div>
-                            </div>
-                            <AccordionTrigger className="text-sm font-medium hover:no-underline w-full py-1 justify-center text-primary mt-2">
-                                View Beds
-                            </AccordionTrigger>
-                         </div>
+                        <AccordionTrigger className="p-4 hover:no-underline">
+                           <RoomSummaryCard room={room} />
+                        </AccordionTrigger>
                         <AccordionContent className="p-4 pt-0 border-t">
                             <BedCard {...props} room={room} floor={floor} />
                         </AccordionContent>
