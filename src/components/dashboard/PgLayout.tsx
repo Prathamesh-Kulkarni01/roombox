@@ -60,16 +60,28 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
   pg: PG
   isFirstAvailableBedFound: MutableRefObject<boolean>
   isEditMode: boolean;
+  viewMode: 'bed' | 'room';
 }
 
 export default function PgLayout(props: PgLayoutProps) {
-  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, handleOpenFloorDialog, handleOpenRoomDialog } = props
+  const { pg, isEditMode, openAddFloorDialog, setItemToDelete, handleOpenFloorDialog, handleOpenRoomDialog, viewMode } = props
+  
+  const floorDefaultValues = useMemo(() => {
+    return pg.floors?.map(f => f.id) || [];
+  }, [pg.floors]);
+
+  const roomDefaultValues = useMemo(() => {
+    if (viewMode === 'bed') {
+      return pg.floors?.flatMap(f => f.rooms.map(r => r.id)) || [];
+    }
+    return [];
+  }, [pg.floors, viewMode]);
 
   return (
     <Accordion 
       type="multiple" 
       className="w-full space-y-4" 
-      defaultValue={pg.floors?.map(f => f.id)}
+      defaultValue={floorDefaultValues}
     >
       {pg.floors?.map(floor => (
         <AccordionItem value={floor.id} key={floor.id} className="border-b-0 bg-card rounded-lg overflow-hidden">
@@ -91,28 +103,26 @@ export default function PgLayout(props: PgLayoutProps) {
             )}
           </div>
           <AccordionContent className="pt-4 px-4">
-            <div className="space-y-4">
+            <Accordion type="multiple" defaultValue={roomDefaultValues} className="space-y-4">
               {floor.rooms.map(room => (
-                 <Accordion key={room.id} type="single" collapsible className="w-full border rounded-lg overflow-hidden">
-                    <AccordionItem value={room.id} className="border-b-0">
-                        <AccordionTrigger className="p-4 hover:no-underline data-[state=open]:border-b">
-                           <RoomAccordionTrigger room={room} />
-                        </AccordionTrigger>
-                        <AccordionContent className="p-4 pt-4">
-                            <BedCard {...props} room={room} floor={floor} />
-                        </AccordionContent>
-                    </AccordionItem>
-                 </Accordion>
+                 <AccordionItem key={room.id} value={room.id} className="border rounded-lg overflow-hidden">
+                    <AccordionTrigger className="p-4 hover:no-underline data-[state=open]:border-b">
+                        <RoomAccordionTrigger room={room} />
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4 pt-4">
+                        <BedCard {...props} room={room} floor={floor} />
+                    </AccordionContent>
+                 </AccordionItem>
               ))}
-              {isEditMode && (
-                  <Access feature="properties" action="add">
-                    <button data-tour="add-room-button" onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="min-h-[100px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>
-                  </Access>
-              )}
-               {floor.rooms.length === 0 && !isEditMode && (
-                <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable 'Edit Building' to add one.</div>
-              )}
-            </div>
+            </Accordion>
+            {isEditMode && (
+                <Access feature="properties" action="add">
+                  <button data-tour="add-room-button" onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="mt-4 min-h-[100px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>
+                </Access>
+            )}
+            {floor.rooms.length === 0 && !isEditMode && (
+              <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable 'Edit Building' to add one.</div>
+            )}
           </AccordionContent>
         </AccordionItem>
       ))}

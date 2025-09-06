@@ -3,7 +3,6 @@
 
 import { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -14,9 +13,9 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil, View, Rows } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Textarea } from '@/components/ui/textarea'
 import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
@@ -40,8 +39,8 @@ import { sendNotification } from '@/ai/flows/send-notification-flow'
 import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 
 const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
@@ -177,6 +176,8 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
   const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'bed' | 'room'>('bed');
+
 
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
@@ -461,52 +462,23 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="grid sm:grid-cols-2 gap-4 w-full">
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Search by guest, room, or bed..."
-                        className="pl-8 w-full"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64">
-                        <div className="grid gap-4">
-                            <div className="space-y-2">
-                                <h4 className="font-medium leading-none">Filter by Status</h4>
-                                <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
-                            </div>
-                            <div className="grid gap-2">
-                                {['available', 'occupied', 'rent-pending', 'rent-partial', 'notice-period'].map((status) => (
-                                    <div key={status} className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id={`filter-${status}`}
-                                            checked={activeFilters.includes(status as BedStatus)}
-                                            onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
-                                        />
-                                        <Label htmlFor={`filter-${status}`} className="font-normal capitalize">{status.replace('-', ' ')}</Label>
-                                    </div>
-                                ))}
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
-                        </div>
-                    </PopoverContent>
-                </Popover>
+            <div className="flex items-center gap-2">
+                 <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)}>
+                    <ToggleGroupItem value="bed" aria-label="Beds View">
+                        <View className="mr-2 h-4 w-4"/>
+                        Beds View
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="room" aria-label="Rooms View">
+                        <Rows className="mr-2 h-4 w-4"/>
+                        Rooms View
+                    </ToggleGroupItem>
+                </ToggleGroup>
             </div>
-             <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0 justify-end">
+            <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0 justify-end">
                 <Access feature="properties" action="edit">
                     <Button
                         onClick={() => setIsEditMode(!isEditMode)}
-                        variant={isEditMode ? "success" : "outline"}
+                        variant="outline"
                         className="w-full sm:w-auto"
                         data-tour="edit-mode-switch"
                     >
@@ -517,10 +489,54 @@ export default function DashboardPage() {
             </div>
         </div>
 
+        <div className="grid sm:grid-cols-2 gap-4">
+             <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Search by guest, room, or bed..."
+                    className="pl-8 sm:w-full"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full sm:w-auto justify-start">
+                        <Filter className="mr-2 h-4 w-4" />
+                        Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64">
+                    <div className="grid gap-4">
+                        <div className="space-y-2">
+                            <h4 className="font-medium leading-none">Filter by Status</h4>
+                            <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
+                        </div>
+                        <div className="grid gap-2">
+                            {['available', 'occupied', 'rent-pending', 'rent-partial', 'notice-period'].map((status) => (
+                                <div key={status} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`filter-${status}`}
+                                        checked={activeFilters.includes(status as BedStatus)}
+                                        onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
+                                    />
+                                    <Label htmlFor={`filter-${status}`} className="font-normal capitalize">{status.replace('-', ' ')}</Label>
+                                </div>
+                            ))}
+                        </div>
+                         <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
+                    </div>
+                </PopoverContent>
+            </Popover>
+        </div>
+
+
         {pgsToDisplay.map(pg => (
           <PgLayout
             key={pg.id}
             pg={pg}
+            viewMode={viewMode}
             isEditMode={isEditMode}
             isFirstAvailableBedFound={isFirstAvailableBedFound}
             setItemToDelete={setItemToDelete}
