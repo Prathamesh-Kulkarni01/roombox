@@ -3,7 +3,7 @@
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from "../ui/button"
-import { Layers, PlusCircle, Trash2, Pencil, DoorOpen, BedDouble, IndianRupee } from "lucide-react"
+import { Layers, PlusCircle, Trash2, Pencil, DoorOpen, IndianRupee, BedDouble } from "lucide-react"
 import type { PG, Floor, Room } from "@/lib/types"
 import BedCard from "./BedCard"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
@@ -11,7 +11,7 @@ import { MutableRefObject, useMemo } from "react"
 import { useAppSelector } from "@/lib/hooks"
 import Access from "../ui/PermissionWrapper";
 
-const RoomSummaryCard = ({ room }: { room: Room }) => {
+const RoomAccordionTrigger = ({ room }: { room: Room }) => {
     const { guests } = useAppSelector(state => state.guests);
 
     const summary = useMemo(() => {
@@ -26,7 +26,7 @@ const RoomSummaryCard = ({ room }: { room: Room }) => {
     }, [room, guests]);
 
     return (
-        <div className="flex justify-between items-center w-full">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-2">
             <div className="flex items-center gap-4">
                 <DoorOpen className="w-6 h-6 text-primary" />
                 <div>
@@ -34,14 +34,21 @@ const RoomSummaryCard = ({ room }: { room: Room }) => {
                     <p className="text-sm text-muted-foreground">{summary.totalBeds}-Sharing</p>
                 </div>
             </div>
-            <div className="flex gap-4 text-center">
-                <div>
+            <div className="flex gap-4 text-center w-full md:w-auto justify-around pt-2 md:pt-0">
+                 <div className="flex flex-col items-center">
                     <p className="font-bold text-lg">{summary.availableBeds}</p>
                     <p className="text-xs text-muted-foreground">Available</p>
                 </div>
-                <div>
+                 <div className="flex flex-col items-center">
                     <p className="font-bold text-lg text-destructive">{summary.rentPending}</p>
                     <p className="text-xs text-muted-foreground">Rent Due</p>
+                </div>
+                <div className="flex flex-col items-center">
+                    <p className="font-bold text-lg flex items-center">
+                      <IndianRupee className="w-4 h-4" />
+                      {room.rent.toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Rent/Bed</p>
                 </div>
             </div>
         </div>
@@ -86,12 +93,12 @@ export default function PgLayout(props: PgLayoutProps) {
           <AccordionContent className="pt-4 px-4">
             <div className="space-y-4">
               {floor.rooms.map(room => (
-                 <Accordion key={room.id} type="single" collapsible className="w-full border rounded-lg">
+                 <Accordion key={room.id} type="single" collapsible className="w-full border rounded-lg overflow-hidden">
                     <AccordionItem value={room.id} className="border-b-0">
-                        <AccordionTrigger className="p-4 hover:no-underline">
-                           <RoomSummaryCard room={room} />
+                        <AccordionTrigger className="p-4 hover:no-underline data-[state=open]:border-b">
+                           <RoomAccordionTrigger room={room} />
                         </AccordionTrigger>
-                        <AccordionContent className="p-4 pt-0 border-t">
+                        <AccordionContent className="p-4 pt-4">
                             <BedCard {...props} room={room} floor={floor} />
                         </AccordionContent>
                     </AccordionItem>
@@ -103,7 +110,7 @@ export default function PgLayout(props: PgLayoutProps) {
                   </Access>
               )}
                {floor.rooms.length === 0 && !isEditMode && (
-                <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable Edit Mode to add one.</div>
+                <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable 'Edit Building' to add one.</div>
               )}
             </div>
           </AccordionContent>
@@ -114,7 +121,7 @@ export default function PgLayout(props: PgLayoutProps) {
             <button data-tour="add-floor-button" onClick={() => openAddFloorDialog(pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
           </Access>
         )}
-        {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Enable 'Edit Mode' to build the layout.</div>)}
+        {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Click 'Edit Building' to start.</div>)}
     </Accordion>
   )
 }

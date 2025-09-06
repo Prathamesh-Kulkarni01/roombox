@@ -5,20 +5,15 @@ import { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from 'next/link'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
 import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form } from '@/components/ui/form'
 import { Textarea } from '@/components/ui/textarea'
 import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
@@ -36,20 +31,13 @@ import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
 import SharedChargeDialog from '@/components/dashboard/dialogs/SharedChargeDialog'
 import AddPgSheet from "@/components/add-pg-sheet"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
 import Access from '@/components/ui/PermissionWrapper';
-import type { Bed, BedStatus, PG, Room, Guest } from '@/lib/types'
+import type { BedStatus, PG, Guest } from '@/lib/types'
 import { sendNotification } from '@/ai/flows/send-notification-flow'
 import { useToast } from "@/hooks/use-toast"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-
-const noticeSchema = z.object({
-  title: z.string().min(5, "Title must be at least 5 characters long."),
-  message: z.string().min(10, "Message must be at least 10 characters long."),
-})
-type NoticeFormValues = z.infer<typeof noticeSchema>
 
 const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -185,7 +173,6 @@ export default function DashboardPage() {
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
   const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
 
-
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
     isEditGuestDialogOpen, setIsEditGuestDialogOpen,
@@ -206,7 +193,6 @@ export default function DashboardPage() {
   const { currentUser } = useAppSelector(state => state.user);
   const { featurePermissions } = useAppSelector(state => state.permissions);
 
-  // Auto-enable edit mode if a PG exists but has no layout
   useEffect(() => {
     const hasPgs = pgs.length > 0;
     const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
@@ -336,6 +322,12 @@ export default function DashboardPage() {
         toast({ title: 'Reminders Sent!', description: `Successfully sent ${successful} reminders.` });
     }
 
+  const noticeSchema = z.object({
+    title: z.string().min(5, "Title must be at least 5 characters long."),
+    message: z.string().min(10, "Message must be at least 10 characters long."),
+  })
+  type NoticeFormValues = z.infer<typeof noticeSchema>
+
   const noticeForm = useForm<NoticeFormValues>({
     resolver: zodResolver(noticeSchema),
     defaultValues: { title: '', message: '' },
@@ -452,7 +444,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
         
-        <div className="md:block">
+        <div className="block">
             <QuickActions 
                 pgs={pgs}
                 guests={guests}
@@ -505,8 +497,7 @@ export default function DashboardPage() {
                     </PopoverContent>
                 </Popover>
             </div>
-             <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0">
-                <Label htmlFor="edit-mode" className="font-medium">Edit Building</Label>
+             <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0 justify-end">
                 <Access feature="properties" action="edit">
                     <Button
                         onClick={() => setIsEditMode(!isEditMode)}
@@ -515,7 +506,7 @@ export default function DashboardPage() {
                         data-tour="edit-mode-switch"
                     >
                         <Pencil className="mr-2 h-4 w-4" />
-                        {isEditMode ? "Done" : "Edit"}
+                        {isEditMode ? "Done" : "Edit Building"}
                     </Button>
                 </Access>
             </div>
@@ -565,7 +556,7 @@ export default function DashboardPage() {
                 <DialogFooter>
                   <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                   <Button type="submit" form="notice-form">Send Announcement</Button>
-              </DialogFooter>
+                </DialogFooter>
           </DialogContent>
       </Dialog>
       <Access feature="guests" action="add">
