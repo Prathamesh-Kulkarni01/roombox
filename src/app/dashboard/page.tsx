@@ -37,7 +37,7 @@ import type { Bed, BedStatus, PG, Room, Guest } from '@/lib/types'
 import { sendNotification } from '@/ai/flows/send-notification-flow'
 import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 
 const bedLegend: Record<BedStatus, { label: string, className: string }> = {
@@ -115,45 +115,46 @@ const QuickActions = ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPayment
     
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Your command center for frequent tasks.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="flex-col h-24 gap-2">
-                            <UserPlus className="w-6 h-6 text-primary" />
-                            <span className="font-semibold">Add Guest</span>
+            <CardContent className="p-3">
+                 <ScrollArea>
+                    <div className="flex space-x-3 pb-3">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="flex-shrink-0 h-16 flex-col gap-1">
+                                    <UserPlus className="w-5 h-5 text-primary" />
+                                    <span className="font-semibold text-xs">Add Guest</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-64">
+                                <DropdownMenuLabel>Select a Vacant Bed</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <ScrollArea className="h-[200px]">
+                                    {availableBeds.length > 0 ? availableBeds.map(({ pg, room, bed }) => (
+                                        <DropdownMenuItem key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)}>
+                                            <span>{pg.name} - {room.name} / Bed {bed.name}</span>
+                                        </DropdownMenuItem>
+                                    )) : <DropdownMenuItem disabled>No vacant beds</DropdownMenuItem>}
+                                </ScrollArea>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <Button variant="outline" size="sm" className="flex-shrink-0 h-16 flex-col gap-1" onClick={() => setIsCollectRentOpen(true)}>
+                            <Wallet className="w-5 h-5 text-primary" />
+                            <span className="font-semibold text-xs">Collect Rent</span>
                         </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-64">
-                        <DropdownMenuLabel>Select a Vacant Bed</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <ScrollArea className="h-[200px]">
-                            {availableBeds.length > 0 ? availableBeds.map(({ pg, room, bed }) => (
-                                <DropdownMenuItem key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)}>
-                                    <span>{pg.name} - {room.name} / Bed {bed.name}</span>
-                                </DropdownMenuItem>
-                            )) : <DropdownMenuItem disabled>No vacant beds</DropdownMenuItem>}
-                        </ScrollArea>
-                    </DropdownMenuContent>
-                </DropdownMenu>
 
-                <Button variant="outline" className="flex-col h-24 gap-2" onClick={() => setIsCollectRentOpen(true)}>
-                    <Wallet className="w-6 h-6 text-primary" />
-                    <span className="font-semibold">Collect Rent</span>
-                </Button>
+                        <Button variant="outline" size="sm" className="flex-shrink-0 h-16 flex-col gap-1" onClick={onSendMassReminder}>
+                            <BellRing className="w-5 h-5 text-primary" />
+                            <span className="font-semibold text-xs">Reminders</span>
+                        </Button>
 
-                <Button variant="outline" className="flex-col h-24 gap-2" onClick={onSendMassReminder}>
-                    <BellRing className="w-6 h-6 text-primary" />
-                    <span className="font-semibold">Send Reminders</span>
-                </Button>
-
-                <Button variant="outline" className="flex-col h-24 gap-2" onClick={onSendAnnouncement}>
-                    <Send className="w-6 h-6 text-primary" />
-                    <span className="font-semibold">Send Announcement</span>
-                </Button>
+                        <Button variant="outline" size="sm" className="flex-shrink-0 h-16 flex-col gap-1" onClick={onSendAnnouncement}>
+                            <Send className="w-5 h-5 text-primary" />
+                            <span className="font-semibold text-xs">Announce</span>
+                        </Button>
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                </ScrollArea>
             </CardContent>
             <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />
         </Card>
@@ -420,16 +421,14 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
         
-        <div className="grid grid-cols-1">
-            <QuickActions 
-                pgs={pgs}
-                guests={guests}
-                handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
-                handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
-                onSendMassReminder={handleSendMassReminder}
-                onSendAnnouncement={handleSendAnnouncement}
-            />
-        </div>
+        <QuickActions 
+            pgs={pgs}
+            guests={guests}
+            handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
+            handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
+            onSendMassReminder={handleSendMassReminder}
+            onSendAnnouncement={handleSendAnnouncement}
+        />
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
