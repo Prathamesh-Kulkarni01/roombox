@@ -3,13 +3,20 @@
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Button } from "../ui/button"
-import { Layers, PlusCircle, Trash2, Pencil, DoorOpen, IndianRupee, BedDouble } from "lucide-react"
+import { Layers, PlusCircle, Trash2, Pencil, DoorOpen, IndianRupee, BedDouble, Wifi, Wind, UtensilsCrossed } from "lucide-react"
 import type { PG, Floor, Room } from "@/lib/types"
 import BedCard from "./BedCard"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { MutableRefObject, useMemo } from "react"
 import { useAppSelector } from "@/lib/hooks"
 import Access from "../ui/PermissionWrapper";
+
+const amenityIcons: { [key: string]: React.ReactNode } = {
+    wifi: <Wifi className="w-4 h-4" title="Wi-Fi"/>,
+    ac: <Wind className="w-4 h-4" title="AC"/>,
+    food: <UtensilsCrossed className="w-4 h-4" title="Food"/>,
+};
+
 
 const RoomAccordionTrigger = ({ room }: { room: Room }) => {
     const { guests } = useAppSelector(state => state.guests);
@@ -31,7 +38,22 @@ const RoomAccordionTrigger = ({ room }: { room: Room }) => {
                 <DoorOpen className="w-6 h-6 text-primary" />
                 <div>
                     <p className="font-bold text-lg">{room.name}</p>
-                    <p className="text-sm text-muted-foreground">{summary.totalBeds}-Sharing</p>
+                    <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                        <span>{summary.totalBeds}-Sharing</span>
+                        {room.amenities && room.amenities.length > 0 && (
+                            <>
+                                <span className="text-xs">|</span>
+                                <div className="flex items-center gap-2">
+                                    {room.amenities.slice(0, 3).map(amenity => (
+                                        <div key={amenity} className="text-muted-foreground">
+                                            {amenityIcons[amenity] || null}
+                                        </div>
+                                    ))}
+                                    {room.amenities.length > 3 && <span className="text-xs font-medium">+ {room.amenities.length - 3}</span>}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
             <div className="flex gap-4 text-center w-full md:w-auto justify-around pt-2 md:pt-0">
@@ -128,7 +150,7 @@ export default function PgLayout(props: PgLayoutProps) {
       ))}
        {isEditMode && (
           <Access feature="properties" action="add">
-            <button data-tour="add-floor-button" onClick={() => dashboardActions.openAddFloorDialog(pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
+            <button data-tour="add-floor-button" onClick={() => handleOpenFloorDialog(null, pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
           </Access>
         )}
         {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Click 'Edit Building' to start.</div>)}
