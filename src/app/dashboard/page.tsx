@@ -209,7 +209,16 @@ export default function DashboardPage() {
   }
 
   if (pgs.length === 0) {
-    return <GuidedSetup pgs={pgs} guests={guests} onAddProperty={() => setIsAddPgSheetOpen(true)} />;
+    return (
+        <>
+            <AddPgSheet
+                open={isAddPgSheetOpen}
+                onOpenChange={setIsAddPgSheetOpen}
+                onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
+            />
+            <GuidedSetup pgs={pgs} guests={guests} onAddProperty={() => setIsAddPgSheetOpen(true)} />
+        </>
+    );
   }
 
   return (
@@ -218,17 +227,6 @@ export default function DashboardPage() {
         <GuidedSetup pgs={pgs} guests={guests} onAddProperty={() => setIsAddPgSheetOpen(true)} />
         <StatsCards stats={stats} />
         
-        <div className="block md:hidden">
-            <QuickActions 
-                pgs={pgs}
-                guests={guests}
-                handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
-                handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
-                onSendMassReminder={handleSendMassReminder}
-                onSendAnnouncement={handleSendAnnouncement}
-            />
-        </div>
-
         <div className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
                 <div className="relative">
