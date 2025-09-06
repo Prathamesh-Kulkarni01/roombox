@@ -21,7 +21,7 @@ import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
 import { canAccess } from '@/lib/permissions';
-
+import QuickActions from '@/components/dashboard/QuickActions';
 import StatsCards from '@/components/dashboard/StatsCards'
 import PgLayout from '@/components/dashboard/PgLayout'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
@@ -85,78 +85,6 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
         </Dialog>
     )
 }
-
-const QuickActions = ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendMassReminder, onSendAnnouncement }: any) => {
-    const availableBeds = useMemo(() => {
-        const beds: { pg: PG, room: Room, bed: Bed }[] = [];
-        pgs.forEach((pg: PG) => {
-            pg.floors?.forEach(floor => {
-                floor.rooms.forEach(room => {
-                    room.beds.forEach(bed => {
-                        if (!bed.guestId) {
-                            beds.push({ pg, room, bed });
-                        }
-                    });
-                });
-            });
-        });
-        return beds;
-    }, [pgs]);
-
-    const [isCollectRentOpen, setIsCollectRentOpen] = useState(false);
-
-    const handleSelectGuestForPayment = (guest: Guest) => {
-        handleOpenPaymentDialog(guest);
-    }
-    
-    return (
-        <Card>
-            <CardContent className="p-3">
-                 <ScrollArea>
-                    <div className="flex space-x-3 pb-3">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="flex-shrink-0 h-16 flex-col gap-1">
-                                    <UserPlus className="w-5 h-5 text-primary" />
-                                    <span className="font-semibold text-xs">Add Guest</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-64">
-                                <DropdownMenuLabel>Select a Vacant Bed</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <ScrollArea className="h-[200px]">
-                                    {availableBeds.length > 0 ? availableBeds.map(({ pg, room, bed }) => (
-                                        <DropdownMenuItem key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)}>
-                                            <span>{pg.name} - {room.name} / Bed {bed.name}</span>
-                                        </DropdownMenuItem>
-                                    )) : <DropdownMenuItem disabled>No vacant beds</DropdownMenuItem>}
-                                </ScrollArea>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <Button variant="outline" size="sm" className="flex-shrink-0 h-16 flex-col gap-1" onClick={() => setIsCollectRentOpen(true)}>
-                            <Wallet className="w-5 h-5 text-primary" />
-                            <span className="font-semibold text-xs">Collect Rent</span>
-                        </Button>
-
-                        <Button variant="outline" size="sm" className="flex-shrink-0 h-16 flex-col gap-1" onClick={onSendMassReminder}>
-                            <BellRing className="w-5 h-5 text-primary" />
-                            <span className="font-semibold text-xs">Reminders</span>
-                        </Button>
-
-                        <Button variant="outline" size="sm" className="flex-shrink-0 h-16 flex-col gap-1" onClick={onSendAnnouncement}>
-                            <Send className="w-5 h-5 text-primary" />
-                            <span className="font-semibold text-xs">Announce</span>
-                        </Button>
-                    </div>
-                    <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-            </CardContent>
-            <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />
-        </Card>
-    );
-};
-
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
@@ -450,7 +378,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-6">
         <StatsCards stats={stats} />
         
-        <div className="block">
+        <div className="block md:hidden">
             <QuickActions 
                 pgs={pgs}
                 guests={guests}
@@ -520,7 +448,7 @@ export default function DashboardPage() {
                         data-tour="edit-mode-switch"
                     >
                         <Pencil className="mr-2 h-4 w-4" />
-                        {isEditMode ? "Done" : "Edit Building"}
+                        {isEditMode ? "Done" : "Edit"}
                     </Button>
                 </Access>
             </div>
@@ -660,5 +588,3 @@ export default function DashboardPage() {
     </>
   )
 }
-
-    
