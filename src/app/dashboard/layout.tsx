@@ -15,7 +15,6 @@ import { plans } from '@/lib/mock-data';
 import type { PlanName } from '@/lib/types';
 import Link from 'next/link';
 import { ShieldAlert, Star } from 'lucide-react';
-import QuickAddFAB from '@/components/dashboard/QuickAddFAB';
 
 
 const SubscriptionGate = () => (
@@ -138,7 +137,6 @@ export default function DashboardLayout({
             {showSubscriptionGate ? <SubscriptionGate /> : children}
           </main>
         </div>
-        <QuickAddFAB />
         <DashboardBottomNav />
       </div>
     </>

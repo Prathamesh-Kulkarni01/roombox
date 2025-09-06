@@ -8,7 +8,7 @@ import { useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from '@/components/ui/badge'
 import { UserPlus, Wallet, BellRing, Send, Search } from "lucide-react"
 import type { PG, Room, Bed, Guest } from '@/lib/types'
@@ -85,46 +85,41 @@ export default function QuickActions ({ handleOpenAddGuestDialog, handleOpenPaym
     }
     
     return (
-        <div>
-            <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex gap-4 pb-4">
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline">
-                                <UserPlus className="w-4 h-4 mr-2" />
-                                Add Guest
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-64">
-                            <DropdownMenuLabel>Select a Vacant Bed</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <ScrollArea className="h-[200px]">
-                                {availableBeds.length > 0 ? availableBeds.map(({ pg, room, bed }) => (
-                                    <DropdownMenuItem key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)}>
-                                        <span>{pg.name} - {room.name} / Bed {bed.name}</span>
-                                    </DropdownMenuItem>
-                                )) : <DropdownMenuItem disabled>No vacant beds</DropdownMenuItem>}
-                            </ScrollArea>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <Button variant="outline" onClick={() => setIsCollectRentOpen(true)}>
-                        <Wallet className="w-4 h-4 mr-2" />
-                        Collect Rent
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Add Guest
                     </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-64">
+                    <DropdownMenuLabel>Select a Vacant Bed</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <ScrollArea className="h-[200px]">
+                        {availableBeds.length > 0 ? availableBeds.map(({ pg, room, bed }) => (
+                            <DropdownMenuItem key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)}>
+                                <span>{pg.name} - {room.name} / Bed {bed.name}</span>
+                            </DropdownMenuItem>
+                        )) : <DropdownMenuItem disabled>No vacant beds</DropdownMenuItem>}
+                    </ScrollArea>
+                </DropdownMenuContent>
+            </DropdownMenu>
 
-                    <Button variant="outline" onClick={onSendMassReminder}>
-                        <BellRing className="w-4 h-4 mr-2" />
-                        Send Reminders
-                    </Button>
+            <Button variant="outline" onClick={() => setIsCollectRentOpen(true)}>
+                <Wallet className="w-4 h-4 mr-2" />
+                Collect Rent
+            </Button>
 
-                    <Button variant="outline" onClick={onSendAnnouncement}>
-                        <Send className="w-4 h-4 mr-2" />
-                        Send Announcement
-                    </Button>
-                </div>
-                <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            <Button variant="outline" onClick={onSendMassReminder}>
+                <BellRing className="w-4 h-4 mr-2" />
+                Reminders
+            </Button>
+
+            <Button variant="outline" onClick={onSendAnnouncement}>
+                <Send className="w-4 h-4 mr-2" />
+                Announce
+            </Button>
             <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />
         </div>
     );
