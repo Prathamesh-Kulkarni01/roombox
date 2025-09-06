@@ -47,39 +47,11 @@ export default function BedCard(props: BedCardProps) {
     occupied: 'bg-slate-200 border-slate-400 text-slate-800',
     'rent-pending': 'bg-red-100 border-red-300 text-red-900',
     'rent-partial': 'bg-orange-100 border-orange-300 text-orange-900',
-    'notice-period': 'bg-blue-100 border-blue-300 text-blue-800',
+    'notice-period': 'bg-blue-100 border-blue-300 text-blue-900',
   }
 
   return (
     <>
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="font-semibold text-lg flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name} <span className="font-normal text-muted-foreground">({room.beds.length}-sharing)</span></h3>
-        <div className="flex items-center">
-            {!isEditMode && occupiedBedsCount > 0 && (
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                             <Button variant="outline" size="sm" className="h-7 gap-1" onClick={() => handleOpenSharedChargeDialog(room)}>
-                                <IndianRupee className="w-4 h-4"/>
-                                <Plus className="w-4 h-4"/>
-                                <span className="sr-only">Add Shared Charge</span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>Add Shared Charge (e.g., electricity bill)</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            )}
-            {isEditMode && (
-                <>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => setItemToDelete({ type: 'room', ids: { pgId: pg.id, floorId: floor.id, roomId: room.id } })}> <Trash2 className="w-4 h-4" /> </Button>
-                </>
-            )}
-        </div>
-      </div>
-
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
         {room.beds.map(bed => {
           const guest = guests.find(g => g.id === bed.guestId && !g.isVacated);
