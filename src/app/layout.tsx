@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster"
 import Header from '@/components/header';
 import StoreProvider from '@/components/StoreProvider';
 import { ThemeProvider } from '@/components/theme-provider';
-import AppTour from '@/components/app-tour';
 import Script from 'next/script';
 
 const APP_NAME = "RentSutra";
@@ -130,7 +129,6 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <StoreProvider>
-            <AppTour />
             <div className="flex min-h-screen flex-col">
               <Header />
               <main className="flex-1">{children}</main>

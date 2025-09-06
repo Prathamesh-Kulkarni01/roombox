@@ -9,8 +9,6 @@ interface TourState {
 interface AppState {
     isLoading: boolean;
     selectedPgId: string | null;
-    tour: TourState;
-    tourStepIndex: number;
     mockDate: string | null; // For time travel debugging
 }
 
@@ -24,24 +22,9 @@ const getInitialSelectedPgId = (): string | null => {
     }
 };
 
-const getInitialTourState = (tourName: 'onboarding' | 'layout'): boolean => {
-    if (typeof window === 'undefined') return false;
-    try {
-        const item = window.localStorage.getItem(`tour_${tourName}_completed`);
-        return item ? JSON.parse(item) : false;
-    } catch (error) {
-        return false;
-    }
-};
-
 const initialState: AppState = {
     isLoading: true,
     selectedPgId: getInitialSelectedPgId(),
-    tour: {
-        hasCompletedOnboarding: getInitialTourState('onboarding'),
-        hasCompletedLayout: getInitialTourState('layout'),
-    },
-    tourStepIndex: 0,
     mockDate: null,
 };
 
@@ -57,21 +40,6 @@ const appSlice = createSlice({
             if (typeof window !== 'undefined') {
                 localStorage.setItem('selectedPgId', JSON.stringify(action.payload));
             }
-        },
-        endOnboardingTour: (state) => {
-            state.tour.hasCompletedOnboarding = true;
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('tour_onboarding_completed', JSON.stringify(true));
-            }
-        },
-        endLayoutTour: (state) => {
-            state.tour.hasCompletedLayout = true;
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('tour_layout_completed', JSON.stringify(true));
-            }
-        },
-        setTourStepIndex: (state, action: PayloadAction<number>) => {
-            state.tourStepIndex = action.payload;
         },
         setMockDate: (state, action: PayloadAction<string | null>) => {
             state.mockDate = action.payload;
@@ -92,16 +60,11 @@ const appSlice = createSlice({
                 state.isLoading = false;
                 state.selectedPgId = null;
                  if (typeof window !== 'undefined') {
-                    localStorage.removeItem('tour_onboarding_completed');
-                    localStorage.removeItem('tour_layout_completed');
                     localStorage.removeItem('selectedPgId');
                 }
-                state.tour.hasCompletedOnboarding = false;
-                state.tour.hasCompletedLayout = false;
-                state.tourStepIndex = 0;
             });
     }
 });
 
-export const { setLoading, setSelectedPgId, endOnboardingTour, endLayoutTour, setTourStepIndex, setMockDate } = appSlice.actions;
+export const { setLoading, setSelectedPgId, setMockDate } = appSlice.actions;
 export default appSlice.reducer;

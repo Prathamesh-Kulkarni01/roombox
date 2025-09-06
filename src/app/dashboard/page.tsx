@@ -3,29 +3,18 @@
 
 import { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil, View, Rows } from "lucide-react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Textarea } from '@/components/ui/textarea'
-import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
-import { setTourStepIndex } from '@/lib/slices/appSlice'
-import { canAccess } from '@/lib/permissions';
-import QuickActions from '@/components/dashboard/QuickActions';
-import StatsCards from '@/components/dashboard/StatsCards'
-import PgLayout from '@/components/dashboard/PgLayout'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
+import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import FloorDialog from '@/components/dashboard/dialogs/FloorDialog'
 import BedDialog from '@/components/dashboard/dialogs/BedDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
@@ -33,58 +22,14 @@ import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
 import SharedChargeDialog from '@/components/dashboard/dialogs/SharedChargeDialog'
 import AddPgSheet from "@/components/add-pg-sheet"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
-import Access from '@/components/ui/PermissionWrapper';
-import type { BedStatus, PG, Guest } from '@/lib/types'
-import { sendNotification } from '@/ai/flows/send-notification-flow'
-import { useToast } from "@/hooks/use-toast"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import Access from '@/components/ui/PermissionWrapper'
+import PgLayout from '@/components/dashboard/PgLayout'
+import StatsCards from '@/components/dashboard/StatsCards'
+import type { BedStatus } from '@/lib/types'
 import { Label } from "@/components/ui/label"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-
-
-const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const filteredGuests = useMemo(() => {
-        if (!searchTerm) return guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
-        return guests.filter(g => 
-            !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && (
-                g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                g.pgName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                g.bedId.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-        );
-    }, [guests, searchTerm]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Collect Rent</DialogTitle>
-                    <DialogDescription>Search for a guest with pending dues.</DialogDescription>
-                </DialogHeader>
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search by name, property, room..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                </div>
-                <ScrollArea className="h-64 mt-4">
-                    <div className="space-y-2">
-                        {filteredGuests.map(guest => (
-                            <div key={guest.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => { onSelectGuest(guest); onOpenChange(false); }}>
-                                <div>
-                                    <p className="font-semibold">{guest.name}</p>
-                                    <p className="text-sm text-muted-foreground">{guest.pgName} - Bed {guest.bedId}</p>
-                                </div>
-                                <Badge variant={guest.rentStatus === 'paid' ? 'default' : 'destructive'}>{guest.rentStatus}</Badge>
-                            </div>
-                        ))}
-                         {filteredGuests.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No guests with pending dues.</p>}
-                    </div>
-                </ScrollArea>
-            </DialogContent>
-        </Dialog>
-    )
-}
+import QuickActions from "@/components/dashboard/QuickActions"
+import GuidedSetup from "@/components/dashboard/GuidedSetup"
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
@@ -98,14 +43,10 @@ export default function DashboardPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const isFirstAvailableBedFound = useRef(false);
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
-  const router = useRouter();
-  const { toast } = useToast();
-
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
-  const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'bed' | 'room'>('bed');
-
 
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
@@ -121,12 +62,12 @@ export default function DashboardPage() {
     handleConfirmInitiateExit,
     guestToExitImmediately, setGuestToExitImmediately,
     handleConfirmImmediateExit,
+    handleSendMassReminder,
+    handleSendAnnouncement,
     ...dashboardActions
   } = useDashboard({ pgs, guests });
 
-  const { currentUser } = useAppSelector(state => state.user);
-  const { featurePermissions } = useAppSelector(state => state.permissions);
-
+  // Auto-enable edit mode if a PG exists but has no layout
   useEffect(() => {
     const hasPgs = pgs.length > 0;
     const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
@@ -220,81 +161,6 @@ export default function DashboardPage() {
   };
 
 
-  const handleSheetOpenChange = (open: boolean) => {
-    setIsAddPgSheetOpen(open);
-    if (!open && pgs.length === 0) {
-      dispatch(setTourStepIndex(1));
-    }
-  }
-
-  const handleDeleteConfirm = () => {
-    if (itemToDelete) {
-      dashboardActions.handleDelete(itemToDelete.type, itemToDelete.ids);
-      setItemToDelete(null);
-    }
-  };
-
-  const handleSendMassReminder = async () => {
-        const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
-        if (pendingGuests.length === 0) {
-            toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
-            return;
-        }
-        
-        toast({ title: 'Sending Reminders...', description: `Sending ${pendingGuests.length} rent reminders.` });
-
-        const results = await Promise.allSettled(pendingGuests.map(guest => 
-            sendNotification({
-                userId: guest.userId!,
-                title: `Gentle Rent Reminder`,
-                body: `Hi ${guest.name}, this is a friendly reminder that your rent is due. Please pay to avoid any late fees.`,
-                link: '/tenants/my-pg'
-            })
-        ));
-
-        const successful = results.filter(r => r.status === 'fulfilled').length;
-        toast({ title: 'Reminders Sent!', description: `Successfully sent ${successful} reminders.` });
-    }
-
-  const noticeSchema = z.object({
-    title: z.string().min(5, "Title must be at least 5 characters long."),
-    message: z.string().min(10, "Message must be at least 10 characters long."),
-  })
-  type NoticeFormValues = z.infer<typeof noticeSchema>
-
-  const noticeForm = useForm<NoticeFormValues>({
-    resolver: zodResolver(noticeSchema),
-    defaultValues: { title: '', message: '' },
-  });
-
-  const handleSendNotice = async (data: NoticeFormValues) => {
-    const activeGuests = guests.filter(g => 
-        !g.isVacated && g.userId && (!selectedPgId || g.pgId === selectedPgId)
-    );
-
-    if (activeGuests.length === 0) {
-        toast({ variant: 'destructive', title: "No Guests", description: "There are no active guests to send this notice to."});
-        return;
-    }
-
-    try {
-        await Promise.all(activeGuests.map(guest => 
-            sendNotification({
-                userId: guest.userId!,
-                title: data.title,
-                body: data.message,
-                link: '/tenants/my-pg'
-            })
-        ));
-        toast({ title: "Notice Sent!", description: `Your notice has been sent to ${activeGuests.length} guest(s).` });
-        setIsNoticeDialogOpen(false);
-        noticeForm.reset();
-    } catch (error) {
-        console.error("Failed to send notice:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not send the notice. Please try again.' });
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
@@ -310,12 +176,6 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           ))}
-        </div>
-        <div className="flex justify-end">
-          <div className="flex items-center space-x-2">
-            <Skeleton className="h-5 w-20 rounded-md" />
-            <Skeleton className="h-6 w-10 rounded-md" />
-          </div>
         </div>
         <Card>
           <CardHeader>
@@ -341,41 +201,13 @@ export default function DashboardPage() {
   }
 
   if (pgs.length === 0) {
-    return (
-      <>
-        <Access feature="properties" action="add">
-          <AddPgSheet
-            open={isAddPgSheetOpen}
-            onOpenChange={handleSheetOpenChange}
-            onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
-          />
-        </Access>
-        <div className="flex flex-col items-center justify-center h-full min-h-[calc(100vh-250px)] text-center p-8 bg-card border rounded-lg">
-          <Building className="mx-auto h-16 w-16 text-muted-foreground" />
-          <h2 className="mt-6 text-2xl font-semibold">Welcome to Your Dashboard!</h2>
-          <p className="mt-2 text-muted-foreground max-w-md">
-            You haven't added any properties yet. Get started by adding your first one.
-          </p>
-          <Access feature="properties" action="add">
-            <Button
-              data-tour="add-first-pg-button"
-              onClick={() => {
-                setIsAddPgSheetOpen(true);
-                dispatch(setTourStepIndex(1));
-              }}
-              className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              Add Your First Property
-            </Button>
-          </Access>
-        </div>
-      </>
-    );
+    return <GuidedSetup pgs={pgs} guests={guests} onAddProperty={() => setIsAddPgSheetOpen(true)} />;
   }
 
   return (
     <>
       <div className="flex flex-col gap-6">
+        <GuidedSetup pgs={pgs} guests={guests} onAddProperty={() => setIsAddPgSheetOpen(true)} />
         <StatsCards stats={stats} />
         
         <div className="block md:hidden">
@@ -385,7 +217,7 @@ export default function DashboardPage() {
                 handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
                 handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
                 onSendMassReminder={handleSendMassReminder}
-                onSendAnnouncement={() => setIsNoticeDialogOpen(true)}
+                onSendAnnouncement={handleSendAnnouncement}
             />
         </div>
 
@@ -445,10 +277,9 @@ export default function DashboardPage() {
                         onClick={() => setIsEditMode(!isEditMode)}
                         variant="outline"
                         className="w-full sm:w-auto"
-                        data-tour="edit-mode-switch"
                     >
                         <Pencil className="mr-2 h-4 w-4" />
-                        {isEditMode ? "Done" : "Edit"}
+                        {isEditMode ? "Done" : "Edit Building"}
                     </Button>
                 </Access>
             </div>
@@ -478,30 +309,13 @@ export default function DashboardPage() {
       </div>
 
       {/* DIALOGS */}
-      <Dialog open={isNoticeDialogOpen} onOpenChange={setIsNoticeDialogOpen}>
-          <DialogContent>
-              <DialogHeader>
-                  <DialogTitle>Send New Announcement</DialogTitle>
-                  <DialogDescription>
-                      This will send a push notification to all active guests in the selected property (or all properties if none is selected).
-                  </DialogDescription>
-              </DialogHeader>
-              <Form {...noticeForm}>
-                  <form onSubmit={noticeForm.handleSubmit(handleSendNotice)} id="notice-form" className="space-y-4 pt-4">
-                      <FormField control={noticeForm.control} name="title" render={({ field }) => (
-                          <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g., Important Water Update" {...field} /></FormControl><FormMessage /></FormItem>
-                      )}/>
-                        <FormField control={noticeForm.control} name="message" render={({ field }) => (
-                          <FormItem><FormLabel>Message</FormLabel><FormControl><Textarea rows={5} placeholder="e.g., Please note that there will be no water supply tomorrow from 10 AM to 2 PM." {...field} /></FormControl><FormMessage /></FormItem>
-                      )}/>
-                  </form>
-              </Form>
-                <DialogFooter>
-                  <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                  <Button type="submit" form="notice-form">Send Announcement</Button>
-                </DialogFooter>
-          </DialogContent>
-      </Dialog>
+      <Access feature="properties" action="add">
+         <AddPgSheet
+            open={isAddPgSheetOpen}
+            onOpenChange={setIsAddPgSheetOpen}
+            onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
+          />
+      </Access>
       <Access feature="guests" action="add">
         <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
       </Access>
