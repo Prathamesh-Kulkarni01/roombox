@@ -13,19 +13,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { navItems as allNavItems, type NavItem } from '@/lib/mock-data';
+import { navItems as allNavItems } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
-import { Button } from './ui/button';
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
-  const { notifications } = useAppSelector((state) => state.notifications);
+  const { complaints } = useAppSelector((state) => state.complaints);
 
-  const unreadComplaints = useAppSelector(state => state.complaints.complaints.filter(c => c.status === 'open').length);
+  const unreadComplaints = complaints.filter(c => c.status === 'open').length;
 
   if (!currentUser || !currentPlan) return null;
 
