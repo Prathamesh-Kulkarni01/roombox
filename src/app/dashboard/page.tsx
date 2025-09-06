@@ -462,69 +462,68 @@ export default function DashboardPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)} className="w-full sm:w-auto">
-              <ToggleGroupItem value="bed" aria-label="Beds View" className="w-full">
-                <View className="mr-2 h-4 w-4"/> Beds View
-              </ToggleGroupItem>
-              <ToggleGroupItem value="room" aria-label="Rooms View" className="w-full">
-                <Rows className="mr-2 h-4 w-4"/> Rooms View
-              </ToggleGroupItem>
-            </ToggleGroup>
-             <Access feature="properties" action="edit">
-                <Button
-                    onClick={() => setIsEditMode(!isEditMode)}
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    data-tour="edit-mode-switch"
-                >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    {isEditMode ? "Done" : "Edit Building"}
-                </Button>
-            </Access>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                    type="search"
-                    placeholder="Search by guest, room, or bed..."
-                    className="pl-8 sm:w-full"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="grid sm:grid-cols-2 gap-4">
+                <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Search by guest, room, or bed..."
+                        className="pl-8 sm:w-full"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full sm:w-auto justify-start">
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64">
+                        <div className="grid gap-4">
+                            <div className="space-y-2">
+                                <h4 className="font-medium leading-none">Filter by Status</h4>
+                                <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
+                            </div>
+                            <div className="grid gap-2">
+                                {['available', 'occupied', 'rent-pending', 'rent-partial', 'notice-period'].map((status) => (
+                                    <div key={status} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`filter-${status}`}
+                                            checked={activeFilters.includes(status as BedStatus)}
+                                            onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
+                                        />
+                                        <Label htmlFor={`filter-${status}`} className="font-normal capitalize">{status.replace('-', ' ')}</Label>
+                                    </div>
+                                ))}
+                            </div>
+                            <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full sm:w-auto justify-start">
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+            <div className="flex items-center gap-2">
+                <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)} className="w-full sm:w-auto">
+                    <ToggleGroupItem value="bed" aria-label="Beds" className="w-full">
+                        <View className="mr-2 h-4 w-4"/> Beds
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="room" aria-label="Rooms" className="w-full">
+                        <Rows className="mr-2 h-4 w-4"/> Rooms
+                    </ToggleGroupItem>
+                </ToggleGroup>
+                <Access feature="properties" action="edit">
+                    <Button
+                        onClick={() => setIsEditMode(!isEditMode)}
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        data-tour="edit-mode-switch"
+                    >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        {isEditMode ? "Done" : "Edit Building"}
                     </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64">
-                    <div className="grid gap-4">
-                        <div className="space-y-2">
-                            <h4 className="font-medium leading-none">Filter by Status</h4>
-                            <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
-                        </div>
-                        <div className="grid gap-2">
-                            {['available', 'occupied', 'rent-pending', 'rent-partial', 'notice-period'].map((status) => (
-                                <div key={status} className="flex items-center space-x-2">
-                                    <Checkbox
-                                        id={`filter-${status}`}
-                                        checked={activeFilters.includes(status as BedStatus)}
-                                        onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
-                                    />
-                                    <Label htmlFor={`filter-${status}`} className="font-normal capitalize">{status.replace('-', ' ')}</Label>
-                                </div>
-                            ))}
-                        </div>
-                         <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
-                    </div>
-                </PopoverContent>
-            </Popover>
-          </div>
+                </Access>
+            </div>
         </div>
 
         {pgsToDisplay.map(pg => (
@@ -661,3 +660,5 @@ export default function DashboardPage() {
     </>
   )
 }
+
+    
