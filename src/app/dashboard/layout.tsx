@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAppSelector } from '@/lib/hooks';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { navPermissions } from '@/lib/permissions';
-import { isAfter, parseISO } from 'date-fns';
+import { isAfter, parseISO, differenceInDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { plans } from '@/lib/mock-data';
 import type { PlanName } from '@/lib/types';
@@ -31,6 +31,21 @@ const SubscriptionGate = () => (
         </div>
     </div>
 );
+
+const TrialBanner = ({ trialEndDate }: { trialEndDate: string }) => {
+    const daysLeft = differenceInDays(parseISO(trialEndDate), new Date());
+    return (
+        <div className="bg-accent text-accent-foreground p-3 text-center text-sm font-medium mb-6 rounded-lg">
+            <p>
+                <Star className="w-4 h-4 inline-block mr-2" />
+                You are on a Pro trial. {daysLeft > 0 ? `You have ${daysLeft} day(s) left.` : 'Your trial ends today.'}
+                <Button variant="link" asChild className="text-accent-foreground h-auto p-0 pl-2 underline">
+                    <Link href="/dashboard/settings">Upgrade Now</Link>
+                </Button>
+            </p>
+        </div>
+    );
+};
 
 
 export default function DashboardLayout({
@@ -110,6 +125,7 @@ export default function DashboardLayout({
   }
   
   const showSubscriptionGate = currentPlan && currentPlan.id === 'free' && currentUser.subscription?.status !== 'active' && currentUser.subscription?.status !== 'trialing' && pathname !== '/dashboard/settings';
+  const showTrialBanner = currentUser?.subscription?.status === 'trialing' && currentUser.subscription?.trialEndDate && isAfter(parseISO(currentUser.subscription.trialEndDate), new Date());
 
   return (
     <>
@@ -117,6 +133,7 @@ export default function DashboardLayout({
         <DashboardSidebar />
         <div className="flex flex-1 flex-col overflow-auto">
           <main className="flex-1 p-4 bg-muted/40 pb-20 md:pb-4">
+            {showTrialBanner && <TrialBanner trialEndDate={currentUser.subscription!.trialEndDate!} />}
             {showSubscriptionGate ? <SubscriptionGate /> : children}
           </main>
         </div>
