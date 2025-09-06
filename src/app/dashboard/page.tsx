@@ -5,6 +5,9 @@ import { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from 'next/link'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +17,9 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
 import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send } from "lucide-react"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Textarea } from '@/components/ui/textarea'
 import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { setTourStepIndex } from '@/lib/slices/appSlice'
@@ -47,6 +52,12 @@ const bedLegend: Record<BedStatus, { label: string, className: string }> = {
   'rent-partial': { label: 'Partial Payment', className: 'bg-orange-200' },
   'notice-period': { label: 'Notice Period', className: 'bg-blue-200' },
 };
+
+const noticeSchema = z.object({
+  title: z.string().min(5, "Title must be at least 5 characters long."),
+  message: z.string().min(10, "Message must be at least 10 characters long."),
+})
+type NoticeFormValues = z.infer<typeof noticeSchema>
 
 const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -83,6 +94,7 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
                                 <Badge variant={guest.rentStatus === 'paid' ? 'default' : 'destructive'}>{guest.rentStatus}</Badge>
                             </div>
                         ))}
+                         {filteredGuests.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No guests with pending dues.</p>}
                     </div>
                 </ScrollArea>
             </DialogContent>
@@ -170,7 +182,7 @@ export default function DashboardPage() {
     complaints: state.complaints.complaints,
   }));
 
-  const { isLoading, selectedPgId, tour } = useAppSelector(state => state.app);
+  const { isLoading, selectedPgId } = useAppSelector(state => state.app);
   const [isEditMode, setIsEditMode] = useState(false)
   const isFirstAvailableBedFound = useRef(false);
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
@@ -179,6 +191,7 @@ export default function DashboardPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
+  const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
 
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
@@ -266,7 +279,6 @@ export default function DashboardPage() {
     const relevantGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
     const relevantComplaints = selectedPgId ? complaints.filter(c => c.pgId === selectedPgId) : complaints;
     
-    // Correctly calculate total occupancy based on active guests
     const totalOccupancy = relevantGuests.filter(g => !g.isVacated).length;
     const totalBeds = relevantPgs.reduce((sum, pg) => sum + pg.totalBeds, 0);
     
@@ -331,10 +343,38 @@ export default function DashboardPage() {
         toast({ title: 'Reminders Sent!', description: `Successfully sent ${successful} reminders.` });
     }
 
-  const handleSendAnnouncement = () => {
-    router.push('/dashboard/complaints');
-  }
+  const noticeForm = useForm<NoticeFormValues>({
+    resolver: zodResolver(noticeSchema),
+    defaultValues: { title: '', message: '' },
+  });
 
+  const handleSendNotice = async (data: NoticeFormValues) => {
+    const activeGuests = guests.filter(g => 
+        !g.isVacated && g.userId && (!selectedPgId || g.pgId === selectedPgId)
+    );
+
+    if (activeGuests.length === 0) {
+        toast({ variant: 'destructive', title: "No Guests", description: "There are no active guests to send this notice to."});
+        return;
+    }
+
+    try {
+        await Promise.all(activeGuests.map(guest => 
+            sendNotification({
+                userId: guest.userId!,
+                title: data.title,
+                body: data.message,
+                link: '/tenants/my-pg'
+            })
+        ));
+        toast({ title: "Notice Sent!", description: `Your notice has been sent to ${activeGuests.length} guest(s).` });
+        setIsNoticeDialogOpen(false);
+        noticeForm.reset();
+    } catch (error) {
+        console.error("Failed to send notice:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not send the notice. Please try again.' });
+    }
+  }
 
   if (isLoading) {
     return (
@@ -425,7 +465,7 @@ export default function DashboardPage() {
             handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
             handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
             onSendMassReminder={handleSendMassReminder}
-            onSendAnnouncement={handleSendAnnouncement}
+            onSendAnnouncement={() => setIsNoticeDialogOpen(true)}
         />
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -511,6 +551,30 @@ export default function DashboardPage() {
       </div>
 
       {/* DIALOGS */}
+      <Dialog open={isNoticeDialogOpen} onOpenChange={setIsNoticeDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Send New Announcement</DialogTitle>
+                  <DialogDescription>
+                      This will send a push notification to all active guests in the selected property (or all properties if none is selected).
+                  </DialogDescription>
+              </DialogHeader>
+              <Form {...noticeForm}>
+                  <form onSubmit={noticeForm.handleSubmit(handleSendNotice)} id="notice-form" className="space-y-4 pt-4">
+                      <FormField control={noticeForm.control} name="title" render={({ field }) => (
+                          <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g., Important Water Update" {...field} /></FormControl><FormMessage /></FormItem>
+                      )}/>
+                        <FormField control={noticeForm.control} name="message" render={({ field }) => (
+                          <FormItem><FormLabel>Message</FormLabel><FormControl><Textarea rows={5} placeholder="e.g., Please note that there will be no water supply tomorrow from 10 AM to 2 PM." {...field} /></FormControl><FormMessage /></FormItem>
+                      )}/>
+                  </form>
+              </Form>
+                <DialogFooter>
+                  <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                  <Button type="submit" form="notice-form">Send Announcement</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
       <Access feature="guests" action="add">
         <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
       </Access>
