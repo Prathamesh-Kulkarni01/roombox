@@ -14,7 +14,7 @@ import { format, addMonths } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
-import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
+import { roomSchema, RoomFormValues } from "@/lib/actions/roomActions"
 
 const addGuestSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -52,6 +52,21 @@ interface UseDashboardProps {
   pgs: PG[];
   guests: Guest[];
 }
+
+const cleanUndefinedRecursive = (obj: any): any => {
+    if (Array.isArray(obj)) {
+        return obj.map(v => (v && typeof v === 'object') ? cleanUndefinedRecursive(v) : v);
+    } else if (obj !== null && typeof obj === 'object') {
+        return Object.keys(obj).reduce((acc, key) => {
+            const value = obj[key];
+            if (value !== undefined) {
+                acc[key] = (value && typeof value === 'object') ? cleanUndefinedRecursive(value) : value;
+            }
+            return acc;
+        }, {} as any);
+    }
+    return obj;
+};
 
 export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const dispatch = useAppDispatch();
@@ -112,22 +127,50 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm]);
   
   useEffect(() => {
-    if (roomToEdit) {
-      roomForm.reset({
-        roomTitle: roomToEdit.name,
-        monthlyRent: roomToEdit.rent,
-        securityDeposit: roomToEdit.deposit,
-        amenities: roomToEdit.amenities,
-        // Reset other fields as well if they exist on roomToEdit
-      });
-    } else {
-      roomForm.reset({
-        roomTitle: '',
+    if (isRoomDialogOpen) {
+      const defaultValues: Partial<RoomFormValues> = {
+        amenities: [],
+        rules: [],
+        preferredTenants: [],
+        meals: [],
+        images: [],
+        available: true,
+        foodIncluded: false,
+        laundryServices: false,
+        showLocation: false,
+        acCharge: { included: false, charge: 0 },
+        lockInMonths: 0,
+        maintenanceCharges: 0,
         monthlyRent: 0,
         securityDeposit: 0,
-        amenities: [],
-        // Reset other fields to their defaults
+        ...roomToEdit
+      };
+      
+      // Ensure all fields have a non-undefined value for controlled components
+      const safeValues = produce(defaultValues, draft => {
+          draft.monthlyRent = draft.monthlyRent || 0;
+          draft.securityDeposit = draft.securityDeposit || 0;
+          draft.lockInMonths = draft.lockInMonths || 0;
+          draft.maintenanceCharges = draft.maintenanceCharges || 0;
+          draft.availableFrom = draft.availableFrom ? new Date(draft.availableFrom) : new Date();
+          draft.acCharge = {
+              included: draft.acCharge?.included ?? false,
+              charge: draft.acCharge?.charge ?? 0
+          };
+          draft.amenities = draft.amenities || [];
+          draft.rules = draft.rules || [];
+          draft.preferredTenants = draft.preferredTenants || [];
+          draft.meals = draft.meals || [];
+          draft.images = draft.images || [];
+          draft.virtualTourLink = draft.virtualTourLink || '';
+          draft.address = draft.address || '';
+          draft.landmark = draft.landmark || '';
+          draft.distanceCollege = draft.distanceCollege || '';
+          draft.distanceOffice = draft.distanceOffice || '';
+          draft.distanceMetro = draft.distanceMetro || '';
+          draft.description = draft.description || '';
       });
+      roomForm.reset(safeValues as RoomFormValues);
     }
   }, [isRoomDialogOpen, roomToEdit, roomForm]);
 
@@ -323,48 +366,82 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const processRoomSubmit = (values: RoomFormValues) => {
+  const sanitizeRoomFormValues = (values: RoomFormValues): Omit<RoomFormValues, 'availableFrom'> & { availableFrom: string } => {
+    return {
+        ...values,
+        monthlyRent: values.monthlyRent || 0,
+        securityDeposit: values.securityDeposit || 0,
+        lockInMonths: values.lockInMonths || 0,
+        maintenanceCharges: values.maintenanceCharges || 0,
+        acCharge: {
+            included: values.acCharge?.included ?? false,
+            charge: values.acCharge?.charge ?? 0,
+        },
+        availableFrom: values.availableFrom ? new Date(values.availableFrom).toISOString() : new Date().toISOString(),
+        virtualTourLink: values.virtualTourLink || '',
+        // Ensure arrays are not undefined
+        amenities: values.amenities || [],
+        rules: values.rules || [],
+        preferredTenants: values.preferredTenants || [],
+        meals: values.meals || [],
+        images: values.images || [],
+    };
+  };
+
+  const processRoomSubmit = (formValues: RoomFormValues) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
-        if(!pgId || !floorId) return;
+        if (!pgId || !floorId) return;
         
         const pg = getPgById(pgId);
-        if(!pg) return;
+        if (!pg) return;
+
+        const sanitizedValues = sanitizeRoomFormValues(formValues);
 
         const nextState = produce(pg, draft => {
             const floor = draft.floors?.find(f => f.id === floorId);
             if (!floor) return;
+            
             if (roomToEdit) {
+                // Update existing room
                 const roomIndex = floor.rooms.findIndex(r => r.id === roomToEdit.id);
                 if (roomIndex !== -1) {
-                    floor.rooms[roomIndex] = { 
-                        ...floor.rooms[roomIndex], 
-                        name: values.roomTitle,
-                        rent: values.monthlyRent || floor.rooms[roomIndex].rent,
-                        deposit: values.securityDeposit || floor.rooms[roomIndex].deposit,
-                        amenities: values.amenities,
+                    const originalRoom = floor.rooms[roomIndex];
+                    floor.rooms[roomIndex] = {
+                        ...originalRoom,
+                        name: sanitizedValues.roomTitle,
+                        rent: sanitizedValues.monthlyRent,
+                        deposit: sanitizedValues.securityDeposit,
+                        amenities: sanitizedValues.amenities,
+                        // Add other fields from sanitizedValues as needed
                     };
                 }
             } else {
+                // Add new room
                 const newRoom: Room = { 
                     id: `room-${Date.now()}`, 
                     pgId,
                     floorId,
                     beds: [],
-                    name: values.roomTitle,
-                    rent: values.monthlyRent || 0,
-                    deposit: values.securityDeposit || 0,
-                    amenities: values.amenities || [],
+                    name: sanitizedValues.roomTitle,
+                    rent: sanitizedValues.monthlyRent,
+                    deposit: sanitizedValues.securityDeposit,
+                    amenities: sanitizedValues.amenities,
                 };
                 floor.rooms.push(newRoom);
             }
         });
-        await dispatch(updatePgAction(nextState)).unwrap();
+        
+        // This clean step is a final safeguard
+        const finalCleanedState = cleanUndefinedRecursive(nextState);
+        
+        await dispatch(updatePgAction(finalCleanedState)).unwrap();
         toast({ title: roomToEdit ? 'Room Updated' : 'Room Added', description: `The room has been successfully ${roomToEdit ? 'updated' : 'added'}.`})
         setIsRoomDialogOpen(false);
     });
   }
+
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
@@ -508,3 +585,5 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 }
 
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
+
+    
