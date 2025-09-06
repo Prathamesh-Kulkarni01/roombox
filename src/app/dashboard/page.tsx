@@ -64,6 +64,7 @@ export default function DashboardPage() {
     handleConfirmImmediateExit,
     handleSendMassReminder,
     handleSendAnnouncement,
+    handleDelete,
     ...dashboardActions
   } = useDashboard({ pgs, guests });
 
@@ -158,6 +159,13 @@ export default function DashboardPage() {
     setActiveFilters(prev => 
         checked ? [...prev, status] : prev.filter(s => s !== status)
     );
+  };
+  
+  const handleDeleteConfirm = () => {
+    if (itemToDelete) {
+      handleDelete(itemToDelete.type, itemToDelete.ids);
+      setItemToDelete(null);
+    }
   };
 
 
