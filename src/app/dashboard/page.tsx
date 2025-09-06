@@ -284,7 +284,6 @@ export default function DashboardPage() {
                     <Button
                         onClick={() => setIsEditMode(!isEditMode)}
                         variant="outline"
-                        className="w-full sm:w-auto"
                     >
                         <Pencil className="mr-2 h-4 w-4" />
                         {isEditMode ? "Done" : "Edit Building"}
