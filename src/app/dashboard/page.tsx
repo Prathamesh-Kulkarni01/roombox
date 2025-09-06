@@ -469,16 +469,7 @@ export default function DashboardPage() {
         />
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
-                <span className="font-semibold text-sm">Legend:</span>
-                {Object.values(bedLegend).map(item => (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                    <div className={cn("w-3 h-3 rounded-full", item.className)}></div>
-                    <span>{item.label}</span>
-                  </div>
-                ))}
-            </div>
-            <div className="flex items-center space-x-2 self-end sm:self-center">
+            <div className="flex items-center space-x-2 self-end sm:self-center ml-auto">
                 <Label htmlFor="edit-mode" className="font-medium">Layout Editor</Label>
                 <Access feature="properties" action="edit">
                 <Switch id="edit-mode" checked={isEditMode} onCheckedChange={setIsEditMode} data-tour="edit-mode-switch" />

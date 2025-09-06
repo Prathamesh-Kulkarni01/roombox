@@ -1,5 +1,4 @@
 
-
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
@@ -88,6 +87,7 @@ export default function BedCard(props: BedCardProps) {
           const hasComplaint = guest && complaints.some(c => c.guestId === guest.id && c.status !== 'resolved');
           const isFirstAvailable = !guest && !isFirstAvailableBedFound.current;
           if (isFirstAvailable) isFirstAvailableBedFound.current = true;
+          const pendingAmount = guest ? guest.rentAmount - (guest.rentPaidAmount || 0) : 0;
 
           if (isEditMode) {
             return (
@@ -120,7 +120,7 @@ export default function BedCard(props: BedCardProps) {
                 <div className="w-full text-center">
                     <div className="font-semibold text-xs bg-black/10 group-hover:bg-yellow-500 group-hover:text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
                         <UserPlus className="w-3 h-3" />
-                        Add Guest
+                        Available
                     </div>
                 </div>
               </button>
@@ -149,12 +149,12 @@ export default function BedCard(props: BedCardProps) {
                      <div className="w-full text-center mt-auto">
                         {status === 'rent-pending' && (
                             <div className="font-semibold text-xs bg-red-500 text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
-                                <Wallet className="w-3 h-3"/> Collect Rent
+                                <Wallet className="w-3 h-3"/> ₹{pendingAmount.toLocaleString('en-IN')} Due
                             </div>
                         )}
                          {status === 'rent-partial' && (
                             <div className="font-semibold text-xs bg-orange-500 text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
-                                <Wallet className="w-3 h-3"/> Collect Balance
+                                <Wallet className="w-3 h-3"/> ₹{pendingAmount.toLocaleString('en-IN')} Due
                             </div>
                         )}
                         {status === 'occupied' && (
