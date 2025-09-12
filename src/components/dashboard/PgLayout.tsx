@@ -83,10 +83,11 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
   isFirstAvailableBedFound: MutableRefObject<boolean>
   isEditMode: boolean;
   viewMode: 'bed' | 'room';
+  handleOpenFloorDialog: (floor: Floor | null, pg: PG) => void;
 }
 
 export default function PgLayout(props: PgLayoutProps) {
-  const { pg, isEditMode, setItemToDelete, handleOpenFloorDialog, handleOpenRoomDialog, viewMode } = props
+  const { pg, isEditMode, setItemToDelete, handleOpenRoomDialog, viewMode, handleOpenFloorDialog } = props
   
   const floorDefaultValues = useMemo(() => {
     return pg.floors?.map(f => f.id) || [];
@@ -116,7 +117,7 @@ export default function PgLayout(props: PgLayoutProps) {
             {isEditMode && (
               <div className="flex items-center ml-auto pl-4">
                  <Access feature="properties" action="edit">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenFloorDialog(floor)}><Pencil className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenFloorDialog(floor, pg)}><Pencil className="w-4 h-4" /></Button>
                 </Access>
                  <Access feature="properties" action="delete">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600" onClick={() => setItemToDelete({ type: 'floor', ids: { pgId: pg.id, floorId: floor.id } })}><Trash2 className="w-4 h-4" /></Button>
@@ -153,7 +154,12 @@ export default function PgLayout(props: PgLayoutProps) {
             <button data-tour="add-floor-button" onClick={() => handleOpenFloorDialog(null, pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
           </Access>
         )}
-        {(!pg.floors || pg.floors.length === 0) && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Click 'Edit Building' to start.</div>)}
+        {(!pg.floors || pg.floors.length === 0) && isEditMode && (
+          <Access feature="properties" action="add">
+            <button data-tour="add-floor-button" onClick={() => handleOpenFloorDialog(null, pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
+          </Access>
+        )}
+        {(!pg.floors || pg.floors.length === 0) && !isEditMode && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Click 'Edit Building' to start.</div>)}
     </Accordion>
   )
 }
