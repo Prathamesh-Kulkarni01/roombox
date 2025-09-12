@@ -85,10 +85,12 @@ interface PgLayoutProps extends Omit<UseDashboardReturn, 'stats'> {
   isEditMode: boolean;
   viewMode: 'bed' | 'room';
   handleOpenFloorDialog: (floor: Floor | null, pg: PG) => void;
+  handleOpenRoomDialog: (room: Room | null, floorId?: string, pgId?: string) => void;
+  handleOpenBedDialog: (bed: any, roomId: string, floorId: string) => void;
 }
 
 export default function PgLayout(props: PgLayoutProps) {
-  const { pg, isEditMode, setItemToDelete, handleOpenRoomDialog, viewMode, handleOpenFloorDialog } = props
+  const { pg, isEditMode, setItemToDelete, handleOpenRoomDialog, viewMode, handleOpenFloorDialog, handleOpenBedDialog } = props
   
   const floorDefaultValues = useMemo(() => {
     return pg.floors?.map(f => f.id) || [];
@@ -134,7 +136,7 @@ export default function PgLayout(props: PgLayoutProps) {
                         <RoomAccordionTrigger room={room} />
                     </AccordionTrigger>
                     <AccordionContent className="p-4 pt-4">
-                        <BedCard {...props} room={room} floor={floor} />
+                        <BedCard {...props} room={room} floor={floor} handleOpenBedDialog={handleOpenBedDialog} />
                     </AccordionContent>
                  </AccordionItem>
               ))}

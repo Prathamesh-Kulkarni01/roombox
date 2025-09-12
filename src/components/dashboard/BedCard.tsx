@@ -1,4 +1,5 @@
 
+
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +20,7 @@ interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
   floor: Floor
   pg: PG
   isFirstAvailableBedFound: MutableRefObject<boolean>
+  handleOpenBedDialog: (bed: Bed | null, roomId: string, floorId: string) => void;
 }
 
 export default function BedCard(props: BedCardProps) {
