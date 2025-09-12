@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useMemo, useRef, useState, useEffect } from "react"
@@ -71,8 +72,8 @@ export default function DashboardPage() {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
     isEditGuestDialogOpen, setIsEditGuestDialogOpen,
     isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom,
-    isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit, floorForm, handleFloorSubmit, handleOpenFloorDialog,
-    isBedDialogOpen, setIsBedDialogOpen, bedToEdit, bedForm, handleBedSubmit, handleOpenBedDialog,
+    isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit, floorForm, handleFloorSubmit,
+    isBedDialogOpen, setIsBedDialogOpen, bedToEdit, bedForm, handleBedSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
     isSharedChargeDialogOpen, setIsSharedChargeDialogOpen,
@@ -261,7 +262,7 @@ export default function DashboardPage() {
             <AddPgSheet
                 open={isAddPgSheetOpen}
                 onOpenChange={setIsAddPgSheetOpen}
-                onPgAdded={() => { setIsAddPgSheetOpen(false) }}
+                onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
             />
         </>
     );
@@ -353,10 +354,14 @@ export default function DashboardPage() {
             setItemToDelete={setItemToDelete}
             setGuestToInitiateExit={setGuestToInitiateExit}
             setGuestToExitImmediately={setGuestToExitImmediately}
-            handleOpenFloorDialog={handleOpenFloorDialog}
+            handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
+            handleOpenEditGuestDialog={dashboardActions.handleOpenEditGuestDialog}
+            handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
+            handleOpenReminderDialog={dashboardActions.handleOpenReminderDialog}
+            handleOpenSharedChargeDialog={dashboardActions.handleOpenSharedChargeDialog}
+            handleOpenFloorDialog={dashboardActions.handleOpenFloorDialog}
             handleOpenRoomDialog={dashboardActions.handleOpenRoomDialog}
-            handleOpenBedDialog={handleOpenBedDialog}
-            {...dashboardActions}
+            handleOpenBedDialog={dashboardActions.handleOpenBedDialog}
           />
         ))}
 
