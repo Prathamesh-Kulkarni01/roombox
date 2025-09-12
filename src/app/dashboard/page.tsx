@@ -1,20 +1,28 @@
 
+
 'use client'
 
 import { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from 'next/link'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil, View, Rows } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil, View, Rows, PlusCircle, XCircle } from "lucide-react"
+import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
+import { canAccess } from '@/lib/permissions';
+
+import StatsCards from '@/components/dashboard/StatsCards'
+import PgLayout from '@/components/dashboard/PgLayout'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
-import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import FloorDialog from '@/components/dashboard/dialogs/FloorDialog'
 import BedDialog from '@/components/dashboard/dialogs/BedDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
@@ -22,14 +30,135 @@ import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
 import SharedChargeDialog from '@/components/dashboard/dialogs/SharedChargeDialog'
 import AddPgSheet from "@/components/add-pg-sheet"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
-import Access from '@/components/ui/PermissionWrapper'
-import PgLayout from '@/components/dashboard/PgLayout'
-import StatsCards from '@/components/dashboard/StatsCards'
-import type { BedStatus } from '@/lib/types'
-import { Label } from "@/components/ui/label"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import QuickActions from "@/components/dashboard/QuickActions"
+import { cn } from "@/lib/utils"
+import Access from '@/components/ui/PermissionWrapper';
+import type { Bed, BedStatus, PG, Room, Guest } from '@/lib/types'
+import { sendNotification } from '@/ai/flows/send-notification-flow'
+import { useToast } from "@/hooks/use-toast"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import GuidedSetup from "@/components/dashboard/GuidedSetup"
+
+
+const bedLegend: Record<BedStatus, { label: string, className: string }> = {
+  available: { label: 'Available', className: 'bg-yellow-200' },
+  occupied: { label: 'Occupied', className: 'bg-slate-200' },
+  'rent-pending': { label: 'Rent Pending', className: 'bg-red-300' },
+  'rent-partial': { label: 'Partial Payment', className: 'bg-orange-200' },
+  'notice-period': { label: 'Notice Period', className: 'bg-blue-200' },
+};
+
+const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const filteredGuests = useMemo(() => {
+        if (!searchTerm) return guests.filter(g => !g.isVacated);
+        return guests.filter(g => 
+            !g.isVacated && (
+                g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                g.pgName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                g.bedId.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+        );
+    }, [guests, searchTerm]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Collect Rent</DialogTitle>
+                    <DialogDescription>Search for a guest to record a payment.</DialogDescription>
+                </DialogHeader>
+                <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search by name, property, room..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
+                <ScrollArea className="h-64 mt-4">
+                    <div className="space-y-2">
+                        {filteredGuests.map(guest => (
+                            <div key={guest.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => { onSelectGuest(guest); onOpenChange(false); }}>
+                                <div>
+                                    <p className="font-semibold">{guest.name}</p>
+                                    <p className="text-sm text-muted-foreground">{guest.pgName} - Bed {guest.bedId}</p>
+                                </div>
+                                <Badge variant={guest.rentStatus === 'paid' ? 'default' : 'destructive'}>{guest.rentStatus}</Badge>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+const QuickActions = ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendMassReminder, onSendAnnouncement }: any) => {
+    const availableBeds = useMemo(() => {
+        const beds: { pg: PG, room: Room, bed: Bed }[] = [];
+        pgs.forEach((pg: PG) => {
+            pg.floors?.forEach(floor => {
+                floor.rooms.forEach(room => {
+                    room.beds.forEach(bed => {
+                        if (!bed.guestId) {
+                            beds.push({ pg, room, bed });
+                        }
+                    });
+                });
+            });
+        });
+        return beds;
+    }, [pgs, guests]);
+
+    const [isCollectRentOpen, setIsCollectRentOpen] = useState(false);
+
+    const handleSelectGuestForPayment = (guest: Guest) => {
+        handleOpenPaymentDialog(guest);
+    }
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Your command center for frequent tasks.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="flex-col h-24 gap-2">
+                            <UserPlus className="w-6 h-6 text-primary" />
+                            <span className="font-semibold">Add Guest</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-64">
+                        <DropdownMenuLabel>Select a Vacant Bed</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <ScrollArea className="h-[200px]">
+                            {availableBeds.length > 0 ? availableBeds.map(({ pg, room, bed }) => (
+                                <DropdownMenuItem key={bed.id} onClick={() => handleOpenAddGuestDialog(bed, room, pg)}>
+                                    <span>{pg.name} - {room.name} / Bed {bed.name}</span>
+                                </DropdownMenuItem>
+                            )) : <DropdownMenuItem disabled>No vacant beds</DropdownMenuItem>}
+                        </ScrollArea>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button variant="outline" className="flex-col h-24 gap-2" onClick={() => setIsCollectRentOpen(true)}>
+                    <Wallet className="w-6 h-6 text-primary" />
+                    <span className="font-semibold">Collect Rent</span>
+                </Button>
+
+                <Button variant="outline" className="flex-col h-24 gap-2" onClick={onSendMassReminder}>
+                    <BellRing className="w-6 h-6 text-primary" />
+                    <span className="font-semibold">Send Reminders</span>
+                </Button>
+
+                <Button variant="outline" className="flex-col h-24 gap-2" onClick={onSendAnnouncement}>
+                    <Send className="w-6 h-6 text-primary" />
+                    <span className="font-semibold">Send Announcement</span>
+                </Button>
+            </CardContent>
+            <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />
+        </Card>
+    );
+};
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
@@ -43,6 +172,8 @@ export default function DashboardPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const isFirstAvailableBedFound = useRef(false);
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
@@ -52,7 +183,7 @@ export default function DashboardPage() {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
     isEditGuestDialogOpen, setIsEditGuestDialogOpen,
     isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom,
-    isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit, floorForm, handleFloorSubmit,
+    isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit, floorForm, handleFloorSubmit, handleOpenFloorDialog,
     isBedDialogOpen, setIsBedDialogOpen, bedToEdit, bedForm, handleBedSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
@@ -62,13 +193,12 @@ export default function DashboardPage() {
     handleConfirmInitiateExit,
     guestToExitImmediately, setGuestToExitImmediately,
     handleConfirmImmediateExit,
-    handleSendMassReminder,
-    handleSendAnnouncement,
-    handleDelete,
     ...dashboardActions
   } = useDashboard({ pgs, guests });
 
-  // Auto-enable edit mode if a PG exists but has no layout
+  const { currentUser } = useAppSelector(state => state.user);
+  const { featurePermissions } = useAppSelector(state => state.permissions);
+
   useEffect(() => {
     const hasPgs = pgs.length > 0;
     const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
@@ -90,8 +220,12 @@ export default function DashboardPage() {
     isFirstAvailableBedFound.current = false;
     let filteredPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
 
-    if (!searchTerm && activeFilters.length === 0) {
+    if (!searchTerm && activeFilters.length === 0 && !isEditMode) {
         return filteredPgs;
+    }
+    
+    if (isEditMode) {
+        return pgs;
     }
     
     const lowercasedSearchTerm = searchTerm.toLowerCase();
@@ -127,7 +261,7 @@ export default function DashboardPage() {
 
         return filteredFloors.length > 0 ? { ...pg, floors: filteredFloors } : null;
     }).filter((pg): pg is NonNullable<typeof pg> => pg !== null);
-  }, [pgs, selectedPgId, searchTerm, activeFilters, guests]);
+  }, [pgs, selectedPgId, searchTerm, activeFilters, guests, isEditMode]);
 
   const stats = useMemo(() => {
     const relevantPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
@@ -163,11 +297,36 @@ export default function DashboardPage() {
   
   const handleDeleteConfirm = () => {
     if (itemToDelete) {
-      handleDelete(itemToDelete.type, itemToDelete.ids);
+      dashboardActions.handleDelete(itemToDelete.type, itemToDelete.ids);
       setItemToDelete(null);
     }
   };
+  
+  const handleSendMassReminder = async () => {
+        const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
+        if (pendingGuests.length === 0) {
+            toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
+            return;
+        }
+        
+        toast({ title: 'Sending Reminders...', description: `Sending ${pendingGuests.length} rent reminders.` });
 
+        const results = await Promise.allSettled(pendingGuests.map(guest => 
+            sendNotification({
+                userId: guest.userId!,
+                title: `Gentle Rent Reminder`,
+                body: `Hi ${guest.name}, this is a friendly reminder that your rent is due. Please pay to avoid any late fees.`,
+                link: '/tenants/my-pg'
+            })
+        ));
+
+        const successful = results.filter(r => r.status === 'fulfilled').length;
+        toast({ title: 'Reminders Sent!', description: `Successfully sent ${successful} reminders.` });
+    }
+
+  const handleSendAnnouncement = () => {
+     toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
+  }
 
   if (isLoading) {
     return (
@@ -216,15 +375,24 @@ export default function DashboardPage() {
                 onOpenChange={setIsAddPgSheetOpen}
                 onPgAdded={() => { setIsAddPgSheetOpen(false) }}
             />
-            <GuidedSetup 
+             <GuidedSetup 
                 pgs={pgs} 
                 guests={guests} 
                 onAddProperty={() => setIsAddPgSheetOpen(true)}
-                onSetupLayout={() => setIsEditMode(true)}
+                onSetupLayout={() => {
+                    setIsEditMode(true);
+                }}
                 onAddGuest={() => {
-                    const firstBed = document.querySelector('[data-tour="add-guest-on-bed"]');
-                    firstBed?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    (firstBed as HTMLElement)?.click();
+                    const firstBed = pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).flatMap(r => r.beds).find(b => !b.guestId);
+                    if (firstBed) {
+                        const room = pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).find(r => r.beds.some(b => b.id === firstBed.id));
+                        const pg = pgs.find(p => p.id === room?.pgId);
+                        if(room && pg) {
+                            dashboardActions.handleOpenAddGuestDialog(firstBed, room, pg);
+                        }
+                    } else {
+                        toast({ variant: 'destructive', title: "No Available Beds", description: "Please add a bed first." });
+                    }
                 }}
             />
         </>
@@ -234,25 +402,33 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <GuidedSetup 
-            pgs={pgs} 
-            guests={guests} 
-            onAddProperty={() => setIsAddPgSheetOpen(true)}
-            onSetupLayout={() => setIsEditMode(true)}
-            onAddGuest={() => {
-                const firstAvailableBed = pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).flatMap(r => r.beds).find(b => !b.guestId);
-                if (firstAvailableBed) {
-                    const room = pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).find(r => r.beds.some(b => b.id === firstAvailableBed.id));
-                    const pg = pgs.find(p => p.id === room?.pgId);
-                    if(room && pg) {
-                        dashboardActions.handleOpenAddGuestDialog(firstAvailableBed, room, pg);
+         <GuidedSetup 
+                pgs={pgs} 
+                guests={guests} 
+                onAddProperty={() => setIsAddPgSheetOpen(true)}
+                onSetupLayout={() => setIsEditMode(true)}
+                onAddGuest={() => {
+                    const firstBed = pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).flatMap(r => r.beds).find(b => !b.guestId);
+                    if (firstBed) {
+                        const room = pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).find(r => r.beds.some(b => b.id === firstBed.id));
+                        const pg = pgs.find(p => p.id === room?.pgId);
+                        if(room && pg) {
+                            dashboardActions.handleOpenAddGuestDialog(firstBed, room, pg);
+                        }
+                    } else {
+                        toast({ variant: 'destructive', title: "No Available Beds", description: "Please add a bed first." });
                     }
-                } else {
-                    alert("No available beds to add a guest to.");
-                }
-            }}
-        />
+                }}
+            />
         <StatsCards stats={stats} />
+        <QuickActions 
+            pgs={pgs}
+            guests={guests}
+            handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
+            handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
+            onSendMassReminder={handleSendMassReminder}
+            onSendAnnouncement={handleSendAnnouncement}
+        />
         
         <div className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
@@ -280,14 +456,14 @@ export default function DashboardPage() {
                                 <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
                             </div>
                             <div className="grid gap-2">
-                                {['available', 'occupied', 'rent-pending', 'rent-partial', 'notice-period'].map((status) => (
+                                {Object.entries(bedLegend).map(([status, { label }]) => (
                                     <div key={status} className="flex items-center space-x-2">
                                         <Checkbox
                                             id={`filter-${status}`}
                                             checked={activeFilters.includes(status as BedStatus)}
                                             onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
                                         />
-                                        <Label htmlFor={`filter-${status}`} className="font-normal capitalize">{status.replace('-', ' ')}</Label>
+                                        <Label htmlFor={`filter-${status}`} className="font-normal">{label}</Label>
                                     </div>
                                 ))}
                             </div>
@@ -327,6 +503,7 @@ export default function DashboardPage() {
             setItemToDelete={setItemToDelete}
             setGuestToInitiateExit={setGuestToInitiateExit}
             setGuestToExitImmediately={setGuestToExitImmediately}
+            handleOpenFloorDialog={handleOpenFloorDialog}
             {...dashboardActions}
           />
         ))}
@@ -345,7 +522,7 @@ export default function DashboardPage() {
          <AddPgSheet
             open={isAddPgSheetOpen}
             onOpenChange={setIsAddPgSheetOpen}
-            onPgAdded={() => { setIsAddPgSheetOpen(false) }}
+            onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
           />
       </Access>
       <Access feature="guests" action="add">

@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
@@ -149,12 +150,7 @@ export default function PgLayout(props: PgLayoutProps) {
           </AccordionContent>
         </AccordionItem>
       ))}
-       {isEditMode && (
-          <Access feature="properties" action="add">
-            <button data-tour="add-floor-button" onClick={() => handleOpenFloorDialog(null, pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
-          </Access>
-        )}
-        {(!pg.floors || pg.floors.length === 0) && isEditMode && (
+       {isEditMode && (!pg.floors || pg.floors.length === 0) && (
           <Access feature="properties" action="add">
             <button data-tour="add-floor-button" onClick={() => handleOpenFloorDialog(null, pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
           </Access>
