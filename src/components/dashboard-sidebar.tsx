@@ -7,31 +7,14 @@ import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
-import { navItems, type NavItem, plans } from '@/lib/mock-data';
+import { navItems, type NavItem } from '@/lib/mock-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut } from 'lucide-react';
-import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
+import type { RolePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
-
-// Helper function to check if a user should see a navigation item.
-const hasAccessToFeature = (
-  item: NavItem,
-  permissions: RolePermissions | null | undefined,
-  role: UserRole,
-  plan: any
-): boolean => {
-  // Always show core items like settings
-  if (item.feature === 'core') return true;
-  // For Owners, visibility is determined by the feature existing,
-  // the page itself will handle the subscription gate.
-  if (role === 'owner') return true;
-  // For Staff, visibility is determined by their specific permissions.
-  // Only show if they have 'view' permission for the feature.
-  return canAccess(permissions, role, item.feature, 'view');
-};
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
@@ -49,9 +32,11 @@ export default function DashboardSidebar() {
     );
   }
 
-  const visibleNavItems = navItems.filter(item => 
-    item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature))
-  );
+  const visibleNavItems = navItems.filter(item => {
+    if (currentUser.role === 'owner') return true; // Owners see all items
+    if (item.feature === 'core') return true; // Core items are always visible for staff
+    return canViewFeature(featurePermissions, currentUser.role, item.feature!);
+  });
 
   return (
     <aside className="w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground hidden md:flex">
