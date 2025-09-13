@@ -82,7 +82,15 @@ export default function DashboardPage() {
     handleConfirmInitiateExit,
     guestToExitImmediately, setGuestToExitImmediately,
     handleConfirmImmediateExit,
-    ...dashboardActions
+    handleOpenAddGuestDialog,
+    handleOpenEditGuestDialog,
+    handleOpenPaymentDialog,
+    handleOpenReminderDialog,
+    handleOpenSharedChargeDialog,
+    handleOpenFloorDialog,
+    handleOpenRoomDialog,
+    handleOpenBedDialog,
+    handleDelete
   } = useDashboard({ pgs, guests });
 
   const { currentUser } = useAppSelector(state => state.user);
@@ -108,13 +116,14 @@ export default function DashboardPage() {
   const pgsToDisplay = useMemo(() => {
     isFirstAvailableBedFound.current = false;
     let filteredPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
-
-    if (!searchTerm && activeFilters.length === 0 && !isEditMode) {
-        return filteredPgs;
+    
+    // When edit mode is on, we want to see all PGs unfiltered to edit their layouts.
+    if (isEditMode) {
+      return pgs;
     }
     
-    if (isEditMode) {
-        return pgs;
+    if (!searchTerm && activeFilters.length === 0) {
+        return filteredPgs;
     }
     
     const lowercasedSearchTerm = searchTerm.toLowerCase();
@@ -186,7 +195,7 @@ export default function DashboardPage() {
   
   const handleDeleteConfirm = () => {
     if (itemToDelete) {
-      dashboardActions.handleDelete(itemToDelete.type, itemToDelete.ids);
+      handleDelete(itemToDelete.type, itemToDelete.ids);
       setItemToDelete(null);
     }
   };
@@ -275,8 +284,8 @@ export default function DashboardPage() {
         <QuickActions 
             pgs={pgs}
             guests={guests}
-            handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
-            handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
+            handleOpenAddGuestDialog={handleOpenAddGuestDialog}
+            handleOpenPaymentDialog={handleOpenPaymentDialog}
             onSendMassReminder={handleSendMassReminder}
             onSendAnnouncement={handleSendAnnouncement}
         />
@@ -354,14 +363,14 @@ export default function DashboardPage() {
             setItemToDelete={setItemToDelete}
             setGuestToInitiateExit={setGuestToInitiateExit}
             setGuestToExitImmediately={setGuestToExitImmediately}
-            handleOpenAddGuestDialog={dashboardActions.handleOpenAddGuestDialog}
-            handleOpenEditGuestDialog={dashboardActions.handleOpenEditGuestDialog}
-            handleOpenPaymentDialog={dashboardActions.handleOpenPaymentDialog}
-            handleOpenReminderDialog={dashboardActions.handleOpenReminderDialog}
-            handleOpenSharedChargeDialog={dashboardActions.handleOpenSharedChargeDialog}
-            handleOpenFloorDialog={dashboardActions.handleOpenFloorDialog}
-            handleOpenRoomDialog={dashboardActions.handleOpenRoomDialog}
-            handleOpenBedDialog={dashboardActions.handleOpenBedDialog}
+            handleOpenAddGuestDialog={handleOpenAddGuestDialog}
+            handleOpenEditGuestDialog={handleOpenEditGuestDialog}
+            handleOpenPaymentDialog={handleOpenPaymentDialog}
+            handleOpenReminderDialog={handleOpenReminderDialog}
+            handleOpenSharedChargeDialog={handleOpenSharedChargeDialog}
+            handleOpenFloorDialog={handleOpenFloorDialog}
+            handleOpenRoomDialog={handleOpenRoomDialog}
+            handleOpenBedDialog={handleOpenBedDialog}
           />
         ))}
 
@@ -383,10 +392,10 @@ export default function DashboardPage() {
           />
       </Access>
       <Access feature="guests" action="add">
-        <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...dashboardActions} />
+        <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} {...{selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit}} />
       </Access>
       <Access feature="guests" action="edit">
-        <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={dashboardActions.guestToEdit} editGuestForm={dashboardActions.editGuestForm} handleEditGuestSubmit={dashboardActions.handleEditGuestSubmit} />
+        <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guestToEdit} {...{editGuestForm, handleEditGuestSubmit}} />
       </Access>
       <Access feature="properties" action="edit">
         <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} roomToEdit={roomToEdit} roomForm={roomForm} handleRoomSubmit={handleRoomSubmit} isSavingRoom={isSavingRoom} />
@@ -394,11 +403,11 @@ export default function DashboardPage() {
         <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} bedToEdit={bedToEdit} bedForm={bedForm} handleBedSubmit={handleBedSubmit} />
       </Access>
       <Access feature="finances" action="add">
-        <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} {...dashboardActions} />
-        <SharedChargeDialog isSharedChargeDialogOpen={isSharedChargeDialogOpen} setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen} {...dashboardActions} />
+        <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} selectedGuestForPayment={selectedGuestForPayment} {...{paymentForm, handlePaymentSubmit}} />
+        <SharedChargeDialog isSharedChargeDialogOpen={isSharedChargeDialogOpen} setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen} {...{sharedChargeForm, handleSharedChargeSubmit, roomForSharedCharge}} />
       </Access>
       <Access feature="complaints" action="edit">
-        <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} {...dashboardActions} />
+        <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} selectedGuestForReminder={selectedGuestForReminder} {...{isGeneratingReminder, reminderMessage}}/>
       </Access>
 
       <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>

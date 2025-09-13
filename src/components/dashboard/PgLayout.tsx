@@ -79,22 +79,23 @@ const RoomAccordionTrigger = ({ room }: { room: Room }) => {
 };
 
 
-interface PgLayoutProps {
+interface PgLayoutProps extends Pick<UseDashboardReturn, 
+  'isEditMode' | 
+  'setItemToDelete' |
+  'setGuestToInitiateExit' |
+  'setGuestToExitImmediately' |
+  'handleOpenAddGuestDialog' |
+  'handleOpenEditGuestDialog' |
+  'handleOpenPaymentDialog' |
+  'handleOpenReminderDialog' |
+  'handleOpenSharedChargeDialog' |
+  'handleOpenFloorDialog' |
+  'handleOpenRoomDialog' |
+  'handleOpenBedDialog'
+> {
   pg: PG;
   isFirstAvailableBedFound: MutableRefObject<boolean>;
-  isEditMode: boolean;
   viewMode: 'bed' | 'room';
-  setItemToDelete: UseDashboardReturn['setItemToDelete'];
-  setGuestToInitiateExit: UseDashboardReturn['setGuestToInitiateExit'];
-  setGuestToExitImmediately: UseDashboardReturn['setGuestToExitImmediately'];
-  handleOpenAddGuestDialog: UseDashboardReturn['handleOpenAddGuestDialog'];
-  handleOpenEditGuestDialog: UseDashboardReturn['handleOpenEditGuestDialog'];
-  handleOpenPaymentDialog: UseDashboardReturn['handleOpenPaymentDialog'];
-  handleOpenReminderDialog: UseDashboardReturn['handleOpenReminderDialog'];
-  handleOpenSharedChargeDialog: UseDashboardReturn['handleOpenSharedChargeDialog'];
-  handleOpenFloorDialog: UseDashboardReturn['handleOpenFloorDialog'];
-  handleOpenRoomDialog: UseDashboardReturn['handleOpenRoomDialog'];
-  handleOpenBedDialog: UseDashboardReturn['handleOpenBedDialog'];
 }
 
 export default function PgLayout(props: PgLayoutProps) {
