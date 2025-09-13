@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useMemo, useRef, useState, useEffect } from "react"
@@ -392,10 +391,22 @@ export default function DashboardPage() {
           />
       </Access>
       <Access feature="guests" action="add">
-        <AddGuestDialog isAddGuestDialogOpen={isAddGuestDialogOpen} setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} selectedBedForGuestAdd={selectedBedForGuestAdd} addGuestForm={addGuestForm} handleAddGuestSubmit={handleAddGuestSubmit} />
+        <AddGuestDialog 
+          isAddGuestDialogOpen={isAddGuestDialogOpen} 
+          setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} 
+          selectedBedForGuestAdd={selectedBedForGuestAdd} 
+          addGuestForm={addGuestForm} 
+          handleAddGuestSubmit={handleAddGuestSubmit} 
+        />
       </Access>
       <Access feature="guests" action="edit">
-        <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guestToEdit} editGuestForm={editGuestForm} handleEditGuestSubmit={handleEditGuestSubmit} />
+        <EditGuestDialog 
+          isEditGuestDialogOpen={isEditGuestDialogOpen} 
+          setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} 
+          guestToEdit={guestToEdit} 
+          editGuestForm={editGuestForm} 
+          handleEditGuestSubmit={handleEditGuestSubmit} 
+        />
       </Access>
       <Access feature="properties" action="edit">
         <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} roomToEdit={roomToEdit} roomForm={roomForm} handleRoomSubmit={handleRoomSubmit} isSavingRoom={isSavingRoom} />
@@ -403,11 +414,29 @@ export default function DashboardPage() {
         <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} bedToEdit={bedToEdit} bedForm={bedForm} handleBedSubmit={handleBedSubmit} />
       </Access>
       <Access feature="finances" action="add">
-        <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} selectedGuestForPayment={selectedGuestForPayment} paymentForm={paymentForm} handlePaymentSubmit={handlePaymentSubmit} />
-        <SharedChargeDialog isSharedChargeDialogOpen={isSharedChargeDialogOpen} setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen} roomForSharedCharge={roomForSharedCharge} sharedChargeForm={sharedChargeForm} handleSharedChargeSubmit={handleSharedChargeSubmit} />
+        <PaymentDialog 
+          isPaymentDialogOpen={isPaymentDialogOpen} 
+          setIsPaymentDialogOpen={setIsPaymentDialogOpen} 
+          selectedGuestForPayment={selectedGuestForPayment} 
+          paymentForm={paymentForm} 
+          handlePaymentSubmit={handlePaymentSubmit} 
+        />
+        <SharedChargeDialog 
+          isSharedChargeDialogOpen={isSharedChargeDialogOpen} 
+          setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen} 
+          roomForSharedCharge={roomForSharedCharge} 
+          sharedChargeForm={sharedChargeForm} 
+          handleSharedChargeSubmit={handleSharedChargeSubmit} 
+        />
       </Access>
       <Access feature="complaints" action="edit">
-        <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} selectedGuestForReminder={selectedGuestForReminder} isGeneratingReminder={isGeneratingReminder} reminderMessage={reminderMessage}/>
+        <ReminderDialog 
+          isReminderDialogOpen={isReminderDialogOpen} 
+          setIsReminderDialogOpen={setIsReminderDialogOpen} 
+          selectedGuestForReminder={selectedGuestForReminder} 
+          isGeneratingReminder={isGeneratingReminder} 
+          reminderMessage={reminderMessage}
+        />
       </Access>
 
       <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>

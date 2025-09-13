@@ -15,12 +15,23 @@ import { canAccess } from '@/lib/permissions';
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "../ui/avatar"
 
-interface BedCardProps extends Omit<UseDashboardReturn, 'stats'> {
+interface BedCardProps extends Pick<UseDashboardReturn,
+  'isEditMode' |
+  'setItemToDelete' |
+  'setGuestToInitiateExit' |
+  'setGuestToExitImmediately' |
+  'handleOpenAddGuestDialog' |
+  'handleOpenEditGuestDialog' |
+  'handleOpenPaymentDialog' |
+  'handleOpenReminderDialog' |
+  'handleOpenRoomDialog' |
+  'handleOpenSharedChargeDialog' |
+  'handleOpenBedDialog'
+> {
   room: Room
   floor: Floor
   pg: PG
   isFirstAvailableBedFound: MutableRefObject<boolean>
-  handleOpenBedDialog: (bed: Bed | null, roomId: string, floorId: string) => void;
 }
 
 export default function BedCard(props: BedCardProps) {
