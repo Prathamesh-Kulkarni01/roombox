@@ -580,6 +580,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
     handleOpenRoomDialog, openAddFloorDialog, openEditFloorDialog, handleOpenBedDialog,
     handleDelete,
+    handleOpenFloorDialog,
     isSavingRoom
   }
 }
