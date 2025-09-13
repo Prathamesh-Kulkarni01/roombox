@@ -38,6 +38,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import QuickActions from "@/components/dashboard/QuickActions"
+import GuidedSetup from "@/components/dashboard/GuidedSetup"
 
 const bedLegend: Record<BedStatus, { label: string, className: string }> = {
   available: { label: 'Available', className: 'bg-yellow-200' },
@@ -266,19 +267,45 @@ export default function DashboardPage() {
 
   if (pgs.length === 0) {
     return (
-        <>
-            <AddPgSheet
+        <div className="flex flex-col gap-6">
+            <GuidedSetup
+                pgs={pgs}
+                guests={guests}
+                onAddProperty={() => setIsAddPgSheetOpen(true)}
+                onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`)}}
+                onAddGuest={() => {
+                    const firstAvailableBed = pgs[0]?.floors?.[0]?.rooms?.[0]?.beds?.find(b => !b.guestId);
+                    if (firstAvailableBed) {
+                        handleOpenAddGuestDialog(firstAvailableBed, pgs[0].floors[0].rooms[0], pgs[0]);
+                    }
+                }}
+            />
+             <AddPgSheet
                 open={isAddPgSheetOpen}
                 onOpenChange={setIsAddPgSheetOpen}
                 onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
             />
-        </>
+        </div>
     );
   }
 
   return (
     <>
       <div className="flex flex-col gap-4">
+        <GuidedSetup
+            pgs={pgs}
+            guests={guests}
+            onAddProperty={() => setIsAddPgSheetOpen(true)}
+            onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`)}}
+            onAddGuest={() => {
+                const firstAvailableBed = pgs.flatMap(pg => pg.floors?.flatMap(f => f.rooms.flatMap(r => r.beds.map(b => ({pg, room:r, bed:b}))))).find(b => !b.bed.guestId);
+                if (firstAvailableBed) {
+                    handleOpenAddGuestDialog(firstAvailableBed.bed, firstAvailableBed.room, firstAvailableBed.pg);
+                } else {
+                    toast({variant: 'destructive', title: 'No Vacant Beds', description: "Please add a bed in 'Edit Building' mode first."})
+                }
+            }}
+        />
         <StatsCards stats={stats} />
         <QuickActions 
             pgs={pgs}

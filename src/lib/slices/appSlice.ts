@@ -1,11 +1,6 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface TourState {
-    hasCompletedOnboarding: boolean;
-    hasCompletedLayout: boolean;
-}
-
 interface AppState {
     isLoading: boolean;
     selectedPgId: string | null;
