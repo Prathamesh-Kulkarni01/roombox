@@ -4,28 +4,33 @@
 import React, { useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Circle, Building, Layout, UserPlus, ArrowRight } from 'lucide-react';
+import { CheckCircle, Circle, Building, Layout, UserPlus, ArrowRight, UtensilsCrossed, Wallet, Contact } from 'lucide-react';
 import { useAppSelector } from '@/lib/hooks';
 import { useRouter } from 'next/navigation';
-import type { PG, Guest } from '@/lib/types';
+import type { PG, Guest, Staff, Expense } from '@/lib/types';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 interface GuidedSetupProps {
   pgs: PG[];
   guests: Guest[];
+  staff: Staff[];
+  expenses: Expense[];
   onAddProperty: () => void;
   onSetupLayout: () => void;
   onAddGuest: () => void;
 }
 
-export default function GuidedSetup({ pgs, guests, onAddProperty, onSetupLayout, onAddGuest }: GuidedSetupProps) {
+export default function GuidedSetup({ pgs, guests, staff, expenses, onAddProperty, onSetupLayout, onAddGuest }: GuidedSetupProps) {
   const router = useRouter();
   const activeStepRef = useRef<HTMLDivElement>(null);
   
   const hasPgs = pgs.length > 0;
   const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
   const hasGuests = guests.length > 0;
+  const hasStaff = staff.length > 0;
+  const hasMenu = hasPgs && pgs.some(p => p.menu && Object.values(p.menu).some(day => day.breakfast || day.lunch || day.dinner));
+  const hasExpenses = expenses.length > 0;
 
   const steps = [
     {
@@ -36,6 +41,7 @@ export default function GuidedSetup({ pgs, guests, onAddProperty, onSetupLayout,
       isComplete: hasPgs,
       action: onAddProperty,
       actionText: "Add Property",
+      disabled: false,
     },
     {
       id: 2,
@@ -57,10 +63,40 @@ export default function GuidedSetup({ pgs, guests, onAddProperty, onSetupLayout,
       actionText: "Add Guest",
       disabled: !hasLayout,
     },
+    {
+        id: 4,
+        title: "Add a Staff Member",
+        description: "Manage your team by adding staff like managers or cooks.",
+        icon: Contact,
+        isComplete: hasStaff,
+        action: () => router.push('/dashboard/staff'),
+        actionText: "Go to Staff",
+        disabled: !hasPgs,
+    },
+    {
+        id: 5,
+        title: "Set Weekly Menu",
+        description: "Plan your meals for the week so tenants can see it.",
+        icon: UtensilsCrossed,
+        isComplete: hasMenu,
+        action: () => router.push('/dashboard/food'),
+        actionText: "Set Menu",
+        disabled: !hasPgs,
+    },
+     {
+        id: 6,
+        title: "Log Your First Expense",
+        description: "Start tracking your property expenses to manage finances.",
+        icon: Wallet,
+        isComplete: hasExpenses,
+        action: () => router.push('/dashboard/expense'),
+        actionText: "Go to Expenses",
+        disabled: !hasPgs,
+    }
   ];
 
   const activeStep = steps.find(step => !step.isComplete);
-  const showComponent = !hasLayout || !hasGuests;
+  const allStepsComplete = !activeStep;
 
   useEffect(() => {
     if (activeStepRef.current) {
@@ -69,7 +105,7 @@ export default function GuidedSetup({ pgs, guests, onAddProperty, onSetupLayout,
   }, [activeStep?.id]);
 
 
-  if (!showComponent) {
+  if (allStepsComplete) {
     return null;
   }
 
@@ -77,7 +113,7 @@ export default function GuidedSetup({ pgs, guests, onAddProperty, onSetupLayout,
     <Card className="mb-6">
       <CardHeader>
         <CardTitle>Welcome to RentSutra! Let's Get You Set Up.</CardTitle>
-        <CardDescription>Follow these simple steps to get your property up and running.</CardDescription>
+        <CardDescription>Follow these steps to get your property fully operational.</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="w-full">

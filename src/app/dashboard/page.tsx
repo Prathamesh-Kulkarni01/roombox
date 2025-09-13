@@ -51,10 +51,12 @@ const bedLegend: Record<BedStatus, { label: string, className: string }> = {
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
-  const { pgs, guests, complaints } = useAppSelector(state => ({
+  const { pgs, guests, complaints, staff, expenses } = useAppSelector(state => ({
     pgs: state.pgs.pgs,
     guests: state.guests.guests,
     complaints: state.complaints.complaints,
+    staff: state.staff.staff,
+    expenses: state.expenses.expenses,
   }));
 
   const { isLoading, selectedPgId } = useAppSelector(state => state.app);
@@ -264,37 +266,15 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  if (pgs.length === 0) {
-    return (
-        <div className="flex flex-col gap-6">
-            <GuidedSetup
-                pgs={pgs}
-                guests={guests}
-                onAddProperty={() => setIsAddPgSheetOpen(true)}
-                onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`)}}
-                onAddGuest={() => {
-                    const firstAvailableBed = pgs[0]?.floors?.[0]?.rooms?.[0]?.beds?.find(b => !b.guestId);
-                    if (firstAvailableBed) {
-                        handleOpenAddGuestDialog(firstAvailableBed, pgs[0].floors[0].rooms[0], pgs[0]);
-                    }
-                }}
-            />
-             <AddPgSheet
-                open={isAddPgSheetOpen}
-                onOpenChange={setIsAddPgSheetOpen}
-                onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
-            />
-        </div>
-    );
-  }
-
+  
   return (
     <>
       <div className="flex flex-col gap-4">
         <GuidedSetup
             pgs={pgs}
             guests={guests}
+            staff={staff}
+            expenses={expenses}
             onAddProperty={() => setIsAddPgSheetOpen(true)}
             onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`)}}
             onAddGuest={() => {
