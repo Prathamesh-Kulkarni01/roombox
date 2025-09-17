@@ -141,6 +141,10 @@ export default function GuestProfilePage() {
     const { totalDue, balanceBroughtForward } = useMemo(() => {
         if (!guest) return { totalDue: 0, balanceBroughtForward: 0 };
         
+        if (guest.rentStatus === 'paid') {
+            return { totalDue: 0, balanceBroughtForward: guest.balanceBroughtForward || 0 };
+        }
+
         const balanceBf = guest.balanceBroughtForward || 0;
         const currentMonthRent = guest.rentAmount;
         const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
