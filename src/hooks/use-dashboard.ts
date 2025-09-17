@@ -17,6 +17,7 @@ import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateG
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
 import { roomSchema } from "@/lib/actions/roomActions"
+import { sanitizeObjectForFirebase } from "@/lib/utils"
 
 const addGuestSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -106,7 +107,19 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     resolver: zodResolver(paymentSchema),
     defaultValues: { paymentMethod: 'cash' }
   });
-  const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema) });
+  const roomForm = useForm<z.infer<typeof roomSchema>>({ 
+    resolver: zodResolver(roomSchema),
+    defaultValues: {
+      roomTitle: "",
+      monthlyRent: 0,
+      securityDeposit: 0,
+      amenities: [],
+      rules: [],
+      preferredTenants: [],
+      meals: [],
+      images: [],
+    }
+  });
   const sharedChargeForm = useForm<z.infer<typeof sharedChargeSchema>>({ resolver: zodResolver(sharedChargeSchema) });
 
 
@@ -321,13 +334,14 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
             if (roomToEdit) {
                 const roomIndex = floor.rooms.findIndex(r => r.id === roomToEdit.id);
                 if (roomIndex !== -1) {
-                    floor.rooms[roomIndex] = { ...floor.rooms[roomIndex], ...values, rent: values.monthlyRent || 0, deposit: values.securityDeposit || 0, name: values.roomTitle };
+                    const cleanValues = sanitizeObjectForFirebase(values);
+                    floor.rooms[roomIndex] = { ...floor.rooms[roomIndex], ...cleanValues, rent: values.monthlyRent || 0, deposit: values.securityDeposit || 0, name: values.roomTitle };
                 }
             } else {
+                const cleanValues = sanitizeObjectForFirebase(values);
                 const newRoom: Room = { 
                   id: `room-${Date.now()}`, 
-                  ...roomSchema.default(), 
-                  ...values, 
+                  ...cleanValues, 
                   pgId, 
                   floorId, 
                   beds: [], 
