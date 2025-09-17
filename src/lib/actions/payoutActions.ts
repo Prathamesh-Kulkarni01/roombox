@@ -11,14 +11,27 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-const bankAccountSchema = z.object({
-  name: z.string().min(3, "Account holder name is required."),
-  account_number: z.string().min(5, "Account number is required."),
-  ifsc: z.string().length(11, "IFSC code must be 11 characters."),
+const payoutAccountSchema = z.object({
+  payoutMethod: z.enum(['bank_account', 'vpa']),
+  name: z.string().min(3, "Account holder name is required.").optional(),
+  account_number: z.string().min(5, "Account number is required.").optional(),
+  ifsc: z.string().length(11, "IFSC code must be 11 characters.").optional(),
+  vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
+}).refine(data => {
+    if (data.payoutMethod === 'bank_account') {
+        return !!data.name && !!data.account_number && !!data.ifsc;
+    }
+    if (data.payoutMethod === 'vpa') {
+        return !!data.vpa;
+    }
+    return false;
+}, {
+    message: 'Please fill in the required fields for the selected payout method.',
+    path: ['payoutMethod'],
 });
 
-export async function createOrUpdatePayoutAccount(ownerId: string, accountDetails: z.infer<typeof bankAccountSchema>) {
-    const validation = bankAccountSchema.safeParse(accountDetails);
+export async function createOrUpdatePayoutAccount(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
+    const validation = payoutAccountSchema.safeParse(accountDetails);
     if (!validation.success) {
         return { success: false, error: "Invalid account details provided." };
     }
@@ -32,25 +45,45 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
             return { success: false, error: "Owner not found." };
         }
         const owner = ownerDoc.data() as User;
+
+        let accountPayload;
+        let payoutDetailsToSave;
+
+        if (validation.data.payoutMethod === 'vpa') {
+            accountPayload = {
+                type: 'vpa' as const,
+                address: validation.data.vpa!,
+            };
+            payoutDetailsToSave = {
+                type: 'vpa',
+                vpa_address: validation.data.vpa!,
+            };
+        } else {
+            accountPayload = {
+                type: 'bank_account' as const,
+                name: validation.data.name!,
+                account_number: validation.data.account_number!,
+                ifsc: validation.data.ifsc!,
+            };
+             payoutDetailsToSave = {
+                type: 'bank_account',
+                name: validation.data.name!,
+                account_number_last4: validation.data.account_number!.slice(-4),
+            };
+        }
         
         const linkedAccountPayload = {
             email: owner.email || `${owner.id}@rentvastu.com`,
             name: owner.name,
             type: 'customer' as const,
-            account: {
-                ...validation.data,
-                type: 'bank_account' as const,
-            }
+            account: accountPayload,
         };
 
         const linkedAccount = await razorpay.linkedAccount.create(linkedAccountPayload);
         
         await ownerDocRef.update({
             'subscription.razorpay_linked_account_id': linkedAccount.id,
-            'subscription.payoutDetails': {
-                name: validation.data.name,
-                account_number_last4: validation.data.account_number.slice(-4),
-            }
+            'subscription.payoutDetails': payoutDetailsToSave
         });
 
         return { success: true, linkedAccountId: linkedAccount.id };

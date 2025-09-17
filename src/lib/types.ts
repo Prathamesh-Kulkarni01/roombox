@@ -217,8 +217,10 @@ export interface User {
     razorpay_payment_id?: string;
     razorpay_linked_account_id?: string;
     payoutDetails?: {
-        name: string;
-        account_number_last4: string;
+        type: 'bank_account' | 'vpa';
+        name?: string;
+        account_number_last4?: string;
+        vpa_address?: string;
     };
     trialEndDate?: string; // ISO string
     premiumFeatures?: PremiumFeatures;

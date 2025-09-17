@@ -35,11 +35,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { KycDocumentConfig, ChargeTemplate, UserRole } from '@/lib/types'
 import { PRICING_CONFIG } from '@/lib/mock-data';
 import { createOrUpdatePayoutAccount } from "@/lib/actions/payoutActions"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+
 
 const payoutAccountSchema = z.object({
-  name: z.string().min(3, "Account holder name is required."),
-  account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits."),
-  ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format."),
+  payoutMethod: z.enum(['bank_account', 'vpa']),
+  name: z.string().min(3, "Account holder name is required.").optional(),
+  account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
+  ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
+  vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
+}).refine(data => {
+    if (data.payoutMethod === 'bank_account') {
+        return !!data.name && !!data.account_number && !!data.ifsc;
+    }
+    if (data.payoutMethod === 'vpa') {
+        return !!data.vpa;
+    }
+    return false;
+}, {
+    message: 'Please fill in the required fields for the selected payout method.',
+    path: ['payoutMethod'],
 });
 
 const chargeTemplateSchema = z.object({
@@ -95,6 +110,9 @@ export default function SettingsPage() {
 
   const payoutForm = useForm<PayoutAccountFormValues>({
     resolver: zodResolver(payoutAccountSchema),
+    defaultValues: {
+        payoutMethod: 'bank_account'
+    }
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -107,6 +125,7 @@ export default function SettingsPage() {
   }, [kycConfigs, kycConfigForm]);
 
   const calculationType = chargeTemplateForm.watch('calculation');
+  const payoutMethod = payoutForm.watch('payoutMethod');
 
   const handleOpenTemplateDialog = (template: ChargeTemplate | null) => {
     setTemplateToEdit(template);
@@ -301,24 +320,69 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Banknote/> Payout Settings</CardTitle>
-                <CardDescription>Link your bank account to receive rent payments instantly.</CardDescription>
+                <CardDescription>Link your bank account or UPI to receive rent payments instantly.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Form {...payoutForm}>
-                    <form id="payout-form" onSubmit={payoutForm.handleSubmit(handlePayoutAccountSubmit)} className="space-y-4">
-                        <FormField control={payoutForm.control} name="name" render={({ field }) => (
-                            <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="As per bank records" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={payoutForm.control} name="account_number" render={({ field }) => (
-                            <FormItem><FormLabel>Bank Account Number</FormLabel><FormControl><Input placeholder="Enter your bank account number" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (
-                            <FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="Enter your bank's IFSC code" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
+                    <form id="payout-form" onSubmit={payoutForm.handleSubmit(handlePayoutAccountSubmit)} className="space-y-6">
+                        <FormField
+                            control={payoutForm.control}
+                            name="payoutMethod"
+                            render={({ field }) => (
+                                <FormItem className="space-y-3">
+                                    <FormLabel>Payout Method</FormLabel>
+                                    <FormControl>
+                                        <RadioGroup
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                            className="flex space-x-4"
+                                        >
+                                            <FormItem className="flex items-center space-x-2">
+                                                <FormControl><RadioGroupItem value="bank_account" id="bank_account" /></FormControl>
+                                                <FormLabel htmlFor="bank_account" className="font-normal">Bank Account</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-2">
+                                                <FormControl><RadioGroupItem value="vpa" id="vpa" /></FormControl>
+                                                <FormLabel htmlFor="vpa" className="font-normal">UPI ID</FormLabel>
+                                            </FormItem>
+                                        </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {payoutMethod === 'bank_account' && (
+                            <div className="space-y-4 p-4 border rounded-md">
+                                <FormField control={payoutForm.control} name="name" render={({ field }) => (
+                                    <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="As per bank records" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={payoutForm.control} name="account_number" render={({ field }) => (
+                                    <FormItem><FormLabel>Bank Account Number</FormLabel><FormControl><Input placeholder="Enter your bank account number" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (
+                                    <FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="Enter your bank's IFSC code" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                            </div>
+                        )}
+
+                        {payoutMethod === 'vpa' && (
+                            <div className="space-y-4 p-4 border rounded-md">
+                                <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
+                                    <FormItem><FormLabel>UPI ID (VPA)</FormLabel><FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                            </div>
+                        )}
+
                          {currentUser.subscription?.payoutDetails && (
                             <Alert variant="default" className="bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200">
                                 <AlertTitle>Account Linked</AlertTitle>
-                                <AlertDescription>An account ending in ****{currentUser.subscription.payoutDetails.account_number_last4} is linked for payouts.</AlertDescription>
+                                <AlertDescription>
+                                    {currentUser.subscription.payoutDetails.type === 'vpa'
+                                        ? `Your UPI ID ${currentUser.subscription.payoutDetails.vpa_address} is linked for payouts.`
+                                        : `An account ending in ****${currentUser.subscription.payoutDetails.account_number_last4} is linked for payouts.`
+                                    }
+                                </AlertDescription>
                             </Alert>
                          )}
                     </form>
