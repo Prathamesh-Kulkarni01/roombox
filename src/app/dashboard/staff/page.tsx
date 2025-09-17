@@ -43,6 +43,52 @@ const roleColors: Record<Staff['role'], string> = {
     other: "bg-gray-100 text-gray-800",
 }
 
+const StaffForm = ({ form, onSubmit }: { form: any, onSubmit: (data: StaffFormValues) => void }) => {
+    const { pgs } = useAppSelector(state => state.pgs);
+    const { currentUser } = useAppSelector(state => state.user);
+    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const staffToEdit = form.getValues(); // Not ideal, but works for this context
+    
+    return (
+         <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="staff-form">
+                <FormField control={form.control} name="pgId" render={({ field }) => (
+                    <FormItem><FormLabel>Property</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select a property" /></SelectTrigger></FormControl>
+                            <SelectContent>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent>
+                        </Select><FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Suresh Kumar" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem><FormLabel>Email (Optional)</FormLabel><FormControl><Input type="email" placeholder="e.g., suresh@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="phone" render={({ field }) => (
+                    <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                    <FormField control={form.control} name="role" render={({ field }) => (
+                    <FormItem><FormLabel>Role</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
+                            <SelectContent>{Object.keys(roleColors).map(role => (<SelectItem key={role} value={role} className="capitalize">{role}</SelectItem>))}</SelectContent>
+                        </Select><FormMessage />
+                    </FormItem>
+                )} />
+                    <FormField control={form.control} name="salary" render={({ field }) => (
+                    <FormItem><FormLabel>Salary</FormLabel><FormControl><Input type="number" placeholder="e.g., 15000" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                    <Button type="submit" disabled={staffToEdit.id ? !canAccess(featurePermissions, currentUser?.role, 'staff', 'edit') : !canAccess(featurePermissions, currentUser?.role, 'staff', 'add')}>{staffToEdit.id ? 'Save Changes' : 'Add Staff'}</Button>
+                </DialogFooter>
+            </form>
+        </Form>
+    )
+}
+
 export default function StaffPage() {
     const dispatch = useAppDispatch()
     const { pgs } = useAppSelector(state => state.pgs)
@@ -65,7 +111,12 @@ export default function StaffPage() {
                 form.reset(staffToEdit);
             } else {
                 form.reset({
-                    pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined)
+                    pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
+                    name: '',
+                    email: '',
+                    phone: '',
+                    salary: undefined,
+                    role: undefined,
                 });
             }
         }
@@ -231,42 +282,7 @@ export default function StaffPage() {
                     <DialogTitle>{staffToEdit ? 'Edit Staff Member' : 'Add New Staff Member'}</DialogTitle>
                     <DialogDescription>Fill in the details for the staff member.</DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField control={form.control} name="pgId" render={({ field }) => (
-                            <FormItem><FormLabel>Property</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a property" /></SelectTrigger></FormControl>
-                                    <SelectContent>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent>
-                                </Select><FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="name" render={({ field }) => (
-                            <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Suresh Kumar" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                         <FormField control={form.control} name="email" render={({ field }) => (
-                            <FormItem><FormLabel>Email (Optional)</FormLabel><FormControl><Input type="email" placeholder="e.g., suresh@example.com" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="phone" render={({ field }) => (
-                            <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                         <FormField control={form.control} name="role" render={({ field }) => (
-                            <FormItem><FormLabel>Role</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
-                                    <SelectContent>{Object.keys(roleColors).map(role => (<SelectItem key={role} value={role} className="capitalize">{role}</SelectItem>))}</SelectContent>
-                                </Select><FormMessage />
-                            </FormItem>
-                        )} />
-                         <FormField control={form.control} name="salary" render={({ field }) => (
-                            <FormItem><FormLabel>Salary</FormLabel><FormControl><Input type="number" placeholder="e.g., 15000" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <DialogFooter>
-                            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                            <Button type="submit" disabled={staffToEdit ? !canAccess(featurePermissions, currentUser?.role, 'staff', 'edit') : !canAccess(featurePermissions, currentUser?.role, 'staff', 'add')}>{staffToEdit ? 'Save Changes' : 'Add Staff'}</Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                <StaffForm form={form} onSubmit={onSubmit} />
             </DialogContent>
         </Dialog>
     )
