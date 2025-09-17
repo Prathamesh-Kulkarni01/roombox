@@ -24,6 +24,7 @@ import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense
 import { setLoading } from '@/lib/slices/appSlice'
 import { fetchPermissions } from '@/lib/slices/permissionsSlice'
 import { fetchKycConfig } from '@/lib/slices/kycConfigSlice'
+import { initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications'
 
 
 function AuthHandler({ children }: { children: ReactNode }) {
@@ -32,6 +33,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
   const authListenerStarted = useRef(false);
   const [dataListeners, setDataListeners] = useState<Unsubscribe[]>([]);
   const { toast } = useToast();
+  const { selectedPgId } = useAppSelector((state) => state.app);
 
   useEffect(() => {
     if (isFirebaseConfigured()) {
@@ -102,7 +104,22 @@ function AuthHandler({ children }: { children: ReactNode }) {
         return; // Can't fetch data without an owner ID
     }
 
+    // Initialize Firebase Messaging (legacy helper)
     initializeFirebaseMessaging(currentUser.id);
+    // Also initialize new push flow and persist token for UI
+    (async () => {
+      try {
+        const res = await initPushAndSaveToken(currentUser.id);
+        if(res.token) {
+          const baseTopics: string[] = ['app', `role-${currentUser.role}`];
+          const ownerTopics: string[] = currentUser.role === 'owner' ? ['tenants-all'] : [];
+          const pgTopics: string[] = selectedPgId ? [`pg-${selectedPgId}-tenants`] : [];
+          await subscribeToTopic({ token: res.token, topics: [...baseTopics, ...ownerTopics, ...pgTopics], userId: currentUser.id })
+        }
+      } catch (e) {
+        console.error('[Push] Auto init failed:', e);
+      }
+    })();
 
     let unsubs: Unsubscribe[] = [];
 

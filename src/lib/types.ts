@@ -278,3 +278,24 @@ export interface BillingDetails {
         pricingConfig: typeof import('./mock-data').PRICING_CONFIG;
     };
 }
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  date: string; // ISO string
+  isRead: boolean;
+  link?: string;
+  targetId?: string;
+}
+
+export type UserRole = 'owner' | 'tenant' | StaffRole;
+
+export interface Staff {
+  id: string;
+  name: string;
+  role: StaffRole;
+  pgId: string;
+  userId?: string | null;
+}

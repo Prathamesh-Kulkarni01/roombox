@@ -65,7 +65,7 @@ export default function DashboardLayout({
       router.replace('/login');
     }
   }, [isLoading, currentUser, router]);
-
+console.log(currentUser)
   if (isLoading || !currentUser || !allowedDashboardRoles.includes(currentUser.role)) {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
