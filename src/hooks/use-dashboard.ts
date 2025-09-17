@@ -1,4 +1,6 @@
 
+'use client';
+
 import { useState, useEffect, useMemo, useTransition } from "react"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -52,21 +54,6 @@ interface UseDashboardProps {
   pgs: PG[];
   guests: Guest[];
 }
-
-const cleanUndefinedRecursive = (obj: any): any => {
-    if (Array.isArray(obj)) {
-        return obj.map(v => (v && typeof v === 'object') ? cleanUndefinedRecursive(v) : v);
-    } else if (obj !== null && typeof obj === 'object') {
-        return Object.keys(obj).reduce((acc, key) => {
-            const value = obj[key];
-            if (value !== undefined) {
-                acc[key] = (value && typeof value === 'object') ? cleanUndefinedRecursive(value) : value;
-            }
-            return acc;
-        }, {} as any);
-    }
-    return obj;
-};
 
 export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const dispatch = useAppDispatch();
@@ -211,38 +198,23 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       if (!selectedGuestForPayment) return;
       
       const guest = selectedGuestForPayment;
-      const paymentDate = new Date();
       
       const newPayment: Payment = {
           id: `pay-${Date.now()}`,
-          date: paymentDate.toISOString(),
+          date: new Date().toISOString(),
           amount: values.amountPaid,
           method: values.paymentMethod,
           forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
       };
 
       const updatedGuest = produce(guest, draft => {
-          if (!draft.paymentHistory) {
-              draft.paymentHistory = [];
-          }
+          if (!draft.paymentHistory) draft.paymentHistory = [];
           draft.paymentHistory.push(newPayment);
-
           draft.rentPaidAmount = (draft.rentPaidAmount || 0) + values.amountPaid;
-          
-          const balanceBf = draft.balanceBroughtForward || 0;
-          const totalBill = balanceBf + draft.rentAmount + (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-
-          if (draft.rentPaidAmount >= totalBill) {
-              draft.rentStatus = 'paid';
-              draft.balanceBroughtForward = draft.rentPaidAmount - totalBill; // Carry over surplus
-              draft.rentPaidAmount = 0; // Reset for next cycle
-              draft.additionalCharges = []; // Clear charges for the cycle
-              draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
-          } else {
-              draft.rentStatus = 'partial';
-          }
       });
       
+      // Dispatch the update to save the payment record and new paid amount.
+      // The reconciliation logic is now centralized in the rent reconciliation flow.
       dispatch(updateGuestAction({ updatedGuest }));
       setIsPaymentDialogOpen(false);
       setSelectedGuestForPayment(null);
