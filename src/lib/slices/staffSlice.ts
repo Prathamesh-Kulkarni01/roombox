@@ -5,6 +5,7 @@ import { db, isFirebaseConfigured, auth } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { sendSignInLinkToEmail } from 'firebase/auth';
+import { deletePg } from './pgsSlice';
 
 interface StaffState {
     staff: Staff[];
@@ -133,6 +134,9 @@ const staffSlice = createSlice({
             })
             .addCase(deleteStaff.fulfilled, (state, action) => {
                 state.staff = state.staff.filter(s => s.id !== action.payload);
+            })
+            .addCase(deletePg.fulfilled, (state, action: PayloadAction<string>) => {
+                state.staff = state.staff.filter(s => s.pgId !== action.payload);
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.staff = [];

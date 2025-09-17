@@ -4,6 +4,7 @@ import type { Complaint } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc, query, where } from 'firebase/firestore';
 import { RootState } from '../store';
+import { deletePg } from './pgsSlice';
 
 interface ComplaintsState {
     complaints: Complaint[];
@@ -76,6 +77,9 @@ const complaintsSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(deletePg.fulfilled, (state, action: PayloadAction<string>) => {
+                state.complaints = state.complaints.filter(c => c.pgId !== action.payload);
+            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.complaints = [];
             });

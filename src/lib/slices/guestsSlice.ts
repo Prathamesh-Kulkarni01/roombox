@@ -599,7 +599,7 @@ const guestsSlice = createSlice({
                     }
                 });
             })
-            .addCase(deletePg.fulfilled, (state, action) => {
+            .addCase(deletePg.fulfilled, (state, action: PayloadAction<string>) => {
                 // Also remove guests from the deleted PG from local state
                 state.guests = state.guests.filter(g => g.pgId !== action.payload);
             })
