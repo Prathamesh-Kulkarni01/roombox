@@ -44,13 +44,12 @@ export async function POST(req: NextRequest) {
 
       const adminDb = await getAdminDb();
       const guestDocRef = adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+      
       const guestDoc = await guestDocRef.get();
-
       if (!guestDoc.exists) {
         console.error(`Webhook handler: Guest with ID ${guestId} not found.`);
         return NextResponse.json({ success: true, message: 'Guest not found.' });
       }
-
       const guest = guestDoc.data() as Guest;
       
       const newPayment: Payment = {
