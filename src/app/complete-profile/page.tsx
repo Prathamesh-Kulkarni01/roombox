@@ -1,45 +1,80 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Loader2, Building2, User } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { HomeIcon } from 'lucide-react'
-import { useAppSelector } from '@/lib/hooks'
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { finalizeUserRole } from '@/lib/slices/userSlice'
 
 export default function CompleteProfilePage() {
     const router = useRouter()
+    const dispatch = useAppDispatch()
     const { toast } = useToast()
-    const [name, setName] = useState('')
-    const [loading, setLoading] = useState(false)
+    const [loadingRole, setLoadingRole] = useState<'owner' | 'tenant' | null>(null)
+    const { currentUser } = useAppSelector(state => state.user)
 
-    // This page is part of the old phone auth flow.
-    // It is no longer used with Google Sign-In.
-    // We redirect to the dashboard.
-    useEffect(() => {
-        router.replace('/dashboard')
-    }, [router])
+    const handleRoleSelection = async (role: 'owner' | 'tenant') => {
+        if (!currentUser) {
+            toast({ variant: 'destructive', title: 'Error', description: 'User session not found. Please log in again.'})
+            router.push('/login');
+            return;
+        }
 
+        setLoadingRole(role)
+        if (role === 'tenant') {
+            // For tenants, we just guide them.
+            toast({ title: 'Check with your PG Manager', description: 'Please ask your manager for an invitation link to join your property.', duration: 10000 });
+            setLoadingRole(null);
+            // Optional: Log them out so they don't get stuck, and wait for the invite link.
+            // await dispatch(logoutUser());
+            // router.push('/login');
+            return;
+        }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
+        try {
+            await dispatch(finalizeUserRole(role)).unwrap();
+            toast({ title: 'Welcome!', description: "Your owner account has been created."});
+            router.push('/dashboard');
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Setup Failed', description: error.message || 'Could not set up your account.' });
+            setLoadingRole(null);
+        }
     }
     
     return (
         <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
-            <Card className="w-full max-w-sm">
+            <Card className="w-full max-w-md">
                  <CardHeader className="text-center">
-                    <CardTitle className="text-2xl">Redirecting...</CardTitle>
+                    <CardTitle className="text-2xl">One Last Step!</CardTitle>
                     <CardDescription>
-                        Completing your profile is now handled automatically.
+                        What brings you to RentSutra? Tell us your role to personalize your experience.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-center text-sm text-muted-foreground">Please wait while we take you to your dashboard.</p>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button 
+                        variant="outline" 
+                        className="h-auto p-6 flex flex-col gap-2 items-center"
+                        onClick={() => handleRoleSelection('owner')}
+                        disabled={!!loadingRole}
+                    >
+                        {loadingRole === 'owner' ? <Loader2 className="h-8 w-8 animate-spin" /> : <Building2 className="h-8 w-8 text-primary" />}
+                        <span className="font-bold text-lg">I'm a Property Owner</span>
+                        <span className="text-xs text-muted-foreground text-center">I want to manage my PG, hostel, or co-living space.</span>
+                    </Button>
+                     <Button 
+                        variant="outline" 
+                        className="h-auto p-6 flex flex-col gap-2 items-center"
+                        onClick={() => handleRoleSelection('tenant')}
+                        disabled={!!loadingRole}
+                    >
+                        {loadingRole === 'tenant' ? <Loader2 className="h-8 w-8 animate-spin" /> : <User className="h-8 w-8 text-primary" />}
+                        <span className="font-bold text-lg">I'm a Tenant</span>
+                        <span className="text-xs text-muted-foreground text-center">I was invited by my property manager to join.</span>
+                    </Button>
                 </CardContent>
             </Card>
         </div>

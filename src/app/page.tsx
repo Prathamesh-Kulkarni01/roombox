@@ -23,7 +23,9 @@ const Index = () => {
   
     useEffect(() => {
       if (!isLoading && currentUser) {
-        if (currentUser.role === 'tenant') {
+        if (currentUser.role === 'unassigned') {
+          router.replace('/complete-profile');
+        } else if (currentUser.role === 'tenant') {
           router.replace('/tenants/my-pg');
         } else {
           router.replace('/dashboard');

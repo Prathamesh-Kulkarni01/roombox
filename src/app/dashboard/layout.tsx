@@ -62,10 +62,14 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!isLoading && (!currentUser || !allowedDashboardRoles.includes(currentUser.role))) {
-      router.replace('/login');
+      if(currentUser?.role === 'unassigned') {
+        router.replace('/complete-profile');
+      } else {
+        router.replace('/login');
+      }
     }
   }, [isLoading, currentUser, router]);
-console.log(currentUser)
+
   if (isLoading || !currentUser || !allowedDashboardRoles.includes(currentUser.role)) {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">

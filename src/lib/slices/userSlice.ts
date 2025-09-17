@@ -60,6 +60,12 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
 
         if (userDoc.exists()) {
             const userData = userDoc.data() as User;
+            
+            // This case handles users who have signed up but not yet selected a role.
+            if (userData.role === 'unassigned') {
+                return userData;
+            }
+
             const ownerIdForPermissions = userData.role === 'owner' ? userData.id : userData.ownerId;
             let finalUserData = userData;
 
@@ -82,11 +88,14 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
 
         } else {
             const userEmail = firebaseUser.email;
+            let createdFromInvite = false;
+
             if (userEmail) {
                 const inviteDocRef = doc(db, 'invites', userEmail);
                 const inviteDoc = await getDoc(inviteDocRef);
 
                 if (inviteDoc.exists()) {
+                    createdFromInvite = true;
                     const inviteData = inviteDoc.data() as Invite;
                     let newUser: User;
                     const batch = writeBatch(db);
@@ -134,36 +143,21 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                         const ownerPlan = getPlanForUser(ownerDoc.data() as User);
                         dispatch(fetchPermissions({ ownerId: inviteData.ownerId, plan: ownerPlan }));
                     }
-
                 }
             }
             
-            if(!userDataToReturn) {
-                 // Default to creating an owner account if no invite is found
-                const trialEndDate = new Date();
-                trialEndDate.setDate(trialEndDate.getDate() + 15);
-
+            if(!createdFromInvite) {
+                 // It's a brand new user, not from an invite. Create an 'unassigned' user.
                 const newUser: User = {
                     id: firebaseUser.uid,
-                    name: firebaseUser.displayName || 'New Owner',
+                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
                     email: firebaseUser.email ?? undefined,
-                    role: 'owner',
-                    subscription: { 
-                        planId: 'pro', 
-                        status: 'trialing', 
-                        trialEndDate: trialEndDate.toISOString(),
-                        premiumFeatures: {
-                            website: { enabled: true },
-                            kyc: { enabled: true },
-                            whatsapp: { enabled: true }
-                        }
-                    },
-                    avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName) || 'NO').slice(0, 2).toUpperCase()}`
+                    role: 'unassigned',
+                    avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
+                    guestId: null,
                 };
                 await setDoc(userDocRef, newUser);
                 userDataToReturn = newUser;
-                const ownerPlan = getPlanForUser(newUser);
-                dispatch(fetchPermissions({ ownerId: newUser.id, plan: ownerPlan }));
             }
         }
         
@@ -174,6 +168,46 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         return rejectWithValue('Could not initialize user');
     }
 );
+
+export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { state: RootState }>(
+    'user/finalizeUserRole',
+    async (role, { getState, rejectWithValue }) => {
+        const { currentUser } = (getState() as RootState).user;
+        if (!currentUser || currentUser.role !== 'unassigned') {
+            return rejectWithValue('User is not eligible for role finalization.');
+        }
+
+        if (role === 'owner') {
+            const trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + 15);
+
+            const updatedUser: User = {
+                ...currentUser,
+                role: 'owner',
+                subscription: {
+                    planId: 'pro',
+                    status: 'trialing',
+                    trialEndDate: trialEndDate.toISOString(),
+                    premiumFeatures: {
+                        website: { enabled: true },
+                        kyc: { enabled: true },
+                        whatsapp: { enabled: true }
+                    }
+                }
+            };
+            
+            const userDocRef = doc(db, 'users', currentUser.id);
+            await setDoc(userDocRef, updatedUser, { merge: true });
+            return updatedUser;
+        }
+        
+        // If role is 'tenant', we don't change anything in the DB.
+        // The user is guided to get an invite link.
+        // We return the current user state to keep them on the 'unassigned' page.
+        return currentUser;
+    }
+);
+
 
 export const togglePremiumFeature = createAsyncThunk<
     { feature: keyof PremiumFeatures, enabled: boolean, updatedUser: User },
@@ -300,6 +334,12 @@ const userSlice = createSlice({
             .addCase(disassociateAndCreateOwnerAccount.fulfilled, (state) => {
                 state.currentUser = null;
                 state.currentPlan = null;
+            })
+            .addCase(finalizeUserRole.fulfilled, (state, action) => {
+                state.currentUser = action.payload;
+                if(action.payload.role === 'owner') {
+                    state.currentPlan = plans.pro; // Trial plan is a variant of pro
+                }
             });
     },
 });
