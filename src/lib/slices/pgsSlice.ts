@@ -2,7 +2,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { PG, Floor, Room, Bed } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
 import { RootState } from '../store';
 import { addGuest, updateGuest } from './guestsSlice';
@@ -53,12 +53,23 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
     async (updatedPg, { getState, rejectWithValue }) => {
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
+        
+        // Ensure there are no undefined values
+        const sanitizedPg: PG = {
+            ...updatedPg,
+            rules: updatedPg.rules || [],
+            contact: updatedPg.contact || '',
+            floors: updatedPg.floors || [],
+            menu: updatedPg.menu || defaultMenu,
+            amenities: updatedPg.amenities || [],
+            images: updatedPg.images || [],
+        };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            await setDoc(docRef, updatedPg, { merge: true });
+            const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', sanitizedPg.id);
+            await setDoc(docRef, sanitizedPg, { merge: true });
         }
-        return updatedPg;
+        return sanitizedPg;
     }
 );
 
@@ -77,20 +88,15 @@ export const deletePg = createAsyncThunk<string, string, { state: RootState }>(
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
             const batch = writeBatch(db);
             
-            // 1. Delete the main PG document
             const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', pgId);
             batch.delete(pgDocRef);
 
-            // 2. Delete all documents in sub-collections associated with the PG
             const subCollections = ['guests', 'staff', 'complaints', 'expenses'];
             for (const subCollection of subCollections) {
-                const q = collection(db, 'users_data', ownerId, subCollection);
+                const q = query(collection(db, 'users_data', ownerId, subCollection), where('pgId', '==', pgId));
                 const snapshot = await getDocs(q);
                 snapshot.docs.forEach(docSnap => {
-                    // Check if the document belongs to the PG being deleted
-                    if (docSnap.data().pgId === pgId) {
-                        batch.delete(docSnap.ref);
-                    }
+                    batch.delete(docSnap.ref);
                 });
             }
 
@@ -107,7 +113,6 @@ const pgsSlice = createSlice({
         setPgs: (state, action: PayloadAction<PG[]>) => {
             state.pgs = action.payload;
         },
-        // We handle the local state update for deletion in extraReducers
     },
     extraReducers: (builder) => {
         builder
