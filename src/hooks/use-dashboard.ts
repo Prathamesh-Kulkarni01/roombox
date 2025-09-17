@@ -320,9 +320,21 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
             if (!floor) return;
             if (roomToEdit) {
                 const roomIndex = floor.rooms.findIndex(r => r.id === roomToEdit.id);
-                if (roomIndex !== -1) floor.rooms[roomIndex] = { ...floor.rooms[roomIndex], ...values, rent: values.monthlyRent, deposit: values.securityDeposit, name: values.roomTitle };
+                if (roomIndex !== -1) {
+                    floor.rooms[roomIndex] = { ...floor.rooms[roomIndex], ...values, rent: values.monthlyRent || 0, deposit: values.securityDeposit || 0, name: values.roomTitle };
+                }
             } else {
-                const newRoom = { id: `room-${Date.now()}`, ...values, pgId: pg.id, floorId, beds: [], rent: values.monthlyRent, deposit: values.securityDeposit, name: values.roomTitle };
+                const newRoom: Room = { 
+                  id: `room-${Date.now()}`, 
+                  ...roomSchema.default(), 
+                  ...values, 
+                  pgId, 
+                  floorId, 
+                  beds: [], 
+                  rent: values.monthlyRent || 0, 
+                  deposit: values.securityDeposit || 0, 
+                  name: values.roomTitle
+                };
                 floor.rooms.push(newRoom);
             }
         });

@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 const featureSchema = z.object({
@@ -18,41 +19,43 @@ const testimonialSchema = z.object({
 export const roomSchema = z.object({
   // RoomBasicsForm
   roomTitle: z.string().min(1, "Room name/number is required."),
-  roomType: z.enum(['single', 'double', 'triple', 'dormitory']).optional(),
-  gender: z.enum(['male', 'female', 'unisex', 'couples']).optional(),
-  category: z.enum(['standard', 'premium', 'deluxe']).optional(),
-  floor: z.coerce.number().optional(),
-  block: z.string().optional(),
+  roomType: z.enum(['single', 'double', 'triple', 'dormitory']).optional().default('double'),
+  gender: z.enum(['male', 'female', 'unisex', 'couples']).optional().default('unisex'),
+  category: z.enum(['standard', 'premium', 'deluxe']).optional().default('standard'),
+  floor: z.coerce.number().optional().default(0),
+  block: z.string().optional().default(''),
   
   // PricingForm
-  monthlyRent: z.coerce.number().min(0, "Monthly rent must be a positive number.").optional(),
-  securityDeposit: z.coerce.number().min(0, "Security deposit must be a positive number.").optional(),
-  lockInMonths: z.coerce.number().optional(),
-  electricityBilling: z.enum(['included', 'metered', 'shared']).optional(),
+  monthlyRent: z.coerce.number().min(0, "Monthly rent must be a positive number.").optional().default(0),
+  securityDeposit: z.coerce.number().min(0, "Security deposit must be a positive number.").optional().default(0),
+  lockInMonths: z.coerce.number().optional().default(0),
+  electricityBilling: z.enum(['included', 'metered', 'shared']).optional().default('included'),
   acCharge: z.object({
-    included: z.boolean().optional(),
-    charge: z.coerce.number().optional(),
-  }).optional(),
-  maintenanceCharges: z.coerce.number().optional(),
+    included: z.boolean().optional().default(false),
+    charge: z.coerce.number().optional().default(0),
+  }).optional().default({ included: false, charge: 0 }),
+  maintenanceCharges: z.coerce.number().optional().default(0),
 
   // AmenitiesForm
-  amenities: z.array(z.string()).optional(),
-  furnishingType: z.enum(['fully', 'semi', 'unfurnished']).optional(),
+  amenities: z.array(z.string()).optional().default([]),
+  furnishingType: z.enum(['fully', 'semi', 'unfurnished']).optional().default('fully'),
 
   // RulesForm
-  rules: z.array(z.string()).optional(),
-  preferredTenants: z.array(z.string()).optional(),
+  rules: z.array(z.string()).optional().default([]),
+  preferredTenants: z.array(z.string()).optional().default([]),
   
   // FoodServicesForm
-  foodIncluded: z.boolean().optional(),
-  meals: z.array(z.string()).optional(),
-  vegNonVeg: z.enum(['veg', 'non-veg', 'both']).optional(),
-  housekeepingFrequency: z.enum(['daily', 'alternate', 'weekly']).optional(),
-  laundryServices: z.boolean().optional(),
+  foodIncluded: z.boolean().optional().default(false),
+  meals: z.array(z.string()).optional().default([]),
+  vegNonVeg: z.enum(['veg', 'non-veg', 'both']).optional().default('veg'),
+  housekeepingFrequency: z.enum(['daily', 'alternate', 'weekly']).optional().default('daily'),
+  laundryServices: z.boolean().optional().default(false),
   
   // MediaForm
-  images: z.array(z.string()).optional(),
-  available: z.boolean().optional(),
-  availableFrom: z.date().optional(),
-  virtualTourLink: z.string().url().optional().or(z.literal('')),
+  images: z.array(z.string()).optional().default([]),
+  available: z.boolean().optional().default(true),
+  availableFrom: z.date().optional().default(() => new Date()),
+  virtualTourLink: z.string().url().optional().or(z.literal('')).default(''),
 });
+
+export type RoomFormValues = z.infer<typeof roomSchema>;
