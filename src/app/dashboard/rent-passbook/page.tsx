@@ -24,7 +24,16 @@ import { Wallet, MessageCircle } from 'lucide-react';
 
 const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder }: any) => {
     const filteredPendingGuests = useMemo(() => {
-        return guests.filter(g => {
+        const guestMap = new Map();
+        guests.forEach((g: any) => {
+            if (!guestMap.has(g.id)) {
+                guestMap.set(g.id, g);
+            }
+        });
+
+        const uniqueGuests = Array.from(guestMap.values());
+
+        return uniqueGuests.filter(g => {
             const isDue = g.rentStatus === 'unpaid' || g.rentStatus === 'partial';
             const pgMatch = filters.pgId === 'all' || g.pgId === filters.pgId;
             return isDue && pgMatch;
@@ -40,7 +49,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
             <Accordion type="multiple" className="w-full">
                 {filteredPendingGuests.map(guest => {
                      const balanceBf = guest.balanceBroughtForward || 0;
-                     const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+                     const chargesDue = (guest.additionalCharges || []).reduce((sum: number, charge: { amount: number; }) => sum + charge.amount, 0);
                      const totalOwed = balanceBf + guest.rentAmount + chargesDue;
                      const totalPaid = guest.rentPaidAmount || 0;
                      const totalDue = totalOwed - totalPaid;
@@ -73,7 +82,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                             <span>Current month's rent:</span>
                                             <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span>
                                         </div>
-                                        {(guest.additionalCharges || []).map(charge => (
+                                        {(guest.additionalCharges || []).map((charge: any) => (
                                             <div key={charge.id} className="flex justify-between items-center text-muted-foreground pl-4">
                                                 <span>- {charge.description}</span>
                                                 <span className="font-medium text-foreground">₹{charge.amount.toLocaleString('en-IN')}</span>
