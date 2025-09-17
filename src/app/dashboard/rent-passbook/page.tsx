@@ -178,9 +178,18 @@ export default function RentPassbookPage() {
                 <CardContent>
                     <Tabs defaultValue="pending-dues">
                         <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="pending-dues">Pending Dues</TabsTrigger>
-                            <TabsTrigger value="payment-history">Payment History</TabsTrigger>
-                            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                            <TabsTrigger value="pending-dues">
+                                <span className="sm:hidden">Dues</span>
+                                <span className="hidden sm:inline">Pending Dues</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="payment-history">
+                                <span className="sm:hidden">History</span>
+                                <span className="hidden sm:inline">Payment History</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="analytics">
+                                <span className="sm:hidden">Stats</span>
+                                <span className="hidden sm:inline">Analytics</span>
+                            </TabsTrigger>
                         </TabsList>
                         <TabsContent value="pending-dues" className="mt-4">
                             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

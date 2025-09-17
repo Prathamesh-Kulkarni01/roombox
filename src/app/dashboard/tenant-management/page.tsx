@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Guest } from '@/lib/types'
 import { format } from 'date-fns'
 import Access from '@/components/ui/PermissionWrapper';
+import KycManagementTab from '@/components/dashboard/KycManagementTab';
 
 
 const rentStatusColors: Record<Guest['rentStatus'], string> = {
@@ -282,22 +283,37 @@ export default function GuestManagementPage() {
                         <CardTitle>Guest Management</CardTitle>
                         <CardDescription>You are managing {guests.length} total guests.</CardDescription>
                     </div>
-                    {/* Add Guest component will be triggered from dashboard page */}
-                    <Button disabled>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add New Guest
-                    </Button>
+                    <Access feature="guests" action="add">
+                        <Button disabled>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add New Guest
+                        </Button>
+                         <p className="text-xs text-muted-foreground text-right mt-1">Add guests from the main dashboard.</p>
+                    </Access>
                 </CardHeader>
                 <CardContent>
                      <Tabs defaultValue="active-guests" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="active-guests">Active Guests</TabsTrigger>
-                            <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="active-guests">
+                                <span className="sm:hidden">Active</span>
+                                <span className="hidden sm:inline">Active Guests</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="exited-guests">
+                                <span className="sm:hidden">History</span>
+                                <span className="hidden sm:inline">Guest History</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="kyc-management">
+                                <span className="sm:hidden">KYC</span>
+                                <span className="hidden sm:inline">KYC Management</span>
+                            </TabsTrigger>
                         </TabsList>
                         <TabsContent value="active-guests" className="mt-4">
                             <GuestList guests={activeGuests} onEdit={() => {}} canEdit={canEditGuests}/>
                         </TabsContent>
                         <TabsContent value="exited-guests" className="mt-4">
                             <GuestList guests={exitedGuests} onEdit={() => {}} canEdit={canEditGuests}/>
+                        </TabsContent>
+                         <TabsContent value="kyc-management" className="mt-4">
+                            <KycManagementTab guests={guests} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

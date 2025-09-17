@@ -30,7 +30,7 @@ import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
 import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw } from "lucide-react"
-import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths } from "date-fns"
+import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
 import { cn } from "@/lib/utils"
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
@@ -487,24 +487,21 @@ export default function GuestProfilePage() {
             </Dialog>
 
             <Card>
-                <CardHeader><CardTitle>Police Verification</CardTitle></CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground mb-4">Generate a consolidated document with the guest's details and KYC proofs for police verification submission.</p>
-                     <Button onClick={() => {}} disabled={isGeneratingPdf}>
-                        {isGeneratingPdf && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        <Printer className="mr-2 h-4 w-4" />
-                        {isGeneratingPdf ? 'Generating...' : 'Generate Verification PDF'}
-                    </Button>
-                </CardContent>
-            </Card>
-
-            <Card>
                 <Tabs defaultValue="stay-details">
                     <CardHeader>
                         <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="stay-details">Stay Details</TabsTrigger>
-                            <TabsTrigger value="payment-history">Payment History</TabsTrigger>
-                            <TabsTrigger value="complaint-history">Complaint History</TabsTrigger>
+                            <TabsTrigger value="stay-details">
+                                <span className="sm:hidden">Stay</span>
+                                <span className="hidden sm:inline">Stay Details</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="payment-history">
+                                <span className="sm:hidden">History</span>
+                                <span className="hidden sm:inline">Payment History</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="complaint-history">
+                                <span className="sm:hidden">Issues</span>
+                                <span className="hidden sm:inline">Complaint History</span>
+                            </TabsTrigger>
                         </TabsList>
                     </CardHeader>
                     <CardContent className="pt-4">

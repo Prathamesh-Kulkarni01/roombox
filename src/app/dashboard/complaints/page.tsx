@@ -297,8 +297,14 @@ export default function ComplaintsDashboardPage() {
       <Access feature="complaints" action="view">
          <Tabs defaultValue="complaints" className="w-full space-y-6">
             <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="complaints">Complaints</TabsTrigger>
-                <TabsTrigger value="notice-board">Notice Board</TabsTrigger>
+                <TabsTrigger value="complaints">
+                    <span className="sm:hidden">Issues</span>
+                    <span className="hidden sm:inline">Complaints</span>
+                </TabsTrigger>
+                <TabsTrigger value="notice-board">
+                    <span className="sm:hidden">Notices</span>
+                    <span className="hidden sm:inline">Notice Board</span>
+                </TabsTrigger>
             </TabsList>
             <TabsContent value="complaints">
                 <ComplaintsView />
