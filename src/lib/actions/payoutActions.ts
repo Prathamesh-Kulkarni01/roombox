@@ -46,13 +46,27 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
         }
         const owner = ownerDoc.data() as User;
 
-        let accountPayload;
+        // Step 1: Create or fetch Razorpay Contact
+        let contactId = owner.subscription?.razorpay_contact_id;
+        if (!contactId) {
+            const contact = await razorpay.contacts.create({
+                name: owner.name,
+                email: owner.email || `${owner.id}@rentvastu.com`,
+                contact: owner.phone,
+                type: 'vendor',
+            });
+            contactId = contact.id;
+        }
+
+        // Step 2: Create Fund Account (Bank or VPA)
+        let fundAccountPayload;
         let payoutDetailsToSave;
 
         if (validation.data.payoutMethod === 'vpa') {
-            accountPayload = {
-                type: 'vpa' as const,
-                details: {
+            fundAccountPayload = {
+                contact_id: contactId!,
+                account_type: 'vpa' as const,
+                vpa: {
                     address: validation.data.vpa!,
                 }
             };
@@ -60,39 +74,35 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
                 type: 'vpa',
                 vpa_address: validation.data.vpa!,
             };
-        } else {
-            accountPayload = {
-                type: 'bank_account' as const,
-                details: {
+        } else { // bank_account
+            fundAccountPayload = {
+                contact_id: contactId!,
+                account_type: 'bank_account' as const,
+                bank_account: {
                     name: validation.data.name!,
                     account_number: validation.data.account_number!,
                     ifsc: validation.data.ifsc!,
                 }
             };
-             payoutDetailsToSave = {
+            payoutDetailsToSave = {
                 type: 'bank_account',
                 name: validation.data.name!,
                 account_number_last4: validation.data.account_number!.slice(-4),
             };
         }
-        
-        const linkedAccountPayload = {
-            email: owner.email || `${owner.id}@rentvastu.com`,
-            name: owner.name,
-            type: 'customer' as const,
-            account: accountPayload,
-        };
 
-        const linkedAccount = await razorpay.linkedAccount.create(linkedAccountPayload);
-        
+        const fundAccount = await razorpay.fundAccount.create(fundAccountPayload);
+
+        // Step 3: Save Contact ID and Fund Account ID to Firestore
         await ownerDocRef.update({
-            'subscription.razorpay_linked_account_id': linkedAccount.id,
+            'subscription.razorpay_contact_id': contactId,
+            'subscription.razorpay_fund_account_id': fundAccount.id,
             'subscription.payoutDetails': payoutDetailsToSave
         });
 
-        return { success: true, linkedAccountId: linkedAccount.id };
+        return { success: true, fundAccountId: fundAccount.id };
     } catch (error: any) {
-        console.error('Error creating Razorpay Linked Account:', error);
+        console.error('Error creating Razorpay Contact/Fund Account:', error);
         return { success: false, error: error.message || "Failed to link payout account." };
     }
 }

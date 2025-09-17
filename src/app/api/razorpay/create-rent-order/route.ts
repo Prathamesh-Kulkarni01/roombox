@@ -27,18 +27,6 @@ export async function POST(req: NextRequest) {
 
     const { guestId, ownerId, amount } = validation.data;
     const adminDb = await getAdminDb();
-
-    // Fetch owner to get their Razorpay Linked Account ID
-    const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
-    if (!ownerDoc.exists) {
-      return NextResponse.json({ success: false, error: 'Owner not found.' }, { status: 404 });
-    }
-    const owner = ownerDoc.data() as User;
-    const linkedAccountId = owner.subscription?.razorpay_linked_account_id;
-
-    if (!linkedAccountId) {
-      return NextResponse.json({ success: false, error: 'Owner payout account is not set up.' }, { status: 400 });
-    }
     
     // Fetch guest to get their details
     const guestDoc = await adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
@@ -51,14 +39,6 @@ export async function POST(req: NextRequest) {
       amount: amount * 100, // amount in the smallest currency unit
       currency: "INR",
       receipt: `rent_${guestId}_${shortid.generate()}`,
-      transfers: [
-        {
-          account: linkedAccountId,
-          amount: amount * 100,
-          currency: "INR",
-          on_hold: 0, // Release payment immediately
-        },
-      ],
       notes: {
         guestId,
         ownerId,

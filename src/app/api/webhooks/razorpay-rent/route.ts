@@ -3,10 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, addMonths } from 'date-fns';
-import type { Guest, Payment } from '@/lib/types';
+import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
+import Razorpay from 'razorpay';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
+
 
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
@@ -44,14 +51,23 @@ export async function POST(req: NextRequest) {
 
       const adminDb = await getAdminDb();
       const guestDocRef = adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+      const ownerDocRef = adminDb.collection('users').doc(ownerId);
       
-      const guestDoc = await guestDocRef.get();
+      const [guestDoc, ownerDoc] = await Promise.all([guestDocRef.get(), ownerDocRef.get()]);
+
       if (!guestDoc.exists) {
         console.error(`Webhook handler: Guest with ID ${guestId} not found.`);
         return NextResponse.json({ success: true, message: 'Guest not found.' });
       }
+      if (!ownerDoc.exists) {
+          console.error(`Webhook handler: Owner with ID ${ownerId} not found.`);
+          return NextResponse.json({ success: true, message: 'Owner not found.' });
+      }
+
       const guest = guestDoc.data() as Guest;
+      const owner = ownerDoc.data() as User;
       
+      // Update guest payment history
       const newPayment: Payment = {
         id: payment.id,
         date: new Date(payment.created_at * 1000).toISOString(),
@@ -82,8 +98,30 @@ export async function POST(req: NextRequest) {
       });
       
       await guestDocRef.set(updatedGuest, { merge: true });
-      
-      console.log(`Successfully processed rent payment for guest ${guestId}.`);
+      console.log(`Successfully updated rent payment for guest ${guestId}.`);
+
+      // Trigger payout to owner
+      const fundAccountId = owner.subscription?.razorpay_fund_account_id;
+      if (!fundAccountId) {
+          console.error(`Owner ${ownerId} does not have a fund account ID. Cannot process payout.`);
+          return NextResponse.json({ success: true, message: "Payment recorded, but payout failed: owner's account not linked." });
+      }
+
+      const payout = await razorpay.payouts.create({
+          account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
+          fund_account_id: fundAccountId,
+          amount: amountPaid * 100, // Amount in paisa
+          currency: "INR",
+          mode: "UPI",
+          purpose: "rent_settlement",
+          notes: {
+            payment_id: payment.id,
+            guest_name: guest.name,
+            pg_name: guest.pgName,
+          }
+      });
+
+      console.log(`Payout of ₹${amountPaid} initiated to owner ${ownerId}. Payout ID: ${payout.id}`);
     }
 
     return NextResponse.json({ success: true });

@@ -299,6 +299,11 @@ const userSlice = createSlice({
             } else {
                  state.currentPlan = null;
             }
+        },
+        updateUserPlan: (state, action: PayloadAction<PlanName>) => {
+            if (state.currentUser) {
+                state.currentPlan = plans[action.payload];
+            }
         }
     },
     extraReducers: (builder) => {
@@ -344,5 +349,5 @@ const userSlice = createSlice({
     },
 });
 
-export const { setCurrentUser } = userSlice.actions;
+export const { setCurrentUser, updateUserPlan } = userSlice.actions;
 export default userSlice.reducer;

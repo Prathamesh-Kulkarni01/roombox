@@ -131,6 +131,7 @@ export interface Guest {
   additionalCharges?: AdditionalCharge[];
   paymentHistory?: Payment[];
   documents?: SubmittedKycDocument[];
+  lastReminderSentAt?: string;
 }
 
 export interface Complaint {
@@ -215,7 +216,8 @@ export interface User {
     status: SubscriptionStatus;
     razorpay_subscription_id?: string;
     razorpay_payment_id?: string;
-    razorpay_linked_account_id?: string;
+    razorpay_contact_id?: string; // New: For Payouts
+    razorpay_fund_account_id?: string; // New: For Payouts
     payoutDetails?: {
         type: 'bank_account' | 'vpa';
         name?: string;
