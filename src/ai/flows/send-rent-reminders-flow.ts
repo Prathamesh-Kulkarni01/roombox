@@ -4,11 +4,12 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { addDays, format, isBefore, parseISO } from 'date-fns';
+import { addDays, format, isBefore, isPast, parseISO, differenceInDays } from 'date-fns';
 import { type User, type Guest } from '@/lib/types';
 import { sendNotification } from './send-notification-flow';
 
 const REMINDER_DAYS_BEFORE_DUE = 3;
+const OVERDUE_REMINDER_INTERVAL_DAYS = 3; // Send overdue reminders every 3 days
 
 export async function sendRentReminders(): Promise<{ success: boolean; notifiedCount: number }> {
   return sendRentRemindersFlow();
@@ -30,17 +31,17 @@ const sendRentRemindersFlow = ai.defineFlow(
     try {
       const ownersSnapshot = await adminDb
         .collection('users')
-        .where('subscription.status', '==', 'active')
+        .where('subscription.status', 'in', ['active', 'trialing'])
         .get();
 
       if (ownersSnapshot.empty) {
-        console.log('No active owners found.');
+        console.log('No active or trialing owners found.');
         return { success: true, notifiedCount: 0 };
       }
 
       for (const ownerDoc of ownersSnapshot.docs) {
         const owner = { id: ownerDoc.id, ...ownerDoc.data() } as User;
-        console.log(`👤 Checking guests for subscribed owner: ${owner.name} (${owner.id})`);
+        console.log(`👤 Checking guests for owner: ${owner.name} (${owner.id})`);
 
         const guestsSnapshot = await adminDb
           .collection('users_data')
@@ -57,30 +58,52 @@ const sendRentRemindersFlow = ai.defineFlow(
 
         for (const guestDoc of guestsSnapshot.docs) {
           const guest = { id: guestDoc.id, ...guestDoc.data() } as Guest;
-
-          // Skip if no associated user or already reminded today
-          if (!guest.userId) continue;
-          if (guest.lastReminderSentAt && isBefore(today, parseISO(guest.lastReminderSentAt))) {
-            console.log(`⏭️ Skipping ${guest.name} - already reminded recently.`);
-            continue;
-          }
-
           const dueDate = parseISO(guest.dueDate);
 
-          if (isBefore(dueDate, reminderCutoffDate) && !isBefore(dueDate, today)) {
-            console.log(`📨 Sending reminder to ${guest.name} (due on ${guest.dueDate})`);
+          // Skip if no associated user
+          if (!guest.userId) continue;
+
+          const isOverdue = isPast(dueDate);
+          const isUpcoming = isBefore(dueDate, reminderCutoffDate) && !isPast(dueDate);
+          
+          let shouldSend = false;
+          let title = '';
+          let body = '';
+
+          if (isUpcoming) {
+            // Logic for upcoming reminders
+            const daysUntilDue = differenceInDays(dueDate, today);
+            if (daysUntilDue >= 0 && daysUntilDue <= REMINDER_DAYS_BEFORE_DUE) {
+                // Check if a reminder was sent recently to avoid duplicates for the same upcoming period.
+                if (guest.lastReminderSentAt && differenceInDays(today, parseISO(guest.lastReminderSentAt)) < REMINDER_DAYS_BEFORE_DUE) {
+                    continue;
+                }
+                shouldSend = true;
+                title = `Hi ${guest.name}, your rent is due soon!`;
+                body = `Your monthly rent is due on ${format(dueDate, 'do MMM, yyyy')}. Please pay on time to avoid late fees.`;
+            }
+          } else if (isOverdue) {
+            // Logic for overdue reminders
+            if (guest.lastReminderSentAt && differenceInDays(today, parseISO(guest.lastReminderSentAt)) < OVERDUE_REMINDER_INTERVAL_DAYS) {
+                continue; // Don't spam, wait for the interval
+            }
+            shouldSend = true;
+            const daysOverdue = differenceInDays(today, dueDate);
+            title = `Action Required: Your Rent is Overdue`;
+            body = `Hi ${guest.name}, your rent payment is now ${daysOverdue} day(s) overdue. Please complete the payment as soon as possible.`;
+          }
+
+
+          if (shouldSend) {
+            console.log(`📨 Sending ${isOverdue ? 'overdue' : 'upcoming'} reminder to ${guest.name} (due on ${guest.dueDate})`);
 
             await sendNotification({
               userId: guest.userId,
-              title: `Hi ${guest.name}, your rent is due soon!`,
-              body: `Your monthly rent of ₹${guest.rentAmount} for ${guest.pgName} is due on ${format(
-                dueDate,
-                'do MMM, yyyy'
-              )}.`,
+              title: title,
+              body: body,
               link: '/tenants/my-pg',
             });
 
-            // Mark reminder as sent to avoid duplicate notifications
             await guestDoc.ref.update({
               lastReminderSentAt: today.toISOString(),
             });
@@ -98,3 +121,5 @@ const sendRentRemindersFlow = ai.defineFlow(
     }
   }
 );
+
+    
