@@ -18,6 +18,7 @@ import type { UseDashboardReturn } from '@/hooks/use-dashboard';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { RoomFormValues } from '@/lib/actions/roomActions';
 import type { Room } from '@/lib/types';
+import { parseISO } from 'date-fns';
 
 const tabs = [
   { value: 'basics', label: 'Basics' },
@@ -79,7 +80,7 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
         // MediaForm
         images: (roomToEdit as any).images,
         available: (roomToEdit as any).available,
-        availableFrom: (roomToEdit as any).availableFrom ? new Date((roomToEdit as any).availableFrom) : undefined,
+        availableFrom: (roomToEdit as any).availableFrom ? parseISO((roomToEdit as any).availableFrom) : new Date(),
         virtualTourLink: (roomToEdit as any).virtualTourLink,
       };
       roomForm.reset(formValues);
