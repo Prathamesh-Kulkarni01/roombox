@@ -5,14 +5,15 @@ import { useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck } from "lucide-react"
+import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck, Loader2 } from "lucide-react"
 import { format, differenceInDays, parseISO, isValid } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useMemo } from "react"
+import { useMemo, useState, useTransition } from "react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 const rentStatusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-800 border-green-300',
@@ -33,6 +34,8 @@ export default function MyPgPage() {
     const { guests } = useAppSelector(state => state.guests)
     const { pgs } = useAppSelector(state => state.pgs)
     const { isLoading } = useAppSelector(state => state.app)
+    const { toast } = useToast();
+    const [isPaying, startPaymentTransition] = useTransition();
 
     const currentGuest = useMemo(() => {
         if (!currentUser || !currentUser.guestId) return null;
@@ -68,6 +71,63 @@ export default function MyPgPage() {
 
         return { totalDue: total, balanceBroughtForward: balanceBf };
     }, [currentGuest]);
+
+    const handlePayNow = () => {
+        if (!currentGuest || !currentUser || !currentUser.ownerId || totalDue <= 0) return;
+        
+        startPaymentTransition(async () => {
+            try {
+                const res = await fetch('/api/razorpay/create-rent-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        guestId: currentGuest.id,
+                        ownerId: currentUser.ownerId,
+                        amount: totalDue,
+                    }),
+                });
+
+                const { success, order, error } = await res.json();
+                if (!success || !order) {
+                    throw new Error(error || 'Failed to create payment order.');
+                }
+                
+                const options = {
+                    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                    amount: order.amount,
+                    currency: order.currency,
+                    name: 'RentVastu Rent Payment',
+                    description: `Rent for ${currentGuest.pgName}`,
+                    order_id: order.id,
+                    handler: function (response: any) {
+                        toast({ title: 'Payment Successful!', description: 'Your payment is being processed. The status will update shortly.' });
+                    },
+                    prefill: {
+                        name: currentGuest.name,
+                        email: currentGuest.email,
+                        contact: currentGuest.phone,
+                    },
+                    notes: {
+                        address: `${currentGuest.pgName}, ${bedDetails.roomName}`
+                    },
+                    theme: { color: '#3399cc' }
+                };
+
+                const rzp = new (window as any).Razorpay(options);
+                rzp.on('payment.failed', function (response: any) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Payment Failed',
+                        description: response.error.description || 'Something went wrong.'
+                    });
+                });
+                rzp.open();
+
+            } catch (error: any) {
+                 toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not initiate payment.' });
+            }
+        });
+    };
 
     if (isLoading || !currentGuest || !currentPg) {
         return (
@@ -208,7 +268,10 @@ export default function MyPgPage() {
                         </div>
                     </CardContent>
                     <CardFooter>
-                        <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={totalDue <= 0}>Pay Now</Button>
+                        <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={handlePayNow} disabled={totalDue <= 0 || isPaying}>
+                            {isPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Pay Now
+                        </Button>
                     </CardFooter>
                 </Card>
             </div>

@@ -1,18 +1,13 @@
+
 import { NextRequest, NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
-    console.error('Razorpay webhook secret is not set.');
+    console.error('Razorpay subscription webhook secret is not set.');
     return NextResponse.json(
       { success: false, error: 'Webhook secret not configured.' },
       { status: 500 }
@@ -75,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Error processing Razorpay webhook:', error);
+    console.error('Error processing Razorpay subscription webhook:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

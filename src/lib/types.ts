@@ -1,5 +1,4 @@
 
-
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -179,7 +178,6 @@ export interface Plan {
   hasMarketplace: boolean;
   hasCloudSync: boolean;
   hasWebsiteBuilder: boolean;
-  description: string;
 }
 
 export type SubscriptionStatus = 'trialing' | 'active' | 'inactive' | 'past_due' | 'canceled';
@@ -216,6 +214,11 @@ export interface User {
     status: SubscriptionStatus;
     razorpay_subscription_id?: string;
     razorpay_payment_id?: string;
+    razorpay_linked_account_id?: string;
+    payoutDetails?: {
+        name: string;
+        account_number_last4: string;
+    };
     trialEndDate?: string; // ISO string
     premiumFeatures?: PremiumFeatures;
     paymentHistory?: UserSubscriptionPayment[];
@@ -298,4 +301,8 @@ export interface Staff {
   role: StaffRole;
   pgId: string;
   userId?: string | null;
+  phone: string;
+  email?: string;
+  salary: number;
+  pgName: string;
 }

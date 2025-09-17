@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, Message, BotIcon, UserCheck, History, CreditCard } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, BotIcon, UserCheck, History, CreditCard, Banknote } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -34,6 +34,13 @@ import { togglePremiumFeature } from "@/lib/actions/userActions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { KycDocumentConfig, ChargeTemplate, UserRole } from '@/lib/types'
 import { PRICING_CONFIG } from '@/lib/mock-data';
+import { createOrUpdatePayoutAccount } from "@/lib/actions/payoutActions"
+
+const payoutAccountSchema = z.object({
+  name: z.string().min(3, "Account holder name is required."),
+  account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits."),
+  ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format."),
+});
 
 const chargeTemplateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
@@ -57,6 +64,7 @@ const kycConfigSchema = z.object({
 
 type ChargeTemplateFormValues = z.infer<typeof chargeTemplateSchema>;
 type KycConfigFormValues = z.infer<typeof kycConfigSchema>;
+type PayoutAccountFormValues = z.infer<typeof payoutAccountSchema>;
 
 export default function SettingsPage() {
   const dispatch = useAppDispatch()
@@ -83,6 +91,10 @@ export default function SettingsPage() {
   const kycConfigForm = useForm<KycConfigFormValues>({
     resolver: zodResolver(kycConfigSchema),
     defaultValues: { configs: [] }
+  });
+
+  const payoutForm = useForm<PayoutAccountFormValues>({
+    resolver: zodResolver(payoutAccountSchema),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -239,6 +251,19 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
       }
     });
   }
+
+  const handlePayoutAccountSubmit = (data: PayoutAccountFormValues) => {
+    startSavingTransition(async () => {
+        if(!currentUser) return;
+        const result = await createOrUpdatePayoutAccount(currentUser.id, data);
+        if(result.success) {
+            toast({ title: 'Account Linked!', description: 'Your payout account has been successfully linked.'});
+            // You may want to refetch user data here to update the UI with payout details.
+        } else {
+            toast({ variant: 'destructive', title: 'Failed to Link Account', description: result.error || 'An unexpected error occurred.'})
+        }
+    });
+  };
   
   const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
   const currentRolePermissions = roleToEdit ? selectedPermissions?.[roleToEdit] : {};
@@ -271,6 +296,40 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                 </p>
             </div>
             </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Banknote/> Payout Settings</CardTitle>
+                <CardDescription>Link your bank account to receive rent payments instantly.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <Form {...payoutForm}>
+                    <form id="payout-form" onSubmit={payoutForm.handleSubmit(handlePayoutAccountSubmit)} className="space-y-4">
+                        <FormField control={payoutForm.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="As per bank records" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={payoutForm.control} name="account_number" render={({ field }) => (
+                            <FormItem><FormLabel>Bank Account Number</FormLabel><FormControl><Input placeholder="Enter your bank account number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (
+                            <FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="Enter your bank's IFSC code" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                         {currentUser.subscription?.payoutDetails && (
+                            <Alert variant="default" className="bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200">
+                                <AlertTitle>Account Linked</AlertTitle>
+                                <AlertDescription>An account ending in ****{currentUser.subscription.payoutDetails.account_number_last4} is linked for payouts.</AlertDescription>
+                            </Alert>
+                         )}
+                    </form>
+                </Form>
+            </CardContent>
+            <CardFooter>
+                 <Button type="submit" form="payout-form" disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    {currentUser.subscription?.payoutDetails ? 'Update Account' : 'Link Account'}
+                </Button>
+            </CardFooter>
         </Card>
 
         <Card>

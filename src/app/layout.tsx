@@ -104,6 +104,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="!scroll-smooth" suppressHydrationWarning>
       <head>
+        <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload"/>
         <meta name="google-site-verification" content="HLDs7KWq0n7qSkYF2Lbuziso5ekVPmQM4ez6Bu6wL1A" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
@@ -118,10 +119,6 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <Script
-          id="razorpay-checkout-js"
-          src="https://checkout.razorpay.com/v1/checkout.js"
-        />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
