@@ -186,7 +186,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       dueDate: format(addMonths(new Date(values.moveInDate), 1), 'yyyy-MM-dd'),
       rentAmount: values.rentAmount,
       depositAmount: values.depositAmount,
-      kycStatus: 'pending',
+      kycStatus: 'not-started',
       moveInDate: format(values.moveInDate, 'yyyy-MM-dd'),
       noticePeriodDays: 30,
     };

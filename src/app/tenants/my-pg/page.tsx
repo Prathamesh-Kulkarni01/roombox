@@ -60,16 +60,18 @@ export default function MyPgPage() {
         return { roomName: room.name, bedName: bed.name };  
     }, [currentPg, currentGuest, pgs]);
 
-     const { totalDue, balanceBroughtForward } = useMemo(() => {
-        if (!currentGuest) return { totalDue: 0, balanceBroughtForward: 0 };
+     const { totalDue, balanceBroughtForward, totalBillForCycle } = useMemo(() => {
+        if (!currentGuest) return { totalDue: 0, balanceBroughtForward: 0, totalBillForCycle: 0 };
         
         const balanceBf = currentGuest.balanceBroughtForward || 0;
         const currentMonthRent = currentGuest.rentAmount;
         const chargesDue = (currentGuest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
         
-        const total = balanceBf + currentMonthRent + chargesDue - (currentGuest.rentPaidAmount || 0);
+        const totalBill = balanceBf + currentMonthRent + chargesDue;
+        const totalPaid = currentGuest.rentPaidAmount || 0;
+        const due = totalBill - totalPaid;
 
-        return { totalDue: total, balanceBroughtForward: balanceBf };
+        return { totalDue: due, balanceBroughtForward: balanceBf, totalBillForCycle: totalBill };
     }, [currentGuest]);
 
     const handlePayNow = () => {
@@ -239,23 +241,11 @@ export default function MyPgPage() {
                             <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[currentGuest.rentStatus])}>{currentGuest.rentStatus}</Badge>
                         </div>
                         <div className="space-y-2 pt-4 border-t text-sm">
-                            {balanceBroughtForward > 0 && (
-                                <div className="flex justify-between items-center text-muted-foreground">
-                                    <span>Previous Dues:</span>
-                                    <span className="font-medium text-foreground">₹{balanceBroughtForward.toLocaleString('en-IN')}</span>
-                                </div>
-                            )}
                             <div className="flex justify-between items-center text-muted-foreground">
-                                <span>Current Rent:</span>
-                                <span className="font-medium text-foreground">₹{currentGuest.rentAmount.toLocaleString('en-IN')}</span>
+                                <span>Total Bill for Cycle:</span>
+                                <span className="font-medium text-foreground">₹{totalBillForCycle.toLocaleString('en-IN')}</span>
                             </div>
-                            {(currentGuest.additionalCharges || []).map(charge => (
-                                <div key={charge.id} className="flex justify-between items-center text-muted-foreground">
-                                    <span>{charge.description}:</span>
-                                    <span className="font-medium text-foreground">₹{charge.amount.toLocaleString('en-IN')}</span>
-                                </div>
-                            ))}
-                             {(currentGuest.rentPaidAmount || 0) > 0 && (
+                            {(currentGuest.rentPaidAmount || 0) > 0 && (
                                 <div className="flex justify-between items-center text-green-600 dark:text-green-400">
                                     <span>Paid this cycle:</span>
                                     <span className="font-medium">- ₹{(currentGuest.rentPaidAmount || 0).toLocaleString('en-IN')}</span>
@@ -263,7 +253,7 @@ export default function MyPgPage() {
                             )}
                         </div>
                         <div className="flex justify-between items-center pt-4 border-t">
-                            <span className="text-base font-semibold">Total Due:</span>
+                            <span className="text-base font-semibold">Total Amount Due:</span>
                             <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
                         </div>
                     </CardContent>
