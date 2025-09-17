@@ -480,11 +480,17 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
         const now = app.mockDate ? new Date(app.mockDate) : new Date();
         const dueDate = parseISO(guest.dueDate);
 
-        // Check if the current date is on or after the due date, AND if the guest's rent is currently marked as 'paid'.
-        // This prevents incorrectly marking someone as 'unpaid' if their payment is just late from a previous cycle.
-        if ((isAfter(now, dueDate) || isSameDay(now, dueDate)) && guest.rentStatus === 'paid') {
+        // This reconciliation is only for advancing the cycle for PAID tenants.
+        // Overdue tenants are handled by their payment logic.
+        if (guest.rentStatus !== 'paid') {
+            return rejectWithValue('Reconciliation only applies to paid tenants to start a new cycle.');
+        }
+
+        const monthsToAdvance = differenceInMonths(now, dueDate) + (now.getDate() >= dueDate.getDate() ? 1 : 0);
+        
+        if (monthsToAdvance > 0) {
             const updatedGuest = produce(guest, draft => {
-                // Rent is due, change status to unpaid.
+                draft.dueDate = format(addMonths(dueDate, monthsToAdvance), 'yyyy-MM-dd');
                 draft.rentStatus = 'unpaid';
             });
 
@@ -498,27 +504,7 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
             return updatedGuest;
         }
 
-        // Handle cases where the due date is significantly in the past (more than a month)
-        const monthsOverdue = differenceInMonths(now, dueDate);
-        if (monthsOverdue > 0) {
-            const updatedGuest = produce(guest, draft => {
-                const rentForOverdueMonths = monthsOverdue * draft.rentAmount;
-                draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + rentForOverdueMonths;
-                draft.dueDate = format(addMonths(dueDate, monthsOverdue), 'yyyy-MM-dd');
-                if(draft.rentStatus === 'paid') draft.rentStatus = 'unpaid'; // Mark as unpaid if it was somehow paid
-            });
-
-            if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-                const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
-                if(ownerId) {
-                    const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
-                    await setDoc(guestDocRef, updatedGuest, { merge: true });
-                }
-            }
-            return updatedGuest;
-        }
-
-        return rejectWithValue('Rent is not due or is already handled.');
+        return rejectWithValue('Rent is not due for reconciliation.');
     }
 );
 

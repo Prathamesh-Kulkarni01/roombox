@@ -96,7 +96,7 @@ export default function MyPgPage() {
                     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
                     amount: order.amount,
                     currency: order.currency,
-                    name: 'RentVastu Rent Payment',
+                    name: 'RentSutra Rent Payment',
                     description: `Rent for ${currentGuest.pgName}`,
                     order_id: order.id,
                     handler: function (response: any) {
