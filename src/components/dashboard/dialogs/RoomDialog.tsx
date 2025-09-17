@@ -17,6 +17,7 @@ import { MediaForm } from '@/components/dashboard/add-room/MediaForm';
 import type { UseDashboardReturn } from '@/hooks/use-dashboard';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { RoomFormValues } from '@/lib/actions/roomActions';
+import type { Room } from '@/lib/types';
 
 const tabs = [
   { value: 'basics', label: 'Basics' },
@@ -41,23 +42,55 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
 
   React.useEffect(() => {
     if (isRoomDialogOpen && roomToEdit) {
-      // When editing, map the room data to the form values
+      // When editing, map all the room data to the form values
+      // This is the fix for the data loss bug.
       const formValues: Partial<RoomFormValues> = {
+        // RoomBasicsForm
         roomTitle: roomToEdit.name,
+        roomType: (roomToEdit as any).roomType,
+        gender: (roomToEdit as any).gender,
+        category: (roomToEdit as any).category,
+        floor: (roomToEdit as any).floor,
+        block: (roomToEdit as any).block,
+
+        // PricingForm
         monthlyRent: roomToEdit.rent,
         securityDeposit: roomToEdit.deposit,
+        lockInMonths: (roomToEdit as any).lockInMonths,
+        electricityBilling: (roomToEdit as any).electricityBilling,
+        acCharge: (roomToEdit as any).acCharge,
+        maintenanceCharges: (roomToEdit as any).maintenanceCharges,
+
+        // AmenitiesForm
         amenities: roomToEdit.amenities,
-        // Map other fields from roomToEdit to form schema if they exist
-        // This ensures the form is pre-filled correctly.
+        furnishingType: (roomToEdit as any).furnishingType,
+
+        // RulesForm
+        rules: (roomToEdit as any).rules,
+        preferredTenants: (roomToEdit as any).preferredTenants,
+
+        // FoodServicesForm
+        foodIncluded: (roomToEdit as any).foodIncluded,
+        meals: (roomToEdit as any).meals,
+        vegNonVeg: (roomToEdit as any).vegNonVeg,
+        housekeepingFrequency: (roomToEdit as any).housekeepingFrequency,
+        laundryServices: (roomToEdit as any).laundryServices,
+
+        // MediaForm
+        images: (roomToEdit as any).images,
+        available: (roomToEdit as any).available,
+        availableFrom: (roomToEdit as any).availableFrom ? new Date((roomToEdit as any).availableFrom) : undefined,
+        virtualTourLink: (roomToEdit as any).virtualTourLink,
       };
       roomForm.reset(formValues);
     } else if(isRoomDialogOpen) {
       // When adding, reset to default
       roomForm.reset({
-        roomTitle: '',
-        monthlyRent: 0,
-        securityDeposit: 0,
         amenities: [],
+        rules: [],
+        preferredTenants: [],
+        meals: [],
+        images: [],
       });
     }
   }, [isRoomDialogOpen, roomToEdit, roomForm]);
