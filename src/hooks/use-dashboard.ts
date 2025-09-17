@@ -16,7 +16,7 @@ import { format, addMonths } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
-import { roomSchema } from "@/lib/actions/roomActions"
+import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
 import { sanitizeObjectForFirebase } from "@/lib/utils"
 
 const addGuestSchema = z.object({
@@ -107,17 +107,23 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     resolver: zodResolver(paymentSchema),
     defaultValues: { paymentMethod: 'cash' }
   });
-  const roomForm = useForm<z.infer<typeof roomSchema>>({ 
+  const roomForm = useForm<RoomFormValues>({ 
     resolver: zodResolver(roomSchema),
     defaultValues: {
-      roomTitle: "",
-      monthlyRent: 0,
-      securityDeposit: 0,
-      amenities: [],
-      rules: [],
-      preferredTenants: [],
-      meals: [],
-      images: [],
+        amenities: [],
+        rules: [],
+        preferredTenants: [],
+        meals: [],
+        images: [],
+        available: true,
+        availableFrom: new Date(),
+        monthlyRent: 0,
+        securityDeposit: 0,
+        lockInMonths: 0,
+        acCharge: { included: false, charge: 0},
+        maintenanceCharges: 0,
+        foodIncluded: false,
+        laundryServices: false,
     }
   });
   const sharedChargeForm = useForm<z.infer<typeof sharedChargeSchema>>({ resolver: zodResolver(sharedChargeSchema) });
@@ -126,14 +132,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   useEffect(() => { if (floorToEdit) floorForm.reset({ name: floorToEdit.name }); else floorForm.reset({ name: '' }); }, [floorToEdit, floorForm]);
   useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm]);
   
-  useEffect(() => {
-    if(roomToEdit) {
-      roomForm.reset(roomToEdit);
-    } else {
-      roomForm.reset({ rent: 0, deposit: 0, amenities: [], beds: [] });
-    }
-  }, [roomToEdit, roomForm]);
-
   useEffect(() => {
     if (guestToEdit) {
         editGuestForm.reset({
@@ -226,8 +224,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
           draft.rentPaidAmount = (draft.rentPaidAmount || 0) + values.amountPaid;
       });
       
-      // Dispatch the update to save the payment record and new paid amount.
-      // The reconciliation logic is now centralized in the rent reconciliation flow.
       dispatch(updateGuestAction({ updatedGuest }));
       setIsPaymentDialogOpen(false);
       setSelectedGuestForPayment(null);
@@ -319,7 +315,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const processRoomSubmit = (values: z.infer<typeof roomSchema>) => {
+  const processRoomSubmit = (values: RoomFormValues) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
@@ -331,14 +327,21 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         const nextState = produce(pg, draft => {
             const floor = draft.floors?.find(f => f.id === floorId);
             if (!floor) return;
+
+            const cleanValues = sanitizeObjectForFirebase(values);
+
             if (roomToEdit) {
                 const roomIndex = floor.rooms.findIndex(r => r.id === roomToEdit.id);
                 if (roomIndex !== -1) {
-                    const cleanValues = sanitizeObjectForFirebase(values);
-                    floor.rooms[roomIndex] = { ...floor.rooms[roomIndex], ...cleanValues, rent: values.monthlyRent || 0, deposit: values.securityDeposit || 0, name: values.roomTitle };
+                    floor.rooms[roomIndex] = { 
+                      ...floor.rooms[roomIndex], 
+                      ...cleanValues, 
+                      rent: values.monthlyRent || 0, 
+                      deposit: values.securityDeposit || 0, 
+                      name: values.roomTitle
+                    };
                 }
             } else {
-                const cleanValues = sanitizeObjectForFirebase(values);
                 const newRoom: Room = { 
                   id: `room-${Date.now()}`, 
                   ...cleanValues, 
@@ -485,7 +488,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleConfirmInitiateExit,
     guestToExitImmediately, setGuestToExitImmediately,
     handleConfirmImmediateExit,
-    addGuestForm, editGuestForm,
+    addGuestForm,
+    editGuestForm,
     roomForm, floorForm, bedForm, paymentForm, sharedChargeForm,
     handleOpenAddGuestDialog, handleAddGuestSubmit,
     handleOpenEditGuestDialog, handleEditGuestSubmit,

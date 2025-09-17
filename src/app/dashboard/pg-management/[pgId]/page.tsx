@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
@@ -8,7 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import Link from 'next/link'
-import { produce } from 'immer'
+import { produce } from "immer"
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
@@ -126,9 +127,9 @@ export default function ManagePgPage() {
                         <Card key={room.id} className="flex flex-col">
                             <CardHeader className="flex-row items-start justify-between pb-2">
                                 <CardTitle className="text-base flex items-center gap-2"><DoorOpen className="w-5 h-5" />{room.name}</CardTitle>
-                                {isEditMode && canEdit && (
+                                {isEditMode && (
                                     <div className="flex items-center -mt-2 -mr-2">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button>
+                                        {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenRoomDialog(room)}> <Pencil className="w-4 h-4" /> </Button>}
                                         {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('room', { floorId: floor.id, roomId: room.id, pgId: pg.id })}> <Trash2 className="w-4 h-4" /> </Button>}
                                     </div>
                                 )}
@@ -150,8 +151,8 @@ export default function ManagePgPage() {
                                             </div>
                                             {isEditMode && (
                                                 <div className="flex items-center">
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}> <Pencil className="w-3 h-3" /> </Button>
-                                                     {permissions?.delete && <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}> <Trash2 className="w-3 h-3" /> </Button>}
+                                                    {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}> <Pencil className="w-3 h-3" /> </Button>}
+                                                     {canDelete && <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-500/10 hover:text-red-600" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}> <Trash2 className="w-3 h-3" /> </Button>}
                                                 </div>
                                             )}
                                         </div>
