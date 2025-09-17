@@ -14,7 +14,7 @@ import { format, addMonths } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
-import { roomSchema, RoomFormValues } from "@/lib/actions/roomActions"
+import { roomSchema } from "@/lib/actions/roomActions"
 
 const addGuestSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -22,7 +22,7 @@ const addGuestSchema = z.object({
     email: z.string().email("Please enter a valid email address."),
     rentAmount: z.coerce.number().min(1, "Rent amount is required."),
     depositAmount: z.coerce.number().min(0, "Deposit amount must be 0 or more."),
-    moveInDate: z.date({ required_error: "A move-in date is required."}),
+    moveInDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "A move-in date is required."}),
     kycDocument: z.any().optional()
 })
 
@@ -119,7 +119,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     resolver: zodResolver(paymentSchema),
     defaultValues: { paymentMethod: 'cash' }
   });
-  const roomForm = useForm<RoomFormValues>({ resolver: zodResolver(roomSchema) });
+  const roomForm = useForm<z.infer<typeof roomSchema>>({ resolver: zodResolver(roomSchema) });
   const sharedChargeForm = useForm<z.infer<typeof sharedChargeSchema>>({ resolver: zodResolver(sharedChargeSchema) });
 
 
@@ -127,52 +127,12 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   useEffect(() => { if (bedToEdit) bedForm.reset({ name: bedToEdit.bed.name }); else bedForm.reset({ name: '' }); }, [bedToEdit, bedForm]);
   
   useEffect(() => {
-    if (isRoomDialogOpen) {
-      const defaultValues: Partial<RoomFormValues> = {
-        amenities: [],
-        rules: [],
-        preferredTenants: [],
-        meals: [],
-        images: [],
-        available: true,
-        foodIncluded: false,
-        laundryServices: false,
-        showLocation: false,
-        acCharge: { included: false, charge: 0 },
-        lockInMonths: 0,
-        maintenanceCharges: 0,
-        monthlyRent: 0,
-        securityDeposit: 0,
-        ...roomToEdit
-      };
-      
-      // Ensure all fields have a non-undefined value for controlled components
-      const safeValues = produce(defaultValues, draft => {
-          draft.monthlyRent = draft.monthlyRent || 0;
-          draft.securityDeposit = draft.securityDeposit || 0;
-          draft.lockInMonths = draft.lockInMonths || 0;
-          draft.maintenanceCharges = draft.maintenanceCharges || 0;
-          draft.availableFrom = draft.availableFrom ? new Date(draft.availableFrom) : new Date();
-          draft.acCharge = {
-              included: draft.acCharge?.included ?? false,
-              charge: draft.acCharge?.charge ?? 0
-          };
-          draft.amenities = draft.amenities || [];
-          draft.rules = draft.rules || [];
-          draft.preferredTenants = draft.preferredTenants || [];
-          draft.meals = draft.meals || [];
-          draft.images = draft.images || [];
-          draft.virtualTourLink = draft.virtualTourLink || '';
-          draft.address = draft.address || '';
-          draft.landmark = draft.landmark || '';
-          draft.distanceCollege = draft.distanceCollege || '';
-          draft.distanceOffice = draft.distanceOffice || '';
-          draft.distanceMetro = draft.distanceMetro || '';
-          draft.description = draft.description || '';
-      });
-      roomForm.reset(safeValues as RoomFormValues);
+    if(roomToEdit) {
+      roomForm.reset(roomToEdit);
+    } else {
+      roomForm.reset({ rent: 0, deposit: 0, amenities: [], beds: [] });
     }
-  }, [isRoomDialogOpen, roomToEdit, roomForm]);
+  }, [roomToEdit, roomForm]);
 
   useEffect(() => {
     if (guestToEdit) {
@@ -197,7 +157,11 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   const handleOpenAddGuestDialog = (bed: Bed, room: Room, pg: PG) => {
     setSelectedBedForGuestAdd({ bed, room, pg });
-    addGuestForm.reset({ rentAmount: room.rent, depositAmount: room.deposit });
+    addGuestForm.reset({ 
+      rentAmount: room.rent, 
+      depositAmount: room.deposit,
+      moveInDate: new Date().toISOString().split('T')[0],
+    });
     setIsAddGuestDialogOpen(true);
   };
   
@@ -210,22 +174,16 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     if (!selectedBedForGuestAdd) return;
     const { pg, bed } = selectedBedForGuestAdd;
     
-    const guestData: Omit<Guest, 'id'> = {
+    const guestData = {
       name: values.name,
       phone: values.phone,
       email: values.email,
       pgId: pg.id,
       pgName: pg.name,
       bedId: bed.id,
-      rentStatus: 'unpaid',
-      rentPaidAmount: 0,
-      dueDate: format(addMonths(new Date(values.moveInDate), 1), 'yyyy-MM-dd'),
       rentAmount: values.rentAmount,
       depositAmount: values.depositAmount,
-      kycStatus: 'pending',
-      moveInDate: format(values.moveInDate, 'yyyy-MM-dd'),
-      noticePeriodDays: 30,
-      isVacated: false
+      moveInDate: values.moveInDate,
     };
     
     dispatch(addGuestAction(guestData));
@@ -244,42 +202,17 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsPaymentDialogOpen(true);
   };
 
- const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
+  const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
     if (!selectedGuestForPayment) return;
-    
-    const guest = selectedGuestForPayment;
-    const amountPaidThisTime = values.amountPaid;
-
-    const updatedGuest = produce(guest, draft => {
-        // Calculate the total bill for the current cycle
-        const totalBillForCycle = (draft.balanceBroughtForward || 0) +
-                                  draft.rentAmount +
-                                  (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-
-        // Add the new payment to the amount already paid in this cycle
-        draft.rentPaidAmount = (draft.rentPaidAmount || 0) + amountPaidThisTime;
-        
-        // Check if the cycle is complete
-        if (draft.rentPaidAmount >= totalBillForCycle) {
-            // Cycle complete
-            const surplus = draft.rentPaidAmount - totalBillForCycle;
-            
-            draft.rentStatus = 'paid';
-            draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
-            draft.rentPaidAmount = 0; // Reset for next cycle
-            draft.additionalCharges = []; // Clear charges for next cycle
-            draft.balanceBroughtForward = -surplus; // Negative balance is an advance payment
-        } else {
-            // Partial payment
-            draft.rentStatus = 'partial';
-            // rentPaidAmount and other dues are carried forward as is.
-        }
-    });
-
-    dispatch(updateGuestAction({ updatedGuest }));
+    dispatch(updateGuestAction({
+      updatedGuest: {
+        ...selectedGuestForPayment,
+        ...values,
+      }
+    }));
     setIsPaymentDialogOpen(false);
-    setSelectedGuestForPayment(null);
   };
+
 
   const handleOpenSharedChargeDialog = (room: Room) => {
       const roomGuests = guests.filter(g => room.beds.some(b => b.id === g.bedId));
@@ -366,82 +299,31 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const sanitizeRoomFormValues = (values: RoomFormValues): Omit<RoomFormValues, 'availableFrom'> & { availableFrom: string } => {
-    return {
-        ...values,
-        monthlyRent: values.monthlyRent || 0,
-        securityDeposit: values.securityDeposit || 0,
-        lockInMonths: values.lockInMonths || 0,
-        maintenanceCharges: values.maintenanceCharges || 0,
-        acCharge: {
-            included: values.acCharge?.included ?? false,
-            charge: values.acCharge?.charge ?? 0,
-        },
-        availableFrom: values.availableFrom ? new Date(values.availableFrom).toISOString() : new Date().toISOString(),
-        virtualTourLink: values.virtualTourLink || '',
-        // Ensure arrays are not undefined
-        amenities: values.amenities || [],
-        rules: values.rules || [],
-        preferredTenants: values.preferredTenants || [],
-        meals: values.meals || [],
-        images: values.images || [],
-    };
-  };
-
-  const processRoomSubmit = (formValues: RoomFormValues) => {
+  const processRoomSubmit = (values: z.infer<typeof roomSchema>>) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
-        if (!pgId || !floorId) return;
+        if(!pgId || !floorId) return;
         
         const pg = getPgById(pgId);
-        if (!pg) return;
-
-        const sanitizedValues = sanitizeRoomFormValues(formValues);
+        if(!pg) return;
 
         const nextState = produce(pg, draft => {
             const floor = draft.floors?.find(f => f.id === floorId);
             if (!floor) return;
-            
             if (roomToEdit) {
-                // Update existing room
                 const roomIndex = floor.rooms.findIndex(r => r.id === roomToEdit.id);
-                if (roomIndex !== -1) {
-                    const originalRoom = floor.rooms[roomIndex];
-                    floor.rooms[roomIndex] = {
-                        ...originalRoom,
-                        name: sanitizedValues.roomTitle,
-                        rent: sanitizedValues.monthlyRent,
-                        deposit: sanitizedValues.securityDeposit,
-                        amenities: sanitizedValues.amenities,
-                        // Add other fields from sanitizedValues as needed
-                    };
-                }
+                if (roomIndex !== -1) floor.rooms[roomIndex] = { ...floor.rooms[roomIndex], ...values, rent: values.monthlyRent, deposit: values.securityDeposit, name: values.roomTitle };
             } else {
-                // Add new room
-                const newRoom: Room = { 
-                    id: `room-${Date.now()}`, 
-                    pgId,
-                    floorId,
-                    beds: [],
-                    name: sanitizedValues.roomTitle,
-                    rent: sanitizedValues.monthlyRent,
-                    deposit: sanitizedValues.securityDeposit,
-                    amenities: sanitizedValues.amenities,
-                };
+                const newRoom = { id: `room-${Date.now()}`, ...values, pgId: pg.id, floorId, beds: [], rent: values.monthlyRent, deposit: values.securityDeposit, name: values.roomTitle };
                 floor.rooms.push(newRoom);
             }
         });
-        
-        // This clean step is a final safeguard
-        const finalCleanedState = cleanUndefinedRecursive(nextState);
-        
-        await dispatch(updatePgAction(finalCleanedState)).unwrap();
+        await dispatch(updatePgAction(nextState)).unwrap();
         toast({ title: roomToEdit ? 'Room Updated' : 'Room Added', description: `The room has been successfully ${roomToEdit ? 'updated' : 'added'}.`})
         setIsRoomDialogOpen(false);
     });
   }
-
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
@@ -586,5 +468,3 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 }
 
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
-
-    
