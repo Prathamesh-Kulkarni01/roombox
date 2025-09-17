@@ -15,6 +15,7 @@ import { useReactToPrint } from 'react-to-print';
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import RentAnalytics from '@/components/dashboard/rent-passbook/RentAnalytics';
 
 const PendingDuesTable = ({ guests, pgs, filters, printRef }: any) => {
     const filteredPendingGuests = useMemo(() => {
@@ -172,13 +173,14 @@ export default function RentPassbookPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Rent Passbook</CardTitle>
-                    <CardDescription>View pending dues and completed rent transactions.</CardDescription>
+                    <CardDescription>View pending dues, payment history, and financial analytics.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="pending-dues">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="pending-dues">Pending Dues</TabsTrigger>
                             <TabsTrigger value="payment-history">Payment History</TabsTrigger>
+                            <TabsTrigger value="analytics">Analytics</TabsTrigger>
                         </TabsList>
                         <TabsContent value="pending-dues" className="mt-4">
                             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -236,11 +238,12 @@ export default function RentPassbookPage() {
                                 </Table>
                             </div>
                         </TabsContent>
+                        <TabsContent value="analytics" className="mt-4">
+                            <RentAnalytics guests={guests} pgs={pgs} />
+                        </TabsContent>
                     </Tabs>
                 </CardContent>
             </Card>
         </div>
     )
 }
-
-    
