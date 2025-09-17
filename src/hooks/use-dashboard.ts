@@ -9,7 +9,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
 import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 
-import type { Guest, Bed, Room, PG, Floor, Complaint, AdditionalCharge } from "@/lib/types"
+import type { Guest, Bed, Room, PG, Floor, Complaint, AdditionalCharge, Payment } from "@/lib/types"
 import { format, addMonths } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
@@ -22,7 +22,7 @@ const addGuestSchema = z.object({
     email: z.string().email("Please enter a valid email address."),
     rentAmount: z.coerce.number().min(1, "Rent amount is required."),
     depositAmount: z.coerce.number().min(0, "Deposit amount must be 0 or more."),
-    moveInDate: z.string().refine((date) => !isNaN(Date.parse(date)), { message: "A move-in date is required."}),
+    moveInDate: z.date({ required_error: "A move-in date is required."}),
     kycDocument: z.any().optional()
 })
 
@@ -160,7 +160,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     addGuestForm.reset({ 
       rentAmount: room.rent, 
       depositAmount: room.deposit,
-      moveInDate: new Date().toISOString().split('T')[0],
+      moveInDate: new Date(),
     });
     setIsAddGuestDialogOpen(true);
   };
@@ -174,16 +174,21 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     if (!selectedBedForGuestAdd) return;
     const { pg, bed } = selectedBedForGuestAdd;
     
-    const guestData = {
+    const guestData: Omit<Guest, 'id'> = {
       name: values.name,
       phone: values.phone,
       email: values.email,
       pgId: pg.id,
       pgName: pg.name,
       bedId: bed.id,
+      rentStatus: 'unpaid',
+      rentPaidAmount: 0,
+      dueDate: format(addMonths(new Date(values.moveInDate), 1), 'yyyy-MM-dd'),
       rentAmount: values.rentAmount,
       depositAmount: values.depositAmount,
-      moveInDate: values.moveInDate,
+      kycStatus: 'pending',
+      moveInDate: format(values.moveInDate, 'yyyy-MM-dd'),
+      noticePeriodDays: 30,
     };
     
     dispatch(addGuestAction(guestData));
@@ -203,14 +208,44 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   };
 
   const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
-    if (!selectedGuestForPayment) return;
-    dispatch(updateGuestAction({
-      updatedGuest: {
-        ...selectedGuestForPayment,
-        ...values,
-      }
-    }));
-    setIsPaymentDialogOpen(false);
+      if (!selectedGuestForPayment) return;
+      
+      const guest = selectedGuestForPayment;
+      const paymentDate = new Date();
+      
+      const newPayment: Payment = {
+          id: `pay-${Date.now()}`,
+          date: paymentDate.toISOString(),
+          amount: values.amountPaid,
+          method: values.paymentMethod,
+          forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
+      };
+
+      const updatedGuest = produce(guest, draft => {
+          if (!draft.paymentHistory) {
+              draft.paymentHistory = [];
+          }
+          draft.paymentHistory.push(newPayment);
+
+          draft.rentPaidAmount = (draft.rentPaidAmount || 0) + values.amountPaid;
+          
+          const balanceBf = draft.balanceBroughtForward || 0;
+          const totalBill = balanceBf + draft.rentAmount + (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+
+          if (draft.rentPaidAmount >= totalBill) {
+              draft.rentStatus = 'paid';
+              draft.balanceBroughtForward = draft.rentPaidAmount - totalBill; // Carry over surplus
+              draft.rentPaidAmount = 0; // Reset for next cycle
+              draft.additionalCharges = []; // Clear charges for the cycle
+              draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
+          } else {
+              draft.rentStatus = 'partial';
+          }
+      });
+      
+      dispatch(updateGuestAction({ updatedGuest }));
+      setIsPaymentDialogOpen(false);
+      setSelectedGuestForPayment(null);
   };
 
 
@@ -299,7 +334,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsFloorDialogOpen(false);
   };
   
-  const processRoomSubmit = (values: z.infer<typeof roomSchema>>) => {
+  const processRoomSubmit = (values: z.infer<typeof roomSchema>) => {
     startRoomTransition(async () => {
         const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
         const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
