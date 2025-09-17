@@ -14,8 +14,8 @@ const razorpay = new Razorpay({
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
   name: z.string().min(3, "Account holder name is required.").optional(),
-  account_number: z.string().min(5, "Account number is required.").optional(),
-  ifsc: z.string().length(11, "IFSC code must be 11 characters.").optional(),
+  account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
+  ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
@@ -52,7 +52,9 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
         if (validation.data.payoutMethod === 'vpa') {
             accountPayload = {
                 type: 'vpa' as const,
-                address: validation.data.vpa!,
+                details: {
+                    address: validation.data.vpa!,
+                }
             };
             payoutDetailsToSave = {
                 type: 'vpa',
@@ -61,9 +63,11 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
         } else {
             accountPayload = {
                 type: 'bank_account' as const,
-                name: validation.data.name!,
-                account_number: validation.data.account_number!,
-                ifsc: validation.data.ifsc!,
+                details: {
+                    name: validation.data.name!,
+                    account_number: validation.data.account_number!,
+                    ifsc: validation.data.ifsc!,
+                }
             };
              payoutDetailsToSave = {
                 type: 'bank_account',
