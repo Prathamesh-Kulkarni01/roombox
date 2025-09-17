@@ -158,7 +158,8 @@ export interface Expense {
   date: string;
 }
 
-export type StaffRole = 'owner' | 'manager' | 'cleaner' | 'cook' | 'security' | 'other' | 'tenant';
+export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
+export type UserRole = 'owner' | 'tenant' | StaffRole | 'unassigned';
 
 export type PlanName = 'free' | 'pro'; // Simplified plans
 
@@ -292,8 +293,6 @@ export interface Notification {
   link?: string;
   targetId?: string;
 }
-
-export type UserRole = 'owner' | 'tenant' | StaffRole;
 
 export interface Staff {
   id: string;

@@ -2,7 +2,7 @@
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, Invite, PG, User, AdditionalCharge, Room, KycDocumentConfig, SubmittedKycDocument } from '../types';
+import type { Guest, Invite, PG, User, AdditionalCharge, Room, KycDocumentConfig, SubmittedKycDocument, Staff } from '../types';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -67,7 +67,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         const updatedPg = produce(pg, draft => {
             draft.occupancy += 1;
             const floor = draft.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.id === newGuest.bedId)));
-            const room = floor?.rooms.find(r => r.beds.some(r => r.id === newGuest.bedId));
+            const room = floor?.rooms.find(r => r.beds.some(b => b.id === newGuest.bedId));
             const bed = room?.beds.find(b => b.id === newGuest.bedId);
             if (bed) {
                 bed.guestId = newGuest.id;
@@ -477,23 +477,29 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
 
         if (!user.currentUser || !guest || !guest.dueDate) return rejectWithValue('Guest or due date not found');
 
-        const now = app.mockDate ? new Date(app.mockDate) : new Date();
+        const now = app.mockDate ? parseISO(app.mockDate) : new Date();
         const dueDate = parseISO(guest.dueDate);
 
-        // This reconciliation is only for advancing the cycle for PAID tenants.
-        // Overdue tenants are handled by their payment logic.
-        if (guest.rentStatus !== 'paid') {
-            return rejectWithValue('Reconciliation only applies to paid tenants to start a new cycle.');
+        // Only reconcile if the due date is in the past
+        if (!isAfter(now, dueDate)) {
+             return rejectWithValue('Rent is not due for reconciliation yet.');
         }
 
-        const monthsToAdvance = differenceInMonths(now, dueDate) + (now.getDate() >= dueDate.getDate() ? 1 : 0);
-        
-        if (monthsToAdvance > 0) {
-            const updatedGuest = produce(guest, draft => {
-                draft.dueDate = format(addMonths(dueDate, monthsToAdvance), 'yyyy-MM-dd');
-                draft.rentStatus = 'unpaid';
-            });
+        const updatedGuest = produce(guest, draft => {
+            const monthsOverdue = differenceInMonths(now, dueDate) + (now.getDate() >= dueDate.getDate() ? 1 : 0);
+            if (monthsOverdue > 0) {
+                 const totalBillForCycle = (draft.balanceBroughtForward || 0) + draft.rentAmount + (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+                 const unpaidFromLastCycle = totalBillForCycle - (draft.rentPaidAmount || 0);
 
+                 draft.balanceBroughtForward = unpaidFromLastCycle + (draft.rentAmount * (monthsOverdue - 1));
+                 draft.dueDate = format(addMonths(dueDate, monthsOverdue), 'yyyy-MM-dd');
+                 draft.rentPaidAmount = 0;
+                 draft.rentStatus = 'unpaid';
+                 draft.additionalCharges = [];
+            }
+        });
+
+        if (JSON.stringify(updatedGuest) !== JSON.stringify(guest)) {
             if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
                 const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
                 if (ownerId) {
@@ -504,7 +510,7 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
             return updatedGuest;
         }
 
-        return rejectWithValue('Rent is not due for reconciliation.');
+        return rejectWithValue('No reconciliation needed.');
     }
 );
 

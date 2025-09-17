@@ -23,8 +23,6 @@ function VerifyLogin() {
             }
 
             if (isSignInWithEmailLink(auth, window.location.href)) {
-                // We don't have the email in localStorage because the owner, not the guest, initiated the flow.
-                // We must prompt the user for their email as a security measure.
                 let email = window.localStorage.getItem('emailForSignIn');
                 if (!email) {
                     email = window.prompt('For security, please re-enter your email address to complete sign-in.');
@@ -44,9 +42,10 @@ function VerifyLogin() {
                     // detect this, run initializeUser, and handle redirection.
                     toast({
                       title: 'Success!',
-                      description: 'You have been signed in. Redirecting to your dashboard...',
+                      description: 'You have been signed in. Redirecting...',
                     });
-                    router.push('/tenants/my-pg');
+                    // A general push to root is better, AuthHandler will sort out the correct destination.
+                    router.push('/');
                 } catch (err: any) {
                     console.error(err);
                     setError("Failed to sign in. The link may be invalid or expired. Please try again.");
