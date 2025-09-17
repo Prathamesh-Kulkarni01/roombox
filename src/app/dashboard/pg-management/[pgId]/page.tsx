@@ -176,18 +176,20 @@ export default function ManagePgPage() {
                   {floor.rooms.length === 0 && !isEditMode && (
                     <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable Edit Mode to add one.</div>
                   )}
-                  <div className="mt-6 flex items-center gap-4">
-                    {isEditMode && canDelete && (
-                        <Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id, pgId: pg.id }) }}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete Floor
-                        </Button>
-                    )}
-                     {isEditMode && canEdit && (
-                        <Button variant="ghost" onClick={(e) => { e.stopPropagation(); handleOpenFloorDialog(floor) }}>
-                            <Pencil className="mr-2 h-4 w-4" /> Edit Floor
-                        </Button>
-                     )}
-                  </div>
+                  {isEditMode && (
+                    <div className="mt-6 flex items-center gap-4">
+                        {canDelete && (
+                            <Button variant="ghost" className="text-red-600 hover:text-red-600 hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); handleDelete('floor', { floorId: floor.id, pgId: pg.id }) }}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Floor
+                            </Button>
+                        )}
+                        {canEdit && (
+                            <Button variant="ghost" onClick={(e) => { e.stopPropagation(); handleOpenFloorDialog(floor) }}>
+                                <Pencil className="mr-2 h-4 w-4" /> Edit Floor Name
+                            </Button>
+                        )}
+                    </div>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             ))}
