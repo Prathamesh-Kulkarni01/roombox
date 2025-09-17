@@ -8,6 +8,7 @@ import { produce } from 'immer';
 import Razorpay from 'razorpay';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
+const COMMISSION_RATE = 0.05; // 5% commission
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -100,28 +101,36 @@ export async function POST(req: NextRequest) {
       await guestDocRef.set(updatedGuest, { merge: true });
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
 
-      // Trigger payout to owner
+      // Trigger payout to owner after deducting commission
       const fundAccountId = owner.subscription?.razorpay_fund_account_id;
       if (!fundAccountId) {
           console.error(`Owner ${ownerId} does not have a fund account ID. Cannot process payout.`);
           return NextResponse.json({ success: true, message: "Payment recorded, but payout failed: owner's account not linked." });
       }
+      
+      const commission = amountPaid * COMMISSION_RATE;
+      const payoutAmount = amountPaid - commission;
 
-      const payout = await razorpay.payouts.create({
-          account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
-          fund_account_id: fundAccountId,
-          amount: amountPaid * 100, // Amount in paisa
-          currency: "INR",
-          mode: "UPI",
-          purpose: "rent_settlement",
-          notes: {
-            payment_id: payment.id,
-            guest_name: guest.name,
-            pg_name: guest.pgName,
-          }
-      });
+      if (payoutAmount > 0) {
+        const payout = await razorpay.payouts.create({
+            account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
+            fund_account_id: fundAccountId,
+            amount: Math.round(payoutAmount * 100), // Amount in paisa
+            currency: "INR",
+            mode: "UPI",
+            purpose: "rent_settlement",
+            notes: {
+              payment_id: payment.id,
+              guest_name: guest.name,
+              pg_name: guest.pgName,
+              commission_deducted: commission.toFixed(2),
+            }
+        });
 
-      console.log(`Payout of ₹${amountPaid} initiated to owner ${ownerId}. Payout ID: ${payout.id}`);
+        console.log(`Payout of ₹${payoutAmount.toFixed(2)} initiated to owner ${ownerId}. Payout ID: ${payout.id}`);
+      } else {
+        console.log(`Payout amount for owner ${ownerId} is zero or less after commission. No payout created.`);
+      }
     }
 
     return NextResponse.json({ success: true });
