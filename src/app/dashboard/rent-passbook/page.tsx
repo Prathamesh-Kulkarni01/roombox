@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo, useRef } from 'react';
@@ -247,8 +248,16 @@ export default function RentPassbookPage() {
     }, [allPayments, filters]);
 
     const uniqueGuestsForFilter = useMemo(() => {
-        if (filters.pgId === 'all') return guests;
-        return guests.filter(g => g.pgId === filters.pgId);
+        const guestMap = new Map();
+        guests.forEach((g: any) => {
+            if (!guestMap.has(g.id)) {
+                guestMap.set(g.id, g);
+            }
+        });
+        const uniqueGuests = Array.from(guestMap.values());
+
+        if (filters.pgId === 'all') return uniqueGuests;
+        return uniqueGuests.filter(g => g.pgId === filters.pgId);
     }, [guests, filters.pgId]);
     
     const totalCollection = useMemo(() => {
