@@ -2,7 +2,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Staff, Invite, User } from '../types';
 import { db, isFirebaseConfigured, auth } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, query, where, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 
@@ -56,12 +56,14 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
         }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const batch = writeBatch(db);
             const staffDocRef = doc(db, 'users_data', user.currentUser.id, 'staff', newStaff.id);
             const inviteDocRef = doc(db, 'invites', newStaff.email);
-            await Promise.all([
-                setDoc(staffDocRef, newStaff),
-                setDoc(inviteDocRef, invite),
-            ]);
+            
+            batch.set(staffDocRef, newStaff);
+            batch.set(inviteDocRef, invite);
+
+            await batch.commit();
         }
         return newStaff;
     }
