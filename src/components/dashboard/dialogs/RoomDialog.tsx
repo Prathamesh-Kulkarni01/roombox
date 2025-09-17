@@ -45,6 +45,9 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
     if (isRoomDialogOpen && roomToEdit) {
       // When editing, map all the room data to the form values
       // This is the fix for the data loss bug.
+      const rawDate = (roomToEdit as any).availableFrom;
+      const availableFromDate = typeof rawDate === 'string' ? parseISO(rawDate) : rawDate instanceof Date ? rawDate : new Date();
+
       const formValues: Partial<RoomFormValues> = {
         // RoomBasicsForm
         roomTitle: roomToEdit.name,
@@ -80,7 +83,7 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
         // MediaForm
         images: (roomToEdit as any).images,
         available: (roomToEdit as any).available,
-        availableFrom: (roomToEdit as any).availableFrom ? parseISO((roomToEdit as any).availableFrom) : new Date(),
+        availableFrom: availableFromDate,
         virtualTourLink: (roomToEdit as any).virtualTourLink,
       };
       roomForm.reset(formValues);
