@@ -143,10 +143,21 @@ export default function PgLayout(props: PgLayoutProps) {
             <Accordion type="multiple" defaultValue={roomDefaultValues} key={viewMode}>
               {floor.rooms.map(room => (
                  <AccordionItem key={room.id} value={room.id} className="border rounded-lg overflow-hidden mb-4">
-                    <AccordionTrigger className="p-4 hover:no-underline data-[state=open]:border-b">
-                        <RoomAccordionTrigger room={room} />
-                    </AccordionTrigger>
-                    <AccordionContent className="p-4 pt-4">
+                    <div className="flex items-center p-4">
+                        <AccordionTrigger className="p-0 hover:no-underline flex-1">
+                            <RoomAccordionTrigger room={room} />
+                        </AccordionTrigger>
+                        {isEditMode && (
+                            <div className="flex items-center ml-auto pl-4">
+                                <Access feature="properties" action="edit">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenRoomDialog(room, floor.id, pg.id)}>
+                                        <Pencil className="w-4 h-4" />
+                                    </Button>
+                                </Access>
+                            </div>
+                        )}
+                    </div>
+                    <AccordionContent className="p-4 pt-0 border-t">
                         <BedCard {...props} room={room} floor={floor} handleOpenBedDialog={handleOpenBedDialog} />
                     </AccordionContent>
                  </AccordionItem>
