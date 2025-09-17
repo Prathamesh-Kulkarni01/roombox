@@ -1,5 +1,4 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Staff, Invite, User } from '../types';
 import { db, isFirebaseConfigured, auth } from '../firebase';
@@ -16,16 +15,6 @@ const initialState: StaffState = {
 };
 
 type NewStaffData = Omit<Staff, 'id'>;
-
-// Async Thunks
-export const fetchStaff = createAsyncThunk(
-    'staff/fetchStaff',
-    async (userId: string) => {
-        const staffCollection = collection(db, 'users_data', userId, 'staff');
-        const snap = await getDocs(staffCollection);
-        return snap.docs.map(d => d.data() as Staff);
-    }
-);
 
 export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState }>(
     'staff/addStaff',
@@ -131,21 +120,6 @@ const staffSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            .addCase(fetchStaff.fulfilled, (state, action) => {
-                state.staff = action.payload;
-            })
-            .addCase(addStaff.fulfilled, (state, action) => {
-                state.staff.push(action.payload);
-            })
-            .addCase(updateStaff.fulfilled, (state, action) => {
-                const index = state.staff.findIndex(s => s.id === action.payload.id);
-                if (index !== -1) {
-                    state.staff[index] = action.payload;
-                }
-            })
-            .addCase(deleteStaff.fulfilled, (state, action) => {
-                state.staff = state.staff.filter(s => s.id !== action.payload);
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.staff = [];
             });

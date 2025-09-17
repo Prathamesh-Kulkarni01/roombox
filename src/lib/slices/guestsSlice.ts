@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
@@ -25,15 +24,6 @@ const initialState: GuestsState = {
 type NewGuestData = Omit<Guest, 'id'>;
 
 // Async Thunks
-export const fetchGuests = createAsyncThunk(
-    'guests/fetchGuests',
-    async (userId: string) => {
-        const guestsCollection = collection(db, 'users_data', userId, 'guests');
-        const guestsSnap = await getDocs(guestsCollection);
-        return guestsSnap.docs.map(d => d.data() as Guest);
-    }
-);
-
 export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, existingUser?: User }, NewGuestData, { state: RootState }>(
     'guests/addGuest',
     async (guestData, { getState, dispatch, rejectWithValue }) => {
@@ -285,25 +275,10 @@ export const resetGuestKyc = createAsyncThunk<string, string, { state: RootState
 export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: PG }, { updatedGuest: Guest, updatedPg?: PG }, { state: RootState }>(
     'guests/updateGuest',
     async ({ updatedGuest, updatedPg }, { getState, dispatch, rejectWithValue }) => {
-        const { user, guests, pgs } = getState();
+        const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
         const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
         if (!ownerId) return rejectWithValue('Owner ID not found');
-
-        const originalGuest = guests.guests.find(g => g.id === updatedGuest.id);
-
-        if (originalGuest) {
-            const rentStatusChanged = updatedGuest.rentStatus !== originalGuest.rentStatus;
-            if (rentStatusChanged && updatedGuest.rentStatus === 'paid') {
-                await dispatch(addNotification({
-                    type: 'rent-paid',
-                    title: 'Rent Collected',
-                    message: `You collected rent from ${updatedGuest.name}.`,
-                    link: `/dashboard/tenant-management/${updatedGuest.id}`,
-                    targetId: updatedGuest.id,
-                }));
-            }
-        }
         
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const batch = writeBatch(db);
@@ -339,12 +314,10 @@ export const addAdditionalCharge = createAsyncThunk<Guest, { guestId: string, ch
             });
         }
         
-        const updatedGuest = {
-            ...guest,
-            additionalCharges: [...(guest.additionalCharges || []), newCharge],
-        };
-
-        return updatedGuest;
+        return produce(guest, draft => {
+             if (!draft.additionalCharges) draft.additionalCharges = [];
+             draft.additionalCharges.push(newCharge);
+        });
     }
 );
 
@@ -367,12 +340,9 @@ export const removeAdditionalCharge = createAsyncThunk<Guest, { guestId: string,
             });
         }
         
-        const updatedGuest = {
-            ...guest,
-            additionalCharges: (guest.additionalCharges || []).filter(c => c.id !== chargeId),
-        };
-
-        return updatedGuest;
+        return produce(guest, draft => {
+            draft.additionalCharges = (draft.additionalCharges || []).filter(c => c.id !== chargeId);
+        });
     }
 );
 
@@ -563,87 +533,6 @@ const guestsSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            .addCase(fetchGuests.fulfilled, (state, action) => {
-                state.guests = action.payload;
-            })
-            .addCase(addGuest.fulfilled, (state, action) => {
-                if(!action.payload) return;
-                const { newGuest } = action.payload;
-                state.guests.push(newGuest);
-            })
-            .addCase(updateGuest.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.updatedGuest.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload.updatedGuest;
-                }
-            })
-            .addCase(updateGuestKyc.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload;
-                }
-            })
-            .addCase(updateGuestKycFromOwner.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload;
-                }
-            })
-             .addCase(updateGuestKycStatus.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload;
-                }
-            })
-            .addCase(resetGuestKyc.fulfilled, (state, action) => {
-                const guest = state.guests.find(g => g.id === action.payload);
-                if (guest) {
-                    guest.kycStatus = 'not-started';
-                    guest.documents = [];
-                    guest.kycRejectReason = null;
-                }
-            })
-            .addCase(addAdditionalCharge.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload;
-                }
-            })
-             .addCase(removeAdditionalCharge.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload;
-                }
-            })
-            .addCase(addSharedChargeToRoom.fulfilled, (state, action) => {
-                action.payload.forEach(updatedGuest => {
-                    const index = state.guests.findIndex(g => g.id === updatedGuest.id);
-                    if (index !== -1) {
-                        state.guests[index] = updatedGuest;
-                    }
-                });
-            })
-            .addCase(initiateGuestExit.fulfilled, (state, action) => {
-                 const index = state.guests.findIndex(g => g.id === action.payload.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload;
-                }
-            })
-            .addCase(vacateGuest.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.guest.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload.guest;
-                }
-            })
-            .addCase(reconcileRentCycle.fulfilled, (state, action) => {
-                const index = state.guests.findIndex(g => g.id === action.payload.id);
-                if (index !== -1) {
-                    state.guests[index] = action.payload;
-                }
-            })
-            .addCase('pgs/deletePg/fulfilled', (state, action) => {
-                state.guests = state.guests.filter(g => g.pgId !== action.payload);
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.guests = [];
             });
@@ -652,8 +541,3 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
-
-
-    
-
-    

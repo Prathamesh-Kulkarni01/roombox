@@ -1,3 +1,4 @@
+
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -29,9 +30,7 @@ const sendRentRemindersFlow = ai.defineFlow(
     try {
       const ownersSnapshot = await adminDb
         .collection('users')
-        .where('role', '==', 'owner')
         .where('subscription.status', '==', 'active')
-        .where('subscription.planId', 'in', ['starter', 'pro', 'business', 'enterprise'])
         .get();
 
       if (ownersSnapshot.empty) {

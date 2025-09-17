@@ -1,5 +1,4 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { ChargeTemplate } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
@@ -13,15 +12,6 @@ interface ChargeTemplatesState {
 const initialState: ChargeTemplatesState = {
     chargeTemplates: [],
 };
-
-export const fetchChargeTemplates = createAsyncThunk(
-    'chargeTemplates/fetchChargeTemplates',
-    async (userId: string) => {
-        const collectionRef = collection(db, 'users_data', userId, 'chargeTemplates');
-        const snap = await getDocs(collectionRef);
-        return snap.docs.map(d => d.data() as ChargeTemplate);
-    }
-);
 
 export const saveChargeTemplate = createAsyncThunk<ChargeTemplate, Omit<ChargeTemplate, 'id'>, { state: RootState }>(
     'chargeTemplates/saveChargeTemplate',
@@ -86,21 +76,6 @@ const chargeTemplatesSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            .addCase(fetchChargeTemplates.fulfilled, (state, action) => {
-                state.chargeTemplates = action.payload;
-            })
-            .addCase(saveChargeTemplate.fulfilled, (state, action) => {
-                state.chargeTemplates.push(action.payload);
-            })
-            .addCase(updateChargeTemplate.fulfilled, (state, action) => {
-                const index = state.chargeTemplates.findIndex(t => t.id === action.payload.id);
-                if (index !== -1) {
-                    state.chargeTemplates[index] = action.payload;
-                }
-            })
-            .addCase(deleteChargeTemplate.fulfilled, (state, action) => {
-                state.chargeTemplates = state.chargeTemplates.filter(t => t.id !== action.payload);
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.chargeTemplates = [];
             });

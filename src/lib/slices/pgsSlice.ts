@@ -1,12 +1,10 @@
 
-
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { PG, Floor, Room, Bed, Guest } from '../types';
+import type { PG } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
 import { RootState } from '../store';
-import { addGuest } from './guestsSlice';
 
 interface PgsState {
     pgs: PG[];
@@ -17,22 +15,6 @@ const initialState: PgsState = {
 };
 
 type NewPgData = Pick<PG, 'name' | 'location' | 'city' | 'gender'>;
-
-// Async Thunks
-export const fetchPgs = createAsyncThunk(
-    'pgs/fetchPgs',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const pgsCollection = collection(db, 'users_data', userId, 'pgs');
-            const pgsSnap = await getDocs(pgsCollection);
-            return pgsSnap.docs.map(d => d.data() as PG);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localPgs = localStorage.getItem('pgs');
-            return localPgs ? JSON.parse(localPgs) : [];
-        }
-    }
-);
 
 export const addPg = createAsyncThunk<PG, NewPgData, { state: RootState }>(
     'pgs/addPg',
@@ -72,7 +54,7 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
-            await setDoc(docRef, updatedPg);
+            await setDoc(docRef, updatedPg, { merge: true });
         }
         return updatedPg;
     }
@@ -107,44 +89,6 @@ const pgsSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            .addCase(fetchPgs.fulfilled, (state, action) => {
-                state.pgs = action.payload;
-            })
-            .addCase(addPg.fulfilled, (state, action) => {
-                state.pgs.push(action.payload);
-            })
-            .addCase(updatePg.fulfilled, (state, action) => {
-                const index = state.pgs.findIndex(p => p.id === action.payload.id);
-                if (index !== -1) {
-                    state.pgs[index] = action.payload;
-                }
-            })
-            .addCase(addGuest.fulfilled, (state, action) => {
-                if (!action.payload) return;
-                const { updatedPg } = action.payload;
-                const index = state.pgs.findIndex(p => p.id === updatedPg.id);
-                if (index !== -1) {
-                    state.pgs[index] = updatedPg;
-                }
-            })
-            .addCase('guests/updateGuest/fulfilled', (state, action: PayloadAction<{ updatedGuest: Guest, updatedPg?: PG }>) => {
-                if (!action.payload.updatedPg) return;
-                const { updatedPg } = action.payload;
-                const index = state.pgs.findIndex(p => p.id === updatedPg.id);
-                if (index !== -1) {
-                    state.pgs[index] = updatedPg;
-                }
-            })
-            .addCase('guests/vacateGuest/fulfilled', (state, action: PayloadAction<{ guest: Guest, pg: PG }>) => {
-                const { pg } = action.payload;
-                const index = state.pgs.findIndex(p => p.id === pg.id);
-                if (index !== -1) {
-                    state.pgs[index] = pg;
-                }
-            })
-             .addCase(deletePg.fulfilled, (state, action) => {
-                state.pgs = state.pgs.filter(p => p.id !== action.payload);
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.pgs = [];
             });

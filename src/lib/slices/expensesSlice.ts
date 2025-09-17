@@ -15,22 +15,6 @@ const initialState: ExpensesState = {
 
 type NewExpenseData = Omit<Expense, 'id'>;
 
-// Async Thunks
-export const fetchExpenses = createAsyncThunk(
-    'expenses/fetchExpenses',
-    async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
-        if (useCloud) {
-            const expensesCollection = collection(db, 'users_data', userId, 'expenses');
-            const snap = await getDocs(expensesCollection);
-            return snap.docs.map(d => d.data() as Expense);
-        } else {
-            if(typeof window === 'undefined') return [];
-            const localData = localStorage.getItem('expenses');
-            return localData ? JSON.parse(localData) : [];
-        }
-    }
-);
-
 export const addExpense = createAsyncThunk<Expense, NewExpenseData, { state: RootState }>(
     'expenses/addExpense',
     async (expenseData, { getState, rejectWithValue }) => {
@@ -57,12 +41,6 @@ const expensesSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            .addCase(fetchExpenses.fulfilled, (state, action) => {
-                state.expenses = action.payload.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            })
-            .addCase(addExpense.fulfilled, (state, action) => {
-                state.expenses.unshift(action.payload);
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.expenses = [];
             });

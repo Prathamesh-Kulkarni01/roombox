@@ -157,11 +157,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
                  if (['complaints', 'expenses', 'notifications'].includes(collectionName)) {
                     data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
                 }
-                 if(collectionName === 'guests') {
-                    dispatch(setGuests(data as Guest[]));
-                } else {
-                    dispatch(setDataAction(data as any));
-                }
+                 dispatch(setDataAction(data as any));
                 
                 // Track loading status
                 if (loadedCount < collectionNames.length) {

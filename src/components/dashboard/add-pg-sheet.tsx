@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { PG } from '@/lib/types'
 import { addPg as addPgAction } from '@/lib/slices/pgsSlice'
 
 const pgSchema = z.object({
@@ -73,7 +72,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent data-tour="add-pg-sheet-content">
         <SheetHeader>
           <SheetTitle>Add a New Property</SheetTitle>
           <SheetDescription>

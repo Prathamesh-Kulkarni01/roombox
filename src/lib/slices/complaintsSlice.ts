@@ -15,16 +15,6 @@ const initialState: ComplaintsState = {
 
 type NewComplaintData = Pick<Complaint, 'category' | 'description' | 'isPublic' | 'imageUrls'>;
 
-// Async Thunks
-export const fetchComplaints = createAsyncThunk(
-    'complaints/fetchComplaints',
-    async (userId: string) => {
-        const complaintsCollection = collection(db, 'users_data', userId, 'complaints');
-        const snap = await getDocs(complaintsCollection);
-        return snap.docs.map(d => d.data() as Complaint);
-    }
-);
-
 export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { state: RootState }>(
     'complaints/addComplaint',
     async (complaintData, { getState, dispatch, rejectWithValue }) => {
@@ -86,20 +76,6 @@ const complaintsSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            .addCase(fetchComplaints.fulfilled, (state, action) => {
-                state.complaints = action.payload.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            })
-            .addCase(addComplaint.fulfilled, (state, action) => {
-                state.complaints.unshift(action.payload);
-            })
-            .addCase(updateComplaint.fulfilled, (state, action) => {
-                const index = state.complaints.findIndex(c => c.id === action.payload.id);
-                if (index !== -1) {
-                    state.complaints[index] = action.payload;
-                } else {
-                    state.complaints.push(action.payload);
-                }
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.complaints = [];
             });
