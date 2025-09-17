@@ -54,6 +54,7 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
                 email: owner.email || `${owner.id}@rentvastu.com`,
                 contact: owner.phone,
                 type: 'vendor',
+                reference_id: `owner_${owner.id}`
             });
             contactId = contact.id;
         }
