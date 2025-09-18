@@ -28,7 +28,6 @@ import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
 import { getBillingDetails } from "@/lib/actions/billingActions"
-import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
 import { disassociateAndCreateOwnerAccount, updateUserPlan, setCurrentUser } from "@/lib/slices/userSlice"
 import { togglePremiumFeature } from "@/lib/actions/userActions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -261,17 +260,26 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
 
   const handleTestRentReminders = () => {
     startReminderTest(async () => {
-      const result = await sendRentReminders();
-      if(result.success) {
-        toast({
-          title: "Reminder Test Complete",
-          description: `Successfully sent ${result.notifiedCount} rent reminders.`
+      try {
+        const response = await fetch('/api/cron/send-rent-reminders', {
+          headers: {
+            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`,
+          }
         });
-      } else {
+        const result = await response.json();
+        if (result.success) {
+          toast({
+            title: "Reminder Test Complete",
+            description: result.message
+          });
+        } else {
+          throw new Error(result.message || 'Cron job failed');
+        }
+      } catch (error: any) {
         toast({
           variant: 'destructive',
           title: 'Reminder Test Failed',
-          description: 'Could not complete the rent reminder flow.'
+          description: error.message || 'Could not complete the rent reminder flow.'
         });
       }
     });
@@ -689,3 +697,5 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
     </>
   )
 }
+
+    

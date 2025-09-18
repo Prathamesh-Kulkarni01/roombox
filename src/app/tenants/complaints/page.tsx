@@ -22,7 +22,7 @@ import { addComplaint as addComplaintAction, updateComplaint as updateComplaintA
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
-import { sendNotification } from '@/ai/flows/send-notification-flow'
+import { createAndSendNotification } from '@/lib/actions/notificationActions'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import Image from 'next/image'
 import { canAccess } from '@/lib/permissions';
@@ -132,13 +132,18 @@ export default function TenantComplaintsPage() {
 
         if(addComplaintAction.fulfilled.match(resultAction)){
             const newComplaint = resultAction.payload;
-            // Send a push notification to the owner
-            await sendNotification({
-                userId: currentUser.ownerId,
-                title: `New Complaint: ${newComplaint.category}`,
-                body: `${newComplaint.guestName} reported: "${newComplaint.description.substring(0, 100)}${newComplaint.description.length > 100 ? '...' : ''}"`,
-                link: `/dashboard/complaints`
+            
+            await createAndSendNotification({
+                ownerId: currentUser.ownerId,
+                notification: {
+                    type: 'new-complaint',
+                    title: `New Complaint: ${newComplaint.category}`,
+                    message: `${newComplaint.guestName} reported: "${newComplaint.description.substring(0, 100)}${newComplaint.description.length > 100 ? '...' : ''}"`,
+                    link: `/dashboard/complaints`,
+                    targetId: currentUser.ownerId, // Send to the owner
+                }
             });
+
             toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
             form.reset()
             setImagePreviews([])
@@ -146,7 +151,6 @@ export default function TenantComplaintsPage() {
         } else {
              toast({ title: "Error", description: "Could not submit complaint.", variant: "destructive"})
         }
-
     }
 
     const handleUpvote = (complaint: Complaint) => {
@@ -284,3 +288,5 @@ export default function TenantComplaintsPage() {
         </Dialog>
     )
 }
+
+    
