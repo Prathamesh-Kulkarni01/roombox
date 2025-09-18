@@ -1,5 +1,4 @@
 
-
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -88,12 +87,12 @@ export interface Payment {
 
 // Payment Method Types
 export interface PaymentMethodBase {
-  id: string;
+  id: string; // This will now be the Razorpay Linked Account ID
   name: string;
   isActive: boolean;
   isPrimary: boolean;
   createdAt: string;
-  razorpay_fund_account_id?: string;
+  razorpay_linked_account_id?: string;
 }
 
 export interface BankPaymentMethod extends PaymentMethodBase {

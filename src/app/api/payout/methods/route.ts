@@ -1,8 +1,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { v4 as uuidv4 } from 'uuid';
 import type { User } from '@/lib/types';
 import { z } from 'zod';
+import Razorpay from "razorpay";
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
@@ -31,58 +31,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing owner or accountDetails" }, { status: 400 });
   }
 
-  const auth = "Basic " + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64");
-  const headers = { 
-      Authorization: auth, 
-      "Content-Type": "application/json",
-      "X-Idempotency-Key": uuidv4(),
-  };
+  const razorpay = new Razorpay({
+    key_id: RAZORPAY_KEY_ID,
+    key_secret: RAZORPAY_KEY_SECRET,
+  });
 
   try {
-    // Step 1: Create or find Contact
-    let contactId = owner.subscription?.payoutMethods?.find(p => p.razorpay_contact_id)?.razorpay_contact_id;
-    if (!contactId) {
-        const contactPayload = {
-            name: owner.name,
-            email: owner.email,
-            contact: owner.phone,
-            type: "vendor",
-            reference_id: `owner_contact_${owner.id.substring(0, 20)}`,
-        };
-        const contactResp = await fetch("https://api.razorpay.com/v1/contacts", {
-            method: "POST", headers, body: JSON.stringify(contactPayload),
-        });
-        const contactData = await contactResp.json();
-        if (!contactResp.ok) throw new Error(`Contact creation failed: ${contactData?.error?.description}`);
-        contactId = contactData.id;
-    }
+    const linkedAccountPayload: any = {
+        name: owner.name,
+        email: owner.email!,
+        phone: owner.phone!,
+        type: "vendor",
+        reference_id: `owner_account_${owner.id.substring(0, 20)}`,
+        notes: {
+            owner_id: owner.id
+        },
+        ... (accountDetails.payoutMethod === 'vpa' 
+            ? { vpa: { address: accountDetails.vpa! } }
+            : { bank_account: { name: accountDetails.name!, ifsc: accountDetails.ifsc!, account_number: accountDetails.account_number! } }
+        )
+    };
 
-    // Step 2: Create Fund Account
-    let fundPayload;
-    if (accountDetails.payoutMethod === 'vpa') {
-        fundPayload = { contact_id: contactId, account_type: "vpa", vpa: { address: accountDetails.vpa } };
-    } else {
-        fundPayload = {
-            contact_id: contactId,
-            account_type: "bank_account",
-            bank_account: {
-                name: accountDetails.name,
-                ifsc: accountDetails.ifsc,
-                account_number: accountDetails.account_number,
-            }
-        };
+    const linkedAccount = await razorpay.accounts.create(linkedAccountPayload);
+
+    if (!linkedAccount || !linkedAccount.id) {
+        throw new Error("Failed to create linked account on Razorpay.");
     }
     
-    const fundResp = await fetch("https://api.razorpay.com/v1/fund_accounts", {
-        method: "POST", headers, body: JSON.stringify(fundPayload),
-    });
-    const fundData = await fundResp.json();
-    if (!fundResp.ok) throw new Error(`Fund account creation failed: ${fundData?.error?.description}`);
-    
-    return NextResponse.json({ success: true, contactId, fundAccountId: fundData.id });
+    return NextResponse.json({ success: true, accountId: linkedAccount.id });
 
   } catch (err: any) {
     console.error("Error in /api/payout/methods:", err);
-    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: err.error?.description || err.message || "Internal server error" }, { status: 500 });
   }
 }

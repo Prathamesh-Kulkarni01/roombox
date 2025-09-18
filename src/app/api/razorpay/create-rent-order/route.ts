@@ -17,6 +17,8 @@ const orderRequestSchema = z.object({
   amount: z.number().min(1),
 });
 
+const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '0') / 100;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -28,15 +30,30 @@ export async function POST(req: NextRequest) {
     const { guestId, ownerId, amount } = validation.data;
     const adminDb = await getAdminDb();
     
+    // Fetch owner to get their primary payout method (linked account)
+    const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
+    if (!ownerDoc.exists) {
+        return NextResponse.json({ success: false, error: 'Property owner not found.' }, { status: 404 });
+    }
+    const owner = ownerDoc.data() as User;
+    const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
+
+    if (!primaryPayoutAccount?.razorpay_linked_account_id) {
+        return NextResponse.json({ success: false, error: 'Owner has not configured a primary payout account. Payment cannot be processed.' }, { status: 400 });
+    }
+    
     // Fetch guest to get their details
     const guestDoc = await adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
     if (!guestDoc.exists) {
         return NextResponse.json({ success: false, error: 'Guest not found.' }, { status: 404 });
     }
     const guest = guestDoc.data() as Guest;
+    
+    const amountInPaise = amount * 100;
+    const commissionInPaise = Math.round(amountInPaise * COMMISSION_RATE);
 
     const options = {
-      amount: amount * 100, // amount in the smallest currency unit
+      amount: amountInPaise,
       currency: "INR",
       receipt: `rent_${guestId}_${shortid.generate()}`,
       notes: {
@@ -44,7 +61,14 @@ export async function POST(req: NextRequest) {
         ownerId,
         guestName: guest.name,
         pgName: guest.pgName,
-      }
+      },
+      transfers: [
+        {
+          account: primaryPayoutAccount.razorpay_linked_account_id,
+          amount: amountInPaise - commissionInPaise,
+          currency: "INR",
+        }
+      ]
     };
     
     const order = await razorpay.orders.create(options);
@@ -52,7 +76,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, order });
 
   } catch (error: any) {
-    console.error('Error creating Razorpay order:', error);
+    console.error('Error creating Razorpay order with Route:', error);
     return NextResponse.json({ success: false, error: error.message || "An unknown error occurred." }, { status: 500 });
   }
 }

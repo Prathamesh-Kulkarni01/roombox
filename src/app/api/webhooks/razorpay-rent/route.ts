@@ -3,13 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, addMonths } from 'date-fns';
-import type { Guest, Payment, User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
+import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
-const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '0') / 100;
-
 
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
@@ -65,6 +63,7 @@ export async function POST(req: NextRequest) {
       
       const methodFromGateway = (payment.method || 'online').toLowerCase();
       const upiVpa: string | undefined = payment.vpa || payment.notes?.vpa;
+      const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
       const newPayment: Payment = {
         id: payment.id,
@@ -73,7 +72,9 @@ export async function POST(req: NextRequest) {
         method: 'in-app', // All webhook payments are in-app
         forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
         notes: `Paid via ${methodFromGateway}${upiVpa ? ` (${upiVpa})` : ''}`,
-        payoutStatus: 'pending',
+        payoutId: order.id, // Using order ID as a reference for the routed payment
+        payoutStatus: 'processed', // Assumed processed by Razorpay Routes
+        payoutTo: primaryPayoutAccount?.name || 'Linked Account',
       };
 
       const updatedGuest = produce(guest, draft => {
@@ -101,13 +102,13 @@ export async function POST(req: NextRequest) {
       await guestDocRef.set(updatedGuest, { merge: true });
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
       
-      // --- START NOTIFICATION LOGIC ---
+      // Send notifications
       await createAndSendNotification({
         ownerId: ownerId,
         notification: {
             type: 'rent-paid',
             title: 'Rent Received!',
-            message: `You have received ₹${amountPaid.toLocaleString('en-IN')} from ${guest.name}.`,
+            message: `You have received ₹${amountPaid.toLocaleString('en-IN')} from ${guest.name}. It has been routed to your primary account.`,
             link: `/dashboard/tenant-management/${guestId}`,
             targetId: ownerId
         }
@@ -124,90 +125,6 @@ export async function POST(req: NextRequest) {
                 targetId: guest.userId
             }
         });
-      }
-      // --- END NOTIFICATION LOGIC ---
-
-
-      // Attempt payout to owner after successfully updating tenant records
-      const commission = amountPaid * COMMISSION_RATE;
-      const payoutAmount = amountPaid - commission;
-
-      if (payoutAmount > 0) {
-        const payoutMethods = owner.subscription?.payoutMethods?.filter(m => m.isActive).sort((a, b) => (a.isPrimary ? -1 : 1) - (b.isPrimary ? -1 : 1)) || [];
-        
-        let payoutSucceeded = false;
-        let lastError = 'No active payout methods found.';
-        let payoutTargetAccountName = 'N/A';
-        const appUrl = process.env.URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
-
-        for (const method of payoutMethods) {
-          try {
-            payoutTargetAccountName = method.name; // Store which account we're trying
-            const res = await fetch(`${appUrl}/api/create-payout`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  account_number: process.env.NEXT_PUBLIC_RAZORPAY_ACCOUNT_NUMBER, // This is now fetched on the server
-                  fund_account_id: method.razorpay_fund_account_id,
-                  amountPaise: Math.round(payoutAmount * 100),
-                  notes: {
-                    payment_id: payment.id,
-                    guest_name: guest.name,
-                    pg_name: guest.pgName,
-                  },
-                }),
-              });
-
-            const payout = await res.json();
-            if (!res.ok) {
-                throw new Error(payout.error?.description || 'Payout API call failed.');
-            }
-            
-            console.log(`Payout of ₹${payoutAmount.toFixed(2)} to owner ${ownerId} succeeded via ${method.name}. Payout ID: ${payout.id}`);
-            payoutSucceeded = true;
-            
-            const guestAfterUpdate = await guestDocRef.get();
-            const finalGuestState = produce(guestAfterUpdate.data() as Guest, draft => {
-                const paymentRecord = draft.paymentHistory?.find(p => p.id === payment.id);
-                if(paymentRecord) {
-                    paymentRecord.payoutId = payout.id;
-                    paymentRecord.payoutStatus = 'processed';
-                    paymentRecord.payoutTo = payoutTargetAccountName;
-                }
-            });
-            await guestDocRef.set(finalGuestState, { merge: true });
-            
-            break; 
-          } catch(payoutError: any) {
-             lastError = payoutError.message || "An unknown error occurred.";
-             console.warn(`Payout via ${method.name} failed for owner ${ownerId}:`, lastError);
-          }
-        }
-        
-        if(!payoutSucceeded) {
-            console.error(`All payout methods failed for owner ${ownerId}. Last error: ${lastError}`);
-            await createAndSendNotification({
-                ownerId: ownerId, 
-                notification: {
-                    type: 'payout-failed',
-                    title: 'Action Required: Payout Failed',
-                    message: `Payment of ₹${amountPaid} from ${guest.name} was received, but the transfer to your account failed. Reason: ${lastError}.`,
-                    link: `/dashboard/rent-passbook`,
-                    targetId: ownerId,
-                }
-            });
-
-            const guestAfterUpdate = await guestDocRef.get();
-            const finalGuestState = produce(guestAfterUpdate.data() as Guest, draft => {
-                const paymentRecord = draft.paymentHistory?.find(p => p.id === payment.id);
-                if(paymentRecord) {
-                    paymentRecord.payoutStatus = 'failed';
-                    paymentRecord.payoutFailureReason = lastError;
-                    paymentRecord.payoutTo = payoutTargetAccountName;
-                }
-            });
-            await guestDocRef.set(finalGuestState, { merge: true });
-        }
       }
     }
 

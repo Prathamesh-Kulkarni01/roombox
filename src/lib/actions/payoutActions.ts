@@ -62,8 +62,8 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         }
 
         const newMethod: PaymentMethod = {
-          id: result.fundAccountId,
-          razorpay_fund_account_id: result.fundAccountId,
+          id: result.accountId,
+          razorpay_linked_account_id: result.accountId,
           type: data.payoutMethod,
           name: data.payoutMethod === 'vpa' ? data.vpa! : data.name!,
           isActive: true,
@@ -95,16 +95,9 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
     try {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
-        const res = await fetch(`${appUrl}/api/payout/methods/deactivate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fundAccountId: methodId }),
-        });
-
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || 'Failed to deactivate account on payment gateway.');
-        }
+        // Note: Razorpay does not allow deactivating/deleting linked accounts via API for compliance.
+        // We will just mark it as inactive in our system.
+        // A real implementation might require a support flow to properly delete from Razorpay.
 
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
@@ -115,11 +108,21 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         const owner = ownerDoc.data() as User;
         let methods = owner.subscription?.payoutMethods || [];
         
-        let updatedMethods = methods.filter(m => m.id !== methodId);
+        let wasPrimary = false;
+        const updatedMethods = methods.map(m => {
+            if (m.id === methodId) {
+                wasPrimary = m.isPrimary;
+                return { ...m, isActive: false };
+            }
+            return m;
+        });
         
-        const wasPrimary = methods.find(m => m.id === methodId)?.isPrimary;
-        if (wasPrimary && updatedMethods.length > 0) {
-            updatedMethods[0].isPrimary = true;
+        // If the deactivated one was primary, make the next active one primary.
+        if (wasPrimary) {
+            const nextPrimary = updatedMethods.find(m => m.isActive);
+            if (nextPrimary) {
+                nextPrimary.isPrimary = true;
+            }
         }
         
         await ownerDocRef.update({
