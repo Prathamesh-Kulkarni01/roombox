@@ -272,7 +272,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setGuestToExitImmediately(null);
   };
 
-  const handleOpenReminderDialog = async (guest: Guest) => {
+  const handleOpenReminderDialog = (guest: Guest) => {
     if (!guest || !currentUser) return;
     setSelectedGuestForReminder(guest);
     setIsReminderDialogOpen(true);
@@ -516,3 +516,5 @@ Thank you!`;
 }
 
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
+
+    

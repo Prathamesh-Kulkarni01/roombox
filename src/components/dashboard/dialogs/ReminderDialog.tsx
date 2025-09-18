@@ -18,12 +18,18 @@ export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDial
 
   useEffect(() => {
     if (selectedGuestForReminder && isReminderDialogOpen && !reminderMessage) {
+        // The handleOpenReminderDialog function now instantly creates the template
         handleOpenReminderDialog(selectedGuestForReminder);
     }
   }, [isReminderDialogOpen, selectedGuestForReminder]);
   
   return (
-    <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+    <Dialog open={isReminderDialogOpen} onOpenChange={(open) => {
+        setIsReminderDialogOpen(open);
+        if (!open) {
+            setReminderMessage(''); // Clear message on close
+        }
+    }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Send Rent Reminder</DialogTitle>
@@ -31,11 +37,7 @@ export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDial
         </DialogHeader>
         <div className="py-4 space-y-2">
             <Label htmlFor="reminder-message">Reminder Message</Label>
-            {isGeneratingReminder ? (
-                <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>
-            ) : (
-                <Textarea id="reminder-message" value={reminderMessage} onChange={(e) => setReminderMessage(e.target.value)} rows={8} className="bg-muted/50" />
-            )}
+            <Textarea id="reminder-message" value={reminderMessage} onChange={(e) => setReminderMessage ? setReminderMessage(e.target.value) : null} rows={8} className="bg-muted/50" />
         </div>
         <DialogFooter className="gap-2 sm:justify-end">
           <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}>
@@ -49,3 +51,5 @@ export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDial
     </Dialog>
   )
 }
+
+    
