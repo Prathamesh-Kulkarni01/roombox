@@ -38,6 +38,8 @@ export default function BlogPage({ params }: Props) {
     notFound();
   }
 
+  // The rendering logic is now handled by the layout.
+  // We just pass the content as a child.
   return (
     <div dangerouslySetInnerHTML={{ __html: guide.content }} />
   );

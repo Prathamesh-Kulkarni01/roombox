@@ -4,12 +4,16 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 export default function BlogLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Extract the innerHTML from the child div passed by the page component
+  const htmlContent = (children as React.ReactElement)?.props?.dangerouslySetInnerHTML?.__html;
+
   return (
     <div className="bg-muted/40">
         <div className="container mx-auto px-4 py-8 md:py-12">
@@ -28,8 +32,8 @@ export default function BlogLayout({
                         prose-strong:text-foreground
                         prose-ul:list-disc prose-ul:pl-6 prose-li:text-muted-foreground
                         prose-ol:list-decimal prose-ol:pl-6 prose-li:text-muted-foreground"
+                        dangerouslySetInnerHTML={{ __html: htmlContent }}
                     >
-                        {children}
                     </article>
                 </CardContent>
             </Card>
