@@ -68,12 +68,10 @@ export async function POST(req: NextRequest) {
       const guest = guestDoc.data() as Guest;
       const owner = ownerDoc.data() as User;
       
-      // Determine payment method for history (prefer Razorpay payment.method)
       const methodFromGateway = (payment.method || '').toLowerCase();
       const methodForHistory: Payment['method'] = methodFromGateway === 'upi' ? 'upi' : 'in-app';
       const upiVpa: string | undefined = payment.vpa || payment.notes?.vpa;
 
-      // Update guest payment history
       const newPayment: Payment = {
         id: payment.id,
         date: new Date(payment.created_at * 1000).toISOString(),
@@ -106,7 +104,6 @@ export async function POST(req: NextRequest) {
       await guestDocRef.set(updatedGuest, { merge: true });
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
 
-      // Trigger payout to owner after deducting commission
       const fundAccountId = owner.subscription?.razorpay_fund_account_id;
       if (!fundAccountId) {
           console.error(`Owner ${ownerId} does not have a fund account ID. Cannot process payout.`);
@@ -117,25 +114,29 @@ export async function POST(req: NextRequest) {
       const payoutAmount = amountPaid - commission;
 
       if (payoutAmount > 0) {
-        const payout = await razorpay.payouts.create({
-            account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
-            fund_account_id: fundAccountId,
-            amount: Math.round(payoutAmount * 100), // Amount in paisa
-            currency: "INR",
-            mode: "UPI",
-            purpose: "rent_settlement",
-            queue_if_low_balance: true,
-            notes: {
-              payment_id: payment.id,
-              guest_name: guest.name,
-              pg_name: guest.pgName,
-              commission_deducted: commission.toFixed(2),
-              method: methodFromGateway,
-              vpa: upiVpa || '',
-            }
-        });
+        try {
+            const payout = await razorpay.payouts.create({
+                account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
+                fund_account_id: fundAccountId,
+                amount: Math.round(payoutAmount * 100), // Amount in paisa
+                currency: "INR",
+                mode: "UPI",
+                purpose: "payout",
+                queue_if_low_balance: true,
+                notes: {
+                  payment_id: payment.id,
+                  guest_name: guest.name,
+                  pg_name: guest.pgName,
+                  commission_deducted: commission.toFixed(2),
+                  method: methodFromGateway,
+                  vpa: upiVpa || '',
+                }
+            });
 
-        console.log(`Payout of ₹${payoutAmount.toFixed(2)} initiated to owner ${ownerId}. Payout ID: ${payout.id}`);
+            console.log(`Payout of ₹${payoutAmount.toFixed(2)} initiated to owner ${ownerId}. Payout ID: ${payout.id}`);
+        } catch(payoutError: any) {
+             console.error(`Payout creation failed for owner ${ownerId}:`, payoutError.error?.description || payoutError.message);
+        }
       } else {
         console.log(`Payout amount for owner ${ownerId} is zero or less after commission. No payout created.`);
       }
