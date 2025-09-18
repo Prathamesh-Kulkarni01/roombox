@@ -6,7 +6,7 @@ import { format, addMonths } from 'date-fns';
 import type { Guest, Payment, User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
 import { produce } from 'immer';
 import Razorpay from 'razorpay';
-import { createNotification } from '@/lib/actions/notificationActions';
+import { createAndSendNotification } from '@/lib/actions/notificationActions';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
 const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '0') / 100;
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
       
       // --- START NOTIFICATION LOGIC ---
-      await createNotification({
+      await createAndSendNotification({
         ownerId: ownerId,
         notification: {
             type: 'rent-paid',
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (guest.userId) {
-          await createNotification({
+          await createAndSendNotification({
             ownerId: ownerId,
             notification: {
                 type: 'rent-receipt',
@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
         
         if(!payoutSucceeded) {
             console.error(`All payout methods failed for owner ${ownerId}. Last error: ${lastError}`);
-            await createNotification({
+            await createAndSendNotification({
                 ownerId: ownerId, 
                 notification: {
                     type: 'payout-failed',

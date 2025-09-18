@@ -4,7 +4,6 @@ import type { Notification } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
-import { sendPushToTopic, sendPushToUser, getSubscribedTopics, subscribeToTopics } from '../notifications';
 
 interface NotificationsState {
     notifications: Notification[];
@@ -14,92 +13,6 @@ const initialState: NotificationsState = {
     notifications: [],
 };
 
-export const addNotification = createAsyncThunk<Notification, Omit<Notification, 'id' | 'date' | 'isRead'>, { state: RootState }>(
-    'notifications/addNotification',
-    async (notificationData, { getState, rejectWithValue }) => {
-        const { user } = getState();
-        // This action can be called server-side (e.g., from a webhook), so we might not have a logged-in user.
-        // We need the ownerId to know where to write the notification.
-        let ownerId: string | undefined;
-
-        if (user.currentUser) {
-            ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
-        } else if (notificationData.targetId) {
-            // Attempt to derive ownerId from the target in a server context
-            if (isFirebaseConfigured() && db) {
-                 const userDoc = await getDoc(doc(db, 'users', notificationData.targetId));
-                 if (userDoc.exists()) {
-                     const targetUserData = userDoc.data();
-                     ownerId = targetUserData.role === 'owner' ? targetUserData.id : targetUserData.ownerId;
-                 }
-            }
-        }
-        
-        if (!ownerId) {
-             console.error("addNotification: Could not determine ownerId to save the notification.");
-             return rejectWithValue('Could not determine owner ID for notification');
-        }
-
-        const newNotification: Notification = {
-            id: `notif-${Date.now()}`,
-            ...notificationData,
-            date: new Date().toISOString(),
-            isRead: false,
-        };
-
-        if (isFirebaseConfigured() && db) {
-            const docRef = doc(db, 'users_data', ownerId, 'notifications', newNotification.id);
-            await setDoc(docRef, newNotification);
-        }
-        return newNotification;
-    }
-);
-
-export const markNotificationAsRead = createAsyncThunk<string, string, { state: RootState }>(
-    'notifications/markAsRead',
-    async (notificationId, { getState, rejectWithValue }) => {
-        const { user, notifications } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-
-        const notification = notifications.notifications.find(n => n.id === notificationId);
-        if (!notification) return rejectWithValue('Notification not found');
-        
-        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
-        if (!ownerId) return rejectWithValue('Could not determine owner ID');
-
-        const updatedNotification: Notification = { ...notification, isRead: true };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
-            const docRef = doc(db, 'users_data', ownerId, 'notifications', notificationId);
-            await setDoc(docRef, updatedNotification, { merge: true });
-        }
-        return notificationId;
-    }
-);
-
-export const markAllAsRead = createAsyncThunk<void, void, { state: RootState }>(
-    'notifications/markAllAsRead',
-    async (_, { getState, rejectWithValue }) => {
-        const { user, notifications } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-        
-        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
-        if (!ownerId) return rejectWithValue('Could not determine owner ID');
-        
-        const unreadNotifications = notifications.notifications.filter(n => !n.isRead);
-        if (unreadNotifications.length === 0) return;
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
-            const batch = writeBatch(db);
-            unreadNotifications.forEach(notification => {
-                const docRef = doc(db, 'users_data', ownerId, 'notifications', notification.id);
-                batch.update(docRef, { isRead: true });
-            });
-            await batch.commit();
-        }
-    }
-);
-
 const notificationsSlice = createSlice({
     name: 'notifications',
     initialState,
@@ -107,26 +20,28 @@ const notificationsSlice = createSlice({
         setNotifications: (state, action: PayloadAction<Notification[]>) => {
             state.notifications = action.payload;
         },
+        addNotification: (state, action: PayloadAction<Notification>) => {
+             state.notifications.unshift(action.payload);
+        },
+        markNotificationAsRead: (state, action: PayloadAction<string>) => {
+            const index = state.notifications.findIndex(n => n.id === action.payload);
+            if (index !== -1) {
+                state.notifications[index].isRead = true;
+            }
+        },
+        markAllAsRead: (state) => {
+            state.notifications.forEach(n => {
+                n.isRead = true;
+            });
+        },
     },
-     extraReducers: (builder) => {
+    extraReducers: (builder) => {
         builder
-            .addCase(addNotification.fulfilled, (state, action) => {
-                state.notifications.unshift(action.payload);
-            })
-             .addCase(markNotificationAsRead.fulfilled, (state, action) => {
-                const index = state.notifications.findIndex(n => n.id === action.payload);
-                if (index !== -1) {
-                    state.notifications[index].isRead = true;
-                }
-            })
-            .addCase(markAllAsRead.fulfilled, (state) => {
-                state.notifications.forEach(n => n.isRead = true);
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.notifications = [];
             });
     }
 });
 
-export const { setNotifications } = notificationsSlice.actions;
+export const { setNotifications, addNotification, markNotificationAsRead, markAllAsRead } = notificationsSlice.actions;
 export default notificationsSlice.reducer;

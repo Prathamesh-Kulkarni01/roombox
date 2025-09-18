@@ -25,7 +25,7 @@ import { canAccess } from '@/lib/permissions'
 import Access from '@/components/ui/PermissionWrapper'
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import { useToast } from '@/hooks/use-toast'
-import { sendNotification } from '@/ai/flows/send-notification-flow'
+import { createAndSendNotification } from '@/lib/actions/notificationActions';
 
 
 const statusColors: Record<Complaint['status'], string> = {
@@ -161,6 +161,7 @@ const ComplaintsView = () => {
 const NoticeBoardView = () => {
     const { guests } = useAppSelector(state => state.guests);
     const { selectedPgId } = useAppSelector(state => state.app);
+    const { currentUser } = useAppSelector(state => state.user);
     const { toast } = useToast();
     const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
     
@@ -170,6 +171,7 @@ const NoticeBoardView = () => {
     });
 
     const handleSendNotice = async (data: NoticeFormValues) => {
+        if (!currentUser?.id) return;
         const activeGuests = guests.filter(g => 
             !g.isVacated && g.userId && (!selectedPgId || g.pgId === selectedPgId)
         );
@@ -181,11 +183,15 @@ const NoticeBoardView = () => {
 
         try {
             await Promise.all(activeGuests.map(guest => 
-                sendNotification({
-                    userId: guest.userId!,
-                    title: data.title,
-                    body: data.message,
-                    link: '/tenants/my-pg'
+                createAndSendNotification({
+                    ownerId: currentUser.id,
+                    notification: {
+                        type: 'announcement',
+                        title: data.title,
+                        message: data.message,
+                        link: '/tenants/my-pg',
+                        targetId: guest.userId!
+                    }
                 })
             ));
             toast({ title: "Notice Sent!", description: `Your notice has been sent to ${activeGuests.length} guest(s).` });

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { addDays, format, isBefore, isPast, parseISO, differenceInDays } from 'date-fns';
 import { type User, type Guest } from '@/lib/types';
-import { sendNotification } from './send-notification-flow';
+import { createAndSendNotification } from '@/lib/actions/notificationActions';
 
 const REMINDER_DAYS_BEFORE_DUE = 3;
 const OVERDUE_REMINDER_INTERVAL_DAYS = 3; // Send overdue reminders every 3 days
@@ -97,11 +97,15 @@ const sendRentRemindersFlow = ai.defineFlow(
           if (shouldSend) {
             console.log(`📨 Sending ${isOverdue ? 'overdue' : 'upcoming'} reminder to ${guest.name} (due on ${guest.dueDate})`);
 
-            await sendNotification({
-              userId: guest.userId,
-              title: title,
-              body: body,
-              link: '/tenants/my-pg',
+            await createAndSendNotification({
+              ownerId: owner.id,
+              notification: {
+                type: 'rent-reminder',
+                title: title,
+                message: body,
+                link: '/tenants/my-pg',
+                targetId: guest.userId,
+              }
             });
 
             await guestDoc.ref.update({
@@ -121,5 +125,3 @@ const sendRentRemindersFlow = ai.defineFlow(
     }
   }
 );
-
-    
