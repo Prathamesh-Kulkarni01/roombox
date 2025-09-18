@@ -6,8 +6,7 @@ import { format, addMonths } from 'date-fns';
 import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
 import Razorpay from 'razorpay';
-import { addNotification } from '@/lib/slices/notificationsSlice';
-import { store } from '@/lib/store';
+import { createNotification } from '@/lib/actions/notificationActions';
 
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
@@ -148,13 +147,17 @@ export async function POST(req: NextRequest) {
         
         if(!payoutSucceeded) {
             console.error(`All payout methods failed for owner ${ownerId}. Last error: ${lastError}`);
-            await store.dispatch(addNotification({
-                type: 'payout-failed',
-                title: 'Payout Failed: Manual Action Required',
-                message: `Payment of ₹${amountPaid} from ${guest.name} was received, but all payout attempts failed. Last error: ${lastError}`,
-                link: `/dashboard/rent-passbook`,
-                targetId: ownerId,
-            }));
+            // Use server-side helper to create notification
+            await createNotification({
+                ownerId: ownerId, // Ensure ownerId is passed
+                notification: {
+                    type: 'payout-failed',
+                    title: 'Payout Failed: Manual Action Required',
+                    message: `Payment of ₹${amountPaid} from ${guest.name} was received, but all payout attempts failed. Last error: ${lastError}`,
+                    link: `/dashboard/rent-passbook`,
+                    targetId: ownerId,
+                }
+            });
         }
       }
     }
