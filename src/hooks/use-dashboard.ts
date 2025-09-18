@@ -272,26 +272,38 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setGuestToExitImmediately(null);
   };
 
-  const handleOpenReminderDialog = (guest: Guest) => {
-    if (!guest || !currentUser) return;
+  const handleOpenReminderDialog = async (guest: Guest) => {
+    if (!guest || !currentUser) {
+        setReminderMessage("Cannot generate reminder: guest or user data is missing.");
+        setIsReminderDialogOpen(true);
+        return;
+    };
     setSelectedGuestForReminder(guest);
+    setIsGeneratingReminder(true);
+    setIsReminderDialogOpen(true);
+    setReminderMessage("Generating payment link...");
 
     const balanceBf = guest.balanceBroughtForward || 0;
     const currentMonthRent = guest.rentAmount;
     const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
     const totalDue = balanceBf + currentMonthRent + chargesDue - (guest.rentPaidAmount || 0);
-    
-    const secret = process.env.NEXT_PUBLIC_JWT_SECRET;
-    if (!secret) {
-        console.error("JWT_SECRET is not set!");
-        setReminderMessage("Could not generate a payment link. Server is not configured.");
-        setIsReminderDialogOpen(true);
-        return;
-    }
-    const token = jwt.sign({ guestId: guest.id, ownerId: currentUser.id }, secret, { expiresIn: '7d' });
-    const paymentLink = `${window.location.origin}/pay/${token}`;
 
-    const message = `Hi ${guest.name}, this is a friendly reminder for your rent payment for ${guest.pgName}.
+    try {
+        const response = await fetch('/api/generate-payment-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ guestId: guest.id, ownerId: currentUser.id }),
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to generate token.');
+        }
+
+        const paymentLink = `${window.location.origin}/pay/${result.token}`;
+
+        const message = `Hi ${guest.name}, this is a friendly reminder for your rent payment for ${guest.pgName}.
 
 Total Amount Due: ₹${totalDue.toLocaleString('en-IN')}
 Due Date: ${format(new Date(guest.dueDate), "do MMMM yyyy")}
@@ -300,9 +312,14 @@ You can pay securely by clicking the link below:
 ${paymentLink}
 
 Thank you!`;
-    
-    setReminderMessage(message);
-    setIsReminderDialogOpen(true);
+        setReminderMessage(message);
+
+    } catch (error: any) {
+        console.error("Payment link generation error:", error);
+        setReminderMessage("Could not generate a secure payment link. Please check server configuration and try again.");
+    } finally {
+        setIsGeneratingReminder(false);
+    }
   }
 
   const getPgById = (pgId: string) => pgs.find(p => p.id === pgId);
