@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -6,26 +7,26 @@ import { usePathname } from 'next/navigation';
 import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, LogOut, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Button } from './ui/button';
-import { Skeleton } from './ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Button } from '../ui/button';
+import { Skeleton } from '../ui/skeleton';
 import { useMemo } from 'react';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { canViewFeature } from '@/lib/permissions';
 
 const navItems = [
-  { href: '/tenants/my-pg', label: 'My Property', icon: Home, feature: 'core' },
-  { href: '/tenants/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints' },
-  { href: '/tenants/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'food' },
-  { href: '/tenants/kyc', label: 'KYC Verification', icon: ShieldCheck, feature: 'kyc' },
-  { href: '/tenants/chatbot', label: 'AI Helper', icon: Bot, feature: 'chatbot' },
-  { href: '/tenants/profile', label: 'Profile', icon: User, feature: 'core' },
+  { href: '/tenants/my-pg', label: 'My Property', icon: Home },
+  { href: '/tenants/complaints', label: 'Complaints', icon: MessageSquareWarning },
+  { href: '/tenants/food', label: 'Food Menu', icon: UtensilsCrossed },
+  { href: '/tenants/kyc', label: 'KYC Verification', icon: ShieldCheck },
+  { href: '/tenants/chatbot', label: 'AI Helper', icon: Bot },
+  { href: '/tenants/profile', label: 'Profile', icon: User },
 ];
 
 export default function TenantSidebar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
-  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
+  const { currentUser } = useAppSelector((state) => state.user);
   const { guests } = useAppSelector((state) => state.guests);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
 
@@ -33,12 +34,6 @@ export default function TenantSidebar() {
     if (!currentUser || !currentUser.guestId) return null;
     return guests.find(g => g.id === currentUser.guestId);
   }, [currentUser, guests]);
-
-  const accessibleNavItems = navItems.filter(item => {
-      if (item.feature === 'core') return true;
-      if (item.feature === 'kyc') return currentPlan?.hasKycVerification; // Special check for KYC
-      return true; // For tenants, we assume most features are accessible if they exist
-  });
 
 
   if (!currentUser || !currentGuest) {
@@ -63,7 +58,7 @@ export default function TenantSidebar() {
             <h2 className="text-xl font-bold text-primary font-headline">Guest Portal</h2>
         </div>
         <nav className="flex flex-col gap-1 p-4">
-          {accessibleNavItems.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

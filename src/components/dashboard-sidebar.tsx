@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -39,7 +40,7 @@ export default function DashboardSidebar() {
   });
 
   return (
-    <aside className="w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground hidden md:flex">
+    <aside className="w-64 flex-col border-r bg-card hidden md:flex">
       <div className="flex-1 flex flex-col gap-y-2">
         <div className="p-4">
             <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
@@ -51,8 +52,8 @@ export default function DashboardSidebar() {
                 href={item.href}
                 data-tour={item.tourId}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent',
-                  (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-sidebar-accent text-sidebar-primary'
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground/80 transition-all hover:text-primary hover:bg-muted',
+                  (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-muted text-primary'
                 )}
               >
                 <item.icon className="h-4 w-4" />
@@ -63,8 +64,8 @@ export default function DashboardSidebar() {
              <Link
                 href="/admin/dashboard"
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent',
-                  pathname.startsWith('/admin') && 'bg-sidebar-accent text-sidebar-primary'
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground/80 transition-all hover:text-primary hover:bg-muted',
+                  pathname.startsWith('/admin') && 'bg-muted text-primary'
                 )}
               >
                 <Shield className="h-4 w-4" />
@@ -72,12 +73,12 @@ export default function DashboardSidebar() {
               </Link>
           )}
         </nav>
-        <Separator className="my-4 bg-sidebar-border" />
+        <Separator className="my-4" />
         <div className="flex flex-col gap-1 px-4">
-            <h4 className="px-3 py-2 text-xs font-semibold text-sidebar-foreground/60">Guides &amp; Training</h4>
+            <h4 className="px-3 py-2 text-xs font-semibold text-muted-foreground">Guides &amp; Training</h4>
              <Link href="/dashboard/training" className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent',
-                  pathname === '/dashboard/training' && 'bg-sidebar-accent text-sidebar-primary'
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground/80 transition-all hover:text-primary hover:bg-muted',
+                  pathname === '/dashboard/training' && 'bg-muted text-primary'
                 )}
             >
                 <BookOpen className="h-4 w-4" />
@@ -86,7 +87,7 @@ export default function DashboardSidebar() {
         </div>
       </div>
       <div className="p-4 mt-auto">
-        <Separator className="my-4 bg-sidebar-border" />
+        <Separator className="my-4" />
          <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
                 <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
@@ -94,7 +95,7 @@ export default function DashboardSidebar() {
             </Avatar>
             <div className='flex-1'>
                 <p className="font-semibold text-sm truncate">{currentUser.name}</p>
-                <p className="text-xs text-sidebar-foreground/70 capitalize">{currentUser.role} ({currentPlan.name})</p>
+                <p className="text-xs text-muted-foreground capitalize">{currentUser.role} ({currentPlan.name})</p>
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>

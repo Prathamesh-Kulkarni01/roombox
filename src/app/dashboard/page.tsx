@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useMemo, useRef, useState, useEffect } from "react"
@@ -78,7 +79,7 @@ export default function DashboardPage() {
     isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit, floorForm, handleFloorSubmit,
     isBedDialogOpen, setIsBedDialogOpen, bedToEdit, bedForm, handleBedSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit,
-    isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, isGeneratingReminder, reminderMessage,
+    isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, isGeneratingReminder, reminderMessage, setReminderMessage,
     isSharedChargeDialogOpen, setIsSharedChargeDialogOpen, roomForSharedCharge, sharedChargeForm, handleSharedChargeSubmit,
     itemToDelete, setItemToDelete,
     guestToInitiateExit, setGuestToInitiateExit,
@@ -244,7 +245,14 @@ export default function DashboardPage() {
     }
     const res = await initPushAndSaveToken(currentUser.id)
     if (res.token) {
-      toast({ title: 'Push Ready', description: 'Token saved. You should receive notifications.' })
+      toast({ title: 'Push Ready', description: 'Token saved. You can now subscribe to topics.' })
+      // Auto-subscribe to base topics
+      await subscribeToTopic({
+        token: res.token,
+        topics: ['app', `role-${currentUser.role}`],
+        userId: currentUser.id
+      });
+      fetchTopics();
     } else {
       toast({ variant: 'destructive', title: 'Init failed', description: 'Could not get a token. Check VAPID and permissions.' })
     }
@@ -253,20 +261,13 @@ export default function DashboardPage() {
   const handleSubscribeTopic = async () => {
     try {
       setSending(true)
-      // We rely on token saved in Firestore by init; if you want to pass explicit token, adjust helper to return it
-      // For now, just call subscribe API with the token fetched from Firestore is not available here; skip if no prefix
       if (!currentUser?.fcmToken) {
         toast({ variant: 'destructive', title: 'No token', description: 'Click "Init Push" first to save a token.' })
         return
       }
-      // Best-effort: get fresh token from client to subscribe directly
-      const res = await initPushAndSaveToken(currentUser!.id)
-      if (!res.token) {
-        toast({ variant: 'destructive', title: 'Subscribe failed', description: 'Could not obtain token.' })
-        return
-      }
-      const ok = await subscribeToTopic({ token: res.token, topic: testTopic })
+      const ok = await subscribeToTopic({ token: currentUser.fcmToken, topic: testTopic, userId: currentUser.id })
       toast({ title: ok ? 'Subscribed' : 'Subscribe failed', description: ok ? `Subscribed to ${testTopic}` : 'See server logs.' })
+      if(ok) fetchTopics();
     } finally {
       setSending(false)
     }
@@ -490,15 +491,19 @@ export default function DashboardPage() {
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2">
                 <Button onClick={handleInitPush} disabled={sending}>Init Push</Button>
-                <span className="text-xs text-muted-foreground">Token: {currentUser?.fcmToken}…</span>
+                <span className="text-xs text-muted-foreground">Token: {currentUser?.fcmToken?.substring(0, 20)}…</span>
               </div>
               <div className="flex items-center gap-2">
                 <Input value={testTopic} onChange={(e) => setTestTopic(e.target.value)} className="max-w-xs" placeholder="topic" />
-                <div>
-                  {showTopics.map(t => <div key={t}>{t}</div>)}
-                </div>
-                <Button variant="outline" onClick={handleSubscribeTopic} disabled={sending}>Subscribe Topic</Button>
+                <Button variant="outline" onClick={handleSubscribeTopic} disabled={sending}>Subscribe</Button>
+                <Button variant="ghost" size="sm" onClick={fetchTopics}>Refresh Topics</Button>
               </div>
+               <div>
+                  <p className="text-xs font-medium">Subscribed Topics:</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                  {showTopics.map(t => <Badge key={t} variant="secondary">{t}</Badge>)}
+                  </div>
+                </div>
               <div className="flex items-center gap-2">
                 <Button onClick={handleSendToSelf} disabled={sending}><Send className="mr-2 h-4 w-4"/> Send To Me</Button>
                 <Button variant="secondary" onClick={handleSendToTopic} disabled={sending}><Send className="mr-2 h-4 w-4"/> Send To Topic</Button>
@@ -561,6 +566,7 @@ export default function DashboardPage() {
           selectedGuestForReminder={selectedGuestForReminder} 
           isGeneratingReminder={isGeneratingReminder} 
           reminderMessage={reminderMessage}
+          setReminderMessage={setReminderMessage}
         />
       </Access>
 
