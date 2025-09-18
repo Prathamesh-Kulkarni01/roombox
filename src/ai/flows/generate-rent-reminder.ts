@@ -17,6 +17,7 @@ const GenerateRentReminderInputSchema = z.object({
   rentAmount: z.number().describe('The amount of rent due.'),
   dueDate: z.string().describe('The due date for the rent payment (e.g., July 1, 2024).'),
   pgName: z.string().describe('The name of the PG.'),
+  paymentLink: z.string().url().describe('A unique URL for the tenant to pay their rent directly.'),
 });
 
 export type GenerateRentReminderInput = z.infer<typeof GenerateRentReminderInputSchema>;
@@ -43,6 +44,7 @@ const generateRentReminderPrompt = ai.definePrompt({
   Rent Amount: ₹{{{rentAmount}}}
   Due Date: {{{dueDate}}}
   PG Name: {{{pgName}}}
+  Payment Link: {{{paymentLink}}}
 
 The message should:
 
@@ -50,6 +52,7 @@ The message should:
 *   Maintain a professional tone.
 *   Include the guest's name, rent amount, and due date.
 *   Mention the PG name
+*   **Crucially, include the full payment link at the end of the message so they can pay immediately.**
 *   Be suitable for sending via WhatsApp or SMS.
 
   Output the rent reminder message.`,
