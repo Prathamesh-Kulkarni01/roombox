@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useTransition } from "react"
@@ -155,8 +156,11 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   const handleOpenAddGuestDialog = (bed: Bed, room: Room, pg: PG) => {
     setSelectedBedForGuestAdd({ bed, room, pg });
-    addGuestForm.reset({ 
-      rentAmount: room.rent, 
+    addGuestForm.reset({
+      name: '',
+      phone: '',
+      email: '',
+      rentAmount: room.rent,
       depositAmount: room.deposit,
       moveInDate: new Date(),
     });
@@ -533,3 +537,5 @@ Thank you!`;
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
 
   
+
+    

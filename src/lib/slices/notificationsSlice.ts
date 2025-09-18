@@ -1,4 +1,5 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Notification } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
@@ -20,8 +21,14 @@ const notificationsSlice = createSlice({
         setNotifications: (state, action: PayloadAction<Notification[]>) => {
             state.notifications = action.payload;
         },
-        addNotification: (state, action: PayloadAction<Notification>) => {
-             state.notifications.unshift(action.payload);
+        addNotification: (state, action: PayloadAction<Omit<Notification, 'id' | 'date' | 'isRead'>>) => {
+             const newNotification: Notification = {
+                id: `notif-${Date.now()}`,
+                ...action.payload,
+                date: new Date().toISOString(),
+                isRead: false,
+             };
+             state.notifications.unshift(newNotification);
         },
         markNotificationAsRead: (state, action: PayloadAction<string>) => {
             const index = state.notifications.findIndex(n => n.id === action.payload);
@@ -45,3 +52,5 @@ const notificationsSlice = createSlice({
 
 export const { setNotifications, addNotification, markNotificationAsRead, markAllAsRead } = notificationsSlice.actions;
 export default notificationsSlice.reducer;
+
+    
