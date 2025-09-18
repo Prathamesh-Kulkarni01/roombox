@@ -104,9 +104,11 @@ export async function POST(req: NextRequest) {
       await guestDocRef.set(updatedGuest, { merge: true });
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
 
+      // Attempt payout to owner after successfully updating tenant records
       const fundAccountId = owner.subscription?.razorpay_fund_account_id;
       if (!fundAccountId) {
           console.error(`Owner ${ownerId} does not have a fund account ID. Cannot process payout.`);
+          // Still return success because the tenant payment part was handled.
           return NextResponse.json({ success: true, message: "Payment recorded, but payout failed: owner's account not linked." });
       }
       
@@ -136,6 +138,8 @@ export async function POST(req: NextRequest) {
             console.log(`Payout of ₹${payoutAmount.toFixed(2)} initiated to owner ${ownerId}. Payout ID: ${payout.id}`);
         } catch(payoutError: any) {
              console.error(`Payout creation failed for owner ${ownerId}:`, payoutError.error?.description || payoutError.message);
+             // Important: Acknowledge webhook but log the payout failure for manual review.
+             return NextResponse.json({ success: true, message: "Payment recorded, but automatic payout failed. Please check logs." });
         }
       } else {
         console.log(`Payout amount for owner ${ownerId} is zero or less after commission. No payout created.`);
