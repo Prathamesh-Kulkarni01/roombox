@@ -32,27 +32,9 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     try {
         const adminDb = await getAdminDb();
         
-        const targetUserId = notification.targetId;
-
-        // Fetch the target user to determine their role and owner.
-        const targetUserDoc = await adminDb.collection('users').doc(targetUserId).get();
-        if (!targetUserDoc.exists()) {
-             console.warn(`Notification target user with ID ${targetUserId} not found.`);
-             return;
-        }
-        const targetUser = targetUserDoc.data() as User;
-        
-        // Determine the correct Firestore path for the notification document.
-        // A user's notifications are always stored under their respective owner's data collection,
-        // unless they are the owner themselves.
-        const collectionOwnerId = targetUser.role === 'owner' ? targetUser.id : targetUser.ownerId;
-        
-        if (!collectionOwnerId) {
-            console.error(`Could not determine owner collection for user ${targetUserId}.`);
-            return;
-        }
-        
-        const docRef = adminDb.collection('users_data').doc(collectionOwnerId).collection('notifications').doc(newNotification.id);
+        // Notifications for everyone (owners and tenants) are stored in the owner's data collection.
+        // The client-side listener for tenants is already configured to look here.
+        const docRef = adminDb.collection('users_data').doc(ownerId).collection('notifications').doc(newNotification.id);
         
         // Save to Firestore first
         await docRef.set(newNotification);
