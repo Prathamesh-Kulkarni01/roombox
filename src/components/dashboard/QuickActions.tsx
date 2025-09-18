@@ -89,37 +89,55 @@ export default function QuickActions ({ handleOpenAddGuestDialog, handleOpenPaym
     }
     
     const handleSendMassReminder = async () => {
-      const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
-      if (pendingGuests.length === 0) {
-          toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
-          return;
-      }
+        const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
+        if (pendingGuests.length === 0) {
+            toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
+            return;
+        }
       
-      startReminderTransition(async () => {
-          toast({ title: 'Sending Reminders...', description: `Sending ${pendingGuests.length} rent reminders.` });
-          const user = auth.currentUser;
-          if (!user) {
-              toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to send reminders.'});
-              return;
-          }
+        startReminderTransition(async () => {
+            toast({ title: 'Sending Reminders...', description: `Sending ${pendingGuests.length} rent reminders.` });
+            const user = auth.currentUser;
+            if (!user) {
+                toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to send reminders.'});
+                return;
+            }
 
-          const token = await user.getIdToken();
-          
-          const response = await fetch('/api/reminders/send-all', {
-              method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-          });
-          const result = await response.json();
-          if(result.success) {
-              toast({ title: 'Reminders Sent!', description: `Successfully sent ${result.sentCount} reminders.` });
-          } else {
-              toast({ variant: 'destructive', title: 'Error', description: result.error || 'Failed to send reminders.' });
-          }
-      });
-  }
+            try {
+                const token = await user.getIdToken();
+                
+                const response = await fetch('/api/reminders/send-all', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                });
+
+                if (!response.ok) {
+                    // Try to get a specific error message, otherwise show a generic one
+                    let errorMsg = 'Failed to send reminders due to a server issue.';
+                    try {
+                        const errorResult = await response.json();
+                        errorMsg = errorResult.error || errorMsg;
+                    } catch (e) {
+                        // The response was not JSON, which is the case for a 500 error page.
+                        errorMsg = `Server error (${response.status}). Please check server logs.`;
+                    }
+                    throw new Error(errorMsg);
+                }
+
+                const result = await response.json();
+                if(result.success) {
+                    toast({ title: 'Reminders Sent!', description: `Successfully sent ${result.sentCount} reminders.` });
+                } else {
+                    throw new Error(result.error || 'An unknown error occurred.');
+                }
+            } catch (error: any) {
+                toast({ variant: 'destructive', title: 'Error', description: error.message });
+            }
+        });
+    }
 
   const handleSendAnnouncement = () => {
     toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
