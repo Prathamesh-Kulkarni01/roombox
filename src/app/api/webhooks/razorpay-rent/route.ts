@@ -6,6 +6,9 @@ import { format, addMonths } from 'date-fns';
 import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
 import Razorpay from 'razorpay';
+import { addNotification } from '@/lib/slices/notificationsSlice';
+import { store } from '@/lib/store';
+
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
 const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '0') / 100;
@@ -108,7 +111,14 @@ export async function POST(req: NextRequest) {
       const fundAccountId = owner.subscription?.razorpay_fund_account_id;
       if (!fundAccountId) {
           console.error(`Owner ${ownerId} does not have a fund account ID. Cannot process payout.`);
-          // Still return success because the tenant payment part was handled.
+           // Create a notification for the owner/admin about the missing fund account
+          await store.dispatch(addNotification({
+              type: 'payout-failed',
+              title: 'Payout Failed: Account Not Linked',
+              message: `Payment of ₹${amountPaid} from ${guest.name} was received, but the owner's payout account is not linked. Please link it in Settings.`,
+              link: `/dashboard/settings`,
+              targetId: ownerId,
+          }));
           return NextResponse.json({ success: true, message: "Payment recorded, but payout failed: owner's account not linked." });
       }
       
@@ -137,9 +147,18 @@ export async function POST(req: NextRequest) {
 
             console.log(`Payout of ₹${payoutAmount.toFixed(2)} initiated to owner ${ownerId}. Payout ID: ${payout.id}`);
         } catch(payoutError: any) {
-             console.error(`Payout creation failed for owner ${ownerId}:`, payoutError.error?.description || payoutError.message);
+             const errorMessage = payoutError.error?.description || payoutError.message || "An unknown error occurred.";
+             console.error(`Payout creation failed for owner ${ownerId}:`, errorMessage);
+              // Create a notification for the owner/admin about the failed payout
+            await store.dispatch(addNotification({
+                type: 'payout-failed',
+                title: 'Payout Failed: Manual Action Required',
+                message: `Payment of ₹${amountPaid} from ${guest.name} was received, but the payout of ₹${payoutAmount.toFixed(2)} to the owner failed. Reason: ${errorMessage}`,
+                link: `/dashboard/rent-passbook`,
+                targetId: ownerId,
+            }));
              // Important: Acknowledge webhook but log the payout failure for manual review.
-             return NextResponse.json({ success: true, message: "Payment recorded, but automatic payout failed. Please check logs." });
+             return NextResponse.json({ success: true, message: "Payment recorded, but automatic payout failed. Please check logs and notifications." });
         }
       } else {
         console.log(`Payout amount for owner ${ownerId} is zero or less after commission. No payout created.`);

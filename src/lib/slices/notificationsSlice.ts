@@ -18,7 +18,27 @@ export const addNotification = createAsyncThunk<Notification, Omit<Notification,
     'notifications/addNotification',
     async (notificationData, { getState, rejectWithValue }) => {
         const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
+        // This action can be called server-side (e.g., from a webhook), so we might not have a logged-in user.
+        // We need the ownerId to know where to write the notification.
+        let ownerId: string | undefined;
+
+        if (user.currentUser) {
+            ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+        } else if (notificationData.targetId) {
+            // Attempt to derive ownerId from the target in a server context
+            if (isFirebaseConfigured() && db) {
+                 const userDoc = await getDoc(doc(db, 'users', notificationData.targetId));
+                 if (userDoc.exists()) {
+                     const targetUserData = userDoc.data();
+                     ownerId = targetUserData.role === 'owner' ? targetUserData.id : targetUserData.ownerId;
+                 }
+            }
+        }
+        
+        if (!ownerId) {
+             console.error("addNotification: Could not determine ownerId to save the notification.");
+             return rejectWithValue('Could not determine owner ID for notification');
+        }
 
         const newNotification: Notification = {
             id: `notif-${Date.now()}`,
@@ -26,12 +46,8 @@ export const addNotification = createAsyncThunk<Notification, Omit<Notification,
             date: new Date().toISOString(),
             isRead: false,
         };
-        
-        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
-        if (!ownerId) return rejectWithValue('Could not determine owner ID for notification');
 
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
+        if (isFirebaseConfigured() && db) {
             const docRef = doc(db, 'users_data', ownerId, 'notifications', newNotification.id);
             await setDoc(docRef, newNotification);
         }
@@ -94,6 +110,18 @@ const notificationsSlice = createSlice({
     },
      extraReducers: (builder) => {
         builder
+            .addCase(addNotification.fulfilled, (state, action) => {
+                state.notifications.unshift(action.payload);
+            })
+             .addCase(markNotificationAsRead.fulfilled, (state, action) => {
+                const index = state.notifications.findIndex(n => n.id === action.payload);
+                if (index !== -1) {
+                    state.notifications[index].isRead = true;
+                }
+            })
+            .addCase(markAllAsRead.fulfilled, (state) => {
+                state.notifications.forEach(n => n.isRead = true);
+            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.notifications = [];
             });
