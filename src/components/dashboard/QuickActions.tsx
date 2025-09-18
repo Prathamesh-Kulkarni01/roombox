@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAppSelector } from '@/lib/hooks'
@@ -10,11 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from '@/components/ui/badge'
-import { UserPlus, Wallet, BellRing, Send, Search, Loader2 } from "lucide-react"
+import { UserPlus, Wallet, BellRing, Send, Search } from "lucide-react"
 import type { PG, Room, Bed, Guest } from '@/lib/types'
 import { Input } from '../ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { auth } from '@/lib/firebase'
 
 const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -59,11 +58,7 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
     )
 }
 
-export default function QuickActions ({ handleOpenAddGuestDialog, handleOpenPaymentDialog }: any) {
-    const { pgs, guests } = useAppSelector(state => ({
-        pgs: state.pgs.pgs,
-        guests: state.guests.guests,
-    }));
+export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendAnnouncement }: any) {
     const availableBeds = useMemo(() => {
         const beds: { pg: PG, room: Room, bed: Bed }[] = [];
         pgs.forEach((pg: PG) => {
@@ -81,70 +76,13 @@ export default function QuickActions ({ handleOpenAddGuestDialog, handleOpenPaym
     }, [pgs]);
 
     const [isCollectRentOpen, setIsCollectRentOpen] = useState(false);
-    const [isSendingReminders, startReminderTransition] = useTransition();
-    const { toast } = useToast();
-
+    
     const handleSelectGuestForPayment = (guest: Guest) => {
         handleOpenPaymentDialog(guest);
     }
-    
-    const handleSendMassReminder = async () => {
-        const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
-        if (pendingGuests.length === 0) {
-            toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
-            return;
-        }
-      
-        startReminderTransition(async () => {
-            toast({ title: 'Sending Reminders...', description: `Sending ${pendingGuests.length} rent reminders.` });
-            const user = auth.currentUser;
-            if (!user) {
-                toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to send reminders.'});
-                return;
-            }
-
-            try {
-                const token = await user.getIdToken();
-                
-                const response = await fetch('/api/reminders/send-all', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                });
-
-                if (!response.ok) {
-                    // Try to get a specific error message, otherwise show a generic one
-                    let errorMsg = 'Failed to send reminders due to a server issue.';
-                    try {
-                        const errorResult = await response.json();
-                        errorMsg = errorResult.error || errorMsg;
-                    } catch (e) {
-                        // The response was not JSON, which is the case for a 500 error page.
-                        errorMsg = `Server error (${response.status}). Please check server logs.`;
-                    }
-                    throw new Error(errorMsg);
-                }
-
-                const result = await response.json();
-                if(result.success) {
-                    toast({ title: 'Reminders Sent!', description: `Successfully sent ${result.sentCount} reminders.` });
-                } else {
-                    throw new Error(result.error || 'An unknown error occurred.');
-                }
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Error', description: error.message });
-            }
-        });
-    }
-
-  const handleSendAnnouncement = () => {
-    toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
-  }
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline">
@@ -170,12 +108,7 @@ export default function QuickActions ({ handleOpenAddGuestDialog, handleOpenPaym
                 Collect Rent
             </Button>
 
-            <Button variant="outline" onClick={handleSendMassReminder} disabled={isSendingReminders}>
-                {isSendingReminders ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <BellRing className="w-4 h-4 mr-2" />}
-                Reminders
-            </Button>
-
-            <Button variant="outline" onClick={handleSendAnnouncement}>
+            <Button variant="outline" onClick={onSendAnnouncement}>
                 <Send className="w-4 h-4 mr-2" />
                 Announce
             </Button>

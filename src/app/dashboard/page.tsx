@@ -39,7 +39,6 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import QuickActions from "@/components/dashboard/QuickActions"
 import GuidedSetup from "@/components/dashboard/GuidedSetup"
-import { getSubscribedTopics, initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications'
 import { Badge } from "@/components/ui/badge"
 import { getAuth } from "firebase/auth"
 import { auth } from "@/lib/firebase"
@@ -101,13 +100,6 @@ export default function DashboardPage() {
   } = useDashboard({ pgs, guests });
 
   const { currentUser } = useAppSelector(state => state.user);
-  const { featurePermissions } = useAppSelector(state => state.permissions);
-
-  // Notification test panel state
-  const [testTopic, setTestTopic] = useState('alerts')
-  const [sending, setSending] = useState(false)
-  const [showTopics, setShowTopics] = useState<string[]>([]);
-
 
   useEffect(() => {
     const hasPgs = pgs.length > 0;
@@ -220,123 +212,9 @@ export default function DashboardPage() {
     }
   };
   
-  const handleSendMassReminder = async () => {
-      const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
-      if (pendingGuests.length === 0) {
-          toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
-          return;
-      }
-      
-      toast({ title: 'Sending Reminders...', description: `Sending ${pendingGuests.length} rent reminders.` });
-      const user = auth.currentUser;
-      if (!user) {
-          toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to send reminders.'});
-          return;
-      }
-
-      const token = await user.getIdToken();
-      
-      const response = await fetch('/api/reminders/send-all', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-      });
-      const result = await response.json();
-      if(result.success) {
-          toast({ title: 'Reminders Sent!', description: `Successfully sent ${result.sentCount} reminders.` });
-      } else {
-          toast({ variant: 'destructive', title: 'Error', description: result.error || 'Failed to send reminders.' });
-      }
-  }
-
   const handleSendAnnouncement = () => {
     
      toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
-  }
-
-  // Notification test handlers
-  const handleInitPush = async () => {
-    if (!currentUser?.id) {
-      toast({ variant: 'destructive', title: 'No user', description: 'Please login first.' })
-      return
-    }
-    const res = await initPushAndSaveToken(currentUser.id)
-    if (res.token) {
-      toast({ title: 'Push Ready', description: 'Token saved. You can now subscribe to topics.' })
-      // Auto-subscribe to base topics
-      const baseTopics: string[] = ['app', `role-${currentUser.role}`];
-      const ownerTopics: string[] = currentUser.role === 'owner' ? ['tenants-all'] : [];
-      const pgTopics: string[] = selectedPgId ? [`pg-${selectedPgId}-tenants`] : [];
-      await subscribeToTopic({ token: res.token, topics: [...baseTopics, ...ownerTopics, ...pgTopics], userId: currentUser.id })
-      fetchTopics();
-    } else {
-      toast({ variant: 'destructive', title: 'Init failed', description: 'Could not get a token. Check VAPID and permissions.' })
-    }
-  }
-
-  const handleSubscribeTopic = async () => {
-    try {
-      setSending(true)
-      if (!currentUser?.fcmToken) {
-        toast({ variant: 'destructive', title: 'No token', description: 'Click "Init Push" first to save a token.' })
-        return
-      }
-      const ok = await subscribeToTopic({ token: currentUser.fcmToken, topic: testTopic, userId: currentUser.id })
-      toast({ title: ok ? 'Subscribed' : 'Subscribe failed', description: ok ? `Subscribed to ${testTopic}` : 'See server logs.' })
-      if(ok) fetchTopics();
-    } finally {
-      setSending(false)
-    }
-  }
-
-  const handleSendToSelf = async () => {
-    if (!currentUser?.id) return
-    try {
-      setSending(true)
-      const res = await fetch('/api/notifications/send/user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id, title: 'Test Notification', body: 'Hello from dashboard', link: '/dashboard' })
-      })
-      if (res.ok) toast({ title: 'Sent', description: 'Notification sent to you.' })
-      else {
-        const j = await res.json().catch(() => ({}))
-        toast({ variant: 'destructive', title: 'Send failed', description: j.error || 'Unknown error' })
-      }
-    } finally {
-      setSending(false)
-    }
-  }
-
-  const fetchTopics = async () => {
-    if(!currentUser?.id) return;
-    const res = await getSubscribedTopics({ userId: currentUser.id });
-    setShowTopics(Array.isArray(res) ? res : []);
-    return res||[]
-  }
-
-  useEffect(() => {
-    fetchTopics()
-  }, [currentUser?.id]);
-
-  const handleSendToTopic = async () => {
-    try {
-      setSending(true)
-      const res = await fetch('/api/notifications/send/topic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: 'app', title: 'Topic Ping', body: 'Hello subscribers', link: '/dashboard' })
-      })
-      if (res.ok) toast({ title: 'Topic Sent', description: `Sent to ${'app'}` })
-      else {
-        const j = await res.json().catch(() => ({}))
-        toast({ variant: 'destructive', title: 'Topic send failed', description: j.error || 'Unknown error' })
-      }
-    } finally {
-      setSending(false)
-    }
   }
 
   if (isLoading) {
@@ -403,7 +281,6 @@ export default function DashboardPage() {
             guests={guests}
             handleOpenAddGuestDialog={handleOpenAddGuestDialog}
             handleOpenPaymentDialog={handleOpenPaymentDialog}
-            onSendMassReminder={handleSendMassReminder}
             onSendAnnouncement={handleSendAnnouncement}
         />
         
@@ -499,36 +376,6 @@ export default function DashboardPage() {
             </Card>
         )}
       </div>
-
-      <div className="grid md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><BellRing className="h-4 w-4"/> Notifications Test</CardTitle>
-              <CardDescription>Initialize push and send test notifications.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Button onClick={handleInitPush} disabled={sending}>Init Push</Button>
-                <span className="text-xs text-muted-foreground">Token: {currentUser?.fcmToken?.substring(0, 20)}…</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input value={testTopic} onChange={(e) => setTestTopic(e.target.value)} className="max-w-xs" placeholder="topic" />
-                <Button variant="outline" onClick={handleSubscribeTopic} disabled={sending}>Subscribe</Button>
-                <Button variant="ghost" size="sm" onClick={fetchTopics}>Refresh Topics</Button>
-              </div>
-               <div>
-                  <p className="text-xs font-medium">Subscribed Topics:</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                  {showTopics.map(t => <Badge key={t} variant="secondary">{t}</Badge>)}
-                  </div>
-                </div>
-              <div className="flex items-center gap-2">
-                <Button onClick={handleSendToSelf} disabled={sending}><Send className="mr-2 h-4 w-4"/> Send To Me</Button>
-                <Button variant="secondary" onClick={handleSendToTopic} disabled={sending}><Send className="mr-2 h-4 w-4"/> Send To Topic</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
       {/* DIALOGS */}
       <Access feature="properties" action="add">
