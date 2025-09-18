@@ -3,7 +3,6 @@
 
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Notification, User } from '@/lib/types';
-import { doc, getDoc } from 'firebase/firestore';
 import { sendPushToUser } from '../notifications';
 
 interface CreateAndSendNotificationParams {
@@ -14,7 +13,7 @@ interface CreateAndSendNotificationParams {
 /**
  * Creates and saves a notification to Firestore, and then sends it as a push notification.
  * This is the primary function to use for all user-facing notifications.
- * @param ownerId The ID of the property owner to associate the notification with.
+ * @param ownerId The ID of the property owner associated with this event.
  * @param notification The notification content. Must include a `targetId` (the user to send to).
  */
 export async function createAndSendNotification({ ownerId, notification }: CreateAndSendNotificationParams) {
@@ -33,7 +32,6 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     try {
         const adminDb = await getAdminDb();
         
-        // The targetId is the user who should receive the notification.
         const targetUserId = notification.targetId;
 
         // Fetch the target user to determine their role and owner.
@@ -45,14 +43,15 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
         const targetUser = targetUserDoc.data() as User;
         
         // Determine the correct Firestore path for the notification document.
-        // A user's notifications are always stored under their respective owner's data collection.
+        // A user's notifications are always stored under their respective owner's data collection,
+        // unless they are the owner themselves.
         const collectionOwnerId = targetUser.role === 'owner' ? targetUser.id : targetUser.ownerId;
         
         if (!collectionOwnerId) {
             console.error(`Could not determine owner collection for user ${targetUserId}.`);
             return;
         }
-
+        
         const docRef = adminDb.collection('users_data').doc(collectionOwnerId).collection('notifications').doc(newNotification.id);
         
         // Save to Firestore first
