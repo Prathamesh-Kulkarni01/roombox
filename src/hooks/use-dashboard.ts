@@ -275,7 +275,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const handleOpenReminderDialog = (guest: Guest) => {
     if (!guest || !currentUser) return;
     setSelectedGuestForReminder(guest);
-    setIsReminderDialogOpen(true);
 
     const balanceBf = guest.balanceBroughtForward || 0;
     const currentMonthRent = guest.rentAmount;
@@ -286,6 +285,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     if (!secret) {
         console.error("JWT_SECRET is not set!");
         setReminderMessage("Could not generate a payment link. Server is not configured.");
+        setIsReminderDialogOpen(true);
         return;
     }
     const token = jwt.sign({ guestId: guest.id, ownerId: currentUser.id }, secret, { expiresIn: '7d' });
@@ -302,6 +302,7 @@ ${paymentLink}
 Thank you!`;
     
     setReminderMessage(message);
+    setIsReminderDialogOpen(true);
   }
 
   const getPgById = (pgId: string) => pgs.find(p => p.id === pgId);

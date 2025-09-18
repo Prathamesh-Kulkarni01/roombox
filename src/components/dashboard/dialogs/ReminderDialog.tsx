@@ -8,16 +8,17 @@ import { Copy, MessageCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 
-type ReminderDialogProps = Pick<UseDashboardReturn, 'isReminderDialogOpen' | 'setIsReminderDialogOpen' | 'selectedGuestForReminder' | 'reminderMessage' | 'setReminderMessage'>
+type ReminderDialogProps = Pick<UseDashboardReturn, 'isReminderDialogOpen' | 'setIsReminderDialogOpen' | 'selectedGuestForReminder' | 'reminderMessage' | 'isGeneratingReminder' | 'setReminderMessage'>
 
-export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, reminderMessage, setReminderMessage }: ReminderDialogProps) {
+export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, reminderMessage, isGeneratingReminder, setReminderMessage }: ReminderDialogProps) {
   const { toast } = useToast()
   
   return (
     <Dialog open={isReminderDialogOpen} onOpenChange={(open) => {
         setIsReminderDialogOpen(open);
-        if (!open) {
+        if (!open && setReminderMessage) {
             setReminderMessage(''); // Clear message on close
         }
     }}>
@@ -28,7 +29,15 @@ export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDial
         </DialogHeader>
         <div className="py-4 space-y-2">
             <Label htmlFor="reminder-message">Reminder Message</Label>
-            <Textarea id="reminder-message" value={reminderMessage} onChange={(e) => setReminderMessage ? setReminderMessage(e.target.value) : null} rows={8} className="bg-muted/50" />
+            {isGeneratingReminder ? (
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                </div>
+            ) : (
+                <Textarea id="reminder-message" value={reminderMessage} onChange={(e) => setReminderMessage ? setReminderMessage(e.target.value) : null} rows={8} className="bg-muted/50" />
+            )}
         </div>
         <DialogFooter className="gap-2 sm:justify-end">
           <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}>
