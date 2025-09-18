@@ -124,7 +124,7 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
     return updatedDoc.data() as User;
 }
 
-export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }) {
+export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<User> {
     const adminDb = await getAdminDb();
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
     const ownerDoc = await ownerDocRef.get();
