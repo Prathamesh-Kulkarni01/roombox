@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet, CreditCard } from 'lucide-react';
+import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet, CreditCard, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -17,6 +17,7 @@ import { navItems as allNavItems } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
+import { Separator } from './ui/separator';
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
@@ -36,6 +37,16 @@ export default function DashboardBottomNav() {
   ];
   
   const moreNavItems = allNavItems.filter(item => !mainNavItems.some(mainItem => mainItem.href === item.href) && item.href !== '/dashboard');
+  
+  const trainingGuides = [
+    { href: '/blog/creating-property', label: 'Creating a Property', icon: BookOpen },
+    { href: '/blog/setting-up-layout', label: 'Setting up Floors & Rooms', icon: BookOpen },
+    { href: '/blog/onboarding-guest', label: 'Onboarding a New Guest', icon: BookOpen },
+    { href: '/blog/collecting-rent', label: 'Collecting Rent & Dues', icon: BookOpen },
+    { href: '/blog/managing-staff', label: 'Managing Staff & Permissions', icon: BookOpen },
+    { href: '/blog/expense-tracking', label: 'Using the Expense Tracker', icon: BookOpen },
+    { href: '/blog/setting-up-payouts', label: 'Setting Up Bank Payouts', icon: BookOpen },
+  ];
 
   const accessibleMainNavItems = mainNavItems.filter(item => item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature)));
   const accessibleMoreNavItems = moreNavItems.filter(item => item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature)));
@@ -73,27 +84,45 @@ export default function DashboardBottomNav() {
                 <span className="text-xs font-medium">More</span>
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-auto rounded-t-lg">
-              <SheetHeader className="text-left mb-4">
+            <SheetContent side="bottom" className="h-auto max-h-[80dvh] flex flex-col rounded-t-lg">
+              <SheetHeader className="text-left pb-2">
                 <SheetTitle>More Options</SheetTitle>
                 <SheetDescription>
-                  Navigate to other sections of your dashboard.
+                  Navigate to other sections or view training guides.
                 </SheetDescription>
               </SheetHeader>
-              <div className="flex flex-col gap-2">
-                {accessibleMoreNavItems.map((item) => (
-                  <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium text-muted-foreground transition-all hover:text-primary hover:bg-primary/10',
-                          (pathname.startsWith(item.href)) && 'bg-primary/10 text-primary'
-                      )}
-                      >
-                      <item.icon className="h-5 w-5" />
-                      {item.label}
-                  </Link>
-                ))}
+              <div className="flex-1 overflow-y-auto">
+                <div className="flex flex-col gap-1">
+                  {accessibleMoreNavItems.map((item) => (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium text-muted-foreground transition-all hover:text-primary hover:bg-primary/10',
+                            (pathname.startsWith(item.href)) && 'bg-primary/10 text-primary'
+                        )}
+                        >
+                        <item.icon className="h-5 w-5" />
+                        {item.label}
+                    </Link>
+                  ))}
+                </div>
+                <Separator className="my-4" />
+                 <div className="flex flex-col gap-1">
+                    <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">Guides & Training</h4>
+                    {trainingGuides.map((guide) => (
+                        <Link
+                            key={guide.href}
+                            href={guide.href}
+                            className={cn(
+                                'flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium text-muted-foreground transition-all hover:text-primary hover:bg-primary/10',
+                            )}
+                            >
+                            <guide.icon className="h-5 w-5" />
+                            {guide.label}
+                        </Link>
+                    ))}
+                 </div>
               </div>
             </SheetContent>
           </Sheet>
