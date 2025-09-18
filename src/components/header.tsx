@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Menu, HomeIcon, Building2 } from 'lucide-react';
+import { Menu, HomeIcon, Building2, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import NotificationsPopover from './notifications-popover';
@@ -15,11 +15,22 @@ import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { setSelectedPgId } from '@/lib/slices/appSlice';
 import { ThemeToggle } from './theme-toggle';
+import { Separator } from './ui/separator';
 
 const navLinks = [
   { href: '/', label: 'Home', roles: ['all'] },
   { href: '/dashboard', label: 'Owner Dashboard', roles: ['owner', 'manager', 'cook', 'cleaner', 'security'] },
   { href: '/tenants/my-pg', label: 'My Dashboard', roles: ['tenant'] },
+];
+
+const trainingGuides = [
+    { href: '/blog/creating-property', label: 'Creating a Property', icon: BookOpen },
+    { href: '/blog/setting-up-layout', label: 'Setting up Floors & Rooms', icon: BookOpen },
+    { href: '/blog/onboarding-guest', label: 'Onboarding a New Guest', icon: BookOpen },
+    { href: '/blog/collecting-rent', label: 'Collecting Rent & Dues', icon: BookOpen },
+    { href: '/blog/managing-staff', label: 'Managing Staff & Permissions', icon: BookOpen },
+    { href: '/blog/expense-tracking', label: 'Using the Expense Tracker', icon: BookOpen },
+    { href: '/blog/setting-up-payouts', label: 'Setting Up Bank Payouts', icon: BookOpen },
 ];
 
 export default function Header() {
@@ -129,38 +140,63 @@ export default function Header() {
                 <SheetTitle>Menu</SheetTitle>
                 <SheetDescription>Main navigation</SheetDescription>
               </SheetHeader>
-              <div className="flex flex-col gap-4 py-6">
-                <Link href="/" className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 bg-gradient-saffron rounded-lg flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-white" />
+              <div className="flex flex-col h-full">
+                <div className="flex-1">
+                    <Link href="/" className="flex items-center gap-2 mb-4">
+                        <div className="w-8 h-8 bg-gradient-saffron rounded-lg flex items-center justify-center">
+                            <Building2 className="h-5 w-5 text-white" />
+                        </div>
+                        <span className="font-bold text-lg font-headline">RentSutra</span>
+                    </Link>
+                    <div className="flex flex-col gap-4 py-6">
+                    {navLinks.map((link) => {
+                    if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;
+                    if (currentUser && !link.roles.includes('all') && !link.roles.includes(currentUser.role)) return null;
+                    
+                        return (
+                            <Link
+                            key={link.href}
+                            href={link.href}
+                            className={cn(
+                                'text-lg font-medium transition-colors hover:text-primary',
+                            pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/' ? 'text-primary' : 'text-muted-foreground'
+                            )}
+                            >
+                            {link.label}
+                            </Link>
+                        )
+                    })}
                     </div>
-                    <span className="font-bold text-lg font-headline">RentSutra</span>
-                </Link>
-                {navLinks.map((link) => {
-                   if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;
-                   if (currentUser && !link.roles.includes('all') && !link.roles.includes(currentUser.role)) return null;
-                   
-                    return (
-                        <Link
-                        key={link.href}
-                        href={link.href}
-                        className={cn(
-                            'text-lg font-medium transition-colors hover:text-primary',
-                           pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/' ? 'text-primary' : 'text-muted-foreground'
-                        )}
-                        >
-                        {link.label}
-                        </Link>
-                    )
-                })}
-                 {pathname === '/' && <InstallPWA />}
-                  {currentUser ? (
-                    <Button onClick={handleLogout} className="mt-4">Logout</Button>
-                  ) : (
-                    <Button asChild className="mt-4 bg-primary hover:bg-primary/90">
-                        <Link href="/login">Login / Sign Up</Link>
-                    </Button>
-                  )}
+                    
+                    <Separator className="my-4"/>
+
+                    <div className="flex flex-col gap-1">
+                        <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">Guides &amp; Training</h4>
+                        {trainingGuides.map((guide) => (
+                            <Link
+                                key={guide.href}
+                                href={guide.href}
+                                className={cn(
+                                    'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                                )}
+                                >
+                                <guide.icon className="h-4 w-4" />
+                                {guide.label}
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="mt-auto">
+                    {pathname === '/' && <InstallPWA />}
+                    {currentUser ? (
+                        <Button onClick={handleLogout} className="w-full mt-4">Logout</Button>
+                    ) : (
+                        <Button asChild className="w-full mt-4 bg-primary hover:bg-primary/90">
+                            <Link href="/login">Login / Sign Up</Link>
+                        </Button>
+                    )}
+                </div>
               </div>
             </SheetContent>
           </Sheet>

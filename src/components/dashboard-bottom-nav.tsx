@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet, CreditCard } from 'lucide-react';
+import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet, CreditCard, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
