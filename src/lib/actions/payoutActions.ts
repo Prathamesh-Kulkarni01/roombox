@@ -92,7 +92,7 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
             };
         }
 
-        const fundAccount = await razorpay.fundAccount.create(fundAccountPayload);
+        const fundAccount = await razorpay.fund_accounts.create(fundAccountPayload);
 
         // Step 3: Save Contact ID and Fund Account ID to Firestore
         await ownerDocRef.update({
