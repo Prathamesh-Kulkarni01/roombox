@@ -11,9 +11,9 @@ import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useEffect } from "react"
 import { Label } from "@/components/ui/label"
 
-type ReminderDialogProps = Pick<UseDashboardReturn, 'isReminderDialogOpen' | 'setIsReminderDialogOpen' | 'selectedGuestForReminder' | 'isGeneratingReminder' | 'reminderMessage' | 'handleOpenReminderDialog'> & { onMessageChange: (message: string) => void }
+type ReminderDialogProps = Pick<UseDashboardReturn, 'isReminderDialogOpen' | 'setIsReminderDialogOpen' | 'selectedGuestForReminder' | 'isGeneratingReminder' | 'reminderMessage' | 'handleOpenReminderDialog' | 'setReminderMessage'>
 
-export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, isGeneratingReminder, reminderMessage, handleOpenReminderDialog, onMessageChange }: ReminderDialogProps) {
+export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, isGeneratingReminder, reminderMessage, handleOpenReminderDialog, setReminderMessage }: ReminderDialogProps) {
   const { toast } = useToast()
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDial
             {isGeneratingReminder ? (
                 <div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>
             ) : (
-                <Textarea id="reminder-message" value={reminderMessage} onChange={(e) => onMessageChange(e.target.value)} rows={8} className="bg-muted/50" />
+                <Textarea id="reminder-message" value={reminderMessage} onChange={(e) => setReminderMessage(e.target.value)} rows={8} className="bg-muted/50" />
             )}
         </div>
         <DialogFooter className="gap-2 sm:justify-end">

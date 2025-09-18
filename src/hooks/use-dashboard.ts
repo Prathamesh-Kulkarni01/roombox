@@ -6,10 +6,10 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { produce } from 'immer'
+import jwt from 'jsonwebtoken'
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
-import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 
 import type { Guest, Bed, Room, PG, Floor, Complaint, AdditionalCharge, Payment } from "@/lib/types"
 import { format, addMonths } from "date-fns"
@@ -60,7 +60,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const dispatch = useAppDispatch();
   const { toast } = useToast()
   const { chargeTemplates } = useAppSelector(state => state.chargeTemplates);
-  const { currentPlan } = useAppSelector(state => state.user)
+  const { currentPlan, currentUser } = useAppSelector(state => state.user)
   const [isSavingRoom, startRoomTransition] = useTransition();
 
   
@@ -273,33 +273,43 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   };
 
   const handleOpenReminderDialog = async (guest: Guest) => {
-    if (!guest || !currentPlan?.hasAiRentReminders) return
+    if (!guest || !currentUser) return;
     setSelectedGuestForReminder(guest);
-    setIsReminderDialogOpen(true)
-    setIsGeneratingReminder(true)
-    setReminderMessage('')
-
-    try {
-        const input: GenerateRentReminderInput = {
-            guestName: guest.name,
-            rentAmount: guest.rentAmount - (guest.rentPaidAmount || 0),
-            dueDate: format(new Date(guest.dueDate), "do MMMM yyyy"),
-            pgName: guest.pgName,
-        }
-        const result = await generateRentReminder(input)
-        setReminderMessage(result.reminderMessage)
-    } catch (error) {
-        console.error("Failed to generate reminder", error)
-        setReminderMessage("Sorry, we couldn't generate a reminder at this time. Please try again.")
-    } finally {
-        setIsGeneratingReminder(false)
+    setIsReminderDialogOpen(true);
+    setReminderMessage('Generating your message...');
+    
+    // Calculate total due
+    const balanceBf = guest.balanceBroughtForward || 0;
+    const currentMonthRent = guest.rentAmount;
+    const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+    const totalDue = balanceBf + currentMonthRent + chargesDue - (guest.rentPaidAmount || 0);
+    
+    // Generate secure token
+    const secret = process.env.NEXT_PUBLIC_JWT_SECRET;
+    if (!secret) {
+      console.error("JWT_SECRET is not set!");
+      setReminderMessage("Could not generate a payment link. Server is not configured.");
+      return;
     }
+    const token = jwt.sign({ guestId: guest.id, ownerId: currentUser.id }, secret, { expiresIn: '7d' });
+    const paymentLink = `${window.location.origin}/pay/${token}`;
+
+    const message = `Hi ${guest.name}, this is a friendly reminder for your rent payment for ${guest.pgName}.
+
+Total Amount Due: ₹${totalDue.toLocaleString('en-IN')}
+Due Date: ${format(new Date(guest.dueDate), "do MMMM yyyy")}
+
+You can pay securely by clicking the link below:
+${paymentLink}
+
+Thank you!`;
+    
+    setReminderMessage(message);
   }
 
   const getPgById = (pgId: string) => pgs.find(p => p.id === pgId);
-  const getFloorById = (pgId: string, floorId: string) => getPgById(pgId)?.floors?.find(f => f.id === floorId);
 
-  const handleFloorSubmit = (values: z.infer<typeof floorSchema>) => {
+  const handleFloorSubmit = (values: z.infer<typeof floorSchema>>) => {
     const pg = floorToEdit ? getPgById(floorToEdit.pgId) : selectedPgForFloorAdd;
     if (!pg) return;
     const nextState = produce(pg, draft => {
@@ -362,7 +372,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   }
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
-  const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
+  const handleBedSubmit = (values: z.infer<typeof bedSchema>>) => {
     const floorId = bedToEdit?.floorId || selectedRoomForBedAdd?.floorId;
     const roomId = bedToEdit?.roomId || selectedRoomForBedAdd?.roomId;
     const pg = pgs.find(p => p.floors?.some(f => f.id === floorId));
@@ -500,7 +510,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     handleOpenRoomDialog, openAddFloorDialog, openEditFloorDialog, handleOpenBedDialog,
     handleDelete,
     handleOpenFloorDialog,
-    isSavingRoom
+    isSavingRoom,
+    setReminderMessage,
   }
 }
 
