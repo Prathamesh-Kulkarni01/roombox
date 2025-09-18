@@ -80,7 +80,10 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
             'subscription.payoutMethods': FieldValue.arrayUnion(newMethod)
         });
 
-        return { success: true, newMethod };
+        const updatedOwnerDoc = await ownerDocRef.get();
+        const updatedOwner = updatedOwnerDoc.data() as User;
+
+        return { success: true, updatedUser: updatedOwner };
 
     } catch (error: any) {
         console.error('Error in addPayoutMethod action:', error);
@@ -109,7 +112,9 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
     }
 
     await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
-    return updatedMethods;
+    
+    const updatedOwnerDoc = await ownerDocRef.get();
+    return updatedOwnerDoc.data() as User;
 }
 
 export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }) {
@@ -127,5 +132,7 @@ export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: s
     }));
 
     await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
-    return updatedMethods;
+
+    const updatedOwnerDoc = await ownerDocRef.get();
+    return updatedOwnerDoc.data() as User;
 }

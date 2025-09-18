@@ -29,7 +29,7 @@ import { setMockDate } from "@/lib/slices/appSlice"
 import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
 import { getBillingDetails } from "@/lib/actions/billingActions"
 import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
-import { disassociateAndCreateOwnerAccount, updateUserPlan } from "@/lib/slices/userSlice"
+import { disassociateAndCreateOwnerAccount, updateUserPlan, setCurrentUser } from "@/lib/slices/userSlice"
 import { togglePremiumFeature } from "@/lib/actions/userActions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { KycDocumentConfig, ChargeTemplate, UserRole, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types'
@@ -278,10 +278,13 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
         if(!currentUser) return;
         try {
             const result = await addPayoutMethod(currentUser.id, data);
-            if(result.success) {
+            if(result.success && result.updatedUser) {
+                dispatch(setCurrentUser(result.updatedUser));
                 toast({ title: 'Account Linked!', description: 'Your new payout account has been successfully added.'});
                 setIsPayoutDialogOpen(false);
                 payoutForm.reset({payoutMethod: 'vpa'});
+            } else {
+                throw new Error(result.error || 'Failed to link account.');
             }
         } catch (e: any) {
             toast({ variant: 'destructive', title: 'Failed to Link Account', description: e?.message || 'An unexpected error occurred.'});
@@ -292,7 +295,8 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
   const handleSetPrimary = (methodId: string) => {
     if(!currentUser) return;
     startSavingTransition(async () => {
-      await dispatch(setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId }));
+      const updatedUser = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
+      dispatch(setCurrentUser(updatedUser));
       toast({ title: 'Primary Account Updated' });
     });
   };
@@ -301,7 +305,8 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
     if(!currentUser) return;
      if (confirm("Are you sure you want to unlink this payout method?")) {
         startSavingTransition(async () => {
-            await dispatch(deletePayoutMethod({ ownerId: currentUser.id, methodId }));
+            const updatedUser = await deletePayoutMethod({ ownerId: currentUser.id, methodId });
+            dispatch(setCurrentUser(updatedUser));
             toast({ title: 'Account Unlinked' });
         });
      }
