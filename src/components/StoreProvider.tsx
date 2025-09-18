@@ -20,7 +20,7 @@ import { setChargeTemplates } from '@/lib/slices/chargeTemplatesSlice'
 import { setNotifications } from '@/lib/slices/notificationsSlice'
 import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
-import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense } from '@/lib/types'
+import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense, User } from '@/lib/types'
 import { setLoading } from '@/lib/slices/appSlice'
 import { fetchPermissions } from '@/lib/slices/permissionsSlice'
 import { fetchKycConfig } from '@/lib/slices/kycConfigSlice'
@@ -136,15 +136,21 @@ function AuthHandler({ children }: { children: ReactNode }) {
             complaints: setComplaints,
             expenses: setExpenses,
             staff: setStaff,
-            notifications: setNotifications,
             chargeTemplates: setChargeTemplates,
         };
 
         const collectionNames = Object.keys(collectionsToSync);
         let loadedCount = 0;
+        
+        const ownerNotificationQuery = query(collection(db, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
+        unsubs.push(onSnapshot(ownerNotificationQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data() as Notification);
+            dispatch(setNotifications(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+        }));
 
-        // Setup real-time listeners
-        const newUnsubs = collectionNames.map((collectionName) => {
+
+        // Setup real-time listeners for other collections
+        const otherCollections = collectionNames.map((collectionName) => {
             const setDataAction = collectionsToSync[collectionName];
             const collRef = collection(db, 'users_data', ownerIdForFetching, collectionName);
             
@@ -154,12 +160,11 @@ function AuthHandler({ children }: { children: ReactNode }) {
                  if (collectionName === 'pgs' && currentUser.role !== 'owner' && currentUser.pgIds) {
                     data = data.filter(pg => currentUser.pgIds?.includes((pg as PG).id));
                  }
-                 if (['complaints', 'expenses', 'notifications'].includes(collectionName)) {
+                 if (['complaints', 'expenses'].includes(collectionName)) { // Notifications are handled separately now
                     data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
                 }
                  dispatch(setDataAction(data as any));
                 
-                // Track loading status
                 if (loadedCount < collectionNames.length) {
                     loadedCount++;
                     if (loadedCount === collectionNames.length) {
@@ -175,41 +180,36 @@ function AuthHandler({ children }: { children: ReactNode }) {
                 }
             });
         });
-        unsubs.push(...newUnsubs);
+        unsubs.push(...otherCollections);
+
     } else if (currentUser.role === 'tenant' && currentUser.ownerId && currentUser.pgId && currentUser.guestId) {
         const { ownerId, pgId, guestId, id: userId } = currentUser;
 
-        // Fetch single PG
         const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', pgId);
         unsubs.push(onSnapshot(pgDocRef, (snap) => dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []))));
 
-        // Fetch single guest record
         const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
         unsubs.push(onSnapshot(guestDocRef, (snap) => dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : []))));
         
-        // Fetch complaints for that PG
         const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId));
         unsubs.push(onSnapshot(complaintsQuery, (snapshot) => {
             const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
             dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
         }));
         
-        // Fetch staff for that PG
         const staffQuery = query(collection(db, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId));
         unsubs.push(onSnapshot(staffQuery, (snapshot) => {
             dispatch(setStaff(snapshot.docs.map(d => d.data() as Staff)));
         }));
         
-        // Fetch notifications for the tenant (by guestId, pgId, and their own userId)
         const notificationsQuery = query(collection(db, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId, userId]));
          unsubs.push(onSnapshot(notificationsQuery, (snapshot) => {
             const notificationsData = snapshot.docs.map(d => d.data() as Notification);
             dispatch(setNotifications(notificationsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
         }));
 
-        dispatch(setLoading(false)); // For tenants, loading is faster
+        dispatch(setLoading(false));
     } else {
-        // Handle other roles or incomplete user data
         dispatch(setLoading(false));
     }
     

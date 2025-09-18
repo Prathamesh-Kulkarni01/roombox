@@ -54,7 +54,7 @@ export default function Header() {
     router.push('/login');
   }
   
-  if (isLandingPage) {
+  if (isLandingPage && !currentUser) { // Don't show header on landing page for logged-out users
       return null;
   }
 
@@ -116,7 +116,7 @@ export default function Header() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           {currentUser && (isDashboard || isTenantDashboard) && <NotificationsPopover />}
-           {pathname === '/' && (
+           {isLandingPage && (
             <div className="hidden md:flex">
               <InstallPWA />
             </div>
@@ -193,7 +193,7 @@ export default function Header() {
                 </div>
 
                 <div className="mt-auto p-4 border-t">
-                    {pathname === '/' && <InstallPWA />}
+                    {isLandingPage && <InstallPWA />}
                     {currentUser ? (
                         <Button onClick={handleLogout} className="w-full mt-4">Logout</Button>
                     ) : (
