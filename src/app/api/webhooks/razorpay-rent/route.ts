@@ -8,7 +8,7 @@ import { produce } from 'immer';
 import Razorpay from 'razorpay';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
-const COMMISSION_RATE = 0.05; // 5% commission
+const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '5') / 100;
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
             currency: "INR",
             mode: "UPI",
             purpose: "rent_settlement",
+            queue_if_low_balance: true,
             notes: {
               payment_id: payment.id,
               guest_name: guest.name,
