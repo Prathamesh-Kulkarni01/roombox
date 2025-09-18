@@ -4,6 +4,7 @@
 import { getAdminDb } from '../firebaseAdmin';
 import { z } from 'zod';
 import type { User } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 
 // The schema remains the same for form validation on the client and server action.
 const payoutAccountSchema = z.object({
@@ -43,7 +44,10 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pg-owner`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Idempotency-Key': uuidv4(),
+             },
             body: JSON.stringify({
                 name: owner.name,
                 email: owner.email,
@@ -52,14 +56,12 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
             })
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to link account via API route. Status: ${response.status}. Response: ${errorText}`);
-        }
-        
         const result = await response.json();
 
-
+        if (!response.ok) {
+            throw new Error(`Failed to link account via API route. Status: ${response.status}. Response: ${JSON.stringify(result)}`);
+        }
+        
         const payoutDetails = validation.data.payoutMethod === 'vpa'
             ? { type: 'vpa', vpa_address: validation.data.vpa }
             : {
@@ -87,4 +89,3 @@ export async function getPayoutAccountDetails(ownerId: string) {
     if (!ownerDoc.exists) return null;
     return ownerDoc.data()?.subscription?.payoutDetails || null;
 }
-

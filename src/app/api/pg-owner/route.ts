@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: NextRequest) {
   // required env checks
@@ -32,7 +33,11 @@ export async function POST(req: NextRequest) {
     }
 
     const auth = "Basic " + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64");
-    const headers = { Authorization: auth, "Content-Type": "application/json" };
+    const headers = { 
+        Authorization: auth, 
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": req.headers.get('x-idempotency-key') || uuidv4(),
+     };
 
     // 1) Create Contact
     const contactPayload = {
