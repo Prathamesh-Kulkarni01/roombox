@@ -177,7 +177,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
         });
         unsubs.push(...newUnsubs);
     } else if (currentUser.role === 'tenant' && currentUser.ownerId && currentUser.pgId && currentUser.guestId) {
-        const { ownerId, pgId, guestId } = currentUser;
+        const { ownerId, pgId, guestId, id: userId } = currentUser;
 
         // Fetch single PG
         const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', pgId);
@@ -200,8 +200,8 @@ function AuthHandler({ children }: { children: ReactNode }) {
             dispatch(setStaff(snapshot.docs.map(d => d.data() as Staff)));
         }));
         
-        // Fetch notifications for the tenant
-        const notificationsQuery = query(collection(db, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId]));
+        // Fetch notifications for the tenant (by guestId, pgId, and their own userId)
+        const notificationsQuery = query(collection(db, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId, userId]));
          unsubs.push(onSnapshot(notificationsQuery, (snapshot) => {
             const notificationsData = snapshot.docs.map(d => d.data() as Notification);
             dispatch(setNotifications(notificationsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
