@@ -28,7 +28,7 @@ const payoutAccountSchema = z.object({
 export async function createOrUpdatePayoutAccount(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
     const validation = payoutAccountSchema.safeParse(accountDetails);
     if (!validation.success) {
-        return { success: false, error: "Invalid account details provided." };
+        throw new Error("Invalid account details provided.");
     }
     
     try {
@@ -37,11 +37,10 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
         const ownerDoc = await ownerDocRef.get();
         
         if (!ownerDoc.exists) {
-            return { success: false, error: "Owner not found." };
+            throw new Error("Owner not found.");
         }
         const owner = ownerDoc.data() as User;
 
-        // Call our new internal API route to handle Razorpay interaction
         const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pg-owner`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -49,8 +48,7 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
                 name: owner.name,
                 email: owner.email,
                 phone: owner.phone,
-                upi: validation.data.vpa, // Assuming VPA for now
-                // Pass bank details if needed in future
+                upi: validation.data.vpa,
             })
         });
 
@@ -60,20 +58,24 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
             throw new Error(result.error || 'Failed to link account via API route.');
         }
 
-        // Save contactId and fundAccountId to Firestore
+        const payoutDetails = validation.data.payoutMethod === 'vpa'
+            ? { type: 'vpa', vpa_address: validation.data.vpa }
+            : {
+                type: 'bank_account',
+                name: validation.data.name,
+                account_number_last4: validation.data.account_number?.slice(-4),
+              };
+
         await ownerDocRef.update({
             'subscription.razorpay_contact_id': result.contactId,
             'subscription.razorpay_fund_account_id': result.fundAccountId,
-            'subscription.payoutDetails': {
-                type: 'vpa',
-                vpa_address: validation.data.vpa,
-            }
+            'subscription.payoutDetails': payoutDetails,
         });
 
         return { success: true, fundAccountId: result.fundAccountId };
     } catch (error: any) {
         console.error('Error in createOrUpdatePayoutAccount action:', error);
-        return { success: false, error: error.message || "Failed to link payout account." };
+        throw new Error(error.message || "Failed to link payout account.");
     }
 }
 
