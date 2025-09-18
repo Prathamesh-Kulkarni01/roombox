@@ -1,10 +1,8 @@
-
 'use server'
 
 import { getAdminDb } from '../firebaseAdmin';
 import { z } from 'zod';
 import type { User, PaymentMethod } from '../types';
-import { v4 as uuidv4 } from 'uuid';
 import { produce } from 'immer';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -44,8 +42,6 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         }
         const owner = ownerDoc.data() as User;
         
-        // This is a simplified fetch assuming the API route is on the same host.
-        // In a real-world scenario, you might want to use a more robust way to get the base URL.
         const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
         
         const res = await fetch(`${appUrl}/api/payout/methods`, {
@@ -61,7 +57,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
         const result = await res.json();
         if (!res.ok) {
-            throw new Error(result.error || `Failed to link account. Status: ${res.status}. Response: ${JSON.stringify(result)}`);
+            throw new Error(result.error || `Failed to link account. Status: ${res.status}.`);
         }
 
         const newMethod: PaymentMethod = {
@@ -111,23 +107,15 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         throw new Error("Payout method not found.");
     }
 
-    // Use FieldValue.arrayRemove to correctly remove the object from the array
-    await ownerDocRef.update({
-        'subscription.payoutMethods': FieldValue.arrayRemove(methodToDelete),
-    });
-
-    // After removing, we might need to assign a new primary
-    const currentMethods = (await (await ownerDocRef.get()).data() as User)?.subscription?.payoutMethods || [];
-    if (methodToDelete.isPrimary && currentMethods.length > 0) {
-        const newPrimary = currentMethods[0];
-        const updatedMethodsWithNewPrimary = currentMethods.map(m => ({
-            ...m,
-            isPrimary: m.id === newPrimary.id,
-        }));
-        await ownerDocRef.update({
-            'subscription.payoutMethods': updatedMethodsWithNewPrimary,
-        });
+    let updatedMethods = methods.filter(m => m.id !== methodId);
+    
+    if (methodToDelete.isPrimary && updatedMethods.length > 0) {
+        updatedMethods[0].isPrimary = true;
     }
+    
+    await ownerDocRef.update({
+        'subscription.payoutMethods': updatedMethods,
+    });
     
     const updatedDoc = await ownerDocRef.get();
     return updatedDoc.data() as User;
