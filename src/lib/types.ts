@@ -78,6 +78,40 @@ export interface Payment {
     method: 'cash' | 'upi' | 'in-app' | 'other';
     forMonth: string; // e.g., "July 2024"
     notes?: string;
+    payoutId?: string;
+    payoutStatus?: 'pending' | 'processed' | 'failed';
+    payoutFailureReason?: string;
+}
+
+// Payment Method Types
+export interface PaymentMethodBase {
+  id: string;
+  name: string;
+  isActive: boolean;
+  isPrimary: boolean;
+  createdAt: string;
+  razorpay_fund_account_id?: string;
+}
+
+export interface BankPaymentMethod extends PaymentMethodBase {
+  type: 'bank_account';
+  accountNumber: string;
+  accountNumberLast4: string;
+  ifscCode: string;
+  accountHolderName: string;
+  bankName?: string;
+}
+
+export interface UpiPaymentMethod extends PaymentMethodBase {
+  type: 'upi';
+  vpaAddress: string;
+}
+
+export type PaymentMethod = BankPaymentMethod | UpiPaymentMethod;
+
+export interface PaymentMethodValidationResult {
+  isValid: boolean;
+  error?: string;
 }
 
 export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period';
@@ -198,42 +232,6 @@ export interface UserSubscriptionPayment {
   invoiceUrl?: string;
 }
 
-// New interfaces for multiple payout methods
-export interface PayoutMethod {
-  id: string;
-  type: 'bank_account' | 'vpa';
-  isActive: boolean;
-  isPrimary: boolean; // Primary method gets priority
-  priority: number; // Lower number = higher priority for fallback
-  razorpay_contact_id?: string;
-  razorpay_fund_account_id?: string;
-  createdAt: string; // ISO string
-  lastUsed?: string; // ISO string
-  
-  // Bank account details
-  name?: string;
-  account_number?: string;
-  account_number_last4?: string;
-  ifsc?: string;
-  bank_name?: string;
-  
-  // UPI details
-  vpa_address?: string;
-  upi_provider?: string; // e.g., 'paytm', 'phonepe', 'googlepay'
-  
-  // Status tracking
-  status: 'active' | 'inactive' | 'failed' | 'verification_pending';
-  lastFailureReason?: string;
-  failureCount?: number;
-}
-
-export interface PayoutSettings {
-  autoFallback: boolean; // Automatically try next method if primary fails
-  maxRetries: number; // Max retries per method
-  notifyOnFailure: boolean; // Send notification when payout fails
-  preferredTime?: string; // Preferred time for payouts (HH:mm format)
-}
-
 export interface User {
   id: string;
   name: string;
@@ -252,25 +250,10 @@ export interface User {
     status: SubscriptionStatus;
     razorpay_subscription_id?: string;
     razorpay_payment_id?: string;
-    
-    // Updated: Multiple payout methods instead of single
-    payoutMethods?: PayoutMethod[];
-    payoutSettings?: PayoutSettings;
-    
-    // Legacy fields (kept for backward compatibility)
-    razorpay_contact_id?: string; // Deprecated: use payoutMethods
-    razorpay_fund_account_id?: string; // Deprecated: use payoutMethods
-    payoutDetails?: { // Deprecated: use payoutMethods
-        type: 'bank_account' | 'vpa';
-        name?: string;
-        account_number_last4?: string;
-        vpa_address?: string;
-    };
-    
+    payoutMethods?: PaymentMethod[];
     trialEndDate?: string; // ISO string
     premiumFeatures?: PremiumFeatures;
     paymentHistory?: UserSubscriptionPayment[];
-    payoutVerificationStatus?: 'verification_pending' | 'active' | 'failed';
   };
   fcmToken?: string | null;
 }

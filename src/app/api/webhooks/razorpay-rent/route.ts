@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
         method: methodForHistory,
         forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
         notes: `Razorpay Order: ${order.id}; Method: ${methodFromGateway || 'n/a'}${upiVpa ? `; VPA: ${upiVpa}` : ''}`,
+        payoutStatus: 'pending',
       };
 
       const updatedGuest = produce(guest, draft => {
@@ -108,60 +109,53 @@ export async function POST(req: NextRequest) {
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
 
       // Attempt payout to owner after successfully updating tenant records
-      const fundAccountId = owner.subscription?.razorpay_fund_account_id;
-      if (!fundAccountId) {
-          console.error(`Owner ${ownerId} does not have a fund account ID. Cannot process payout.`);
-           // Create a notification for the owner/admin about the missing fund account
-          await store.dispatch(addNotification({
-              type: 'payout-failed',
-              title: 'Payout Failed: Account Not Linked',
-              message: `Payment of ₹${amountPaid} from ${guest.name} was received, but the owner's payout account is not linked. Please link it in Settings.`,
-              link: `/dashboard/settings`,
-              targetId: ownerId,
-          }));
-          return NextResponse.json({ success: true, message: "Payment recorded, but payout failed: owner's account not linked." });
-      }
-      
       const commission = amountPaid * COMMISSION_RATE;
       const payoutAmount = amountPaid - commission;
 
       if (payoutAmount > 0) {
-        try {
+        const payoutMethods = owner.subscription?.payoutMethods?.filter(m => m.isActive).sort((a, b) => (a.isPrimary ? -1 : 1) - (b.isPrimary ? -1 : 1)) || [];
+        
+        let payoutSucceeded = false;
+        let lastError = 'No active payout methods found.';
+
+        for (const method of payoutMethods) {
+          try {
             const payout = await razorpay.payouts.create({
                 account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
-                fund_account_id: fundAccountId,
-                amount: Math.round(payoutAmount * 100), // Amount in paisa
-                currency: "INR",
-                mode: "UPI",
-                purpose: "payout",
-                queue_if_low_balance: true,
-                notes: {
-                  payment_id: payment.id,
-                  guest_name: guest.name,
-                  pg_name: guest.pgName,
-                  commission_deducted: commission.toFixed(2),
-                  method: methodFromGateway,
-                  vpa: upiVpa || '',
-                }
+                fund_account_id: method.razorpay_fund_account_id!,
+                amount: Math.round(payoutAmount * 100),
+                currency: "INR", mode: "UPI", purpose: "payout", queue_if_low_balance: true,
+                notes: { payment_id: payment.id, guest_name: guest.name, pg_name: guest.pgName }
             });
-
-            console.log(`Payout of ₹${payoutAmount.toFixed(2)} initiated to owner ${ownerId}. Payout ID: ${payout.id}`);
-        } catch(payoutError: any) {
-             const errorMessage = payoutError.error?.description || payoutError.message || "An unknown error occurred.";
-             console.error(`Payout creation failed for owner ${ownerId}:`, errorMessage);
-              // Create a notification for the owner/admin about the failed payout
+            
+            console.log(`Payout of ₹${payoutAmount.toFixed(2)} to owner ${ownerId} succeeded via ${method.name}. Payout ID: ${payout.id}`);
+            payoutSucceeded = true;
+            // Optionally update the payment record with payout info
+            const paymentToUpdate = updatedGuest.paymentHistory?.find(p => p.id === payment.id);
+            if(paymentToUpdate) {
+                paymentToUpdate.payoutId = payout.id;
+                paymentToUpdate.payoutStatus = 'processed';
+                await guestDocRef.set(updatedGuest, { merge: true });
+            }
+            break; // Exit loop on success
+          } catch(payoutError: any) {
+             lastError = payoutError.error?.description || payoutError.message || "An unknown error occurred.";
+             console.warn(`Payout via ${method.name} failed for owner ${ownerId}:`, lastError);
+             // Optionally update method status
+             // await adminDb.doc(`users/${ownerId}`).update(...)
+          }
+        }
+        
+        if(!payoutSucceeded) {
+            console.error(`All payout methods failed for owner ${ownerId}. Last error: ${lastError}`);
             await store.dispatch(addNotification({
                 type: 'payout-failed',
                 title: 'Payout Failed: Manual Action Required',
-                message: `Payment of ₹${amountPaid} from ${guest.name} was received, but the payout of ₹${payoutAmount.toFixed(2)} to the owner failed. Reason: ${errorMessage}`,
+                message: `Payment of ₹${amountPaid} from ${guest.name} was received, but all payout attempts failed. Last error: ${lastError}`,
                 link: `/dashboard/rent-passbook`,
                 targetId: ownerId,
             }));
-             // Important: Acknowledge webhook but log the payout failure for manual review.
-             return NextResponse.json({ success: true, message: "Payment recorded, but automatic payout failed. Please check logs and notifications." });
         }
-      } else {
-        console.log(`Payout amount for owner ${ownerId} is zero or less after commission. No payout created.`);
       }
     }
 

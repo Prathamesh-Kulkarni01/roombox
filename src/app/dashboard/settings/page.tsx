@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useState, useTransition, useMemo } from "react"
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { produce } from "immer"
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, BotIcon, UserCheck, History, CreditCard, Banknote } from "lucide-react"
+import { AlertCircle, PlusCircle, Pencil, Trash2, Settings, Loader2, TestTube2, Calendar, Users, Star, FileText, IndianRupee, BellRing, Wand2, Globe, BotIcon, UserCheck, History, CreditCard, Banknote, MoreVertical, Check } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -32,11 +32,12 @@ import { sendRentReminders } from "@/ai/flows/send-rent-reminders-flow"
 import { disassociateAndCreateOwnerAccount, updateUserPlan } from "@/lib/slices/userSlice"
 import { togglePremiumFeature } from "@/lib/actions/userActions"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { KycDocumentConfig, ChargeTemplate, UserRole } from '@/lib/types'
+import type { KycDocumentConfig, ChargeTemplate, UserRole, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types'
 import { PRICING_CONFIG } from '@/lib/mock-data';
-import { createOrUpdatePayoutAccount } from "@/lib/actions/payoutActions"
+import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from "@/lib/actions/payoutActions"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
@@ -98,6 +99,7 @@ export default function SettingsPage() {
   const [isTestingBilling, startBillingTest] = useTransition();
   const [isTestingReminders, startReminderTest] = useTransition();
   const [isSaving, startSavingTransition] = useTransition();
+  const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
 
   const chargeTemplateForm = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
@@ -274,35 +276,35 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
   const handlePayoutAccountSubmit = (data: PayoutAccountFormValues) => {
     startSavingTransition(async () => {
         if(!currentUser) return;
-
-        // If VPA, validate before submit to give instant feedback
-        if (data.payoutMethod === 'vpa' && data.vpa) {
-            try {
-                const res = await fetch('/api/validate-vpa', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vpa: data.vpa.trim().toLowerCase() })
-                });
-                const json = await res.json();
-                if (!res.ok || !json.valid) {
-                    toast({ variant: 'destructive', title: 'Invalid UPI', description: json?.reason || json?.error || 'Please enter a valid UPI ID.' });
-                    return;
-                }
-            } catch (e: any) {
-                toast({ variant: 'destructive', title: 'Validation Error', description: e?.message || 'Could not validate UPI right now.' });
-                return;
-            }
-        }
-
         try {
-            const result = await createOrUpdatePayoutAccount(currentUser.id, data);
+            const result = await addPayoutMethod(currentUser.id, data);
             if(result.success) {
-                toast({ title: 'Account Linked!', description: 'Your payout account has been successfully linked.'});
+                toast({ title: 'Account Linked!', description: 'Your new payout account has been successfully added.'});
+                setIsPayoutDialogOpen(false);
+                payoutForm.reset({payoutMethod: 'vpa'});
             }
         } catch (e: any) {
             toast({ variant: 'destructive', title: 'Failed to Link Account', description: e?.message || 'An unexpected error occurred.'});
         }
     });
+  };
+
+  const handleSetPrimary = (methodId: string) => {
+    if(!currentUser) return;
+    startSavingTransition(async () => {
+      await dispatch(setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId }));
+      toast({ title: 'Primary Account Updated' });
+    });
+  };
+
+  const handleUnlink = (methodId: string) => {
+    if(!currentUser) return;
+     if (confirm("Are you sure you want to unlink this payout method?")) {
+        startSavingTransition(async () => {
+            await dispatch(deletePayoutMethod({ ownerId: currentUser.id, methodId }));
+            toast({ title: 'Account Unlinked' });
+        });
+     }
   };
   
   const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
@@ -339,99 +341,47 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
         </Card>
 
         <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Banknote/> Payout Settings</CardTitle>
-                <CardDescription>Link your bank account or UPI to receive rent payments instantly.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="flex items-center gap-2"><Banknote/> Payout Settings</CardTitle>
+                    <CardDescription>Manage your linked bank accounts and UPI IDs to receive rent payments.</CardDescription>
+                </div>
+                <Button onClick={() => setIsPayoutDialogOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Method
+                </Button>
             </CardHeader>
             <CardContent>
-                 <Form {...payoutForm}>
-                    <form id="payout-form" onSubmit={payoutForm.handleSubmit(handlePayoutAccountSubmit)} className="space-y-6">
-                        <FormField
-                            control={payoutForm.control}
-                            name="payoutMethod"
-                            render={({ field }) => (
-                                <FormItem className="space-y-3">
-                                    <FormLabel>Payout Method</FormLabel>
-                                    <FormControl>
-                                        <RadioGroup
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                            className="flex space-x-4"
-                                        >
-                                            <FormItem className="flex items-center space-x-2">
-                                                <FormControl><RadioGroupItem value="vpa" id="vpa" /></FormControl>
-                                                <FormLabel htmlFor="vpa" className="font-normal">UPI ID</FormLabel>
-                                            </FormItem>
-                                            <FormItem className="flex items-center space-x-2">
-                                                <FormControl><RadioGroupItem value="bank_account" id="bank_account" /></FormControl>
-                                                <FormLabel htmlFor="bank_account" className="font-normal">Bank Account</FormLabel>
-                                            </FormItem>
-                                        </RadioGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        {payoutMethod === 'bank_account' && (
-                            <div className="space-y-4 p-4 border rounded-md">
-                                <FormField control={payoutForm.control} name="name" render={({ field }) => (
-                                    <FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="As per bank records" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={payoutForm.control} name="account_number" render={({ field }) => (
-                                    <FormItem><FormLabel>Bank Account Number</FormLabel><FormControl><Input placeholder="Enter your bank account number" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (
-                                    <FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="Enter your bank's IFSC code" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
+                <div className="space-y-3">
+                    {(currentUser.subscription?.payoutMethods || []).map(method => (
+                        <div key={method.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                            <div className="flex items-center gap-4">
+                                {method.type === 'vpa' ? <IndianRupee className="w-5 h-5 text-primary"/> : <Banknote className="w-5 h-5 text-primary"/>}
+                                <div>
+                                    <p className="font-semibold flex items-center gap-2">
+                                        {method.name}
+                                        {method.isPrimary && <Badge>Primary</Badge>}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {method.type === 'vpa' ? (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
+                                    </p>
+                                </div>
                             </div>
-                        )}
-
-                        {payoutMethod === 'vpa' && (
-                            <div className="space-y-4 p-4 border rounded-md">
-                                <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>UPI ID (VPA)</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="your-upi-id@okhdfcbank" {...field} onChange={(e) => field.onChange(e.target.value.trim().toLowerCase())} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </div>
-                        )}
-
-                         {currentUser.subscription?.payoutDetails && (
-                            <Alert variant="default" className="bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200">
-                                <AlertTitle>Account Linked</AlertTitle>
-                                <AlertDescription>
-                                    {currentUser.subscription.payoutDetails.type === 'vpa'
-                                        ? `Your UPI ID ${currentUser.subscription.payoutDetails.vpa_address} is linked for payouts.`
-                                        : `An account ending in ****${currentUser.subscription.payoutDetails.account_number_last4} is linked for payouts.`
-                                    }
-                                </AlertDescription>
-                            </Alert>
-                         )}
-                    </form>
-                </Form>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4"/></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    {!method.isPrimary && <DropdownMenuItem onClick={() => handleSetPrimary(method.id)}><Check className="mr-2 h-4 w-4"/> Set as Primary</DropdownMenuItem>}
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleUnlink(method.id)}><Trash2 className="mr-2 h-4 w-4"/> Unlink</DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    ))}
+                     {(currentUser.subscription?.payoutMethods || []).length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">No payout methods added yet.</p>
+                     )}
+                </div>
             </CardContent>
-            <CardFooter className="flex gap-2">
-                 <Button type="submit" form="payout-form" disabled={isSaving}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                    {currentUser.subscription?.payoutDetails ? 'Update Account' : 'Link Account'}
-                </Button>
-                {currentUser.subscription?.payoutDetails && (
-                    <Button type="button" variant="destructive" onClick={async () => {
-                        try {
-                            const { unlinkPayoutAccount } = await import('@/lib/actions/payoutActions');
-                            await unlinkPayoutAccount(currentUser.id);
-                            toast({ title: 'Unlinked', description: 'Payout account disconnected.'});
-                        } catch (e: any) {
-                            toast({ variant: 'destructive', title: 'Failed to Unlink', description: e?.message || 'Unexpected error' });
-                        }
-                    }}>Unlink</Button>
-                )}
-            </CardFooter>
         </Card>
 
         <Card>
@@ -591,11 +541,11 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                             {Object.entries(config.actions).map(([actionKey, actionLabel]) => (
                                 <div key={actionKey} className="flex items-center space-x-2">
                                     <Switch
-                                        id={`${roleToEdit}-${featureKey}-${actionKey}`}
+                                        id={`$!{roleToEdit}-${featureKey}-${actionKey}`}
                                         checked={currentRolePermissions?.[featureKey]?.[actionKey] || false}
                                         onCheckedChange={(checked) => handlePermissionChange(featureKey, actionKey, checked)}
                                     />
-                                    <Label htmlFor={`${roleToEdit}-${featureKey}-${actionKey}`} className="font-normal">{actionLabel}</Label>
+                                    <Label htmlFor={`$!{roleToEdit}-${featureKey}-${actionKey}`} className="font-normal">{actionLabel}</Label>
                                 </div>
                             ))}
                         </div>
@@ -645,6 +595,53 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
               <Button type="submit" form="template-form">Save Template</Button>
           </DialogFooter>
       </DialogContent>
+    </Dialog>
+
+    <Dialog open={isPayoutDialogOpen} onOpenChange={setIsPayoutDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Add New Payout Method</DialogTitle>
+                <DialogDescription>Link a UPI ID or Bank Account to receive rent settlements.</DialogDescription>
+            </DialogHeader>
+            <Form {...payoutForm}>
+                <form id="payout-form-modal" onSubmit={payoutForm.handleSubmit(handlePayoutAccountSubmit)} className="space-y-6">
+                    <FormField
+                        control={payoutForm.control}
+                        name="payoutMethod"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3">
+                                <FormControl>
+                                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
+                                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="vpa" id="vpa" /></FormControl><FormLabel htmlFor="vpa" className="font-normal">UPI ID</FormLabel></FormItem>
+                                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="bank_account" id="bank_account" /></FormControl><FormLabel htmlFor="bank_account" className="font-normal">Bank Account</FormLabel></FormItem>
+                                    </RadioGroup>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {payoutMethod === 'bank_account' && (
+                        <div className="space-y-4">
+                            <FormField control={payoutForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="As per bank records" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={payoutForm.control} name="account_number" render={({ field }) => (<FormItem><FormLabel>Bank Account Number</FormLabel><FormControl><Input placeholder="Enter bank account number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="Enter IFSC code" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        </div>
+                    )}
+                    {payoutMethod === 'vpa' && (
+                        <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
+                            <FormItem><FormLabel>UPI ID (VPA)</FormLabel><FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} onChange={(e) => field.onChange(e.target.value.trim().toLowerCase())} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                    )}
+                </form>
+            </Form>
+             <DialogFooter className="mt-4">
+                <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                <Button type="submit" form="payout-form-modal" disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Add Payout Method
+                </Button>
+            </DialogFooter>
+        </DialogContent>
     </Dialog>
     </>
   )
