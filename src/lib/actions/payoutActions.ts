@@ -1,16 +1,11 @@
 
 'use server'
 
-import Razorpay from 'razorpay';
 import { getAdminDb } from '../firebaseAdmin';
 import { z } from 'zod';
 import type { User } from '../types';
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
+// The schema remains the same for form validation on the client and server action.
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
   name: z.string().min(3, "Account holder name is required.").optional(),
@@ -46,64 +41,38 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
         }
         const owner = ownerDoc.data() as User;
 
-        // Step 1: Create or fetch Razorpay Contact
-        let contactId = owner.subscription?.razorpay_contact_id;
-        if (!contactId) {
-            const contact = await razorpay.contacts.create({
+        // Call our new internal API route to handle Razorpay interaction
+        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pg-owner`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 name: owner.name,
-                email: owner.email || `${owner.id}@rentvastu.com`,
-                contact: owner.phone,
-                type: 'vendor',
-                reference_id: `owner_${owner.id}`
-            });
-            contactId = contact.id;
-        }
-
-        // Step 2: Create Fund Account (Bank or VPA)
-        let fundAccountPayload;
-        let payoutDetailsToSave;
-
-        if (validation.data.payoutMethod === 'vpa') {
-            fundAccountPayload = {
-                contact_id: contactId!,
-                account_type: 'vpa' as const,
-                vpa: {
-                    address: validation.data.vpa!,
-                }
-            };
-            payoutDetailsToSave = {
-                type: 'vpa',
-                vpa_address: validation.data.vpa!,
-            };
-        } else { // bank_account
-            fundAccountPayload = {
-                contact_id: contactId!,
-                account_type: 'bank_account' as const,
-                bank_account: {
-                    name: validation.data.name!,
-                    account_number: validation.data.account_number!,
-                    ifsc: validation.data.ifsc!,
-                }
-            };
-            payoutDetailsToSave = {
-                type: 'bank_account',
-                name: validation.data.name!,
-                account_number_last4: validation.data.account_number!.slice(-4),
-            };
-        }
-
-        const fundAccount = await razorpay.fund_accounts.create(fundAccountPayload);
-
-        // Step 3: Save Contact ID and Fund Account ID to Firestore
-        await ownerDocRef.update({
-            'subscription.razorpay_contact_id': contactId,
-            'subscription.razorpay_fund_account_id': fundAccount.id,
-            'subscription.payoutDetails': payoutDetailsToSave
+                email: owner.email,
+                phone: owner.phone,
+                upi: validation.data.vpa, // Assuming VPA for now
+                // Pass bank details if needed in future
+            })
         });
 
-        return { success: true, fundAccountId: fundAccount.id };
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to link account via API route.');
+        }
+
+        // Save contactId and fundAccountId to Firestore
+        await ownerDocRef.update({
+            'subscription.razorpay_contact_id': result.contactId,
+            'subscription.razorpay_fund_account_id': result.fundAccountId,
+            'subscription.payoutDetails': {
+                type: 'vpa',
+                vpa_address: validation.data.vpa,
+            }
+        });
+
+        return { success: true, fundAccountId: result.fundAccountId };
     } catch (error: any) {
-        console.error('Error creating Razorpay Contact/Fund Account:', error);
+        console.error('Error in createOrUpdatePayoutAccount action:', error);
         return { success: false, error: error.message || "Failed to link payout account." };
     }
 }

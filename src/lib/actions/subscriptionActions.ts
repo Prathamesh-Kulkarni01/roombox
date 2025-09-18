@@ -5,10 +5,10 @@ import Razorpay from 'razorpay'
 import crypto from 'crypto'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import type { PlanName, User, PremiumFeatures } from '../types'
+import type { User, PremiumFeatures, BillingDetails, BillingCycleDetails } from '../types'
 import { getAdminDb } from '../firebaseAdmin'
+import { PRICING_CONFIG } from '../mock-data'
 import { calculateOwnerBill } from './billingActions'
-
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -80,6 +80,7 @@ export async function verifySubscriptionPayment(data: {
     const userDocRef = doc(adminDb, 'users', userId);
     await updateDoc(userDocRef, {
         'subscription.status': 'active',
+        'subscription.planId': 'pro',
         'subscription.razorpay_subscription_id': razorpay_subscription_id,
         'subscription.razorpay_payment_id': razorpay_payment_id, // For the initial setup
     });
@@ -97,11 +98,7 @@ export async function calculateAndCreateAddons() {
   const adminDb = await getAdminDb();
   console.log('Running monthly billing cron job...');
   let processedCount = 0;
-  const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!,
-  });
-
+  
   try {
     const ownersSnapshot = await adminDb
         .collection('users')

@@ -8,7 +8,7 @@ import { produce } from 'immer';
 import Razorpay from 'razorpay';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
-const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '5') / 100;
+const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '0') / 100;
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,

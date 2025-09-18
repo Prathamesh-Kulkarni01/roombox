@@ -152,6 +152,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                     id: firebaseUser.uid,
                     name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
                     email: firebaseUser.email ?? undefined,
+                    phone: firebaseUser.phoneNumber || undefined,
                     role: 'unassigned',
                     avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
                     guestId: null,
