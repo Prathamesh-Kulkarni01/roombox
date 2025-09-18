@@ -33,7 +33,6 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { cn } from "@/lib/utils"
 import Access from '@/components/ui/PermissionWrapper';
 import type { Bed, BedStatus, PG, Room, Guest } from '@/lib/types'
-import { sendNotification } from '@/ai/flows/send-notification-flow'
 import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -42,6 +41,9 @@ import QuickActions from "@/components/dashboard/QuickActions"
 import GuidedSetup from "@/components/dashboard/GuidedSetup"
 import { getSubscribedTopics, initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications'
 import { Badge } from "@/components/ui/badge"
+import { getAuth } from "firebase/auth"
+import { auth } from "@/lib/firebase"
+
 
 const bedLegend: Record<BedStatus, { label: string, className: string }> = {
   available: { label: 'Available', className: 'bg-yellow-200' },
@@ -188,7 +190,14 @@ export default function DashboardPage() {
 
     const pendingDues = relevantGuests
       .filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'))
-      .reduce((sum, g) => sum + (g.rentAmount - (g.rentPaidAmount || 0)), 0);
+      .reduce((sum, g) => {
+           const balanceBf = g.balanceBroughtForward || 0;
+           const currentMonthRent = g.rentAmount;
+           const chargesDue = (g.additionalCharges || []).reduce((s, charge) => s + charge.amount, 0);
+           const totalOwed = balanceBf + currentMonthRent + chargesDue;
+           const totalPaid = g.rentPaidAmount || 0;
+           return sum + (totalOwed - totalPaid);
+      }, 0);
 
     return [
       { title: "Occupancy", value: `${totalOccupancy}/${totalBeds}`, icon: Users, feature: "properties", action: "view" },
@@ -212,26 +221,35 @@ export default function DashboardPage() {
   };
   
   const handleSendMassReminder = async () => {
-        const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
-        if (pendingGuests.length === 0) {
-            toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
-            return;
-        }
-        
-        toast({ title: 'Sending Reminders...', description: `Sending ${pendingGuests.length} rent reminders.` });
+      const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
+      if (pendingGuests.length === 0) {
+          toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
+          return;
+      }
+      
+      toast({ title: 'Sending Reminders...', description: `Sending ${pendingGuests.length} rent reminders.` });
+      const user = auth.currentUser;
+      if (!user) {
+          toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to send reminders.'});
+          return;
+      }
 
-        const results = await Promise.allSettled(pendingGuests.map(guest => 
-            sendNotification({
-                userId: guest.userId!,
-                title: `Gentle Rent Reminder`,
-                body: `Hi ${guest.name}, this is a friendly reminder that your rent is due. Please pay to avoid any late fees.`,
-                link: '/tenants/my-pg'
-            })
-        ));
-
-        const successful = results.filter(r => r.status === 'fulfilled').length;
-        toast({ title: 'Reminders Sent!', description: `Successfully sent ${successful} reminders.` });
-    }
+      const token = await user.getIdToken();
+      
+      const response = await fetch('/api/reminders/send-all', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+      });
+      const result = await response.json();
+      if(result.success) {
+          toast({ title: 'Reminders Sent!', description: `Successfully sent ${result.sentCount} reminders.` });
+      } else {
+          toast({ variant: 'destructive', title: 'Error', description: result.error || 'Failed to send reminders.' });
+      }
+  }
 
   const handleSendAnnouncement = () => {
     
@@ -248,10 +266,10 @@ export default function DashboardPage() {
     if (res.token) {
       toast({ title: 'Push Ready', description: 'Token saved. You can now subscribe to topics.' })
       // Auto-subscribe to base topics
-      const baseTopics = ['app', `role-${currentUser.role}`];
-      if (currentUser.role === 'owner') baseTopics.push('tenants-all');
-      if (selectedPgId) baseTopics.push(`pg-${selectedPgId}-tenants`);
-      await subscribeToTopic({ token: res.token, topics: baseTopics, userId: currentUser.id });
+      const baseTopics: string[] = ['app', `role-${currentUser.role}`];
+      const ownerTopics: string[] = currentUser.role === 'owner' ? ['tenants-all'] : [];
+      const pgTopics: string[] = selectedPgId ? [`pg-${selectedPgId}-tenants`] : [];
+      await subscribeToTopic({ token: res.token, topics: [...baseTopics, ...ownerTopics, ...pgTopics], userId: currentUser.id })
       fetchTopics();
     } else {
       toast({ variant: 'destructive', title: 'Init failed', description: 'Could not get a token. Check VAPID and permissions.' })
@@ -293,8 +311,8 @@ export default function DashboardPage() {
   }
 
   const fetchTopics = async () => {
-    const res = await getSubscribedTopics({ userId: currentUser?.id });
-    console.log({res})
+    if(!currentUser?.id) return;
+    const res = await getSubscribedTopics({ userId: currentUser.id });
     setShowTopics(Array.isArray(res) ? res : []);
     return res||[]
   }

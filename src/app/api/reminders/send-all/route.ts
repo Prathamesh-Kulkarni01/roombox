@@ -1,0 +1,66 @@
+'use server';
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import { createAndSendNotification } from '@/lib/actions/notificationActions';
+import type { Guest } from '@/lib/types';
+import { getAuth } from 'firebase-admin/auth';
+import { adminApp } from '@/lib/firebaseAdmin';
+
+export async function POST(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: No token provided' }, { status: 401 });
+    }
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await getAuth(adminApp).verifyIdToken(token);
+    const ownerId = decodedToken.uid;
+    
+    if (!ownerId) {
+         return NextResponse.json({ success: false, error: 'Unauthorized: Invalid token' }, { status: 401 });
+    }
+
+    const adminDb = await getAdminDb();
+    const guestsSnapshot = await adminDb
+        .collection('users_data')
+        .doc(ownerId)
+        .collection('guests')
+        .where('isVacated', '==', false)
+        .where('rentStatus', 'in', ['unpaid', 'partial'])
+        .get();
+        
+    if (guestsSnapshot.empty) {
+        return NextResponse.json({ success: true, message: 'No guests with pending dues.', sentCount: 0 });
+    }
+
+    let sentCount = 0;
+    const promises = guestsSnapshot.docs.map(async (doc) => {
+      const guest = doc.data() as Guest;
+      if (guest.userId) {
+        await createAndSendNotification({
+            ownerId: ownerId,
+            notification: {
+                type: 'rent-reminder',
+                title: 'Gentle Rent Reminder',
+                message: `Hi ${guest.name}, this is a friendly reminder that your rent is due. Please pay to avoid any late fees.`,
+                link: '/tenants/my-pg',
+                targetId: guest.userId,
+            }
+        });
+        sentCount++;
+      }
+    });
+
+    await Promise.all(promises);
+
+    return NextResponse.json({ success: true, message: `Sent ${sentCount} reminders.`, sentCount });
+
+  } catch (error: any) {
+    console.error('Error sending mass reminders:', error);
+     if (error.code === 'auth/id-token-expired') {
+        return NextResponse.json({ success: false, error: 'Unauthorized: Token expired' }, { status: 401 });
+    }
+    return NextResponse.json({ success: false, error: 'Failed to send reminders.' }, { status: 500 });
+  }
+}
