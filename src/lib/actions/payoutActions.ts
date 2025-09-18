@@ -36,7 +36,7 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         const ownerDoc = await ownerDocRef.get();
         
-        if (!ownerDoc.exists) {
+        if (!ownerDoc.exists()) {
             throw new Error("Owner not found.");
         }
         const owner = ownerDoc.data() as User;
@@ -52,11 +52,13 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
             })
         });
 
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to link account via API route. Status: ${response.status}. Response: ${errorText}`);
+        }
+        
         const result = await response.json();
 
-        if (!response.ok) {
-            throw new Error(result.error || 'Failed to link account via API route.');
-        }
 
         const payoutDetails = validation.data.payoutMethod === 'vpa'
             ? { type: 'vpa', vpa_address: validation.data.vpa }
@@ -85,3 +87,4 @@ export async function getPayoutAccountDetails(ownerId: string) {
     if (!ownerDoc.exists) return null;
     return ownerDoc.data()?.subscription?.payoutDetails || null;
 }
+
