@@ -697,5 +697,3 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
     </>
   )
 }
-
-    
