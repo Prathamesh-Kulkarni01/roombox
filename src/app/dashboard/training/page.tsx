@@ -5,17 +5,7 @@ import React from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowRight, BookOpen } from 'lucide-react'
-
-const trainingGuides = [
-    { href: '/blog/creating-property', title: 'Creating a Property', description: 'Learn how to add your first property listing, set its name, location, and other basic details.' },
-    { href: '/blog/setting-up-layout', title: 'Setting up Floors, Rooms & Beds', description: 'Visually create your property layout to match its physical structure for easy management.' },
-    { href: '/blog/onboarding-guest', title: 'Onboarding a New Guest', description: 'Add new guests to vacant beds, set their rent, deposit, and move-in dates seamlessly.' },
-    { href: '/blog/collecting-rent', title: 'Collecting Rent & Managing Dues', description: 'Understand how to log payments, track pending dues, and manage the complete rent cycle.' },
-    { href: '/blog/managing-staff', title: 'Managing Staff & Permissions', description: 'Add your staff members like managers or cooks and define what they can access on the dashboard.' },
-    { href: '/blog/expense-tracking', title: 'Using the Expense Tracker', description: 'Log and categorize all your property-related expenses to keep your finances in check.' },
-    { href: '/blog/setting-up-payouts', title: 'Setting Up Bank Payouts', description: 'Securely link your bank account or UPI ID to automatically receive rent payments from tenants.' },
-    { href: '/blog/using-ai-tools', title: 'Using AI-Powered Tools', description: 'Leverage AI for rent reminders, generating SEO content, and answering tenant queries.' },
-];
+import { trainingGuides } from '@/lib/blog-data'
 
 export default function TrainingCenterPage() {
     return (
@@ -27,7 +17,7 @@ export default function TrainingCenterPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {trainingGuides.map(guide => (
-                    <Link href={guide.href} key={guide.href} className="group">
+                    <Link href={`/blog/${guide.slug}`} key={guide.slug} className="group">
                         <Card className="h-full flex flex-col hover:border-primary transition-all hover:shadow-lg">
                             <CardHeader>
                                 <div className="flex items-center gap-3 mb-2">

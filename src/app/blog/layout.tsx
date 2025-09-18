@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +19,16 @@ export default function BlogLayout({
             </Link>
             <Card>
                 <CardContent className="p-6 md:p-8">
-                    <article className="prose dark:prose-invert max-w-none">
+                    <article 
+                        className="prose dark:prose-invert max-w-none 
+                        prose-headings:font-bold prose-headings:text-foreground 
+                        prose-h1:text-4xl prose-h2:text-2xl
+                        prose-p:text-muted-foreground prose-p:leading-relaxed
+                        prose-a:text-primary hover:prose-a:underline
+                        prose-strong:text-foreground
+                        prose-ul:list-disc prose-ul:pl-6 prose-li:text-muted-foreground
+                        prose-ol:list-decimal prose-ol:pl-6 prose-li:text-muted-foreground"
+                    >
                         {children}
                     </article>
                 </CardContent>
