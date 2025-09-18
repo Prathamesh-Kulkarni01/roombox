@@ -8,10 +8,10 @@ import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { navItems, type NavItem } from '@/lib/mock-data';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
-import { LogOut, Shield } from 'lucide-react';
+import { LogOut, Shield, BookOpen } from 'lucide-react';
 import type { RolePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
@@ -21,6 +21,16 @@ export default function DashboardSidebar() {
   const dispatch = useAppDispatch();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
+  
+  const trainingGuides = [
+    { href: '/blog/creating-property', label: 'Creating a Property', icon: BookOpen },
+    { href: '/blog/setting-up-layout', label: 'Setting up Floors & Rooms', icon: BookOpen },
+    { href: '/blog/onboarding-guest', label: 'Onboarding a New Guest', icon: BookOpen },
+    { href: '/blog/collecting-rent', label: 'Collecting Rent & Dues', icon: BookOpen },
+    { href: '/blog/managing-staff', label: 'Managing Staff & Permissions', icon: BookOpen },
+    { href: '/blog/expense-tracking', label: 'Using the Expense Tracker', icon: BookOpen },
+    { href: '/blog/setting-up-payouts', label: 'Setting Up Bank Payouts', icon: BookOpen },
+  ];
 
   if (!currentUser || !currentPlan) {
     return (
@@ -72,6 +82,22 @@ export default function DashboardSidebar() {
               </Link>
           )}
         </nav>
+        <Separator className="my-4 bg-sidebar-border" />
+        <div className="flex flex-col gap-1 px-4">
+            <h4 className="px-3 py-2 text-xs font-semibold text-sidebar-foreground/60">Guides &amp; Training</h4>
+             {trainingGuides.map((guide) => (
+                <Link
+                    key={guide.href}
+                    href={guide.href}
+                    className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent text-sm',
+                    )}
+                    >
+                    <guide.icon className="h-4 w-4" />
+                    {guide.label}
+                </Link>
+            ))}
+        </div>
       </div>
       <div className="p-4 mt-auto">
         <Separator className="my-4 bg-sidebar-border" />
