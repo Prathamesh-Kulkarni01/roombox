@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await getAdminAuth().verifyIdToken(token);
+    const adminAuth = await getAdminAuth();
+    const decodedToken = await adminAuth.verifyIdToken(token);
     const ownerId = decodedToken.uid;
     
     if (!ownerId) {
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
     if (error.code === 'auth/id-token-expired') {
         return NextResponse.json({ success: false, error: 'Authentication token has expired. Please log in again.' }, { status: 401 });
     }
-    return NextResponse.json({ success: false, error: error.message || 'Failed to send reminders.' }, { status: 500 });
+    // Re-throw the error to be handled by the client-side catch block
+    throw new Error(error.message || 'Failed to send reminders.');
   }
 }
