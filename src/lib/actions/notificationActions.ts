@@ -3,7 +3,6 @@
 
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Notification } from '@/lib/types';
-import { doc, setDoc } from 'firebase/firestore';
 import { sendNotification } from '@/ai/flows/send-notification-flow';
 
 interface CreateAndSendNotificationParams {
@@ -32,10 +31,10 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     
     try {
         const adminDb = await getAdminDb();
-        const docRef = doc(adminDb, 'users_data', ownerId, 'notifications', newNotification.id);
+        const docRef = adminDb.collection('users_data').doc(ownerId).collection('notifications').doc(newNotification.id);
         
         // Save to Firestore first
-        await setDoc(docRef, newNotification);
+        await docRef.set(newNotification);
 
         // Then send the push notification
         await sendNotification({
