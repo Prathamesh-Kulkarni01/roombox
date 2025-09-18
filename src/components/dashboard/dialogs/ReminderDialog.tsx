@@ -4,24 +4,15 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Copy, MessageCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
-import { useEffect } from "react"
 import { Label } from "@/components/ui/label"
 
-type ReminderDialogProps = Pick<UseDashboardReturn, 'isReminderDialogOpen' | 'setIsReminderDialogOpen' | 'selectedGuestForReminder' | 'isGeneratingReminder' | 'reminderMessage' | 'handleOpenReminderDialog' | 'setReminderMessage'>
+type ReminderDialogProps = Pick<UseDashboardReturn, 'isReminderDialogOpen' | 'setIsReminderDialogOpen' | 'selectedGuestForReminder' | 'reminderMessage' | 'setReminderMessage'>
 
-export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, isGeneratingReminder, reminderMessage, handleOpenReminderDialog, setReminderMessage }: ReminderDialogProps) {
+export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, reminderMessage, setReminderMessage }: ReminderDialogProps) {
   const { toast } = useToast()
-
-  useEffect(() => {
-    if (selectedGuestForReminder && isReminderDialogOpen && !reminderMessage) {
-        // The handleOpenReminderDialog function now instantly creates the template
-        handleOpenReminderDialog(selectedGuestForReminder);
-    }
-  }, [isReminderDialogOpen, selectedGuestForReminder]);
   
   return (
     <Dialog open={isReminderDialogOpen} onOpenChange={(open) => {
@@ -51,5 +42,3 @@ export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDial
     </Dialog>
   )
 }
-
-    

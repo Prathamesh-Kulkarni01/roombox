@@ -276,20 +276,17 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     if (!guest || !currentUser) return;
     setSelectedGuestForReminder(guest);
     setIsReminderDialogOpen(true);
-    setReminderMessage('Generating your message...');
-    
-    // Calculate total due
+
     const balanceBf = guest.balanceBroughtForward || 0;
     const currentMonthRent = guest.rentAmount;
     const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
     const totalDue = balanceBf + currentMonthRent + chargesDue - (guest.rentPaidAmount || 0);
     
-    // Generate secure token
     const secret = process.env.NEXT_PUBLIC_JWT_SECRET;
     if (!secret) {
-      console.error("JWT_SECRET is not set!");
-      setReminderMessage("Could not generate a payment link. Server is not configured.");
-      return;
+        console.error("JWT_SECRET is not set!");
+        setReminderMessage("Could not generate a payment link. Server is not configured.");
+        return;
     }
     const token = jwt.sign({ guestId: guest.id, ownerId: currentUser.id }, secret, { expiresIn: '7d' });
     const paymentLink = `${window.location.origin}/pay/${token}`;
@@ -517,4 +514,3 @@ Thank you!`;
 
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
 
-    
