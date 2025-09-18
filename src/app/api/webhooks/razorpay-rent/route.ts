@@ -5,16 +5,11 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, addMonths } from 'date-fns';
 import type { Guest, Payment, User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
 import { produce } from 'immer';
-import Razorpay from 'razorpay';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
 const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '0') / 100;
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
 
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
@@ -143,17 +138,30 @@ export async function POST(req: NextRequest) {
         let payoutSucceeded = false;
         let lastError = 'No active payout methods found.';
         let payoutTargetAccountName = 'N/A';
+        const appUrl = process.env.URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
 
         for (const method of payoutMethods) {
           try {
             payoutTargetAccountName = method.name; // Store which account we're trying
-            const payout = await razorpay.payouts.create({
-                account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
-                fund_account_id: method.razorpay_fund_account_id!,
-                amount: Math.round(payoutAmount * 100),
-                currency: "INR", mode: "UPI", purpose: "payout", queue_if_low_balance: true,
-                notes: { payment_id: payment.id, guest_name: guest.name, pg_name: guest.pgName }
-            });
+            const res = await fetch(`${appUrl}/api/create-payout`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  account_number: process.env.NEXT_PUBLIC_RAZORPAY_ACCOUNT_NUMBER, // This is now fetched on the server
+                  fund_account_id: method.razorpay_fund_account_id,
+                  amountPaise: Math.round(payoutAmount * 100),
+                  notes: {
+                    payment_id: payment.id,
+                    guest_name: guest.name,
+                    pg_name: guest.pgName,
+                  },
+                }),
+              });
+
+            const payout = await res.json();
+            if (!res.ok) {
+                throw new Error(payout.error?.description || 'Payout API call failed.');
+            }
             
             console.log(`Payout of ₹${payoutAmount.toFixed(2)} to owner ${ownerId} succeeded via ${method.name}. Payout ID: ${payout.id}`);
             payoutSucceeded = true;
@@ -171,7 +179,7 @@ export async function POST(req: NextRequest) {
             
             break; 
           } catch(payoutError: any) {
-             lastError = payoutError.error?.description || payoutError.message || "An unknown error occurred.";
+             lastError = payoutError.message || "An unknown error occurred.";
              console.warn(`Payout via ${method.name} failed for owner ${ownerId}:`, lastError);
           }
         }
