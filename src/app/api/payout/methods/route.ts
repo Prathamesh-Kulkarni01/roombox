@@ -38,20 +38,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const linkedAccountPayload: any = {
-        name: owner.name,
+        name: accountDetails.payoutMethod === 'vpa' ? `VPA for ${owner.name}` : accountDetails.name!,
         email: owner.email!,
-        phone: owner.phone!,
-        type: "vendor",
-        reference_id: `owner_account_${owner.id.substring(0, 20)}`,
-        notes: {
-            owner_id: owner.id
+        tnc_accepted: true,
+        account_details: {
+            business_name: owner.name,
+            business_type: "individual",
         },
-        ... (accountDetails.payoutMethod === 'vpa' 
+        ...(accountDetails.payoutMethod === 'vpa' 
             ? { vpa: { address: accountDetails.vpa! } }
             : { bank_account: { name: accountDetails.name!, ifsc: accountDetails.ifsc!, account_number: accountDetails.account_number! } }
         )
     };
-
+    
+    // Create a Linked Account for routing payments, not a Fund Account
     const linkedAccount = await razorpay.accounts.create(linkedAccountPayload);
 
     if (!linkedAccount || !linkedAccount.id) {

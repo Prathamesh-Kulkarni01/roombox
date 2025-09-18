@@ -3,7 +3,7 @@
 
 import { getAdminDb } from '../firebaseAdmin';
 import { z } from 'zod';
-import type { User, PaymentMethod } from '../types';
+import type { User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '../types';
 import { produce } from 'immer';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -111,7 +111,6 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         const updatedMethods = methods.filter(m => {
             if (m.id === methodId) {
                 wasPrimary = m.isPrimary;
-                // Mark as inactive instead of deleting to preserve history, but for now we remove
                 // return { ...m, isActive: false };
                 return false; // Remove from array
             }
