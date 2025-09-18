@@ -1,4 +1,3 @@
-
 'use server'
 
 import { getAdminDb } from '../firebaseAdmin';
@@ -31,7 +30,7 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
     if (!validation.success) {
         throw new Error("Invalid account details provided.");
     }
-    
+
     try {
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
@@ -41,6 +40,22 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
             throw new Error("Owner not found.");
         }
         const owner = ownerDoc.data() as User;
+
+        // If VPA, validate via server API before linking
+        if (validation.data.payoutMethod === 'vpa' && validation.data.vpa) {
+            const validateResp = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/validate-vpa`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ vpa: validation.data.vpa })
+            });
+            const validateJson = await validateResp.json();
+            if (!validateResp.ok) {
+                throw new Error(validateJson?.error || 'Could not validate UPI at the moment.');
+            }
+            if (!validateJson?.valid) {
+                throw new Error(validateJson?.reason || 'Invalid UPI. Please enter a valid VPA.');
+            }
+        }
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/pg-owner`, {
             method: 'POST',
@@ -63,9 +78,9 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
         }
         
         const payoutDetails = validation.data.payoutMethod === 'vpa'
-            ? { type: 'vpa', vpa_address: validation.data.vpa }
+            ? { type: 'vpa' as const, vpa_address: validation.data.vpa }
             : {
-                type: 'bank_account',
+                type: 'bank_account' as const,
                 name: validation.data.name,
                 account_number_last4: validation.data.account_number?.slice(-4),
               };
@@ -74,6 +89,7 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
             'subscription.razorpay_contact_id': result.contactId,
             'subscription.razorpay_fund_account_id': result.fundAccountId,
             'subscription.payoutDetails': payoutDetails,
+            'subscription.payoutVerificationStatus': validation.data.payoutMethod === 'vpa' ? 'verification_pending' : 'active',
         });
 
         return { success: true, fundAccountId: result.fundAccountId };
@@ -83,9 +99,31 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
     }
 }
 
+export async function unlinkPayoutAccount(ownerId: string) {
+    try {
+        const adminDb = await getAdminDb();
+        const ownerDocRef = adminDb.collection('users').doc(ownerId);
+        const ownerDoc = await ownerDocRef.get();
+        if (!ownerDoc.exists) {
+            throw new Error('Owner not found.');
+        }
+        await ownerDocRef.update({
+            'subscription.razorpay_contact_id': null,
+            'subscription.razorpay_fund_account_id': null,
+            'subscription.payoutDetails': null,
+            'subscription.payoutVerificationStatus': null,
+        });
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error unlinking payout account:', error);
+        throw new Error(error.message || 'Failed to unlink payout account.');
+    }
+}
+
 export async function getPayoutAccountDetails(ownerId: string) {
     const adminDb = await getAdminDb();
     const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
     if (!ownerDoc.exists) return null;
     return ownerDoc.data()?.subscription?.payoutDetails || null;
 }
+

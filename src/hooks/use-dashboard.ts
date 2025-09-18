@@ -171,7 +171,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
     if (!selectedBedForGuestAdd) return;
     const { pg, bed } = selectedBedForGuestAdd;
-    
+    console.log('values', values);
     const guestData: Omit<Guest, 'id'> = {
       name: values.name,
       phone: values.phone,

@@ -68,14 +68,19 @@ export async function POST(req: NextRequest) {
       const guest = guestDoc.data() as Guest;
       const owner = ownerDoc.data() as User;
       
+      // Determine payment method for history (prefer Razorpay payment.method)
+      const methodFromGateway = (payment.method || '').toLowerCase();
+      const methodForHistory: Payment['method'] = methodFromGateway === 'upi' ? 'upi' : 'in-app';
+      const upiVpa: string | undefined = payment.vpa || payment.notes?.vpa;
+
       // Update guest payment history
       const newPayment: Payment = {
         id: payment.id,
         date: new Date(payment.created_at * 1000).toISOString(),
         amount: amountPaid,
-        method: 'in-app',
+        method: methodForHistory,
         forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
-        notes: `Razorpay Order ID: ${order.id}`,
+        notes: `Razorpay Order: ${order.id}; Method: ${methodFromGateway || 'n/a'}${upiVpa ? `; VPA: ${upiVpa}` : ''}`,
       };
 
       const updatedGuest = produce(guest, draft => {
@@ -125,6 +130,8 @@ export async function POST(req: NextRequest) {
               guest_name: guest.name,
               pg_name: guest.pgName,
               commission_deducted: commission.toFixed(2),
+              method: methodFromGateway,
+              vpa: upiVpa || '',
             }
         });
 

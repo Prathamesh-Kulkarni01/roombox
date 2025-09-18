@@ -111,7 +111,7 @@ export default function SettingsPage() {
   const payoutForm = useForm<PayoutAccountFormValues>({
     resolver: zodResolver(payoutAccountSchema),
     defaultValues: {
-        payoutMethod: 'bank_account'
+        payoutMethod: 'vpa'
     }
   });
 
@@ -274,12 +274,33 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
   const handlePayoutAccountSubmit = (data: PayoutAccountFormValues) => {
     startSavingTransition(async () => {
         if(!currentUser) return;
-        const result = await createOrUpdatePayoutAccount(currentUser.id, data);
-        if(result.success) {
-            toast({ title: 'Account Linked!', description: 'Your payout account has been successfully linked.'});
-            // You may want to refetch user data here to update the UI with payout details.
-        } else {
-            toast({ variant: 'destructive', title: 'Failed to Link Account', description: result.error || 'An unexpected error occurred.'})
+
+        // If VPA, validate before submit to give instant feedback
+        if (data.payoutMethod === 'vpa' && data.vpa) {
+            try {
+                const res = await fetch('/api/validate-vpa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vpa: data.vpa.trim().toLowerCase() })
+                });
+                const json = await res.json();
+                if (!res.ok || !json.valid) {
+                    toast({ variant: 'destructive', title: 'Invalid UPI', description: json?.reason || json?.error || 'Please enter a valid UPI ID.' });
+                    return;
+                }
+            } catch (e: any) {
+                toast({ variant: 'destructive', title: 'Validation Error', description: e?.message || 'Could not validate UPI right now.' });
+                return;
+            }
+        }
+
+        try {
+            const result = await createOrUpdatePayoutAccount(currentUser.id, data);
+            if(result.success) {
+                toast({ title: 'Account Linked!', description: 'Your payout account has been successfully linked.'});
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Failed to Link Account', description: e?.message || 'An unexpected error occurred.'});
         }
     });
   };
@@ -338,12 +359,12 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                                             className="flex space-x-4"
                                         >
                                             <FormItem className="flex items-center space-x-2">
-                                                <FormControl><RadioGroupItem value="bank_account" id="bank_account" /></FormControl>
-                                                <FormLabel htmlFor="bank_account" className="font-normal">Bank Account</FormLabel>
-                                            </FormItem>
-                                            <FormItem className="flex items-center space-x-2">
                                                 <FormControl><RadioGroupItem value="vpa" id="vpa" /></FormControl>
                                                 <FormLabel htmlFor="vpa" className="font-normal">UPI ID</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-2">
+                                                <FormControl><RadioGroupItem value="bank_account" id="bank_account" /></FormControl>
+                                                <FormLabel htmlFor="bank_account" className="font-normal">Bank Account</FormLabel>
                                             </FormItem>
                                         </RadioGroup>
                                     </FormControl>
@@ -369,7 +390,13 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                         {payoutMethod === 'vpa' && (
                             <div className="space-y-4 p-4 border rounded-md">
                                 <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
-                                    <FormItem><FormLabel>UPI ID (VPA)</FormLabel><FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem>
+                                        <FormLabel>UPI ID (VPA)</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="your-upi-id@okhdfcbank" {...field} onChange={(e) => field.onChange(e.target.value.trim().toLowerCase())} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
                                 )} />
                             </div>
                         )}
@@ -388,11 +415,22 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                     </form>
                 </Form>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex gap-2">
                  <Button type="submit" form="payout-form" disabled={isSaving}>
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                     {currentUser.subscription?.payoutDetails ? 'Update Account' : 'Link Account'}
                 </Button>
+                {currentUser.subscription?.payoutDetails && (
+                    <Button type="button" variant="destructive" onClick={async () => {
+                        try {
+                            const { unlinkPayoutAccount } = await import('@/lib/actions/payoutActions');
+                            await unlinkPayoutAccount(currentUser.id);
+                            toast({ title: 'Unlinked', description: 'Payout account disconnected.'});
+                        } catch (e: any) {
+                            toast({ variant: 'destructive', title: 'Failed to Unlink', description: e?.message || 'Unexpected error' });
+                        }
+                    }}>Unlink</Button>
+                )}
             </CardFooter>
         </Card>
 

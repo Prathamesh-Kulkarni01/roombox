@@ -37,6 +37,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         // Check if a user with this email already exists
         const userQuery = query(collection(db, "users"), where("email", "==", guestData.email));
         const userSnapshot = await getDocs(userQuery);
+        console.log('guestData', guestData, existingUser,pgs,user);
         if (!userSnapshot.empty) {
             existingUser = userSnapshot.docs[0].data() as User;
             if (existingUser.role === 'owner') {
@@ -51,7 +52,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
                 }
             }
         }
-        
+        console.log('guestData', guestData, existingUser,pgs,user);
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
 
