@@ -196,7 +196,7 @@ export interface Expense {
 }
 
 export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
-export type UserRole = 'owner' | 'tenant' | StaffRole | 'unassigned';
+export type UserRole = 'admin' | 'owner' | 'tenant' | StaffRole | 'unassigned';
 
 export type PlanName = 'free' | 'pro'; // Simplified plans
 
@@ -258,6 +258,7 @@ export interface User {
     paymentHistory?: UserSubscriptionPayment[];
   };
   fcmToken?: string | null;
+  createdAt?: string; // ISO string for when the user was created
 }
 
 export interface Invite {

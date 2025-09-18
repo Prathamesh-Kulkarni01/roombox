@@ -57,6 +57,7 @@ const getDefaultPermissions = (plan: Plan): RolePermissions => {
         }
     }
     permissions['owner'] = ownerPerms;
+    permissions['admin'] = ownerPerms; // Admin also gets all permissions
 
     return permissions as RolePermissions;
 };

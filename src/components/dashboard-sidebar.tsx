@@ -11,7 +11,7 @@ import { navItems, type NavItem } from '@/lib/mock-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
-import { LogOut } from 'lucide-react';
+import { LogOut, Shield } from 'lucide-react';
 import type { RolePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
@@ -33,7 +33,7 @@ export default function DashboardSidebar() {
   }
 
   const visibleNavItems = navItems.filter(item => {
-    if (currentUser.role === 'owner') return true; // Owners see all items
+    if (currentUser.role === 'owner' || currentUser.role === 'admin') return true;
     if (item.feature === 'core') return true; // Core items are always visible for staff
     return canViewFeature(featurePermissions, currentUser.role, item.feature!);
   });
@@ -59,6 +59,18 @@ export default function DashboardSidebar() {
                 {item.label}
               </Link>
           ))}
+          {currentUser.role === 'admin' && (
+             <Link
+                href="/admin/dashboard"
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all hover:text-sidebar-primary hover:bg-sidebar-accent',
+                  pathname.startsWith('/admin') && 'bg-sidebar-accent text-sidebar-primary'
+                )}
+              >
+                <Shield className="h-4 w-4" />
+                Admin Panel
+              </Link>
+          )}
         </nav>
       </div>
       <div className="p-4 mt-auto">

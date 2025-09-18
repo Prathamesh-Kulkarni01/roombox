@@ -69,7 +69,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             const ownerIdForPermissions = userData.role === 'owner' ? userData.id : userData.ownerId;
             let finalUserData = userData;
 
-            if (userData.role !== 'owner' && userData.ownerId) {
+            if (userData.role !== 'owner' && userData.role !== 'admin' && userData.ownerId) {
                 const ownerDocRef = doc(db, 'users', userData.ownerId);
                 const ownerDoc = await getDoc(ownerDocRef);
                 if(ownerDoc.exists()) {
@@ -156,6 +156,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                     role: 'unassigned',
                     avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
                     guestId: null,
+                    createdAt: new Date().toISOString(),
                 };
                 await setDoc(userDocRef, newUser);
                 userDataToReturn = newUser;

@@ -61,6 +61,10 @@ export default function DashboardLayout({
   const allowedDashboardRoles: (keyof typeof navPermissions)[] = ['owner', 'manager', 'cook', 'cleaner', 'security'];
 
   useEffect(() => {
+    if (!isLoading && currentUser?.role === 'admin') {
+      router.replace('/admin/dashboard');
+      return;
+    }
     if (!isLoading && (!currentUser || !allowedDashboardRoles.includes(currentUser.role))) {
       if(currentUser?.role === 'unassigned') {
         router.replace('/complete-profile');

@@ -13,6 +13,7 @@ import type { UserRole } from './types';
  * ## Role-Based Access (What can a specific user type do?)
  * - **Owner**: Has full control over all features enabled by their plan.
  * - **Staff (Manager, Cook, etc.)**: Permissions are granularly controlled by the owner on the Settings page. For example, a 'cook' can be given access to edit the 'food' menu but not view 'finances'.
+ * - **Admin**: The super-admin for the entire application. Has access to all features across all user accounts.
  *
  * This dual system ensures both subscription tier limitations and fine-grained staff delegation are handled correctly.
  */
@@ -104,18 +105,16 @@ export type RolePermissions = Record<UserRole, FeaturePermissions | null>;
  * @param role The user's role.
  * @param feature The feature key (e.g., 'properties', 'guests').
  * @param action The action key (e.g., 'add', 'edit', 'delete', 'view').
- * @param ownerHasAll (optional) If true, owner always has all permissions. If false, owner is checked like any other role.
  * @returns boolean
  */
 export function canAccess(
   permissions: RolePermissions | null | undefined,
   role?: UserRole,
   feature?: string,
-  action?: string,
-  ownerHasAll: boolean = true
+  action?: string
 ): boolean {
   if (!role) return false;
-  if (role === 'owner' && ownerHasAll) return true;
+  if (role === 'admin' || role === 'owner') return true;
   if (!permissions) return false;
   const rolePerms = permissions[role];
   if (!rolePerms || !feature || !action) return false;
@@ -129,16 +128,14 @@ export function canAccess(
  * @param permissions The RolePermissions object.
  * @param role The user's role.
  * @param feature The feature key.
- * @param ownerHasAll (optional) If true, owner always has all permissions.
  * @returns boolean
  */
 export function canViewFeature(
   permissions: RolePermissions | null | undefined,
   role: UserRole,
-  feature: string,
-  ownerHasAll: boolean = true
+  feature: string
 ): boolean {
-  return canAccess(permissions, role, feature, 'view', ownerHasAll);
+  return canAccess(permissions, role, feature, 'view');
 }
 
 export type PlanFeatureActions = { [action: string]: boolean };
