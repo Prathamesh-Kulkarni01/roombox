@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo } from 'react'
@@ -58,7 +59,7 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
     )
 }
 
-export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendAnnouncement }: any) {
+export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendMassReminder, onSendAnnouncement }: any) {
     const availableBeds = useMemo(() => {
         const beds: { pg: PG, room: Room, bed: Bed }[] = [];
         pgs.forEach((pg: PG) => {
@@ -82,7 +83,7 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
     }
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline">
@@ -106,6 +107,11 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
             <Button variant="outline" onClick={() => setIsCollectRentOpen(true)}>
                 <Wallet className="w-4 h-4 mr-2" />
                 Collect Rent
+            </Button>
+
+            <Button variant="outline" onClick={onSendMassReminder}>
+                <BellRing className="w-4 h-4 mr-2" />
+                Send Reminders
             </Button>
 
             <Button variant="outline" onClick={onSendAnnouncement}>
