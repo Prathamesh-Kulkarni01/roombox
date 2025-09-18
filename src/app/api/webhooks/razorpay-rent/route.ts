@@ -91,17 +91,20 @@ export async function POST(req: NextRequest) {
           const totalPaidInCycle = (draft.rentPaidAmount || 0) + amountPaid;
           
           const balanceBf = draft.balanceBroughtForward || 0;
-          const totalBill = balanceBf + draft.rentAmount + (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+          const totalBillForCycle = balanceBf + draft.rentAmount + (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
 
-          if (totalPaidInCycle >= totalBill) {
+          if (totalPaidInCycle >= totalBillForCycle) {
+              // Rent cycle is fully paid
               draft.rentStatus = 'paid';
-              draft.balanceBroughtForward = totalPaidInCycle - totalBill;
+              draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle; // Carry over any overpayment
               draft.rentPaidAmount = 0;
               draft.additionalCharges = [];
               draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
           } else {
+              // Rent is partially paid
               draft.rentStatus = 'partial';
               draft.rentPaidAmount = totalPaidInCycle;
+              // Balance Brought Forward and Due Date do not change yet
           }
       });
       
@@ -184,3 +187,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+    
