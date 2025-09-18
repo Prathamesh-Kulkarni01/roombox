@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from "react"
@@ -32,7 +31,6 @@ import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKy
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
 import { cn } from "@/lib/utils"
-import { generateRentReminder, type GenerateRentReminderInput } from '@/ai/flows/generate-rent-reminder'
 import { useToast } from "@/hooks/use-toast"
 import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner, updateGuestKycStatus, resetGuestKyc } from "@/lib/slices/guestsSlice"
 import { useDashboard } from '@/hooks/use-dashboard'
@@ -104,17 +102,20 @@ export default function GuestProfilePage() {
         paymentForm,
         handlePaymentSubmit,
         selectedGuestForPayment,
-        handleOpenPaymentDialog
+        handleOpenPaymentDialog,
+        isReminderDialogOpen,
+        setIsReminderDialogOpen,
+        reminderMessage,
+        isGeneratingReminder,
+        selectedGuestForReminder,
+        handleOpenReminderDialog
     } = useDashboard({ pgs: pgs.pgs, guests: guestsState.guests });
 
 
-    const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false)
     const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false)
     const [isKycDialogOpen, setIsKycDialogOpen] = useState(false)
     const [isSubmittingKyc, setIsSubmittingKyc] = useState(false)
     const [isResetKycDialogOpen, setIsResetKycDialogOpen] = useState(false)
-    const [reminderMessage, setReminderMessage] = useState('')
-    const [isGeneratingReminder, setIsGeneratingReminder] = useState(false)
     const [documentUris, setDocumentUris] = useState<Record<string, string>>({});
     const [selectedDoc, setSelectedDoc] = useState<SubmittedKycDocument | null>(null);
 
@@ -178,29 +179,6 @@ export default function GuestProfilePage() {
         if (!guest) return;
         dispatch(removeChargeAction({ guestId: guest.id, chargeId }));
     };
-
-    const handleOpenReminderDialog = async () => {
-        if (!guest || !currentPlan?.hasAiRentReminders) return
-        setIsReminderDialogOpen(true)
-        setIsGeneratingReminder(true)
-        setReminderMessage('')
-
-        try {
-            const input: GenerateRentReminderInput = {
-                guestName: guest.name,
-                rentAmount: totalDue,
-                dueDate: format(new Date(guest.dueDate), "do MMMM yyyy"),
-                pgName: guest.pgName,
-            }
-            const result = await generateRentReminder(input)
-            setReminderMessage(result.reminderMessage)
-        } catch (error) {
-            console.error("Failed to generate reminder", error)
-            setReminderMessage("Sorry, we couldn't generate a reminder at this time. Please try again.")
-        } finally {
-            setIsGeneratingReminder(false)
-        }
-    }
 
     const handleKycFileChange = (e: React.ChangeEvent<HTMLInputElement>, configId: string) => {
         const file = e.target.files?.[0];
@@ -389,7 +367,7 @@ export default function GuestProfilePage() {
                              )}
                               <Access feature="finances" action="add"><Button variant="secondary" onClick={() => setIsChargeDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Add Charge</Button></Access>
                               {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && currentPlan?.hasAiRentReminders && (
-                                <Button variant="outline" onClick={handleOpenReminderDialog}><MessageCircle className="mr-2 h-4 w-4" />Send Reminder</Button>
+                                <Button variant="outline" onClick={() => handleOpenReminderDialog(guest)}><MessageCircle className="mr-2 h-4 w-4" />Send Reminder</Button>
                             )}
                              {guest.phone && (
                                 <Button variant="outline" asChild>
