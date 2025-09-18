@@ -1,8 +1,9 @@
 
+
 'use client'
 
 import React, { useState, useTransition, useMemo } from "react"
-import { useForm } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { produce } from "immer"
@@ -117,7 +118,7 @@ export default function SettingsPage() {
     }
   });
 
-  const { fields, append, remove } = useForm({
+  const { fields, append, remove } = useFieldArray({
     control: kycConfigForm.control,
     name: "configs",
   });
@@ -423,7 +424,7 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
             <CardContent>
                 <Form {...kycConfigForm}>
                     <form id="kyc-config-form" onSubmit={kycConfigForm.handleSubmit(handleSaveKycConfig)} className="space-y-4">
-                        {fields.map((field, index) => (
+                        {fields && fields.map((field, index) => (
                             <div key={field.id} className="grid grid-cols-1 md:grid-cols-8 gap-2 items-end p-2 border rounded-md">
                                 <FormField control={kycConfigForm.control} name={`configs.${index}.label`} render={({ field }) => (
                                     <FormItem className="md:col-span-3"><FormLabel>Document Label</FormLabel><FormControl><Input placeholder="e.g., Aadhaar Card" {...field} /></FormControl><FormMessage /></FormItem>
