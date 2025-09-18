@@ -158,8 +158,8 @@ export async function POST(req: NextRequest) {
                 ownerId: ownerId, 
                 notification: {
                     type: 'payout-failed',
-                    title: 'Payout Failed: Manual Action Required',
-                    message: `Payment of ₹${amountPaid} from ${guest.name} was received, but all payout attempts failed. Last error: ${lastError}`,
+                    title: 'Action Required: Payout Failed',
+                    message: `Payment of ₹${amountPaid} from ${guest.name} was received, but the transfer to your account failed. Reason: ${lastError}. Please check your payout methods or RazorpayX dashboard.`,
                     link: `/dashboard/rent-passbook`,
                     targetId: ownerId,
                 }
