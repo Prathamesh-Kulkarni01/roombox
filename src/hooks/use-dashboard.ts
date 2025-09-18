@@ -211,7 +211,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       const guest = selectedGuestForPayment;
       
       const newPayment: Payment = {
-          id: `pay-${Date.now()}`,
+          id: `pay-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           date: new Date().toISOString(),
           amount: values.amountPaid,
           method: values.paymentMethod,
