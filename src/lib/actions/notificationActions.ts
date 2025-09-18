@@ -2,7 +2,7 @@
 'use server'
 
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import type { Notification } from '@/lib/types';
+import type { Notification, User } from '@/lib/types';
 import { sendPushToUser } from '../notifications';
 
 interface CreateAndSendNotificationParams {
@@ -31,7 +31,20 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     
     try {
         const adminDb = await getAdminDb();
-        const docRef = adminDb.collection('users_data').doc(ownerId).collection('notifications').doc(newNotification.id);
+        
+        // Fetch the target user to determine if they are an owner or not.
+        const targetUserDoc = await adminDb.collection('users').doc(notification.targetId).get();
+        let targetUser: User | null = null;
+        if(targetUserDoc.exists) {
+            targetUser = targetUserDoc.data() as User;
+        }
+
+        // Determine the correct Firestore path for the notification.
+        // If the target is the owner, save it in their own collection.
+        // If the target is a tenant/staff, they have an ownerId, so save it there.
+        const collectionOwnerId = targetUser?.role === 'owner' ? targetUser.id : targetUser?.ownerId || ownerId;
+
+        const docRef = adminDb.collection('users_data').doc(collectionOwnerId).collection('notifications').doc(newNotification.id);
         
         // Save to Firestore first
         await docRef.set(newNotification);
