@@ -1,4 +1,5 @@
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -81,6 +82,7 @@ export interface Payment {
     payoutId?: string;
     payoutStatus?: 'pending' | 'processed' | 'failed';
     payoutFailureReason?: string;
+    payoutTo?: string; // Name of the owner's payout account used
 }
 
 // Payment Method Types

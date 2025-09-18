@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, addMonths } from 'date-fns';
-import type { Guest, Payment, User } from '@/lib/types';
+import type { Guest, Payment, User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
 import { produce } from 'immer';
 import Razorpay from 'razorpay';
 import { createNotification } from '@/lib/actions/notificationActions';
@@ -68,17 +68,16 @@ export async function POST(req: NextRequest) {
       const guest = guestDoc.data() as Guest;
       const owner = ownerDoc.data() as User;
       
-      const methodFromGateway = (payment.method || '').toLowerCase();
-      const methodForHistory: Payment['method'] = methodFromGateway === 'upi' ? 'upi' : 'in-app';
+      const methodFromGateway = (payment.method || 'online').toLowerCase();
       const upiVpa: string | undefined = payment.vpa || payment.notes?.vpa;
 
       const newPayment: Payment = {
         id: payment.id,
         date: new Date(payment.created_at * 1000).toISOString(),
         amount: amountPaid,
-        method: methodForHistory,
+        method: 'in-app', // All webhook payments are in-app
         forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
-        notes: `Razorpay Order: ${order.id}; Method: ${methodFromGateway || 'n/a'}${upiVpa ? `; VPA: ${upiVpa}` : ''}`,
+        notes: `Paid via ${methodFromGateway}${upiVpa ? ` (${upiVpa})` : ''}`,
         payoutStatus: 'pending',
       };
 
@@ -93,17 +92,14 @@ export async function POST(req: NextRequest) {
           const totalBillForCycle = balanceBf + draft.rentAmount + additionalChargesTotal;
 
           if (totalPaidInCycle >= totalBillForCycle) {
-              // Rent cycle is fully paid
               draft.rentStatus = 'paid';
-              draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle; // Carry over any overpayment
+              draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle;
               draft.rentPaidAmount = 0;
               draft.additionalCharges = [];
               draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
           } else {
-              // Rent is partially paid
               draft.rentStatus = 'partial';
               draft.rentPaidAmount = totalPaidInCycle;
-              // Balance Brought Forward and Due Date do not change yet
           }
       });
       
@@ -111,7 +107,6 @@ export async function POST(req: NextRequest) {
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
       
       // --- START NOTIFICATION LOGIC ---
-      // Notify Owner
       await createNotification({
         ownerId: ownerId,
         notification: {
@@ -123,7 +118,6 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // Notify Tenant if they have a registered user account
       if (guest.userId) {
           await createNotification({
             ownerId: ownerId,
@@ -148,9 +142,11 @@ export async function POST(req: NextRequest) {
         
         let payoutSucceeded = false;
         let lastError = 'No active payout methods found.';
+        let payoutTargetAccountName = 'N/A';
 
         for (const method of payoutMethods) {
           try {
+            payoutTargetAccountName = method.name; // Store which account we're trying
             const payout = await razorpay.payouts.create({
                 account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
                 fund_account_id: method.razorpay_fund_account_id!,
@@ -168,6 +164,7 @@ export async function POST(req: NextRequest) {
                 if(paymentRecord) {
                     paymentRecord.payoutId = payout.id;
                     paymentRecord.payoutStatus = 'processed';
+                    paymentRecord.payoutTo = payoutTargetAccountName;
                 }
             });
             await guestDocRef.set(finalGuestState, { merge: true });
@@ -186,7 +183,7 @@ export async function POST(req: NextRequest) {
                 notification: {
                     type: 'payout-failed',
                     title: 'Action Required: Payout Failed',
-                    message: `Payment of ₹${amountPaid} from ${guest.name} was received, but the transfer to your account failed. Reason: ${lastError}. Please check your payout methods or RazorpayX dashboard.`,
+                    message: `Payment of ₹${amountPaid} from ${guest.name} was received, but the transfer to your account failed. Reason: ${lastError}.`,
                     link: `/dashboard/rent-passbook`,
                     targetId: ownerId,
                 }
@@ -198,6 +195,7 @@ export async function POST(req: NextRequest) {
                 if(paymentRecord) {
                     paymentRecord.payoutStatus = 'failed';
                     paymentRecord.payoutFailureReason = lastError;
+                    paymentRecord.payoutTo = payoutTargetAccountName;
                 }
             });
             await guestDocRef.set(finalGuestState, { merge: true });

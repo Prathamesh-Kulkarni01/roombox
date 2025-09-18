@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useAppSelector } from "@/lib/hooks"
@@ -14,6 +15,8 @@ import { cn } from "@/lib/utils"
 import { useMemo, useState, useTransition } from "react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type { Payment } from "@/lib/types"
 
 const rentStatusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-800 border-green-300',
@@ -27,6 +30,16 @@ const kycStatusColors: Record<string, string> = {
     rejected: 'text-red-600 dark:text-red-400',
     'not-started': 'text-gray-600 dark:text-gray-400',
 };
+
+const PayoutStatusBadge = ({ status }: { status: Payment['payoutStatus'] }) => {
+    if (status === 'processed') {
+        return <Badge variant="secondary" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1"/> Success</Badge>;
+    }
+    if (status === 'failed') {
+        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1"/> Failed</Badge>;
+    }
+    return <Badge variant="outline"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Processing</Badge>;
+}
 
 
 export default function MyPgPage() {
@@ -203,30 +216,38 @@ export default function MyPgPage() {
                         </CardFooter>
                     )}
                 </Card>
-                <Card>
+                
+                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-xl">KYC Status</CardTitle>
-                        <CardDescription>Keep your documents up to date for a hassle-free stay.</CardDescription>
+                        <CardTitle className="text-xl">Payment History</CardTitle>
+                        <CardDescription>Your record of recent rent payments.</CardDescription>
                     </CardHeader>
-                     <CardContent>
-                        <div className="flex items-center justify-between p-4 border rounded-lg">
-                           <div className="flex items-center gap-3">
-                                <ShieldCheck className={cn("w-6 h-6", kycStatusColors[currentGuest.kycStatus])} />
-                                <div>
-                                    <p className="font-semibold">Your KYC is <span className="capitalize">{currentGuest.kycStatus.replace('-',' ')}</span></p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {currentGuest.kycStatus === 'verified' && "All documents are verified."}
-                                        {currentGuest.kycStatus === 'pending' && "Awaiting review by your property manager."}
-                                        {currentGuest.kycStatus === 'rejected' && "There was an issue with your documents. Please contact the manager."}
-                                        {currentGuest.kycStatus === 'not-started' && "Please submit your documents to get verified."}
-                                    </p>
-                                </div>
-                           </div>
-                           {currentGuest.kycStatus !== 'verified' && (
-                                <Button asChild><Link href="/tenants/kyc">Upload Document</Link></Button>
-                           )}
-                        </div>
-                     </CardContent>
+                    <CardContent>
+                         {(currentGuest.paymentHistory && currentGuest.paymentHistory.length > 0) ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>For Month</TableHead>
+                                        <TableHead>Method</TableHead>
+                                        <TableHead className="text-right">Amount</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {currentGuest.paymentHistory.slice(0, 5).map(payment => (
+                                        <TableRow key={payment.id}>
+                                            <TableCell>{format(parseISO(payment.date), 'dd MMM, yyyy')}</TableCell>
+                                            <TableCell>{payment.forMonth}</TableCell>
+                                            <TableCell className="text-muted-foreground text-xs">{payment.notes || payment.method}</TableCell>
+                                            <TableCell className="text-right font-semibold">₹{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                         ) : (
+                             <p className="text-sm text-muted-foreground text-center py-4">No payment history yet.</p>
+                         )}
+                    </CardContent>
                 </Card>
             </div>
             <div className="lg:col-span-1 space-y-6">

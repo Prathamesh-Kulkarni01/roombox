@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
-import { IndianRupee, Download, Printer } from 'lucide-react';
+import { IndianRupee, Download, Printer, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useReactToPrint } from 'react-to-print';
 import React from 'react';
@@ -21,6 +21,9 @@ import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog';
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { Wallet, MessageCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import type { Payment } from '@/lib/types';
 
 
 const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder }: any) => {
@@ -116,6 +119,21 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
     );
 };
 
+const PayoutStatusBadge = ({ status, reason }: { status: Payment['payoutStatus'], reason?: string }) => {
+    if (status === 'processed') {
+        return <Badge variant="secondary" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1"/> Processed</Badge>;
+    }
+    if (status === 'failed') {
+        return (
+             <Badge variant="destructive">
+                <XCircle className="w-3 h-3 mr-1"/> Failed
+                {reason && <span className="ml-1 hidden md:inline">: {reason}</span>}
+            </Badge>
+        );
+    }
+    return <Badge variant="outline"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Pending</Badge>;
+}
+
 
 const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCollection }: any, ref: any) => {
     return (
@@ -134,20 +152,18 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
                     <TableRow>
                         <TableHead>Date</TableHead>
                         <TableHead>Guest</TableHead>
-                        <TableHead>Property</TableHead>
-                        <TableHead>Payment For</TableHead>
-                        <TableHead>Method</TableHead>
+                        <TableHead>Payment Method</TableHead>
+                        <TableHead>Payout Status</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {payments.length > 0 ? payments.map((p: any) => (
+                    {payments.length > 0 ? payments.map((p: Payment) => (
                         <TableRow key={p.id}>
                             <TableCell>{format(parseISO(p.date), 'dd MMM, yyyy')}</TableCell>
-                            <TableCell className="font-medium">{p.guestName}</TableCell>
-                            <TableCell>{p.pgName}</TableCell>
-                            <TableCell>{p.forMonth}</TableCell>
-                            <TableCell className="capitalize">{p.method}</TableCell>
+                            <TableCell className="font-medium">{(p as any).guestName}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
+                            <TableCell><PayoutStatusBadge status={p.payoutStatus} reason={p.payoutFailureReason}/></TableCell>
                             <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
                         </TableRow>
                     )) : (
@@ -197,15 +213,17 @@ export default function RentPassbookPage() {
     });
     
      const handleDownloadCsv = () => {
-        const headers = ["Date", "Guest Name", "Property Name", "Payment For", "Method", "Amount"];
+        const headers = ["Date", "Guest Name", "Property Name", "Payment Details", "Amount", "Payout Status", "Payout Account", "Payout Failure Reason"];
         const rows = filteredPayments.map(p => [
             format(parseISO(p.date), 'yyyy-MM-dd'),
             p.guestName,
             p.pgName,
-            p.forMonth,
-            p.method,
-            p.amount
-        ]);
+            p.notes || p.method,
+            p.amount,
+            p.payoutStatus || 'pending',
+            p.payoutTo || '',
+            p.payoutFailureReason || ''
+        ].map(val => `"${val}"`)); // Quote all fields to handle commas
 
         let csvContent = "data:text/csv;charset=utf-8," 
             + headers.join(",") + "\n" 
@@ -345,8 +363,8 @@ export default function RentPassbookPage() {
                                         <TableRow>
                                             <TableHead>Date</TableHead>
                                             <TableHead>Guest</TableHead>
-                                            <TableHead>Property</TableHead>
-                                            <TableHead>Method</TableHead>
+                                            <TableHead>Payment Details</TableHead>
+                                            <TableHead>Payout Status</TableHead>
                                             <TableHead className="text-right">Amount</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -355,8 +373,10 @@ export default function RentPassbookPage() {
                                             <TableRow key={p.id}>
                                                 <TableCell>{format(parseISO(p.date), 'dd MMM, yyyy')}</TableCell>
                                                 <TableCell className="font-medium">{p.guestName}</TableCell>
-                                                <TableCell>{p.pgName}</TableCell>
-                                                <TableCell className="capitalize">{p.method}</TableCell>
+                                                <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
+                                                <TableCell>
+                                                    <PayoutStatusBadge status={p.payoutStatus} reason={p.payoutFailureReason} />
+                                                </TableCell>
                                                 <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
                                             </TableRow>
                                         )) : (
