@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Menu, HomeIcon, Building2, BookOpen } from 'lucide-react';
+import { Menu, HomeIcon, Building2, BookOpen, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import NotificationsPopover from './notifications-popover';
@@ -24,13 +24,13 @@ const navLinks = [
 ];
 
 const trainingGuides = [
-    { href: '/blog/creating-property', label: 'Creating a Property', icon: BookOpen },
-    { href: '/blog/setting-up-layout', label: 'Setting up Floors & Rooms', icon: BookOpen },
-    { href: '/blog/onboarding-guest', label: 'Onboarding a New Guest', icon: BookOpen },
-    { href: '/blog/collecting-rent', label: 'Collecting Rent & Dues', icon: BookOpen },
-    { href: '/blog/managing-staff', label: 'Managing Staff & Permissions', icon: BookOpen },
-    { href: '/blog/expense-tracking', label: 'Using the Expense Tracker', icon: BookOpen },
-    { href: '/blog/setting-up-payouts', label: 'Setting Up Bank Payouts', icon: BookOpen },
+    { href: '/blog/creating-property', title: 'Creating a Property', description: 'Learn how to add your first property listing.' },
+    { href: '/blog/setting-up-layout', title: 'Setting up Layout', description: 'Visually create floors, rooms, and beds.' },
+    { href: '/blog/onboarding-guest', title: 'Onboarding a Guest', description: 'Add new guests and manage their details.' },
+    { href: '/blog/collecting-rent', title: 'Collecting Rent', description: 'Track payments and manage dues.' },
+    { href: '/blog/managing-staff', title: 'Managing Staff', description: 'Add staff and set permissions.' },
+    { href: '/blog/expense-tracking', title: 'Tracking Expenses', description: 'Log and categorize your property expenses.' },
+    { href: '/blog/setting-up-payouts', title: 'Setting Up Payouts', description: 'Link your bank account to receive payments.' },
 ];
 
 export default function Header() {
@@ -172,18 +172,23 @@ export default function Header() {
 
                     <div className="flex flex-col gap-1">
                         <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">Guides &amp; Training</h4>
-                        {trainingGuides.map((guide) => (
-                            <Link
-                                key={guide.href}
-                                href={guide.href}
-                                className={cn(
-                                    'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                                )}
-                                >
-                                <guide.icon className="h-4 w-4" />
-                                {guide.label}
-                            </Link>
-                        ))}
+                        <div className="space-y-2">
+                          {trainingGuides.map((guide) => (
+                              <Link
+                                  key={guide.href}
+                                  href={guide.href}
+                                  className='block p-3 rounded-lg hover:bg-muted'
+                                  >
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="font-semibold">{guide.title}</p>
+                                      <p className="text-sm text-muted-foreground">{guide.description}</p>
+                                    </div>
+                                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                                  </div>
+                              </Link>
+                          ))}
+                        </div>
                     </div>
                 </div>
 
