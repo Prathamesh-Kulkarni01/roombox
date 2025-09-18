@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: 'Property owner not found.' }, { status: 404 });
     }
     const owner = ownerDoc.data() as User;
+    console.log({a:owner.subscription?.payoutMethods})
     const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
     if (!primaryPayoutAccount?.id) {
