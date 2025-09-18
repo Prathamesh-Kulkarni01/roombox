@@ -2,11 +2,9 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 import type { Guest } from '@/lib/types';
-import { getAuth } from 'firebase-admin/auth';
-import { adminApp } from '@/lib/firebaseAdmin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +13,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized: No token provided' }, { status: 401 });
     }
     const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await getAuth(adminApp).verifyIdToken(token);
+    const auth = await getAdminAuth();
+    const decodedToken = await auth.verifyIdToken(token);
     const ownerId = decodedToken.uid;
     
     if (!ownerId) {

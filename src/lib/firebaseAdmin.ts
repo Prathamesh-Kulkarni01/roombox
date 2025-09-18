@@ -5,6 +5,7 @@ import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
 import { getStorage, Storage } from 'firebase-admin/storage';
+import { getAuth, Auth } from 'firebase-admin/auth';
 
 let adminApp: App | null = null;
 
@@ -47,6 +48,10 @@ export async function getAdminMessaging(): Promise<Messaging> {
 
 export async function getAdminStorage(): Promise<Storage> {
     return getStorage(getAdminApp());
+}
+
+export async function getAdminAuth(): Promise<Auth> {
+    return getAuth(getAdminApp());
 }
 
 export { getAdminApp as adminApp };
