@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from '@/components/ui/badge'
-import { UserPlus, Wallet, BellRing, Send, Search } from "lucide-react"
+import { UserPlus, Wallet, BellRing, Send, Search, Loader2 } from "lucide-react"
 import type { PG, Room, Bed, Guest } from '@/lib/types'
 import { Input } from '../ui/input'
 import { useToast } from '@/hooks/use-toast'
@@ -59,7 +59,7 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
     )
 }
 
-export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendMassReminder, onSendAnnouncement }: any) {
+export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendMassReminder, isSendingReminders, onSendAnnouncement }: any) {
     const availableBeds = useMemo(() => {
         const beds: { pg: PG, room: Room, bed: Bed }[] = [];
         pgs.forEach((pg: PG) => {
@@ -109,8 +109,8 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
                 Collect Rent
             </Button>
 
-            <Button variant="outline" onClick={onSendMassReminder}>
-                <BellRing className="w-4 h-4 mr-2" />
+            <Button variant="outline" onClick={onSendMassReminder} disabled={isSendingReminders}>
+                {isSendingReminders ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BellRing className="w-4 h-4 mr-2" />}
                 Send Reminders
             </Button>
 

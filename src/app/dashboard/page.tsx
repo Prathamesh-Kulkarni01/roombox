@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useMemo, useRef, useState, useEffect } from "react"
+import { useMemo, useRef, useState, useEffect, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from 'next/link'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
   const [viewMode, setViewMode] = useState<'bed' | 'room'>('bed');
+  const [isSendingReminders, startSendingReminders] = useTransition();
 
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit,
@@ -212,8 +213,50 @@ export default function DashboardPage() {
     }
   };
   
+  const handleSendMassReminder = async () => {
+    startSendingReminders(async () => {
+        const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
+        if (pendingGuests.length === 0) {
+            toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
+            return;
+        }
+        
+        toast({ title: 'Sending Reminders...', description: `Sending reminders to ${pendingGuests.length} guests.` });
+
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            const response = await fetch('/api/reminders/send-manual', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+            });
+
+            if (!response.ok) {
+                let errorMsg = 'An unknown server error occurred.';
+                try {
+                    const errorData = await response.json();
+                    errorMsg = errorData.error || errorMsg;
+                } catch(e) {
+                    errorMsg = `Server error: ${response.statusText}`;
+                }
+                throw new Error(errorMsg);
+            }
+
+            const result = await response.json();
+            if(result.success) {
+                toast({ title: 'Reminders Sent!', description: `Successfully sent ${result.sentCount} reminders.` });
+            } else {
+                throw new Error(result.error || 'Failed to send reminders from server.');
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        }
+    });
+};
+  
   const handleSendAnnouncement = () => {
-    
      toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
   }
 
@@ -281,6 +324,8 @@ export default function DashboardPage() {
             guests={guests}
             handleOpenAddGuestDialog={handleOpenAddGuestDialog}
             handleOpenPaymentDialog={handleOpenPaymentDialog}
+            onSendMassReminder={handleSendMassReminder}
+            isSendingReminders={isSendingReminders}
             onSendAnnouncement={handleSendAnnouncement}
         />
         
