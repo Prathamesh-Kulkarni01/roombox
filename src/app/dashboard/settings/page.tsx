@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useState, useTransition, useMemo } from "react"
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { produce } from "immer"
@@ -117,7 +117,7 @@ export default function SettingsPage() {
     }
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove } = useForm({
     control: kycConfigForm.control,
     name: "configs",
   });
@@ -295,9 +295,13 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
   const handleSetPrimary = (methodId: string) => {
     if(!currentUser) return;
     startSavingTransition(async () => {
-      const updatedUser = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
-      dispatch(setCurrentUser(updatedUser));
-      toast({ title: 'Primary Account Updated' });
+        try {
+            const updatedUser = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
+            dispatch(setCurrentUser(updatedUser));
+            toast({ title: 'Primary Account Updated' });
+        } catch(e: any) {
+            toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
+        }
     });
   };
 
@@ -305,9 +309,13 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
     if(!currentUser) return;
      if (confirm("Are you sure you want to unlink this payout method?")) {
         startSavingTransition(async () => {
-            const updatedUser = await deletePayoutMethod({ ownerId: currentUser.id, methodId });
-            dispatch(setCurrentUser(updatedUser));
-            toast({ title: 'Account Unlinked' });
+            try {
+                const updatedUser = await deletePayoutMethod({ ownerId: currentUser.id, methodId });
+                dispatch(setCurrentUser(updatedUser));
+                toast({ title: 'Account Unlinked' });
+            } catch(e: any) {
+                toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message });
+            }
         });
      }
   };

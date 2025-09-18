@@ -44,7 +44,11 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         }
         const owner = ownerDoc.data() as User;
         
-        const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/payout/methods`, {
+        // This is a simplified fetch assuming the API route is on the same host.
+        // In a real-world scenario, you might want to use a more robust way to get the base URL.
+        const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
+        
+        const res = await fetch(`${appUrl}/api/payout/methods`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -57,7 +61,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
         const result = await res.json();
         if (!res.ok) {
-            throw new Error(result.error || `Failed to link account. Status: ${res.status}`);
+            throw new Error(result.error || `Failed to link account. Status: ${res.status}. Response: ${JSON.stringify(result)}`);
         }
 
         const newMethod: PaymentMethod = {
@@ -91,7 +95,6 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     }
 }
 
-
 export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<User> {
     const adminDb = await getAdminDb();
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
@@ -108,17 +111,23 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         throw new Error("Payout method not found.");
     }
 
-    const updatedMethods = methods.filter(m => m.id !== methodId);
-    
-    // If the deleted method was the primary one, and there are other methods left,
-    // make the first one in the remaining list the new primary.
-    if (methodToDelete.isPrimary && updatedMethods.length > 0) {
-        updatedMethods[0].isPrimary = true;
-    }
-
+    // Use FieldValue.arrayRemove to correctly remove the object from the array
     await ownerDocRef.update({
-        'subscription.payoutMethods': updatedMethods,
+        'subscription.payoutMethods': FieldValue.arrayRemove(methodToDelete),
     });
+
+    // After removing, we might need to assign a new primary
+    const currentMethods = (await (await ownerDocRef.get()).data() as User)?.subscription?.payoutMethods || [];
+    if (methodToDelete.isPrimary && currentMethods.length > 0) {
+        const newPrimary = currentMethods[0];
+        const updatedMethodsWithNewPrimary = currentMethods.map(m => ({
+            ...m,
+            isPrimary: m.id === newPrimary.id,
+        }));
+        await ownerDocRef.update({
+            'subscription.payoutMethods': updatedMethodsWithNewPrimary,
+        });
+    }
     
     const updatedDoc = await ownerDocRef.get();
     return updatedDoc.data() as User;
