@@ -36,7 +36,7 @@ export async function createOrUpdatePayoutAccount(ownerId: string, accountDetail
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         const ownerDoc = await ownerDocRef.get();
         
-        if (!ownerDoc.exists()) {
+        if (!ownerDoc.exists) {
             throw new Error("Owner not found.");
         }
         const owner = ownerDoc.data() as User;

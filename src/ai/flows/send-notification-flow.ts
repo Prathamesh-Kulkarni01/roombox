@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -37,7 +38,6 @@ const sendNotificationFlow = ai.defineFlow(
       const adminDb = await getAdminDb();
       const adminMessaging = await getAdminMessaging();
 
-      // ✅ Using Admin SDK syntax
       const userDocRef = adminDb.collection('users').doc(userId);
       const userDoc = await userDocRef.get();
 
