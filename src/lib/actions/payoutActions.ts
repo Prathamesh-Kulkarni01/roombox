@@ -62,8 +62,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         }
 
         const newMethod: PaymentMethod = {
-          id: result.accountId,
-          razorpay_linked_account_id: result.accountId,
+          id: result.accountId, // This is now the Linked Account ID (acc_...)
           type: data.payoutMethod,
           name: data.payoutMethod === 'vpa' ? data.vpa! : data.name!,
           isActive: true,
@@ -109,19 +108,25 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         let methods = owner.subscription?.payoutMethods || [];
         
         let wasPrimary = false;
-        const updatedMethods = methods.map(m => {
+        const updatedMethods = methods.filter(m => {
             if (m.id === methodId) {
                 wasPrimary = m.isPrimary;
-                return { ...m, isActive: false };
+                // Mark as inactive instead of deleting to preserve history, but for now we remove
+                // return { ...m, isActive: false };
+                return false; // Remove from array
             }
-            return m;
+            return true;
         });
         
         // If the deactivated one was primary, make the next active one primary.
-        if (wasPrimary) {
+        if (wasPrimary && updatedMethods.length > 0) {
             const nextPrimary = updatedMethods.find(m => m.isActive);
             if (nextPrimary) {
-                nextPrimary.isPrimary = true;
+                const index = updatedMethods.findIndex(m => m.id === nextPrimary.id);
+                updatedMethods[index].isPrimary = true;
+            } else if (updatedMethods.length > 0) {
+                // If no other is active, just make the first one primary
+                updatedMethods[0].isPrimary = true;
             }
         }
         

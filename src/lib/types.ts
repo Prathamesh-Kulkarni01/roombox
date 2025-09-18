@@ -87,12 +87,11 @@ export interface Payment {
 
 // Payment Method Types
 export interface PaymentMethodBase {
-  id: string; // This will now be the Razorpay Linked Account ID
+  id: string; // This is the Razorpay Linked Account ID (acc_...)
   name: string;
   isActive: boolean;
   isPrimary: boolean;
   createdAt: string;
-  razorpay_linked_account_id?: string;
 }
 
 export interface BankPaymentMethod extends PaymentMethodBase {

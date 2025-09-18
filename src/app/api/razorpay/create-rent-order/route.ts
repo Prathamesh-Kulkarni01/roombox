@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const owner = ownerDoc.data() as User;
     const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
-    if (!primaryPayoutAccount?.razorpay_linked_account_id) {
+    if (!primaryPayoutAccount?.id) {
         return NextResponse.json({ success: false, error: 'Owner has not configured a primary payout account. Payment cannot be processed.' }, { status: 400 });
     }
     
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       },
       transfers: [
         {
-          account: primaryPayoutAccount.razorpay_linked_account_id,
+          account: primaryPayoutAccount.id, // Use the main ID, which is the Linked Account ID (acc_...)
           amount: amountInPaise - commissionInPaise,
           currency: "INR",
         }
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Error creating Razorpay order with Route:', error);
-    return NextResponse.json({ success: false, error: error.message || "An unknown error occurred." }, { status: 500 });
+    const errorDescription = error.error?.description || error.message || "An unknown error occurred.";
+    return NextResponse.json({ success: false, error: errorDescription }, { status: error.statusCode || 500 });
   }
 }
