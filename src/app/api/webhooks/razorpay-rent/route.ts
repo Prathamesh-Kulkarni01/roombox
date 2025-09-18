@@ -8,7 +8,6 @@ import { produce } from 'immer';
 import Razorpay from 'razorpay';
 import { createNotification } from '@/lib/actions/notificationActions';
 
-
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
 const COMMISSION_RATE = parseFloat(process.env.COMMISSION_PERCENT || '0') / 100;
 
@@ -16,7 +15,6 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
-
 
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
@@ -111,6 +109,35 @@ export async function POST(req: NextRequest) {
       
       await guestDocRef.set(updatedGuest, { merge: true });
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
+      
+      // --- START NOTIFICATION LOGIC ---
+      // Notify Owner
+      await createNotification({
+        ownerId: ownerId,
+        notification: {
+            type: 'rent-paid',
+            title: 'Rent Received!',
+            message: `You have received ₹${amountPaid.toLocaleString('en-IN')} from ${guest.name}.`,
+            link: `/dashboard/tenant-management/${guestId}`,
+            targetId: ownerId
+        }
+      });
+
+      // Notify Tenant if they have a registered user account
+      if (guest.userId) {
+          await createNotification({
+            ownerId: ownerId,
+            notification: {
+                type: 'rent-receipt',
+                title: 'Payment Successful',
+                message: `Your payment of ₹${amountPaid.toLocaleString('en-IN')} has been successfully recorded.`,
+                link: '/tenants/my-pg',
+                targetId: guest.userId
+            }
+        });
+      }
+      // --- END NOTIFICATION LOGIC ---
+
 
       // Attempt payout to owner after successfully updating tenant records
       const commission = amountPaid * COMMISSION_RATE;
