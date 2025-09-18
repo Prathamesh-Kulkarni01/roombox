@@ -59,9 +59,10 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Error sending mass reminders:', error);
-     if (error.code === 'auth/id-token-expired') {
-        return NextResponse.json({ success: false, error: 'Unauthorized: Your session has expired. Please log in again.' }, { status: 401 });
+    if (error.code === 'auth/id-token-expired' || error.message.includes('token-expired')) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Your session has expired. Please log in again.' }, { status: 401 });
     }
-    return NextResponse.json({ success: false, error: 'Failed to send reminders. Please check the server logs for more details.' }, { status: 500 });
+    // Throw an error with a clear message, which will result in a 500 status code
+    throw new Error(error.message || 'Failed to send reminders.');
   }
 }
