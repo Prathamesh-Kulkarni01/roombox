@@ -1,3 +1,4 @@
+
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -59,8 +60,8 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Error sending mass reminders:', error);
      if (error.code === 'auth/id-token-expired') {
-        return NextResponse.json({ success: false, error: 'Unauthorized: Token expired' }, { status: 401 });
+        return NextResponse.json({ success: false, error: 'Unauthorized: Your session has expired. Please log in again.' }, { status: 401 });
     }
-    return NextResponse.json({ success: false, error: 'Failed to send reminders.' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to send reminders. Please check the server logs for more details.' }, { status: 500 });
   }
 }
