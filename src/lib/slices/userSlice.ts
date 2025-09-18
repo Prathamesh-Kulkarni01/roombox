@@ -107,6 +107,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                             name: firebaseUser.displayName || guestDetails.name || 'New Tenant',
                             email: firebaseUser.email ?? undefined,
                             role: 'tenant',
+                            status: 'active',
                             guestId: guestDetails.id,
                             guestHistoryIds: [],
                             ownerId: inviteData.ownerId,
@@ -122,6 +123,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                             name: firebaseUser.displayName || staffDetails.name || 'New Staff',
                             email: firebaseUser.email ?? undefined,
                             role: inviteData.role,
+                            status: 'active',
                             ownerId: inviteData.ownerId,
                             pgIds: [staffDetails.pgId],
                             avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || staffDetails.name) || 'NS').slice(0, 2).toUpperCase()}`,
@@ -154,6 +156,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                     email: firebaseUser.email ?? undefined,
                     phone: firebaseUser.phoneNumber || undefined,
                     role: 'unassigned',
+                    status: 'pending_approval',
                     avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
                     guestId: null,
                     createdAt: new Date().toISOString(),
@@ -186,6 +189,7 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
             const updatedUser: User = {
                 ...currentUser,
                 role: 'owner',
+                status: 'pending_approval',
                 subscription: {
                     planId: 'pro',
                     status: 'trialing',
@@ -244,6 +248,7 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
         const updatedUser: User = { 
             ...restOfUser, 
             role: 'owner', 
+            status: 'pending_approval',
             subscription: { 
                 planId: 'pro',
                 status: 'trialing',

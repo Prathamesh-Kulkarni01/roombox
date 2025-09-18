@@ -64,6 +64,7 @@ export interface PG {
   floors?: Floor[];
   menu?: Menu;
   ownerId: string;
+  status: 'active' | 'pending_approval' | 'rejected' | 'suspended';
 }
 
 export interface AdditionalCharge {
@@ -241,6 +242,7 @@ export interface User {
   email?: string;
   password?: string;
   role: UserRole;
+  status: 'active' | 'pending_approval' | 'suspended';
   pgIds?: string[]; // Kept for owners
   avatarUrl?: string;
   guestId: string | null; // The ID of the ACTIVE guest record

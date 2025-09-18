@@ -37,7 +37,8 @@ export const addPg = createAsyncThunk<PG, NewPgData, { state: RootState }>(
             priceRange: { min: 0, max: 0 }, 
             amenities: ['wifi', 'food'], 
             floors: [], 
-            menu: defaultMenu 
+            menu: defaultMenu,
+            status: 'pending_approval' // Set default status
         };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
@@ -112,7 +113,7 @@ const pgsSlice = createSlice({
     reducers: {
         setPgs: (state, action: PayloadAction<PG[]>) => {
             state.pgs = action.payload;
-        },
+        }
     },
     extraReducers: (builder) => {
         builder
