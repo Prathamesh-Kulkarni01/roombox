@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import React, { useState, useTransition, useMemo } from "react"
@@ -371,10 +370,10 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                             <div className="flex items-center gap-4">
                                 {method.type === 'vpa' ? <IndianRupee className="w-5 h-5 text-primary"/> : <Banknote className="w-5 h-5 text-primary"/>}
                                 <div>
-                                    <p className="font-semibold flex items-center gap-2">
+                                    <div className="font-semibold flex items-center gap-2">
                                         {method.name}
                                         {method.isPrimary && <Badge>Primary</Badge>}
-                                    </p>
+                                    </div>
                                     <p className="text-sm text-muted-foreground">
                                         {method.type === 'vpa' ? (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
                                     </p>
