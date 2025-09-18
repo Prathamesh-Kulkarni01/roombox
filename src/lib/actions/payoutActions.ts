@@ -43,7 +43,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         }
         const owner = ownerDoc.data() as User;
         
-        const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
         
         const res = await fetch(`${appUrl}/api/payout/methods`, {
             method: 'POST',
@@ -94,7 +94,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
 export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
     try {
-        const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
         const res = await fetch(`${appUrl}/api/payout/methods/deactivate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -114,13 +114,11 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         
         const owner = ownerDoc.data() as User;
         let methods = owner.subscription?.payoutMethods || [];
-        const methodToDelete = methods.find(m => m.id === methodId);
-
-        if (!methodToDelete) throw new Error("Payout method not found.");
-
+        
         let updatedMethods = methods.filter(m => m.id !== methodId);
         
-        if (methodToDelete.isPrimary && updatedMethods.length > 0) {
+        const wasPrimary = methods.find(m => m.id === methodId)?.isPrimary;
+        if (wasPrimary && updatedMethods.length > 0) {
             updatedMethods[0].isPrimary = true;
         }
         
