@@ -1,3 +1,4 @@
+
 'use server'
 
 import { getAdminDb } from '../firebaseAdmin';
@@ -91,52 +92,71 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     }
 }
 
-export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<User> {
-    const adminDb = await getAdminDb();
-    const ownerDocRef = adminDb.collection('users').doc(ownerId);
-    
-    const ownerDoc = await ownerDocRef.get();
-    if (!ownerDoc.exists) {
-        throw new Error("Owner not found.");
-    }
-    const owner = ownerDoc.data() as User;
-    const methods = owner.subscription?.payoutMethods || [];
-    const methodToDelete = methods.find(m => m.id === methodId);
-    
-    if (!methodToDelete) {
-        throw new Error("Payout method not found.");
-    }
+export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
+    try {
+        const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
+        const res = await fetch(`${appUrl}/api/payout/methods/deactivate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fundAccountId: methodId }),
+        });
 
-    let updatedMethods = methods.filter(m => m.id !== methodId);
-    
-    if (methodToDelete.isPrimary && updatedMethods.length > 0) {
-        updatedMethods[0].isPrimary = true;
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'Failed to deactivate account on payment gateway.');
+        }
+
+        const adminDb = await getAdminDb();
+        const ownerDocRef = adminDb.collection('users').doc(ownerId);
+        
+        const ownerDoc = await ownerDocRef.get();
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
+        
+        const owner = ownerDoc.data() as User;
+        let methods = owner.subscription?.payoutMethods || [];
+        const methodToDelete = methods.find(m => m.id === methodId);
+
+        if (!methodToDelete) throw new Error("Payout method not found.");
+
+        let updatedMethods = methods.filter(m => m.id !== methodId);
+        
+        if (methodToDelete.isPrimary && updatedMethods.length > 0) {
+            updatedMethods[0].isPrimary = true;
+        }
+        
+        await ownerDocRef.update({
+            'subscription.payoutMethods': updatedMethods,
+        });
+        
+        const updatedDoc = await ownerDocRef.get();
+        return { success: true, updatedUser: updatedDoc.data() as User };
+    } catch(error: any) {
+        console.error("Error in deletePayoutMethod", error);
+        return { success: false, error: error.message || 'Could not unlink account.' };
     }
-    
-    await ownerDocRef.update({
-        'subscription.payoutMethods': updatedMethods,
-    });
-    
-    const updatedDoc = await ownerDocRef.get();
-    return updatedDoc.data() as User;
 }
 
-export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<User> {
-    const adminDb = await getAdminDb();
-    const ownerDocRef = adminDb.collection('users').doc(ownerId);
-    const ownerDoc = await ownerDocRef.get();
-    if (!ownerDoc.exists) throw new Error("Owner not found.");
+export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
+    try {
+        const adminDb = await getAdminDb();
+        const ownerDocRef = adminDb.collection('users').doc(ownerId);
+        const ownerDoc = await ownerDocRef.get();
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
 
-    const owner = ownerDoc.data() as User;
-    const methods = owner.subscription?.payoutMethods || [];
-    
-    const updatedMethods = methods.map(m => ({
-        ...m,
-        isPrimary: m.id === methodId,
-    }));
+        const owner = ownerDoc.data() as User;
+        const methods = owner.subscription?.payoutMethods || [];
+        
+        const updatedMethods = methods.map(m => ({
+            ...m,
+            isPrimary: m.id === methodId,
+        }));
 
-    await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
+        await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
 
-    const updatedOwnerDoc = await ownerDocRef.get();
-    return updatedOwnerDoc.data() as User;
+        const updatedOwnerDoc = await ownerDocRef.get();
+        return { success: true, updatedUser: updatedOwnerDoc.data() as User };
+    } catch(error: any) {
+        console.error("Error in setPrimaryPayoutMethod", error);
+        return { success: false, error: error.message || 'Could not update primary method.' };
+    }
 }

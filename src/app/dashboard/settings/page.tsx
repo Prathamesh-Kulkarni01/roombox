@@ -38,6 +38,8 @@ import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from "@/l
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
@@ -100,6 +102,8 @@ export default function SettingsPage() {
   const [isTestingReminders, startReminderTest] = useTransition();
   const [isSaving, startSavingTransition] = useTransition();
   const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
+  const [methodToUnlink, setMethodToUnlink] = useState<PaymentMethod | null>(null);
+
 
   const chargeTemplateForm = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
@@ -296,28 +300,36 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
     if(!currentUser) return;
     startSavingTransition(async () => {
         try {
-            const updatedUser = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
-            dispatch(setCurrentUser(updatedUser));
-            toast({ title: 'Primary Account Updated' });
+            const result = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
+             if(result.success && result.updatedUser) {
+                dispatch(setCurrentUser(result.updatedUser));
+                toast({ title: 'Primary Account Updated' });
+            } else {
+                throw new Error(result.error);
+            }
         } catch(e: any) {
             toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
         }
     });
   };
 
-  const handleUnlink = (methodId: string) => {
-    if(!currentUser) return;
-     if (confirm("Are you sure you want to unlink this payout method?")) {
-        startSavingTransition(async () => {
-            try {
-                const updatedUser = await deletePayoutMethod({ ownerId: currentUser.id, methodId });
-                dispatch(setCurrentUser(updatedUser));
+  const handleUnlink = () => {
+    if(!currentUser || !methodToUnlink) return;
+     startSavingTransition(async () => {
+        try {
+            const result = await deletePayoutMethod({ ownerId: currentUser.id, methodId: methodToUnlink.id });
+             if(result.success && result.updatedUser) {
+                dispatch(setCurrentUser(result.updatedUser));
                 toast({ title: 'Account Unlinked' });
-            } catch(e: any) {
-                toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message });
+            } else {
+                throw new Error(result.error);
             }
-        });
-     }
+        } catch(e: any) {
+            toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message });
+        } finally {
+            setMethodToUnlink(null);
+        }
+    });
   };
   
   const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
@@ -341,14 +353,14 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                 <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()} </AvatarFallback>
             </Avatar>
             <div>
-                <p className="text-lg font-semibold">{currentUser.name}</p>
-                <p className="text-muted-foreground">{currentUser.email}</p>
-                <p className="text-sm text-muted-foreground capitalize">
+                <div className="text-lg font-semibold">{currentUser.name}</div>
+                <div className="text-muted-foreground">{currentUser.email}</div>
+                <div className="text-sm text-muted-foreground capitalize">
                     {currentUser.role} - 
                     <span className="font-medium text-primary">
                         {currentUser.subscription?.status === 'trialing' ? ` Pro Trial` : ` ${currentPlan.name} Plan`}
                     </span>
-                </p>
+                </div>
             </div>
             </CardContent>
         </Card>
@@ -374,9 +386,9 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                                         {method.name}
                                         {method.isPrimary && <Badge>Primary</Badge>}
                                     </div>
-                                    <p className="text-sm text-muted-foreground">
+                                    <div className="text-sm text-muted-foreground">
                                         {method.type === 'vpa' ? (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
-                                    </p>
+                                    </div>
                                 </div>
                             </div>
                             <DropdownMenu>
@@ -384,8 +396,8 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                                     <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4"/></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                    {!method.isPrimary && <DropdownMenuItem onClick={() => handleSetPrimary(method.id)}><Check className="mr-2 h-4 w-4"/> Set as Primary</DropdownMenuItem>}
-                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleUnlink(method.id)}><Trash2 className="mr-2 h-4 w-4"/> Unlink</DropdownMenuItem>
+                                    {!method.isPrimary && <DropdownMenuItem onClick={() => handleSetPrimary(method.id)} disabled={isSaving}><Check className="mr-2 h-4 w-4"/> Set as Primary</DropdownMenuItem>}
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setMethodToUnlink(method)} disabled={isSaving}><Trash2 className="mr-2 h-4 w-4"/> Unlink</DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
@@ -539,6 +551,24 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
             </Card>
         )}
     </div>
+
+    <AlertDialog open={!!methodToUnlink} onOpenChange={() => setMethodToUnlink(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will permanently unlink the payout method <span className="font-semibold">{methodToUnlink?.name}</span>. You will no longer receive payouts to this account.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleUnlink} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Unlink
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
 
     <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
         <DialogContent className="max-w-2xl">
