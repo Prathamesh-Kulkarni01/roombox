@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import type { PG, Guest, Staff, Expense } from '@/lib/types';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface GuidedSetupProps {
   pgs: PG[];
@@ -24,6 +25,7 @@ interface GuidedSetupProps {
 export default function GuidedSetup({ pgs, guests, staff, expenses, onAddProperty, onSetupLayout, onAddGuest }: GuidedSetupProps) {
   const router = useRouter();
   const activeStepRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
   
   const hasPgs = pgs.length > 0;
   const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
@@ -99,10 +101,10 @@ export default function GuidedSetup({ pgs, guests, staff, expenses, onAddPropert
   const allStepsComplete = !activeStep;
 
   useEffect(() => {
-    if (activeStepRef.current) {
+    if (isMobile && activeStepRef.current) {
         activeStepRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
     }
-  }, [activeStep?.id]);
+  }, [activeStep?.id, isMobile]);
 
 
   if (allStepsComplete) {
