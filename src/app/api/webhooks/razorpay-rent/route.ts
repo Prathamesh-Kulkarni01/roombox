@@ -131,12 +131,16 @@ export async function POST(req: NextRequest) {
             console.log(`Payout of ₹${payoutAmount.toFixed(2)} to owner ${ownerId} succeeded via ${method.name}. Payout ID: ${payout.id}`);
             payoutSucceeded = true;
             // Optionally update the payment record with payout info
-            const paymentToUpdate = updatedGuest.paymentHistory?.find(p => p.id === payment.id);
-            if(paymentToUpdate) {
-                paymentToUpdate.payoutId = payout.id;
-                paymentToUpdate.payoutStatus = 'processed';
-                await guestDocRef.set(updatedGuest, { merge: true });
-            }
+            const guestAfterUpdate = await guestDocRef.get();
+            const finalGuestState = produce(guestAfterUpdate.data() as Guest, draft => {
+                const paymentRecord = draft.paymentHistory?.find(p => p.id === payment.id);
+                if(paymentRecord) {
+                    paymentRecord.payoutId = payout.id;
+                    paymentRecord.payoutStatus = 'processed';
+                }
+            });
+            await guestDocRef.set(finalGuestState, { merge: true });
+            
             break; // Exit loop on success
           } catch(payoutError: any) {
              lastError = payoutError.error?.description || payoutError.message || "An unknown error occurred.";
@@ -159,6 +163,17 @@ export async function POST(req: NextRequest) {
                     targetId: ownerId,
                 }
             });
+
+            // Update payment record to reflect payout failure
+            const guestAfterUpdate = await guestDocRef.get();
+            const finalGuestState = produce(guestAfterUpdate.data() as Guest, draft => {
+                const paymentRecord = draft.paymentHistory?.find(p => p.id === payment.id);
+                if(paymentRecord) {
+                    paymentRecord.payoutStatus = 'failed';
+                    paymentRecord.payoutFailureReason = lastError;
+                }
+            });
+            await guestDocRef.set(finalGuestState, { merge: true });
         }
       }
     }
