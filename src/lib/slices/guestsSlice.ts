@@ -37,7 +37,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         // Check if a user with this email already exists
         const userQuery = query(collection(db, "users"), where("email", "==", guestData.email));
         const userSnapshot = await getDocs(userQuery);
-        console.log('guestData', guestData, existingUser,pgs,user);
+        
         if (!userSnapshot.empty) {
             existingUser = userSnapshot.docs[0].data() as User;
             if (existingUser.role === 'owner') {
@@ -52,7 +52,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
                 }
             }
         }
-        console.log('guestData', guestData, existingUser,pgs,user);
+        
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
 
@@ -482,9 +482,8 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
         const now = app.mockDate ? parseISO(app.mockDate) : new Date();
         const dueDate = parseISO(guest.dueDate);
 
-        // Only reconcile if the due date is in the past
-        if (!isAfter(now, dueDate)) {
-             return rejectWithValue('Rent is not due for reconciliation yet.');
+        if (now < dueDate && !isSameDay(now, dueDate)) {
+            return rejectWithValue('Rent is not due for reconciliation yet.');
         }
 
         const updatedGuest = produce(guest, draft => {
@@ -534,6 +533,9 @@ const guestsSlice = createSlice({
                 const index = state.guests.findIndex(g => g.id === action.payload.updatedGuest.id);
                 if (index !== -1) {
                     state.guests[index] = action.payload.updatedGuest;
+                } else if (state.guests.length === 1 && state.guests[0].id === action.payload.updatedGuest.id) {
+                    // This handles the case for a tenant updating their own record
+                    state.guests[0] = action.payload.updatedGuest;
                 }
             })
             .addCase(updateGuestKyc.fulfilled, (state, action) => {

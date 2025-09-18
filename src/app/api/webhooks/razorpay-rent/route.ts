@@ -91,7 +91,8 @@ export async function POST(req: NextRequest) {
           const totalPaidInCycle = (draft.rentPaidAmount || 0) + amountPaid;
           
           const balanceBf = draft.balanceBroughtForward || 0;
-          const totalBillForCycle = balanceBf + draft.rentAmount + (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+          const additionalChargesTotal = (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+          const totalBillForCycle = balanceBf + draft.rentAmount + additionalChargesTotal;
 
           if (totalPaidInCycle >= totalBillForCycle) {
               // Rent cycle is fully paid
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
             
             console.log(`Payout of ₹${payoutAmount.toFixed(2)} to owner ${ownerId} succeeded via ${method.name}. Payout ID: ${payout.id}`);
             payoutSucceeded = true;
-            // Optionally update the payment record with payout info
+            
             const guestAfterUpdate = await guestDocRef.get();
             const finalGuestState = produce(guestAfterUpdate.data() as Guest, draft => {
                 const paymentRecord = draft.paymentHistory?.find(p => p.id === payment.id);
@@ -144,20 +145,17 @@ export async function POST(req: NextRequest) {
             });
             await guestDocRef.set(finalGuestState, { merge: true });
             
-            break; // Exit loop on success
+            break; 
           } catch(payoutError: any) {
              lastError = payoutError.error?.description || payoutError.message || "An unknown error occurred.";
              console.warn(`Payout via ${method.name} failed for owner ${ownerId}:`, lastError);
-             // Optionally update method status
-             // await adminDb.doc(`users/${ownerId}`).update(...)
           }
         }
         
         if(!payoutSucceeded) {
             console.error(`All payout methods failed for owner ${ownerId}. Last error: ${lastError}`);
-            // Use server-side helper to create notification
             await createNotification({
-                ownerId: ownerId, // Ensure ownerId is passed
+                ownerId: ownerId, 
                 notification: {
                     type: 'payout-failed',
                     title: 'Payout Failed: Manual Action Required',
@@ -167,7 +165,6 @@ export async function POST(req: NextRequest) {
                 }
             });
 
-            // Update payment record to reflect payout failure
             const guestAfterUpdate = await guestDocRef.get();
             const finalGuestState = produce(guestAfterUpdate.data() as Guest, draft => {
                 const paymentRecord = draft.paymentHistory?.find(p => p.id === payment.id);
