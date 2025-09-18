@@ -12,8 +12,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let body;
   try {
-    const body = await req.json();
+    body = await req.json();
+  } catch (error) {
+    console.error("Error parsing JSON body:", error);
+    return NextResponse.json({ error: "Invalid request body. Expected JSON." }, { status: 400 });
+  }
+
+  try {
     const name = body.name?.toString()?.trim();
     const email = body.email?.toString()?.trim();
     const phone = body.phone?.toString()?.trim();
