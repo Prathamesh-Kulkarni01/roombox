@@ -3,6 +3,7 @@
 
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Notification, User } from '@/lib/types';
+import { doc, getDoc } from 'firebase/firestore';
 import { sendPushToUser } from '../notifications';
 
 interface CreateAndSendNotificationParams {
@@ -32,17 +33,25 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     try {
         const adminDb = await getAdminDb();
         
-        // Fetch the target user to determine if they are an owner or not.
-        const targetUserDoc = await adminDb.collection('users').doc(notification.targetId).get();
-        let targetUser: User | null = null;
-        if(targetUserDoc.exists) {
-            targetUser = targetUserDoc.data() as User;
-        }
+        // The targetId is the user who should receive the notification.
+        const targetUserId = notification.targetId;
 
-        // Determine the correct Firestore path for the notification.
-        // If the target is the owner, save it in their own collection.
-        // If the target is a tenant/staff, they have an ownerId, so save it there.
-        const collectionOwnerId = targetUser?.role === 'owner' ? targetUser.id : targetUser?.ownerId || ownerId;
+        // Fetch the target user to determine their role and owner.
+        const targetUserDoc = await adminDb.collection('users').doc(targetUserId).get();
+        if (!targetUserDoc.exists()) {
+             console.warn(`Notification target user with ID ${targetUserId} not found.`);
+             return;
+        }
+        const targetUser = targetUserDoc.data() as User;
+        
+        // Determine the correct Firestore path for the notification document.
+        // A user's notifications are always stored under their respective owner's data collection.
+        const collectionOwnerId = targetUser.role === 'owner' ? targetUser.id : targetUser.ownerId;
+        
+        if (!collectionOwnerId) {
+            console.error(`Could not determine owner collection for user ${targetUserId}.`);
+            return;
+        }
 
         const docRef = adminDb.collection('users_data').doc(collectionOwnerId).collection('notifications').doc(newNotification.id);
         
