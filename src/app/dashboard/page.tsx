@@ -41,6 +41,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import QuickActions from "@/components/dashboard/QuickActions"
 import GuidedSetup from "@/components/dashboard/GuidedSetup"
 import { getSubscribedTopics, initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications'
+import { Badge } from "@/components/ui/badge"
 
 const bedLegend: Record<BedStatus, { label: string, className: string }> = {
   available: { label: 'Available', className: 'bg-yellow-200' },
@@ -247,11 +248,10 @@ export default function DashboardPage() {
     if (res.token) {
       toast({ title: 'Push Ready', description: 'Token saved. You can now subscribe to topics.' })
       // Auto-subscribe to base topics
-      await subscribeToTopic({
-        token: res.token,
-        topics: ['app', `role-${currentUser.role}`],
-        userId: currentUser.id
-      });
+      const baseTopics = ['app', `role-${currentUser.role}`];
+      if (currentUser.role === 'owner') baseTopics.push('tenants-all');
+      if (selectedPgId) baseTopics.push(`pg-${selectedPgId}-tenants`);
+      await subscribeToTopic({ token: res.token, topics: baseTopics, userId: currentUser.id });
       fetchTopics();
     } else {
       toast({ variant: 'destructive', title: 'Init failed', description: 'Could not get a token. Check VAPID and permissions.' })
