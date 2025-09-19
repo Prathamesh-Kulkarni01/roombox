@@ -21,14 +21,14 @@ export async function togglePremiumFeature({ userId, feature, enabled }: ToggleF
         const userDoc = await getDoc(userDocRef);
 
         if (!userDoc.exists()) {
-            return { success: false, error: "User not found." };
+            throw new Error("User not found.");
         }
 
         const subscription = userDoc.data()?.subscription || {};
         
         // Cannot enable features if not subscribed (and not in trial)
         if (enabled && subscription.status !== 'active' && subscription.status !== 'trialing') {
-            return { success: false, error: "You must have an active subscription to enable premium features." };
+            throw new Error("You must have an active subscription to enable premium features.");
         }
         
         await updateDoc(userDocRef, {
@@ -41,6 +41,6 @@ export async function togglePremiumFeature({ userId, feature, enabled }: ToggleF
         return { success: true, updatedUser };
     } catch (error: any) {
         console.error("Error toggling premium feature:", error);
-        return { success: false, error: error.message || "An unexpected error occurred." };
+        throw error;
     }
 }

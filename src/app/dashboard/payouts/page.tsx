@@ -124,8 +124,6 @@ export default function PayoutsPage() {
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Primary Account Updated' });
-                } else {
-                    throw new Error(result.error);
                 }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
@@ -141,8 +139,6 @@ export default function PayoutsPage() {
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Unlinked' });
-                } else {
-                    throw new Error(result.error);
                 }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message });

@@ -122,7 +122,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     const validation = payoutAccountSchema.safeParse(accountDetails);
     if (!validation.success) {
         const firstError = validation.error.errors[0];
-        return { success: false, error: `${firstError.path.join('.')}: ${firstError.message}` };
+        throw new Error(`${firstError.path.join('.')}: ${firstError.message}`);
     }
     const data = validation.data;
 
@@ -131,13 +131,13 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     
     try {
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists()) return { success: false, error: "Owner not found." };
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
         const owner = ownerDoc.data() as User;
 
         if (data.payoutMethod === 'vpa' && data.vpa) {
             const vpaValidation = await validateVPA(data.vpa);
             if (!vpaValidation.isValid) {
-                return { success: false, error: vpaValidation.error };
+                throw new Error(vpaValidation.error);
             }
         }
 
@@ -178,17 +178,17 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
     } catch (error: any) {
         console.error('Error in addPayoutMethod action:', error);
-        return { success: false, error: error.message || "Failed to link payout account."};
+        throw error;
     }
 }
 
-export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
+export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User }> {
     try {
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists()) throw new Error("Owner not found.");
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
         
         const owner = ownerDoc.data() as User;
         let methods = owner.subscription?.payoutMethods || [];
@@ -224,16 +224,16 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         return { success: true, updatedUser: updatedDoc.data() as User };
     } catch(error: any) {
         console.error("Error in deletePayoutMethod", error);
-        return { success: false, error: error.message || 'Could not unlink account.' };
+        throw error;
     }
 }
 
-export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
+export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User }> {
     try {
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists()) throw new Error("Owner not found.");
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
 
         const owner = ownerDoc.data() as User;
         const methods = owner.subscription?.payoutMethods || [];
@@ -249,6 +249,6 @@ export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: s
         return { success: true, updatedUser: updatedOwnerDoc.data() as User };
     } catch(error: any) {
         console.error("Error in setPrimaryPayoutMethod", error);
-        return { success: false, error: error.message || 'Could not update primary method.' };
+        throw error;
     }
 }

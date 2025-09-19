@@ -215,22 +215,21 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
 );
 
 
-export const togglePremiumFeature = createAsyncThunk<
-    { feature: keyof PremiumFeatures, enabled: boolean, updatedUser: User },
-    { feature: keyof PremiumFeatures, enabled: boolean },
-    { state: RootState }
->(
+export const togglePremiumFeature = createAsyncThunk(
     'user/togglePremiumFeature',
-    async ({ feature, enabled }, { getState, rejectWithValue }) => {
+    async ({ feature, enabled }: { feature: keyof PremiumFeatures, enabled: boolean }, { getState, rejectWithValue }) => {
         const { currentUser } = (getState() as RootState).user;
         if (!currentUser) return rejectWithValue('User not found.');
 
-        const result = await togglePremiumFeatureAction({ userId: currentUser.id, feature, enabled });
-
-        if (result.success && result.updatedUser) {
-            return { feature, enabled, updatedUser: result.updatedUser as User };
-        } else {
-            return rejectWithValue(result.error);
+        try {
+            const result = await togglePremiumFeatureAction({ userId: currentUser.id, feature, enabled });
+            if (result.success && result.updatedUser) {
+                return { feature, enabled, updatedUser: result.updatedUser as User };
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error: any) {
+             return rejectWithValue(error.message);
         }
     }
 );
