@@ -159,7 +159,7 @@ export default function PayoutsPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>KYC & Business Information</CardTitle>
+                    <CardTitle>KYC &amp; Business Information</CardTitle>
                     <CardDescription>This information is required by Razorpay to create your sub-merchant account for payouts.</CardDescription>
                 </CardHeader>
                 <Form {...kycForm}>

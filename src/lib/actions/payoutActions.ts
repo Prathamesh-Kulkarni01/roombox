@@ -135,7 +135,7 @@ async function createStakeholder(accountId: string, details: z.infer<typeof payo
             percentage_ownership: 100,
             addresses: {
                 residential: {
-                    street: details.street1,
+                    street1: details.street1,
                     city: details.city,
                     state: details.state,
                     postal_code: details.postal_code,
