@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
             addresses: {
                 registered: {
                     street1: "123, Main Street",
+                    street2: "Near Landmark",
                     city: "Bengaluru",
                     state: "Karnataka",
                     postal_code: "560001",
