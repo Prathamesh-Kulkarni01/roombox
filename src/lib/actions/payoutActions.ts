@@ -34,14 +34,6 @@ if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
   console.error("CRITICAL: Razorpay keys are missing in environment variables.");
 }
 
-const razorpayApi = axios.create({
-    baseURL: 'https://api.razorpay.com/v2',
-    auth: {
-        username: RAZORPAY_KEY_ID!,
-        password: RAZORPAY_KEY_SECRET!,
-    }
-});
-
 const razorpayV1Api = axios.create({
     baseURL: 'https://api.razorpay.com/v1',
      auth: {
@@ -57,7 +49,7 @@ async function createOrGetContact(owner: User, details: z.infer<typeof payoutAcc
     }
     
     try {
-        const response = await razorpayApi.post('/contacts', {
+        const response = await razorpayV1Api.post('/contacts', {
             name: owner.name,
             email: owner.email,
             contact: details.phone,
@@ -76,88 +68,10 @@ async function createOrGetContact(owner: User, details: z.infer<typeof payoutAcc
     }
 }
 
-async function createLinkedAccount(owner: User, contactId: string, details: z.infer<typeof payoutAccountSchema>) {
-    if (owner.subscription?.razorpay_account_id) {
-        return { id: owner.subscription.razorpay_account_id, isNew: false };
-    }
-    
-    const payload = {
-        email: owner.email!,
-        type: "route",
-        reference_id: `owner_${owner.id}`,
-        contact_id: contactId,
-        legal_business_name: details.legal_business_name,
-        business_type: details.business_type,
-        profile: {
-            category: "services",
-            subcategory: "real_estate",
-            addresses: {
-                registered: {
-                    street1: details.street1,
-                    street2: details.street2,
-                    city: details.city,
-                    state: details.state,
-                    postal_code: details.postal_code,
-                    country: "IN"
-                }
-            }
-        },
-    };
-
-    try {
-        const response = await razorpayApi.post('/accounts', payload);
-        const accountId = response.data.id;
-        
-        await getAdminDb().collection('users').doc(owner.id).update({
-            'subscription.razorpay_account_id': accountId
-        });
-        return { id: accountId, isNew: true };
-
-    } catch (error: any) {
-        console.error("Error creating Razorpay Linked Account:", error.response?.data);
-        throw new Error(`Linked Account creation failed: ${error.response?.data?.error?.description}`);
-    }
-}
-
-async function createStakeholder(accountId: string, details: z.infer<typeof payoutAccountSchema>) {
-     const payload = {
-        name: details.legal_business_name,
-        email: details.email,
-        phone: {
-            primary: details.phone
-        },
-        relationship: {
-            director: true,
-            executive: true
-        },
-        percentage_ownership: 100,
-        addresses: {
-            residential: {
-                street1: details.street1,
-                street2: details.street2,
-                city: details.city,
-                state: details.state,
-                postal_code: details.postal_code,
-                country: "IN"
-            }
-        },
-        kyc: {
-            pan: details.pan_number
-        }
-    };
-    try {
-        const response = await razorpayApi.post(`/accounts/${accountId}/stakeholders`, payload);
-        return response.data;
-    } catch (error: any) {
-        console.error("Error creating Razorpay Stakeholder:", error.response?.data);
-        throw new Error(`Stakeholder creation failed: ${error.response?.data?.error?.description}`);
-    }
-}
-
-
-async function createFundAccount(accountId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
+async function createFundAccount(contactId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
     const isVpa = accountDetails.payoutMethod === 'vpa';
     const payload: any = {
+      contact_id: contactId,
       account_type: isVpa ? 'vpa' : 'bank_account',
       ...(isVpa ? 
         { vpa: { address: accountDetails.vpa } } : 
@@ -166,7 +80,7 @@ async function createFundAccount(accountId: string, accountDetails: z.infer<type
     };
 
     try {
-        const response = await razorpayV1Api.post(`/fund_accounts`, { ...payload, account_id: accountId });
+        const response = await razorpayV1Api.post(`/fund_accounts`, payload);
         return response.data;
     } catch (error: any) {
         console.error("Error creating Razorpay Fund Account:", error.response?.data);
@@ -183,26 +97,16 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         if (!ownerDoc.exists()) throw new Error("Owner not found.");
         const owner = { id: ownerId, ...ownerDoc.data() } as User;
 
-        // Step 1: Create Contact
         const { id: contactId } = await createOrGetContact(owner, accountDetails);
-
-        // Step 2: Create Linked Account
-        const { id: accountId } = await createLinkedAccount(owner, contactId, accountDetails);
-
-        // Step 3: Create Stakeholder
-        await createStakeholder(accountId, accountDetails);
-
-        // Step 4: Create Fund Account
-        const fundAccount = await createFundAccount(accountId, accountDetails);
+        const fundAccount = await createFundAccount(contactId, accountDetails);
         
         const newMethod: PaymentMethod = {
-          id: accountId,
+          id: contactId, // Using contact ID as our internal reference
           razorpay_fund_account_id: fundAccount.id,
           name: accountDetails.name || accountDetails.vpa!,
           isActive: true,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),
           createdAt: new Date().toISOString(),
-          onboardingError: null,
           ...(accountDetails.payoutMethod === 'vpa' ? { 
               type: 'vpa' as 'vpa', vpaAddress: accountDetails.vpa! 
             } : {
