@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
         business_type: 'individual' as 'individual', // Simplified for this use case
         contact_name: accountDetails.name || owner.name,
         profile: {
-            category: "services",
-            subcategory: "other_services" ,
+            category: "housing",
+            subcategory: "facility_management" ,
             addresses: {
                 registered: {
                     street1: "123, Main Street",
