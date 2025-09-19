@@ -42,12 +42,24 @@ export async function POST(req: NextRequest) {
   try {
     // Step 1: Create a Linked Account
     const linkedAccountPayload = {
-        name: accountDetails.name || owner.name, // Use provided name, fallback to owner's display name
         email: owner.email!,
-        phone: owner.phone!,
+        phone: owner.phone||'+919999999999', // A fallback phone is required
         type: 'route' as 'route',
         legal_business_name: accountDetails.name || owner.name,
         business_type: 'individual' as 'individual', // Simplified for this use case
+        profile: {
+            category: "services" as "services",
+            subcategory: "other_services" as "other_services",
+            addresses: {
+                registered: {
+                    street1: "123, Main Street",
+                    city: "Bengaluru",
+                    state: "Karnataka",
+                    postal_code: "560001",
+                    country: "IN"
+                }
+            }
+        }
     };
     
     const linkedAccount = await razorpay.accounts.create(linkedAccountPayload);
