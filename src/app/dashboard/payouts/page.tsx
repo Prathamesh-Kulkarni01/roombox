@@ -23,13 +23,22 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2, Edit, UserCheck, PartyPopper, Contact, Link as LinkIcon, HandCoins, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
 const kycSchema = z.object({
     legal_business_name: z.string().min(2, "Business name is required."),
+    business_type: z.enum(['proprietorship', 'partnership', 'private_limited', 'public_limited', 'llp', 'trust', 'society', 'not_for_profit']),
     pan_number: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format'),
-    dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date" }),
+    gst_number: z.string().optional(),
+    phone: z.string().regex(/^\d{10}$/, "A valid 10-digit phone number is required."),
+    street1: z.string().min(3, 'Address is required.'),
+    street2: z.string().optional(),
+    city: z.string().min(2, 'City is required.'),
+    state: z.string().min(2, 'State is required.'),
+    postal_code: z.string().regex(/^\d{6}$/, 'Invalid postal code.'),
 });
+
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
@@ -66,8 +75,8 @@ export default function PayoutsPage() {
         resolver: zodResolver(kycSchema),
         defaultValues: {
             legal_business_name: currentUser?.name || '',
-            pan_number: 'ABCDE1234F',
-            dob: '1990-01-01',
+            business_type: 'proprietorship',
+            phone: currentUser?.phone || ''
         }
     });
 
@@ -78,30 +87,25 @@ export default function PayoutsPage() {
 
     const payoutMethod = payoutForm.watch('payoutMethod');
 
-    const handleKycSubmit = (data: KycFormValues) => {
-        toast({ title: "KYC Info Saved", description: "Your business and KYC information has been updated." });
-    }
-
     const handlePayoutAccountSubmit = (data: PayoutAccountFormValues) => {
         startSavingTransition(async () => {
             if (!currentUser) return;
+            
+            const kycData = kycForm.getValues();
+            const isKycValid = await kycForm.trigger();
+            if (!isKycValid) {
+                toast({ variant: 'destructive', title: 'KYC Details Missing', description: 'Please fill in all required business and address information first.'});
+                return;
+            }
+            
+            const submissionData = { 
+                ...data, 
+                ...kycData,
+                name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) 
+            };
+            
             try {
-                const kycData = kycForm.getValues();
-                if (!kycForm.formState.isValid) {
-                    toast({ variant: 'destructive', title: 'KYC Details Missing', description: 'Please fill in your legal name, PAN, and date of birth first.'});
-                    return;
-                }
-                
-                const submissionData = { 
-                    ...data, 
-                    pan_number: kycData.pan_number,
-                    dob: kycData.dob,
-                    legal_business_name: kycData.legal_business_name,
-                    name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) 
-                };
-
                 const result = await addPayoutMethod(currentUser.id, submissionData);
-                
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Linked!', description: 'Your new payout account has been successfully added.' });
@@ -119,8 +123,10 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             try {
                 const result = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
-                dispatch(setCurrentUser(result.updatedUser));
-                toast({ title: 'Primary Account Updated' });
+                 if (result.success) {
+                    dispatch(setCurrentUser(result.updatedUser));
+                    toast({ title: 'Primary Account Updated' });
+                }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
             }
@@ -131,9 +137,11 @@ export default function PayoutsPage() {
         if (!currentUser || !methodToUnlink) return;
         startSavingTransition(async () => {
             try {
-                const result = await deletePayoutMethod({ ownerId: currentUser.id, methodId: methodToUnlink.id });
-                dispatch(setCurrentUser(result.updatedUser));
-                toast({ title: 'Account Unlinked' });
+                const result = await deletePayoutMethod({ ownerId: currentUser.id, methodId: methodToUnlink.razorpay_fund_account_id! });
+                if(result.success) {
+                    dispatch(setCurrentUser(result.updatedUser));
+                    toast({ title: 'Account Unlinked' });
+                }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message });
             } finally {
@@ -142,106 +150,61 @@ export default function PayoutsPage() {
         });
     };
     
-    const { timelineSteps, hasError } = useMemo((): { timelineSteps: OnboardingStep[], hasError: boolean } => {
-        const isKycComplete = kycForm.formState.isValid;
-        const payoutMethods = currentUser?.subscription?.payoutMethods || [];
-        const primaryMethod = payoutMethods.find(m => m.isPrimary);
-        const hasContact = !!currentUser?.subscription?.razorpay_contact_id;
-        const hasLinkedAccount = !!primaryMethod?.id;
-        const hasFundAccount = !!primaryMethod?.razorpay_fund_account_id;
-        const onboardingError = primaryMethod?.onboardingError;
-
-        let errorInTimeline = !!onboardingError;
-        
-        const getStatus = (stepId: string): OnboardingStatus => {
-            if (onboardingError === stepId) return 'error';
-            if (errorInTimeline && timelineSteps.findIndex(s => s.id === onboardingError) < timelineSteps.findIndex(s => s.id === stepId)) return 'disabled';
-            
-            switch (stepId) {
-                case 'kyc': return isKycComplete ? 'complete' : 'pending';
-                case 'contact': return hasContact ? 'complete' : (isKycComplete ? 'pending' : 'disabled');
-                case 'linked_account': return hasLinkedAccount ? 'complete' : (hasContact ? 'pending' : 'disabled');
-                case 'stakeholder': return hasLinkedAccount ? 'complete' : (hasContact ? 'pending' : 'disabled'); // We assume stakeholder is created with linked account
-                case 'fund_account': return hasFundAccount ? 'complete' : (hasLinkedAccount ? 'pending' : 'disabled');
-                case 'complete': return hasFundAccount ? 'complete' : 'disabled';
-                default: return 'disabled';
-            }
-        };
-
-        const timelineSteps: OnboardingStep[] = [
-            { id: 'kyc', title: 'Provide KYC Details', description: 'Fill in your PAN and legal name.', icon: UserCheck, status: 'pending' },
-            { id: 'contact', title: 'Contact Created', description: 'Your profile is created on Razorpay.', icon: Contact, status: 'pending' },
-            { id: 'linked_account', title: 'Linked Account Generated', description: 'Virtual account for routing payments.', icon: LinkIcon, status: 'pending' },
-            { id: 'stakeholder', title: 'Stakeholder Verified', description: 'Your identity as the account owner is verified.', icon: UserCheck, status: 'pending' },
-            { id: 'fund_account', title: 'Fund Account Added', description: 'Your bank/UPI is linked for payouts.', icon: HandCoins, status: 'pending' },
-            { id: 'complete', title: 'Setup Complete!', description: 'You are ready to receive automated payouts.', icon: PartyPopper, status: 'pending' },
-        ];
-        
-        timelineSteps.forEach(step => step.status = getStatus(step.id));
-
-        return { timelineSteps, hasError: errorInTimeline };
-    }, [kycForm.formState.isValid, currentUser]);
+    const onboardingComplete = !!currentUser?.subscription?.payoutMethods?.some(m => m.isActive && m.razorpay_fund_account_id);
 
     return (
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>KYC & Business Information</CardTitle>
-                    <CardDescription>This information is required by Razorpay to verify your identity and process payouts.</CardDescription>
+                    <CardTitle>KYC &amp; Business Information</CardTitle>
+                    <CardDescription>This information is required by Razorpay to create your sub-merchant account for payouts.</CardDescription>
                 </CardHeader>
                 <Form {...kycForm}>
-                    <form onSubmit={kycForm.handleSubmit(handleKycSubmit)}>
-                        <CardContent className="space-y-4">
-                            <FormField control={kycForm.control} name="legal_business_name" render={({ field }) => (
-                                <FormItem><FormLabel>Legal Business Name</FormLabel><FormControl><Input placeholder="Your full name as per PAN" {...field} /></FormControl><FormMessage /></FormItem>
-                            )}/>
-                            <div className="grid md:grid-cols-2 gap-4">
-                                <FormField control={kycForm.control} name="pan_number" render={({ field }) => (
-                                    <FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem>
+                    <form>
+                        <CardContent className="space-y-6">
+                             <div className="grid md:grid-cols-2 gap-6">
+                                <FormField control={kycForm.control} name="legal_business_name" render={({ field }) => (
+                                    <FormItem><FormLabel>Legal Business Name</FormLabel><FormControl><Input placeholder="Your full name as per PAN" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
-                                 <FormField control={kycForm.control} name="dob" render={({ field }) => (
-                                    <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormField control={kycForm.control} name="phone" render={({ field }) => (
+                                    <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="Your 10-digit mobile number" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
                             </div>
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <FormField control={kycForm.control} name="pan_number" render={({ field }) => ( <FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={kycForm.control} name="business_type" render={({ field }) => (
+                                    <FormItem><FormLabel>Business Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select business type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="proprietorship">Proprietorship</SelectItem><SelectItem value="partnership">Partnership</SelectItem><SelectItem value="private_limited">Private Limited</SelectItem><SelectItem value="public_limited">Public Limited</SelectItem><SelectItem value="llp">LLP</SelectItem><SelectItem value="trust">Trust</SelectItem><SelectItem value="society">Society</SelectItem><SelectItem value="not_for_profit">Not for Profit</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                )}/>
+                            </div>
+                             <div className="grid md:grid-cols-2 gap-6">
+                                <FormField control={kycForm.control} name="gst_number" render={({ field }) => ( <FormItem><FormLabel>GST Number (Optional)</FormLabel><FormControl><Input placeholder="Enter 15-digit GSTIN" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                            </div>
+                             <div>
+                                <h3 className="text-base font-medium mb-2">Registered Business Address</h3>
+                                <div className="space-y-4 p-4 border rounded-lg">
+                                    <FormField control={kycForm.control} name="street1" render={({ field }) => (<FormItem><FormLabel>Street Address 1</FormLabel><FormControl><Input placeholder="Flat, Building, Street" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={kycForm.control} name="street2" render={({ field }) => (<FormItem><FormLabel>Street Address 2 (Optional)</FormLabel><FormControl><Input placeholder="Area, Locality" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                    <div className="grid md:grid-cols-3 gap-4">
+                                        <FormField control={kycForm.control} name="city" render={({ field }) => (<FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="e.g., Bangalore" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField control={kycForm.control} name="state" render={({ field }) => (<FormItem><FormLabel>State</FormLabel><FormControl><Input placeholder="e.g., Karnataka" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField control={kycForm.control} name="postal_code" render={({ field }) => (<FormItem><FormLabel>Postal Code</FormLabel><FormControl><Input placeholder="e.g., 560034" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                    </div>
+                                </div>
+                            </div>
                         </CardContent>
-                        <CardFooter>
-                            <Button type="submit" disabled={isSaving}>
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Edit className="mr-2 h-4 w-4"/>}
-                                Save KYC Details
-                            </Button>
-                        </CardFooter>
                     </form>
                 </Form>
             </Card>
-
+            
             <Card>
                 <CardHeader>
                     <CardTitle>Payout Onboarding Status</CardTitle>
-                    <CardDescription>Follow these steps to enable automated payouts to your bank account.</CardDescription>
+                    <CardDescription>{onboardingComplete ? "Your account is set up to receive automated payouts." : "Link a payout method to complete your onboarding."}</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-6">
-                    <div className="relative">
-                        <div className="absolute left-6 top-6 h-full w-px bg-border -translate-x-1/2" aria-hidden="true"></div>
-                        <ul className="space-y-4">
-                            {timelineSteps.map((step) => (
-                                <li key={step.id} className="flex items-start gap-4">
-                                    <div className={cn("relative flex h-12 w-12 items-center justify-center rounded-full border-2", 
-                                      step.status === 'complete' ? 'bg-green-100 border-green-500 text-green-600' :
-                                      step.status === 'pending' ? 'bg-primary/10 border-primary text-primary' :
-                                      step.status === 'error' ? 'bg-destructive/10 border-destructive text-destructive' :
-                                      'bg-muted border-border text-muted-foreground'
-                                    )}>
-                                        {step.status === 'error' ? <AlertCircle className="h-6 w-6"/> : <step.icon className="h-6 w-6" />}
-                                    </div>
-                                    <div className="pt-1.5">
-                                        <h4 className="font-semibold">{step.title}</h4>
-                                        <p className={cn("text-sm", step.status === 'disabled' ? 'text-muted-foreground/50' : 'text-muted-foreground')}>
-                                            {step.description}
-                                        </p>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
+                 <CardContent>
+                    <div className={cn("flex items-center gap-3 p-4 rounded-lg border", onboardingComplete ? 'bg-green-100 text-green-900 border-green-300' : 'bg-yellow-100 text-yellow-900 border-yellow-300')}>
+                        {onboardingComplete ? <CheckCircle className="w-5 h-5"/> : <AlertCircle className="w-5 h-5"/>}
+                        <span className="font-semibold">{onboardingComplete ? 'Onboarding Complete' : 'Action Required'}</span>
                     </div>
                 </CardContent>
             </Card>
@@ -259,7 +222,7 @@ export default function PayoutsPage() {
                 <CardContent>
                     <div className="space-y-3">
                         {(currentUser?.subscription?.payoutMethods || []).map(method => (
-                            <div key={method.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                            <div key={method.razorpay_fund_account_id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                                 <div className="flex items-center gap-4">
                                     {method.type === 'vpa' ? <IndianRupee className="w-5 h-5 text-primary" /> : <Banknote className="w-5 h-5 text-primary" />}
                                     <div>
@@ -277,7 +240,7 @@ export default function PayoutsPage() {
                                         <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent>
-                                        {!method.isPrimary && <DropdownMenuItem onClick={() => handleSetPrimary(method.id)} disabled={isSaving}><Check className="mr-2 h-4 w-4" /> Set as Primary</DropdownMenuItem>}
+                                        {!method.isPrimary && <DropdownMenuItem onClick={() => handleSetPrimary(method.razorpay_fund_account_id!)} disabled={isSaving}><Check className="mr-2 h-4 w-4" /> Set as Primary</DropdownMenuItem>}
                                         <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setMethodToUnlink(method)} disabled={isSaving}><Trash2 className="mr-2 h-4 w-4" /> Unlink</DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -359,5 +322,3 @@ export default function PayoutsPage() {
         </div>
     );
 }
-
-    
