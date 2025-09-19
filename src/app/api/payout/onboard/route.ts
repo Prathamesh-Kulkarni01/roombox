@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       email: owner.email!,
       kyc: { pan: accountDetails.pan }
     };
-    await razorpay.accounts.createStakeholder(linkedAccount.id, stakeholderPayload);
+    await razorpay.stakeholders.create(linkedAccount.id, stakeholderPayload);
 
     // Step 3: Create Fund Account (Bank or VPA) linked to the Linked Account
     let fundAccount;

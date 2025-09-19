@@ -33,14 +33,12 @@ const payoutAccountSchema = z.object({
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
     }
-    if (data.payoutMethod === 'vpa') {
-        return !!data.vpa;
-    }
-    return false;
+    return true; // For VPA, other fields are not required from this object level.
 }, {
-    message: 'Please fill in the required fields for the selected payout method.',
-    path: ['payoutMethod'],
+    message: 'Bank account requires Name, Account Number, and IFSC.',
+    path: ['account_number'], // Show error under a relevant field
 });
+
 
 type PayoutAccountFormValues = z.infer<typeof payoutAccountSchema>;
 
