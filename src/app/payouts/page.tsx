@@ -7,10 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { useToast } from '@/hooks/use-toast';
-import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod, OnboardingStep, OnboardingStatus } from '@/lib/types';
+import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
 import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from '@/lib/actions/payoutActions';
 import { setCurrentUser } from '@/lib/slices/userSlice';
-import { format } from 'date-fns';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +22,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2, Edit, UserCheck, PartyPopper, Contact, Link as LinkIcon, HandCoins, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 const kycSchema = z.object({
@@ -85,10 +83,6 @@ export default function PayoutsPage() {
     });
 
     const payoutMethod = payoutForm.watch('payoutMethod');
-
-    const handleKycSubmit = (data: KycFormValues) => {
-        toast({ title: "KYC Info Saved", description: "Your business and KYC information has been updated." });
-    }
 
     const handlePayoutAccountSubmit = (data: PayoutAccountFormValues) => {
         startSavingTransition(async () => {
@@ -178,6 +172,9 @@ export default function PayoutsPage() {
                                 <FormField control={kycForm.control} name="business_type" render={({ field }) => (
                                     <FormItem><FormLabel>Business Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select business type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="proprietorship">Proprietorship</SelectItem><SelectItem value="partnership">Partnership</SelectItem><SelectItem value="private_limited">Private Limited</SelectItem><SelectItem value="public_limited">Public Limited</SelectItem><SelectItem value="llp">LLP</SelectItem><SelectItem value="trust">Trust</SelectItem><SelectItem value="society">Society</SelectItem><SelectItem value="not_for_profit">Not for Profit</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                                 )}/>
+                            </div>
+                             <div className="grid md:grid-cols-2 gap-6">
+                                <FormField control={kycForm.control} name="gst_number" render={({ field }) => ( <FormItem><FormLabel>GST Number (Optional)</FormLabel><FormControl><Input placeholder="Enter 15-digit GSTIN" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                             </div>
                              <div>
                                 <h3 className="text-base font-medium mb-2">Registered Business Address</h3>
