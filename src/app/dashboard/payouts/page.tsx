@@ -105,16 +105,19 @@ export default function PayoutsPage() {
             if (!currentUser) return;
             
             const kycData = kycForm.getValues();
-            const isKycValid = await kycForm.trigger();
-            if (!isKycValid) {
+            const validationResult = kycSchema.safeParse(kycData);
+
+            if (!validationResult.success) {
                 toast({ variant: 'destructive', title: 'KYC Details Missing', description: 'Please fill in all required business and address information first.'});
+                // Optionally trigger validation to show errors
+                kycForm.trigger();
                 return;
             }
             
             const submissionData = { 
                 ...data, 
-                ...kycData,
-                name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) 
+                ...validationResult.data,
+                name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : validationResult.data.legal_business_name) 
             };
             
             try {
@@ -352,3 +355,4 @@ export default function PayoutsPage() {
         </div>
     );
 }
+
