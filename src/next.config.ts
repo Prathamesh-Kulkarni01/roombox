@@ -1,11 +1,12 @@
 
-
 import type {NextConfig} from 'next';
 import withPWAInit from '@ducanh2912/next-pwa';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const withPWA = withPWAInit({
   dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
+  disable: isDev || !!process.env.TURBOPACK, // Disable PWA in dev and when Turbopack is used
   register: true,
   skipWaiting: true,
   sw: 'service-worker.js', // This is the main PWA service worker
@@ -101,3 +102,4 @@ const nextConfig: NextConfig = {
 };
 
 export default withPWA(nextConfig);
+
