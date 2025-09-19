@@ -6,13 +6,7 @@ import { z } from 'zod';
 import type { User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod, PaymentMethodValidationResult } from '../types';
 import { produce } from 'immer';
 import { FieldValue } from 'firebase-admin/firestore';
-import Razorpay from 'razorpay';
-
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
-
+import axios from 'axios';
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
@@ -54,16 +48,21 @@ async function validateVPA(vpa: string): Promise<PaymentMethodValidationResult> 
     }
 }
 
-async function createOrGetContact(owner: User): Promise<{ id: string }> {
+async function createOrGetContact(owner: User) {
     if (owner.subscription?.razorpay_contact_id) {
         try {
-            // Check if contact actually exists on Razorpay
-            await razorpay.contacts.fetch(owner.subscription.razorpay_contact_id);
-            return { id: owner.subscription.razorpay_contact_id };
+            const response = await axios.get(`https://api.razorpay.com/v1/contacts/${owner.subscription.razorpay_contact_id}`, {
+                auth: {
+                    username: process.env.RAZORPAY_KEY_ID!,
+                    password: process.env.RAZORPAY_KEY_SECRET!,
+                },
+            });
+            return { id: response.data.id };
         } catch (error) {
-            // Contact doesn't exist on Razorpay, proceed to create a new one
+            // Contact not found on Razorpay, proceed to create a new one
         }
     }
+
     try {
         const contactPayload = {
             name: owner.name,
@@ -71,16 +70,22 @@ async function createOrGetContact(owner: User): Promise<{ id: string }> {
             type: 'vendor' as 'vendor',
             reference_id: owner.id,
         };
-        const contact = await razorpay.contacts.create(contactPayload);
+
+        const response = await axios.post('https://api.razorpay.com/v1/contacts', contactPayload, {
+            auth: {
+                username: process.env.RAZORPAY_KEY_ID!,
+                password: process.env.RAZORPAY_KEY_SECRET!,
+            }
+        });
+        const contact = response.data;
         
-        // Update Firestore with the new contact ID
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(owner.id);
         await ownerDocRef.update({ 'subscription.razorpay_contact_id': contact.id });
         
         return { id: contact.id };
     } catch (error: any) {
-        console.error("Failed to create Razorpay contact:", error);
+        console.error("Failed to create Razorpay contact:", error.response?.data);
         throw new Error('Failed to create contact on payment gateway.');
     }
 }
@@ -99,11 +104,16 @@ async function createFundAccount(contactId: string, accountDetails: z.infer<type
                 }
             })
         };
-        const fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
-        return fundAccount;
+        const response = await axios.post('https://api.razorpay.com/v1/fund_accounts', fundAccountPayload, {
+             auth: {
+                username: process.env.RAZORPAY_KEY_ID!,
+                password: process.env.RAZORPAY_KEY_SECRET!,
+            }
+        });
+        return response.data;
     } catch (error: any) {
-        console.error("Failed to create Razorpay fund account:", error);
-        throw new Error(error.error?.description || 'Failed to create fund account on payment gateway.');
+        console.error("Failed to create Razorpay fund account:", error.response?.data);
+        throw new Error(error.response?.data?.error?.description || 'Failed to create fund account on payment gateway.');
     }
 }
 
@@ -118,20 +128,6 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
     const adminDb = await getAdminDb();
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
-    let tempMethodIdForErrorHandling: string | null = null;
-    
-    const updateErrorAndThrow = async (errorStep: string, errorMessage: string) => {
-        if (tempMethodIdForErrorHandling) {
-             const ownerDoc = await ownerDocRef.get();
-            if (ownerDoc.exists()) {
-                const owner = ownerDoc.data() as User;
-                const methods = owner.subscription?.payoutMethods || [];
-                const updatedMethods = methods.map(m => m.id === tempMethodIdForErrorHandling ? { ...m, onboardingError: errorStep } : m);
-                await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
-            }
-        }
-        throw new Error(errorMessage);
-    }
     
     try {
         const ownerDoc = await ownerDocRef.get();
@@ -200,9 +196,17 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
 
         if (methodToDeactivate?.razorpay_fund_account_id) {
             try {
-                await razorpay.fundAccounts.update(methodToDeactivate.razorpay_fund_account_id, { active: false });
+                 await axios.patch(`https://api.razorpay.com/v1/fund_accounts/${methodToDeactivate.razorpay_fund_account_id}`, 
+                    { active: false },
+                    {
+                        auth: {
+                            username: process.env.RAZORPAY_KEY_ID!,
+                            password: process.env.RAZORPAY_KEY_SECRET!,
+                        }
+                    }
+                );
             } catch (razorpayError: any) {
-                console.warn("Could not deactivate fund account on Razorpay, may already be inactive:", razorpayError.error?.description);
+                console.warn("Could not deactivate fund account on Razorpay, may already be inactive:", razorpayError.response?.data);
             }
         }
         
