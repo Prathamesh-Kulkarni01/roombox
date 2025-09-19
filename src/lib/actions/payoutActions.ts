@@ -66,22 +66,21 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
     const adminDb = await getAdminDb();
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
-
-    const updateErrorAndThrow = async (errorStep: string, errorMessage: string, methodId?: string) => {
-        if (methodId) {
+    let tempMethodId: string | null = null;
+    
+    const updateErrorAndThrow = async (errorStep: string, errorMessage: string) => {
+        if (tempMethodId) {
              const ownerDoc = await ownerDocRef.get();
             if (ownerDoc.exists()) {
                 const owner = ownerDoc.data() as User;
                 const methods = owner.subscription?.payoutMethods || [];
-                const updatedMethods = methods.map(m => m.id === methodId ? { ...m, onboardingError: errorStep } : m);
+                const updatedMethods = methods.map(m => m.id === tempMethodId ? { ...m, onboardingError: errorStep } : m);
                 await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
             }
         }
         throw new Error(errorMessage);
     }
     
-    let linkedAccountId: string | undefined = undefined;
-
     try {
         const ownerDoc = await ownerDocRef.get();
         if (!ownerDoc.exists) return { success: false, error: "Owner not found." };
@@ -93,53 +92,18 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
                 return { success: false, error: vpaValidation.error };
             }
         }
-        
+
         let contactId = owner.subscription?.razorpay_contact_id;
         if (!contactId) {
              const contactPayload = {
                 name: owner.name,
                 email: owner.email!,
-                type: 'vendor',
+                type: 'vendor' as 'vendor',
                 reference_id: owner.id,
             };
             const contact = await razorpay.contacts.create(contactPayload);
             contactId = contact.id;
             await ownerDocRef.update({ 'subscription.razorpay_contact_id': contactId });
-        }
-        
-        const linkedAccountPayload = {
-            email: owner.email!,
-            phone: owner.phone!,
-            type: 'route' as 'route',
-            reference_id: `owner_${owner.id}_${Date.now()}`,
-            legal_business_name: owner.name,
-            business_type: 'individual' as 'individual',
-            contact_name: owner.name,
-            notes: {
-                pan: data.pan,
-            }
-        };
-
-        const linkedAccount = await razorpay.accounts.create(linkedAccountPayload);
-        linkedAccountId = linkedAccount.id;
-        
-        let dobTimestamp: number | undefined;
-        if (data.dob) {
-            dobTimestamp = Math.floor(new Date(data.dob).getTime() / 1000);
-        }
-
-        try {
-            await razorpay.accounts.createStakeholder(linkedAccountId, {
-                percentage_ownership: 100,
-                name: owner.name,
-                email: owner.email!,
-                phone: owner.phone!,
-                kyc: {
-                    pan: data.pan!,
-                },
-            });
-        } catch(stakeholderError: any) {
-            await updateErrorAndThrow('stakeholder', stakeholderError.error?.description || 'Stakeholder creation failed.', linkedAccountId);
         }
 
         const fundAccountPayload: any = {
@@ -155,17 +119,10 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
             })
         };
 
-        let fundAccount;
-        try {
-            fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
-        } catch(fundError: any) {
-             await updateErrorAndThrow('fund_account', fundError.error?.description || 'Fund account creation failed.', linkedAccountId);
-             // The function will throw before reaching here, but for completeness:
-             return { success: false, error: fundError.error?.description || "Failed to create fund account." };
-        }
+        const fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
 
         const newMethod: PaymentMethod = {
-          id: linkedAccountId,
+          id: fundAccount.id, // Use fund account id as the unique method id
           razorpay_fund_account_id: fundAccount.id,
           name: data.name || data.vpa!,
           isActive: true,
@@ -194,7 +151,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
     } catch (error: any) {
         console.error('Error in addPayoutMethod action:', error);
-        return { success: false, error: error.message || "Failed to link payout account."};
+        return { success: false, error: error.error?.description || error.message || "Failed to link payout account."};
     }
 }
 
