@@ -62,6 +62,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
         const newMethod: PaymentMethod = {
           id: linkedAccountId, // This is the Razorpay Linked Account ID (acc_...)
+          razorpay_fund_account_id: fundAccountId,
           name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : owner.name),
           isActive: true,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),

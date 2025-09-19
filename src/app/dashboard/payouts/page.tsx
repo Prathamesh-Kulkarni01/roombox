@@ -33,10 +33,10 @@ const payoutAccountSchema = z.object({
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
     }
-    return true; // For VPA, other fields are not required from this object level.
+    return true; // For VPA, these bank-specific fields are not needed.
 }, {
     message: 'Bank account requires Name, Account Number, and IFSC.',
-    path: ['account_number'], // Show error under a relevant field
+    path: ['account_number'],
 });
 
 
@@ -61,8 +61,8 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             if (!currentUser) return;
             try {
-                // Ensure name is passed for both types for stakeholder creation
-                const submissionData = { ...data, name: data.name || currentUser.name };
+                // For 'vpa', the name field is not strictly needed for the API but good for display
+                const submissionData = { ...data, name: data.name || (data.payoutMethod === 'vpa' ? data.vpa : currentUser.name) };
 
                 const result = await addPayoutMethod(currentUser.id, submissionData);
                 if (result.success && result.updatedUser) {
