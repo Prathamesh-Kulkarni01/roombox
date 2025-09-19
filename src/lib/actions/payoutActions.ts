@@ -16,10 +16,11 @@ const razorpay = new Razorpay({
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
-  name: z.string().min(1, "Name is required for bank accounts."),
+  name: z.string().optional(),
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format'),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -74,7 +75,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         
         let contactId = owner.subscription?.razorpay_contact_id;
         if (!contactId) {
-            const contact = await razorpay.contacts.create({
+             const contact = await razorpay.contacts.create({
                 name: owner.name,
                 email: owner.email!,
                 type: 'vendor',
@@ -86,6 +87,9 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         let fundAccountPayload: any = {
             contact_id: contactId,
             account_type: data.payoutMethod,
+            notes: {
+                pan: data.pan,
+            }
         };
 
         if (data.payoutMethod === 'vpa') {
@@ -105,7 +109,8 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         const fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
 
         const newMethod: PaymentMethod = {
-          id: fundAccount.id,
+          id: `fa_${fundAccount.id}`, // Storing fund account ID
+          razorpay_fund_account_id: fundAccount.id,
           name: data.name || data.vpa!,
           isActive: true,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),

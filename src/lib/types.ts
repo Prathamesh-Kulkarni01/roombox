@@ -88,11 +88,12 @@ export interface Payment {
 
 // Payment Method Types
 export interface PaymentMethodBase {
-  id: string; // This will store the Fund Account ID (fa_...)
+  id: string;
   name: string;
   isActive: boolean;
   isPrimary: boolean;
   createdAt: string;
+  razorpay_fund_account_id?: string;
 }
 
 export interface BankPaymentMethod extends PaymentMethodBase {
