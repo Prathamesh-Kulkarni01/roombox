@@ -38,6 +38,7 @@ const payoutAccountSchema = z.object({
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
   pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format').optional(),
+  dob: z.string().optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -67,8 +68,8 @@ export default function PayoutsPage() {
         resolver: zodResolver(kycSchema),
         defaultValues: {
             legal_business_name: currentUser?.name || '',
-            pan_number: '',
-            dob: '',
+            pan_number: 'ABCDE1234F',
+            dob: '1990-01-01',
         }
     });
 
@@ -96,6 +97,7 @@ export default function PayoutsPage() {
                 const submissionData = { 
                     ...data, 
                     pan: kycData.pan_number,
+                    dob: kycData.dob,
                     name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) 
                 };
 
@@ -154,40 +156,41 @@ export default function PayoutsPage() {
         const isKycComplete = kycForm.formState.isValid;
         const payoutMethods = currentUser?.subscription?.payoutMethods || [];
         const primaryMethod = payoutMethods.find(m => m.isPrimary);
+        const hasContact = !!currentUser?.subscription?.razorpay_contact_id;
+        const hasLinkedAccount = !!primaryMethod?.id;
+        const hasFundAccount = !!primaryMethod?.razorpay_fund_account_id;
+        const onboardingError = primaryMethod?.onboardingError;
 
-        let errorInTimeline = false;
-
-        const getStatus = (condition: boolean, errorCondition?: boolean): OnboardingStatus => {
-            if (errorCondition) {
-                errorInTimeline = true;
-                return 'error';
+        let errorInTimeline = !!onboardingError;
+        
+        const getStatus = (stepId: string): OnboardingStatus => {
+            if (onboardingError === stepId) return 'error';
+            if (errorInTimeline && timelineSteps.findIndex(s => s.id === onboardingError) < timelineSteps.findIndex(s => s.id === stepId)) return 'disabled';
+            
+            switch (stepId) {
+                case 'kyc': return isKycComplete ? 'complete' : 'pending';
+                case 'contact': return hasContact ? 'complete' : (isKycComplete ? 'pending' : 'disabled');
+                case 'linked_account': return hasLinkedAccount ? 'complete' : (hasContact ? 'pending' : 'disabled');
+                case 'stakeholder': return hasLinkedAccount ? 'complete' : (hasContact ? 'pending' : 'disabled'); // We assume stakeholder is created with linked account
+                case 'fund_account': return hasFundAccount ? 'complete' : (hasLinkedAccount ? 'pending' : 'disabled');
+                case 'complete': return hasFundAccount ? 'complete' : 'disabled';
+                default: return 'disabled';
             }
-            if (condition) return 'complete';
-            if (errorInTimeline) return 'disabled';
-            return 'pending';
-        }
+        };
 
-        const steps: OnboardingStep[] = [
-            { id: 'kyc', title: 'Provide KYC Details', description: 'Fill in your PAN and legal name.', icon: UserCheck, status: getStatus(isKycComplete) },
-            { id: 'contact', title: 'Contact Created', description: 'Your profile is created on Razorpay.', icon: Contact, status: getStatus(isKycComplete && !!primaryMethod?.id, primaryMethod?.onboardingError?.includes('contact')) },
-            { id: 'linked_account', title: 'Linked Account Generated', description: 'Virtual account for routing payments.', icon: LinkIcon, status: getStatus(isKycComplete && !!primaryMethod?.id, primaryMethod?.onboardingError?.includes('account')) },
-            { id: 'stakeholder', title: 'Stakeholder Verified', description: 'Your identity as the account owner is verified.', icon: UserCheck, status: getStatus(isKycComplete && !!primaryMethod?.id, primaryMethod?.onboardingError?.includes('stakeholder')) },
-            { id: 'fund_account', title: 'Fund Account Added', description: 'Your bank/UPI is linked for payouts.', icon: HandCoins, status: getStatus(isKycComplete && !!primaryMethod?.razorpay_fund_account_id, primaryMethod?.onboardingError?.includes('fund')) },
-            { id: 'complete', title: 'Setup Complete!', description: 'You are ready to receive automated payouts.', icon: PartyPopper, status: getStatus(isKycComplete && !!primaryMethod?.razorpay_fund_account_id && !primaryMethod?.onboardingError) },
+        const timelineSteps: OnboardingStep[] = [
+            { id: 'kyc', title: 'Provide KYC Details', description: 'Fill in your PAN and legal name.', icon: UserCheck, status: 'pending' },
+            { id: 'contact', title: 'Contact Created', description: 'Your profile is created on Razorpay.', icon: Contact, status: 'pending' },
+            { id: 'linked_account', title: 'Linked Account Generated', description: 'Virtual account for routing payments.', icon: LinkIcon, status: 'pending' },
+            { id: 'stakeholder', title: 'Stakeholder Verified', description: 'Your identity as the account owner is verified.', icon: UserCheck, status: 'pending' },
+            { id: 'fund_account', title: 'Fund Account Added', description: 'Your bank/UPI is linked for payouts.', icon: HandCoins, status: 'pending' },
+            { id: 'complete', title: 'Setup Complete!', description: 'You are ready to receive automated payouts.', icon: PartyPopper, status: 'pending' },
         ];
         
-        const lastCompletedIndex = steps.slice().reverse().findIndex(s => s.status === 'complete');
-        steps.forEach((step, index) => {
-            const isAfterError = errorInTimeline && steps.findIndex(s => s.status === 'error') < index;
-            const isBeforeLastCompleted = lastCompletedIndex !== -1 && index > (steps.length - 1 - lastCompletedIndex);
-            
-            if (step.status === 'pending' && (isAfterError || isBeforeLastCompleted)) {
-                step.status = 'disabled';
-            }
-        });
+        timelineSteps.forEach(step => step.status = getStatus(step.id));
 
-        return { timelineSteps: steps, hasError: errorInTimeline };
-    }, [kycForm.formState.isValid, currentUser?.subscription?.payoutMethods]);
+        return { timelineSteps, hasError: errorInTimeline };
+    }, [kycForm.formState.isValid, currentUser]);
 
     return (
         <div className="space-y-6">

@@ -1,5 +1,4 @@
 
-
 'use server'
 
 import { getAdminDb } from '../firebaseAdmin';
@@ -22,6 +21,7 @@ const payoutAccountSchema = z.object({
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
   pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format').optional(),
+  dob: z.string().optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -64,35 +64,98 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     }
     const data = validation.data;
 
-    try {
-        const adminDb = await getAdminDb();
-        const ownerDocRef = adminDb.collection('users').doc(ownerId);
+    const adminDb = await getAdminDb();
+    const ownerDocRef = adminDb.collection('users').doc(ownerId);
+    
+    const updateError = async (methodId: string | null, errorStep: string) => {
         const ownerDoc = await ownerDocRef.get();
-        
-        if (!ownerDoc.exists) {
-            return { success: false, error: "Owner not found." };
-        }
         const owner = ownerDoc.data() as User;
-        
-        // This will call the new, corrected onboarding API
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
-        const onboardResponse = await fetch(`${appUrl}/api/payout/onboard`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ownerId, accountDetails: data })
-        });
+        const methods = owner.subscription?.payoutMethods || [];
+        const updatedMethods = methods.map(m => m.id === methodId ? { ...m, onboardingError: errorStep } : m);
+        await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
+    }
 
-        const onboardResult = await onboardResponse.json();
+    try {
+        const ownerDoc = await ownerDocRef.get();
+        if (!ownerDoc.exists) return { success: false, error: "Owner not found." };
+        const owner = ownerDoc.data() as User;
 
-        if (!onboardResponse.ok || !onboardResult.success) {
-            return { success: false, error: onboardResult.error || 'Onboarding with payment gateway failed.' };
+        if (data.payoutMethod === 'vpa' && data.vpa) {
+            const vpaValidation = await validateVPA(data.vpa);
+            if (!vpaValidation.isValid) {
+                return { success: false, error: vpaValidation.error };
+            }
         }
         
-        const { linkedAccountId, fundAccountId } = onboardResult;
+        let contactId = owner.subscription?.razorpay_contact_id;
+        if (!contactId) {
+             const contact = await razorpay.contacts.create({
+                name: owner.name,
+                email: owner.email!,
+                type: 'vendor',
+                reference_id: owner.id,
+            });
+            contactId = contact.id;
+            await ownerDocRef.update({ 'subscription.razorpay_contact_id': contactId });
+        }
         
+        const linkedAccount = await razorpay.accounts.create({
+            email: owner.email!,
+            phone: owner.phone!,
+            type: 'route',
+            reference_id: `owner_${owner.id}`,
+            legal_business_name: owner.name,
+            business_type: 'individual',
+            contact_name: owner.name
+        });
+        
+        const linkedAccountId = linkedAccount.id;
+        
+        let dobTimestamp: number | undefined;
+        if (data.dob) {
+            dobTimestamp = Math.floor(new Date(data.dob).getTime() / 1000);
+        }
+
+        try {
+            await razorpay.accounts.createStakeholder(linkedAccountId, {
+                percentage_ownership: 100,
+                name: owner.name,
+                email: owner.email!,
+                phone: owner.phone!,
+                kyc: {
+                    pan: data.pan!,
+                    ...(dobTimestamp && { dob: dobTimestamp })
+                },
+            });
+        } catch(stakeholderError: any) {
+            await updateError(linkedAccountId, 'stakeholder');
+            throw stakeholderError;
+        }
+
+        const fundAccountPayload: any = {
+            contact_id: contactId!,
+            account_type: data.payoutMethod,
+            ...(data.payoutMethod === 'vpa' && { vpa: { address: data.vpa! } }),
+            ...(data.payoutMethod === 'bank_account' && {
+                bank_account: {
+                    name: data.name!,
+                    ifsc: data.ifsc!,
+                    account_number: data.account_number!,
+                }
+            })
+        };
+
+        let fundAccount;
+        try {
+            fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
+        } catch(fundError: any) {
+            await updateError(linkedAccountId, 'fund');
+            throw fundError;
+        }
+
         const newMethod: PaymentMethod = {
-          id: linkedAccountId, // The main ID is now the linked account ID
-          razorpay_fund_account_id: fundAccountId,
+          id: linkedAccountId, // Linked Account ID
+          razorpay_fund_account_id: fundAccount.id, // Fund Account ID
           name: data.name || data.vpa!,
           isActive: true,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),
@@ -126,13 +189,6 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
 export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
     try {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
-        await fetch(`${appUrl}/api/payout/methods/deactivate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fundAccountId: methodId })
-        });
-        
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         
@@ -141,6 +197,15 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         
         const owner = ownerDoc.data() as User;
         let methods = owner.subscription?.payoutMethods || [];
+        const methodToDeactivate = methods.find(m => m.id === methodId);
+
+        if (methodToDeactivate?.razorpay_fund_account_id) {
+            try {
+                await razorpay.fundAccounts.update(methodToDeactivate.razorpay_fund_account_id, { active: false });
+            } catch (razorpayError: any) {
+                console.warn("Could not deactivate fund account on Razorpay, may already be inactive:", razorpayError.error?.description);
+            }
+        }
         
         const updatedMethods = methods.filter(m => m.id !== methodId);
         
