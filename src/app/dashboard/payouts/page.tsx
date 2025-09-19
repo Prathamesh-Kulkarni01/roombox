@@ -1,13 +1,13 @@
 
 'use client'
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { useToast } from '@/hooks/use-toast';
-import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
+import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod, OnboardingStep, OnboardingStatus } from '@/lib/types';
 import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from '@/lib/actions/payoutActions';
 import { setCurrentUser } from '@/lib/slices/userSlice';
 import { format } from 'date-fns';
@@ -21,8 +21,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
-import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2, Edit, UserCheck, PartyPopper } from 'lucide-react';
+import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2, Edit, UserCheck, PartyPopper, Contact, Link as LinkIcon, HandCoins, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 const kycSchema = z.object({
     legal_business_name: z.string().min(2, "Business name is required."),
@@ -36,6 +37,7 @@ const payoutAccountSchema = z.object({
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format').optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -64,9 +66,9 @@ export default function PayoutsPage() {
     const kycForm = useForm<KycFormValues>({
         resolver: zodResolver(kycSchema),
         defaultValues: {
-            legal_business_name: currentUser?.name || 'Prathamesh Kulkarni', // Prefilled
-            pan_number: 'ABCDE1234F', // Test data
-            dob: format(new Date('1990-01-01'), 'yyyy-MM-dd'), // Test data
+            legal_business_name: currentUser?.name || '',
+            pan_number: '',
+            dob: '',
         }
     });
 
@@ -77,11 +79,7 @@ export default function PayoutsPage() {
 
     const payoutMethod = payoutForm.watch('payoutMethod');
 
-    const isKycComplete = kycForm.formState.isValid;
-    const hasPayoutMethod = (currentUser?.subscription?.payoutMethods || []).length > 0;
-    
     const handleKycSubmit = (data: KycFormValues) => {
-        // In a real scenario, this would trigger an update to the user's KYC/stakeholder info on Razorpay
         toast({ title: "KYC Info Saved", description: "Your business and KYC information has been updated." });
     }
 
@@ -89,7 +87,17 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             if (!currentUser) return;
             try {
-                const submissionData = { ...data, name: data.name || (data.payoutMethod === 'vpa' ? data.vpa : currentUser.name) };
+                const kycData = kycForm.getValues();
+                if (!kycForm.formState.isValid) {
+                    toast({ variant: 'destructive', title: 'KYC Details Missing', description: 'Please fill in your legal name, PAN, and date of birth first.'});
+                    return;
+                }
+                
+                const submissionData = { 
+                    ...data, 
+                    pan: kycData.pan_number,
+                    name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) 
+                };
 
                 const result = await addPayoutMethod(currentUser.id, submissionData);
                 if (result.success && result.updatedUser) {
@@ -141,12 +149,45 @@ export default function PayoutsPage() {
             }
         });
     };
+    
+    const { timelineSteps, hasError } = useMemo((): { timelineSteps: OnboardingStep[], hasError: boolean } => {
+        const isKycComplete = kycForm.formState.isValid;
+        const payoutMethods = currentUser?.subscription?.payoutMethods || [];
+        const primaryMethod = payoutMethods.find(m => m.isPrimary);
 
-    const timelineSteps = [
-        { title: 'Provide KYC Details', icon: UserCheck, complete: isKycComplete },
-        { title: 'Add Payout Method', icon: Banknote, complete: hasPayoutMethod },
-        { title: 'Setup Complete!', icon: PartyPopper, complete: isKycComplete && hasPayoutMethod },
-    ];
+        let errorInTimeline = false;
+
+        const getStatus = (condition: boolean, errorCondition?: boolean): OnboardingStatus => {
+            if (errorCondition) {
+                errorInTimeline = true;
+                return 'error';
+            }
+            if (condition) return 'complete';
+            if (errorInTimeline) return 'disabled';
+            return 'pending';
+        }
+
+        const steps: OnboardingStep[] = [
+            { id: 'kyc', title: 'Provide KYC Details', description: 'Fill in your PAN and legal name.', icon: UserCheck, status: getStatus(isKycComplete) },
+            { id: 'contact', title: 'Contact Created', description: 'Your profile is created on Razorpay.', icon: Contact, status: getStatus(isKycComplete && !!primaryMethod?.id, primaryMethod?.onboardingError?.includes('contact')) },
+            { id: 'linked_account', title: 'Linked Account Generated', description: 'Virtual account for routing payments.', icon: LinkIcon, status: getStatus(isKycComplete && !!primaryMethod?.id, primaryMethod?.onboardingError?.includes('account')) },
+            { id: 'stakeholder', title: 'Stakeholder Verified', description: 'Your identity as the account owner is verified.', icon: UserCheck, status: getStatus(isKycComplete && !!primaryMethod?.id, primaryMethod?.onboardingError?.includes('stakeholder')) },
+            { id: 'fund_account', title: 'Fund Account Added', description: 'Your bank/UPI is linked for payouts.', icon: HandCoins, status: getStatus(isKycComplete && !!primaryMethod?.razorpay_fund_account_id, primaryMethod?.onboardingError?.includes('fund')) },
+            { id: 'complete', title: 'Setup Complete!', description: 'You are ready to receive automated payouts.', icon: PartyPopper, status: getStatus(isKycComplete && !!primaryMethod?.razorpay_fund_account_id && !primaryMethod?.onboardingError) },
+        ];
+        
+        const lastCompletedIndex = steps.slice().reverse().findIndex(s => s.status === 'complete');
+        steps.forEach((step, index) => {
+            const isAfterError = errorInTimeline && steps.findIndex(s => s.status === 'error') < index;
+            const isBeforeLastCompleted = lastCompletedIndex !== -1 && index > (steps.length - 1 - lastCompletedIndex);
+            
+            if (step.status === 'pending' && (isAfterError || isBeforeLastCompleted)) {
+                step.status = 'disabled';
+            }
+        });
+
+        return { timelineSteps: steps, hasError: errorInTimeline };
+    }, [kycForm.formState.isValid, currentUser?.subscription?.payoutMethods]);
 
     return (
         <div className="space-y-6">
@@ -182,22 +223,27 @@ export default function PayoutsPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Onboarding Status</CardTitle>
-                    <CardDescription>Follow these steps to enable automated payouts.</CardDescription>
+                    <CardTitle>Payout Onboarding Status</CardTitle>
+                    <CardDescription>Follow these steps to enable automated payouts to your bank account.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-6">
                     <div className="relative">
-                        <div className="absolute left-6 top-6 h-full w-0.5 bg-border -z-10" aria-hidden="true"></div>
-                        <ul className="space-y-8">
-                            {timelineSteps.map((step, index) => (
-                                <li key={index} className="flex items-start gap-4">
-                                    <div className={cn("flex h-12 w-12 items-center justify-center rounded-full border-2", step.complete ? 'bg-primary border-primary text-primary-foreground' : 'bg-muted border-border')}>
-                                        <step.icon className="h-6 w-6" />
+                        <div className="absolute left-6 top-6 h-full w-px bg-border -translate-x-1/2" aria-hidden="true"></div>
+                        <ul className="space-y-4">
+                            {timelineSteps.map((step) => (
+                                <li key={step.id} className="flex items-start gap-4">
+                                    <div className={cn("relative flex h-12 w-12 items-center justify-center rounded-full border-2", 
+                                      step.status === 'complete' ? 'bg-green-100 border-green-500 text-green-600' :
+                                      step.status === 'pending' ? 'bg-primary/10 border-primary text-primary' :
+                                      step.status === 'error' ? 'bg-destructive/10 border-destructive text-destructive' :
+                                      'bg-muted border-border text-muted-foreground'
+                                    )}>
+                                        {step.status === 'error' ? <AlertCircle className="h-6 w-6"/> : <step.icon className="h-6 w-6" />}
                                     </div>
-                                    <div>
+                                    <div className="pt-1.5">
                                         <h4 className="font-semibold">{step.title}</h4>
-                                        <p className={cn("text-sm", step.complete ? 'text-primary' : 'text-muted-foreground')}>
-                                            {step.complete ? 'Completed' : 'Pending'}
+                                        <p className={cn("text-sm", step.status === 'disabled' ? 'text-muted-foreground/50' : 'text-muted-foreground')}>
+                                            {step.description}
                                         </p>
                                     </div>
                                 </li>

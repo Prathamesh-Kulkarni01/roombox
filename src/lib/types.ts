@@ -88,12 +88,13 @@ export interface Payment {
 
 // Payment Method Types
 export interface PaymentMethodBase {
-  id: string;
+  id: string; // This will store the Linked Account ID (acc_...) from Razorpay
   name: string;
   isActive: boolean;
   isPrimary: boolean;
   createdAt: string;
   razorpay_fund_account_id?: string;
+  onboardingError?: string; // To store any error messages during onboarding
 }
 
 export interface BankPaymentMethod extends PaymentMethodBase {
@@ -342,4 +343,14 @@ export interface Staff {
   email?: string;
   salary: number;
   pgName: string;
+}
+
+export type OnboardingStatus = 'complete' | 'pending' | 'error' | 'disabled';
+
+export interface OnboardingStep {
+    id: string;
+    title: string;
+    description: string;
+    icon: React.ElementType;
+    status: OnboardingStatus;
 }
