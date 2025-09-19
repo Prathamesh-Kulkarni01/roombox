@@ -30,8 +30,8 @@ export async function POST(req: NextRequest) {
 
   const { owner, accountDetails } = body as OnboardRequestBody;
 
-  if (!owner || !accountDetails) {
-    return NextResponse.json({ error: "Missing owner or accountDetails" }, { status: 400 });
+  if (!owner || !accountDetails || !accountDetails.pan) {
+    return NextResponse.json({ error: "Missing owner or essential account details (PAN)." }, { status: 400 });
   }
 
   const razorpay = new Razorpay({
@@ -40,13 +40,14 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    // Step 1: Create a Linked Account
+    // Step 1: Create a Linked Account matching the cURL structure
     const linkedAccountPayload = {
         email: owner.email!,
-        phone: owner.phone||'+919999999999', // A fallback phone is required
+        phone: owner.phone || '9999999999', // A fallback phone is required
         type: 'route' as 'route',
         legal_business_name: accountDetails.name || owner.name,
         business_type: 'individual' as 'individual', // Simplified for this use case
+        contact_name: accountDetails.name || owner.name,
         profile: {
             category: "services" as "services",
             subcategory: "other_services" as "other_services",
@@ -60,44 +61,50 @@ export async function POST(req: NextRequest) {
                     country: "IN"
                 }
             }
+        },
+        legal_info: {
+            pan: accountDetails.pan
         }
     };
     
     const linkedAccount = await razorpay.accounts.create(linkedAccountPayload);
+
     if (!linkedAccount || !linkedAccount.id) {
         throw new Error("Failed to create linked account on Razorpay.");
     }
-    
+
     // Step 2: Create a Stakeholder for the Linked Account
     const stakeholderPayload = {
-      name: accountDetails.name || owner.name, // Use the name from the form (as per PAN)
+      name: accountDetails.name || owner.name,
       email: owner.email!,
-      kyc: { pan: accountDetails.pan }
     };
+    
     await razorpay.stakeholders.create(linkedAccount.id, stakeholderPayload);
 
     // Step 3: Create Fund Account (Bank or VPA) linked to the Linked Account
     let fundAccount;
-    if (accountDetails.payoutMethod === 'vpa') {
+    if (accountDetails.payoutMethod === 'vpa' && accountDetails.vpa) {
         fundAccount = await razorpay.fundAccount.create({
             account_type: 'vpa',
             contact_id: linkedAccount.id,
-            vpa: { address: accountDetails.vpa! }
+            vpa: { address: accountDetails.vpa }
         });
-    } else { // bank_account
+    } else if (accountDetails.payoutMethod === 'bank_account' && accountDetails.name && accountDetails.ifsc && accountDetails.account_number) {
         fundAccount = await razorpay.fundAccount.create({
             account_type: 'bank_account',
             contact_id: linkedAccount.id,
             bank_account: {
-                name: accountDetails.name!,
-                ifsc: accountDetails.ifsc!,
-                account_number: accountDetails.account_number!
+                name: accountDetails.name,
+                ifsc: accountDetails.ifsc,
+                account_number: accountDetails.account_number
             }
         });
+    } else {
+        throw new Error("Invalid payout method details provided.");
     }
     
     if(!fundAccount) {
-        throw new Error("Failed to create fund account for linked account.")
+        throw new Error("Failed to create fund account for the linked account.")
     }
 
     return NextResponse.json({ 
