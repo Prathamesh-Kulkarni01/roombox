@@ -3,7 +3,7 @@
 
 import { getAdminDb } from '../firebaseAdmin';
 import { z } from 'zod';
-import type { User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod, PaymentMethodValidationResult } from '../types';
+import type { User, PaymentMethod, PaymentMethodValidationResult } from '../types';
 import { produce } from 'immer';
 import { FieldValue } from 'firebase-admin/firestore';
 import axios from 'axios';
@@ -167,6 +167,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     }
 }
 
+
 export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean; updatedUser: User }> {
     try {
         const adminDb = await getAdminDb();
@@ -179,14 +180,15 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         let methods = owner.subscription?.payoutMethods || [];
         const methodToDeactivate = methods.find(m => m.id === methodId);
 
-        if (methodToDeactivate?.id) { // Linked Account ID
+        if (methodToDeactivate?.razorpay_fund_account_id) { 
             try {
-                 await axios.patch(`https://api.razorpay.com/v1/linked_accounts/${methodToDeactivate.id}`, 
-                    { status: 'suspended' },
+                 const response = await axios.patch(
+                    `https://api.razorpay.com/v1/fund_accounts/${methodToDeactivate.razorpay_fund_account_id}`,
+                    { active: false },
                     { auth: { username: process.env.RAZORPAY_KEY_ID!, password: process.env.RAZORPAY_KEY_SECRET! } }
-                );
+                 );
             } catch (razorpayError: any) {
-                console.warn("Could not suspend linked account on Razorpay, may already be suspended:", razorpayError.response?.data);
+                console.warn("Could not deactivate fund account on Razorpay, may already be inactive:", razorpayError.response?.data);
             }
         }
         
@@ -230,5 +232,3 @@ export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: s
         throw error;
     }
 }
-
-    

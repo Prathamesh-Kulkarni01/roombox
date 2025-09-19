@@ -16,7 +16,6 @@ export async function POST(req: Request) {
   try {
     // ✅ Parse request body
     const {
-      account_number,
       fund_account_id,
       amountPaise,
       currency = "INR",

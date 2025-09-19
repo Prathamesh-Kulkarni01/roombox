@@ -86,7 +86,8 @@ export interface Payment {
     payoutTo?: string; // Name of the owner's payout account used
 }
 
-// Payment Method Types
+export type OnboardingStepId = 'kyc' | 'contact' | 'linked_account' | 'stakeholder' | 'fund_account' | 'complete';
+
 export interface PaymentMethodBase {
   id: string; // This will store the Linked Account ID (la_...) from Razorpay
   name: string;
@@ -94,7 +95,7 @@ export interface PaymentMethodBase {
   isPrimary: boolean;
   createdAt: string;
   razorpay_fund_account_id?: string;
-  onboardingError?: string | null;
+  onboardingError?: OnboardingStepId | string | null;
 }
 
 export interface BankPaymentMethod extends PaymentMethodBase {
