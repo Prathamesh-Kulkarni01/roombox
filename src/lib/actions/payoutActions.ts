@@ -1,4 +1,5 @@
 
+
 'use server'
 
 import { getAdminDb } from '../firebaseAdmin';
@@ -20,7 +21,7 @@ const payoutAccountSchema = z.object({
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
-  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format'),
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format').optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -73,44 +74,25 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         }
         const owner = ownerDoc.data() as User;
         
-        let contactId = owner.subscription?.razorpay_contact_id;
-        if (!contactId) {
-             const contact = await razorpay.contacts.create({
-                name: owner.name,
-                email: owner.email!,
-                type: 'vendor',
-            });
-            contactId = contact.id;
-            await ownerDocRef.update({ 'subscription.razorpay_contact_id': contactId });
+        // This will call the new, corrected onboarding API
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
+        const onboardResponse = await fetch(`${appUrl}/api/payout/onboard`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ownerId, accountDetails: data })
+        });
+
+        const onboardResult = await onboardResponse.json();
+
+        if (!onboardResponse.ok || !onboardResult.success) {
+            return { success: false, error: onboardResult.error || 'Onboarding with payment gateway failed.' };
         }
         
-        let fundAccountPayload: any = {
-            contact_id: contactId,
-            account_type: data.payoutMethod,
-            notes: {
-                pan: data.pan,
-            }
-        };
-
-        if (data.payoutMethod === 'vpa') {
-            const validationResult = await validateVPA(data.vpa!);
-            if (!validationResult.isValid) {
-                return { success: false, error: validationResult.error };
-            }
-            fundAccountPayload.vpa = { address: data.vpa };
-        } else {
-            fundAccountPayload.bank_account = {
-                name: data.name,
-                ifsc: data.ifsc,
-                account_number: data.account_number
-            };
-        }
-
-        const fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
-
+        const { linkedAccountId, fundAccountId } = onboardResult;
+        
         const newMethod: PaymentMethod = {
-          id: `fa_${fundAccount.id}`, // Storing fund account ID
-          razorpay_fund_account_id: fundAccount.id,
+          id: linkedAccountId, // The main ID is now the linked account ID
+          razorpay_fund_account_id: fundAccountId,
           name: data.name || data.vpa!,
           isActive: true,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),
