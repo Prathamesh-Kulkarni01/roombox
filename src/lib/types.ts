@@ -89,7 +89,7 @@ export interface Payment {
 export type OnboardingStepId = 'kyc' | 'contact' | 'linked_account' | 'stakeholder' | 'fund_account' | 'complete';
 
 export interface PaymentMethodBase {
-  id: string; // This will store the Linked Account ID (la_...) from Razorpay
+  id: string; // This will store the Razorpay Account ID (acc_...) from v2 API
   name: string;
   isActive: boolean;
   isPrimary: boolean;
@@ -255,7 +255,7 @@ export interface User {
   subscription?: { // Only owners should have this object
     planId: PlanName;
     status: SubscriptionStatus;
-    razorpay_contact_id?: string;
+    razorpay_account_id?: string; // This will hold the 'acc_...' ID from v2 API
     razorpay_subscription_id?: string;
     razorpay_payment_id?: string;
     payoutMethods?: PaymentMethod[];
