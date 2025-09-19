@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   try {
     // Step 1: Create a Linked Account matching the cURL structure
     const linkedAccountPayload = {
-        email: owner.email!,
+        email: 'aaa123@gmail.com',
         phone: owner.phone || '9999999999', // A fallback phone is required
         type: 'route' as 'route',
         legal_business_name: accountDetails.name || owner.name,
@@ -74,12 +74,13 @@ export async function POST(req: NextRequest) {
     const stakeholderPayload = {
       name: accountDetails.name || owner.name,
       email: owner.email!,
+      phone:{primary:  '17498526035'},
       kyc: {
           pan: accountDetails.pan
       }
     };
     
-    await razorpay.stakeholders.create(linkedAccount.id, stakeholderPayload);
+     razorpay.stakeholders.create(linkedAccount.id, stakeholderPayload);
 
     // Step 3: Create Fund Account (Bank or VPA) linked to the Linked Account's CONTACT
     // Note: The contact_id for a fund account under a linked account is the linked account ID itself.

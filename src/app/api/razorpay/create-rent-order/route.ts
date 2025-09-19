@@ -32,11 +32,10 @@ export async function POST(req: NextRequest) {
     
     // Fetch owner to get their primary payout method (linked account)
     const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
-    if (!ownerDoc.exists) {
+    if (!ownerDoc.exists()) {
         return NextResponse.json({ success: false, error: 'Property owner not found.' }, { status: 404 });
     }
     const owner = ownerDoc.data() as User;
-    console.log({a:owner.subscription?.payoutMethods})
     const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
     if (!primaryPayoutAccount?.id) {
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest) {
       },
       transfers: [
         {
-          account: primaryPayoutAccount.id, // Use the main ID, which is the Linked Account ID (acc_...)
+          account: primaryPayoutAccount.id, // The owner's Linked Account ID (e.g., acc_...)
           amount: amountInPaise - commissionInPaise,
           currency: "INR",
         }

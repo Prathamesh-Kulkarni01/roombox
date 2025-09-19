@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useAppSelector } from "@/lib/hooks"
@@ -91,7 +90,7 @@ export default function MyPgPage() {
         if (!currentGuest || !currentUser || !currentUser.ownerId || totalDue <= 0) return;
         
         startPaymentTransition(async () => {
-            try {
+             try {
                 const res = await fetch('/api/razorpay/create-rent-order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -274,7 +273,7 @@ export default function MyPgPage() {
                             )}
                         </div>
                         <div className="flex justify-between items-center pt-4 border-t">
-                            <span className="text-base font-semibold">Total Amount Due:</span>
+                            <span className="font-bold text-lg">Total Amount Due:</span>
                             <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
                         </div>
                     </CardContent>
