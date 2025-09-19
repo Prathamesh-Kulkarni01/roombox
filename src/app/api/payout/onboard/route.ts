@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   try {
     // STEP 1: Create a Contact
     const contactPayload = {
-        name: accountDetails.name || owner.name,
+        name: owner.name, // Use owner's name directly
         email: owner.email,
         contact: owner.phone || "9999999999",
         type: 'vendor' as const, // For payouts
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       type: "route" as const,
       legal_business_name: accountDetails.name || owner.name,
       business_type: "individual" as const,
-      contact_name: accountDetails.name || owner.name,
+      contact_name: owner.name,
       profile: {
         category: "housing",
         subcategory: "facility_management",
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     // STEP 3: Create Stakeholder for Linked Account (using owner's PAN)
     const stakeholderPayload = {
-      name: accountDetails.name || owner.name,
+      name: owner.name,
       email: owner.email,
       percentage_ownership: 100,
       kyc: {
