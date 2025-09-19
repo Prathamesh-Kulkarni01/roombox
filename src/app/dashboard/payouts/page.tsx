@@ -143,7 +143,7 @@ export default function PayoutsPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>KYC &amp; Business Information</CardTitle>
+                    <CardTitle>KYC & Business Information</CardTitle>
                     <CardDescription>This information is required by Razorpay to verify your identity and process payouts.</CardDescription>
                 </CardHeader>
                 <Form {...kycForm}>
@@ -285,3 +285,4 @@ export default function PayoutsPage() {
     );
 }
 
+    
