@@ -9,7 +9,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
-  name: z.string().min(3, "Account holder name is required."),
+  name: z.string().optional(),
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
@@ -54,18 +54,24 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         });
 
         const result = await res.json();
-        if (!res.ok) {
+        if (!res.ok || !result.success) {
             throw new Error(result.error || `Failed to link account. Status: ${res.status}.`);
         }
+        
+        // Correctly use the returned IDs
+        const { linkedAccountId, fundAccountId } = result;
 
         const newMethod: PaymentMethod = {
-          id: result.accountId,
-          type: data.payoutMethod,
-          name: data.payoutMethod === 'vpa' ? data.vpa! : data.name!,
+          id: linkedAccountId, // This is now the Razorpay Linked Account ID (acc_...)
+          name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : owner.name),
           isActive: true,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),
           createdAt: new Date().toISOString(),
-          ...(data.payoutMethod === 'vpa' ? { vpaAddress: data.vpa! } : {
+          ...(data.payoutMethod === 'vpa' ? { 
+              type: 'vpa' as 'vpa',
+              vpaAddress: data.vpa! 
+            } : {
+              type: 'bank_account' as 'bank_account',
               accountNumber: data.account_number!,
               accountNumberLast4: data.account_number!.slice(-4),
               ifscCode: data.ifsc!,

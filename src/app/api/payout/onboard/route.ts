@@ -11,7 +11,7 @@ interface OnboardRequestBody {
     account_number?: string;
     ifsc?: string;
     vpa?: string;
-    pan?: string;
+    pan: string;
   };
 }
 
@@ -42,11 +42,11 @@ export async function POST(req: NextRequest) {
   try {
     // Step 1: Create a Linked Account
     const linkedAccountPayload = {
-        name: owner.name,
+        name: accountDetails.name || owner.name, // Use provided name, fallback to owner's display name
         email: owner.email!,
         phone: owner.phone!,
         type: 'route' as 'route',
-        legal_business_name: owner.name,
+        legal_business_name: accountDetails.name || owner.name,
         business_type: 'individual' as 'individual', // Simplified for this use case
     };
     
@@ -57,9 +57,9 @@ export async function POST(req: NextRequest) {
     
     // Step 2: Create a Stakeholder for the Linked Account
     const stakeholderPayload = {
-      name: owner.name,
+      name: accountDetails.name || owner.name, // Use the name from the form (as per PAN)
       email: owner.email!,
-      kyc: { pan: accountDetails.pan! }
+      kyc: { pan: accountDetails.pan }
     };
     await razorpay.accounts.createStakeholder(linkedAccount.id, stakeholderPayload);
 
@@ -68,13 +68,13 @@ export async function POST(req: NextRequest) {
     if (accountDetails.payoutMethod === 'vpa') {
         fundAccount = await razorpay.fundAccount.create({
             account_type: 'vpa',
-            contact_id: linkedAccount.id, // This links it to the Linked Account
+            contact_id: linkedAccount.id,
             vpa: { address: accountDetails.vpa! }
         });
     } else { // bank_account
         fundAccount = await razorpay.fundAccount.create({
             account_type: 'bank_account',
-            contact_id: linkedAccount.id, // This links it to the Linked Account
+            contact_id: linkedAccount.id,
             bank_account: {
                 name: accountDetails.name!,
                 ifsc: accountDetails.ifsc!,
@@ -87,7 +87,11 @@ export async function POST(req: NextRequest) {
         throw new Error("Failed to create fund account for linked account.")
     }
 
-    return NextResponse.json({ success: true, accountId: linkedAccount.id });
+    return NextResponse.json({ 
+        success: true, 
+        linkedAccountId: linkedAccount.id,
+        fundAccountId: fundAccount.id,
+    });
 
   } catch (err: any) {
     console.error("Error in /api/payout/onboard:", err);

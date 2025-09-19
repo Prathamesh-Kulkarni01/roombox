@@ -24,7 +24,7 @@ import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
-  name: z.string().min(3, "Account holder name is required."),
+  name: z.string().optional(),
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
@@ -63,7 +63,10 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             if (!currentUser) return;
             try {
-                const result = await addPayoutMethod(currentUser.id, data);
+                // Ensure name is passed for both types for stakeholder creation
+                const submissionData = { ...data, name: data.name || currentUser.name };
+
+                const result = await addPayoutMethod(currentUser.id, submissionData);
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Linked!', description: 'Your new payout account has been successfully added.' });
@@ -183,7 +186,9 @@ export default function PayoutsPage() {
                                     </FormItem>
                                 )}
                             />
-                            <FormField control={payoutForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name (as per Bank/PAN)</FormLabel><FormControl><Input placeholder="Enter full legal name" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            {payoutMethod === 'bank_account' && (
+                                <FormField control={payoutForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name (as per Bank/PAN)</FormLabel><FormControl><Input placeholder="Enter full legal name" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            )}
                             <FormField control={payoutForm.control} name="pan" render={({ field }) => (<FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem>)} />
 
                             {payoutMethod === 'bank_account' && (
