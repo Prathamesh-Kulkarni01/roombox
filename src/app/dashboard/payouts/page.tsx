@@ -21,7 +21,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
-import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2, Edit } from 'lucide-react';
+import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2, Edit, UserCheck, PartyPopper } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const kycSchema = z.object({
     legal_business_name: z.string().min(2, "Business name is required."),
@@ -75,6 +76,9 @@ export default function PayoutsPage() {
     });
 
     const payoutMethod = payoutForm.watch('payoutMethod');
+
+    const isKycComplete = kycForm.formState.isValid;
+    const hasPayoutMethod = (currentUser?.subscription?.payoutMethods || []).length > 0;
     
     const handleKycSubmit = (data: KycFormValues) => {
         // In a real scenario, this would trigger an update to the user's KYC/stakeholder info on Razorpay
@@ -85,7 +89,6 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             if (!currentUser) return;
             try {
-                // For 'vpa', the name field is not strictly needed for the API but good for display
                 const submissionData = { ...data, name: data.name || (data.payoutMethod === 'vpa' ? data.vpa : currentUser.name) };
 
                 const result = await addPayoutMethod(currentUser.id, submissionData);
@@ -139,6 +142,12 @@ export default function PayoutsPage() {
         });
     };
 
+    const timelineSteps = [
+        { title: 'Provide KYC Details', icon: UserCheck, complete: isKycComplete },
+        { title: 'Add Payout Method', icon: Banknote, complete: hasPayoutMethod },
+        { title: 'Setup Complete!', icon: PartyPopper, complete: isKycComplete && hasPayoutMethod },
+    ];
+
     return (
         <div className="space-y-6">
             <Card>
@@ -169,6 +178,33 @@ export default function PayoutsPage() {
                         </CardFooter>
                     </form>
                 </Form>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Onboarding Status</CardTitle>
+                    <CardDescription>Follow these steps to enable automated payouts.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    <div className="relative">
+                        <div className="absolute left-6 top-6 h-full w-0.5 bg-border -z-10" aria-hidden="true"></div>
+                        <ul className="space-y-8">
+                            {timelineSteps.map((step, index) => (
+                                <li key={index} className="flex items-start gap-4">
+                                    <div className={cn("flex h-12 w-12 items-center justify-center rounded-full border-2", step.complete ? 'bg-primary border-primary text-primary-foreground' : 'bg-muted border-border')}>
+                                        <step.icon className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold">{step.title}</h4>
+                                        <p className={cn("text-sm", step.complete ? 'text-primary' : 'text-muted-foreground')}>
+                                            {step.complete ? 'Completed' : 'Pending'}
+                                        </p>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </CardContent>
             </Card>
 
             <Card>
@@ -284,5 +320,3 @@ export default function PayoutsPage() {
         </div>
     );
 }
-
-    
