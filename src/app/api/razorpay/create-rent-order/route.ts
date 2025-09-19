@@ -64,9 +64,10 @@ export async function POST(req: NextRequest) {
       },
       transfers: [
         {
-          account: primaryPayoutAccount.id, // The owner's Linked Account ID (e.g., acc_...)
+          account: primaryPayoutAccount.id, // The owner's Linked Account ID (acc_...)
           amount: amountInPaise - commissionInPaise,
           currency: "INR",
+          on_hold: 0,
         }
       ]
     };
