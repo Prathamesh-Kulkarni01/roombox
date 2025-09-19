@@ -58,11 +58,10 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
             throw new Error(result.error || `Failed to link account. Status: ${res.status}.`);
         }
         
-        // Correctly use the returned IDs
         const { linkedAccountId, fundAccountId } = result;
 
         const newMethod: PaymentMethod = {
-          id: linkedAccountId, // This is now the Razorpay Linked Account ID (acc_...)
+          id: linkedAccountId, // This is the Razorpay Linked Account ID (acc_...)
           name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : owner.name),
           isActive: true,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),
