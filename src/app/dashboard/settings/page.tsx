@@ -42,10 +42,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
-  name: z.string().min(3, "Account holder name is required.").optional(),
+  name: z.string().min(3, "Account holder name is required."),
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format'),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -262,25 +263,14 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
     startReminderTest(async () => {
       try {
         const response = await fetch('/api/cron/send-rent-reminders', {
-          headers: {
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`,
-          }
+          headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}` }
         });
         const result = await response.json();
         if (result.success) {
-          toast({
-            title: "Reminder Test Complete",
-            description: result.message
-          });
-        } else {
-          throw new Error(result.message || 'Cron job failed');
-        }
+          toast({ title: "Reminder Test Complete", description: result.message });
+        } else { throw new Error(result.message || 'Cron job failed'); }
       } catch (error: any) {
-        toast({
-          variant: 'destructive',
-          title: 'Reminder Test Failed',
-          description: error.message || 'Could not complete the rent reminder flow.'
-        });
+        toast({ variant: 'destructive', title: 'Reminder Test Failed', description: error.message || 'Could not complete the rent reminder flow.' });
       }
     });
   }
@@ -377,7 +367,7 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle className="flex items-center gap-2"><Banknote/> Payout Settings</CardTitle>
-                    <CardDescription>Manage your linked bank accounts and UPI IDs to receive rent payments.</CardDescription>
+                    <CardDescription>Manage your linked bank accounts and UPI IDs to receive rent settlements.</CardDescription>
                 </div>
                 <Button onClick={() => setIsPayoutDialogOpen(true)}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Method
@@ -671,9 +661,11 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                             </FormItem>
                         )}
                     />
+                    <FormField control={payoutForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name (as per Bank/PAN)</FormLabel><FormControl><Input placeholder="Enter full legal name" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={payoutForm.control} name="pan" render={({ field }) => (<FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem>)} />
+
                     {payoutMethod === 'bank_account' && (
                         <div className="space-y-4">
-                            <FormField control={payoutForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Account Holder Name</FormLabel><FormControl><Input placeholder="As per bank records" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={payoutForm.control} name="account_number" render={({ field }) => (<FormItem><FormLabel>Bank Account Number</FormLabel><FormControl><Input placeholder="Enter bank account number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="Enter IFSC code" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         </div>

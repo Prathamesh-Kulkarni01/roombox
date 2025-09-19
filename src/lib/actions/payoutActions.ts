@@ -9,10 +9,11 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
-  name: z.string().min(3, "Account holder name is required.").optional(),
+  name: z.string().min(3, "Account holder name is required."),
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -29,7 +30,8 @@ const payoutAccountSchema = z.object({
 export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
     const validation = payoutAccountSchema.safeParse(accountDetails);
     if (!validation.success) {
-        return { success: false, error: "Invalid account details provided." };
+        const firstError = validation.error.errors[0];
+        return { success: false, error: `${firstError.path.join('.')}: ${firstError.message}` };
     }
     const data = validation.data;
 
@@ -45,15 +47,10 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
         
-        const res = await fetch(`${appUrl}/api/payout/methods`, {
+        const res = await fetch(`${appUrl}/api/payout/onboard`, {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                owner,
-                accountDetails: data
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ owner, accountDetails: data })
         });
 
         const result = await res.json();
@@ -62,7 +59,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         }
 
         const newMethod: PaymentMethod = {
-          id: result.accountId, // This is now the Linked Account ID (acc_...)
+          id: result.accountId,
           type: data.payoutMethod,
           name: data.payoutMethod === 'vpa' ? data.vpa! : data.name!,
           isActive: true,
@@ -93,11 +90,6 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
 export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
     try {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
-        // Note: Razorpay does not allow deactivating/deleting linked accounts via API for compliance.
-        // We will just mark it as inactive in our system.
-        // A real implementation might require a support flow to properly delete from Razorpay.
-
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         
@@ -111,20 +103,17 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         const updatedMethods = methods.filter(m => {
             if (m.id === methodId) {
                 wasPrimary = m.isPrimary;
-                // return { ...m, isActive: false };
-                return false; // Remove from array
+                return false;
             }
             return true;
         });
         
-        // If the deactivated one was primary, make the next active one primary.
         if (wasPrimary && updatedMethods.length > 0) {
             const nextPrimary = updatedMethods.find(m => m.isActive);
             if (nextPrimary) {
                 const index = updatedMethods.findIndex(m => m.id === nextPrimary.id);
                 updatedMethods[index].isPrimary = true;
             } else if (updatedMethods.length > 0) {
-                // If no other is active, just make the first one primary
                 updatedMethods[0].isPrimary = true;
             }
         }
