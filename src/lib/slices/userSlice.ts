@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
@@ -171,6 +172,25 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         }
 
         return rejectWithValue('Could not initialize user');
+    }
+);
+
+export const updateUserKycDetails = createAsyncThunk<User, any, { state: RootState }>(
+    'user/updateKycDetails',
+    async (kycData, { getState, rejectWithValue }) => {
+        const { currentUser } = (getState() as RootState).user;
+        if (!currentUser) return rejectWithValue('User not found.');
+
+        const userDocRef = doc(db, 'users', currentUser.id);
+        
+        const kycUpdate = {
+            'subscription.kycDetails': kycData,
+        };
+
+        await updateDoc(userDocRef, kycUpdate);
+        
+        const updatedDoc = await getDoc(userDocRef);
+        return updatedDoc.data() as User;
     }
 );
 
@@ -350,11 +370,12 @@ const userSlice = createSlice({
                 if(action.payload.role === 'owner') {
                     state.currentPlan = plans.pro; // Trial plan is a variant of pro
                 }
+            })
+            .addCase(updateUserKycDetails.fulfilled, (state, action) => {
+                state.currentUser = action.payload;
             });
     },
 });
 
 export const { setCurrentUser, updateUserPlan } = userSlice.actions;
 export default userSlice.reducer;
-
-    

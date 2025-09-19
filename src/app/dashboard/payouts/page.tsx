@@ -8,9 +8,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { useToast } from '@/hooks/use-toast';
-import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod, OnboardingStep, OnboardingStatus } from '@/lib/types';
+import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
 import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from '@/lib/actions/payoutActions';
-import { setCurrentUser } from '@/lib/slices/userSlice';
+import { setCurrentUser, updateUserKycDetails } from '@/lib/slices/userSlice';
 import { format } from 'date-fns';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -25,7 +25,6 @@ import { Badge } from '@/components/ui/badge';
 import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2, Edit, UserCheck, PartyPopper, Contact, Link as LinkIcon, HandCoins, AlertCircle, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 
 const kycSchema = z.object({
     legal_business_name: z.string().min(2, "Business name is required."),
@@ -118,6 +117,17 @@ export default function PayoutsPage() {
             }
         });
     };
+    
+    const handleSaveKyc = (data: KycFormValues) => {
+        startSavingTransition(async () => {
+            try {
+                const result = await dispatch(updateUserKycDetails(data)).unwrap();
+                toast({ title: 'Success', description: 'Your KYC information has been saved.' });
+            } catch (error: any) {
+                 toast({ variant: 'destructive', title: 'Save Failed', description: error.message || 'Could not save KYC information.' });
+            }
+        })
+    }
 
     const handleSetPrimary = (methodId: string) => {
         if (!currentUser) return;
@@ -156,12 +166,12 @@ export default function PayoutsPage() {
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader>
-                    <CardTitle>KYC &amp; Business Information</CardTitle>
-                    <CardDescription>This information is required by Razorpay to create your sub-merchant account for payouts.</CardDescription>
-                </CardHeader>
-                <Form {...kycForm}>
-                    <form>
+                 <Form {...kycForm}>
+                    <form onSubmit={kycForm.handleSubmit(handleSaveKyc)}>
+                        <CardHeader>
+                            <CardTitle>KYC &amp; Business Information</CardTitle>
+                            <CardDescription>This information is required by Razorpay to create your sub-merchant account for payouts.</CardDescription>
+                        </CardHeader>
                         <CardContent className="space-y-6">
                              <div className="grid md:grid-cols-2 gap-6">
                                 <FormField control={kycForm.control} name="legal_business_name" render={({ field }) => (
@@ -193,6 +203,12 @@ export default function PayoutsPage() {
                                 </div>
                             </div>
                         </CardContent>
+                        <CardFooter>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                Save KYC Information
+                            </Button>
+                        </CardFooter>
                     </form>
                 </Form>
             </Card>
