@@ -37,8 +37,6 @@ const payoutAccountSchema = z.object({
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
-  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format').optional(),
-  dob: z.string().optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -96,22 +94,22 @@ export default function PayoutsPage() {
                 
                 const submissionData = { 
                     ...data, 
-                    pan: kycData.pan_number,
+                    pan_number: kycData.pan_number,
                     dob: kycData.dob,
+                    legal_business_name: kycData.legal_business_name,
                     name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) 
                 };
 
                 const result = await addPayoutMethod(currentUser.id, submissionData);
+                
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Linked!', description: 'Your new payout account has been successfully added.' });
                     setIsPayoutDialogOpen(false);
                     payoutForm.reset({ payoutMethod: 'vpa' });
-                } else {
-                    throw new Error(result.error || 'Failed to link account.');
                 }
             } catch (e: any) {
-                toast({ variant: 'destructive', title: 'Failed to Link Account', description: e?.message || 'An unexpected error occurred.' });
+                toast({ variant: 'destructive', title: 'Failed to Link Account', description: e.message || 'An unexpected error occurred.' });
             }
         });
     };
@@ -121,10 +119,8 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             try {
                 const result = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
-                if (result.success && result.updatedUser) {
-                    dispatch(setCurrentUser(result.updatedUser));
-                    toast({ title: 'Primary Account Updated' });
-                }
+                dispatch(setCurrentUser(result.updatedUser));
+                toast({ title: 'Primary Account Updated' });
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
             }
@@ -136,10 +132,8 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             try {
                 const result = await deletePayoutMethod({ ownerId: currentUser.id, methodId: methodToUnlink.id });
-                if (result.success && result.updatedUser) {
-                    dispatch(setCurrentUser(result.updatedUser));
-                    toast({ title: 'Account Unlinked' });
-                }
+                dispatch(setCurrentUser(result.updatedUser));
+                toast({ title: 'Account Unlinked' });
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message });
             } finally {

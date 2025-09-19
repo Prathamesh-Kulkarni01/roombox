@@ -225,9 +225,8 @@ export const togglePremiumFeature = createAsyncThunk(
             const result = await togglePremiumFeatureAction({ userId: currentUser.id, feature, enabled });
             if (result.success && result.updatedUser) {
                 return { feature, enabled, updatedUser: result.updatedUser as User };
-            } else {
-                throw new Error(result.error);
             }
+            throw new Error(result.error);
         } catch (error: any) {
              return rejectWithValue(error.message);
         }
