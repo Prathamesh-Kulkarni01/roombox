@@ -31,6 +31,7 @@ const kycSchema = z.object({
     business_type: z.enum(['proprietorship', 'partnership', 'private_limited', 'public_limited', 'llp', 'trust', 'society', 'not_for_profit']),
     pan_number: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format'),
     gst_number: z.string().optional(),
+    phone: z.string().regex(/^\d{10}$/, "A valid 10-digit phone number is required."),
     street1: z.string().min(3, 'Address is required.'),
     street2: z.string().optional(),
     city: z.string().min(2, 'City is required.'),
@@ -74,6 +75,7 @@ export default function PayoutsPage() {
         defaultValues: {
             legal_business_name: currentUser?.name || '',
             business_type: 'proprietorship',
+            phone: currentUser?.phone || ''
         }
     });
 
@@ -151,7 +153,6 @@ export default function PayoutsPage() {
         });
     };
     
-    // This timeline logic is now simplified as v2 accounts handle most steps implicitly
     const onboardingComplete = !!currentUser?.subscription?.payoutMethods?.some(m => m.isActive && m.razorpay_fund_account_id);
 
     return (
@@ -162,19 +163,21 @@ export default function PayoutsPage() {
                     <CardDescription>This information is required by Razorpay to create your sub-merchant account for payouts.</CardDescription>
                 </CardHeader>
                 <Form {...kycForm}>
-                    <form onSubmit={kycForm.handleSubmit(handleKycSubmit)}>
+                    <form>
                         <CardContent className="space-y-6">
-                            <div className="grid md:grid-cols-2 gap-6">
+                             <div className="grid md:grid-cols-2 gap-6">
                                 <FormField control={kycForm.control} name="legal_business_name" render={({ field }) => (
                                     <FormItem><FormLabel>Legal Business Name</FormLabel><FormControl><Input placeholder="Your full name as per PAN" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
-                                <FormField control={kycForm.control} name="business_type" render={({ field }) => (
-                                    <FormItem><FormLabel>Business Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select business type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="proprietorship">Proprietorship</SelectItem><SelectItem value="partnership">Partnership</SelectItem><SelectItem value="private_limited">Private Limited</SelectItem><SelectItem value="public_limited">Public Limited</SelectItem><SelectItem value="llp">LLP</SelectItem><SelectItem value="trust">Trust</SelectItem><SelectItem value="society">Society</SelectItem><SelectItem value="not_for_profit">Not for Profit</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                <FormField control={kycForm.control} name="phone" render={({ field }) => (
+                                    <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="Your 10-digit mobile number" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <FormField control={kycForm.control} name="pan_number" render={({ field }) => ( <FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                <FormField control={kycForm.control} name="gst_number" render={({ field }) => ( <FormItem><FormLabel>GST Number (Optional)</FormLabel><FormControl><Input placeholder="Enter 15-digit GSTIN" {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                                <FormField control={kycForm.control} name="business_type" render={({ field }) => (
+                                    <FormItem><FormLabel>Business Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select business type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="proprietorship">Proprietorship</SelectItem><SelectItem value="partnership">Partnership</SelectItem><SelectItem value="private_limited">Private Limited</SelectItem><SelectItem value="public_limited">Public Limited</SelectItem><SelectItem value="llp">LLP</SelectItem><SelectItem value="trust">Trust</SelectItem><SelectItem value="society">Society</SelectItem><SelectItem value="not_for_profit">Not for Profit</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                )}/>
                             </div>
                              <div>
                                 <h3 className="text-base font-medium mb-2">Registered Business Address</h3>

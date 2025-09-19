@@ -20,6 +20,7 @@ const payoutAccountSchema = z.object({
   business_type: z.enum(['proprietorship', 'partnership', 'private_limited', 'public_limited', 'llp', 'trust', 'society', 'not_for_profit']),
   pan_number: z.string(),
   gst_number: z.string().optional(),
+  phone: z.string(),
   street1: z.string(),
   street2: z.string().optional(),
   city: z.string(),
@@ -27,24 +28,66 @@ const payoutAccountSchema = z.object({
   postal_code: z.string(),
 });
 
-async function createOrGetRazorpayAccount(owner: User, details: z.infer<typeof payoutAccountSchema>): Promise<string> {
-    const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
-    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      throw new Error("Server misconfiguration: Razorpay keys missing.");
+
+const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
+if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+  console.error("CRITICAL: Razorpay keys are missing in environment variables.");
+}
+
+const razorpayApi = axios.create({
+    baseURL: 'https://api.razorpay.com/v2',
+    auth: {
+        username: RAZORPAY_KEY_ID!,
+        password: RAZORPAY_KEY_SECRET!,
+    }
+});
+
+const razorpayV1Api = axios.create({
+    baseURL: 'https://api.razorpay.com/v1',
+     auth: {
+        username: RAZORPAY_KEY_ID!,
+        password: RAZORPAY_KEY_SECRET!,
+    }
+});
+
+
+async function createOrGetContact(owner: User, details: z.infer<typeof payoutAccountSchema>) {
+    if (owner.subscription?.razorpay_contact_id) {
+        return { id: owner.subscription.razorpay_contact_id, isNew: false };
     }
     
-    if (owner.subscription?.razorpay_account_id) {
-        return owner.subscription.razorpay_account_id;
-    }
+    try {
+        const response = await razorpayApi.post('/contacts', {
+            name: owner.name,
+            email: owner.email,
+            contact: details.phone,
+            type: 'vendor',
+            reference_id: owner.id,
+        });
+        
+        await getAdminDb().collection('users').doc(owner.id).update({
+            'subscription.razorpay_contact_id': response.data.id
+        });
 
+        return { id: response.data.id, isNew: true };
+    } catch(error: any) {
+        console.error("Error creating Razorpay contact:", error.response?.data);
+        throw new Error(`Contact creation failed: ${error.response?.data?.error?.description}`);
+    }
+}
+
+async function createLinkedAccount(owner: User, contactId: string, details: z.infer<typeof payoutAccountSchema>) {
+    if (owner.subscription?.razorpay_account_id) {
+        return { id: owner.subscription.razorpay_account_id, isNew: false };
+    }
+    
     const payload = {
-        email: owner.email,
-        phone: owner.phone,
+        email: owner.email!,
         type: "route",
-        reference_id: owner.id,
+        reference_id: `owner_${owner.id}`,
+        contact_id: contactId,
         legal_business_name: details.legal_business_name,
         business_type: details.business_type,
-        contact_name: owner.name,
         profile: {
             category: "services",
             subcategory: "real_estate",
@@ -59,57 +102,75 @@ async function createOrGetRazorpayAccount(owner: User, details: z.infer<typeof p
                 }
             }
         },
-        legal_info: {
-            pan: details.pan_number,
-            gst: details.gst_number,
-        }
     };
 
     try {
-        const response = await axios.post('https://api.razorpay.com/v2/accounts', payload, {
-            auth: { username: RAZORPAY_KEY_ID, password: RAZORPAY_KEY_SECRET },
-        });
+        const response = await razorpayApi.post('/accounts', payload);
         const accountId = response.data.id;
         
         await getAdminDb().collection('users').doc(owner.id).update({
             'subscription.razorpay_account_id': accountId
         });
+        return { id: accountId, isNew: true };
 
-        return accountId;
     } catch (error: any) {
-        console.error("Failed to create Razorpay v2 account:", error.response?.data);
-        throw new Error(`Account creation failed: ${error.response?.data?.error?.description}`);
+        console.error("Error creating Razorpay Linked Account:", error.response?.data);
+        throw new Error(`Linked Account creation failed: ${error.response?.data?.error?.description}`);
     }
 }
 
-async function createFundAccount(accountId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
-    const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
-    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-      throw new Error("Server misconfiguration: Razorpay keys missing.");
+async function createStakeholder(accountId: string, details: z.infer<typeof payoutAccountSchema>) {
+     const payload = {
+        name: details.legal_business_name,
+        email: details.email,
+        phone: {
+            primary: details.phone
+        },
+        relationship: {
+            director: true,
+            executive: true
+        },
+        percentage_ownership: 100,
+        addresses: {
+            residential: {
+                street1: details.street1,
+                street2: details.street2,
+                city: details.city,
+                state: details.state,
+                postal_code: details.postal_code,
+                country: "IN"
+            }
+        },
+        kyc: {
+            pan: details.pan_number
+        }
+    };
+    try {
+        const response = await razorpayApi.post(`/accounts/${accountId}/stakeholders`, payload);
+        return response.data;
+    } catch (error: any) {
+        console.error("Error creating Razorpay Stakeholder:", error.response?.data);
+        throw new Error(`Stakeholder creation failed: ${error.response?.data?.error?.description}`);
     }
-    
-    const isVpa = accountDetails.payoutMethod === 'vpa';
+}
 
+
+async function createFundAccount(accountId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
+    const isVpa = accountDetails.payoutMethod === 'vpa';
     const payload: any = {
       account_type: isVpa ? 'vpa' : 'bank_account',
       ...(isVpa ? 
         { vpa: { address: accountDetails.vpa } } : 
         { bank_account: { name: accountDetails.name, ifsc: accountDetails.ifsc, account_number: accountDetails.account_number } }
-      ),
-      contact: {
-        name: accountDetails.name || accountDetails.legal_business_name
-      }
+      )
     };
 
     try {
-        const url = `https://api.razorpay.com/v1/accounts/${accountId}/fund_accounts`;
-        const response = await axios.post(url, payload, {
-             auth: { username: RAZORPAY_KEY_ID, password: RAZORPAY_KEY_SECRET }
-        });
+        const response = await razorpayV1Api.post(`/fund_accounts`, { ...payload, account_id: accountId });
         return response.data;
     } catch (error: any) {
-        console.error("Failed to create Razorpay fund account:", error.response?.data);
-        throw new Error(`Could not link payout account. Reason: ${error.response?.data?.error?.description || 'Unknown error'}`);
+        console.error("Error creating Razorpay Fund Account:", error.response?.data);
+        throw new Error(`Fund Account creation failed: ${error.response?.data?.error?.description}`);
     }
 }
 
@@ -119,10 +180,19 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     
     try {
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists) throw new Error("Owner not found.");
-        const owner = ownerDoc.data() as User;
-        
-        const accountId = await createOrGetRazorpayAccount(owner, accountDetails);
+        if (!ownerDoc.exists()) throw new Error("Owner not found.");
+        const owner = { id: ownerId, ...ownerDoc.data() } as User;
+
+        // Step 1: Create Contact
+        const { id: contactId } = await createOrGetContact(owner, accountDetails);
+
+        // Step 2: Create Linked Account
+        const { id: accountId } = await createLinkedAccount(owner, contactId, accountDetails);
+
+        // Step 3: Create Stakeholder
+        await createStakeholder(accountId, accountDetails);
+
+        // Step 4: Create Fund Account
         const fundAccount = await createFundAccount(accountId, accountDetails);
         
         const newMethod: PaymentMethod = {
@@ -147,7 +217,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
     } catch (error: any) {
         console.error("Error in addPayoutMethod flow:", error.message);
-        throw error;
+        throw error; // Re-throw for client-side handling
     }
 }
 
@@ -166,10 +236,9 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
 
         if (methodToDeactivate?.razorpay_fund_account_id) { 
             try {
-                 await axios.patch(
-                    `https://api.razorpay.com/v1/fund_accounts/${methodToDeactivate.razorpay_fund_account_id}`,
-                    { active: false },
-                    { auth: { username: process.env.RAZORPAY_KEY_ID!, password: process.env.RAZORPAY_KEY_SECRET! } }
+                 await razorpayV1Api.patch(
+                    `/fund_accounts/${methodToDeactivate.razorpay_fund_account_id}`,
+                    { active: false }
                  );
             } catch (razorpayError: any) {
                 console.warn("Could not deactivate fund account on Razorpay, may already be inactive:", razorpayError.response?.data);
