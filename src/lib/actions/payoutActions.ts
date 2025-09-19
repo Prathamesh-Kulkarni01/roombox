@@ -42,6 +42,13 @@ const razorpayV1Api = axios.create({
     }
 });
 
+const razorpayV2Api = axios.create({
+    baseURL: 'https://api.razorpay.com/v2',
+     auth: {
+        username: RAZORPAY_KEY_ID!,
+        password: RAZORPAY_KEY_SECRET!,
+    }
+});
 
 async function createOrGetContact(owner: User, details: z.infer<typeof payoutAccountSchema>) {
     if (owner.subscription?.razorpay_contact_id) {
@@ -68,10 +75,91 @@ async function createOrGetContact(owner: User, details: z.infer<typeof payoutAcc
     }
 }
 
-async function createFundAccount(contactId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
+async function createLinkedAccount(owner: User, details: z.infer<typeof payoutAccountSchema>) {
+    if (owner.subscription?.razorpay_account_id) {
+        return { id: owner.subscription.razorpay_account_id, isNew: false };
+    }
+
+    try {
+        const response = await razorpayV2Api.post('/accounts', {
+            email: owner.email,
+            phone: details.phone,
+            type: 'route',
+            reference_id: owner.id,
+            legal_business_name: details.legal_business_name,
+            business_type: details.business_type,
+            contact_name: owner.name,
+            profile: {
+                category: "services",
+                subcategory: "renting_and_leasing",
+                addresses: {
+                    registered: {
+                        street1: details.street1,
+                        street2: details.street2 || undefined,
+                        city: details.city,
+                        state: details.state,
+                        postal_code: details.postal_code,
+                        country: "IN"
+                    }
+                }
+            },
+            legal_info: {
+                pan: details.pan_number,
+                gst: details.gst_number || undefined,
+            }
+        });
+
+        await getAdminDb().collection('users').doc(owner.id).update({
+            'subscription.razorpay_account_id': response.data.id
+        });
+        
+        return { id: response.data.id, isNew: true };
+    } catch(error: any) {
+        console.error("Error creating Razorpay Linked Account:", error.response?.data);
+        throw new Error(`Linked Account creation failed: ${error.response?.data?.error?.description}`);
+    }
+}
+
+async function createStakeholder(accountId: string, details: z.infer<typeof payoutAccountSchema>) {
+    try {
+        await razorpayV2Api.post(`/accounts/${accountId}/stakeholders`, {
+            name: details.legal_business_name,
+            email: details.email,
+            phone: {
+                primary: details.phone,
+            },
+             relationship: {
+                director: true,
+                executive: true
+            },
+            percentage_ownership: 100,
+            addresses: {
+                residential: {
+                    street: details.street1,
+                    city: details.city,
+                    state: details.state,
+                    postal_code: details.postal_code,
+                    country: 'IN',
+                }
+            },
+            kyc: {
+                pan: details.pan_number
+            }
+        });
+    } catch (error: any) {
+        // Stakeholder might already exist, which is not always an error
+        if (error.response?.data?.error?.code === 'BAD_REQUEST_ERROR' && error.response?.data?.error?.description.includes('already exists')) {
+            console.log("Stakeholder already exists for account:", accountId);
+            return;
+        }
+        console.error("Error creating Razorpay Stakeholder:", error.response?.data);
+        throw new Error(`Stakeholder creation failed: ${error.response?.data?.error?.description}`);
+    }
+}
+
+async function createFundAccount(accountId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
     const isVpa = accountDetails.payoutMethod === 'vpa';
     const payload: any = {
-      contact_id: contactId,
       account_type: isVpa ? 'vpa' : 'bank_account',
       ...(isVpa ? 
         { vpa: { address: accountDetails.vpa } } : 
@@ -80,7 +168,7 @@ async function createFundAccount(contactId: string, accountDetails: z.infer<type
     };
 
     try {
-        const response = await razorpayV1Api.post(`/fund_accounts`, payload);
+        const response = await razorpayV2Api.post(`/accounts/${accountId}/fund_accounts`, payload);
         return response.data;
     } catch (error: any) {
         console.error("Error creating Razorpay Fund Account:", error.response?.data);
@@ -94,17 +182,19 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     
     try {
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists()) throw new Error("Owner not found.");
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
         const owner = { id: ownerId, ...ownerDoc.data() } as User;
 
         const { id: contactId } = await createOrGetContact(owner, accountDetails);
-        const fundAccount = await createFundAccount(contactId, accountDetails);
+        const { id: accountId } = await createLinkedAccount(owner, accountDetails);
+        await createStakeholder(accountId, accountDetails);
+        const fundAccount = await createFundAccount(accountId, accountDetails);
         
         const newMethod: PaymentMethod = {
-          id: contactId, // Using contact ID as our internal reference
+          id: accountId, // Use Razorpay Account ID as our internal reference now
           razorpay_fund_account_id: fundAccount.id,
           name: accountDetails.name || accountDetails.vpa!,
-          isActive: true,
+          isActive: fundAccount.active,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),
           createdAt: new Date().toISOString(),
           ...(accountDetails.payoutMethod === 'vpa' ? { 
@@ -132,7 +222,7 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
     
     try {
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists()) throw new Error("Owner not found.");
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
         
         const owner = ownerDoc.data() as User;
         let methods = owner.subscription?.payoutMethods || [];
@@ -171,7 +261,7 @@ export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: s
 
     try {
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists()) throw new Error("Owner not found.");
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
 
         const owner = ownerDoc.data() as User;
         const methods = owner.subscription?.payoutMethods || [];
@@ -190,3 +280,5 @@ export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: s
         throw error;
     }
 }
+
+    
