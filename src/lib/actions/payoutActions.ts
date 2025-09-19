@@ -20,8 +20,6 @@ const payoutAccountSchema = z.object({
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
-  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format').optional(),
-  dob: z.string().optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -56,6 +54,60 @@ async function validateVPA(vpa: string): Promise<PaymentMethodValidationResult> 
     }
 }
 
+async function createOrGetContact(owner: User): Promise<{ id: string }> {
+    if (owner.subscription?.razorpay_contact_id) {
+        try {
+            // Check if contact actually exists on Razorpay
+            await razorpay.contacts.fetch(owner.subscription.razorpay_contact_id);
+            return { id: owner.subscription.razorpay_contact_id };
+        } catch (error) {
+            // Contact doesn't exist on Razorpay, proceed to create a new one
+        }
+    }
+    try {
+        const contactPayload = {
+            name: owner.name,
+            email: owner.email!,
+            type: 'vendor' as 'vendor',
+            reference_id: owner.id,
+        };
+        const contact = await razorpay.contacts.create(contactPayload);
+        
+        // Update Firestore with the new contact ID
+        const adminDb = await getAdminDb();
+        const ownerDocRef = adminDb.collection('users').doc(owner.id);
+        await ownerDocRef.update({ 'subscription.razorpay_contact_id': contact.id });
+        
+        return { id: contact.id };
+    } catch (error: any) {
+        console.error("Failed to create Razorpay contact:", error);
+        throw new Error('Failed to create contact on payment gateway.');
+    }
+}
+
+async function createFundAccount(contactId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
+    try {
+        const fundAccountPayload: any = {
+            contact_id: contactId,
+            account_type: accountDetails.payoutMethod,
+            ...(accountDetails.payoutMethod === 'vpa' && { vpa: { address: accountDetails.vpa! } }),
+            ...(accountDetails.payoutMethod === 'bank_account' && {
+                bank_account: {
+                    name: accountDetails.name!,
+                    ifsc: accountDetails.ifsc!,
+                    account_number: accountDetails.account_number!,
+                }
+            })
+        };
+        const fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
+        return fundAccount;
+    } catch (error: any) {
+        console.error("Failed to create Razorpay fund account:", error);
+        throw new Error(error.error?.description || 'Failed to create fund account on payment gateway.');
+    }
+}
+
+
 export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
     const validation = payoutAccountSchema.safeParse(accountDetails);
     if (!validation.success) {
@@ -66,15 +118,15 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
     const adminDb = await getAdminDb();
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
-    let tempMethodId: string | null = null;
+    let tempMethodIdForErrorHandling: string | null = null;
     
     const updateErrorAndThrow = async (errorStep: string, errorMessage: string) => {
-        if (tempMethodId) {
+        if (tempMethodIdForErrorHandling) {
              const ownerDoc = await ownerDocRef.get();
             if (ownerDoc.exists()) {
                 const owner = ownerDoc.data() as User;
                 const methods = owner.subscription?.payoutMethods || [];
-                const updatedMethods = methods.map(m => m.id === tempMethodId ? { ...m, onboardingError: errorStep } : m);
+                const updatedMethods = methods.map(m => m.id === tempMethodIdForErrorHandling ? { ...m, onboardingError: errorStep } : m);
                 await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
             }
         }
@@ -83,7 +135,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
     
     try {
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists) return { success: false, error: "Owner not found." };
+        if (!ownerDoc.exists()) return { success: false, error: "Owner not found." };
         const owner = ownerDoc.data() as User;
 
         if (data.payoutMethod === 'vpa' && data.vpa) {
@@ -93,39 +145,18 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
             }
         }
 
-        let contactId = owner.subscription?.razorpay_contact_id;
-        if (!contactId) {
-             const contactPayload = {
-                name: owner.name,
-                email: owner.email!,
-                type: 'vendor' as 'vendor',
-                reference_id: owner.id,
-            };
-            const contact = await razorpay.contacts.create(contactPayload);
-            contactId = contact.id;
-            await ownerDocRef.update({ 'subscription.razorpay_contact_id': contactId });
-        }
+        // STEP 1: Create or Get Contact
+        const contact = await createOrGetContact(owner);
 
-        const fundAccountPayload: any = {
-            contact_id: contactId!,
-            account_type: data.payoutMethod,
-            ...(data.payoutMethod === 'vpa' && { vpa: { address: data.vpa! } }),
-            ...(data.payoutMethod === 'bank_account' && {
-                bank_account: {
-                    name: data.name!,
-                    ifsc: data.ifsc!,
-                    account_number: data.account_number!,
-                }
-            })
-        };
-
-        const fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
-
+        // STEP 2: Create Fund Account
+        const fundAccount = await createFundAccount(contact.id, data);
+        
+        // STEP 3: Store the new method in Firestore
         const newMethod: PaymentMethod = {
-          id: fundAccount.id, // Use fund account id as the unique method id
+          id: fundAccount.id,
           razorpay_fund_account_id: fundAccount.id,
           name: data.name || data.vpa!,
-          isActive: true,
+          isActive: fundAccount.active,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),
           createdAt: new Date().toISOString(),
           ...(data.payoutMethod === 'vpa' ? { 
@@ -151,7 +182,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
     } catch (error: any) {
         console.error('Error in addPayoutMethod action:', error);
-        return { success: false, error: error.error?.description || error.message || "Failed to link payout account."};
+        return { success: false, error: error.message || "Failed to link payout account."};
     }
 }
 
@@ -161,7 +192,7 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists) throw new Error("Owner not found.");
+        if (!ownerDoc.exists()) throw new Error("Owner not found.");
         
         const owner = ownerDoc.data() as User;
         let methods = owner.subscription?.payoutMethods || [];
@@ -198,7 +229,7 @@ export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: s
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists) throw new Error("Owner not found.");
+        if (!ownerDoc.exists()) throw new Error("Owner not found.");
 
         const owner = ownerDoc.data() as User;
         const methods = owner.subscription?.payoutMethods || [];
