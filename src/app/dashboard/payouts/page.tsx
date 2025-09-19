@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import React, { useState, useTransition } from 'react';
@@ -11,8 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
 import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from '@/lib/actions/payoutActions';
 import { setCurrentUser } from '@/lib/slices/userSlice';
+import { format } from 'date-fns';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -21,7 +21,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
-import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2 } from 'lucide-react';
+import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2, Edit } from 'lucide-react';
+
+const kycSchema = z.object({
+    legal_business_name: z.string().min(2, "Business name is required."),
+    pan_number: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format'),
+    dob: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date" }),
+});
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
@@ -29,18 +35,21 @@ const payoutAccountSchema = z.object({
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
-  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10, 'Invalid PAN format').optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
     }
-    return true; // For VPA, these bank-specific fields are not needed.
+    if (data.payoutMethod === 'vpa') {
+        return !!data.vpa;
+    }
+    return false;
 }, {
-    message: 'Bank account requires Name, Account Number, and IFSC.',
-    path: ['account_number'],
+    message: 'Please fill in the required fields for the selected payout method.',
+    path: ['payoutMethod'],
 });
 
 
+type KycFormValues = z.infer<typeof kycSchema>;
 type PayoutAccountFormValues = z.infer<typeof payoutAccountSchema>;
 
 export default function PayoutsPage() {
@@ -51,12 +60,26 @@ export default function PayoutsPage() {
     const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
     const [methodToUnlink, setMethodToUnlink] = useState<PaymentMethod | null>(null);
 
+    const kycForm = useForm<KycFormValues>({
+        resolver: zodResolver(kycSchema),
+        defaultValues: {
+            legal_business_name: currentUser?.name || 'Prathamesh Kulkarni', // Prefilled
+            pan_number: 'ABCDE1234F', // Test data
+            dob: format(new Date('1990-01-01'), 'yyyy-MM-dd'), // Test data
+        }
+    });
+
     const payoutForm = useForm<PayoutAccountFormValues>({
         resolver: zodResolver(payoutAccountSchema),
         defaultValues: { payoutMethod: 'vpa' }
     });
 
     const payoutMethod = payoutForm.watch('payoutMethod');
+    
+    const handleKycSubmit = (data: KycFormValues) => {
+        // In a real scenario, this would trigger an update to the user's KYC/stakeholder info on Razorpay
+        toast({ title: "KYC Info Saved", description: "Your business and KYC information has been updated." });
+    }
 
     const handlePayoutAccountSubmit = (data: PayoutAccountFormValues) => {
         startSavingTransition(async () => {
@@ -119,9 +142,39 @@ export default function PayoutsPage() {
     return (
         <div className="space-y-6">
             <Card>
+                <CardHeader>
+                    <CardTitle>KYC &amp; Business Information</CardTitle>
+                    <CardDescription>This information is required by Razorpay to verify your identity and process payouts.</CardDescription>
+                </CardHeader>
+                <Form {...kycForm}>
+                    <form onSubmit={kycForm.handleSubmit(handleKycSubmit)}>
+                        <CardContent className="space-y-4">
+                            <FormField control={kycForm.control} name="legal_business_name" render={({ field }) => (
+                                <FormItem><FormLabel>Legal Business Name</FormLabel><FormControl><Input placeholder="Your full name as per PAN" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <FormField control={kycForm.control} name="pan_number" render={({ field }) => (
+                                    <FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                 <FormField control={kycForm.control} name="dob" render={({ field }) => (
+                                    <FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                            </div>
+                        </CardContent>
+                        <CardFooter>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Edit className="mr-2 h-4 w-4"/>}
+                                Save KYC Details
+                            </Button>
+                        </CardFooter>
+                    </form>
+                </Form>
+            </Card>
+
+            <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle className="flex items-center gap-2">Payout Settings</CardTitle>
+                        <CardTitle className="flex items-center gap-2">Payout Methods</CardTitle>
                         <CardDescription>Manage your linked bank accounts and UPI IDs to receive rent settlements.</CardDescription>
                     </div>
                     <Button onClick={() => setIsPayoutDialogOpen(true)}>
@@ -188,8 +241,6 @@ export default function PayoutsPage() {
                             {payoutMethod === 'bank_account' && (
                                 <FormField control={payoutForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Full Name (as per Bank/PAN)</FormLabel><FormControl><Input placeholder="Enter full legal name" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             )}
-                             <FormField control={payoutForm.control} name="pan" render={({ field }) => (<FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem>)} />
-
                             {payoutMethod === 'bank_account' && (
                                 <div className="space-y-4">
                                     <FormField control={payoutForm.control} name="account_number" render={({ field }) => (<FormItem><FormLabel>Bank Account Number</FormLabel><FormControl><Input placeholder="Enter bank account number" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -233,3 +284,4 @@ export default function PayoutsPage() {
         </div>
     );
 }
+
