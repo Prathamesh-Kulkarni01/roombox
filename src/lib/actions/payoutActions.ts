@@ -253,7 +253,7 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         console.error("Error in deletePayoutMethod", error);
         throw error;
     }
-}
+  }
 
 export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }) {
     const adminDb = await getAdminDb();
