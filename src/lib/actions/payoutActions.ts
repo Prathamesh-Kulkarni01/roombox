@@ -116,7 +116,7 @@ async function createFundAccount(linkedAccountId: string, accountDetails: z.infe
     }
 }
 
-export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>): Promise<{ success: boolean; updatedUser?: User }> {
+export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>): Promise<{ success: boolean; updatedUser: User }> {
     const adminDb = await getAdminDb();
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
     let currentMethodForErrorHandling: Partial<PaymentMethod> = { onboardingError: 'contact' };
@@ -230,3 +230,5 @@ export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: s
         throw error;
     }
 }
+
+    
