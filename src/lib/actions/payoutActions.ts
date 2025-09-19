@@ -228,7 +228,7 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
     
     try {
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists) throw new Error("Owner not found.");
+        if (!ownerDoc.exists()) throw new Error("Owner not found.");
         
         const owner = ownerDoc.data() as User;
         let methods = owner.subscription?.payoutMethods || [];
@@ -267,7 +267,7 @@ export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: s
 
     try {
         const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists) throw new Error("Owner not found.");
+        if (!ownerDoc.exists()) throw new Error("Owner not found.");
 
         const owner = ownerDoc.data() as User;
         const methods = owner.subscription?.payoutMethods || [];
