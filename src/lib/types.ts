@@ -1,4 +1,5 @@
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -87,12 +88,11 @@ export interface Payment {
 
 // Payment Method Types
 export interface PaymentMethodBase {
-  id: string; // This will store the Linked Account ID (acc_...)
+  id: string; // This will store the Fund Account ID (fa_...)
   name: string;
   isActive: boolean;
   isPrimary: boolean;
   createdAt: string;
-  razorpay_fund_account_id: string; // This will store the Fund Account ID (fa_...)
 }
 
 export interface BankPaymentMethod extends PaymentMethodBase {
@@ -115,6 +115,7 @@ export interface PaymentMethodValidationResult {
   isValid: boolean;
   error?: string;
 }
+
 
 export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period';
 
@@ -251,6 +252,7 @@ export interface User {
   subscription?: { // Only owners should have this object
     planId: PlanName;
     status: SubscriptionStatus;
+    razorpay_contact_id?: string;
     razorpay_subscription_id?: string;
     razorpay_payment_id?: string;
     payoutMethods?: PaymentMethod[];

@@ -3,17 +3,23 @@
 
 import { getAdminDb } from '../firebaseAdmin';
 import { z } from 'zod';
-import type { User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '../types';
+import type { User, PaymentMethod, BankPaymentMethod, UpiPaymentMethod, PaymentMethodValidationResult } from '../types';
 import { produce } from 'immer';
 import { FieldValue } from 'firebase-admin/firestore';
+import Razorpay from 'razorpay';
+
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
+
 
 const payoutAccountSchema = z.object({
   payoutMethod: z.enum(['bank_account', 'vpa']),
-  name: z.string().optional(),
+  name: z.string().min(1, "Name is required for bank accounts."),
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
   vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
-  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN format.").min(10),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
@@ -26,6 +32,27 @@ const payoutAccountSchema = z.object({
     message: 'Please fill in the required fields for the selected payout method.',
     path: ['payoutMethod'],
 });
+
+async function validateVPA(vpa: string): Promise<PaymentMethodValidationResult> {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
+    try {
+        const response = await fetch(`${appUrl}/api/validate-vpa`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ vpa })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            return { isValid: false, error: result.error || 'Server error during VPA validation.' };
+        }
+        if (!result.valid) {
+            return { isValid: false, error: result.reason || 'This UPI ID is not valid.' };
+        }
+        return { isValid: true };
+    } catch (e: any) {
+        return { isValid: false, error: e.message || 'Network error during VPA validation.' };
+    }
+}
 
 export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
     const validation = payoutAccountSchema.safeParse(accountDetails);
@@ -45,25 +72,41 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         }
         const owner = ownerDoc.data() as User;
         
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
-        
-        const res = await fetch(`${appUrl}/api/payout/onboard`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ owner, accountDetails: data })
-        });
-
-        const result = await res.json();
-        if (!res.ok || !result.success) {
-            throw new Error(result.error || `Failed to link account. Status: ${res.status}.`);
+        let contactId = owner.subscription?.razorpay_contact_id;
+        if (!contactId) {
+            const contact = await razorpay.contacts.create({
+                name: owner.name,
+                email: owner.email!,
+                type: 'vendor',
+            });
+            contactId = contact.id;
+            await ownerDocRef.update({ 'subscription.razorpay_contact_id': contactId });
         }
         
-        const { linkedAccountId, fundAccountId } = result;
+        let fundAccountPayload: any = {
+            contact_id: contactId,
+            account_type: data.payoutMethod,
+        };
+
+        if (data.payoutMethod === 'vpa') {
+            const validationResult = await validateVPA(data.vpa!);
+            if (!validationResult.isValid) {
+                return { success: false, error: validationResult.error };
+            }
+            fundAccountPayload.vpa = { address: data.vpa };
+        } else {
+            fundAccountPayload.bank_account = {
+                name: data.name,
+                ifsc: data.ifsc,
+                account_number: data.account_number
+            };
+        }
+
+        const fundAccount = await razorpay.fundAccounts.create(fundAccountPayload);
 
         const newMethod: PaymentMethod = {
-          id: linkedAccountId,
-          razorpay_fund_account_id: fundAccountId,
-          name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : owner.name),
+          id: fundAccount.id,
+          name: data.name || data.vpa!,
           isActive: true,
           isPrimary: !(owner.subscription?.payoutMethods?.some(m => m.isPrimary)),
           createdAt: new Date().toISOString(),
@@ -90,12 +133,19 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
 
     } catch (error: any) {
         console.error('Error in addPayoutMethod action:', error);
-        return { success: false, error: error.message || "Failed to link payout account."};
+        return { success: false, error: error.error?.description || error.message || "Failed to link payout account."};
     }
 }
 
 export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }): Promise<{ success: boolean, updatedUser?: User, error?: string }> {
     try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
+        await fetch(`${appUrl}/api/payout/methods/deactivate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fundAccountId: methodId })
+        });
+        
         const adminDb = await getAdminDb();
         const ownerDocRef = adminDb.collection('users').doc(ownerId);
         
@@ -105,23 +155,10 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
         const owner = ownerDoc.data() as User;
         let methods = owner.subscription?.payoutMethods || [];
         
-        let wasPrimary = false;
-        const updatedMethods = methods.filter(m => {
-            if (m.id === methodId) {
-                wasPrimary = m.isPrimary;
-                return false;
-            }
-            return true;
-        });
+        const updatedMethods = methods.filter(m => m.id !== methodId);
         
-        if (wasPrimary && updatedMethods.length > 0) {
-            const nextPrimary = updatedMethods.find(m => m.isActive);
-            if (nextPrimary) {
-                const index = updatedMethods.findIndex(m => m.id === nextPrimary.id);
-                updatedMethods[index].isPrimary = true;
-            } else if (updatedMethods.length > 0) {
-                updatedMethods[0].isPrimary = true;
-            }
+        if (methods.find(m => m.id === methodId)?.isPrimary && updatedMethods.length > 0) {
+            updatedMethods[0].isPrimary = true;
         }
         
         await ownerDocRef.update({
