@@ -1,6 +1,6 @@
 
 import type { Menu, Plan, PlanName, PG } from './types';
-import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen } from 'lucide-react';
+import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen, IndianRupee } from 'lucide-react';
 
 
 export const defaultMenu: Menu = {
@@ -91,6 +91,7 @@ export const navItems: NavItem[] = [
   { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav' },
   { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'guests' },
   { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff' },
+  { href: '/dashboard/payouts', label: 'Payouts', icon: IndianRupee, feature: 'finances' },
   { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website' },
   { href: '/dashboard/seo-generator', label: 'AI SEO', icon: Wand2, feature: 'seo' },
   { href: '/dashboard/training', label: 'Training Center', icon: BookOpen, feature: 'core' },
