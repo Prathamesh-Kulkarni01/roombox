@@ -3,7 +3,7 @@
 
 import { getAdminDb } from '../firebaseAdmin';
 import { z } from 'zod';
-import type { User, PaymentMethod, PaymentMethodValidationResult } from '../types';
+import type { User, PaymentMethod, PaymentMethodValidationResult, OnboardingStepId } from '../types';
 import { produce } from 'immer';
 import { FieldValue } from 'firebase-admin/firestore';
 import axios from 'axios';
@@ -21,25 +21,44 @@ const payoutAccountSchema = z.object({
 });
 
 async function validateVPA(vpa: string): Promise<PaymentMethodValidationResult> {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.URL || 'http://localhost:9002';
+    const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+        throw new Error("Server misconfiguration: Razorpay keys missing.");
+    }
+    
+    // In Razorpay Test Mode, they provide magic VPAs
+    if (process.env.NODE_ENV !== 'production') {
+        if (vpa === 'testsuccess@razorpay') {
+            return { isValid: true };
+        }
+        if (vpa === 'testfailure@razorpay') {
+             return { isValid: false, error: 'Forced failure VPA in test mode' };
+        }
+    }
+
     try {
-        const response = await fetch(`${appUrl}/api/validate-vpa`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ vpa })
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
-            return { isValid: false, error: result.error || 'Server error during VPA validation.' };
-        }
-        if (!result.valid) {
-            return { isValid: false, error: result.reason || 'This UPI ID is not valid.' };
-        }
+        const response = await axios.post(
+            'https://api.razorpay.com/v1/payments/validate/vpa',
+            { vpa },
+            {
+                auth: {
+                    username: RAZORPAY_KEY_ID,
+                    password: RAZORPAY_KEY_SECRET,
+                },
+            }
+        );
+        // If status is 2xx, it's valid
         return { isValid: true };
-    } catch (e: any) {
-        return { isValid: false, error: e.message || 'Network error during VPA validation.' };
+    } catch (error: any) {
+        // Razorpay responds 400 for invalid VPA
+        if (error.response && error.response.status === 400) {
+            return { isValid: false, error: error.response.data?.error?.description || 'This UPI ID is not valid.' };
+        }
+        console.error('VPA validation error:', error);
+        throw new Error('Could not validate UPI ID at the moment.');
     }
 }
+
 
 async function createOrGetContact(owner: User): Promise<{ id: string }> {
     if (owner.subscription?.razorpay_contact_id) {
@@ -116,20 +135,20 @@ async function createFundAccount(linkedAccountId: string, accountDetails: z.infe
     }
 }
 
-export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>): Promise<{ success: boolean; updatedUser: User }> {
+export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
     const adminDb = await getAdminDb();
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
     let currentMethodForErrorHandling: Partial<PaymentMethod> = { onboardingError: 'contact' };
 
     try {
-        const ownerDoc = await ownerDocRef.get();
-        if (!ownerDoc.exists) throw new Error("Owner not found.");
-        const owner = ownerDoc.data() as User;
-
         if (accountDetails.payoutMethod === 'vpa' && accountDetails.vpa) {
             const vpaValidation = await validateVPA(accountDetails.vpa);
             if (!vpaValidation.isValid) throw new Error(vpaValidation.error);
         }
+
+        const ownerDoc = await ownerDocRef.get();
+        if (!ownerDoc.exists) throw new Error("Owner not found.");
+        const owner = ownerDoc.data() as User;
 
         const contact = await createOrGetContact(owner);
         currentMethodForErrorHandling.onboardingError = 'linked_account';
@@ -143,7 +162,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         const fundAccount = await createFundAccount(linkedAccount.id, accountDetails);
         
         const newMethod: PaymentMethod = {
-          id: linkedAccount.id, // Store the Linked Account ID (la_...)
+          id: linkedAccount.id,
           razorpay_fund_account_id: fundAccount.id,
           name: accountDetails.name || accountDetails.vpa!,
           isActive: fundAccount.active,
@@ -158,11 +177,18 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
         };
         
         await ownerDocRef.update({ 'subscription.payoutMethods': FieldValue.arrayUnion(newMethod) });
+        
         const updatedOwnerDoc = await ownerDocRef.get();
         return { success: true, updatedUser: updatedOwnerDoc.data() as User };
 
     } catch (error: any) {
-        await ownerDocRef.update({ 'subscription.payoutMethods': FieldValue.arrayUnion(currentMethodForErrorHandling) });
+        // Attempt to save the error state to Firestore
+        try {
+            await ownerDocRef.update({ 'subscription.payoutMethods': FieldValue.arrayUnion(currentMethodForErrorHandling) });
+        } catch (dbError) {
+            console.error("Failed to even save the error state:", dbError);
+        }
+        // Re-throw the original error to be caught by the client
         throw error;
     }
 }
