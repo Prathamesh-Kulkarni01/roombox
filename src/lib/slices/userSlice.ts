@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
@@ -14,6 +13,7 @@ import { fetchPermissions, updatePermissions } from './permissionsSlice';
 import { isAfter } from 'date-fns';
 import { planPermissionConfig, type RolePermissions } from '../permissions';
 import { togglePremiumFeature as togglePremiumFeatureAction } from '../actions/userActions';
+import { sanitizeObjectForFirebase } from '../utils';
 
 
 interface UserState {
@@ -184,7 +184,7 @@ export const updateUserKycDetails = createAsyncThunk<User, any, { state: RootSta
         const userDocRef = doc(db, 'users', currentUser.id);
         
         const kycUpdate = {
-            'subscription.kycDetails': kycData,
+            'subscription.kycDetails': sanitizeObjectForFirebase(kycData),
         };
 
         await updateDoc(userDocRef, kycUpdate);
@@ -379,3 +379,5 @@ const userSlice = createSlice({
 
 export const { setCurrentUser, updateUserPlan } = userSlice.actions;
 export default userSlice.reducer;
+
+    
