@@ -74,11 +74,24 @@ export default function PayoutsPage() {
     const kycForm = useForm<KycFormValues>({
         resolver: zodResolver(kycSchema),
         defaultValues: {
-            legal_business_name: currentUser?.name || '',
-            business_type: 'proprietorship',
-            phone: currentUser?.phone || ''
+            legal_business_name: currentUser?.subscription?.kycDetails?.legal_business_name || currentUser?.name || '',
+            business_type: currentUser?.subscription?.kycDetails?.business_type || 'proprietorship',
+            phone: currentUser?.subscription?.kycDetails?.phone || currentUser?.phone || '',
+            pan_number: currentUser?.subscription?.kycDetails?.pan_number || '',
+            gst_number: currentUser?.subscription?.kycDetails?.gst_number || '',
+            street1: currentUser?.subscription?.kycDetails?.street1 || '',
+            street2: currentUser?.subscription?.kycDetails?.street2 || '',
+            city: currentUser?.subscription?.kycDetails?.city || '',
+            state: currentUser?.subscription?.kycDetails?.state || '',
+            postal_code: currentUser?.subscription?.kycDetails?.postal_code || '',
         }
     });
+
+    useEffect(() => {
+        if (currentUser?.subscription?.kycDetails) {
+            kycForm.reset(currentUser.subscription.kycDetails);
+        }
+    }, [currentUser, kycForm.reset]);
 
     const payoutForm = useForm<PayoutAccountFormValues>({
         resolver: zodResolver(payoutAccountSchema),
@@ -184,7 +197,7 @@ export default function PayoutsPage() {
                             <div className="grid md:grid-cols-2 gap-6">
                                 <FormField control={kycForm.control} name="pan_number" render={({ field }) => ( <FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                                 <FormField control={kycForm.control} name="business_type" render={({ field }) => (
-                                    <FormItem><FormLabel>Business Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select business type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="proprietorship">Proprietorship</SelectItem><SelectItem value="partnership">Partnership</SelectItem><SelectItem value="private_limited">Private Limited</SelectItem><SelectItem value="public_limited">Public Limited</SelectItem><SelectItem value="llp">LLP</SelectItem><SelectItem value="trust">Trust</SelectItem><SelectItem value="society">Society</SelectItem><SelectItem value="not_for_profit">Not for Profit</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>Business Type</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select business type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="proprietorship">Proprietorship</SelectItem><SelectItem value="partnership">Partnership</SelectItem><SelectItem value="private_limited">Private Limited</SelectItem><SelectItem value="public_limited">Public Limited</SelectItem><SelectItem value="llp">LLP</SelectItem><SelectItem value="trust">Trust</SelectItem><SelectItem value="society">Society</SelectItem><SelectItem value="not_for_profit">Not for Profit</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                                 )}/>
                             </div>
                              <div className="grid md:grid-cols-2 gap-6">
@@ -339,4 +352,3 @@ export default function PayoutsPage() {
         </div>
     );
 }
-
