@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/lib/hooks';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2 } from "lucide-react";
+import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2 } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
@@ -152,151 +152,36 @@ const Index = () => {
       <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
       <div className="min-h-screen bg-background">
         {/* Hero Section */}
-        <section className="container mx-auto px-4 py-16 lg:py-24">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2 text-base">
-                <Star className="w-5 h-5 mr-2" />
-                The OS for Modern Rental Properties
-              </Badge>
-              
-              <div className="space-y-6">
-                <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
-                  <span className="bg-gradient-saffron bg-clip-text text-transparent">
-                    The Modern OS
-                  </span>
-                  <br />
-                  <span className="text-foreground">For Your Rental Property.</span>
+        <section className="relative overflow-hidden py-20 lg:py-32">
+            <div className="absolute inset-0 bg-gradient-hero blur-3xl opacity-20 animate-pulse-slow"></div>
+            <div className="container mx-auto px-4 text-center relative z-10">
+                <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2 text-base shadow-lg">
+                    The OS for Modern Rental Properties
+                </Badge>
+                <h1 className="text-4xl lg:text-6xl font-bold leading-tight mt-6 max-w-4xl mx-auto">
+                    Standardize Your PG,
+                    <br />
+                    <span className="bg-gradient-saffron bg-clip-text text-transparent">
+                        Automate Your Growth.
+                    </span>
                 </h1>
-                
-                <p className="text-xl text-muted-foreground leading-relaxed">
-                  RentSutra is the all-in-one platform that automates your PG, hostel, or co-living business. 
-                  Replace your spreadsheets, registers, and WhatsApp chats with a single, powerful system.
+                <p className="text-xl text-muted-foreground leading-relaxed mt-8 max-w-2xl mx-auto">
+                    RentSutra is the all-in-one platform to run your entire PG, hostel, or co-living business.
+                    Replace your spreadsheets and WhatsApp chats with a single, intelligent system.
                 </p>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" variant="hero" className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-shadow" asChild>
-                   <Link href="/login">
-                      <Smartphone className="mr-2 h-5 w-5" />
-                      Get Started for Free
-                  </Link>
-                </Button>
-                <InstallPWA />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center">
-                  <Check className="w-4 h-4 text-green-500 mr-2" />
-                  No credit card required
+                <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
+                    <Button size="lg" variant="hero" className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-shadow" asChild>
+                        <Link href="/login">
+                            <Smartphone className="mr-2 h-5 w-5" />
+                            Get Started for Free
+                        </Link>
+                    </Button>
+                    <InstallPWA />
                 </div>
-                <div className="flex items-center">
-                  <Check className="w-4 h-4 text-green-500 mr-2" />
-                  Free forever for up to 10 beds
-                </div>
-                <div className="flex items-center">
-                  <Check className="w-4 h-4 text-green-500 mr-2" />
-                  App size less than 1MB
-                </div>
-              </div>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-hero rounded-3xl blur-2xl opacity-30 animate-pulse-slow"></div>
-              <Image 
-                src="https://picsum.photos/seed/hero/600/600"
-                alt="Happy Indian PG Owner using RentSutra app on a tablet"
-                width={600}
-                height={600}
-                className="relative z-10 w-full h-auto rounded-3xl animate-float"
-                data-ai-hint="happy indian property manager"
-                priority
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Why RentSutra Section */}
-        <section className="py-20 bg-muted/40">
-            <div className="container mx-auto px-4">
-                <div className="text-center space-y-4 mb-12">
-                    <h2 className="text-4xl lg:text-5xl font-bold">Stop Juggling, Start Managing</h2>
-                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                        Tired of the chaos? See how RentSutra transforms your daily operations.
-                    </p>
-                </div>
-                <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto">
-                    {/* The Old Way */}
-                    <div className="bg-card p-8 rounded-xl border border-dashed border-red-500/50">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
-                               <X className="w-6 h-6 text-red-500" />
-                            </div>
-                            <h3 className="text-2xl font-bold">The Old Way</h3>
-                        </div>
-                        <ul className="space-y-3 text-muted-foreground">
-                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Endless WhatsApp chats for rent reminders and complaints.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Messy Excel sheets and paper registers for financial tracking.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>No clear view of your real-time occupancy or revenue.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Manually calculating and reconciling monthly bills and dues.</span></li>
-                        </ul>
-                    </div>
-                     {/* The RentSutra Way */}
-                    <div className="bg-card p-8 rounded-xl border border-dashed border-green-500/50">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
-                               <Check className="w-6 h-6 text-green-500" />
-                            </div>
-                            <h3 className="text-2xl font-bold">The RentSutra Way</h3>
-                        </div>
-                        <ul className="space-y-3 text-muted-foreground">
-                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>Automated rent reminders and a professional tenant app.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>A single dashboard for all financial and operational data.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>Instant insights into occupancy, revenue, and pending dues.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>One-click rent reconciliation and bill splitting.</span></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        {/* Features Section */}
-        <section id="features" className="py-20">
-            <div className="container mx-auto px-4 space-y-24">
-                <div className="text-center space-y-4">
-                    <h2 className="text-4xl lg:text-5xl font-bold">
-                       A Powerful Toolkit for Property Owners
-                    </h2>
-                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                        RentSutra is packed with features designed to save you time, reduce stress, and increase your profits.
-                    </p>
-                </div>
-                {primaryFeatures.map((feature, index) => (
-                    <div key={index} className="grid md:grid-cols-2 gap-12 items-center">
-                        <div className={cn("space-y-4", index % 2 === 1 && 'md:order-2')}>
-                            <Badge variant="outline">{feature.title}</Badge>
-                            <h3 className="text-3xl font-bold">{feature.title}</h3>
-                            <p className="text-lg text-muted-foreground">{feature.description}</p>
-                        </div>
-                        <div className={cn("relative", index % 2 === 1 && 'md:order-1')}>
-                            {feature.visual}
-                        </div>
-                    </div>
-                ))}
-            </div>
-             <div className="container mx-auto px-4 pt-24">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {secondaryFeatures.map((feature) => (
-                    <div key={feature.title} className="flex items-start gap-4">
-                        <div className="flex-shrink-0 p-3 bg-primary/10 rounded-full">
-                           <feature.icon className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-lg">{feature.title}</h3>
-                            <p className="text-sm text-muted-foreground">{feature.description}</p>
-                        </div>
-                    </div>
-                ))}
+                 <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-muted-foreground mt-8">
+                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />No credit card required</div>
+                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Free forever for up to 10 beds</div>
+                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />App size less than 1MB</div>
                 </div>
             </div>
         </section>
@@ -374,6 +259,78 @@ const Index = () => {
                             <div className="flex items-center gap-3"><Banknote className="w-8 h-8 text-primary"/><p className="font-semibold">Instant Payout to Your Bank</p></div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+
+        {/* Why RentSutra Section */}
+        <section className="py-20 bg-background">
+            <div className="container mx-auto px-4">
+                <div className="text-center space-y-4 mb-12">
+                    <h2 className="text-4xl lg:text-5xl font-bold">Stop Juggling, Start Managing</h2>
+                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                        Tired of the chaos? See how RentSutra transforms your daily operations.
+                    </p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto">
+                    {/* The Old Way */}
+                    <div className="bg-card p-8 rounded-xl border border-dashed border-red-500/50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                               <X className="w-6 h-6 text-red-500" />
+                            </div>
+                            <h3 className="text-2xl font-bold">The Old Way</h3>
+                        </div>
+                        <ul className="space-y-3 text-muted-foreground">
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Endless WhatsApp chats for rent reminders and complaints.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Messy Excel sheets and paper registers for financial tracking.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>No clear view of your real-time occupancy or revenue.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Manually calculating and reconciling monthly bills and dues.</span></li>
+                        </ul>
+                    </div>
+                     {/* The RentSutra Way */}
+                    <div className="bg-card p-8 rounded-xl border border-dashed border-green-500/50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                               <Check className="w-6 h-6 text-green-500" />
+                            </div>
+                            <h3 className="text-2xl font-bold">The RentSutra Way</h3>
+                        </div>
+                        <ul className="space-y-3 text-muted-foreground">
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>Automated rent reminders and a professional tenant app.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>A single dashboard for all financial and operational data.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>Instant insights into occupancy, revenue, and pending dues.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>One-click rent reconciliation and bill splitting.</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {/* All Features Section */}
+         <section id="features" className="py-20 bg-muted/40">
+             <div className="container mx-auto px-4">
+                <div className="text-center space-y-4 mb-12">
+                    <h2 className="text-4xl lg:text-5xl font-bold">
+                       One App to Rule Them All
+                    </h2>
+                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                        From guest check-in to financial reconciliation, RentSutra has every feature you'll ever need to run a successful rental business.
+                    </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {secondaryFeatures.map((feature) => (
+                    <div key={feature.title} className="flex items-start gap-4 p-4 rounded-lg hover:bg-card transition-colors">
+                        <div className="flex-shrink-0 p-3 bg-primary/10 rounded-full">
+                           <feature.icon className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-lg">{feature.title}</h3>
+                            <p className="text-sm text-muted-foreground">{feature.description}</p>
+                        </div>
+                    </div>
+                ))}
                 </div>
             </div>
         </section>
