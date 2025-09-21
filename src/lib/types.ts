@@ -86,8 +86,7 @@ export interface Payment {
     payoutTo?: string; // Name of the owner's payout account used
 }
 
-export type OnboardingStepId = 'kyc' | 'contact' | 'linked_account' | 'stakeholder' | 'fund_account' | 'complete';
-
+// Payment Method Types
 export interface PaymentMethodBase {
   id: string; // This will store the Razorpay Account ID (acc_...) from v2 API
   name: string;
@@ -95,7 +94,6 @@ export interface PaymentMethodBase {
   isPrimary: boolean;
   createdAt: string;
   razorpay_fund_account_id?: string;
-  onboardingError?: OnboardingStepId | string | null;
 }
 
 export interface BankPaymentMethod extends PaymentMethodBase {
@@ -118,7 +116,6 @@ export interface PaymentMethodValidationResult {
   isValid: boolean;
   error?: string;
 }
-
 
 export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period';
 
@@ -238,6 +235,21 @@ export interface UserSubscriptionPayment {
   invoiceUrl?: string;
 }
 
+export type OnboardingStepId = 'kyc' | 'contact' | 'linked_account' | 'stakeholder' | 'fund_account' | 'complete';
+
+export interface BusinessKycDetails {
+  legal_business_name: string;
+  business_type: 'proprietorship' | 'partnership' | 'private_limited' | 'public_limited' | 'llp' | 'trust' | 'society' | 'not_for_profit';
+  pan_number: string;
+  gst_number?: string;
+  phone: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -255,6 +267,7 @@ export interface User {
   subscription?: { // Only owners should have this object
     planId: PlanName;
     status: SubscriptionStatus;
+    razorpay_contact_id?: string;
     razorpay_account_id?: string; // This will hold the 'acc_...' ID from v2 API
     razorpay_subscription_id?: string;
     razorpay_payment_id?: string;
@@ -262,6 +275,7 @@ export interface User {
     trialEndDate?: string; // ISO string
     premiumFeatures?: PremiumFeatures;
     paymentHistory?: UserSubscriptionPayment[];
+    kycDetails?: BusinessKycDetails;
   };
   fcmToken?: string | null;
   createdAt?: string; // ISO string for when the user was created

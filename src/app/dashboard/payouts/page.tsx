@@ -1,6 +1,7 @@
+
 'use client'
 
-import React, { useState, useTransition, useEffect } from 'react';
+import React, { useState, useTransition, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
 import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from '@/lib/actions/payoutActions';
 import { setCurrentUser, updateUserKycDetails } from '@/lib/slices/userSlice';
-import { Loader2, CheckCircle, AlertCircle, Banknote, IndianRupee, PlusCircle, MoreVertical, Trash2, Check, UserCheck, HandCoins } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Banknote, IndianRupee, PlusCircle, MoreVertical, Trash2, Check, HandCoins } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -61,36 +62,41 @@ export default function PayoutsPage() {
 
     const kycForm = useForm<KycFormValues>({
         resolver: zodResolver(kycSchema),
-        defaultValues: {
-            legal_business_name: currentUser?.subscription?.kycDetails?.legal_business_name || '',
-            business_type: currentUser?.subscription?.kycDetails?.business_type || 'proprietorship',
-            pan_number: currentUser?.subscription?.kycDetails?.pan_number || '',
-            gst_number: currentUser?.subscription?.kycDetails?.gst_number || '',
-            phone: currentUser?.subscription?.kycDetails?.phone || '',
-            street1: currentUser?.subscription?.kycDetails?.street1 || '',
-            street2: currentUser?.subscription?.kycDetails?.street2 || '',
-            city: currentUser?.subscription?.kycDetails?.city || '',
-            state: currentUser?.subscription?.kycDetails?.state || '',
-            postal_code: currentUser?.subscription?.kycDetails?.postal_code || '',
+        defaultValues: currentUser?.subscription?.kycDetails || {
+            legal_business_name: currentUser?.name || '',
+            business_type: 'proprietorship',
+            pan_number: '',
+            gst_number: '',
+            phone: currentUser?.phone || '',
+            street1: '',
+            street2: '',
+            city: '',
+            state: '',
+            postal_code: '',
         }
     });
 
-    useEffect(() => { if (currentUser?.subscription?.kycDetails) kycForm.reset(currentUser.subscription.kycDetails); }, [currentUser, kycForm]);
+    useEffect(() => { 
+        if (currentUser?.subscription?.kycDetails) {
+            kycForm.reset(currentUser.subscription.kycDetails);
+        }
+    }, [currentUser?.subscription?.kycDetails, kycForm]);
 
     const payoutForm = useForm<PayoutAccountFormValues>({ resolver: zodResolver(payoutAccountSchema), defaultValues: { payoutMethod: 'vpa' } });
     const payoutMethod = payoutForm.watch('payoutMethod');
 
-    const handlePayoutAccountSubmit = (data: PayoutAccountFormValues) => {
+    const handlePayoutAccountSubmit = async (data: PayoutAccountFormValues) => {
+        if (!currentUser) return;
+        
+        const kycData = kycForm.getValues();
+        const validationResult = kycSchema.safeParse(kycData);
+        if (!validationResult.success) {
+            toast({ variant: 'destructive', title: 'KYC Details Missing', description: 'Complete your KYC before adding payout methods.' });
+            kycForm.trigger();
+            return;
+        }
+    
         startSavingTransition(async () => {
-            if (!currentUser) return;
-
-            const kycData = kycForm.getValues();
-            const validationResult = kycSchema.safeParse(kycData);
-            if (!validationResult.success) {
-                toast({ variant: 'destructive', title: 'KYC Details Missing', description: 'Complete your KYC before adding payout methods.' });
-                kycForm.trigger(); return;
-            }
-
             const submissionData = { ...data, ...kycData, name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) };
             try {
                 const result = await addPayoutMethod(currentUser.id, submissionData);
@@ -99,6 +105,8 @@ export default function PayoutsPage() {
                     toast({ title: 'Success', description: 'Payout account added.' });
                     setIsPayoutDialogOpen(false);
                     payoutForm.reset({ payoutMethod: 'vpa' });
+                } else {
+                    throw new Error(result.error || 'Failed to link account.');
                 }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Failed', description: e.message || 'Error adding account.' });
@@ -120,7 +128,10 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             try {
                 const result = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
-                if (result.success) dispatch(setCurrentUser(result.updatedUser));
+                if (result.success && result.updatedUser) {
+                    dispatch(setCurrentUser(result.updatedUser));
+                    toast({ title: 'Primary Account Updated' });
+                }
             } catch (e: any) { toast({ variant: 'destructive', title: 'Failed', description: e.message }); }
         });
     };
@@ -130,8 +141,11 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             try {
                 const result = await deletePayoutMethod({ ownerId: currentUser.id, methodId: methodToUnlink.razorpay_fund_account_id! });
-                if (result.success) dispatch(setCurrentUser(result.updatedUser));
-            } catch (e: any) { toast({ variant: 'destructive', title: 'Failed', description: e.message }); }
+                if (result.success && result.updatedUser) {
+                    dispatch(setCurrentUser(result.updatedUser));
+                    toast({ title: 'Account Unlinked' });
+                }
+            } catch (e: any) { toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message }); }
             finally { setMethodToUnlink(null); }
         });
     };
@@ -144,7 +158,7 @@ export default function PayoutsPage() {
             <Card>
                 <Form {...kycForm}>
                     <form onSubmit={kycForm.handleSubmit(handleSaveKyc)} className="space-y-6">
-                        <CardHeader><CardTitle>KYC & Business Information</CardTitle><CardDescription>This information is required by Razorpay to create your sub-merchant account for payouts.</CardDescription></CardHeader>
+                        <CardHeader><CardTitle>KYC &amp; Business Information</CardTitle><CardDescription>This information is required by Razorpay to create your sub-merchant account for payouts.</CardDescription></CardHeader>
                         <CardContent className="space-y-6">
                              <div className="grid md:grid-cols-2 gap-6">
                                 <FormField control={kycForm.control} name="legal_business_name" render={({ field }) => (<FormItem><FormLabel>Legal Business Name</FormLabel><FormControl><Input placeholder="Your full name as per PAN" {...field} /></FormControl><FormMessage /></FormItem>)}/>

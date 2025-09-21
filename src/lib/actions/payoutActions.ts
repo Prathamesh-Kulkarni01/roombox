@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAdminDb } from '../firebaseAdmin';
@@ -164,7 +165,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
       const ownerDoc = await transaction.get(ownerDocRef);
       if (!ownerDoc.exists) throw new Error("Owner not found.");
       const owner = { id: ownerId, ...ownerDoc.data() } as User;
-  console.log({owner})
+  
       // 1. Create or get contact
       const { id: contactId } = await createOrGetContact(owner, accountDetails);
   

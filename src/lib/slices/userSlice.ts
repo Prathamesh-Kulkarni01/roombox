@@ -2,7 +2,7 @@
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod } from '../types';
+import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod, BusinessKycDetails } from '../types';
 import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -175,7 +175,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
     }
 );
 
-export const updateUserKycDetails = createAsyncThunk<User, any, { state: RootState }>(
+export const updateUserKycDetails = createAsyncThunk<User, BusinessKycDetails, { state: RootState }>(
     'user/updateKycDetails',
     async (kycData, { getState, rejectWithValue }) => {
         const { currentUser } = (getState() as RootState).user;
@@ -379,5 +379,3 @@ const userSlice = createSlice({
 
 export const { setCurrentUser, updateUserPlan } = userSlice.actions;
 export default userSlice.reducer;
-
-    
