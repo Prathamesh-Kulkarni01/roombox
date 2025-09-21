@@ -1,14 +1,14 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/lib/hooks';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2, Calendar, User } from "lucide-react";
+import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2, Calendar, ArrowLeftRight, CheckCircle, Pencil, User as UserIcon } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
@@ -198,39 +198,37 @@ const Index = () => {
                     </p>
                 </div>
                 <div className="space-y-24">
-                    {/* WhatsApp Automation */}
-                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                   <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="space-y-4">
                             <Badge variant="default" className="bg-green-500 hover:bg-green-600">WhatsApp Automation</Badge>
                             <h3 className="text-3xl font-bold">Never Chase a Payment Again</h3>
                             <p className="text-lg text-muted-foreground">Automatically send polite, personalized rent reminders to your tenants via WhatsApp. Each reminder includes a secure payment link, making it effortless for them to pay and for you to get paid on time.</p>
                         </div>
-                        <div className="bg-card p-6 rounded-lg border shadow-md flex items-center justify-center">
-                           <div className="flex items-center gap-4 text-center">
+                         <div className="bg-card p-6 rounded-lg border shadow-md flex items-center justify-center min-h-[250px]">
+                            <div className="flex flex-col md:flex-row items-center gap-4 text-center">
                                 <div className="flex flex-col items-center gap-2">
-                                    <div className="p-3 bg-muted rounded-full"><Calendar className="w-6 h-6 text-primary" /></div>
+                                    <div className="p-3 bg-muted rounded-full animate-pulse"><Calendar className="w-6 h-6 text-primary" /></div>
                                     <p className="text-xs font-semibold">Due Date</p>
                                 </div>
-                                <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0"/>
+                                <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0 hidden md:block animate-pulse-slow"/>
                                 <div className="flex flex-col items-center gap-2">
-                                    <div className="p-3 bg-muted rounded-full"><Bot className="w-6 h-6 text-primary" /></div>
+                                    <div className="p-3 bg-muted rounded-full animate-pulse"><Bot className="w-6 h-6 text-primary" /></div>
                                     <p className="text-xs font-semibold">Auto-Reminder</p>
                                 </div>
-                                 <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0"/>
+                                <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0 hidden md:block animate-pulse-slow"/>
                                 <div className="flex flex-col items-center gap-2">
-                                    <div className="p-3 bg-muted rounded-full"><User className="w-6 h-6 text-primary" /></div>
+                                    <div className="p-3 bg-muted rounded-full animate-pulse"><UserIcon className="w-6 h-6 text-primary" /></div>
                                     <p className="text-xs font-semibold">Tenant Pays</p>
                                 </div>
-                                <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0"/>
-                                 <div className="flex flex-col items-center gap-2">
-                                    <div className="p-3 bg-muted rounded-full"><Wallet className="w-6 h-6 text-primary" /></div>
+                                 <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0 hidden md:block animate-pulse-slow"/>
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="p-3 bg-muted rounded-full animate-pulse"><Wallet className="w-6 h-6 text-primary" /></div>
                                     <p className="text-xs font-semibold">You Get Paid</p>
                                 </div>
                            </div>
                         </div>
                     </div>
-
-                    {/* Website Builder & CRM */}
+                    
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                          <div className="space-y-4 md:order-2">
                             <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">Website & CRM</Badge>
@@ -256,7 +254,7 @@ const Index = () => {
                             </div>
                         </div>
                     </div>
-                     {/* Automated Payouts */}
+                   
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="space-y-4">
                             <Badge variant="default" className="bg-purple-500 hover:bg-purple-600">Automated Payouts</Badge>
@@ -506,5 +504,3 @@ const Index = () => {
 };
 
 export default Index;
-
-    
