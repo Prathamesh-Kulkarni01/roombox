@@ -101,7 +101,14 @@ const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], 
     const [isSending, startSendingTransition] = useTransition();
     const guestsWithDues = useMemo(() => guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId), [guests]);
     
-    const [selectedGuests, setSelectedGuests] = useState<string[]>(() => guestsWithDues.map(g => g.id));
+    const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
+
+    // Reset selection when dialog opens or guests change
+    React.useEffect(() => {
+        if (open) {
+            setSelectedGuests(guestsWithDues.map(g => g.id));
+        }
+    }, [open, guestsWithDues]);
 
     const handleSelectAll = (checked: boolean) => {
         setSelectedGuests(checked ? guestsWithDues.map(g => g.id) : []);
@@ -148,7 +155,7 @@ const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], 
                 {guestsWithDues.length > 0 ? (
                     <>
                     <div className="flex items-center space-x-2 py-2 border-y">
-                        <Checkbox id="select-all" checked={selectedGuests.length === guestsWithDues.length} onCheckedChange={(checked) => handleSelectAll(!!checked)} />
+                        <Checkbox id="select-all" checked={selectedGuests.length === guestsWithDues.length && guestsWithDues.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} />
                         <Label htmlFor="select-all">Select All ({selectedGuests.length} / {guestsWithDues.length})</Label>
                     </div>
                     <ScrollArea className="h-64">
