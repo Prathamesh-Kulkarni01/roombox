@@ -1,6 +1,6 @@
 
 import type { Menu, Plan, PlanName, PG } from './types';
-import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen, IndianRupee } from 'lucide-react';
+import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen, IndianRupee, HandCoins } from 'lucide-react';
 
 
 export const defaultMenu: Menu = {
@@ -82,20 +82,45 @@ export interface NavItem {
     tourId?: string;
 }
 
-export const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav' },
-  { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances' },
-  { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints' },
-  { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances' },
-  { href: '/dashboard/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'food' },
-  { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav' },
-  { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'guests' },
-  { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff' },
-  { href: '/dashboard/payouts', label: 'Payouts', icon: IndianRupee, feature: 'finances' },
-  { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website' },
-  { href: '/dashboard/training', label: 'Training Center', icon: BookOpen, feature: 'core' },
-  { href: '/dashboard/subscription', label: 'Subscription', icon: CreditCard, feature: 'core' },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
+export interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+export const allNavItems: NavGroup[] = [
+  {
+    title: "Core",
+    items: [
+        { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav' },
+        { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav' },
+        { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'guests' },
+        { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff' },
+    ]
+  },
+  {
+    title: "Financial",
+    items: [
+        { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances' },
+        { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances' },
+        { href: '/dashboard/payouts', label: 'Payouts', icon: HandCoins, feature: 'finances' },
+    ]
+  },
+  {
+    title: "Operations",
+    items: [
+        { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints' },
+        { href: '/dashboard/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'food' },
+    ]
+  },
+  {
+      title: "Growth & Settings",
+      items: [
+          { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website' },
+          { href: '/dashboard/subscription', label: 'Subscription', icon: CreditCard, feature: 'core' },
+          { href: '/dashboard/training', label: 'Training', icon: BookOpen, feature: 'core' },
+          { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
+      ]
+  }
 ];
 
 // This is temporary mock data for the public PG pages.

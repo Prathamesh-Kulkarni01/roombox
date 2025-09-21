@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
-import { navItems, type NavItem } from '@/lib/mock-data';
+import { allNavItems, type NavItem } from '@/lib/mock-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
@@ -32,12 +32,18 @@ export default function DashboardSidebar() {
         </aside>
     );
   }
+  
+  const accessibleNavGroups = allNavItems
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => {
+          if (currentUser.role === 'owner' || currentUser.role === 'admin') return true;
+          if (item.feature === 'core') return true; // Core items are always visible for staff
+          return canViewFeature(featurePermissions, currentUser.role, item.feature!);
+      })
+    }))
+    .filter(group => group.items.length > 0);
 
-  const visibleNavItems = navItems.filter(item => {
-    if (currentUser.role === 'owner' || currentUser.role === 'admin') return true;
-    if (item.feature === 'core') return true; // Core items are always visible for staff
-    return canViewFeature(featurePermissions, currentUser.role, item.feature!);
-  });
 
   return (
     <aside className="w-64 flex-col border-r bg-card hidden md:flex">
@@ -46,19 +52,25 @@ export default function DashboardSidebar() {
             <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
         </div>
         <nav className="flex flex-col gap-1 px-4">
-          {visibleNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                data-tour={item.tourId}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground/80 transition-all hover:text-primary hover:bg-muted',
-                  (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-muted text-primary'
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
+          {accessibleNavGroups.map((group, index) => (
+            <div key={group.title}>
+              {index > 0 && <Separator className="my-2" />}
+               <h4 className="px-3 py-2 text-xs font-semibold text-muted-foreground">{group.title}</h4>
+               {group.items.map(item => (
+                   <Link
+                      key={item.href}
+                      href={item.href}
+                      data-tour={item.tourId}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground/80 transition-all hover:text-primary hover:bg-muted',
+                        (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-muted text-primary'
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+               ))}
+            </div>
           ))}
           {currentUser.role === 'admin' && (
              <Link
@@ -73,18 +85,6 @@ export default function DashboardSidebar() {
               </Link>
           )}
         </nav>
-        <Separator className="my-4" />
-        <div className="flex flex-col gap-1 px-4">
-            <h4 className="px-3 py-2 text-xs font-semibold text-muted-foreground">Guides &amp; Training</h4>
-             <Link href="/dashboard/training" className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground/80 transition-all hover:text-primary hover:bg-muted',
-                  pathname === '/dashboard/training' && 'bg-muted text-primary'
-                )}
-            >
-                <BookOpen className="h-4 w-4" />
-                Training Center
-              </Link>
-        </div>
       </div>
       <div className="p-4 mt-auto">
         <Separator className="my-4" />
