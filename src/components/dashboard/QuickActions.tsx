@@ -1,20 +1,14 @@
 
-
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from '@/components/ui/badge'
 import { UserPlus, Wallet, BellRing, Send, Search, Loader2 } from "lucide-react"
 import type { PG, Room, Bed, Guest } from '@/lib/types'
 import { Input } from '../ui/input'
-import { useToast } from '@/hooks/use-toast'
 
 const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: {pg: PG, room: Room, bed: Bed}[], onSelectBed: (bed: { pg: PG, room: Room, bed: Bed }) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -56,14 +50,58 @@ const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: {pg: 
     )
 }
 
+const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const guestsWithDues = useMemo(() => {
+        const guestsWithDues = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
+        if (!searchTerm) return guestsWithDues;
+        return guestsWithDues.filter(g => 
+            g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            g.pgName.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [guests, searchTerm]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Collect Rent</DialogTitle>
+                    <DialogDescription>Select a guest with pending dues to record a payment.</DialogDescription>
+                </DialogHeader>
+                 <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search by guest name or property..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
+                <ScrollArea className="h-64 mt-4">
+                    <div className="space-y-2">
+                        {guestsWithDues.map(guest => (
+                             <div key={guest.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => { onSelectGuest(guest); onOpenChange(false); }}>
+                                <div>
+                                    <p className="font-semibold">{guest.name}</p>
+                                    <p className="text-sm text-muted-foreground">{guest.pgName}</p>
+                                </div>
+                                 <p className="text-sm font-semibold text-destructive">₹{(guest.rentAmount + (guest.balanceBroughtForward || 0) - (guest.rentPaidAmount || 0)).toLocaleString('en-IN')}</p>
+                            </div>
+                        ))}
+                         {guestsWithDues.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No guests with pending dues.</p>}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendMassReminder, isSendingReminders, onSendAnnouncement }: any) {
+    const [isAddGuestOpen, setIsAddGuestOpen] = useState(false);
+    const [isCollectRentOpen, setIsCollectRentOpen] = useState(false);
+
     const availableBeds = useMemo(() => {
         const beds: { pg: PG, room: Room, bed: Bed }[] = [];
         pgs.forEach((pg: PG) => {
             pg.floors?.forEach(floor => {
                 floor.rooms.forEach(room => {
                     room.beds.forEach(bed => {
-                        if (!bed.guestId) {
+                        if (!guests.some(g => g.bedId === bed.id && !g.isVacated)) {
                             beds.push({ pg, room, bed });
                         }
                     });
@@ -71,17 +109,14 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
             });
         });
         return beds;
-    }, [pgs]);
+    }, [pgs, guests]);
 
-    const [isAddGuestOpen, setIsAddGuestOpen] = useState(false);
-    const [isCollectRentOpen, setIsCollectRentOpen] = useState(false);
-    
-    const handleSelectGuestForPayment = (guest: Guest) => {
-        handleOpenPaymentDialog(guest);
-    }
-    
     const handleSelectBedForGuestAdd = (item: {pg: PG, room: Room, bed: Bed}) => {
         handleOpenAddGuestDialog(item.bed, item.room, item.pg);
+    }
+
+    const handleSelectGuestForPayment = (guest: Guest) => {
+        handleOpenPaymentDialog(guest);
     }
 
     return (
@@ -106,6 +141,7 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
                 Announce
             </Button>
             <AddGuestDialog beds={availableBeds} onSelectBed={handleSelectBedForGuestAdd} open={isAddGuestOpen} onOpenChange={setIsAddGuestOpen} />
+            <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />
         </div>
     );
 };
