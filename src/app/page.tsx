@@ -41,6 +41,94 @@ const Index = () => {
       setIsSubDialogOpen(true);
     }
   };
+  
+    const featureSections = [
+    {
+      title: "Digitize Your Entire Property",
+      description: "Get a real-time, bird's-eye view of your business. Our visual dashboard shows you bed status, rent dues, and occupancy at a glance, replacing confusing spreadsheets forever.",
+      visual: (
+        <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-2 border">
+            <div className="flex justify-between items-center bg-background p-2 rounded">
+                <span className="text-sm font-semibold">Floor 1</span>
+                <Badge variant="secondary">4/6 Occupied</Badge>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+                <div className="aspect-square bg-green-200 rounded flex items-center justify-center text-xs text-green-900 font-bold">Bed A</div>
+                <div className="aspect-square bg-red-200 rounded flex items-center justify-center text-xs text-red-900 font-bold">Bed B</div>
+                <div className="aspect-square bg-green-200 rounded flex items-center justify-center text-xs text-green-900 font-bold">Bed C</div>
+                <div className="aspect-square bg-yellow-200 rounded flex items-center justify-center text-xs text-yellow-900 font-bold animate-pulse">Available</div>
+                <div className="aspect-square bg-green-200 rounded flex items-center justify-center text-xs text-green-900 font-bold">Bed E</div>
+                <div className="aspect-square bg-yellow-200 rounded flex items-center justify-center text-xs text-yellow-900 font-bold animate-pulse">Available</div>
+            </div>
+        </div>
+      )
+    },
+    {
+      title: "Automate Your Finances",
+      description: "From rent collection to expense logging, put your finances on autopilot. Send automated reminders with payment links and get instant clarity on your monthly profit and loss.",
+      visual: (
+        <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-3 border">
+            <div className="bg-background p-3 rounded-lg shadow-sm">
+                <div className="flex justify-between items-center">
+                    <p className="text-sm font-medium">Rent Received</p>
+                    <p className="text-sm font-bold text-green-600">+ ₹12,000</p>
+                </div>
+                <p className="text-xs text-muted-foreground">From Priya Sharma for Room 101</p>
+            </div>
+             <div className="bg-background p-3 rounded-lg shadow-sm">
+                <div className="flex justify-between items-center">
+                    <p className="text-sm font-medium">Expense Logged</p>
+                    <p className="text-sm font-bold text-red-600">- ₹2,500</p>
+                </div>
+                <p className="text-xs text-muted-foreground">Groceries for the week</p>
+            </div>
+            <div className="bg-primary/10 text-primary p-3 rounded-lg shadow-sm mt-2 text-center">
+                <p className="text-sm font-bold">Net Profit Updated</p>
+            </div>
+        </div>
+      )
+    },
+    {
+      title: "Streamline Daily Operations",
+      description: "Manage complaints, plan menus, and assign staff roles with specific permissions. Everything you need to run a smooth operation is in one place, accessible from anywhere.",
+      visual: (
+        <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-3 border">
+            <div className="bg-background p-3 rounded-lg shadow-sm transition-all hover:scale-105">
+                <div className="flex justify-between items-center mb-1">
+                    <p className="font-semibold text-sm">New Complaint</p>
+                    <Badge variant="destructive">Open</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">"Wi-fi is not working in Room 204." - Akash</p>
+            </div>
+             <div className="bg-background p-3 rounded-lg shadow-sm transition-all hover:scale-105">
+                <div className="flex justify-between items-center mb-1">
+                    <p className="font-semibold text-sm">Complaint Assigned</p>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800">In Progress</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Assigned to Manager for follow-up.</p>
+            </div>
+        </div>
+      )
+    },
+    {
+      title: "Empower Your Tenants",
+      description: "Provide your residents with a professional mobile app. They can pay rent, raise complaints, check the food menu, and even get instant answers from an AI chatbot, reducing your workload.",
+      visual: (
+        <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex items-center justify-center border">
+            <div className="w-48 h-80 bg-background rounded-2xl shadow-2xl p-3 flex flex-col">
+                <div className="text-xs font-bold mb-2 text-center">Tenant App</div>
+                <div className="space-y-2 text-xs">
+                    <div className="bg-primary text-primary-foreground p-2 rounded-lg ml-auto rounded-br-none">What's for dinner?</div>
+                    <div className="bg-muted p-2 rounded-lg mr-auto rounded-bl-none">Tonight we are serving Veg Biryani and Raita!</div>
+                </div>
+                 <div className="mt-auto text-center">
+                     <Button size="sm" className="w-full h-8 text-xs">Pay Rent</Button>
+                 </div>
+            </div>
+        </div>
+      )
+    }
+  ];
 
   return (
     <>
@@ -99,7 +187,7 @@ const Index = () => {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-hero rounded-3xl blur-2xl opacity-30 animate-pulse-slow"></div>
               <Image 
-                src="/images/indian-pg-owner-hero.webp"
+                src="https://picsum.photos/seed/hero/600/600"
                 alt="Happy Indian PG Owner using RentSutra app on a tablet"
                 width={600}
                 height={600}
@@ -157,8 +245,8 @@ const Index = () => {
 
         {/* Features Section */}
         <section id="features" className="py-20">
-            <div className="container mx-auto px-4">
-                <div className="text-center space-y-4 mb-16">
+            <div className="container mx-auto px-4 space-y-24">
+                <div className="text-center space-y-4">
                     <h2 className="text-4xl lg:text-5xl font-bold">
                        A Powerful Toolkit for Property Owners
                     </h2>
@@ -166,52 +254,18 @@ const Index = () => {
                         RentSutra is packed with features designed to save you time, reduce stress, and increase your profits.
                     </p>
                 </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {[
-                        {
-                            icon: LayoutList,
-                            title: "Visual Dashboard",
-                            description: "Get a bird's-eye view of your entire property. See occupancy, rent status, and vacant beds at a glance.",
-                        },
-                        {
-                            icon: WalletCards,
-                            title: "Automated Rent Collection",
-                            description: "Automatically track dues and send AI-powered reminders with payment links. Log cash, UPI, or in-app payments.",
-                        },
-                        {
-                            icon: FilePieChart,
-                            title: "Expense Tracking",
-                            description: "Log every rupee spent with our simple expense manager. Know your exact profit and loss in real-time.",
-                        },
-                        {
-                            icon: UserRoundCog,
-                            title: "Staff & Role Management",
-                            description: "Add your staff and assign specific permissions. Control who can view financials, edit guest details, or manage complaints.",
-                        },
-                        {
-                            icon: MessageSquare,
-                            title: "Complaint Management",
-                            description: "A centralized system for tenants to raise issues and for you to track them to resolution.",
-                        },
-                         {
-                            icon: Smartphone,
-                            title: "Dedicated Tenant App",
-                            description: "Give your tenants a professional app to pay rent, raise complaints, view the menu, and get help from an AI chatbot.",
-                        },
-                    ].map((feature, index) => (
-                         <Card key={index} className="bg-muted/40 border-dashed hover:border-primary hover:bg-card transition-all">
-                             <CardHeader>
-                                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
-                                     <feature.icon className="h-6 w-6" />
-                                 </div>
-                                 <CardTitle>{feature.title}</CardTitle>
-                             </CardHeader>
-                            <CardContent>
-                                <p className="text-muted-foreground">{feature.description}</p>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                {featureSections.map((feature, index) => (
+                    <div key={index} className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className={cn("space-y-4", index % 2 === 1 && 'md:order-2')}>
+                            <Badge variant="outline">{feature.title}</Badge>
+                            <h3 className="text-3xl font-bold">{feature.title}</h3>
+                            <p className="text-lg text-muted-foreground">{feature.description}</p>
+                        </div>
+                        <div className={cn("relative", index % 2 === 1 && 'md:order-1')}>
+                            {feature.visual}
+                        </div>
+                    </div>
+                ))}
             </div>
         </section>
 
@@ -227,7 +281,7 @@ const Index = () => {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
+            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
                 {/* Free Plan */}
                 <Card className="flex flex-col justify-between">
                     <CardHeader>
@@ -353,4 +407,3 @@ const Index = () => {
 
 export default Index;
 
-    
