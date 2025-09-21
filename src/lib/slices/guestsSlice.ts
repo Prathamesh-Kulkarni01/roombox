@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
@@ -10,9 +11,10 @@ import { RootState } from '../store';
 import { produce } from 'immer';
 import { addNotification } from './notificationsSlice';
 import { verifyKyc } from '@/ai/flows/verify-kyc-flow';
-import { format, addMonths, isAfter, parseISO, differenceInMonths, isSameDay } from 'date-fns';
+import { format, addMonths, isAfter, parseISO, differenceInMonths, isSameDay, setDate, lastDayOfMonth } from 'date-fns';
 import { uploadDataUriToStorage } from '../storage';
 import { deletePg } from './pgsSlice';
+import { calculateFirstDueDate } from '@/lib/utils';
 
 interface GuestsState {
     guests: Guest[];
@@ -56,6 +58,9 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
 
+        const moveInDate = new Date(guestData.moveInDate);
+        const firstDueDate = calculateFirstDueDate(moveInDate, guestData.rentCycleUnit, guestData.rentCycleValue, moveInDate.getDate());
+
         const newGuest: Guest = { 
             ...guestData, 
             id: `g-${Date.now()}`,
@@ -64,6 +69,8 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
             userId: existingUser ? existingUser.id : null,
             additionalCharges: [],
             balanceBroughtForward: 0,
+            dueDate: format(firstDueDate, 'yyyy-MM-dd'),
+            billingAnchorDay: moveInDate.getDate(),
         };
 
         const updatedPg = produce(pg, draft => {

@@ -2,12 +2,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { format, addMonths } from 'date-fns';
+import { format, addMonths, setDate, lastDayOfMonth } from 'date-fns';
 import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
+
+function getNextDueDate(currentDueDate: Date, anchorDay: number): Date {
+    const nextMonth = addMonths(currentDueDate, 1);
+    const lastDayNextMonth = lastDayOfMonth(nextMonth).getDate();
+    const newDay = Math.min(anchorDay, lastDayNextMonth);
+    return setDate(nextMonth, newDay);
+}
+
 
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
@@ -45,93 +53,92 @@ export async function POST(req: NextRequest) {
 
       const adminDb = await getAdminDb();
       const guestDocRef = adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
-      const ownerDocRef = adminDb.collection('users').doc(ownerId);
       
-      const [guestDoc, ownerDoc] = await Promise.all([guestDocRef.get(), ownerDocRef.get()]);
+      // Use a transaction to prevent race conditions
+      await adminDb.runTransaction(async (transaction) => {
+          const guestDoc = await transaction.get(guestDocRef);
+          if (!guestDoc.exists) {
+              console.error(`Webhook handler: Guest with ID ${guestId} not found.`);
+              return;
+          }
 
-      if (!guestDoc.exists) {
-        console.error(`Webhook handler: Guest with ID ${guestId} not found.`);
-        return NextResponse.json({ success: true, message: 'Guest not found.' });
-      }
-      if (!ownerDoc.exists) {
-          console.error(`Webhook handler: Owner with ID ${ownerId} not found.`);
-          return NextResponse.json({ success: true, message: 'Owner not found.' });
-      }
+          const guest = guestDoc.data() as Guest;
 
-      const guest = guestDoc.data() as Guest;
-      const owner = ownerDoc.data() as User;
+          // Idempotency Check
+          if (guest.paymentHistory?.some(p => p.id === payment.id)) {
+              console.log(`Payment ${payment.id} already processed for guest ${guestId}. Skipping.`);
+              return;
+          }
 
-      // Idempotency Check: Prevent duplicate processing
-      if (guest.paymentHistory?.some(p => p.id === payment.id)) {
-        console.log(`Payment ${payment.id} already processed for guest ${guestId}. Skipping.`);
-        return NextResponse.json({ success: true, message: 'Duplicate webhook ignored.' });
-      }
-      
-      const methodFromGateway = (payment.method || 'online').toLowerCase();
-      const upiVpa: string | undefined = payment.vpa || payment.notes?.vpa;
-      const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
+          const ownerDoc = await transaction.get(adminDb.collection('users').doc(ownerId));
+          if (!ownerDoc.exists) {
+              console.error(`Webhook handler: Owner with ID ${ownerId} not found.`);
+              return;
+          }
+          const owner = ownerDoc.data() as User;
+          const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
-      const newPayment: Payment = {
-        id: payment.id,
-        date: new Date(payment.created_at * 1000).toISOString(),
-        amount: amountPaid,
-        method: 'in-app', // All webhook payments are in-app
-        forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
-        notes: `Paid via ${methodFromGateway}${upiVpa ? ` (${upiVpa})` : ''}`,
-        payoutId: order.id, // Using order ID as a reference for the routed payment
-        payoutStatus: 'processed', // Assumed processed by Razorpay Routes
-        payoutTo: primaryPayoutAccount?.name || 'Linked Account',
-      };
+          const newPayment: Payment = {
+              id: payment.id,
+              date: new Date(payment.created_at * 1000).toISOString(),
+              amount: amountPaid,
+              method: 'in-app',
+              forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
+              notes: `Paid via ${(payment.method || 'online').toLowerCase()}`,
+              payoutId: order.id,
+              payoutStatus: 'processed',
+              payoutTo: primaryPayoutAccount?.name || 'Linked Account',
+          };
 
-      const updatedGuest = produce(guest, draft => {
-          if (!draft.paymentHistory) draft.paymentHistory = [];
-          draft.paymentHistory.push(newPayment);
+          const updatedGuest = produce(guest, draft => {
+              if (!draft.paymentHistory) draft.paymentHistory = [];
+              draft.paymentHistory.push(newPayment);
 
-          const totalPaidInCycle = (draft.rentPaidAmount || 0) + amountPaid;
-          
-          const balanceBf = draft.balanceBroughtForward || 0;
-          const additionalChargesTotal = (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-          const totalBillForCycle = balanceBf + draft.rentAmount + additionalChargesTotal;
+              const totalPaidInCycle = (draft.rentPaidAmount || 0) + amountPaid;
+              const balanceBf = draft.balanceBroughtForward || 0;
+              const additionalChargesTotal = (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+              const totalBillForCycle = balanceBf + draft.rentAmount + additionalChargesTotal;
 
-          if (totalPaidInCycle >= totalBillForCycle) {
-              draft.rentStatus = 'paid';
-              draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle;
-              draft.rentPaidAmount = 0;
-              draft.additionalCharges = [];
-              draft.dueDate = format(addMonths(new Date(draft.dueDate), 1), 'yyyy-MM-dd');
-          } else {
-              draft.rentStatus = 'partial';
-              draft.rentPaidAmount = totalPaidInCycle;
+              if (totalPaidInCycle >= totalBillForCycle) {
+                  draft.rentStatus = 'paid';
+                  draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle;
+                  draft.rentPaidAmount = 0;
+                  draft.additionalCharges = [];
+                  draft.dueDate = format(getNextDueDate(new Date(draft.dueDate), draft.billingAnchorDay), 'yyyy-MM-dd');
+              } else {
+                  draft.rentStatus = 'partial';
+                  draft.rentPaidAmount = totalPaidInCycle;
+              }
+          });
+
+          transaction.set(guestDocRef, updatedGuest);
+
+          // Notifications are sent outside the transaction
+          await createAndSendNotification({
+              ownerId: ownerId,
+              notification: {
+                  type: 'rent-paid',
+                  title: 'Rent Received!',
+                  message: `You have received ₹${amountPaid.toLocaleString('en-IN')} from ${guest.name}.`,
+                  link: `/dashboard/tenant-management/${guestId}`,
+                  targetId: ownerId
+              }
+          });
+
+          if (guest.userId) {
+              await createAndSendNotification({
+                  ownerId: ownerId,
+                  notification: {
+                      type: 'rent-receipt',
+                      title: 'Payment Successful',
+                      message: `Your payment of ₹${amountPaid.toLocaleString('en-IN')} has been recorded.`,
+                      link: '/tenants/my-pg',
+                      targetId: guest.userId
+                  }
+              });
           }
       });
-      
-      await guestDocRef.set(updatedGuest, { merge: true });
       console.log(`Successfully updated rent payment for guest ${guestId}.`);
-      
-      // Send notifications
-      await createAndSendNotification({
-        ownerId: ownerId,
-        notification: {
-            type: 'rent-paid',
-            title: 'Rent Received!',
-            message: `You have received ₹${amountPaid.toLocaleString('en-IN')} from ${guest.name}. It has been routed to your primary account.`,
-            link: `/dashboard/tenant-management/${guestId}`,
-            targetId: ownerId
-        }
-      });
-
-      if (guest.userId) {
-          await createAndSendNotification({
-            ownerId: ownerId,
-            notification: {
-                type: 'rent-receipt',
-                title: 'Payment Successful',
-                message: `Your payment of ₹${amountPaid.toLocaleString('en-IN')} has been successfully recorded.`,
-                link: '/tenants/my-pg',
-                targetId: guest.userId
-            }
-        });
-      }
     }
 
     return NextResponse.json({ success: true });
