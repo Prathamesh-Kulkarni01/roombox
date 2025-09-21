@@ -5,9 +5,10 @@ import { useAppSelector } from "@/lib/hooks"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { UtensilsCrossed } from "lucide-react"
+import { UtensilsCrossed, Star } from "lucide-react"
 import type { DayOfWeek } from '@/lib/types'
 import { useMemo } from "react"
+import { Button } from "@/components/ui/button"
 
 const days: { key: DayOfWeek; label: string }[] = [
     { key: 'monday', label: 'Mon' },
@@ -59,7 +60,7 @@ export default function TenantFoodPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="text-2xl">This Week's Menu</CardTitle>
-                    <CardDescription>Here's what's cooking at {currentPg.name}.</CardDescription>
+                    <CardDescription>Here's what's cooking at {currentPg.name}. You can rate each meal to provide feedback!</CardDescription>
                 </CardHeader>
                 <CardContent>
                      <Tabs defaultValue={today} className="w-full">
@@ -79,6 +80,9 @@ export default function TenantFoodPage() {
                                         <CardContent>
                                             <p className="font-medium">{menu[day.key]?.breakfast || 'Not set'}</p>
                                         </CardContent>
+                                        <CardFooter>
+                                            <Button variant="outline" size="sm"><Star className="w-4 h-4 mr-2"/>Rate Meal</Button>
+                                        </CardFooter>
                                     </Card>
                                      <Card className="bg-muted/30 dark:bg-muted/20">
                                         <CardHeader>
@@ -88,6 +92,9 @@ export default function TenantFoodPage() {
                                         <CardContent>
                                             <p className="font-medium">{menu[day.key]?.lunch || 'Not set'}</p>
                                         </CardContent>
+                                         <CardFooter>
+                                            <Button variant="outline" size="sm"><Star className="w-4 h-4 mr-2"/>Rate Meal</Button>
+                                        </CardFooter>
                                     </Card>
                                      <Card className="bg-muted/30 dark:bg-muted/20">
                                         <CardHeader>
@@ -97,6 +104,9 @@ export default function TenantFoodPage() {
                                         <CardContent>
                                             <p className="font-medium">{menu[day.key]?.dinner || 'Not set'}</p>
                                         </CardContent>
+                                         <CardFooter>
+                                            <Button variant="outline" size="sm"><Star className="w-4 h-4 mr-2"/>Rate Meal</Button>
+                                        </CardFooter>
                                     </Card>
                                 </div>
                             </TabsContent>

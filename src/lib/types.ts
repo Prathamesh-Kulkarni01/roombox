@@ -32,16 +32,48 @@ export interface Floor {
   pgId: string;
 }
 
+export interface MenuItem {
+    id: string;
+    name: string;
+    category: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+}
+
 export interface Meal {
   breakfast: string;
   lunch: string;
   dinner: string;
+  ratings?: {
+      breakfast?: MealFeedback[];
+      lunch?: MealFeedback[];
+      dinner?: MealFeedback[];
+  }
 }
 
 export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 export type Menu = Record<DayOfWeek, Meal>;
 
+export interface InventoryItem {
+    id: string;
+    name: string;
+    unit: 'kg' | 'grams' | 'litres' | 'ml' | 'pieces' | 'packets';
+    stock: number;
+    threshold: number;
+    lastUpdated: string;
+}
+
+export interface MealFeedback {
+    guestId: string;
+    rating: number; // 1-5
+    comment?: string;
+    date: string;
+}
+
+export interface MenuTemplate {
+    id: string;
+    name: string;
+    menu: Menu;
+}
 
 export interface PG {
   id: string;
@@ -62,6 +94,8 @@ export interface PG {
   contact: string; // WhatsApp number
   floors?: Floor[];
   menu?: Menu;
+  inventory?: InventoryItem[];
+  menuTemplates?: MenuTemplate[];
   ownerId: string;
   status: 'active' | 'pending_approval' | 'rejected' | 'suspended';
 }

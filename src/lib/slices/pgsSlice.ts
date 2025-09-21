@@ -1,8 +1,8 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { PG, Floor, Room, Bed } from '../types';
+import type { PG, Floor, Room, Bed, MenuTemplate } from '../types';
 import { db, isFirebaseConfigured } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
 import { RootState } from '../store';
 import { addGuest, updateGuest } from './guestsSlice';
@@ -64,6 +64,8 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
             menu: updatedPg.menu || defaultMenu,
             amenities: updatedPg.amenities || [],
             images: updatedPg.images || [],
+            inventory: updatedPg.inventory || [],
+            menuTemplates: updatedPg.menuTemplates || [],
         };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
@@ -71,6 +73,43 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
             await setDoc(docRef, sanitizedPg, { merge: true });
         }
         return sanitizedPg;
+    }
+);
+
+export const addMenuTemplate = createAsyncThunk<{ pgId: string, template: MenuTemplate }, { pgId: string, template: MenuTemplate }, { state: RootState }>(
+    'pgs/addMenuTemplate',
+    async ({ pgId, template }, { getState, rejectWithValue }) => {
+        const { user } = getState();
+        if (!user.currentUser) return rejectWithValue('No user');
+
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', pgId);
+            await updateDoc(docRef, {
+                menuTemplates: arrayUnion(template)
+            });
+        }
+        return { pgId, template };
+    }
+);
+
+export const deleteMenuTemplate = createAsyncThunk<{ pgId: string, templateId: string }, { pgId: string, templateId: string }, { state: RootState }>(
+    'pgs/deleteMenuTemplate',
+    async ({ pgId, templateId }, { getState, rejectWithValue }) => {
+        const { user, pgs } = getState();
+        if (!user.currentUser) return rejectWithValue('No user');
+
+        const pg = pgs.pgs.find(p => p.id === pgId);
+        const templateToDelete = pg?.menuTemplates?.find(t => t.id === templateId);
+
+        if (!templateToDelete) return rejectWithValue('Template not found');
+
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', pgId);
+            await updateDoc(docRef, {
+                menuTemplates: arrayRemove(templateToDelete)
+            });
+        }
+        return { pgId, templateId };
     }
 );
 
@@ -128,6 +167,21 @@ const pgsSlice = createSlice({
             })
             .addCase(deletePg.fulfilled, (state, action) => {
                 state.pgs = state.pgs.filter(p => p.id !== action.payload);
+            })
+            .addCase(addMenuTemplate.fulfilled, (state, action) => {
+                const index = state.pgs.findIndex(p => p.id === action.payload.pgId);
+                if (index !== -1) {
+                    if (!state.pgs[index].menuTemplates) {
+                        state.pgs[index].menuTemplates = [];
+                    }
+                    state.pgs[index].menuTemplates!.push(action.payload.template);
+                }
+            })
+            .addCase(deleteMenuTemplate.fulfilled, (state, action) => {
+                const index = state.pgs.findIndex(p => p.id === action.payload.pgId);
+                if (index !== -1) {
+                    state.pgs[index].menuTemplates = state.pgs[index].menuTemplates?.filter(t => t.id !== action.payload.templateId);
+                }
             })
             .addCase(addGuest.fulfilled, (state, action) => {
                 if (!action.payload) return;
