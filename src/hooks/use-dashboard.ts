@@ -7,13 +7,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { produce } from 'immer'
-import jwt from 'jsonwebtoken'
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
 
-import type { Guest, Bed, Room, PG, Floor, Complaint, AdditionalCharge, Payment } from "@/lib/types"
-import { format, addMonths } from "date-fns"
+import type { Guest, Bed, Room, PG, Floor, AdditionalCharge, Payment, RentCycleUnit } from "@/lib/types"
+import { format, addMonths, addDays, addHours, addMinutes, addWeeks } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
@@ -27,6 +26,8 @@ const addGuestSchema = z.object({
     rentAmount: z.coerce.number().min(1, "Rent amount is required."),
     depositAmount: z.coerce.number().min(0, "Deposit amount must be 0 or more."),
     moveInDate: z.date({ required_error: "A move-in date is required."}),
+    rentCycleUnit: z.enum(['minutes', 'hours', 'days', 'weeks', 'months']),
+    rentCycleValue: z.coerce.number().min(1, 'Cycle value must be at least 1.'),
     kycDocument: z.any().optional()
 })
 
@@ -34,6 +35,8 @@ const editGuestSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
     phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
     email: z.string().email("Please enter a valid email address."),
+    rentCycleUnit: z.enum(['minutes', 'hours', 'days', 'weeks', 'months']),
+    rentCycleValue: z.coerce.number().min(1, 'Cycle value must be at least 1.'),
 });
 
 
@@ -97,7 +100,10 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
     resolver: zodResolver(addGuestSchema),
-    defaultValues: { name: '', phone: '', email: '', rentAmount: 0, depositAmount: 0 },
+    defaultValues: { 
+        name: '', phone: '', email: '', rentAmount: 0, depositAmount: 0,
+        rentCycleUnit: 'months', rentCycleValue: 1,
+     },
   });
   const editGuestForm = useForm<z.infer<typeof editGuestSchema>>({
     resolver: zodResolver(editGuestSchema),
@@ -139,6 +145,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
             name: guestToEdit.name,
             phone: guestToEdit.phone,
             email: guestToEdit.email,
+            rentCycleUnit: guestToEdit.rentCycleUnit || 'months',
+            rentCycleValue: guestToEdit.rentCycleValue || 1,
         });
     }
   }, [guestToEdit, editGuestForm]);
@@ -163,6 +171,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       rentAmount: room.rent,
       depositAmount: room.deposit,
       moveInDate: new Date(),
+      rentCycleUnit: 'months',
+      rentCycleValue: 1,
     });
     setIsAddGuestDialogOpen(true);
   };
@@ -172,10 +182,23 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsEditGuestDialogOpen(true);
   };
 
+  const calculateFirstDueDate = (moveInDate: Date, unit: RentCycleUnit, value: number) => {
+    const addFn = {
+        months: addMonths,
+        weeks: addWeeks,
+        days: addDays,
+        hours: addHours,
+        minutes: addMinutes,
+    }[unit];
+    return addFn(moveInDate, value);
+  };
+
   const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
     if (!selectedBedForGuestAdd) return;
     const { pg, bed } = selectedBedForGuestAdd;
-    console.log('values', values);
+    
+    const firstDueDate = calculateFirstDueDate(new Date(values.moveInDate), values.rentCycleUnit, values.rentCycleValue);
+    
     const guestData: Omit<Guest, 'id'> = {
       name: values.name,
       phone: values.phone,
@@ -185,12 +208,15 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       bedId: bed.id,
       rentStatus: 'unpaid',
       rentPaidAmount: 0,
-      dueDate: format(addMonths(new Date(values.moveInDate), 1), 'yyyy-MM-dd'),
+      dueDate: format(firstDueDate, 'yyyy-MM-dd'),
       rentAmount: values.rentAmount,
       depositAmount: values.depositAmount,
       kycStatus: 'not-started',
       moveInDate: format(values.moveInDate, 'yyyy-MM-dd'),
       noticePeriodDays: 30,
+      rentCycleUnit: values.rentCycleUnit,
+      rentCycleValue: values.rentCycleValue,
+      isVacated: false,
     };
     
     dispatch(addGuestAction(guestData));

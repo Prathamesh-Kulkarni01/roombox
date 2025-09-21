@@ -1,4 +1,5 @@
 
+
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -172,6 +173,8 @@ export interface KycDocument {
     photoUrl: string;
 }
 
+export type RentCycleUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
+
 export interface Guest {
   id: string;
   name: string;
@@ -194,6 +197,8 @@ export interface Guest {
   hasMessage?: boolean;
   moveInDate: string;
   noticePeriodDays: number;
+  rentCycleUnit: RentCycleUnit; // e.g., 'months'
+  rentCycleValue: number; // e.g., 1
   exitDate?: string;
   userId?: string | null; // Link to the user account
   isVacated: boolean; // True if the guest has permanently left the PG
