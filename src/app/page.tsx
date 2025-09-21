@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2, Calendar, ArrowLeftRight, CheckCircle, Pencil, User as UserIcon } from "lucide-react";
+import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2, Calendar, ArrowLeftRight, CheckCircle, Pencil, User as UserIcon, BedDouble } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
@@ -49,18 +49,41 @@ const Index = () => {
       title: "Visual Occupancy Dashboard",
       description: "Get a real-time, bird's-eye view of your business. Our visual dashboard shows you bed status, rent dues, and occupancy at a glance, replacing confusing spreadsheets forever.",
       visual: (
-        <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-2 border">
-            <div className="flex justify-between items-center bg-background p-2 rounded">
-                <span className="text-sm font-semibold">Floor 1</span>
-                <Badge variant="secondary">4/6 Occupied</Badge>
+        <div className="w-full aspect-video bg-card border rounded-lg p-4 flex flex-col justify-center gap-4 shadow-lg">
+            <div className="grid grid-cols-3 gap-3">
+                <div className="bg-background p-2 rounded-lg text-center">
+                    <Users className="w-5 h-5 mx-auto text-primary mb-1"/>
+                    <p className="text-xs text-muted-foreground">Occupancy</p>
+                    <p className="text-sm font-bold">28 / 32</p>
+                </div>
+                 <div className="bg-background p-2 rounded-lg text-center">
+                    <IndianRupee className="w-5 h-5 mx-auto text-green-500 mb-1"/>
+                    <p className="text-xs text-muted-foreground">Revenue</p>
+                    <p className="text-sm font-bold">₹1.8L</p>
+                </div>
+                 <div className="bg-background p-2 rounded-lg text-center">
+                    <IndianRupee className="w-5 h-5 mx-auto text-red-500 mb-1"/>
+                    <p className="text-xs text-muted-foreground">Dues</p>
+                    <p className="text-sm font-bold">₹24k</p>
+                </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-                <div className="aspect-square bg-green-200 rounded flex items-center justify-center text-xs text-green-900 font-bold">Bed A</div>
-                <div className="aspect-square bg-red-200 rounded flex items-center justify-center text-xs text-red-900 font-bold">Bed B</div>
-                <div className="aspect-square bg-green-200 rounded flex items-center justify-center text-xs text-green-900 font-bold">Bed C</div>
-                <div className="aspect-square bg-yellow-200 rounded flex items-center justify-center text-xs text-yellow-900 font-bold animate-pulse">Available</div>
-                <div className="aspect-square bg-green-200 rounded flex items-center justify-center text-xs text-green-900 font-bold">Bed E</div>
-                <div className="aspect-square bg-yellow-200 rounded flex items-center justify-center text-xs text-yellow-900 font-bold animate-pulse">Available</div>
+            <div className="grid grid-cols-4 gap-2">
+                <div className="aspect-square bg-green-100 dark:bg-green-900/40 rounded flex flex-col items-center justify-center p-1 text-center border border-green-300 dark:border-green-800">
+                    <CheckCircle className="w-4 h-4 text-green-600 mb-1"/>
+                    <p className="text-[10px] font-bold text-green-800 dark:text-green-300">Paid</p>
+                </div>
+                 <div className="aspect-square bg-red-100 dark:bg-red-900/40 rounded flex flex-col items-center justify-center p-1 text-center border border-red-300 dark:border-red-800">
+                    <Clock className="w-4 h-4 text-red-600 mb-1"/>
+                    <p className="text-[10px] font-bold text-red-800 dark:text-red-300">Due</p>
+                </div>
+                 <div className="aspect-square bg-yellow-100 dark:bg-yellow-900/40 rounded flex flex-col items-center justify-center p-1 text-center border border-yellow-300 dark:border-yellow-800 animate-pulse">
+                    <BedDouble className="w-4 h-4 text-yellow-600 mb-1"/>
+                    <p className="text-[10px] font-bold text-yellow-800 dark:text-yellow-300">Available</p>
+                </div>
+                 <div className="aspect-square bg-green-100 dark:bg-green-900/40 rounded flex flex-col items-center justify-center p-1 text-center border border-green-300 dark:border-green-800">
+                     <CheckCircle className="w-4 h-4 text-green-600 mb-1"/>
+                    <p className="text-[10px] font-bold text-green-800 dark:text-green-300">Paid</p>
+                </div>
             </div>
         </div>
       )
@@ -69,22 +92,22 @@ const Index = () => {
       title: "Automated Financial Tracking",
       description: "From rent collection to expense logging, put your finances on autopilot. Send automated reminders with payment links and get instant clarity on your monthly profit and loss.",
       visual: (
-        <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-3 border">
-            <div className="bg-background p-3 rounded-lg shadow-sm">
+        <div className="w-full aspect-video bg-card border rounded-lg p-4 flex flex-col justify-center gap-3 shadow-lg">
+            <div className="bg-background p-3 rounded-lg border">
                 <div className="flex justify-between items-center">
                     <p className="text-sm font-medium">Rent Received</p>
                     <p className="text-sm font-bold text-green-600">+ ₹12,000</p>
                 </div>
                 <p className="text-xs text-muted-foreground">From Priya Sharma for Room 101</p>
             </div>
-             <div className="bg-background p-3 rounded-lg shadow-sm">
+             <div className="bg-background p-3 rounded-lg border">
                 <div className="flex justify-between items-center">
                     <p className="text-sm font-medium">Expense Logged</p>
                     <p className="text-sm font-bold text-red-600">- ₹2,500</p>
                 </div>
                 <p className="text-xs text-muted-foreground">Groceries for the week</p>
             </div>
-            <div className="bg-primary/10 text-primary p-3 rounded-lg shadow-sm mt-2 text-center">
+            <div className="bg-primary/10 text-primary p-3 rounded-lg border border-primary/20 mt-2 text-center">
                 <p className="text-sm font-bold">Net Profit Updated</p>
             </div>
         </div>
@@ -94,15 +117,15 @@ const Index = () => {
       title: "Effortless Operations",
       description: "Manage complaints, plan menus, and assign staff roles with specific permissions. Everything you need to run a smooth operation is in one place, accessible from anywhere.",
       visual: (
-        <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-3 border">
-            <div className="bg-background p-3 rounded-lg shadow-sm transition-all hover:scale-105">
+        <div className="w-full aspect-video bg-card border rounded-lg p-4 flex flex-col justify-center gap-3 shadow-lg">
+            <div className="bg-background p-3 rounded-lg border transition-all hover:scale-105">
                 <div className="flex justify-between items-center mb-1">
                     <p className="font-semibold text-sm">New Complaint</p>
                     <Badge variant="destructive">Open</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">"Wi-fi is not working in Room 204." - Akash</p>
             </div>
-             <div className="bg-background p-3 rounded-lg shadow-sm transition-all hover:scale-105">
+             <div className="bg-background p-3 rounded-lg border transition-all hover:scale-105">
                 <div className="flex justify-between items-center mb-1">
                     <p className="font-semibold text-sm">Complaint Assigned</p>
                     <Badge variant="secondary" className="bg-orange-100 text-orange-800">In Progress</Badge>
@@ -116,15 +139,15 @@ const Index = () => {
       title: "A Professional Tenant App",
       description: "Provide your residents with a modern mobile app. They can pay rent, raise complaints, check the food menu, and get instant answers from an AI chatbot, reducing your workload.",
       visual: (
-        <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex items-center justify-center border">
-            <div className="w-48 h-80 bg-background rounded-2xl shadow-2xl p-3 flex flex-col">
-                <div className="text-xs font-bold mb-2 text-center">Tenant App</div>
-                <div className="space-y-2 text-xs">
-                    <div className="bg-primary text-primary-foreground p-2 rounded-lg ml-auto rounded-br-none">What's for dinner?</div>
-                    <div className="bg-muted p-2 rounded-lg mr-auto rounded-bl-none">Tonight we are serving Veg Biryani and Raita!</div>
+        <div className="w-full aspect-video bg-card border rounded-lg p-4 flex items-center justify-center shadow-lg">
+            <div className="w-48 h-80 bg-background rounded-2xl shadow-2xl p-3 flex flex-col border">
+                <div className="text-xs font-bold mb-2 text-center text-muted-foreground">Tenant App</div>
+                <div className="space-y-2 text-sm flex-1 overflow-hidden">
+                    <div className="bg-primary text-primary-foreground p-2 rounded-lg ml-auto rounded-br-none max-w-[80%]">What's for dinner?</div>
+                    <div className="bg-muted p-2 rounded-lg mr-auto rounded-bl-none max-w-[80%]">Tonight we are serving Veg Biryani and Raita!</div>
                 </div>
                  <div className="mt-auto text-center">
-                     <Button size="sm" className="w-full h-8 text-xs">Pay Rent</Button>
+                     <Button size="sm" className="w-full h-8 text-xs bg-primary hover:bg-primary/90">Pay Rent</Button>
                  </div>
             </div>
         </div>
@@ -186,54 +209,8 @@ const Index = () => {
             </div>
         </section>
         
-        {/* Primary Features */}
-        <section className="py-20 bg-background">
-            <div className="container mx-auto px-4">
-                <div className="space-y-16">
-                {primaryFeatures.map((feature, index) => (
-                    <div key={feature.title} className="grid md:grid-cols-2 gap-12 items-center">
-                        <div className={cn("space-y-4", index % 2 === 1 && "md:order-2")}>
-                            <h3 className="text-3xl font-bold">{feature.title}</h3>
-                            <p className="text-lg text-muted-foreground">{feature.description}</p>
-                        </div>
-                        <div className={cn(index % 2 === 1 && "md:order-1")}>
-                            {feature.visual}
-                        </div>
-                    </div>
-                ))}
-                </div>
-            </div>
-        </section>
-
-        {/* All Features Section */}
-         <section id="features" className="py-20 bg-muted/40">
-             <div className="container mx-auto px-4">
-                <div className="text-center space-y-4 mb-12">
-                    <h2 className="text-4xl lg:text-5xl font-bold">
-                       One App to Rule Them All
-                    </h2>
-                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                        From guest check-in to financial reconciliation, RentSutra has every feature you'll ever need to run a successful rental business.
-                    </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {secondaryFeatures.map((feature) => (
-                    <div key={feature.title} className="flex items-start gap-4 p-4 rounded-lg hover:bg-muted transition-colors">
-                        <div className="flex-shrink-0 p-3 bg-primary/10 rounded-full">
-                           <feature.icon className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-lg">{feature.title}</h3>
-                            <p className="text-sm text-muted-foreground">{feature.description}</p>
-                        </div>
-                    </div>
-                ))}
-                </div>
-            </div>
-        </section>
-
         {/* Supercharge Section */}
-        <section className="py-20 bg-background">
+        <section className="py-20 bg-muted/40">
             <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-16">
                     <h2 className="text-4xl lg:text-5xl font-bold">
@@ -321,8 +298,54 @@ const Index = () => {
             </div>
         </section>
 
+        {/* Primary Features */}
+        <section className="py-20 bg-background">
+            <div className="container mx-auto px-4">
+                <div className="space-y-16">
+                {primaryFeatures.map((feature, index) => (
+                    <div key={feature.title} className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className={cn("space-y-4", index % 2 === 1 && "md:order-2")}>
+                            <h3 className="text-3xl font-bold">{feature.title}</h3>
+                            <p className="text-lg text-muted-foreground">{feature.description}</p>
+                        </div>
+                        <div className={cn(index % 2 === 1 && "md:order-1")}>
+                            {feature.visual}
+                        </div>
+                    </div>
+                ))}
+                </div>
+            </div>
+        </section>
+
+        {/* All Features Section */}
+         <section id="features" className="py-20 bg-muted/40">
+             <div className="container mx-auto px-4">
+                <div className="text-center space-y-4 mb-12">
+                    <h2 className="text-4xl lg:text-5xl font-bold">
+                       One App to Rule Them All
+                    </h2>
+                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                        From guest check-in to financial reconciliation, RentSutra has every feature you'll ever need to run a successful rental business.
+                    </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {secondaryFeatures.map((feature) => (
+                    <div key={feature.title} className="flex items-start gap-4 p-4 rounded-lg hover:bg-muted transition-colors">
+                        <div className="flex-shrink-0 p-3 bg-primary/10 rounded-full">
+                           <feature.icon className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-lg">{feature.title}</h3>
+                            <p className="text-sm text-muted-foreground">{feature.description}</p>
+                        </div>
+                    </div>
+                ))}
+                </div>
+            </div>
+        </section>
+
         {/* Why RentSutra Section */}
-        <section className="py-20 bg-muted/40">
+        <section className="py-20 bg-background">
             <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-12">
                     <h2 className="text-4xl lg:text-5xl font-bold">Stop Juggling, Start Managing</h2>
@@ -366,7 +389,7 @@ const Index = () => {
         </section>
 
         {/* Pricing Section */}
-        <section id="pricing" className="py-20 bg-background">
+        <section id="pricing" className="py-20 bg-muted/40">
           <div className="container mx-auto px-4">
             <div className="text-center space-y-4 mb-16">
               <h2 className="text-4xl lg:text-5xl font-bold">
