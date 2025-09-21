@@ -60,6 +60,12 @@ export async function POST(req: NextRequest) {
 
       const guest = guestDoc.data() as Guest;
       const owner = ownerDoc.data() as User;
+
+      // Idempotency Check: Prevent duplicate processing
+      if (guest.paymentHistory?.some(p => p.id === payment.id)) {
+        console.log(`Payment ${payment.id} already processed for guest ${guestId}. Skipping.`);
+        return NextResponse.json({ success: true, message: 'Duplicate webhook ignored.' });
+      }
       
       const methodFromGateway = (payment.method || 'online').toLowerCase();
       const upiVpa: string | undefined = payment.vpa || payment.notes?.vpa;

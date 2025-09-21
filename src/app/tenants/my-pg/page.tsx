@@ -110,8 +110,8 @@ export default function MyPgPage() {
                     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
                     amount: order.amount,
                     currency: order.currency,
-                    name: 'RentSutra Rent Payment',
-                    description: `Rent for ${currentGuest.pgName}`,
+                    name: `Rent for ${currentGuest.pgName}`,
+                    description: `Payment for ${currentGuest.name}`,
                     order_id: order.id,
                     handler: function (response: any) {
                         toast({ title: 'Payment Successful!', description: 'Your payment is being processed. The status will update shortly.' });

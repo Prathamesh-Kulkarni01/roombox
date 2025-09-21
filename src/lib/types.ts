@@ -1,5 +1,4 @@
 
-
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -86,7 +85,6 @@ export interface Payment {
     payoutTo?: string; // Name of the owner's payout account used
 }
 
-// Payment Method Types
 export interface PaymentMethodBase {
   id: string; // This will store the Razorpay Account ID (acc_...) from v2 API
   name: string;
