@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -48,8 +49,8 @@ export default function InstallPWA() {
   }
 
   return (
-    <Button onClick={handleInstallClick} variant="outline">
-      <Download className="mr-2 h-4 w-4" />
+    <Button onClick={handleInstallClick} variant="outline" size="lg" className="text-lg px-8 py-6">
+      <Download className="mr-2 h-5 w-5" />
       Install App
     </Button>
   );

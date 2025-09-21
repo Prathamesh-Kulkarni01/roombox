@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, ArrowDown } from "lucide-react";
+import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
@@ -42,9 +42,9 @@ const Index = () => {
     }
   };
   
-    const featureSections = [
+    const primaryFeatures = [
     {
-      title: "Digitize Your Entire Property",
+      title: "Visual Occupancy Dashboard",
       description: "Get a real-time, bird's-eye view of your business. Our visual dashboard shows you bed status, rent dues, and occupancy at a glance, replacing confusing spreadsheets forever.",
       visual: (
         <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-2 border">
@@ -64,7 +64,7 @@ const Index = () => {
       )
     },
     {
-      title: "Automate Your Finances",
+      title: "Automated Financial Tracking",
       description: "From rent collection to expense logging, put your finances on autopilot. Send automated reminders with payment links and get instant clarity on your monthly profit and loss.",
       visual: (
         <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-3 border">
@@ -89,7 +89,7 @@ const Index = () => {
       )
     },
     {
-      title: "Streamline Daily Operations",
+      title: "Effortless Operations",
       description: "Manage complaints, plan menus, and assign staff roles with specific permissions. Everything you need to run a smooth operation is in one place, accessible from anywhere.",
       visual: (
         <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex flex-col justify-center gap-3 border">
@@ -111,8 +111,8 @@ const Index = () => {
       )
     },
     {
-      title: "Empower Your Tenants",
-      description: "Provide your residents with a professional mobile app. They can pay rent, raise complaints, check the food menu, and even get instant answers from an AI chatbot, reducing your workload.",
+      title: "A Professional Tenant App",
+      description: "Provide your residents with a modern mobile app. They can pay rent, raise complaints, check the food menu, and get instant answers from an AI chatbot, reducing your workload.",
       visual: (
         <div className="w-full aspect-square bg-muted/40 rounded-lg p-4 flex items-center justify-center border">
             <div className="w-48 h-80 bg-background rounded-2xl shadow-2xl p-3 flex flex-col">
@@ -129,6 +129,21 @@ const Index = () => {
       )
     }
   ];
+
+   const secondaryFeatures = [
+        { icon: Contact, title: "Staff Management", description: "Assign roles and permissions to your team members." },
+        { icon: LayoutList, title: "Property Layout", description: "Create a digital twin of your property with floors, rooms, and beds." },
+        { icon: UserPlus, title: "Guest Onboarding", description: "Easily add new tenants and manage their entire lifecycle." },
+        { icon: BookUser, title: "Rent Passbook", description: "Track all payments, dues, and security deposits in one place." },
+        { icon: Wallet, title: "Expense Tracking", description: "Log and categorize all your property-related expenses." },
+        { icon: MessageSquare, title: "Complaint Management", description: "Receive and manage tenant complaints efficiently." },
+        { icon: UtensilsCrossed, title: "Food Menu Planner", description: "Plan and display your weekly menu for all tenants." },
+        { icon: BrainCircuit, title: "AI-Powered Tools", description: "Leverage AI for reminders, SEO content, and tenant support." },
+        { icon: UserCheck, title: "KYC Verification", description: "Automate tenant document verification for added security." },
+        { icon: Globe, title: "Public Website", description: "Get a professional, public-facing website for your brand." },
+        { icon: History, title: "Tenant History", description: "Maintain records of all past tenants for future reference." },
+        { icon: BarChart3, title: "Advanced Analytics", description: "Get deep insights into your business performance and trends." },
+    ];
 
   return (
     <>
@@ -254,7 +269,7 @@ const Index = () => {
                         RentSutra is packed with features designed to save you time, reduce stress, and increase your profits.
                     </p>
                 </div>
-                {featureSections.map((feature, index) => (
+                {primaryFeatures.map((feature, index) => (
                     <div key={index} className="grid md:grid-cols-2 gap-12 items-center">
                         <div className={cn("space-y-4", index % 2 === 1 && 'md:order-2')}>
                             <Badge variant="outline">{feature.title}</Badge>
@@ -266,6 +281,21 @@ const Index = () => {
                         </div>
                     </div>
                 ))}
+            </div>
+             <div className="container mx-auto px-4 pt-24">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {secondaryFeatures.map((feature) => (
+                    <div key={feature.title} className="flex items-start gap-4">
+                        <div className="flex-shrink-0 p-3 bg-primary/10 rounded-full">
+                           <feature.icon className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-lg">{feature.title}</h3>
+                            <p className="text-sm text-muted-foreground">{feature.description}</p>
+                        </div>
+                    </div>
+                ))}
+                </div>
             </div>
         </section>
 
@@ -310,7 +340,7 @@ const Index = () => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                          <div className="text-4xl font-bold">₹25<span className="text-lg text-muted-foreground">/bed/month</span></div>
-                        <p className="font-semibold">1-50 Beds</p>
+                        <p className="font-semibold">1 - 50 Beds</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                              <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Everything in Free, plus:</li>
                              <li className="flex items-center"><Zap className="w-4 h-4 text-primary mr-2" />Unlimited Properties & Staff</li>
@@ -331,10 +361,10 @@ const Index = () => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="text-4xl font-bold">Custom</div>
-                        <p className="font-semibold">150+ Beds</p>
+                        <p className="font-semibold">50+ Beds</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Everything in Pro, plus:</li>
-                            <li className="flex items-center"><IndianRupee className="w-4 h-4 text-primary mr-2" />Volume discounts (₹28/bed)</li>
+                            <li className="flex items-center"><IndianRupee className="w-4 h-4 text-primary mr-2" />Volume discounts (from ₹28/bed)</li>
                             <li className="flex items-center"><Globe className="w-4 h-4 text-primary mr-2" />Custom Domain & Branding</li>
                             <li className="flex items-center"><Users className="w-4 h-4 text-primary mr-2" />Dedicated Account Manager</li>
                         </ul>
@@ -407,3 +437,4 @@ const Index = () => {
 
 export default Index;
 
+    

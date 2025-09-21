@@ -95,7 +95,7 @@ export default function Header() {
                 href={link.href}
                 className={cn(
                     'transition-colors hover:text-foreground/80',
-                    pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/' ? 'text-foreground' : 'text-muted-foreground'
+                    (pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/') ? 'text-foreground' : 'text-muted-foreground'
                 )}
                 >
                 {link.label}
