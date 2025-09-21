@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useMemo, useState } from 'react'
@@ -293,18 +294,9 @@ export default function GuestManagementPage() {
                 <CardContent>
                      <Tabs defaultValue="active-guests" className="w-full">
                         <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="active-guests">
-                                <span className="sm:hidden">Active</span>
-                                <span className="hidden sm:inline">Active Guests</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="exited-guests">
-                                <span className="sm:hidden">History</span>
-                                <span className="hidden sm:inline">Guest History</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="kyc-management">
-                                <span className="sm:hidden">KYC</span>
-                                <span className="hidden sm:inline">KYC Management</span>
-                            </TabsTrigger>
+                            <TabsTrigger value="active-guests">Active Guests</TabsTrigger>
+                            <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
+                            <TabsTrigger value="kyc-management">KYCs</TabsTrigger>
                         </TabsList>
                         <TabsContent value="active-guests" className="mt-4">
                             <GuestList guests={activeGuests} onEdit={() => {}} canEdit={canEditGuests}/>

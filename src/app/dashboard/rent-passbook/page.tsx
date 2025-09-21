@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo, useRef } from 'react';
@@ -16,6 +17,7 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import RentAnalytics from '@/components/dashboard/rent-passbook/RentAnalytics';
+import DepositManagementTab from '@/components/dashboard/rent-passbook/DepositManagementTab';
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog';
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog';
 import { useDashboard } from '@/hooks/use-dashboard';
@@ -359,12 +361,12 @@ export default function RentPassbookPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Rent Passbook</CardTitle>
+                    <CardTitle>Rentbook</CardTitle>
                     <CardDescription>View pending dues, payment history, and financial analytics.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="pending-dues">
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-4">
                             <TabsTrigger value="pending-dues">
                                 <span className="sm:hidden">Dues</span>
                                 <span className="hidden sm:inline">Pending Dues</span>
@@ -372,6 +374,10 @@ export default function RentPassbookPage() {
                             <TabsTrigger value="payment-history">
                                 <span className="sm:hidden">History</span>
                                 <span className="hidden sm:inline">Payment History</span>
+                            </TabsTrigger>
+                             <TabsTrigger value="deposits">
+                                <span className="sm:hidden">Deposits</span>
+                                <span className="hidden sm:inline">Deposits</span>
                             </TabsTrigger>
                             <TabsTrigger value="analytics">
                                 <span className="sm:hidden">Stats</span>
@@ -442,6 +448,9 @@ export default function RentPassbookPage() {
                                     </TableBody>
                                 </Table>
                             </div>
+                        </TabsContent>
+                        <TabsContent value="deposits" className="mt-4">
+                            <DepositManagementTab guests={guests} />
                         </TabsContent>
                         <TabsContent value="analytics" className="mt-4">
                             <RentAnalytics guests={guests} pgs={pgs} />
