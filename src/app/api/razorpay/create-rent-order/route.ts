@@ -32,13 +32,13 @@ export async function POST(req: NextRequest) {
     
     // Fetch owner to get their primary payout method (linked account)
     const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
-    if (!ownerDoc.exists()) {
+    if (!ownerDoc.exists) {
         return NextResponse.json({ success: false, error: 'Property owner not found.' }, { status: 404 });
     }
     const owner = ownerDoc.data() as User;
     const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
-    if (!primaryPayoutAccount?.id) {
+    if (!primaryPayoutAccount?.razorpay_fund_account_id) {
         return NextResponse.json({ success: false, error: 'Owner has not configured a primary payout account. Payment cannot be processed.' }, { status: 400 });
     }
     
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       },
       transfers: [
         {
-          account: primaryPayoutAccount.id, // The owner's Linked Account ID (acc_...)
+          account: primaryPayoutAccount.razorpay_fund_account_id, // The Fund Account ID
           amount: amountInPaise - commissionInPaise,
           currency: "INR",
           on_hold: 0,
