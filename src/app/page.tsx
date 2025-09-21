@@ -8,10 +8,11 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit } from "lucide-react";
+import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
+import InstallPWA from '@/components/install-pwa';
 
 const Index = () => {
     const router = useRouter();
@@ -76,9 +77,10 @@ const Index = () => {
                       Get Started for Free
                   </Link>
                 </Button>
+                <InstallPWA />
               </div>
 
-              <div className="flex items-center space-x-8 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center">
                   <Check className="w-4 h-4 text-green-500 mr-2" />
                   No credit card required
@@ -86,6 +88,10 @@ const Index = () => {
                 <div className="flex items-center">
                   <Check className="w-4 h-4 text-green-500 mr-2" />
                   Free forever for up to 10 beds
+                </div>
+                <div className="flex items-center">
+                  <Check className="w-4 h-4 text-green-500 mr-2" />
+                  App size less than 1MB
                 </div>
               </div>
             </div>
@@ -208,7 +214,7 @@ const Index = () => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="text-4xl font-bold">₹25<span className="text-lg text-muted-foreground">/bed/month</span></div>
-                        <p className="font-semibold">11 - 150 Beds</p>
+                        <p className="font-semibold">1-50 Beds</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                              <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Everything in Free, plus:</li>
                              <li className="flex items-center"><Zap className="w-4 h-4 text-primary mr-2" />Unlimited Properties & Staff</li>
@@ -228,8 +234,8 @@ const Index = () => {
                         <CardDescription>For large-scale chains and custom needs</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="text-4xl font-bold">₹28<span className="text-lg text-muted-foreground">/bed/month</span></div>
-                        <p className="font-semibold">150+ Beds</p>
+                        <div className="text-4xl font-bold">₹30<span className="text-lg text-muted-foreground">/bed/month</span></div>
+                        <p className="font-semibold">51-150 Beds</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Everything in Pro, plus:</li>
                             <li className="flex items-center"><Globe className="w-4 h-4 text-primary mr-2" />Custom Domain & Branding</li>
@@ -241,7 +247,7 @@ const Index = () => {
                     </CardFooter>
                 </Card>
             </div>
-             <p className="text-center text-sm text-muted-foreground mt-8">All prices are billed monthly. You can upgrade, downgrade, or cancel anytime.</p>
+             <p className="text-center text-sm text-muted-foreground mt-8">For properties with more than 150 beds, we offer custom pricing at ₹28/bed. Please contact us.</p>
           </div>
         </section>
 
@@ -334,5 +340,3 @@ const Index = () => {
 };
 
 export default Index;
-
-    
