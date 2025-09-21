@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog } from "lucide-react";
+import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, ArrowDown } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
@@ -111,68 +111,112 @@ const Index = () => {
           </div>
         </section>
 
+        {/* Why RentSutra Section */}
+        <section className="py-20 bg-muted/40">
+            <div className="container mx-auto px-4">
+                <div className="text-center space-y-4 mb-12">
+                    <h2 className="text-4xl lg:text-5xl font-bold">Stop Juggling, Start Managing</h2>
+                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                        Tired of the chaos? See how RentSutra transforms your daily operations.
+                    </p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto">
+                    {/* The Old Way */}
+                    <div className="bg-card p-8 rounded-xl border border-dashed border-red-500/50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                               <X className="w-6 h-6 text-red-500" />
+                            </div>
+                            <h3 className="text-2xl font-bold">The Old Way</h3>
+                        </div>
+                        <ul className="space-y-3 text-muted-foreground">
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Endless WhatsApp chats for rent reminders and complaints.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Messy Excel sheets and paper registers for financial tracking.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>No clear view of your real-time occupancy or revenue.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Manually calculating and reconciling monthly bills and dues.</span></li>
+                        </ul>
+                    </div>
+                     {/* The RentSutra Way */}
+                    <div className="bg-card p-8 rounded-xl border border-dashed border-green-500/50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                               <Check className="w-6 h-6 text-green-500" />
+                            </div>
+                            <h3 className="text-2xl font-bold">The RentSutra Way</h3>
+                        </div>
+                        <ul className="space-y-3 text-muted-foreground">
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>Automated rent reminders and a professional tenant app.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>A single dashboard for all financial and operational data.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>Instant insights into occupancy, revenue, and pending dues.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>One-click rent reconciliation and bill splitting.</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         {/* Features Section */}
-        <section id="features" className="py-20 bg-muted/40">
+        <section id="features" className="py-20">
             <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-16">
                     <h2 className="text-4xl lg:text-5xl font-bold">
-                       Finally, an App That Works as Hard as You Do
+                       A Powerful Toolkit for Property Owners
                     </h2>
                     <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
                         RentSutra is packed with features designed to save you time, reduce stress, and increase your profits.
                     </p>
                 </div>
-                <div className="space-y-20">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {[
                         {
                             icon: LayoutList,
-                            title: "Digitize Your Operations",
-                            description: "Stop juggling registers and spreadsheets. Create a visual layout of your property, manage staff roles with specific permissions, and track every detail from a single, powerful dashboard.",
-                            img: "https://picsum.photos/seed/feature1/600/400",
-                            imgHint: "dashboard layout",
+                            title: "Visual Dashboard",
+                            description: "Get a bird's-eye view of your entire property. See occupancy, rent status, and vacant beds at a glance.",
+                        },
+                        {
+                            icon: WalletCards,
+                            title: "Automated Rent Collection",
+                            description: "Automatically track dues and send AI-powered reminders with payment links. Log cash, UPI, or in-app payments.",
                         },
                         {
                             icon: FilePieChart,
-                            title: "Automate Your Finances",
-                            description: "From collecting rent online with automated reminders to logging every single expense with our Quick-Add feature, RentSutra puts you in complete control of your cash flow. Know your exact financial health, instantly.",
-                            img: "https://picsum.photos/seed/feature2/600/400",
-                            imgHint: "financial charts",
+                            title: "Expense Tracking",
+                            description: "Log every rupee spent with our simple expense manager. Know your exact profit and loss in real-time.",
                         },
                         {
                             icon: UserRoundCog,
-                            title: "Enhance Tenant Living",
-                            description: "Provide a professional experience with a dedicated tenant app. Tenants can pay rent, raise complaints with photos, view the food menu, and get instant answers from an AI chatbot, reducing your workload.",
-                            img: "https://picsum.photos/seed/feature3/600/400",
-                            imgHint: "mobile app screen",
+                            title: "Staff & Role Management",
+                            description: "Add your staff and assign specific permissions. Control who can view financials, edit guest details, or manage complaints.",
+                        },
+                        {
+                            icon: MessageSquare,
+                            title: "Complaint Management",
+                            description: "A centralized system for tenants to raise issues and for you to track them to resolution.",
+                        },
+                         {
+                            icon: Smartphone,
+                            title: "Dedicated Tenant App",
+                            description: "Give your tenants a professional app to pay rent, raise complaints, view the menu, and get help from an AI chatbot.",
                         },
                     ].map((feature, index) => (
-                         <div key={index} className="grid md:grid-cols-2 gap-12 items-center">
-                            <div className={cn("space-y-6", index % 2 === 1 && "md:order-2")}>
-                                <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-4">
-                                    <feature.icon className="h-8 w-8" />
-                                </div>
-                                <h3 className="text-3xl font-bold">{feature.title}</h3>
-                                <p className="text-lg text-muted-foreground">{feature.description}</p>
-                            </div>
-                            <div className={cn("relative", index % 2 === 1 && "md:order-1")}>
-                                <div className="absolute inset-0 bg-gradient-hero rounded-3xl blur-2xl opacity-20"></div>
-                                <Image
-                                    src={feature.img}
-                                    alt={feature.title}
-                                    width={600}
-                                    height={400}
-                                    className="relative z-10 w-full h-auto rounded-2xl shadow-lg"
-                                    data-ai-hint={feature.imgHint}
-                                />
-                            </div>
-                        </div>
+                         <Card key={index} className="bg-muted/40 border-dashed hover:border-primary hover:bg-card transition-all">
+                             <CardHeader>
+                                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary mb-4">
+                                     <feature.icon className="h-6 w-6" />
+                                 </div>
+                                 <CardTitle>{feature.title}</CardTitle>
+                             </CardHeader>
+                            <CardContent>
+                                <p className="text-muted-foreground">{feature.description}</p>
+                            </CardContent>
+                        </Card>
                     ))}
                 </div>
             </div>
         </section>
 
         {/* Pricing Section */}
-        <section id="pricing" className="py-20">
+        <section id="pricing" className="py-20 bg-muted/40">
           <div className="container mx-auto px-4">
             <div className="text-center space-y-4 mb-16">
               <h2 className="text-4xl lg:text-5xl font-bold">
@@ -211,7 +255,7 @@ const Index = () => {
                         <CardDescription>For growing businesses that need automation</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="text-4xl font-bold">₹25<span className="text-lg text-muted-foreground">/bed/month</span></div>
+                         <div className="text-4xl font-bold">₹25<span className="text-lg text-muted-foreground">/bed/month</span></div>
                         <p className="font-semibold">1-50 Beds</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                              <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Everything in Free, plus:</li>
@@ -249,36 +293,6 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Why Choose Us Section */}
-        <section className="py-20">
-            <div className="container mx-auto px-4">
-                 <div className="text-center space-y-4 mb-16">
-                    <h2 className="text-4xl lg:text-5xl font-bold">
-                        Why is RentSutra <span className="bg-gradient-saffron bg-clip-text text-transparent">Better?</span>
-                    </h2>
-                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                        We are not just another generic software. We are built with a deep understanding of the Indian PG ecosystem.
-                    </p>
-                </div>
-                 <div className="grid md:grid-cols-3 gap-8">
-                     <div className="space-y-4 p-6 rounded-lg">
-                        <div className="text-3xl font-bold text-muted-foreground">1.</div>
-                        <h3 className="text-2xl font-semibold">Built for India</h3>
-                        <p className="text-muted-foreground">From complex rent cycles and deposit management to multilingual AI reminders, every feature is designed for the unique challenges of the Indian rental market.</p>
-                    </div>
-                     <div className="space-y-4 p-6 rounded-lg bg-primary/10">
-                        <div className="text-3xl font-bold text-muted-foreground">2.</div>
-                        <h3 className="text-2xl font-semibold">True Automation</h3>
-                        <p className="text-muted-foreground">Other apps are just digital diaries. RentSutra is an OS. It automatically reconciles rent, sends reminders, and manages your finances, saving you hours of manual work.</p>
-                    </div>
-                     <div className="space-y-4 p-6 rounded-lg">
-                        <div className="text-3xl font-bold text-muted-foreground">3.</div>
-                        <h3 className="text-2xl font-semibold">Grows with You</h3>
-                        <p className="text-muted-foreground">Start with one property and grow to a hundred. Our simple, per-bed pricing and scalable features mean the platform adapts to your business, not the other way around.</p>
-                    </div>
-                 </div>
-            </div>
-        </section>
 
         {/* Footer */}
         <footer className="bg-card text-card-foreground py-12 border-t">
@@ -338,3 +352,5 @@ const Index = () => {
 };
 
 export default Index;
+
+    
