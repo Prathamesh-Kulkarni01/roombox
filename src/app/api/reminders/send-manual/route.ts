@@ -21,25 +21,44 @@ export async function POST(request: NextRequest) {
     if (!ownerId) {
       return NextResponse.json({ success: false, error: 'Invalid token, owner not found.' }, { status: 403 });
     }
+
+    const { guestIds } = await request.json(); // Expect an array of guest IDs
     
     const adminDb = await getAdminDb();
     let notifiedCount = 0;
     const today = new Date();
 
-    const guestsSnapshot = await adminDb
-        .collection('users_data')
-        .doc(ownerId)
-        .collection('guests')
+    const guestsCollection = adminDb.collection('users_data').doc(ownerId).collection('guests');
+    
+    let guestsToNotify: Guest[] = [];
+
+    if (guestIds && guestIds.length > 0) {
+      // Fetch only the selected guests
+      const guestDocs = await guestsCollection.where('id', 'in', guestIds).get();
+      guestDocs.forEach(doc => {
+          const guest = doc.data() as Guest;
+          if (!guest.isVacated && (guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial')) {
+            guestsToNotify.push(guest);
+          }
+      });
+    } else {
+      // Fallback to old behavior if no guestIds are provided
+      const allPendingGuestsSnapshot = await guestsCollection
         .where('isVacated', '==', false)
         .where('rentStatus', 'in', ['unpaid', 'partial'])
         .get();
+        
+      allPendingGuestsSnapshot.forEach(doc => {
+          guestsToNotify.push(doc.data() as Guest);
+      });
+    }
 
-    if (guestsSnapshot.empty) {
+
+    if (guestsToNotify.length === 0) {
         return NextResponse.json({ success: true, sentCount: 0, message: 'No guests with pending dues found.' });
     }
 
-    for (const guestDoc of guestsSnapshot.docs) {
-        const guest = guestDoc.data() as Guest;
+    for (const guest of guestsToNotify) {
         if (!guest.userId) continue; // Cannot notify guest without a user account
 
         const dueDate = parseISO(guest.dueDate);
