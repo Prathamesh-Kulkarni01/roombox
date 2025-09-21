@@ -365,8 +365,12 @@ export default function RentPassbookPage() {
                     <CardDescription>View pending dues, payment history, and financial analytics.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Tabs defaultValue="pending-dues">
+                    <Tabs defaultValue="analytics">
                         <TabsList className="grid w-full grid-cols-4">
+                             <TabsTrigger value="analytics">
+                                <span className="sm:hidden">Stats</span>
+                                <span className="hidden sm:inline">Analytics</span>
+                            </TabsTrigger>
                             <TabsTrigger value="pending-dues">
                                 <span className="sm:hidden">Dues</span>
                                 <span className="hidden sm:inline">Pending Dues</span>
@@ -379,11 +383,10 @@ export default function RentPassbookPage() {
                                 <span className="sm:hidden">Deposits</span>
                                 <span className="hidden sm:inline">Deposits</span>
                             </TabsTrigger>
-                            <TabsTrigger value="analytics">
-                                <span className="sm:hidden">Stats</span>
-                                <span className="hidden sm:inline">Analytics</span>
-                            </TabsTrigger>
                         </TabsList>
+                        <TabsContent value="analytics" className="mt-4">
+                            <RentAnalytics guests={guests} pgs={pgs} />
+                        </TabsContent>
                         <TabsContent value="pending-dues" className="mt-4">
                             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                                 <Select value={filters.pgId} onValueChange={(val) => setFilters(f => ({ ...f, pgId: val, guestId: 'all' }))}>
@@ -451,9 +454,6 @@ export default function RentPassbookPage() {
                         </TabsContent>
                         <TabsContent value="deposits" className="mt-4">
                             <DepositManagementTab guests={guests} />
-                        </TabsContent>
-                        <TabsContent value="analytics" className="mt-4">
-                            <RentAnalytics guests={guests} pgs={pgs} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>
