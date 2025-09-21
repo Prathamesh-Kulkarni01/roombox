@@ -117,7 +117,7 @@ export const allNavItems: NavGroup[] = [
       title: "Growth & Settings",
       items: [
           { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website', description: 'Manage your public site.' },
-          { href: '/dashboard/subscription', label: 'Subscription', icon: CreditCard, feature: 'core', description: 'Manage your plan & billing.' },
+          { href: '/dashboard/subscription', label: 'Billing', icon: CreditCard, feature: 'core', description: 'Manage your plan & billing.' },
           { href: '/dashboard/training', label: 'Training', icon: BookOpen, feature: 'core', description: 'Learn how to use RentSutra.' },
           { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core', description: 'Configure your account.' },
       ]

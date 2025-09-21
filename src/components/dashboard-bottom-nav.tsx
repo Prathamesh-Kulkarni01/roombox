@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { MoreHorizontal, Home, BookUser, MessageSquareWarning, CreditCard, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, Home, BookUser, MessageSquareWarning, CreditCard, ChevronRight, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -16,6 +16,7 @@ import {
 import { allNavItems } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
 import { canViewFeature } from '@/lib/permissions';
+import { Badge } from '@/components/ui/badge';
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
@@ -32,7 +33,7 @@ export default function DashboardBottomNav() {
     { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties' },
     { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances' },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints', badge: unreadComplaints > 0 ? unreadComplaints : undefined },
-    { href: '/dashboard/subscription', label: 'Billing', icon: CreditCard, feature: 'core' },
+    { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances' },
   ];
   
   const accessibleMoreNavGroups = allNavItems
@@ -59,6 +60,7 @@ export default function DashboardBottomNav() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={handleLinkClick}
             className={cn(
               'flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors h-full relative',
               (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) 
@@ -67,9 +69,9 @@ export default function DashboardBottomNav() {
             )}
           >
             {item.badge && item.badge > 0 && (
-              <span className="absolute top-1 right-3.5 text-xs bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center">
+              <Badge variant="destructive" className="absolute top-1 right-2.5 h-4 w-4 flex items-center justify-center rounded-full p-0 text-xs">
                 {item.badge}
-              </span>
+              </Badge>
             )}
             <item.icon className="h-5 w-5" />
             <span className="text-xs font-medium">{item.label}</span>
@@ -83,15 +85,15 @@ export default function DashboardBottomNav() {
                 <span className="text-xs font-medium">More</span>
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-auto max-h-[80dvh] flex flex-col rounded-t-lg">
-              <SheetHeader className="text-left pb-2">
+            <SheetContent side="bottom" className="h-auto max-h-[80dvh] flex flex-col rounded-t-lg p-0">
+               <SheetHeader className="p-4 border-b text-left">
                 <SheetTitle>More Options</SheetTitle>
               </SheetHeader>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto p-2">
                 {accessibleMoreNavGroups.map(group => (
                   <div key={group.title} className="py-2">
-                    <h4 className="px-4 mb-2 text-sm font-semibold text-muted-foreground">{group.title}</h4>
-                    <div className="grid grid-cols-1 gap-1">
+                    <h4 className="px-2 mb-2 text-sm font-semibold text-muted-foreground">{group.title}</h4>
+                    <div className="space-y-1">
                       {group.items.map((item) => (
                          <Link
                             key={item.href}
