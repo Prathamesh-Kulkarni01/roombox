@@ -16,21 +16,12 @@ import { logoutUser } from '@/lib/slices/userSlice';
 import { setSelectedPgId } from '@/lib/slices/appSlice';
 import { ThemeToggle } from './theme-toggle';
 import { Separator } from './ui/separator';
+import { allNavItems } from '@/lib/mock-data';
 
 const navLinks = [
   { href: '/', label: 'Home', roles: ['all'] },
   { href: '/dashboard', label: 'Owner Dashboard', roles: ['owner', 'manager', 'cook', 'cleaner', 'security'] },
   { href: '/tenants/my-pg', label: 'My Dashboard', roles: ['tenant'] },
-];
-
-const trainingGuides = [
-    { href: '/blog/creating-property', title: 'Creating a Property', description: 'Learn how to add your first property listing.' },
-    { href: '/blog/setting-up-layout', title: 'Setting up Layout', description: 'Visually create floors, rooms, and beds.' },
-    { href: '/blog/onboarding-guest', title: 'Onboarding a Guest', description: 'Add new guests and manage their details.' },
-    { href: '/blog/collecting-rent', title: 'Collecting Rent', description: 'Track payments and manage dues.' },
-    { href: '/blog/managing-staff', title: 'Managing Staff', description: 'Add staff and set permissions.' },
-    { href: '/blog/expense-tracking', title: 'Tracking Expenses', description: 'Log and categorize your property expenses.' },
-    { href: '/blog/setting-up-payouts', title: 'Setting Up Payouts', description: 'Link your bank account to receive payments.' },
 ];
 
 export default function Header() {
@@ -172,20 +163,18 @@ export default function Header() {
 
                     <div className="flex flex-col gap-1 px-4">
                         <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">Guides &amp; Training</h4>
-                        <div className="space-y-2">
-                          {trainingGuides.map((guide) => (
+                        <div className="space-y-1">
+                          {allNavItems.flatMap(group => group.items).map((item) => (
                               <Link
-                                  key={guide.href}
-                                  href={guide.href}
-                                  className='block p-3 rounded-lg hover:bg-muted'
+                                  key={item.href}
+                                  href={item.href}
+                                  className='flex items-center justify-between p-3 rounded-lg hover:bg-muted'
                                   >
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-semibold">{guide.title}</p>
-                                      <p className="text-sm text-muted-foreground">{guide.description}</p>
+                                    <div className="flex items-center gap-3">
+                                      <item.icon className="w-4 h-4 text-muted-foreground" />
+                                      <span className="font-medium text-sm">{item.label}</span>
                                     </div>
                                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                                  </div>
                               </Link>
                           ))}
                         </div>

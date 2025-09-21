@@ -78,6 +78,7 @@ export interface NavItem {
     href: string;
     label: string;
     icon: React.ElementType;
+    description: string;
     feature?: string;
     tourId?: string;
 }
@@ -89,36 +90,36 @@ export interface NavGroup {
 
 export const allNavItems: NavGroup[] = [
   {
-    title: "Core",
+    title: "Core Management",
     items: [
-        { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav' },
-        { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav' },
-        { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'guests' },
-        { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff' },
+        { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav', description: 'Your central hub for everything.' },
+        { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav', description: 'Manage property layouts.' },
+        { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'guests', description: 'View all your guests.' },
+        { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff', description: 'Manage your team.' },
     ]
   },
   {
     title: "Financial",
     items: [
-        { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances' },
-        { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances' },
-        { href: '/dashboard/payouts', label: 'Payouts', icon: HandCoins, feature: 'finances' },
+        { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances', description: 'Track rent and dues.' },
+        { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances', description: 'Log property expenses.' },
+        { href: '/dashboard/payouts', label: 'Payouts', icon: HandCoins, feature: 'finances', description: 'Manage bank settlements.' },
     ]
   },
   {
     title: "Operations",
     items: [
-        { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints' },
-        { href: '/dashboard/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'food' },
+        { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints', description: 'Handle tenant issues.' },
+        { href: '/dashboard/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'food', description: 'Plan weekly meals.' },
     ]
   },
   {
       title: "Growth & Settings",
       items: [
-          { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website' },
-          { href: '/dashboard/subscription', label: 'Subscription', icon: CreditCard, feature: 'core' },
-          { href: '/dashboard/training', label: 'Training', icon: BookOpen, feature: 'core' },
-          { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
+          { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website', description: 'Manage your public site.' },
+          { href: '/dashboard/subscription', label: 'Subscription', icon: CreditCard, feature: 'core', description: 'Manage your plan & billing.' },
+          { href: '/dashboard/training', label: 'Training', icon: BookOpen, feature: 'core', description: 'Learn how to use RentSutra.' },
+          { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core', description: 'Configure your account.' },
       ]
   }
 ];

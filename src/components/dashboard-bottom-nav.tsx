@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet, CreditCard, BookOpen } from 'lucide-react';
+import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet, CreditCard, BookOpen, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -88,24 +88,28 @@ export default function DashboardBottomNav() {
                   {accessibleMoreNavGroups.map(group => (
                     <div key={group.title}>
                       <h4 className="px-2 mb-2 text-sm font-semibold text-muted-foreground">{group.title}</h4>
-                      <div className="grid grid-cols-3 gap-1">
+                      <div className="flex flex-col gap-1">
                         {group.items.map((item) => (
                            <Link
                               key={item.href}
                               href={item.href}
                               className={cn(
-                                  'flex flex-col items-center justify-center gap-1 rounded-lg p-2 text-center text-sm font-medium transition-all aspect-square',
+                                  'flex items-center gap-4 rounded-lg p-3 text-left transition-all',
                                   (pathname.startsWith(item.href)) 
                                       ? 'bg-primary/10 text-primary' 
-                                      : 'text-muted-foreground hover:text-primary hover:bg-muted'
+                                      : 'text-foreground/80 hover:text-primary hover:bg-muted'
                               )}
                               >
-                              <div className={cn("flex items-center justify-center w-12 h-12 rounded-full", 
-                                  (pathname.startsWith(item.href)) ? 'bg-primary/20' : 'bg-muted'
+                              <div className={cn("flex items-center justify-center w-10 h-10 rounded-lg shrink-0", 
+                                  (pathname.startsWith(item.href)) ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
                               )}>
                                 <item.icon className="h-5 w-5" />
                               </div>
-                              <span className="text-xs font-semibold text-center leading-tight">{item.label}</span>
+                              <div className="flex-1">
+                                <p className="font-semibold text-sm">{item.label}</p>
+                                <p className="text-xs text-muted-foreground">{item.description}</p>
+                              </div>
+                              <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto" />
                           </Link>
                         ))}
                       </div>
