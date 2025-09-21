@@ -18,11 +18,11 @@ export default {
     extend: {
       backgroundImage: {
         'gradient-warm': 'linear-gradient(135deg, #FFF7F0 0%, #F3F8FF 100%)',
-        'gradient-saffron': 'linear-gradient(90deg, #FF9933 0%, #F472B6 100%)',
-        'gradient-hero': 'linear-gradient(135deg, #FF9933 0%, #F472B6 50%, #2563EB 100%)',
+        'gradient-saffron': 'linear-gradient(90deg, hsl(var(--primary)) 0%, #F472B6 100%)',
+        'gradient-hero': 'linear-gradient(135deg, hsl(var(--primary)) 0%, #F472B6 50%, #2563EB 100%)',
       },
       boxShadow: {
-        'trust': '0 10px 30px -10px rgba(255, 153, 51, 0.4)',
+        'trust': '0 10px 30px -10px hsl(var(--primary) / 0.4)',
         'card-soft': '0 4px 16px rgba(0, 0, 0, 0.05)',
       },
       animation: {
