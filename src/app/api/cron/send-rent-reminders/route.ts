@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { add, format, isBefore, isPast, parseISO, differenceInMilliseconds, differenceInDays } from 'date-fns';
+import { add, format, isBefore, isPast, parseISO, differenceInMilliseconds, differenceInDays, subMinutes } from 'date-fns';
 import type { User, Guest, RentCycleUnit } from '@/lib/types';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 
@@ -60,37 +60,36 @@ export async function GET(request: NextRequest) {
 
         // Skip if no associated user to notify
         if (!guest.userId) continue;
-
-        const cycleDurationMillis = getCycleDurationInMillis(guest.rentCycleUnit, guest.rentCycleValue);
-        const reminderWindowMillis = cycleDurationMillis * 0.3; // e.g., 3 days for a month
-        const overdueIntervalMillis = cycleDurationMillis * 0.1; // e.g., every 3 days for a month
         
-        const isUpcoming = isBefore(dueDate, new Date(now.getTime() + reminderWindowMillis)) && !isPast(dueDate);
         const isOverdue = isPast(dueDate);
-        
+        const lastReminderDate = guest.lastReminderSentAt ? parseISO(guest.lastReminderSentAt) : null;
         let shouldSend = false;
         let title = '';
         let body = '';
-
-        const lastReminderDate = guest.lastReminderSentAt ? parseISO(guest.lastReminderSentAt) : null;
         
-        if (isUpcoming) {
-            // Send only one upcoming reminder per cycle
-            if (!lastReminderDate || isBefore(lastReminderDate, add(dueDate, { [guest.rentCycleUnit]: -guest.rentCycleValue }))) {
-                shouldSend = true;
-                const daysUntilDue = differenceInDays(dueDate, now);
-                title = `Hi ${guest.name}, your rent is due soon!`;
-                body = `Your rent is due on ${format(dueDate, 'do MMM, yyyy')}. Please pay on time.`;
-            }
-        } else if (isOverdue) {
-            // Send overdue reminders periodically
-            if (!lastReminderDate || differenceInMilliseconds(now, lastReminderDate) > overdueIntervalMillis) {
+        if (isOverdue) {
+            // For short cycles (testing), send every 4 mins. For longer, once per day.
+            const reminderThreshold = subMinutes(now, 4); 
+            if (!lastReminderDate || isBefore(lastReminderDate, reminderThreshold)) {
                 shouldSend = true;
                 const daysOverdue = differenceInDays(now, dueDate);
                 title = `Action Required: Your Rent is Overdue`;
                 body = `Hi ${guest.name}, your rent payment is now ${daysOverdue} day(s) overdue. Please complete the payment.`;
             }
+        } else { // It's upcoming
+            const reminderWindowStart = add(dueDate, { [guest.rentCycleUnit]: -Math.floor(guest.rentCycleValue * 0.3) });
+            if (isAfter(now, reminderWindowStart)) {
+                 // Check if a reminder was already sent for this upcoming cycle
+                 const currentCycleStart = add(dueDate, { [guest.rentCycleUnit]: -guest.rentCycleValue });
+                 if(!lastReminderDate || isBefore(lastReminderDate, currentCycleStart)) {
+                    shouldSend = true;
+                    const daysUntilDue = differenceInDays(dueDate, now);
+                    title = `Hi ${guest.name}, your rent is due soon!`;
+                    body = `Your rent is due in ${daysUntilDue} day(s) on ${format(dueDate, 'do MMM, yyyy')}. Please pay on time.`;
+                 }
+            }
         }
+
 
         if (shouldSend) {
           console.log(`📨 Sending ${isOverdue ? 'overdue' : 'upcoming'} reminder to ${guest.name} (due on ${guest.dueDate})`);
