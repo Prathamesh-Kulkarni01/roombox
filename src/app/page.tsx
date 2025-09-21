@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/lib/hooks';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download } from "lucide-react";
+import { Check, Star, Users, Shield, Smartphone, TrendingUp, Heart, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
@@ -58,10 +58,10 @@ const Index = () => {
               <div className="space-y-6">
                 <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
                   <span className="bg-gradient-saffron bg-clip-text text-transparent">
-                    Stop Managing.
+                    The Modern OS
                   </span>
                   <br />
-                  <span className="text-foreground">Start Growing.</span>
+                  <span className="text-foreground">For Your Rental Property.</span>
                 </h1>
                 
                 <p className="text-xl text-muted-foreground leading-relaxed">
@@ -114,60 +114,58 @@ const Index = () => {
         {/* Features Section */}
         <section id="features" className="py-20 bg-muted/40">
             <div className="container mx-auto px-4">
-                 <div className="text-center space-y-4 mb-16">
+                <div className="text-center space-y-4 mb-16">
                     <h2 className="text-4xl lg:text-5xl font-bold">
-                       A Smarter Way to Run Your Business
+                       Finally, an App That Works as Hard as You Do
                     </h2>
                     <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
                         RentSutra is packed with features designed to save you time, reduce stress, and increase your profits.
                     </p>
                 </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="space-y-20">
                     {[
                         {
-                            icon: BarChart3,
-                            title: "Financial Automation",
-                            description: "Track every rupee automatically. Log expenses, see real-time revenue, and know your financial health without touching a spreadsheet.",
+                            icon: LayoutList,
+                            title: "Digitize Your Operations",
+                            description: "Stop juggling registers and spreadsheets. Create a visual layout of your property, manage staff roles with specific permissions, and track every detail from a single, powerful dashboard.",
+                            img: "https://picsum.photos/seed/feature1/600/400",
+                            imgHint: "dashboard layout",
                         },
                         {
-                            icon: Users,
-                            title: "Seamless Tenant Management",
-                            description: "From digital onboarding and rent tracking to managing move-outs, handle the entire guest lifecycle effortlessly.",
+                            icon: FilePieChart,
+                            title: "Automate Your Finances",
+                            description: "From collecting rent online with automated reminders to logging every single expense with our Quick-Add feature, RentSutra puts you in complete control of your cash flow. Know your exact financial health, instantly.",
+                            img: "https://picsum.photos/seed/feature2/600/400",
+                            imgHint: "financial charts",
                         },
                         {
-                            icon: Building2,
-                            title: "Visual Occupancy Dashboard",
-                            description: "See your entire property at a glance. Know which beds are vacant, occupied, or have pending rent, all in one visual map.",
+                            icon: UserRoundCog,
+                            title: "Enhance Tenant Living",
+                            description: "Provide a professional experience with a dedicated tenant app. Tenants can pay rent, raise complaints with photos, view the food menu, and get instant answers from an AI chatbot, reducing your workload.",
+                            img: "https://picsum.photos/seed/feature3/600/400",
+                            imgHint: "mobile app screen",
                         },
-                        {
-                            icon: Bot,
-                            title: "AI-Powered Communication",
-                            description: "Automate polite rent reminders in multiple languages and let our AI assistant answer common tenant questions 24/7.",
-                        },
-                        {
-                            icon: Smartphone,
-                            title: "Professional Tenant App",
-                            description: "Give your tenants a modern app to pay rent, raise complaints, and see announcements, just like top-tier properties.",
-                        },
-                        {
-                            icon: Shield,
-                            title: "Secure & Centralized Records",
-                            description: "Keep all guest information, payment history, and documents securely stored and accessible anytime, anywhere.",
-                        }
                     ].map((feature, index) => (
-                        <Card key={index} className="border-0 shadow-card-soft bg-card hover:border-primary transition-all">
-                            <CardHeader className="space-y-4">
-                            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                                <feature.icon className="h-6 w-6" />
+                         <div key={index} className="grid md:grid-cols-2 gap-12 items-center">
+                            <div className={cn("space-y-6", index % 2 === 1 && "md:order-2")}>
+                                <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-4">
+                                    <feature.icon className="h-8 w-8" />
+                                </div>
+                                <h3 className="text-3xl font-bold">{feature.title}</h3>
+                                <p className="text-lg text-muted-foreground">{feature.description}</p>
                             </div>
-                            <CardTitle className="text-xl font-semibold">
-                                {feature.title}
-                            </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                            <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
-                            </CardContent>
-                        </Card>
+                            <div className={cn("relative", index % 2 === 1 && "md:order-1")}>
+                                <div className="absolute inset-0 bg-gradient-hero rounded-3xl blur-2xl opacity-20"></div>
+                                <Image
+                                    src={feature.img}
+                                    alt={feature.title}
+                                    width={600}
+                                    height={400}
+                                    className="relative z-10 w-full h-auto rounded-2xl shadow-lg"
+                                    data-ai-hint={feature.imgHint}
+                                />
+                            </div>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -206,7 +204,7 @@ const Index = () => {
                 </Card>
 
                 {/* Pro Plan */}
-                <Card className="relative border-2 border-primary shadow-2xl shadow-primary/20 flex flex-col justify-between">
+                 <Card className="relative border-2 border-primary shadow-2xl shadow-primary/20 flex flex-col justify-between">
                     <Badge className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-saffron text-white shadow-lg">Most Popular</Badge>
                      <CardHeader>
                         <CardTitle className="text-xl">Pro Plan</CardTitle>
@@ -234,20 +232,20 @@ const Index = () => {
                         <CardDescription>For large-scale chains and custom needs</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="text-4xl font-bold">₹30<span className="text-lg text-muted-foreground">/bed/month</span></div>
-                        <p className="font-semibold">51-150 Beds</p>
+                        <div className="text-4xl font-bold">Custom</div>
+                        <p className="font-semibold">150+ Beds</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Everything in Pro, plus:</li>
+                            <li className="flex items-center"><IndianRupee className="w-4 h-4 text-primary mr-2" />Volume discounts (₹28/bed)</li>
                             <li className="flex items-center"><Globe className="w-4 h-4 text-primary mr-2" />Custom Domain & Branding</li>
                             <li className="flex items-center"><Users className="w-4 h-4 text-primary mr-2" />Dedicated Account Manager</li>
                         </ul>
                     </CardContent>
                      <CardFooter>
-                        <Button className="w-full" variant="outline" onClick={handleChoosePlan}>Contact Sales</Button>
+                        <Button className="w-full" variant="outline" asChild><a href="mailto:hello@rentsutra.com">Contact Sales</a></Button>
                     </CardFooter>
                 </Card>
             </div>
-             <p className="text-center text-sm text-muted-foreground mt-8">For properties with more than 150 beds, we offer custom pricing at ₹28/bed. Please contact us.</p>
           </div>
         </section>
 
@@ -340,3 +338,5 @@ const Index = () => {
 };
 
 export default Index;
+
+    
