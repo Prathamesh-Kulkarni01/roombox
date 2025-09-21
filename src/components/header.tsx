@@ -16,7 +16,7 @@ import { logoutUser } from '@/lib/slices/userSlice';
 import { setSelectedPgId } from '@/lib/slices/appSlice';
 import { ThemeToggle } from './theme-toggle';
 import { Separator } from './ui/separator';
-import { allNavItems } from '@/lib/mock-data';
+import { trainingGuides } from '@/lib/blog-data';
 
 const navLinks = [
   { href: '/', label: 'Home', roles: ['all'] },
@@ -139,40 +139,21 @@ export default function Header() {
                         </div>
                         <span className="font-bold text-lg font-headline">RentSutra</span>
                     </Link>
-                    <div className="flex flex-col gap-4 py-6 px-4">
-                    {navLinks.map((link) => {
-                    if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;
-                    if (currentUser && !link.roles.includes('all') && !link.roles.includes(currentUser.role)) return null;
-                    
-                        return (
-                            <Link
-                            key={link.href}
-                            href={link.href}
-                            className={cn(
-                                'text-lg font-medium transition-colors hover:text-primary',
-                            pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/' ? 'text-primary' : 'text-muted-foreground'
-                            )}
-                            >
-                            {link.label}
-                            </Link>
-                        )
-                    })}
-                    </div>
                     
                     <Separator className="my-4"/>
 
                     <div className="flex flex-col gap-1 px-4">
                         <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">Guides &amp; Training</h4>
                         <div className="space-y-1">
-                          {allNavItems.flatMap(group => group.items).map((item) => (
+                          {trainingGuides.map((guide) => (
                               <Link
-                                  key={item.href}
-                                  href={item.href}
+                                  key={guide.slug}
+                                  href={`/blog/${guide.slug}`}
                                   className='flex items-center justify-between p-3 rounded-lg hover:bg-muted'
                                   >
                                     <div className="flex items-center gap-3">
-                                      <item.icon className="w-4 h-4 text-muted-foreground" />
-                                      <span className="font-medium text-sm">{item.label}</span>
+                                      <BookOpen className="w-4 h-4 text-muted-foreground" />
+                                      <span className="font-medium text-sm">{guide.title}</span>
                                     </div>
                                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
                               </Link>
