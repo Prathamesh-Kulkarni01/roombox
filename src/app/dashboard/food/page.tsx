@@ -23,6 +23,7 @@ import { z } from 'zod'
 import { addMenuTemplate, deleteMenuTemplate } from '@/lib/slices/pgsSlice'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 
 
 const initialMenu: Menu = {
@@ -152,11 +153,14 @@ export default function FoodPage() {
                     </CardHeader>
                     <CardContent>
                         <Tabs defaultValue="monday" className="w-full">
-                            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7">
-                            {days.map(day => (
-                                    <TabsTrigger key={day.key} value={day.key}>{day.label}</TabsTrigger>
-                            ))}
-                            </TabsList>
+                            <ScrollArea className="w-full whitespace-nowrap">
+                                <TabsList>
+                                {days.map(day => (
+                                        <TabsTrigger key={day.key} value={day.key}>{day.label}</TabsTrigger>
+                                ))}
+                                </TabsList>
+                                <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
                             {days.map(day => (
                                 <TabsContent key={day.key} value={day.key}>
                                     <div className="grid gap-6 mt-4 md:grid-cols-3">
