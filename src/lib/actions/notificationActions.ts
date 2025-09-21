@@ -1,8 +1,9 @@
 
+
 'use server'
 
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import type { Notification } from '@/lib/types';
+import type { Notification, User } from '@/lib/types';
 import { sendPushToUser } from '../notifications';
 
 interface CreateAndSendNotificationParams {
@@ -38,12 +39,25 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
         
         await docRef.set(newNotification);
 
-        await sendPushToUser({
-            userId: newNotification.targetId,
-            title: newNotification.title,
-            body: newNotification.message,
-            link: newNotification.link || '/dashboard'
-        });
+        // Fetch user to get FCM token
+        const userDocRef = adminDb.collection('users').doc(newNotification.targetId);
+        const userDoc = await userDocRef.get();
+
+        if (userDoc.exists()) {
+            const user = userDoc.data() as User;
+            if (user.fcmToken) {
+                 await sendPushToUser({
+                    userId: newNotification.targetId,
+                    title: newNotification.title,
+                    body: newNotification.message,
+                    link: newNotification.link || '/dashboard'
+                });
+            } else {
+                console.warn(`User ${newNotification.targetId} does not have an FCM token. Skipping push notification.`);
+            }
+        } else {
+             console.warn(`User ${newNotification.targetId} not found. Skipping push notification.`);
+        }
 
     } catch (error) {
         console.error("Failed to create and send notification:", error);

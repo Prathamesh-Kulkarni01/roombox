@@ -5,8 +5,9 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { add, format, isBefore, parseISO } from 'date-fns';
+import { add, format, isBefore, parseISO, differenceInMilliseconds } from 'date-fns';
 import type { Guest, RentCycleUnit } from '@/lib/types';
+import { calculateFirstDueDate } from '@/lib/utils';
 
 export async function reconcileRentCycles(): Promise<{ success: boolean; reconciledCount: number }> {
   return reconcileRentCyclesFlow();
@@ -14,21 +15,23 @@ export async function reconcileRentCycles(): Promise<{ success: boolean; reconci
 
 /**
  * Calculates the number of full cycles that have passed between the due date and the current date.
+ * This version uses millisecond comparison for accuracy with short cycle times.
  */
 function getMissedCycles(dueDate: Date, now: Date, unit: RentCycleUnit, value: number): number {
     if (isBefore(now, dueDate)) {
         return 0;
     }
-    
-    let cycles = 0;
-    let tempDate = new Date(dueDate);
 
-    while (isBefore(tempDate, now) || tempDate.getTime() === now.getTime()) {
-        cycles++;
-        tempDate = add(tempDate, { [unit]: value });
-    }
+    const cycleDurationMillis = differenceInMilliseconds(
+        calculateFirstDueDate(dueDate, unit, value, dueDate.getDate()),
+        dueDate
+    );
+
+    if (cycleDurationMillis <= 0) return 0;
     
-    return cycles - 1; // We subtract 1 because the loop counts the current (un-missed) cycle
+    const elapsedMillis = differenceInMilliseconds(now, dueDate);
+
+    return Math.floor(elapsedMillis / cycleDurationMillis);
 }
 
 
@@ -66,17 +69,18 @@ const reconcileRentCyclesFlow = ai.defineFlow(
           const guest = guestDoc.data() as Guest;
           const dueDate = parseISO(guest.dueDate);
           
-          if (isBefore(dueDate, today)) {
-            const cyclesToProcess = getMissedCycles(dueDate, today, guest.rentCycleUnit, guest.rentCycleValue);
+          if (isBefore(today, dueDate)) continue;
 
-            if (cyclesToProcess > 0) {
+          const cyclesToProcess = getMissedCycles(dueDate, today, guest.rentCycleUnit, guest.rentCycleValue);
+
+          if (cyclesToProcess > 0) {
               console.log(`Reconciling ${guest.name} for ${cyclesToProcess} cycle(s).`);
               
-              const lastCycleBill = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-              const unpaidFromLastCycle = lastCycleBill - (guest.rentPaidAmount || 0);
+              const totalBillForLastCycle = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+              const unpaidFromLastCycle = totalBillForLastCycle - (guest.rentPaidAmount || 0);
 
               const newBalanceBroughtForward = unpaidFromLastCycle + (guest.rentAmount * (cyclesToProcess - 1));
-              const newDueDate = add(dueDate, { [guest.rentCycleUnit]: cyclesToProcess * guest.rentCycleValue });
+              const newDueDate = calculateFirstDueDate(dueDate, guest.rentCycleUnit, cyclesToProcess * guest.rentCycleValue, guest.billingAnchorDay);
 
               batch.update(guestDoc.ref, {
                 dueDate: format(newDueDate, 'yyyy-MM-dd'),
@@ -88,7 +92,6 @@ const reconcileRentCyclesFlow = ai.defineFlow(
 
               reconciledCount++;
               batchHasWrites = true;
-            }
           }
         }
 
@@ -106,3 +109,4 @@ const reconcileRentCyclesFlow = ai.defineFlow(
     }
   }
 );
+
