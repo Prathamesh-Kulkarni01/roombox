@@ -120,7 +120,7 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider
-          attribute="class"
+          attribute="data-theme"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
