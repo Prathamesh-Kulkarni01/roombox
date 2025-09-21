@@ -84,28 +84,28 @@ export default function DashboardBottomNav() {
                 <SheetTitle>More Options</SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto">
-                <div className="space-y-6 py-4">
+                <div className="space-y-4 py-4">
                   {accessibleMoreNavGroups.map(group => (
                     <div key={group.title}>
-                      <h4 className="px-3 mb-2 text-sm font-semibold text-muted-foreground">{group.title}</h4>
-                      <div className="grid grid-cols-3 gap-2">
+                      <h4 className="px-2 mb-2 text-sm font-semibold text-muted-foreground">{group.title}</h4>
+                      <div className="grid grid-cols-3 gap-1">
                         {group.items.map((item) => (
                            <Link
                               key={item.href}
                               href={item.href}
                               className={cn(
-                                  'flex flex-col items-center justify-center gap-2 rounded-lg p-3 text-center text-sm font-medium transition-all aspect-square',
+                                  'flex flex-col items-center justify-center gap-1 rounded-lg p-2 text-center text-sm font-medium transition-all aspect-square',
                                   (pathname.startsWith(item.href)) 
                                       ? 'bg-primary/10 text-primary' 
                                       : 'text-muted-foreground hover:text-primary hover:bg-muted'
                               )}
                               >
-                              <div className={cn("flex items-center justify-center w-14 h-14 rounded-full", 
+                              <div className={cn("flex items-center justify-center w-12 h-12 rounded-full", 
                                   (pathname.startsWith(item.href)) ? 'bg-primary/20' : 'bg-muted'
                               )}>
-                                <item.icon className="h-6 w-6" />
+                                <item.icon className="h-5 w-5" />
                               </div>
-                              <span className="text-xs font-semibold">{item.label}</span>
+                              <span className="text-xs font-semibold text-center leading-tight">{item.label}</span>
                           </Link>
                         ))}
                       </div>
