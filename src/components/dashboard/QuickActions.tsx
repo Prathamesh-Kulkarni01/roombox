@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import React, { useState, useMemo, useTransition } from 'react'
 import { useAppSelector } from '@/lib/hooks'
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
