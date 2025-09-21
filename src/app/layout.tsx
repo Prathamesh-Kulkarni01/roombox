@@ -121,8 +121,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider
           attribute="data-theme"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="rose"
           disableTransitionOnChange
         >
           <StoreProvider>
