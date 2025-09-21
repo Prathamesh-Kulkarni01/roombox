@@ -99,19 +99,17 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
 const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], open: boolean, onOpenChange: (open: boolean) => void }) => {
     const { toast } = useToast();
     const [isSending, startSendingTransition] = useTransition();
-    const guestsWithDues = useMemo(() => guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId), [guests]);
-    
     const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
 
     // Reset selection when dialog opens or guests change
     React.useEffect(() => {
         if (open) {
-            setSelectedGuests(guestsWithDues.map(g => g.id));
+            setSelectedGuests(guests.map(g => g.id));
         }
-    }, [open, guestsWithDues]);
+    }, [open, guests]);
 
     const handleSelectAll = (checked: boolean) => {
-        setSelectedGuests(checked ? guestsWithDues.map(g => g.id) : []);
+        setSelectedGuests(checked ? guests.map(g => g.id) : []);
     };
     
     const handleSelectGuest = (guestId: string, checked: boolean) => {
@@ -152,15 +150,15 @@ const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], 
                     <DialogTitle>Send Rent Reminders</DialogTitle>
                     <DialogDescription>Choose which guests with pending dues should receive a reminder.</DialogDescription>
                 </DialogHeader>
-                {guestsWithDues.length > 0 ? (
+                {guests.length > 0 ? (
                     <>
                     <div className="flex items-center space-x-2 py-2 border-y">
-                        <Checkbox id="select-all" checked={selectedGuests.length === guestsWithDues.length && guestsWithDues.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} />
-                        <Label htmlFor="select-all">Select All ({selectedGuests.length} / {guestsWithDues.length})</Label>
+                        <Checkbox id="select-all" checked={selectedGuests.length === guests.length && guests.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} />
+                        <Label htmlFor="select-all">Select All ({selectedGuests.length} / {guests.length})</Label>
                     </div>
                     <ScrollArea className="h-64">
                         <div className="space-y-2">
-                            {guestsWithDues.map(guest => (
+                            {guests.map(guest => (
                                 <div key={guest.id} className="flex items-center space-x-3 p-2 rounded-md">
                                     <Checkbox id={`guest-${guest.id}`} checked={selectedGuests.includes(guest.id)} onCheckedChange={(checked) => handleSelectGuest(guest.id, !!checked)} />
                                     <Label htmlFor={`guest-${guest.id}`} className="flex flex-col cursor-pointer">
@@ -209,6 +207,10 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
         return beds;
     }, [pgs, guests]);
 
+    const guestsWithDuesForReminder = useMemo(() => {
+        return guests.filter((g: Guest) => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
+    }, [guests]);
+
     const handleSelectBedForGuestAdd = (item: {pg: PG, room: Room, bed: Bed}) => {
         handleOpenAddGuestDialog(item.bed, item.room, item.pg);
     }
@@ -240,7 +242,7 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
             </Button>
             <AddGuestDialog beds={availableBeds} onSelectBed={handleSelectBedForGuestAdd} open={isAddGuestOpen} onOpenChange={setIsAddGuestOpen} />
             <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />
-            <SendRemindersDialog guests={guests} open={isSendRemindersOpen} onOpenChange={setIsSendRemindersOpen} />
+            <SendRemindersDialog guests={guestsWithDuesForReminder} open={isSendRemindersOpen} onOpenChange={setIsSendRemindersOpen} />
         </div>
     );
 };
