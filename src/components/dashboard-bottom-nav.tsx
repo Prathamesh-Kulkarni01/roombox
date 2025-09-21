@@ -3,19 +3,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal, Home, BookUser, MessageSquareWarning, Wallet, CreditCard, BookOpen, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { MoreHorizontal, Home, BookUser, MessageSquareWarning, CreditCard, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { allNavItems, type NavGroup } from '@/lib/mock-data';
+import { allNavItems } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
-import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
 
 export default function DashboardBottomNav() {
@@ -23,6 +22,7 @@ export default function DashboardBottomNav() {
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
   const { complaints } = useAppSelector((state) => state.complaints);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const unreadComplaints = complaints.filter(c => c.status === 'open').length;
 
@@ -48,6 +48,10 @@ export default function DashboardBottomNav() {
 
   const visibleItems = mainNavItems.filter(item => item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature)));
 
+  const handleLinkClick = () => {
+    setIsSheetOpen(false);
+  };
+
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
       <nav className="grid grid-cols-5 h-16 items-center">
@@ -72,7 +76,7 @@ export default function DashboardBottomNav() {
           </Link>
         ))}
         
-        <Sheet>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
               <button className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors h-full hover:text-primary">
                 <MoreHorizontal className="h-5 w-5" />
@@ -84,38 +88,37 @@ export default function DashboardBottomNav() {
                 <SheetTitle>More Options</SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto">
-                <div className="space-y-4 py-4">
-                  {accessibleMoreNavGroups.map(group => (
-                    <div key={group.title}>
-                      <h4 className="px-2 mb-2 text-sm font-semibold text-muted-foreground">{group.title}</h4>
-                      <div className="flex flex-col gap-1">
-                        {group.items.map((item) => (
-                           <Link
-                              key={item.href}
-                              href={item.href}
-                              className={cn(
-                                  'flex items-center gap-4 rounded-lg p-3 text-left transition-all',
-                                  (pathname.startsWith(item.href)) 
-                                      ? 'bg-primary/10 text-primary' 
-                                      : 'text-foreground/80 hover:text-primary hover:bg-muted'
-                              )}
-                              >
-                              <div className={cn("flex items-center justify-center w-10 h-10 rounded-lg shrink-0", 
-                                  (pathname.startsWith(item.href)) ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
-                              )}>
-                                <item.icon className="h-5 w-5" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-semibold text-sm">{item.label}</p>
-                                <p className="text-xs text-muted-foreground">{item.description}</p>
-                              </div>
-                              <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto" />
-                          </Link>
-                        ))}
-                      </div>
+                {accessibleMoreNavGroups.map(group => (
+                  <div key={group.title} className="py-2">
+                    <h4 className="px-4 mb-2 text-sm font-semibold text-muted-foreground">{group.title}</h4>
+                    <div className="grid grid-cols-1 gap-1">
+                      {group.items.map((item) => (
+                         <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={handleLinkClick}
+                            className={cn(
+                                'flex items-center gap-4 rounded-lg p-3 text-left transition-all',
+                                (pathname.startsWith(item.href)) 
+                                    ? 'bg-primary/10 text-primary' 
+                                    : 'text-foreground/80 hover:text-primary hover:bg-muted'
+                            )}
+                            >
+                            <div className={cn("flex items-center justify-center w-10 h-10 rounded-lg shrink-0", 
+                                (pathname.startsWith(item.href)) ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'
+                            )}>
+                              <item.icon className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm">{item.label}</p>
+                              <p className="text-xs text-muted-foreground">{item.description}</p>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto" />
+                        </Link>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </SheetContent>
           </Sheet>
