@@ -93,7 +93,6 @@ export const navItems: NavItem[] = [
   { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff' },
   { href: '/dashboard/payouts', label: 'Payouts', icon: IndianRupee, feature: 'finances' },
   { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website' },
-  { href: '/dashboard/seo-generator', label: 'AI SEO', icon: Wand2, feature: 'seo' },
   { href: '/dashboard/training', label: 'Training Center', icon: BookOpen, feature: 'core' },
   { href: '/dashboard/subscription', label: 'Subscription', icon: CreditCard, feature: 'core' },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core' },
