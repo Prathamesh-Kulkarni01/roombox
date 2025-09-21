@@ -8,12 +8,12 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2 } from "lucide-react";
+import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2, Calendar, User } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import InstallPWA from '@/components/install-pwa';
-import type { User } from '@/lib/types';
+import type { User as UserType } from '@/lib/types';
 
 
 const Index = () => {
@@ -185,7 +185,7 @@ const Index = () => {
                 </div>
             </div>
         </section>
-
+        
         {/* Supercharge Section */}
         <section className="py-20 bg-muted/40">
             <div className="container mx-auto px-4">
@@ -197,7 +197,7 @@ const Index = () => {
                         Go beyond basic management. Unlock powerful tools to grow your brand and automate your entire workflow.
                     </p>
                 </div>
-                <div className="space-y-16">
+                <div className="space-y-24">
                     {/* WhatsApp Automation */}
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="space-y-4">
@@ -205,13 +205,27 @@ const Index = () => {
                             <h3 className="text-3xl font-bold">Never Chase a Payment Again</h3>
                             <p className="text-lg text-muted-foreground">Automatically send polite, personalized rent reminders to your tenants via WhatsApp. Each reminder includes a secure payment link, making it effortless for them to pay and for you to get paid on time.</p>
                         </div>
-                        <div className="bg-card p-4 rounded-lg border shadow-md">
-                           <div className="w-full aspect-[9/16] bg-[#E5DDD5] rounded-lg p-4 flex flex-col justify-end">
-                               <div className="bg-white dark:bg-zinc-800 p-2 rounded-lg shadow-sm self-start max-w-[80%] mb-2">
-                                    <p className="text-xs font-bold text-blue-500">RentSutra</p>
-                                    <p className="text-sm">Hi Priya, your rent of ₹12,000 is due. Pay now: [link]</p>
-                                    <p className="text-[10px] text-right text-gray-400 mt-1">11:30 AM ✔✔</p>
-                               </div>
+                        <div className="bg-card p-6 rounded-lg border shadow-md flex items-center justify-center">
+                           <div className="flex items-center gap-4 text-center">
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="p-3 bg-muted rounded-full"><Calendar className="w-6 h-6 text-primary" /></div>
+                                    <p className="text-xs font-semibold">Due Date</p>
+                                </div>
+                                <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0"/>
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="p-3 bg-muted rounded-full"><Bot className="w-6 h-6 text-primary" /></div>
+                                    <p className="text-xs font-semibold">Auto-Reminder</p>
+                                </div>
+                                 <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0"/>
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="p-3 bg-muted rounded-full"><User className="w-6 h-6 text-primary" /></div>
+                                    <p className="text-xs font-semibold">Tenant Pays</p>
+                                </div>
+                                <ArrowRight className="w-8 h-8 text-muted-foreground shrink-0"/>
+                                 <div className="flex flex-col items-center gap-2">
+                                    <div className="p-3 bg-muted rounded-full"><Wallet className="w-6 h-6 text-primary" /></div>
+                                    <p className="text-xs font-semibold">You Get Paid</p>
+                                </div>
                            </div>
                         </div>
                     </div>
@@ -224,7 +238,7 @@ const Index = () => {
                             <p className="text-lg text-muted-foreground">Get a stunning, professional website for your properties without any coding. Our simple editor lets you showcase your PGs, and the built-in CRM helps you track and convert every potential lead that comes from your site.</p>
                         </div>
                         <div className="md:order-1 grid grid-cols-2 gap-4">
-                            <div className="bg-card p-3 rounded-lg border shadow-md">
+                            <div className="bg-card p-4 rounded-lg border shadow-md">
                                 <Paintbrush className="w-6 h-6 text-primary mb-2"/>
                                 <h4 className="font-bold">Site Editor</h4>
                                 <div className="mt-2 space-y-2">
@@ -232,12 +246,12 @@ const Index = () => {
                                     <div className="flex items-center justify-between"><span className="text-sm">Title Text</span> <Button size="sm" variant="outline" className="h-6 px-2 text-xs">Edit</Button></div>
                                 </div>
                             </div>
-                             <div className="bg-card p-3 rounded-lg border shadow-md">
+                             <div className="bg-card p-4 rounded-lg border shadow-md">
                                 <Target className="w-6 h-6 text-primary mb-2"/>
                                 <h4 className="font-bold">Lead Manager</h4>
                                 <div className="mt-2 space-y-2">
-                                    <div className="bg-muted p-2 rounded text-sm">Rohan S. - Interested</div>
-                                    <div className="bg-muted p-2 rounded text-sm">Priya K. - Follow Up</div>
+                                    <div className="bg-muted p-2 rounded text-sm font-medium">Rohan S. - Interested</div>
+                                    <div className="bg-muted p-2 rounded text-sm font-medium">Priya K. - Follow Up</div>
                                 </div>
                             </div>
                         </div>
@@ -249,7 +263,7 @@ const Index = () => {
                             <h3 className="text-3xl font-bold">Get Paid Instantly, Automatically</h3>
                             <p className="text-lg text-muted-foreground">Become a verified business partner and connect your bank account. All online rent payments are automatically settled to your account instantly after a small platform fee deduction. No more manual transfers.</p>
                         </div>
-                        <div className="bg-card p-4 rounded-lg border shadow-md space-y-3">
+                        <div className="bg-card p-6 rounded-lg border shadow-md space-y-3">
                             <div className="flex items-center gap-3"><Users className="w-8 h-8 text-primary"/><p className="font-semibold">Tenant Pays Rent Online</p></div>
                             <div className="h-8 w-px bg-border mx-auto ml-4"></div>
                             <div className="flex items-center gap-3"><Share2 className="w-8 h-8 text-primary"/><p className="font-semibold">Razorpay Secure Gateway</p></div>
