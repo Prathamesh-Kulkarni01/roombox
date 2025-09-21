@@ -263,7 +263,6 @@ const Index = () => {
             </div>
         </section>
 
-
         {/* Why RentSutra Section */}
         <section className="py-20 bg-background">
             <div className="container mx-auto px-4">
@@ -473,5 +472,3 @@ const Index = () => {
 };
 
 export default Index;
-
-    
