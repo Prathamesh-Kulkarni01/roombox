@@ -4,15 +4,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { add, format, isBefore, isPast, parseISO, differenceInMilliseconds, differenceInDays, subMinutes } from 'date-fns';
+import { add, format, isBefore, isPast, parseISO, differenceInMilliseconds, differenceInDays, subMinutes, addMinutes, subHours, subDays, isAfter } from 'date-fns';
 import type { User, Guest, RentCycleUnit } from '@/lib/types';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
-
-function getCycleDurationInMillis(unit: RentCycleUnit, value: number): number {
-    const now = new Date();
-    const future = add(now, { [unit]: value });
-    return future.getTime() - now.getTime();
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,18 +61,34 @@ export async function GET(request: NextRequest) {
         let title = '';
         let body = '';
         
+        const cycleUnit = guest.rentCycleUnit;
+
         if (isOverdue) {
-            // For short cycles (testing), send every 4 mins. For longer, once per day.
-            const reminderThreshold = subMinutes(now, 4); 
-            if (!lastReminderDate || isBefore(lastReminderDate, reminderThreshold)) {
+            let overdueThreshold;
+            if(cycleUnit === 'minutes') {
+                overdueThreshold = subMinutes(now, 4);
+            } else if (cycleUnit === 'hours') {
+                overdueThreshold = subHours(now, 1);
+            } else { // days, weeks, months
+                overdueThreshold = subDays(now, 1);
+            }
+            if (!lastReminderDate || isBefore(lastReminderDate, overdueThreshold)) {
                 shouldSend = true;
                 const daysOverdue = differenceInDays(now, dueDate);
                 title = `Action Required: Your Rent is Overdue`;
-                body = `Hi ${guest.name}, your rent payment is now ${daysOverdue} day(s) overdue. Please complete the payment.`;
+                body = `Hi ${guest.name}, your rent payment is now ${daysOverdue > 0 ? `${daysOverdue} day(s)`: ''} overdue. Please complete the payment.`;
             }
         } else { // It's upcoming
-            const reminderWindowStart = add(dueDate, { [guest.rentCycleUnit]: -Math.floor(guest.rentCycleValue * 0.3) });
-            if (isAfter(now, reminderWindowStart)) {
+            let upcomingThreshold;
+            if(cycleUnit === 'minutes') {
+                upcomingThreshold = addMinutes(now, 2);
+            } else if (cycleUnit === 'hours') {
+                upcomingThreshold = addMinutes(now, 15);
+            } else { // days, weeks, months
+                upcomingThreshold = addDays(now, 3);
+            }
+            
+            if (isBefore(dueDate, upcomingThreshold)) {
                  // Check if a reminder was already sent for this upcoming cycle
                  const currentCycleStart = add(dueDate, { [guest.rentCycleUnit]: -guest.rentCycleValue });
                  if(!lastReminderDate || isBefore(lastReminderDate, currentCycleStart)) {
