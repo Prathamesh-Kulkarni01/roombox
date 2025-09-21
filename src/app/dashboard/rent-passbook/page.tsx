@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
-import { IndianRupee, Download, Printer, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { IndianRupee, Download, Printer, CheckCircle, XCircle, AlertCircle, Loader2, Info } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useReactToPrint } from 'react-to-print';
 import React from 'react';
@@ -23,6 +23,7 @@ import { Wallet, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { Payment } from '@/lib/types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 
 const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder }: any) => {
@@ -118,21 +119,76 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
     );
 };
 
-const PayoutStatusBadge = ({ status, reason }: { status: Payment['payoutStatus'], reason?: string }) => {
-    if (status === 'processed') {
-        return <Badge variant="secondary" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1"/> Processed</Badge>;
-    }
-    if (status === 'failed') {
-        return (
-             <Badge variant="destructive">
-                <XCircle className="w-3 h-3 mr-1"/> Failed
-                {reason && <span className="ml-1 hidden md:inline">: {reason}</span>}
-            </Badge>
-        );
-    }
-    return <Badge variant="outline"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Pending</Badge>;
-}
+const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
+    const [open, setOpen] = useState(false);
+    
+    const statusMeta = {
+        processed: { text: "Processed", icon: CheckCircle, className: "bg-green-100 text-green-800" },
+        failed: { text: "Failed", icon: XCircle, className: "bg-red-100 text-red-800" },
+        pending: { text: "Pending", icon: Loader2, className: "bg-yellow-100 text-yellow-800 animate-spin" },
+    };
 
+    const status = payment.payoutStatus || 'pending';
+    const meta = statusMeta[status] || { text: 'Unknown', icon: AlertCircle, className: 'bg-gray-100 text-gray-800' };
+
+    const isClickable = payment.method === 'in-app' && (status === 'processed' || status === 'failed');
+
+    const BadgeComponent = (
+        <Badge variant="outline" className={cn("cursor-pointer", meta.className, !isClickable && 'cursor-default')}>
+            <meta.icon className={cn("w-3 h-3 mr-1", status !== 'pending' && 'animate-none')} />
+            {meta.text}
+        </Badge>
+    );
+
+    if (!isClickable) {
+        return BadgeComponent;
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                {BadgeComponent}
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Payout Details</DialogTitle>
+                    <DialogDescription>Details for payment made on {format(parseISO(payment.date), 'do MMM, yyyy')}.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Status</span>
+                        <Badge variant="outline" className={cn(meta.className, "text-base")}>
+                             <meta.icon className={cn("w-4 h-4 mr-1.5", status !== 'pending' && 'animate-none')} />
+                            {meta.text}
+                        </Badge>
+                    </div>
+                    {status === 'failed' && payment.payoutFailureReason && (
+                        <div className="text-sm p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                            <p className="font-semibold text-destructive">Reason for Failure:</p>
+                            <p className="text-destructive/90">{payment.payoutFailureReason}</p>
+                        </div>
+                    )}
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Original Payment ID</span>
+                        <span className="font-mono text-xs">{payment.id}</span>
+                    </div>
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Payout Transaction ID</span>
+                        <span className="font-mono text-xs">{payment.payoutId || 'N/A'}</span>
+                    </div>
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Amount Transferred</span>
+                        <span className="font-semibold">₹{payment.amount.toLocaleString('en-IN')}</span>
+                    </div>
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Destination Account</span>
+                        <span className="font-medium">{payment.payoutTo || 'Primary Account'}</span>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCollection }: any, ref: any) => {
     return (
@@ -162,11 +218,13 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
                             <TableCell>{format(parseISO(p.date), 'dd MMM, yyyy')}</TableCell>
                             <TableCell className="font-medium">{(p as any).guestName}</TableCell>
                             <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
-                            <TableCell><PayoutStatusBadge status={p.payoutStatus} reason={p.payoutFailureReason}/></TableCell>
+                            <TableCell>
+                               <span className="capitalize">{p.payoutStatus || 'N/A'}</span>
+                            </TableCell>
                             <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
                         </TableRow>
                     )) : (
-                        <TableRow><TableCell colSpan={6} className="text-center h-24">No transactions found.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={5} className="text-center h-24">No transactions found.</TableCell></TableRow>
                     )}
                 </TableBody>
             </Table>
@@ -222,7 +280,7 @@ export default function RentPassbookPage() {
             p.payoutStatus || 'pending',
             p.payoutTo || '',
             p.payoutFailureReason || ''
-        ].map(val => `"${val}"`)); // Quote all fields to handle commas
+        ].map(val => `"${String(val ?? '').replace(/"/g, '""')}"`));
 
         let csvContent = "data:text/csv;charset=utf-8," 
             + headers.join(",") + "\n" 
@@ -374,7 +432,7 @@ export default function RentPassbookPage() {
                                                 <TableCell className="font-medium">{p.guestName}</TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
                                                 <TableCell>
-                                                    <PayoutStatusBadge status={p.payoutStatus} reason={p.payoutFailureReason} />
+                                                    <PayoutStatusBadge payment={p} />
                                                 </TableCell>
                                                 <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
                                             </TableRow>
