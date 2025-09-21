@@ -208,9 +208,55 @@ const Index = () => {
                 </div>
             </div>
         </section>
+
+        {/* Primary Features */}
+        <section className="py-20 bg-background">
+            <div className="container mx-auto px-4">
+                <div className="space-y-16">
+                {primaryFeatures.map((feature, index) => (
+                    <div key={feature.title} className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className={cn("space-y-4", index % 2 === 1 && "md:order-2")}>
+                            <h3 className="text-3xl font-bold">{feature.title}</h3>
+                            <p className="text-lg text-muted-foreground">{feature.description}</p>
+                        </div>
+                        <div className={cn(index % 2 === 1 && "md:order-1")}>
+                            {feature.visual}
+                        </div>
+                    </div>
+                ))}
+                </div>
+            </div>
+        </section>
+        
+        {/* All Features Section */}
+         <section id="features" className="py-20 bg-muted/40">
+             <div className="container mx-auto px-4">
+                <div className="text-center space-y-4 mb-12">
+                    <h2 className="text-4xl lg:text-5xl font-bold">
+                       One App to Rule Them All
+                    </h2>
+                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                        From guest check-in to financial reconciliation, RentSutra has every feature you'll ever need to run a successful rental business.
+                    </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {secondaryFeatures.map((feature) => (
+                    <div key={feature.title} className="flex items-start gap-4 p-4 rounded-lg hover:bg-muted transition-colors">
+                        <div className="flex-shrink-0 p-3 bg-primary/10 rounded-full">
+                           <feature.icon className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-lg">{feature.title}</h3>
+                            <p className="text-sm text-muted-foreground">{feature.description}</p>
+                        </div>
+                    </div>
+                ))}
+                </div>
+            </div>
+        </section>
         
         {/* Supercharge Section */}
-        <section className="py-20 bg-muted/40">
+        <section className="py-20 bg-background">
             <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-16">
                     <h2 className="text-4xl lg:text-5xl font-bold">
@@ -298,54 +344,8 @@ const Index = () => {
             </div>
         </section>
 
-        {/* Primary Features */}
-        <section className="py-20 bg-background">
-            <div className="container mx-auto px-4">
-                <div className="space-y-16">
-                {primaryFeatures.map((feature, index) => (
-                    <div key={feature.title} className="grid md:grid-cols-2 gap-12 items-center">
-                        <div className={cn("space-y-4", index % 2 === 1 && "md:order-2")}>
-                            <h3 className="text-3xl font-bold">{feature.title}</h3>
-                            <p className="text-lg text-muted-foreground">{feature.description}</p>
-                        </div>
-                        <div className={cn(index % 2 === 1 && "md:order-1")}>
-                            {feature.visual}
-                        </div>
-                    </div>
-                ))}
-                </div>
-            </div>
-        </section>
-
-        {/* All Features Section */}
-         <section id="features" className="py-20 bg-muted/40">
-             <div className="container mx-auto px-4">
-                <div className="text-center space-y-4 mb-12">
-                    <h2 className="text-4xl lg:text-5xl font-bold">
-                       One App to Rule Them All
-                    </h2>
-                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                        From guest check-in to financial reconciliation, RentSutra has every feature you'll ever need to run a successful rental business.
-                    </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                {secondaryFeatures.map((feature) => (
-                    <div key={feature.title} className="flex items-start gap-4 p-4 rounded-lg hover:bg-muted transition-colors">
-                        <div className="flex-shrink-0 p-3 bg-primary/10 rounded-full">
-                           <feature.icon className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-lg">{feature.title}</h3>
-                            <p className="text-sm text-muted-foreground">{feature.description}</p>
-                        </div>
-                    </div>
-                ))}
-                </div>
-            </div>
-        </section>
-
         {/* Why RentSutra Section */}
-        <section className="py-20 bg-background">
+        <section className="py-20 bg-muted/40">
             <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-12">
                     <h2 className="text-4xl lg:text-5xl font-bold">Stop Juggling, Start Managing</h2>
@@ -389,7 +389,7 @@ const Index = () => {
         </section>
 
         {/* Pricing Section */}
-        <section id="pricing" className="py-20 bg-muted/40">
+        <section id="pricing" className="py-20 bg-background">
           <div className="container mx-auto px-4">
             <div className="text-center space-y-4 mb-16">
               <h2 className="text-4xl lg:text-5xl font-bold">
@@ -525,3 +525,5 @@ const Index = () => {
 };
 
 export default Index;
+
+    
