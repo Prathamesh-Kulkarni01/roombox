@@ -71,9 +71,9 @@ const reconcileRentCyclesFlow = ai.defineFlow(
 
             if (cyclesToProcess > 0) {
               console.log(`Reconciling ${guest.name} for ${cyclesToProcess} cycle(s).`);
-
-              const totalBillForCycle = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-              const unpaidFromLastCycle = totalBillForCycle - (guest.rentPaidAmount || 0);
+              
+              const lastCycleBill = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+              const unpaidFromLastCycle = lastCycleBill - (guest.rentPaidAmount || 0);
 
               const newBalanceBroughtForward = unpaidFromLastCycle + (guest.rentAmount * (cyclesToProcess - 1));
               const newDueDate = add(dueDate, { [guest.rentCycleUnit]: cyclesToProcess * guest.rentCycleValue });
