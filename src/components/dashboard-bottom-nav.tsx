@@ -78,22 +78,24 @@ export default function DashboardBottomNav() {
                 <SheetTitle>More Options</SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto">
-                <div className="grid grid-cols-3 gap-4 py-4">
+                <div className="grid grid-cols-3 gap-2 py-4">
                   {accessibleMoreNavItems.map((item) => (
                     <Link
                         key={item.href}
                         href={item.href}
                         className={cn(
-                            'flex flex-col items-center justify-center gap-2 rounded-lg p-3 text-center text-sm font-medium transition-all',
+                            'flex flex-col items-center justify-center gap-2 rounded-lg p-3 text-center text-sm font-medium transition-all aspect-square',
                             (pathname.startsWith(item.href)) 
                                 ? 'bg-primary/10 text-primary' 
-                                : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
+                                : 'text-muted-foreground hover:text-primary hover:bg-muted'
                         )}
                         >
-                        <div className={cn("flex items-center justify-center w-12 h-12 rounded-lg", (pathname.startsWith(item.href)) ? 'bg-primary/20' : 'bg-muted')}>
+                        <div className={cn("flex items-center justify-center w-14 h-14 rounded-full", 
+                            (pathname.startsWith(item.href)) ? 'bg-primary/20' : 'bg-muted'
+                        )}>
                           <item.icon className="h-6 w-6" />
                         </div>
-                        <span>{item.label}</span>
+                        <span className="text-xs font-semibold">{item.label}</span>
                     </Link>
                   ))}
                 </div>
