@@ -57,6 +57,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { addExpense as addExpenseAction } from '@/lib/slices/expensesSlice'
 import { canAccess } from '@/lib/permissions';
 import Access from '@/components/ui/PermissionWrapper';
+import Link from 'next/link'
 
 
 const expenseSchema = z.object({
@@ -211,11 +212,14 @@ export default function ExpensePage() {
     
     if (pgs.length === 0) {
         return (
-          <div className="flex items-center justify-center h-full">
-              <div className="text-center">
+          <div className="flex items-center justify-center h-full min-h-[calc(100vh-250px)]">
+              <div className="text-center p-8 bg-card rounded-lg border">
                   <Building className="mx-auto h-12 w-12 text-muted-foreground" />
                   <h2 className="mt-4 text-xl font-semibold">No Properties Found</h2>
                   <p className="mt-2 text-muted-foreground">Please add a property to start managing expenses.</p>
+                  <Button asChild className="mt-4">
+                    <Link href="/dashboard/pg-management">Add Property</Link>
+                  </Button>
               </div>
           </div>
         )
