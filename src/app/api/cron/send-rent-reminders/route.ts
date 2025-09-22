@@ -1,84 +1,89 @@
+
 'use server';
 
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { parseISO, isBefore, add } from 'date-fns';
+import { reconcileRentCycles } from '@/ai/flows/reconcile-rent-cycles-flow';
+import { createAndSendNotification } from '@/lib/actions/notificationActions';
 import type { Guest } from '@/lib/types';
+import { format, parseISO, differenceInDays, isPast } from 'date-fns';
 
-export async function reconcileRentCycles(params: {
-  ownerId: string;
-  guestId: string;
-  nextDueDate?: string;
-}): Promise<{ success: boolean }> {
-  return reconcileSingleGuestFlow(params);
-}
-
-const reconcileSingleGuestFlow = ai.defineFlow(
-  {
-    name: 'reconcileSingleGuestFlow',
-    inputSchema: z.object({
-      ownerId: z.string(),
-      guestId: z.string(),
-      nextDueDate: z.string().optional(),
-    }),
-    outputSchema: z.object({ success: z.boolean() }),
-  },
-  async ({ ownerId, guestId, nextDueDate }) => {
-    const adminDb = await getAdminDb();
+export async function GET(request: NextRequest) {
     try {
-      const guestDoc = await adminDb
-        .collection('users_data')
-        .doc(ownerId)
-        .collection('guests')
-        .doc(guestId)
-        .get();
+        const authHeader = request.headers.get('authorization');
+        const secret = process.env.CRON_SECRET;
 
-      if (!guestDoc.exists) return { success: false };
+        if (process.env.NODE_ENV === 'production' && (!secret || authHeader !== `Bearer ${secret}`)) {
+            return new Response('Unauthorized', { status: 401 });
+        }
 
-      const guest = guestDoc.data() as Guest;
-      const now = new Date();
-      let currentDueDate = parseISO(guest.dueDate);
-      let targetDueDate = nextDueDate ? parseISO(nextDueDate) : currentDueDate;
+        // --- Step 1: Reconcile all rents first ---
+        const reconciliationResult = await reconcileRentCycles();
+        if (!reconciliationResult.success) {
+            console.warn('Rent reconciliation part of the reminder job may have failed for some tenants.');
+        }
 
-      // ------------------ Handle short cycles ------------------
-      const msPerUnit: Record<string, number> = {
-        minutes: 60 * 1000,
-        hours: 60 * 60 * 1000,
-        days: 24 * 60 * 60 * 1000,
-        weeks: 7 * 24 * 60 * 60 * 1000,
-        months: 30 * 24 * 60 * 60 * 1000,
-      };
+        // --- Step 2: Fetch updated guest data and send reminders ---
+        const adminDb = await getAdminDb();
+        const usersSnapshot = await adminDb.collection('users').where('role', '==', 'owner').get();
 
-      const cycleUnit = guest.rentCycleUnit || 'days';
-      const cycleValue = guest.rentCycleValue || 1;
-      const cycleMs = (msPerUnit[cycleUnit] || msPerUnit['days']) * cycleValue;
+        let totalRemindersSent = 0;
+        const today = new Date();
 
-      // ------------------ Count how many cycles have passed ------------------
-      let cyclesToProcess = 0;
-      while (now.getTime() >= targetDueDate.getTime()) {
-        cyclesToProcess++;
-        targetDueDate = add(targetDueDate, { [cycleUnit]: cycleValue });
-      }
+        for (const userDoc of usersSnapshot.docs) {
+            const ownerId = userDoc.id;
+            const guestsSnapshot = await adminDb.collection('users_data').doc(ownerId).collection('guests')
+                .where('isVacated', '==', false)
+                .where('rentStatus', 'in', ['unpaid', 'partial'])
+                .get();
 
-      if (cyclesToProcess === 0) return { success: true }; // nothing to reconcile
+            if (guestsSnapshot.empty) {
+                continue;
+            }
 
-      // ------------------ Update balance ------------------
-      let newBalance = (guest.balanceBroughtForward || 0) + guest.rentAmount * cyclesToProcess;
-      newBalance -= guest.rentPaidAmount || 0;
+            for (const guestDoc of guestsSnapshot.docs) {
+                const guest = guestDoc.data() as Guest;
+                if (!guest.userId) continue;
 
-      await guestDoc.ref.update({
-        dueDate: targetDueDate.toISOString(),
-        rentStatus: 'unpaid',
-        rentPaidAmount: 0,
-        balanceBroughtForward: newBalance,
-      });
+                const dueDate = parseISO(guest.dueDate);
+                let title = '';
+                let body = '';
+                 
+                if (isPast(dueDate)) {
+                    const daysOverdue = differenceInDays(today, dueDate);
+                    title = 'Action Required: Your Rent is Overdue';
+                    body = `Hi ${guest.name}, your rent payment is ${daysOverdue} day(s) overdue. Please complete the payment as soon as possible.`;
+                } else {
+                     const daysUntilDue = differenceInDays(dueDate, today);
+                     // Only send if it's due within a reasonable window (e.g., 5 days)
+                     if (daysUntilDue <= 5) {
+                        title = `Gentle Reminder: Your Rent is Due Soon`;
+                        body = `Hi ${guest.name}, a friendly reminder that your rent is due in ${daysUntilDue} day(s) on ${format(dueDate, 'do MMM, yyyy')}.`;
+                     }
+                }
 
-      console.log(`✅ Reconciled ${guest.name} for ${cyclesToProcess} cycle(s). New balance: ${newBalance}`);
-      return { success: true };
-    } catch (err) {
-      console.error('❌ Error reconciling guest:', guestId, err);
-      return { success: false };
+                if (title && body) {
+                    await createAndSendNotification({
+                        ownerId: ownerId,
+                        notification: {
+                          type: 'rent-reminder',
+                          title: title,
+                          message: body,
+                          link: '/tenants/my-pg',
+                          targetId: guest.userId,
+                        }
+                    });
+                    totalRemindersSent++;
+                }
+            }
+        }
+        
+        const message = `Rent reconciliation complete. Sent ${totalRemindersSent} rent reminders.`;
+        console.log(message);
+        return NextResponse.json({ success: true, message });
+
+    } catch (error: any) {
+        console.error('Error in send-rent-reminders cron job:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
-  }
-);
+}
