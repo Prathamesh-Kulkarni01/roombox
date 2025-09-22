@@ -3,23 +3,23 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { reconcileRentCycles } from '@/ai/flows/reconcile-rent-cycles-flow';
+import { reconcileAllGuests } from '@/ai/flows/reconcile-rent-cycles-flow';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 import type { Guest, RentCycleUnit } from '@/lib/types';
-import { format, parseISO, differenceInDays, isPast, differenceInHours, differenceInMinutes } from 'date-fns';
+import { format, parseISO, isPast, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 
 function getHumanReadableDuration(minutes: number): string {
+    if (minutes < 1) return "just now";
     if (minutes < 60) return `${minutes} minute(s)`;
-    if (minutes < 1440) { // Less than a day
-        const hours = Math.floor(minutes / 60);
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
         const remainingMinutes = minutes % 60;
         return `${hours} hour(s)${remainingMinutes > 0 ? ` and ${remainingMinutes} minute(s)` : ''}`;
     }
-    const days = Math.floor(minutes / 1440);
-    const remainingHours = Math.floor((minutes % 1440) / 60);
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
     return `${days} day(s)${remainingHours > 0 ? ` and ${remainingHours} hour(s)` : ''}`;
 }
-
 
 export async function GET(request: NextRequest) {
     try {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         }
 
         // --- Step 1: Reconcile all rents first ---
-        const reconciliationResult = await reconcileRentCycles();
+        const reconciliationResult = await reconcileAllGuests();
         if (!reconciliationResult.success) {
             console.warn('Rent reconciliation part of the reminder job may have failed for some tenants.');
         }
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
                 const dueDate = parseISO(guest.dueDate);
                 let title = '';
                 let body = '';
-                 
+
                 if (isPast(dueDate)) {
                     const minutesOverdue = differenceInMinutes(now, dueDate);
                     title = 'Action Required: Your Rent is Overdue';
@@ -74,14 +74,14 @@ export async function GET(request: NextRequest) {
                     switch (rentCycleUnit) {
                         case 'minutes':
                             const minutesUntilDue = differenceInMinutes(dueDate, now);
-                            if (minutesUntilDue <= 5) { // e.g., remind 5 mins before
+                            if (minutesUntilDue <= 5) {
                                 shouldSendReminder = true;
                                 timeUntilDue = `${minutesUntilDue} minute(s)`;
                             }
                             break;
                         case 'hours':
                             const hoursUntilDue = differenceInHours(dueDate, now);
-                            if (hoursUntilDue <= 3) { // e.g., remind 3 hours before
+                            if (hoursUntilDue <= 3) {
                                 shouldSendReminder = true;
                                 timeUntilDue = `${hoursUntilDue} hour(s)`;
                             }
@@ -90,37 +90,37 @@ export async function GET(request: NextRequest) {
                         case 'weeks':
                         case 'months':
                         default:
-                             const daysUntilDue = differenceInDays(dueDate, now);
-                             if (daysUntilDue <= 5) {
+                            const daysUntilDue = differenceInDays(dueDate, now);
+                            if (daysUntilDue <= 5) {
                                 shouldSendReminder = true;
                                 timeUntilDue = `${daysUntilDue} day(s) on ${format(dueDate, 'do MMM')}`;
-                             }
+                            }
                             break;
                     }
 
-                     if (shouldSendReminder) {
+                    if (shouldSendReminder) {
                         title = `Gentle Reminder: Your Rent is Due Soon`;
                         body = `Hi ${guest.name}, a friendly reminder that your rent is due in ${timeUntilDue}.`;
-                     }
+                    }
                 }
 
                 if (title && body) {
                     await createAndSendNotification({
                         ownerId: ownerId,
                         notification: {
-                          type: 'rent-reminder',
-                          title: title,
-                          message: body,
-                          link: '/tenants/my-pg',
-                          targetId: guest.userId,
+                            type: 'rent-reminder',
+                            title: title,
+                            message: body,
+                            link: '/tenants/my-pg',
+                            targetId: guest.userId,
                         }
                     });
                     totalRemindersSent++;
                 }
             }
         }
-        
-        const message = `Rent reconciliation complete. Sent ${totalRemindersSent} rent reminders.`;
+
+        const message = `Reconciliation complete. Sent ${totalRemindersSent} rent reminders.`;
         console.log(message);
         return NextResponse.json({ success: true, message });
 
