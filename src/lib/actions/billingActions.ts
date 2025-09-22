@@ -97,7 +97,7 @@ export async function getBillingDetails(ownerId: string): Promise<{ success: boo
     const adminDb = await getAdminDb();
     try {
         const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
-        if (!ownerDoc.exists()) {
+        if (!ownerDoc.exists) {
             return { success: false, error: "Owner not found." };
         }
 
@@ -115,6 +115,10 @@ export async function getBillingDetails(ownerId: string): Promise<{ success: boo
  * This subscription has a ₹0 cost and serves as the anchor for monthly addons.
  */
 export async function createRazorpaySubscription(userId: string) {
+  const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID!,
+    key_secret: process.env.RAZORPAY_KEY_SECRET!,
+  });
   try {
     const BASE_PLAN_ID = process.env.RAZORPAY_BASE_PLAN_ID || 'plan_base_monthly';
     // Check if the base plan exists on Razorpay
