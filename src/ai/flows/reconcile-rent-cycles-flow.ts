@@ -31,7 +31,6 @@ const reconcileSingleGuestFlow = ai.defineFlow(
     inputSchema: z.object({
       ownerId: z.string(),
       guestId: z.string(),
-      nextDueDate: z.string().optional(),
     }),
     outputSchema: z.object({ success: z.boolean() }),
   },
@@ -52,34 +51,39 @@ const reconcileSingleGuestFlow = ai.defineFlow(
                 return; // Do not process guests who are exiting or have exited
             }
 
-            let currentDueDate = parseISO(guest.dueDate);
+            const currentDueDate = parseISO(guest.dueDate);
             const now = new Date();
-            let cyclesToProcess = 0;
-            let nextDueDate = currentDueDate;
-
-            // Determine how many full cycles have passed
-            while (isBefore(nextDueDate, now) || nextDueDate.getTime() === now.getTime()) {
-                cyclesToProcess++;
-                nextDueDate = calculateFirstDueDate(nextDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+            
+            // If due date has not passed, do nothing.
+            if (!isBefore(currentDueDate, now)) {
+                return;
             }
 
-            if (cyclesToProcess > 0) {
-                const totalOwedBeforeThisRun = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-                const unpaidFromLastCycle = totalOwedBeforeThisRun - (guest.rentPaidAmount || 0);
+            // --- Simplified Logic: Process one cycle at a time ---
+            const totalOwedBeforeThisRun = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+            const unpaidFromLastCycle = totalOwedBeforeThisRun - (guest.rentPaidAmount || 0);
 
-                const newBalanceBroughtForward = unpaidFromLastCycle + (guest.rentAmount * (cyclesToProcess - 1));
-
-                const updatedGuestData: Partial<Guest> = {
-                  dueDate: format(nextDueDate, 'yyyy-MM-dd'),
-                  balanceBroughtForward: newBalanceBroughtForward,
-                  rentPaidAmount: 0,
-                  additionalCharges: [],
-                  rentStatus: 'unpaid'
-                };
-                
-                transaction.update(guestDocRef, updatedGuestData);
-                console.log(`[Reconcile] Processed ${cyclesToProcess} cycle(s) for guest ${guest.name}. New balance: ${newBalanceBroughtForward}`);
+            // The new balance is the unpaid amount from the last cycle. The new rent amount will be part of the next bill.
+            const newBalanceBroughtForward = unpaidFromLastCycle;
+            const newDueDate = calculateFirstDueDate(currentDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+            
+            const updatedGuestData: Partial<Guest> = {
+              dueDate: format(newDueDate, 'yyyy-MM-dd'),
+              balanceBroughtForward: newBalanceBroughtForward,
+              rentPaidAmount: 0,
+              additionalCharges: [],
+              rentStatus: newBalanceBroughtForward > 0 ? 'unpaid' : 'paid' // if balance is 0, they are paid up.
+            };
+            
+            // If the balance is zero or less (credit), status should be 'paid'. Otherwise, it's 'unpaid' for the new cycle.
+            if(newBalanceBroughtForward <= 0) {
+                updatedGuestData.rentStatus = 'paid';
+            } else {
+                 updatedGuestData.rentStatus = 'unpaid';
             }
+
+            transaction.update(guestDocRef, updatedGuestData);
+            console.log(`[Reconcile] Processed 1 cycle for guest ${guest.name}. New balance: ${newBalanceBroughtForward}`);
         });
         return { success: true };
     } catch (err: any) {
@@ -117,7 +121,7 @@ const reconcileAllGuestsFlow = ai.defineFlow(
                     }
                 }
             }
-            console.log(`[Reconcile All] Successfully reconciled ${reconciledCount} guests. Failed: ${totalErrors}.`);
+            console.log(`[Reconcile All] Successfully processed reconciliation for ${reconciledCount} guests. Failed: ${totalErrors}.`);
             return { success: totalErrors === 0, reconciledCount };
         } catch (error: any) {
             console.error('[Reconcile All] Cron job failed:', error);
@@ -125,3 +129,4 @@ const reconcileAllGuestsFlow = ai.defineFlow(
         }
     }
 );
+
