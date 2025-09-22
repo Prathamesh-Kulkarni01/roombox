@@ -5,7 +5,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, parseISO, isBefore } from 'date-fns';
-import type { Guest, RentCycleUnit } from '@/lib/types';
+import type { Guest } from '@/lib/types';
 import { calculateFirstDueDate } from '@/lib/utils';
 
 
@@ -13,7 +13,6 @@ import { calculateFirstDueDate } from '@/lib/utils';
 export async function reconcileRentCycles(params: {
   ownerId: string;
   guestId: string;
-  nextDueDate?: string;
 }): Promise<{ success: boolean; reconciledCount?: number }> {
   const result = await reconcileSingleGuestFlow(params);
   return { success: result.success, reconciledCount: result.success ? 1 : 0 };
@@ -48,42 +47,44 @@ const reconcileSingleGuestFlow = ai.defineFlow(
 
             const guest = guestDoc.data() as Guest;
             if (guest.isVacated || guest.exitDate) {
-                return; // Do not process guests who are exiting or have exited
-            }
-
-            const currentDueDate = parseISO(guest.dueDate);
-            const now = new Date();
-            
-            // If due date has not passed, do nothing.
-            if (!isBefore(currentDueDate, now)) {
                 return;
             }
 
-            // --- Simplified Logic: Process one cycle at a time ---
+            let nextDueDate = parseISO(guest.dueDate);
+            const now = new Date();
+            let cyclesToProcess = 0;
+            
+            // Determine how many full cycles have passed
+            while (isBefore(nextDueDate, now)) {
+                cyclesToProcess++;
+                nextDueDate = calculateFirstDueDate(nextDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+            }
+            
+            // If no full cycles have passed, do nothing
+            if (cyclesToProcess === 0) {
+                return;
+            }
+
             const totalOwedBeforeThisRun = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
             const unpaidFromLastCycle = totalOwedBeforeThisRun - (guest.rentPaidAmount || 0);
 
-            // The new balance is the unpaid amount from the last cycle. The new rent amount will be part of the next bill.
-            const newBalanceBroughtForward = unpaidFromLastCycle;
-            const newDueDate = calculateFirstDueDate(currentDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
-            
+            // New balance includes the unpaid amount from last cycle PLUS the rent for all newly missed cycles.
+            const newBalanceBroughtForward = unpaidFromLastCycle + (guest.rentAmount * cyclesToProcess);
+
             const updatedGuestData: Partial<Guest> = {
-              dueDate: format(newDueDate, 'yyyy-MM-dd'),
+              dueDate: format(nextDueDate, 'yyyy-MM-dd'),
               balanceBroughtForward: newBalanceBroughtForward,
-              rentPaidAmount: 0,
-              additionalCharges: [],
-              rentStatus: newBalanceBroughtForward > 0 ? 'unpaid' : 'paid' // if balance is 0, they are paid up.
+              rentPaidAmount: 0, // Reset for the new cycle
+              additionalCharges: [], // Clear charges as they are now part of the balance
+              rentStatus: 'unpaid' // If a cycle has passed, it's always unpaid or partial initially
             };
             
-            // If the balance is zero or less (credit), status should be 'paid'. Otherwise, it's 'unpaid' for the new cycle.
             if(newBalanceBroughtForward <= 0) {
                 updatedGuestData.rentStatus = 'paid';
-            } else {
-                 updatedGuestData.rentStatus = 'unpaid';
             }
 
             transaction.update(guestDocRef, updatedGuestData);
-            console.log(`[Reconcile] Processed 1 cycle for guest ${guest.name}. New balance: ${newBalanceBroughtForward}`);
+            console.log(`[Reconcile] Processed ${cyclesToProcess} cycle(s) for guest ${guest.name}. New balance: ${newBalanceBroughtForward}`);
         });
         return { success: true };
     } catch (err: any) {
@@ -129,4 +130,3 @@ const reconcileAllGuestsFlow = ai.defineFlow(
         }
     }
 );
-
