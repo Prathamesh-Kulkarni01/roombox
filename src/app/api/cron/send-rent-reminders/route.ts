@@ -5,8 +5,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { reconcileRentCycles } from '@/ai/flows/reconcile-rent-cycles-flow';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
-import type { Guest } from '@/lib/types';
-import { format, parseISO, differenceInDays, isPast } from 'date-fns';
+import type { Guest, RentCycleUnit } from '@/lib/types';
+import { format, parseISO, differenceInDays, isPast, differenceInHours, differenceInMinutes } from 'date-fns';
+
+function getHumanReadableDuration(minutes: number): string {
+    if (minutes < 60) return `${minutes} minute(s)`;
+    if (minutes < 1440) { // Less than a day
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return `${hours} hour(s)${remainingMinutes > 0 ? ` and ${remainingMinutes} minute(s)` : ''}`;
+    }
+    const days = Math.floor(minutes / 1440);
+    const remainingHours = Math.floor((minutes % 1440) / 60);
+    return `${days} day(s)${remainingHours > 0 ? ` and ${remainingHours} hour(s)` : ''}`;
+}
+
 
 export async function GET(request: NextRequest) {
     try {
@@ -28,7 +41,7 @@ export async function GET(request: NextRequest) {
         const usersSnapshot = await adminDb.collection('users').where('role', '==', 'owner').get();
 
         let totalRemindersSent = 0;
-        const today = new Date();
+        const now = new Date();
 
         for (const userDoc of usersSnapshot.docs) {
             const ownerId = userDoc.id;
@@ -50,15 +63,44 @@ export async function GET(request: NextRequest) {
                 let body = '';
                  
                 if (isPast(dueDate)) {
-                    const daysOverdue = differenceInDays(today, dueDate);
+                    const minutesOverdue = differenceInMinutes(now, dueDate);
                     title = 'Action Required: Your Rent is Overdue';
-                    body = `Hi ${guest.name}, your rent payment is ${daysOverdue} day(s) overdue. Please complete the payment as soon as possible.`;
+                    body = `Hi ${guest.name}, your rent payment is ${getHumanReadableDuration(minutesOverdue)} overdue. Please complete the payment as soon as possible.`;
                 } else {
-                     const daysUntilDue = differenceInDays(dueDate, today);
-                     // Only send if it's due within a reasonable window (e.g., 5 days)
-                     if (daysUntilDue <= 5) {
+                    const rentCycleUnit: RentCycleUnit = guest.rentCycleUnit || 'months';
+                    let shouldSendReminder = false;
+                    let timeUntilDue = '';
+
+                    switch (rentCycleUnit) {
+                        case 'minutes':
+                            const minutesUntilDue = differenceInMinutes(dueDate, now);
+                            if (minutesUntilDue <= 5) { // e.g., remind 5 mins before
+                                shouldSendReminder = true;
+                                timeUntilDue = `${minutesUntilDue} minute(s)`;
+                            }
+                            break;
+                        case 'hours':
+                            const hoursUntilDue = differenceInHours(dueDate, now);
+                            if (hoursUntilDue <= 3) { // e.g., remind 3 hours before
+                                shouldSendReminder = true;
+                                timeUntilDue = `${hoursUntilDue} hour(s)`;
+                            }
+                            break;
+                        case 'days':
+                        case 'weeks':
+                        case 'months':
+                        default:
+                             const daysUntilDue = differenceInDays(dueDate, now);
+                             if (daysUntilDue <= 5) {
+                                shouldSendReminder = true;
+                                timeUntilDue = `${daysUntilDue} day(s) on ${format(dueDate, 'do MMM')}`;
+                             }
+                            break;
+                    }
+
+                     if (shouldSendReminder) {
                         title = `Gentle Reminder: Your Rent is Due Soon`;
-                        body = `Hi ${guest.name}, a friendly reminder that your rent is due in ${daysUntilDue} day(s) on ${format(dueDate, 'do MMM, yyyy')}.`;
+                        body = `Hi ${guest.name}, a friendly reminder that your rent is due in ${timeUntilDue}.`;
                      }
                 }
 
