@@ -80,6 +80,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [isTestingBilling, startBillingTest] = useTransition();
   const [isTestingReminders, startReminderTest] = useTransition();
+  const [isTestingReconciliation, startReconciliationTest] = useTransition();
   
   const chargeTemplateForm = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
@@ -185,13 +186,6 @@ export default function SettingsPage() {
       append({ id: `doc-${Date.now()}`, label: 'New Document', type: 'image', required: true });
   }
 
-  const handleReconcileAll = () => {
-    toast({ title: 'Rent Reconciliation Started', description: 'Checking all guests for overdue rent based on the simulated date.' });
-    guests.forEach(guest => {
-        dispatch(reconcileRentCycle(guest.id));
-    });
-  }
-
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const dateValue = e.target.value;
       if(dateValue) {
@@ -226,6 +220,24 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
         }
     })
   }
+
+  const handleTestReconciliation = () => {
+      startReconciliationTest(async () => {
+          try {
+              const response = await fetch('/api/cron/reconcile-rent', {
+                  headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}` }
+              });
+              const result = await response.json();
+              if (result.success) {
+                  toast({ title: "Reconciliation Test Complete", description: result.message });
+              } else {
+                  throw new Error(result.message || 'Cron job failed');
+              }
+          } catch (error: any) {
+              toast({ variant: 'destructive', title: 'Reconciliation Test Failed', description: error.message || 'Could not complete the rent reconciliation flow.' });
+          }
+      });
+  };
 
   const handleTestRentReminders = () => {
       startReminderTest(async () => {
@@ -389,7 +401,10 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                         <p className="text-xs text-muted-foreground">Simulate a different current date to test rent cycles.</p>
                     </div>
                     <div>
-                        <Button onClick={handleReconcileAll}>Reconcile Rents Now</Button>
+                        <Button onClick={handleTestReconciliation} disabled={isTestingReconciliation}>
+                             {isTestingReconciliation && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Reconcile Rents Now
+                        </Button>
                         <p className="text-xs text-muted-foreground mt-2">Manually trigger rent reconciliation for all guests using the simulated date.</p>
                     </div>
                     <div className="space-y-2">
@@ -435,11 +450,11 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                             {Object.entries(config.actions).map(([actionKey, actionLabel]) => (
                                 <div key={actionKey} className="flex items-center space-x-2">
                                     <Switch
-                                        id={`$!{roleToEdit}-${featureKey}-${actionKey}`}
+                                        id={`${roleToEdit}-${featureKey}-${actionKey}`}
                                         checked={currentRolePermissions?.[featureKey]?.[actionKey] || false}
                                         onCheckedChange={(checked) => handlePermissionChange(featureKey, actionKey, checked)}
                                     />
-                                    <Label htmlFor={`$!{roleToEdit}-${featureKey}-${actionKey}`} className="font-normal">{actionLabel}</Label>
+                                    <Label htmlFor={`${roleToEdit}-${featureKey}-${actionKey}`} className="font-normal">{actionLabel}</Label>
                                 </div>
                             ))}
                         </div>
