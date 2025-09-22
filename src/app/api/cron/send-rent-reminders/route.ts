@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { add, format, isBefore, isPast, parseISO, differenceInMilliseconds, differenceInDays, subMinutes, addMinutes, subHours, subDays, isAfter } from 'date-fns';
+import { add, format, isBefore, isPast, parseISO, differenceInMilliseconds, differenceInDays, subMinutes, addMinutes, subHours, subDays, isAfter, addDays } from 'date-fns';
 import type { User, Guest, RentCycleUnit } from '@/lib/types';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 
