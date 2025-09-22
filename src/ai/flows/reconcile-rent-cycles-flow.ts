@@ -4,14 +4,9 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { format, parseISO, isBefore, addMinutes, addHours, addDays, addWeeks, addMonths } from 'date-fns';
+import { format, parseISO, isBefore } from 'date-fns';
 import type { Guest, RentCycleUnit } from '@/lib/types';
 import { calculateFirstDueDate } from '@/lib/utils';
-
-// Helper function to advance the due date based on the rent cycle
-function getNextDueDate(currentDueDate: Date, unit: RentCycleUnit, value: number, anchorDay: number): Date {
-  return calculateFirstDueDate(currentDueDate, unit, value, anchorDay);
-}
 
 
 // Kept for single guest reconciliation if needed elsewhere
@@ -60,32 +55,28 @@ const reconcileSingleGuestFlow = ai.defineFlow(
             let currentDueDate = parseISO(guest.dueDate);
             const now = new Date();
             let cyclesToProcess = 0;
+            let nextDueDate = currentDueDate;
 
             // Determine how many full cycles have passed
-            while (isBefore(currentDueDate, now) || currentDueDate.getTime() === now.getTime()) {
+            while (isBefore(nextDueDate, now) || nextDueDate.getTime() === now.getTime()) {
                 cyclesToProcess++;
-                currentDueDate = getNextDueDate(currentDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+                nextDueDate = calculateFirstDueDate(nextDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
             }
 
             if (cyclesToProcess > 0) {
-                 const updatedGuestData: Partial<Guest> = {};
+                const totalOwedBeforeThisRun = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+                const unpaidFromLastCycle = totalOwedBeforeThisRun - (guest.rentPaidAmount || 0);
+
+                const newBalanceBroughtForward = unpaidFromLastCycle + (guest.rentAmount * (cyclesToProcess - 1));
+
+                const updatedGuestData: Partial<Guest> = {
+                  dueDate: format(nextDueDate, 'yyyy-MM-dd'),
+                  balanceBroughtForward: newBalanceBroughtForward,
+                  rentPaidAmount: 0,
+                  additionalCharges: [],
+                  rentStatus: 'unpaid'
+                };
                 
-                // Calculate balance from the most recently *finished* cycle
-                const totalBillForLastCycle = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-                const rentPaidInLastCycle = guest.rentPaidAmount || 0;
-                let newBalanceBroughtForward = totalBillForLastCycle - rentPaidInLastCycle;
-
-                // Add rent for any additional fully missed cycles
-                if (cyclesToProcess > 1) {
-                    newBalanceBroughtForward += guest.rentAmount * (cyclesToProcess - 1);
-                }
-
-                updatedGuestData.dueDate = format(currentDueDate, 'yyyy-MM-dd');
-                updatedGuestData.balanceBroughtForward = newBalanceBroughtForward;
-                updatedGuestData.rentPaidAmount = 0;
-                updatedGuestData.additionalCharges = []; // Clear charges as they are now part of the balance
-                updatedGuestData.rentStatus = newBalanceBroughtForward > 0 ? 'unpaid' : 'paid';
-
                 transaction.update(guestDocRef, updatedGuestData);
                 console.log(`[Reconcile] Processed ${cyclesToProcess} cycle(s) for guest ${guest.name}. New balance: ${newBalanceBroughtForward}`);
             }
