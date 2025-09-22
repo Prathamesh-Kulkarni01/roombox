@@ -400,12 +400,12 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                         </div>
                         <p className="text-xs text-muted-foreground">Simulate a different current date to test rent cycles.</p>
                     </div>
-                    <div>
+                    <div className="space-y-2">
                         <Button onClick={handleTestReconciliation} disabled={isTestingReconciliation}>
                              {isTestingReconciliation && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                             Reconcile Rents Now
                         </Button>
-                        <p className="text-xs text-muted-foreground mt-2">Manually trigger rent reconciliation for all guests using the simulated date.</p>
+                        <p className="text-xs text-muted-foreground">Manually trigger rent reconciliation for all guests using the simulated date.</p>
                     </div>
                     <div className="space-y-2">
                         <Button onClick={handleRunBillingTest} disabled={isTestingBilling}>
