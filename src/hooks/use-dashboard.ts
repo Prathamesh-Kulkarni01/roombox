@@ -195,6 +195,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
     if (!selectedBedForGuestAdd) return;
+    console.log({values})
     const { pg, bed } = selectedBedForGuestAdd;
     
     const firstDueDate = calculateFirstDueDate(new Date(values.moveInDate), values.rentCycleUnit, values.rentCycleValue);

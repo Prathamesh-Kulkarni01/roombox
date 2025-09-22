@@ -1,138 +1,84 @@
+'use server';
 
-
-'use server'
-
-import { NextRequest, NextResponse } from 'next/server';
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { add, format, isBefore, isPast, parseISO, differenceInMilliseconds, differenceInDays, subMinutes, addMinutes, subHours, subDays, isAfter, addDays } from 'date-fns';
-import type { User, Guest, RentCycleUnit } from '@/lib/types';
-import { createAndSendNotification } from '@/lib/actions/notificationActions';
+import { parseISO, isBefore, add } from 'date-fns';
+import type { Guest } from '@/lib/types';
 
-export async function GET(request: NextRequest) {
-  try {
-    const authHeader = request.headers.get('authorization');
-    const secret = process.env.CRON_SECRET;
+export async function reconcileRentCycles(params: {
+  ownerId: string;
+  guestId: string;
+  nextDueDate?: string;
+}): Promise<{ success: boolean }> {
+  return reconcileSingleGuestFlow(params);
+}
 
-    if (process.env.NODE_ENV === 'production' && (!secret || authHeader !== `Bearer ${secret}`)) {
-      return new Response('Unauthorized', { status: 401 });
-    }
-
+const reconcileSingleGuestFlow = ai.defineFlow(
+  {
+    name: 'reconcileSingleGuestFlow',
+    inputSchema: z.object({
+      ownerId: z.string(),
+      guestId: z.string(),
+      nextDueDate: z.string().optional(),
+    }),
+    outputSchema: z.object({ success: z.boolean() }),
+  },
+  async ({ ownerId, guestId, nextDueDate }) => {
     const adminDb = await getAdminDb();
-    console.log('🔔 Starting daily rent reminder check...');
-    let notifiedCount = 0;
-    const now = new Date();
-
-    const ownersSnapshot = await adminDb
-      .collection('users')
-      .where('subscription.status', 'in', ['active', 'trialing'])
-      .get();
-
-    if (ownersSnapshot.empty) {
-      console.log('No active or trialing owners found.');
-      return NextResponse.json({ success: true, message: 'No active owners to process.' });
-    }
-
-    for (const ownerDoc of ownersSnapshot.docs) {
-      const owner = { id: ownerDoc.id, ...ownerDoc.data() } as User;
-      console.log(`👤 Checking guests for owner: ${owner.name} (${owner.id})`);
-
-      const guestsSnapshot = await adminDb
+    try {
+      const guestDoc = await adminDb
         .collection('users_data')
-        .doc(owner.id)
+        .doc(ownerId)
         .collection('guests')
-        .where('isVacated', '==', false)
-        .where('rentStatus', 'in', ['unpaid', 'partial'])
+        .doc(guestId)
         .get();
 
-      if (guestsSnapshot.empty) {
-        continue;
+      if (!guestDoc.exists) return { success: false };
+
+      const guest = guestDoc.data() as Guest;
+      const now = new Date();
+      let currentDueDate = parseISO(guest.dueDate);
+      let targetDueDate = nextDueDate ? parseISO(nextDueDate) : currentDueDate;
+
+      // ------------------ Handle short cycles ------------------
+      const msPerUnit: Record<string, number> = {
+        minutes: 60 * 1000,
+        hours: 60 * 60 * 1000,
+        days: 24 * 60 * 60 * 1000,
+        weeks: 7 * 24 * 60 * 60 * 1000,
+        months: 30 * 24 * 60 * 60 * 1000,
+      };
+
+      const cycleUnit = guest.rentCycleUnit || 'days';
+      const cycleValue = guest.rentCycleValue || 1;
+      const cycleMs = (msPerUnit[cycleUnit] || msPerUnit['days']) * cycleValue;
+
+      // ------------------ Count how many cycles have passed ------------------
+      let cyclesToProcess = 0;
+      while (now.getTime() >= targetDueDate.getTime()) {
+        cyclesToProcess++;
+        targetDueDate = add(targetDueDate, { [cycleUnit]: cycleValue });
       }
 
-      for (const guestDoc of guestsSnapshot.docs) {
-        const guest = { id: guestDoc.id, ...guestDoc.data() } as Guest;
-        const dueDate = parseISO(guest.dueDate);
+      if (cyclesToProcess === 0) return { success: true }; // nothing to reconcile
 
-        // Skip if no associated user to notify
-        if (!guest.userId) continue;
-        
-        const isOverdue = isPast(dueDate);
-        const lastReminderDate = guest.lastReminderSentAt ? parseISO(guest.lastReminderSentAt) : null;
-        let shouldSend = false;
-        let title = '';
-        let body = '';
-        
-        const cycleUnit = guest.rentCycleUnit;
+      // ------------------ Update balance ------------------
+      let newBalance = (guest.balanceBroughtForward || 0) + guest.rentAmount * cyclesToProcess;
+      newBalance -= guest.rentPaidAmount || 0;
 
-        if (isOverdue) {
-            let overdueThreshold;
-            if(cycleUnit === 'minutes') {
-                overdueThreshold = subMinutes(now, 4);
-            } else if (cycleUnit === 'hours') {
-                overdueThreshold = subHours(now, 1);
-            } else { // days, weeks, months
-                overdueThreshold = subDays(now, 1);
-            }
-            if (!lastReminderDate || isBefore(lastReminderDate, overdueThreshold)) {
-                shouldSend = true;
-                const daysOverdue = differenceInDays(now, dueDate);
-                title = `Action Required: Your Rent is Overdue`;
-                body = `Hi ${guest.name}, your rent payment is now ${daysOverdue > 0 ? `${daysOverdue} day(s)`: ''} overdue. Please complete the payment.`;
-            }
-        } else { // It's upcoming
-            let upcomingThreshold;
-            if(cycleUnit === 'minutes') {
-                upcomingThreshold = addMinutes(now, 2);
-            } else if (cycleUnit === 'hours') {
-                upcomingThreshold = addMinutes(now, 15);
-            } else { // days, weeks, months
-                upcomingThreshold = addDays(now, 3);
-            }
-            
-            if (isBefore(dueDate, upcomingThreshold)) {
-                 // Check if a reminder was already sent for this upcoming cycle
-                 const currentCycleStart = add(dueDate, { [guest.rentCycleUnit]: -guest.rentCycleValue });
-                 if(!lastReminderDate || isBefore(lastReminderDate, currentCycleStart)) {
-                    shouldSend = true;
-                    const daysUntilDue = differenceInDays(dueDate, now);
-                    title = `Hi ${guest.name}, your rent is due soon!`;
-                    body = `Your rent is due in ${daysUntilDue} day(s) on ${format(dueDate, 'do MMM, yyyy')}. Please pay on time.`;
-                 }
-            }
-        }
+      await guestDoc.ref.update({
+        dueDate: targetDueDate.toISOString(),
+        rentStatus: 'unpaid',
+        rentPaidAmount: 0,
+        balanceBroughtForward: newBalance,
+      });
 
-
-        if (shouldSend) {
-          console.log(`📨 Sending ${isOverdue ? 'overdue' : 'upcoming'} reminder to ${guest.name} (due on ${guest.dueDate})`);
-
-          await createAndSendNotification({
-            ownerId: owner.id,
-            notification: {
-              type: 'rent-reminder',
-              title: title,
-              message: body,
-              link: '/tenants/my-pg',
-              targetId: guest.userId,
-            }
-          });
-
-          await guestDoc.ref.update({
-            lastReminderSentAt: now.toISOString(),
-          });
-
-          notifiedCount++;
-        }
-      }
+      console.log(`✅ Reconciled ${guest.name} for ${cyclesToProcess} cycle(s). New balance: ${newBalance}`);
+      return { success: true };
+    } catch (err) {
+      console.error('❌ Error reconciling guest:', guestId, err);
+      return { success: false };
     }
-
-    const successMessage = `Successfully sent reminders to ${notifiedCount} tenants.`;
-    console.log(`✅ Rent reminder check complete. ${successMessage}`);
-    return NextResponse.json({ success: true, message: successMessage });
-
-  } catch (error: any) {
-    console.error('Cron job error [send-rent-reminders]:', error);
-    return NextResponse.json(
-      { success: false, message: error?.message || 'An internal server error occurred.' },
-      { status: error?.message === 'Unauthorized' ? 401 : 500 }
-    );
   }
-}
+);

@@ -43,7 +43,7 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
         const userDocRef = adminDb.collection('users').doc(newNotification.targetId);
         const userDoc = await userDocRef.get();
 
-        if (userDoc.exists()) {
+        if (userDoc.exists) {
             const user = userDoc.data() as User;
             if (user.fcmToken) {
                  await sendPushToUser({
