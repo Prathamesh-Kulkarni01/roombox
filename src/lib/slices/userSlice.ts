@@ -320,7 +320,10 @@ const userSlice = createSlice({
                     const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
                     const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
                     state.currentPlan = { ...plans[basePlanId] };
-                } else {
+                } else if (action.payload?.role === 'unassigned') {
+                    state.currentPlan = plans.free; // Assign a temporary plan
+                }
+                 else {
                     state.currentPlan = plans.free;
                 }
             })
