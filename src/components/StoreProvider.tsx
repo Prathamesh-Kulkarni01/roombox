@@ -7,7 +7,7 @@ import { makeStore, type AppStore } from '@/lib/store'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 import { collection, onSnapshot, doc, getDocs, query, where, type Unsubscribe } from 'firebase/firestore'
 import { getApp } from 'firebase/app'
-import { auth, db, isFirebaseConfigured } from '@/lib/firebase'
+import { auth, db, isFirebaseConfigured, getDynamicDb } from '@/lib/firebase'
 import { getAnalytics, isSupported } from 'firebase/analytics'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { initializeUser, logoutUser } from '@/lib/slices/userSlice'
@@ -94,11 +94,21 @@ function AuthHandler({ children }: { children: ReactNode }) {
     dataListeners.forEach(unsub => unsub());
     setDataListeners([]);
 
-    if (!currentUser || !currentPlan || !db) return;
+    if (!currentUser || !currentPlan) return;
     
-    // Determine the correct ID for fetching data (owner's ID for everyone)
+    // Determine the correct ID for fetching data
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+    const enterpriseDbId = currentUser.subscription?.enterpriseProject?.databaseId;
 
+    // Determine which database instance to use
+    const dbInstance = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+    
+    if (!dbInstance) {
+        console.error("Database instance could not be determined.");
+        dispatch(setLoading(false));
+        return;
+    }
+    
     if (!ownerIdForFetching) {
         dispatch(setLoading(false));
         return; // Can't fetch data without an owner ID
@@ -142,7 +152,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
         const collectionNames = Object.keys(collectionsToSync);
         let loadedCount = 0;
         
-        const ownerNotificationQuery = query(collection(db, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
+        const ownerNotificationQuery = query(collection(dbInstance, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
         unsubs.push(onSnapshot(ownerNotificationQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => doc.data() as Notification);
             dispatch(setNotifications(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
@@ -152,7 +162,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
         // Setup real-time listeners for other collections
         const otherCollections = collectionNames.map((collectionName) => {
             const setDataAction = collectionsToSync[collectionName];
-            const collRef = collection(db, 'users_data', ownerIdForFetching, collectionName);
+            const collRef = collection(dbInstance, 'users_data', ownerIdForFetching, collectionName);
             
             return onSnapshot(collRef, (snapshot) => {
                  let data = snapshot.docs.map(doc => doc.data());
@@ -185,24 +195,24 @@ function AuthHandler({ children }: { children: ReactNode }) {
     } else if (currentUser.role === 'tenant' && currentUser.ownerId && currentUser.pgId && currentUser.guestId) {
         const { ownerId, pgId, guestId, id: userId } = currentUser;
 
-        const pgDocRef = doc(db, 'users_data', ownerId, 'pgs', pgId);
+        const pgDocRef = doc(dbInstance, 'users_data', ownerId, 'pgs', pgId);
         unsubs.push(onSnapshot(pgDocRef, (snap) => dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []))));
 
-        const guestDocRef = doc(db, 'users_data', ownerId, 'guests', guestId);
+        const guestDocRef = doc(dbInstance, 'users_data', ownerId, 'guests', guestId);
         unsubs.push(onSnapshot(guestDocRef, (snap) => dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : []))));
         
-        const complaintsQuery = query(collection(db, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId));
+        const complaintsQuery = query(collection(dbInstance, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId));
         unsubs.push(onSnapshot(complaintsQuery, (snapshot) => {
             const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
             dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
         }));
         
-        const staffQuery = query(collection(db, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId));
+        const staffQuery = query(collection(dbInstance, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId));
         unsubs.push(onSnapshot(staffQuery, (snapshot) => {
             dispatch(setStaff(snapshot.docs.map(d => d.data() as Staff)));
         }));
         
-        const notificationsQuery = query(collection(db, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId, userId]));
+        const notificationsQuery = query(collection(dbInstance, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId, userId]));
          unsubs.push(onSnapshot(notificationsQuery, (snapshot) => {
             const notificationsData = snapshot.docs.map(d => d.data() as Notification);
             dispatch(setNotifications(notificationsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
