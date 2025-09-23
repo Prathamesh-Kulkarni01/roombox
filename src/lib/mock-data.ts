@@ -1,4 +1,5 @@
 
+
 import type { Menu, Plan, PlanName, PG } from './types';
 import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen, IndianRupee, HandCoins } from 'lucide-react';
 
@@ -53,6 +54,7 @@ export const plans: Record<PlanName, Plan> = {
     hasMarketplace: false,
     hasCloudSync: false,
     hasWebsiteBuilder: false,
+    hasDedicatedDb: false,
   },
   pro: {
     id: 'pro',
@@ -71,6 +73,26 @@ export const plans: Record<PlanName, Plan> = {
     hasMarketplace: false,
     hasCloudSync: true,
     hasWebsiteBuilder: true,
+    hasDedicatedDb: false,
+  },
+  enterprise: {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: 'Custom',
+    pricePeriod: 'per year',
+    description: "For large chains requiring data isolation and premium support.",
+    pgLimit: 'unlimited',
+    floorLimit: 'unlimited',
+    hasComplaints: true,
+    hasStaffManagement: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasKycVerification: true,
+    hasAutomatedWhatsapp: true,
+    hasMarketplace: true,
+    hasCloudSync: true,
+    hasWebsiteBuilder: true,
+    hasDedicatedDb: true,
   }
 };
 

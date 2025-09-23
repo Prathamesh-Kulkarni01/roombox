@@ -1,6 +1,7 @@
 
+
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig: FirebaseOptions = {
@@ -21,7 +22,16 @@ export const isFirebaseConfigured = () => {
 // Initialize Firebase
 const app = isFirebaseConfigured() && !getApps().length ? initializeApp(firebaseConfig) : (getApps().length > 0 ? getApp() : null);
 
+// Initialize default firestore instance
 const db = app ? getFirestore(app) : null;
 const auth = app ? getAuth(app) : null;
+
+// Function to get a dynamic firestore instance for enterprise clients
+export const getDynamicDb = (databaseId: string) => {
+    if (!app) return null;
+    return initializeFirestore(app, {
+        // In a real multi-db setup, you might have specific settings per DB
+    }, databaseId);
+}
 
 export { db, auth, app, firebaseConfig };

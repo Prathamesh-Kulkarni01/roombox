@@ -237,7 +237,7 @@ export interface Expense {
 export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
 export type UserRole = 'admin' | 'owner' | 'tenant' | StaffRole | 'unassigned';
 
-export type PlanName = 'free' | 'pro'; // Simplified plans
+export type PlanName = 'free' | 'pro' | 'enterprise';
 
 export interface Plan {
   id: PlanName;
@@ -255,6 +255,7 @@ export interface Plan {
   hasMarketplace: boolean;
   hasCloudSync: boolean;
   hasWebsiteBuilder: boolean;
+  hasDedicatedDb?: boolean;
 }
 
 export type SubscriptionStatus = 'trialing' | 'active' | 'inactive' | 'past_due' | 'canceled';
@@ -314,6 +315,10 @@ export interface User {
     premiumFeatures?: PremiumFeatures;
     paymentHistory?: UserSubscriptionPayment[];
     kycDetails?: BusinessKycDetails;
+    enterpriseProject?: {
+        projectId: string;
+        databaseId: string;
+    };
   };
   fcmToken?: string | null;
   createdAt?: string; // ISO string for when the user was created
@@ -324,6 +329,7 @@ export interface Invite {
   ownerId: string;
   role: UserRole;
   details: Guest | Staff;
+  enterpriseDbId?: string;
 }
 
 export interface SiteConfig {
