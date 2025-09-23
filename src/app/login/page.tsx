@@ -40,7 +40,7 @@ export default function LoginPage() {
   
   const loading = appLoading || isSigningIn || isSendingLink;
 
-  const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security'];
+  const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin'];
 
   useEffect(() => {
     if (!appLoading && currentUser) {
