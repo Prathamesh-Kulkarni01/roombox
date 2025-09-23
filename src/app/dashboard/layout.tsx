@@ -12,7 +12,7 @@ import { navPermissions } from '@/lib/permissions';
 import { isAfter, parseISO, differenceInDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { plans } from '@/lib/mock-data';
-import type { PlanName } from '@/lib/types';
+import type { PlanName, UserRole } from '@/lib/types';
 import Link from 'next/link';
 import { ShieldAlert, Star } from 'lucide-react';
 
@@ -58,7 +58,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
 
-  const allowedDashboardRoles: (keyof typeof navPermissions)[] = ['owner', 'manager', 'cook', 'cleaner', 'security'];
+  const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'other'];
 
   useEffect(() => {
     if (isLoading) return; // Wait for the auth check to complete
@@ -78,7 +78,7 @@ export default function DashboardLayout({
       // If role is invalid or not allowed, send back to login
       router.replace('/login');
     }
-  }, [isLoading, currentUser, router]);
+  }, [isLoading, currentUser, router, allowedDashboardRoles]);
 
   if (isLoading || !currentUser || !allowedDashboardRoles.includes(currentUser.role)) {
     return (
