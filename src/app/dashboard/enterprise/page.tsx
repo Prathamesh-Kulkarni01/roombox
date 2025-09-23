@@ -16,6 +16,12 @@ export default function EnterpriseOnboardingPage() {
         const redirectUri = `${window.location.origin}/api/oauth/google/callback`;
         const scope = 'https://www.googleapis.com/auth/cloud-platform';
         const state = currentUser?.id; // Pass user ID for verification
+        
+        if (!clientId || clientId.includes('your-')) {
+            alert('Google Client ID is not configured. Please contact support.');
+            return;
+        }
+
         const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}&access_type=offline&prompt=consent`;
         
         window.location.href = oauthUrl;

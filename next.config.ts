@@ -6,7 +6,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 const withPWA = withPWAInit({
   dest: 'public',
-  disable: isDev || !!process.env.TURBOPACK, // Disable PWA in dev and when Turbopack is used
+  disable: isDev,
   register: true,
   skipWaiting: true,
   sw: 'service-worker.js', // This is the main PWA service worker
@@ -103,6 +103,16 @@ const nextConfig: NextConfig = {
       }
     ],
   },
+  webpack: (config, { dev, isServer }) => {
+    // This is required to make next-pwa work with turbopack
+    if (dev && !isServer) {
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300
+      }
+    }
+    return config;
+  }
 };
 
 export default withPWA(nextConfig);

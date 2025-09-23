@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useRef, type ReactNode, useEffect, useState } from 'react'
@@ -100,7 +101,6 @@ function AuthHandler({ children }: { children: ReactNode }) {
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
     const enterpriseDbId = currentUser.subscription?.enterpriseProject?.databaseId;
 
-    // CORRECTED LOGIC: Ensure dbInstance correctly falls back to the default 'db'.
     const dbInstance = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
     
     if (!dbInstance) {

@@ -10,17 +10,19 @@ import { getAuth, Auth } from 'firebase-admin/auth';
 
 const adminApps: Map<string, App> = new Map();
 
-function initializeAdminApp(projectId?: string): App {
-  const appName = projectId || 'default';
+function initializeAdminApp(projectId?: string, databaseId?: string): App {
+  const appName = databaseId || projectId || 'default';
   if (adminApps.has(appName)) {
     return adminApps.get(appName)!;
   }
   
-  // If no projectId is given and default exists, return it
-  if (!projectId && getApps().length > 0) {
-    const defaultApp = getApps()[0];
-    adminApps.set('default', defaultApp);
-    return defaultApp;
+  // If no projectId/dbId is given and default exists, return it
+  if (!projectId && !databaseId && getApps().length > 0) {
+    const defaultApp = getApps().find(app => app.name === '[DEFAULT]');
+    if (defaultApp) {
+        adminApps.set('default', defaultApp);
+        return defaultApp;
+    }
   }
 
   const serviceAccountKey = process.env.FIREBASE_ADMIN_SDK_CONFIG;
@@ -34,9 +36,9 @@ function initializeAdminApp(projectId?: string): App {
       credential: cert(serviceAccount),
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     };
-    if (projectId) {
-      appOptions.projectId = projectId;
-    }
+    if (projectId) appOptions.projectId = projectId;
+    if (databaseId) appOptions.databaseId = databaseId;
+
     const app = initializeApp(appOptions, appName);
     adminApps.set(appName, app);
     return app;
@@ -46,12 +48,12 @@ function initializeAdminApp(projectId?: string): App {
   }
 };
 
-function getAdminApp(projectId?: string): App {
-    return initializeAdminApp(projectId);
+function getAdminApp(projectId?: string, databaseId?: string): App {
+    return initializeAdminApp(projectId, databaseId);
 }
 
-export async function getAdminDb(projectId?: string): Promise<Firestore> {
-  return getFirestore(getAdminApp(projectId));
+export async function getAdminDb(projectId?: string, databaseId?: string): Promise<Firestore> {
+  return getFirestore(getAdminApp(projectId, databaseId));
 }
 
 export async function getAdminMessaging(projectId?: string): Promise<Messaging> {
