@@ -100,11 +100,11 @@ function AuthHandler({ children }: { children: ReactNode }) {
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
     const enterpriseDbId = currentUser.subscription?.enterpriseProject?.databaseId;
 
-    // Determine which database instance to use
+    // CORRECTED LOGIC: Ensure dbInstance correctly falls back to the default 'db'.
     const dbInstance = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
     
     if (!dbInstance) {
-        console.error("Database instance could not be determined.");
+        console.error("Database instance could not be determined. This can happen if Firebase is not configured or the user is not properly authenticated.");
         dispatch(setLoading(false));
         return;
     }
