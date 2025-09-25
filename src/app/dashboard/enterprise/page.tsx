@@ -13,7 +13,8 @@ export default function EnterpriseOnboardingPage() {
     const handleConnectProject = () => {
         // This would redirect to Google's OAuth consent screen
         const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-        const redirectUri = `${window.location.origin}/api/oauth/google/callback`;
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+        const redirectUri = `${appUrl}/api/oauth/google/callback`;
         const scope = 'https://www.googleapis.com/auth/cloud-platform';
         const state = currentUser?.id; // Pass user ID for verification
         
