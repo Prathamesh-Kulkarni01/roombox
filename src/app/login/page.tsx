@@ -121,7 +121,7 @@ export default function LoginPage() {
         toast({
           variant: "destructive",
           title: "Google Sign-In Failed",
-          description: "Could not sign in with Google. Please try again.",
+          description: error.message || "An unknown error occurred. Please check the console for details.",
         });
       }
     } finally {
