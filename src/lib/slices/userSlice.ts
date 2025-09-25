@@ -55,6 +55,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
 
         if (!userDoc.exists()) {
             // --- This is a brand new user ---
+            // Create their document immediately with an 'unassigned' role.
             const newUser: User = {
                 id: firebaseUser.uid,
                 name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
@@ -67,12 +68,13 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 createdAt: new Date().toISOString(),
             };
             await setDoc(userDocRef, newUser);
-            userDoc = await getDoc(userDocRef); // Re-fetch the newly created doc
+            userDoc = await getDoc(userDocRef); // Re-fetch the newly created doc to ensure consistency.
         }
 
         let userData = userDoc.data() as User;
 
         // --- Handle Invites for New or Existing Users ---
+        // This check runs for users who have just been created ('unassigned') or existing users who might have received an invite.
         if (userData.role === 'unassigned' && userData.email) {
             const inviteDocRef = doc(db, 'invites', userData.email);
             const inviteDoc = await getDoc(inviteDocRef);
@@ -336,5 +338,3 @@ const userSlice = createSlice({
 
 export const { setCurrentUser, updateUserPlan } = userSlice.actions;
 export default userSlice.reducer;
-
-    

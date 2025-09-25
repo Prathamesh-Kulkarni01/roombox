@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useRef, type ReactNode, useEffect, useState } from 'react'
@@ -95,7 +94,11 @@ function AuthHandler({ children }: { children: ReactNode }) {
     dataListeners.forEach(unsub => unsub());
     setDataListeners([]);
 
-    if (!currentUser || !currentPlan) return;
+    if (!currentUser || !currentPlan) {
+        // If there's no user after the auth check, we are done loading.
+        dispatch(setLoading(false));
+        return;
+    }
     
     // Determine the correct ID for fetching data
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
@@ -110,13 +113,15 @@ function AuthHandler({ children }: { children: ReactNode }) {
     }
     
     if (!ownerIdForFetching) {
+        // This case is for new, unassigned users who haven't selected a role yet.
+        // They don't have an ownerId, so we can't fetch owner-specific data.
+        // We can consider them "loaded" for now.
         dispatch(setLoading(false));
-        return; // Can't fetch data without an owner ID
+        return;
     }
 
-    // Initialize Firebase Messaging (legacy helper)
+    // Initialize Firebase Messaging and push notifications
     initializeFirebaseMessaging(currentUser.id);
-    // Also initialize new push flow and persist token for UI
     (async () => {
       try {
         const res = await initPushAndSaveToken(currentUser.id);
@@ -135,7 +140,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     const isDashboardUser = ['owner', 'manager', 'cook', 'cleaner', 'security'].includes(currentUser.role);
     
-    // Fetch non-realtime settings first, now that we have the plan
+    // Fetch non-realtime settings first
     dispatch(fetchPermissions({ ownerId: ownerIdForFetching, plan: currentPlan }));
     dispatch(fetchKycConfig({ ownerId: ownerIdForFetching }));
 
@@ -170,7 +175,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
                  if (collectionName === 'pgs' && currentUser.role !== 'owner' && currentUser.pgIds) {
                     data = data.filter(pg => currentUser.pgIds?.includes((pg as PG).id));
                  }
-                 if (['complaints', 'expenses'].includes(collectionName)) { // Notifications are handled separately now
+                 if (['complaints', 'expenses'].includes(collectionName)) { 
                     data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
                 }
                  dispatch(setDataAction(data as any));

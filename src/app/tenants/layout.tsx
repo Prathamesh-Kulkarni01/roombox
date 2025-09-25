@@ -18,12 +18,17 @@ export default function TenantDashboardLayout({
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && (!currentUser || currentUser.role !== 'tenant')) {
-      if(currentUser?.role === 'unassigned') {
-        router.replace('/complete-profile');
-      } else {
+    if (isLoading) return; // Wait for the auth check to complete
+
+    if (!currentUser) {
         router.replace('/login');
-      }
+        return;
+    }
+
+    if (currentUser.role === 'unassigned') {
+        router.replace('/complete-profile');
+    } else if (currentUser.role !== 'tenant') {
+        router.replace('/dashboard');
     }
   }, [isLoading, currentUser, router]);
 

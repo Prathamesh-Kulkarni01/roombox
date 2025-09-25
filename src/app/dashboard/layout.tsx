@@ -61,16 +61,22 @@ export default function DashboardLayout({
   const allowedDashboardRoles: (keyof typeof navPermissions)[] = ['owner', 'manager', 'cook', 'cleaner', 'security'];
 
   useEffect(() => {
-    if (!isLoading && currentUser?.role === 'admin') {
-      router.replace('/admin/dashboard');
-      return;
-    }
-    if (!isLoading && (!currentUser || !allowedDashboardRoles.includes(currentUser.role))) {
-      if(currentUser?.role === 'unassigned') {
-        router.replace('/complete-profile');
-      } else {
+    if (isLoading) return; // Wait for the auth check to complete
+
+    if (!currentUser) {
         router.replace('/login');
-      }
+        return;
+    }
+
+    if (currentUser.role === 'admin') {
+      router.replace('/admin/dashboard');
+    } else if (currentUser.role === 'unassigned') {
+      router.replace('/complete-profile');
+    } else if (currentUser.role === 'tenant') {
+      router.replace('/tenants/my-pg');
+    } else if (!allowedDashboardRoles.includes(currentUser.role)) {
+      // If role is invalid or not allowed, send back to login
+      router.replace('/login');
     }
   }, [isLoading, currentUser, router]);
 
