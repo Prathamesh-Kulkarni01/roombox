@@ -38,8 +38,6 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         let userDoc = await getDoc(userDocRef);
 
-        let userDataToReturn: User | null = null;
-        
         const getPlanForUser = (user: User): Plan => {
              if (!user.subscription || user.subscription.status === 'inactive') {
                 return plans.free;
@@ -48,130 +46,89 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             const isActive = user.subscription.status === 'active';
             const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
             
-            const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
-            let finalPlan = { ...plans[basePlanId] };
-
             if (isActive || isTrialing) {
-                 finalPlan = { ...plans.pro }; // A subscribed user always has Pro capabilities
+                return { ...plans.pro };
             }
             
-            return finalPlan;
+            return plans.free;
         };
 
+        if (!userDoc.exists()) {
+            // --- This is a brand new user ---
+            const newUser: User = {
+                id: firebaseUser.uid,
+                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
+                email: firebaseUser.email ?? undefined,
+                phone: firebaseUser.phoneNumber || undefined,
+                role: 'unassigned',
+                status: 'pending_approval',
+                avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
+                guestId: null,
+                createdAt: new Date().toISOString(),
+            };
+            await setDoc(userDocRef, newUser);
+            userDoc = await getDoc(userDocRef); // Re-fetch the newly created doc
+        }
 
-        if (userDoc.exists()) {
-            const userData = userDoc.data() as User;
-            
-            // This case handles users who have signed up but not yet selected a role.
-            if (userData.role === 'unassigned') {
-                return userData;
-            }
+        let userData = userDoc.data() as User;
 
-            const ownerIdForPermissions = userData.role === 'owner' ? userData.id : userData.ownerId;
-            let finalUserData = userData;
+        // --- Handle Invites for New or Existing Users ---
+        if (userData.role === 'unassigned' && userData.email) {
+            const inviteDocRef = doc(db, 'invites', userData.email);
+            const inviteDoc = await getDoc(inviteDocRef);
 
-            if (userData.role !== 'owner' && userData.role !== 'admin' && userData.ownerId) {
-                const ownerDocRef = doc(db, 'users', userData.ownerId);
-                const ownerDoc = await getDoc(ownerDocRef);
-                if(ownerDoc.exists()) {
-                    const ownerData = ownerDoc.data() as User;
-                    finalUserData.subscription = ownerData.subscription;
-                }
-            }
-            
-            const userPlan = getPlanForUser(finalUserData);
-            
-            if (ownerIdForPermissions) {
-                dispatch(fetchPermissions({ ownerId: ownerIdForPermissions, plan: userPlan }));
-            }
-            
-            userDataToReturn = finalUserData;
-
-        } else {
-            const userEmail = firebaseUser.email;
-            let createdFromInvite = false;
-
-            if (userEmail) {
-                const inviteDocRef = doc(db, 'invites', userEmail);
-                const inviteDoc = await getDoc(inviteDocRef);
-
-                if (inviteDoc.exists()) {
-                    createdFromInvite = true;
-                    const inviteData = inviteDoc.data() as Invite;
-                    let newUser: User;
-                    const batch = writeBatch(db);
-
-                    if (inviteData.role === 'tenant') {
-                        const guestDetails = inviteData.details as Guest;
-                        newUser = {
-                            id: firebaseUser.uid,
-                            name: firebaseUser.displayName || guestDetails.name || 'New Tenant',
-                            email: firebaseUser.email ?? undefined,
-                            role: 'tenant',
-                            status: 'active',
-                            guestId: guestDetails.id,
-                            guestHistoryIds: [],
-                            ownerId: inviteData.ownerId,
-                            pgId: guestDetails.pgId,
-                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || guestDetails.name) || 'NT').slice(0, 2).toUpperCase()}`
-                        };
-                        const guestDocRef = doc(db, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
-                        batch.update(guestDocRef, { userId: firebaseUser.uid });
-                    } else { // Handle staff roles
-                        const staffDetails = inviteData.details as Staff;
-                         newUser = {
-                            id: firebaseUser.uid,
-                            name: firebaseUser.displayName || staffDetails.name || 'New Staff',
-                            email: firebaseUser.email ?? undefined,
-                            role: inviteData.role,
-                            status: 'active',
-                            ownerId: inviteData.ownerId,
-                            pgIds: [staffDetails.pgId],
-                            avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || staffDetails.name) || 'NS').slice(0, 2).toUpperCase()}`,
-                            guestId: null,
-                        };
-                         const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
-                         batch.update(staffDocRef, { userId: firebaseUser.uid });
-                    }
-                    
-                    batch.set(userDocRef, newUser);
-                    batch.delete(inviteDocRef);
-                    await batch.commit();
-                    
-                    userDataToReturn = newUser;
-                    
-                    const ownerDocRef = doc(db, 'users', inviteData.ownerId);
-                    const ownerDoc = await getDoc(ownerDocRef);
-                    if (ownerDoc.exists()) {
-                        const ownerPlan = getPlanForUser(ownerDoc.data() as User);
-                        dispatch(fetchPermissions({ ownerId: inviteData.ownerId, plan: ownerPlan }));
-                    }
-                }
-            }
-            
-            if(!createdFromInvite) {
-                 // It's a brand new user, not from an invite. Create an 'unassigned' user.
-                const newUser: User = {
-                    id: firebaseUser.uid,
-                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
-                    email: firebaseUser.email ?? undefined,
-                    phone: firebaseUser.phoneNumber || undefined,
-                    role: 'unassigned',
-                    status: 'pending_approval',
-                    avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
-                    guestId: null,
-                    createdAt: new Date().toISOString(),
+            if (inviteDoc.exists()) {
+                const inviteData = inviteDoc.data() as Invite;
+                const batch = writeBatch(db);
+                
+                let roleUpdate: Partial<User> = {
+                    role: inviteData.role,
+                    ownerId: inviteData.ownerId,
                 };
-                await setDoc(userDocRef, newUser);
-                userDataToReturn = newUser;
+
+                if (inviteData.role === 'tenant') {
+                    const guestDetails = inviteData.details as Guest;
+                    roleUpdate.guestId = guestDetails.id;
+                    roleUpdate.pgId = guestDetails.pgId;
+                    
+                    const guestDocRef = doc(db, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
+                    batch.update(guestDocRef, { userId: firebaseUser.uid });
+                } else { // Staff roles
+                    const staffDetails = inviteData.details as Staff;
+                    roleUpdate.pgIds = [staffDetails.pgId];
+                    const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
+                    batch.update(staffDocRef, { userId: firebaseUser.uid });
+                }
+
+                batch.update(userDocRef, roleUpdate);
+                batch.delete(inviteDocRef);
+                await batch.commit();
+
+                // Re-fetch user data to get the new role
+                userDoc = await getDoc(userDocRef);
+                userData = userDoc.data() as User;
             }
         }
         
-        if (userDataToReturn) {
-            return userDataToReturn;
+        // --- Fetch correct plan and permissions based on final role ---
+        let ownerIdForPermissions = userData.role === 'owner' ? userData.id : userData.ownerId;
+        let finalUserData = userData;
+
+        if (userData.role !== 'owner' && userData.role !== 'admin' && ownerIdForPermissions) {
+            const ownerDocRef = doc(db, 'users', ownerIdForPermissions);
+            const ownerDoc = await getDoc(ownerDocRef);
+            if(ownerDoc.exists()) {
+                finalUserData.subscription = ownerDoc.data().subscription;
+            }
+        }
+        
+        const userPlan = getPlanForUser(finalUserData);
+        
+        if (ownerIdForPermissions) {
+            dispatch(fetchPermissions({ ownerId: ownerIdForPermissions, plan: userPlan }));
         }
 
-        return rejectWithValue('Could not initialize user');
+        return finalUserData;
     }
 );
 
@@ -379,3 +336,5 @@ const userSlice = createSlice({
 
 export const { setCurrentUser, updateUserPlan } = userSlice.actions;
 export default userSlice.reducer;
+
+    
