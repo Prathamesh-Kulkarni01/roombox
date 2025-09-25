@@ -141,6 +141,7 @@ export const allNavItems: NavGroup[] = [
           { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website', description: 'Manage your public site.' },
           { href: '/dashboard/subscription', label: 'Billing', icon: CreditCard, feature: 'core', description: 'Manage your plan & billing.' },
           { href: '/dashboard/training', label: 'Training', icon: BookOpen, feature: 'core', description: 'Learn how to use RentSutra.' },
+          { href: '/dashboard/enterprise', label: 'Enterprise', icon: Building, feature: 'core', description: 'Connect your own Firebase project.' },
           { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core', description: 'Configure your account.' },
       ]
   }
