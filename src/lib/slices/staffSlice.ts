@@ -1,8 +1,8 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Staff, Invite, User } from '../types';
-import { db, isFirebaseConfigured, auth } from '../firebase';
-import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
+import { db, isFirebaseConfigured, auth, selectOwnerDataDb } from '../firebase';
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { deletePg } from './pgsSlice';
@@ -23,7 +23,7 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
         const { user } = getState();
         if (!user.currentUser || !staffData.email) return rejectWithValue('No user or staff email');
 
-        const userQuery = query(collection(db, "users"), where("email", "==", staffData.email));
+        const userQuery = query(collection(db!, "users"), where("email", "==", staffData.email));
         const userSnapshot = await getDocs(userQuery);
         if (!userSnapshot.empty) {
             const existingUser = userSnapshot.docs[0].data() as User;
@@ -36,34 +36,21 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
         }
 
         const newStaff: Staff = { id: `staff-${Date.now()}`, ...staffData };
-        
-        const invite: Invite = {
-            email: newStaff.email,
-            ownerId: user.currentUser.id,
-            role: newStaff.role, // Ensure role is included in invite
-            details: newStaff,
-        };
+        const invite: Invite = { email: newStaff.email, ownerId: user.currentUser.id, role: newStaff.role, details: newStaff };
 
         if (isFirebaseConfigured() && auth) {
-             const actionCodeSettings = {
-                url: `${window.location.origin}/login/verify`,
-                handleCodeInApp: true,
-            };
-            try {
-                await sendSignInLinkToEmail(auth, newStaff.email, actionCodeSettings);
-            } catch (error) {
-                console.error("Failed to send sign-in link:", error);
-            }
+             const actionCodeSettings = { url: `${window.location.origin}/login/verify`, handleCodeInApp: true };
+            try { await sendSignInLinkToEmail(auth, newStaff.email, actionCodeSettings); } catch {}
         }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const batch = writeBatch(db);
-            const staffDocRef = doc(db, 'users_data', user.currentUser.id, 'staff', newStaff.id);
-            const inviteDocRef = doc(db, 'invites', newStaff.email);
-            
+            const selectedDb = selectOwnerDataDb(user.currentUser);
+            const batch = writeBatch(selectedDb!);
+            const staffDocRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'staff', newStaff.id);
             batch.set(staffDocRef, newStaff);
-            batch.set(inviteDocRef, invite);
-
+            // invites always on App DB
+            const inviteDocRef = doc(db!, 'invites', newStaff.email);
+            await setDoc(inviteDocRef, invite);
             await batch.commit();
         }
         return newStaff;
@@ -76,24 +63,23 @@ export const updateStaff = createAsyncThunk<Staff, Staff, { state: RootState }>(
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        const batch = writeBatch(db);
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const staffDocRef = doc(db, 'users_data', user.currentUser.id, 'staff', updatedStaff.id);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
+            const batch = writeBatch(selectedDb!);
+            const staffDocRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'staff', updatedStaff.id);
             batch.set(staffDocRef, updatedStaff, { merge: true });
 
             if (updatedStaff.userId) {
-                // If user has already logged in, update their main user document
-                const userDocRef = doc(db, 'users', updatedStaff.userId);
-                batch.update(userDocRef, { role: updatedStaff.role });
+                const userDocRef = doc(db!, 'users', updatedStaff.userId);
+                batch.update(userDocRef as any, { role: updatedStaff.role } as any);
             } else if (updatedStaff.email) {
-                // If user has not logged in yet, update their invite document
-                const inviteDocRef = doc(db, 'invites', updatedStaff.email);
+                const inviteDocRef = doc(db!, 'invites', updatedStaff.email);
                 const inviteDoc = await getDoc(inviteDocRef);
                 if (inviteDoc.exists()) {
-                    batch.update(inviteDocRef, { role: updatedStaff.role, 'details.role': updatedStaff.role });
+                    await updateDoc(inviteDocRef, { role: updatedStaff.role, 'details.role': updatedStaff.role });
                 }
             }
-             await batch.commit();
+            await batch.commit();
         }
         return updatedStaff;
     }
@@ -106,7 +92,8 @@ export const deleteStaff = createAsyncThunk<string, string, { state: RootState }
         if (!user.currentUser) return rejectWithValue('No user');
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'staff', staffId);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
+            const docRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'staff', staffId);
             await deleteDoc(docRef);
         }
         return staffId;
@@ -117,30 +104,18 @@ const staffSlice = createSlice({
     name: 'staff',
     initialState,
     reducers: {
-        setStaff: (state, action: PayloadAction<Staff[]>) => {
-            state.staff = action.payload;
-        },
+        setStaff: (state, action: PayloadAction<Staff[]>) => { state.staff = action.payload; },
     },
     extraReducers: (builder) => {
         builder
-            .addCase(addStaff.fulfilled, (state, action) => {
-                state.staff.push(action.payload);
-            })
+            .addCase(addStaff.fulfilled, (state, action) => { state.staff.push(action.payload); })
             .addCase(updateStaff.fulfilled, (state, action) => {
                 const index = state.staff.findIndex(s => s.id === action.payload.id);
-                if (index !== -1) {
-                    state.staff[index] = action.payload;
-                }
+                if (index !== -1) { state.staff[index] = action.payload; }
             })
-            .addCase(deleteStaff.fulfilled, (state, action) => {
-                state.staff = state.staff.filter(s => s.id !== action.payload);
-            })
-            .addCase(deletePg.fulfilled, (state, action: PayloadAction<string>) => {
-                state.staff = state.staff.filter(s => s.pgId !== action.payload);
-            })
-            .addCase('user/logoutUser/fulfilled', (state) => {
-                state.staff = [];
-            });
+            .addCase(deleteStaff.fulfilled, (state, action) => { state.staff = state.staff.filter(s => s.id !== action.payload); })
+            .addCase(deletePg.fulfilled, (state, action: PayloadAction<string>) => { state.staff = state.staff.filter(s => s.pgId !== action.payload); })
+            .addCase('user/logoutUser/fulfilled', (state) => { state.staff = []; });
     },
 });
 

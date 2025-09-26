@@ -27,7 +27,7 @@ const sharedChargeSchema = z.object({
 type SharedChargeDialogProps = Pick<UseDashboardReturn, 'isSharedChargeDialogOpen' | 'setIsSharedChargeDialogOpen' | 'sharedChargeForm' | 'handleSharedChargeSubmit' | 'roomForSharedCharge'>;
 
 export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsSharedChargeDialogOpen, sharedChargeForm, handleSharedChargeSubmit, roomForSharedCharge }: SharedChargeDialogProps) {
-    const { chargeTemplates } = useAppSelector(state => state.chargeTemplates);
+    const { chargeTemplates=[] } = useAppSelector(state => state.chargeTemplates);
     const { guests } = useAppSelector(state => state.guests);
 
     const [activeTab, setActiveTab] = useState('custom');

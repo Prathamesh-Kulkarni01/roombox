@@ -1,7 +1,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { PG, Floor, Room, Bed, MenuTemplate } from '../types';
-import { db, isFirebaseConfigured, getOwnerClientDb, getDynamicDb } from '../firebase';
+import { db, isFirebaseConfigured, getOwnerClientDb, selectOwnerDataDb } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
 import { RootState } from '../store';
@@ -62,10 +62,8 @@ export const addPg = createAsyncThunk<PG, NewPgData, { state: RootState }>(
         };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const enterprise = user.currentUser.subscription?.enterpriseProject;
-            const selectedDb = enterprise?.clientConfig
-                ? getOwnerClientDb(enterprise.clientConfig as any, enterprise.databaseId)
-                : (enterprise?.databaseId ? getDynamicDb(enterprise.databaseId) : db);
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', newPg.id);
             await setDoc(docRef, newPg);
             await updateOwnerPgSummary(selectedDb, user.currentUser.id);
@@ -94,10 +92,8 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
         };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const enterprise = user.currentUser.subscription?.enterpriseProject;
-            const selectedDb = enterprise?.clientConfig
-                ? getOwnerClientDb(enterprise.clientConfig as any, enterprise.databaseId)
-                : (enterprise?.databaseId ? getDynamicDb(enterprise.databaseId) : db);
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', sanitizedPg.id);
             await setDoc(docRef, sanitizedPg, { merge: true });
             await updateOwnerPgSummary(selectedDb, user.currentUser.id);
@@ -113,10 +109,8 @@ export const addMenuTemplate = createAsyncThunk<{ pgId: string, template: MenuTe
         if (!user.currentUser) return rejectWithValue('No user');
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const enterprise = user.currentUser.subscription?.enterpriseProject;
-            const selectedDb = enterprise?.clientConfig
-                ? getOwnerClientDb(enterprise.clientConfig as any, enterprise.databaseId)
-                : (enterprise?.databaseId ? getDynamicDb(enterprise.databaseId) : db);
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', pgId);
             await updateDoc(docRef, {
                 menuTemplates: arrayUnion(template)
@@ -139,10 +133,8 @@ export const deleteMenuTemplate = createAsyncThunk<{ pgId: string, templateId: s
         if (!templateToDelete) return rejectWithValue('Template not found');
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const enterprise = user.currentUser.subscription?.enterpriseProject;
-            const selectedDb = enterprise?.clientConfig
-                ? getOwnerClientDb(enterprise.clientConfig as any, enterprise.databaseId)
-                : (enterprise?.databaseId ? getDynamicDb(enterprise.databaseId) : db);
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', pgId);
             await updateDoc(docRef, {
                 menuTemplates: arrayRemove(templateToDelete)
@@ -166,10 +158,8 @@ export const deletePg = createAsyncThunk<string, string, { state: RootState }>(
         }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const enterprise = user.currentUser.subscription?.enterpriseProject;
-            const selectedDb = enterprise?.clientConfig
-                ? getOwnerClientDb(enterprise.clientConfig as any, enterprise.databaseId)
-                : (enterprise?.databaseId ? getDynamicDb(enterprise.databaseId) : db);
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const batch = writeBatch(selectedDb);
             
             const pgDocRef = doc(selectedDb, 'users_data', ownerId, 'pgs', pgId);

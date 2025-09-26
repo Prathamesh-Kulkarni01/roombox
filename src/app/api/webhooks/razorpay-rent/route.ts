@@ -58,7 +58,8 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: 'Owner not found.' }, { status: 404 });
       }
       const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
-      const dataDb = await getAdminDb(undefined, enterpriseDbId);
+      const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
+      const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
       const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
       
       // Use a transaction to prevent race conditions

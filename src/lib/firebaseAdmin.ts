@@ -45,7 +45,7 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     };
     if (projectId) appOptions.projectId = projectId;
-    if (databaseId) appOptions.databaseId = databaseId;
+    // Note: Admin SDK currently binds default database to the app; named databases can be handled at Firestore client level if needed.
 
     const app = initializeApp(appOptions, appName);
     adminApps.set(appName, app);
@@ -61,6 +61,7 @@ function getAdminApp(projectId?: string, databaseId?: string): App {
 }
 
 export async function getAdminDb(projectId?: string, databaseId?: string): Promise<Firestore> {
+  // databaseId is currently unused by firebase-admin initialize; future support can be added here
   return getFirestore(getAdminApp(projectId, databaseId));
 }
 
@@ -74,4 +75,13 @@ export async function getAdminStorage(projectId?: string): Promise<Storage> {
 
 export async function getAdminAuth(projectId?: string): Promise<Auth> {
     return getAuth(getAdminApp(projectId));
+}
+
+// Generic selector: fetch owner user doc from App DB and return their data DB
+export async function selectOwnerDataAdminDb(ownerId: string): Promise<Firestore> {
+    const appDb = await getAdminDb();
+    const ownerDoc = await appDb.collection('users').doc(ownerId).get();
+    const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
+    const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
+    return getAdminDb(enterpriseProjectId, enterpriseDbId);
 }

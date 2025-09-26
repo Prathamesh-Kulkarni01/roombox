@@ -4,7 +4,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Guest, Invite, PG, User, AdditionalCharge, Room, KycDocumentConfig, SubmittedKycDocument, Staff } from '../types';
-import { auth, db, isFirebaseConfigured } from '../firebase';
+import { auth, db, isFirebaseConfigured, getOwnerClientDb, selectOwnerDataDb } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { RootState } from '../store';
@@ -15,7 +15,6 @@ import { format, addMonths, isAfter, parseISO, differenceInMonths, isSameDay, se
 import { uploadDataUriToStorage } from '../storage';
 import { deletePg } from './pgsSlice';
 import { calculateFirstDueDate } from '@/lib/utils';
-import { getDynamicDb } from '../firebase';
 
 interface GuestsState {
     guests: Guest[];
@@ -33,8 +32,8 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
     async (guestData, { getState, dispatch, rejectWithValue }) => {
         const { user, pgs } = getState();
         if (!user.currentUser || !guestData.email) return rejectWithValue('No user or guest email');
-        const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-        const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+       
+        const selectedDb = selectOwnerDataDb(user.currentUser);
         const batch = writeBatch(selectedDb);
         let existingUser: User | null = null;
 
@@ -141,8 +140,7 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
             return rejectWithValue('User, guest, or owner not found');
         }
 
-        const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-        const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+        const selectedDb = selectOwnerDataDb(user.currentUser);
 
         const uploadedDocuments: SubmittedKycDocument[] = [];
         for (const docData of kycData.documents) {
@@ -188,9 +186,7 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
             return rejectWithValue('User or guest not found');
         }
 
-        const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-        const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
-
+        const selectedDb = selectOwnerDataDb(user.currentUser);
         const uploadedDocuments: SubmittedKycDocument[] = [];
         for (const docData of documents) {
             const url = await uploadDataUriToStorage(docData.dataUri, `kyc/${ownerId}/${guestToUpdate.id}`);
@@ -243,8 +239,7 @@ export const updateGuestKycStatus = createAsyncThunk<Guest, {
             return rejectWithValue('User or guest not found');
         }
 
-        const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-        const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+        const selectedDb = selectOwnerDataDb(user.currentUser);
 
         const updatedGuest = { ...guestToUpdate, kycStatus: status, kycRejectReason: reason || null };
 
@@ -280,8 +275,8 @@ export const resetGuestKyc = createAsyncThunk<string, string, { state: RootState
         // Don't need to do anything with Cloudinary files for now, they can be orphaned.
 
         if (isFirebaseConfigured()) {
-            const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-            const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const docRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await updateDoc(docRef, {
                 kycStatus: 'not-started',
@@ -303,8 +298,8 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
         if (!ownerId) return rejectWithValue('Owner ID not found');
         
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-            const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const batch = writeBatch(selectedDb);
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', updatedGuest.id);
             batch.set(guestDocRef, updatedGuest, { merge: true });
@@ -332,8 +327,8 @@ export const addAdditionalCharge = createAsyncThunk<Guest, { guestId: string, ch
         const newCharge: AdditionalCharge = { ...charge, id: `charge-${Date.now()}` };
         
         if (isFirebaseConfigured()) {
-            const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-            const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await updateDoc(guestDocRef, {
                 additionalCharges: arrayUnion(newCharge)
@@ -360,8 +355,8 @@ export const removeAdditionalCharge = createAsyncThunk<Guest, { guestId: string,
         if (!chargeToRemove) return rejectWithValue('Charge not found');
         
         if (isFirebaseConfigured()) {
-            const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-            const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await updateDoc(guestDocRef, {
                 additionalCharges: arrayRemove(chargeToRemove)
@@ -381,8 +376,7 @@ export const addSharedChargeToRoom = createAsyncThunk<Guest[], { roomId: string,
         const ownerId = user.currentUser?.id;
         if (!ownerId) return rejectWithValue('User not found');
 
-        const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-        const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+        const selectedDb = selectOwnerDataDb(user.currentUser);
 
         const pg = pgs.pgs.find(p => p.floors?.some(f => f.rooms.some(r => r.id === roomId)));
         if (!pg) return rejectWithValue('PG not found');
@@ -444,8 +438,8 @@ export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootSt
         const updatedGuest: Guest = { ...guest, exitDate: exitDate.toISOString() };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-            const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await setDoc(guestDocRef, updatedGuest, { merge: true });
         }
@@ -480,8 +474,8 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
         const updatedGuest = { ...guest, exitDate: new Date().toISOString(), isVacated: true };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-            const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+           const selectedDb = selectOwnerDataDb(user.currentUser);
+
             const batch = writeBatch(selectedDb);
             const guestDocRef = doc(selectedDb, 'users_data', user.currentUser.id, 'guests', guestId);
             const pgDocRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
@@ -537,8 +531,7 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
             if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
                 const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
                 if (ownerId) {
-                    const enterpriseDbId = user.currentUser.subscription?.enterpriseProject?.databaseId;
-                    const selectedDb = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+                    const selectedDb = selectOwnerDataDb(user.currentUser);
                     const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
                     await setDoc(guestDocRef, updatedGuest, { merge: true });
                 }

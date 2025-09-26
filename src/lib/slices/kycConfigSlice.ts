@@ -1,7 +1,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { KycDocumentConfig } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
+import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 
@@ -16,15 +16,17 @@ const initialState: KycConfigState = {
 // Async Thunks
 export const fetchKycConfig = createAsyncThunk<KycDocumentConfig[], { ownerId: string }>(
     'kycConfig/fetchKycConfig',
-    async ({ ownerId }, { rejectWithValue }) => {
-        if (!isFirebaseConfigured() || !db) return rejectWithValue('Firebase not configured');
-        const docRef = doc(db, 'users_data', ownerId, 'settings', 'kycConfig');
+    async ({ ownerId }, { getState, rejectWithValue }) => {
+        const { user } = getState() as RootState;
+        if (!isFirebaseConfigured()) return rejectWithValue('Firebase not configured');
+        const selectedDb = selectOwnerDataDb(user.currentUser);
+        const docRef = doc(selectedDb!, 'users_data', ownerId, 'settings', 'kycConfig');
         const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists() && docSnap.data().configs) {
-            return docSnap.data().configs as KycDocumentConfig[];
+        if (docSnap.exists() && (docSnap.data() as any).configs) {
+            return (docSnap.data() as any).configs as KycDocumentConfig[];
         } else {
-            return []; // Return empty array if not configured
+            return [];
         }
     }
 );
@@ -39,7 +41,8 @@ export const saveKycConfig = createAsyncThunk<KycDocumentConfig[], KycDocumentCo
             return rejectWithValue('User or Firebase not available');
         }
 
-        const docRef = doc(db, 'users_data', ownerId, 'settings', 'kycConfig');
+        const selectedDb = selectOwnerDataDb(user.currentUser);
+        const docRef = doc(selectedDb!, 'users_data', ownerId, 'settings', 'kycConfig');
         await setDoc(docRef, { configs });
         return configs;
     }

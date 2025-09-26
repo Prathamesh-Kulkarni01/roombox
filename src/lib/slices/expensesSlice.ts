@@ -1,7 +1,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Expense } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
+import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { deletePg } from './pgsSlice';
@@ -25,7 +25,8 @@ export const addExpense = createAsyncThunk<Expense, NewExpenseData, { state: Roo
         const newExpense: Expense = { id: `exp-${Date.now()}`, ...expenseData };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.currentUser.id, 'expenses', newExpense.id);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
+            const docRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'expenses', newExpense.id);
             await setDoc(docRef, newExpense);
         }
         return newExpense;

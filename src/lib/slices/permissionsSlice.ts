@@ -2,7 +2,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Plan, UserRole } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
+import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { navItems } from '../mock-data';
@@ -67,11 +67,13 @@ const initialState: PermissionsState = {
 };
 
 // Async Thunks
-export const fetchPermissions = createAsyncThunk<RolePermissions, { ownerId: string, plan: Plan }>(
+export const fetchPermissions = createAsyncThunk<RolePermissions, { ownerId: string, plan: Plan }, { state: RootState }>(
     'permissions/fetchPermissions',
-    async ({ ownerId, plan }, { rejectWithValue }) => {
-        if (!isFirebaseConfigured() || !db) return rejectWithValue('Firebase not configured');
-        const docRef = doc(db, 'users_data', ownerId, 'permissions', 'staff_roles_v2');
+    async ({ ownerId, plan }, { getState, rejectWithValue }) => {
+        const { user } = getState();
+        if (!isFirebaseConfigured()) return rejectWithValue('Firebase not configured');
+        const selectedDb = selectOwnerDataDb(user.currentUser);
+        const docRef = doc(selectedDb!, 'users_data', ownerId, 'permissions', 'staff_roles_v2');
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -99,8 +101,8 @@ export const updatePermissions = createAsyncThunk<RolePermissions, RolePermissio
         const { user } = getState();
         const ownerId = user.currentUser?.id;
         if (!ownerId || !isFirebaseConfigured()) return rejectWithValue('User or Firebase not available');
-
-        const docRef = doc(db, 'users_data', ownerId, 'permissions', 'staff_roles_v2');
+        const selectedDb = selectOwnerDataDb(user.currentUser);
+        const docRef = doc(selectedDb!, 'users_data', ownerId, 'permissions', 'staff_roles_v2');
         await setDoc(docRef, updatedPermissions);
         return updatedPermissions;
     }

@@ -7,6 +7,7 @@ import { doc, setDoc, getDoc, getDocs, query, where, deleteDoc, updateDoc } from
 import { z } from 'zod'
 import { collection } from 'firebase/firestore'
 import type { PG, User } from '../types'
+import { getAdminDb, selectOwnerDataAdminDb } from '../firebaseAdmin'
 
 const featureSchema = z.object({
   title: z.string().min(1),
@@ -146,12 +147,14 @@ export async function getSiteData(subdomain: string, isPreview: boolean = false)
         return { pgs: [], siteConfig, owner, status: siteConfig.status };
     }
 
+    // Read PGs from owner's data DB
+    const ownerDataDb = await selectOwnerDataAdminDb(siteConfig.ownerId);
     const pgsQuery = query(
-        collection(db, 'users_data', siteConfig.ownerId, 'pgs'),
-        where('id', 'in', siteConfig.listedPgs)
+        ownerDataDb.collection('users_data').doc(siteConfig.ownerId).collection('pgs'),
+        where('id', 'in', siteConfig.listedPgs as any)
     );
-    const pgsSnapshot = await getDocs(pgsQuery);
-    const pgs = pgsSnapshot.docs.map(doc => doc.data() as PG);
+    const pgsSnapshot = await pgsQuery.get();
+    const pgs = pgsSnapshot.docs.map(d => d.data() as PG);
 
     return { pgs, siteConfig, owner, status: siteConfig.status };
 }

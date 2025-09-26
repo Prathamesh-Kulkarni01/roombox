@@ -5,6 +5,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod, BusinessKycDetails } from '../types';
 import { plans } from '../mock-data';
 import { auth, db, isFirebaseConfigured } from '../firebase';
+import { getAdminDb } from '../firebaseAdmin';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
@@ -91,6 +92,25 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 if (inviteDoc.exists()) {
                     const inviteData = inviteDoc.data() as Invite;
                     const batch = writeBatch(db!);
+                    // Determine owner's data DB for guest/staff linkage
+                    let ownerDataDb = db!;
+                    try {
+                        const ownerDoc = await getDoc(doc(db!, 'users', inviteData.ownerId));
+                        const enterprise = ownerDoc.data()?.subscription?.enterpriseProject;
+                        if (enterprise?.projectId || enterprise?.databaseId) {
+                            // Use Admin SDK to update the owner's DB atomically; then mirror minimal fields in App DB if needed
+                            const adminDb = await getAdminDb(enterprise.projectId, enterprise.databaseId);
+                            if (inviteData.role === 'tenant') {
+                                await adminDb.collection('users_data').doc(inviteData.ownerId).collection('guests').doc((inviteData.details as Guest).id)
+                                    .set({ userId: firebaseUser.uid }, { merge: true });
+                            } else {
+                                await adminDb.collection('users_data').doc(inviteData.ownerId).collection('staff').doc((inviteData.details as Staff).id)
+                                    .set({ userId: firebaseUser.uid }, { merge: true });
+                            }
+                        } else {
+                            ownerDataDb = db!; // default app DB
+                        }
+                    } catch {}
                     
                     let roleUpdate: Partial<User> = {
                         role: inviteData.role,
@@ -101,14 +121,18 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                         const guestDetails = inviteData.details as Guest;
                         roleUpdate.guestId = guestDetails.id;
                         roleUpdate.pgId = guestDetails.pgId;
-                        
-                        const guestDocRef = doc(db!, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
-                        batch.update(guestDocRef, { userId: firebaseUser.uid });
+                        // Also update App DB mapping if using App DB
+                        if (ownerDataDb === db) {
+                            const guestDocRef = doc(db!, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
+                            batch.update(guestDocRef, { userId: firebaseUser.uid });
+                        }
                     } else { // Staff roles
                         const staffDetails = inviteData.details as Staff;
                         roleUpdate.pgIds = [staffDetails.pgId];
-                        const staffDocRef = doc(db!, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
-                        batch.update(staffDocRef, { userId: firebaseUser.uid });
+                        if (ownerDataDb === db) {
+                            const staffDocRef = doc(db!, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
+                            batch.update(staffDocRef, { userId: firebaseUser.uid });
+                        }
                     }
 
                     batch.update(userDocRef, roleUpdate);

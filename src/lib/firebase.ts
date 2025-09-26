@@ -88,4 +88,17 @@ export function getOwnerClientDb(config: OwnerClientConfig, databaseId?: string)
     return initializeFirestore(app, { experimentalAutoDetectLongPolling: true }, normalized);
 }
 
+// Generic selector for owner data DB on the client
+export function selectOwnerDataDb(currentUser: any) {
+    const enterprise = currentUser?.subscription?.enterpriseProject;
+    if (enterprise?.clientConfig) {
+        return getOwnerClientDb(enterprise.clientConfig as OwnerClientConfig, enterprise.databaseId) 
+            || (enterprise?.databaseId ? getDynamicDb(enterprise.databaseId) : db);
+    }
+    if (enterprise?.databaseId) {
+        return getDynamicDb(enterprise.databaseId);
+    }
+    return db;
+}
+
 export { db, auth, app, firebaseConfig };
