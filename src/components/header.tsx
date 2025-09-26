@@ -31,6 +31,7 @@ export default function Header() {
   const { pgs } = useAppSelector((state) => state.pgs);
   const { selectedPgId, isLoading } = useAppSelector((state) => state.app);
   const { currentUser } = useAppSelector((state) => state.user);
+  const isCustomDbConnected = !!currentUser?.subscription?.enterpriseProject?.projectId;
 
   const isDashboard = pathname.startsWith('/dashboard');
   const isTenantDashboard = pathname.startsWith('/tenants');
@@ -105,6 +106,12 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {currentUser && (
+            <span className={cn("px-2 py-1 text-xs rounded-md border", isCustomDbConnected ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200")}
+              title={isCustomDbConnected ? `Custom DB: ${currentUser.subscription?.enterpriseProject?.projectId}${currentUser.subscription?.enterpriseProject?.databaseId ? '/' + currentUser.subscription?.enterpriseProject?.databaseId : ''}` : 'Using App DB'}>
+              {isCustomDbConnected ? 'Custom DB' : 'App DB'}
+            </span>
+          )}
           <ThemeToggle />
           {currentUser && (isDashboard || isTenantDashboard) && <NotificationsPopover />}
            {isLandingPage && (
