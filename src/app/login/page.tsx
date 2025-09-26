@@ -48,6 +48,8 @@ export default function LoginPage() {
         router.replace('/tenants/my-pg');
       } else if (allowedDashboardRoles.includes(currentUser.role)) {
         router.replace('/dashboard');
+      } else if (currentUser.role === 'unassigned') {
+        router.replace('/complete-profile');
       }
     }
   }, [appLoading, currentUser, router, allowedDashboardRoles]);

@@ -30,107 +30,120 @@ const initialState: UserState = {
 export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: any; state: RootState }>(
     'user/initializeUser',
     async (firebaseUser, { dispatch, getState, rejectWithValue }) => {
-        if (!isFirebaseConfigured() || !db) {
-            dispatch(setLoading(false));
-            return rejectWithValue('Firebase not configured');
-        }
-        
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        let userDoc = await getDoc(userDocRef);
-
-        const getPlanForUser = (user: User): Plan => {
-             if (!user.subscription || user.subscription.status === 'inactive') {
-                return plans.free;
+        try {
+            if (!isFirebaseConfigured() || !db) {
+                dispatch(setLoading(false));
+                return rejectWithValue('Firebase not configured');
             }
             
-            const isActive = user.subscription.status === 'active';
-            const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
-            
-            if (isActive || isTrialing) {
-                return { ...plans.pro };
-            }
-            
-            return plans.free;
-        };
+            const userDocRef = doc(db!, 'users', firebaseUser.uid);
+            let userDoc = await getDoc(userDocRef);
 
-        if (!userDoc.exists()) {
-            // --- This is a brand new user ---
-            // Create their document immediately with an 'unassigned' role.
-            const newUser: User = {
-                id: firebaseUser.uid,
-                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
-                email: firebaseUser.email ?? undefined,
-                phone: firebaseUser.phoneNumber || undefined,
-                role: 'unassigned',
-                status: 'pending_approval',
-                avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
-                guestId: null,
-                createdAt: new Date().toISOString(),
-            };
-            await setDoc(userDocRef, newUser);
-            userDoc = await getDoc(userDocRef); // Re-fetch the newly created doc to ensure consistency.
-        }
-
-        let userData = userDoc.data() as User;
-
-        // --- Handle Invites for New or Existing Users ---
-        // This check runs for users who have just been created ('unassigned') or existing users who might have received an invite.
-        if (userData.role === 'unassigned' && userData.email) {
-            const inviteDocRef = doc(db, 'invites', userData.email);
-            const inviteDoc = await getDoc(inviteDocRef);
-
-            if (inviteDoc.exists()) {
-                const inviteData = inviteDoc.data() as Invite;
-                const batch = writeBatch(db);
+            const getPlanForUser = (user: User): Plan => {
+                 if (!user.subscription || user.subscription.status === 'inactive') {
+                    return plans.free;
+                }
                 
-                let roleUpdate: Partial<User> = {
-                    role: inviteData.role,
-                    ownerId: inviteData.ownerId,
-                };
+                const isActive = user.subscription.status === 'active';
+                const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
+                
+                if (isActive || isTrialing) {
+                    return { ...plans.pro };
+                }
+                
+                return plans.free;
+            };
 
-                if (inviteData.role === 'tenant') {
-                    const guestDetails = inviteData.details as Guest;
-                    roleUpdate.guestId = guestDetails.id;
-                    roleUpdate.pgId = guestDetails.pgId;
-                    
-                    const guestDocRef = doc(db, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
-                    batch.update(guestDocRef, { userId: firebaseUser.uid });
-                } else { // Staff roles
-                    const staffDetails = inviteData.details as Staff;
-                    roleUpdate.pgIds = [staffDetails.pgId];
-                    const staffDocRef = doc(db, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
-                    batch.update(staffDocRef, { userId: firebaseUser.uid });
+            if (!userDoc.exists()) {
+                // --- This is a brand new user ---
+                // Create their document immediately with an 'unassigned' role.
+                const baseUser = {
+                    id: firebaseUser.uid,
+                    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
+                    role: 'unassigned',
+                    status: 'pending_approval',
+                    avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
+                    guestId: null as null,
+                    createdAt: new Date().toISOString(),
+                } as Partial<User>;
+
+                if (firebaseUser.email) {
+                    baseUser.email = firebaseUser.email;
+                }
+                if (firebaseUser.phoneNumber) {
+                    baseUser.phone = firebaseUser.phoneNumber;
                 }
 
-                batch.update(userDocRef, roleUpdate);
-                batch.delete(inviteDocRef);
-                await batch.commit();
+                const newUser = baseUser as User;
 
-                // Re-fetch user data to get the new role
-                userDoc = await getDoc(userDocRef);
-                userData = userDoc.data() as User;
+                await setDoc(userDocRef, newUser);
+                userDoc = await getDoc(userDocRef); // Re-fetch the newly created doc to ensure consistency.
             }
-        }
-        
-        // --- Fetch correct plan and permissions based on final role ---
-        let ownerIdForPermissions = userData.role === 'owner' ? userData.id : userData.ownerId;
-        let finalUserData = userData;
 
-        if (userData.role !== 'owner' && userData.role !== 'admin' && ownerIdForPermissions) {
-            const ownerDocRef = doc(db, 'users', ownerIdForPermissions);
-            const ownerDoc = await getDoc(ownerDocRef);
-            if(ownerDoc.exists()) {
-                finalUserData.subscription = ownerDoc.data().subscription;
+            let userData = userDoc.data() as User;
+
+            // --- Handle Invites for New or Existing Users ---
+            // This check runs for users who have just been created ('unassigned') or existing users who might have received an invite.
+            if (userData.role === 'unassigned' && userData.email) {
+                const inviteDocRef = doc(db!, 'invites', userData.email);
+                const inviteDoc = await getDoc(inviteDocRef);
+
+                if (inviteDoc.exists()) {
+                    const inviteData = inviteDoc.data() as Invite;
+                    const batch = writeBatch(db!);
+                    
+                    let roleUpdate: Partial<User> = {
+                        role: inviteData.role,
+                        ownerId: inviteData.ownerId,
+                    };
+
+                    if (inviteData.role === 'tenant') {
+                        const guestDetails = inviteData.details as Guest;
+                        roleUpdate.guestId = guestDetails.id;
+                        roleUpdate.pgId = guestDetails.pgId;
+                        
+                        const guestDocRef = doc(db!, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
+                        batch.update(guestDocRef, { userId: firebaseUser.uid });
+                    } else { // Staff roles
+                        const staffDetails = inviteData.details as Staff;
+                        roleUpdate.pgIds = [staffDetails.pgId];
+                        const staffDocRef = doc(db!, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
+                        batch.update(staffDocRef, { userId: firebaseUser.uid });
+                    }
+
+                    batch.update(userDocRef, roleUpdate);
+                    batch.delete(inviteDocRef);
+                    await batch.commit();
+
+                    // Re-fetch user data to get the new role
+                    userDoc = await getDoc(userDocRef);
+                    userData = userDoc.data() as User;
+                }
             }
-        }
-        
-        const userPlan = getPlanForUser(finalUserData);
-        
-        if (ownerIdForPermissions) {
-            dispatch(fetchPermissions({ ownerId: ownerIdForPermissions, plan: userPlan }));
-        }
+            
+            // --- Fetch correct plan and permissions based on final role ---
+            let ownerIdForPermissions = userData.role === 'owner' ? userData.id : userData.ownerId;
+            let finalUserData = userData;
 
-        return finalUserData;
+            if (userData.role !== 'owner' && userData.role !== 'admin' && ownerIdForPermissions) {
+                const ownerDocRef = doc(db!, 'users', ownerIdForPermissions);
+                const ownerDoc = await getDoc(ownerDocRef);
+                if(ownerDoc.exists()) {
+                    finalUserData.subscription = ownerDoc.data().subscription;
+                }
+            }
+            
+            const userPlan = getPlanForUser(finalUserData);
+            
+            if (ownerIdForPermissions) {
+                dispatch(fetchPermissions({ ownerId: ownerIdForPermissions, plan: userPlan }));
+            }
+
+            return finalUserData;
+        } catch (error: any) {
+            console.error('[initializeUser] failed:', error);
+            return rejectWithValue(error?.message || 'initializeUser failed with unknown error');
+        }
     }
 );
 
@@ -140,7 +153,7 @@ export const updateUserKycDetails = createAsyncThunk<User, BusinessKycDetails, {
         const { currentUser } = (getState() as RootState).user;
         if (!currentUser) return rejectWithValue('User not found.');
 
-        const userDocRef = doc(db, 'users', currentUser.id);
+        const userDocRef = doc(db!, 'users', currentUser.id);
         
         const kycUpdate = {
             'subscription.kycDetails': sanitizeObjectForFirebase(kycData),
@@ -181,7 +194,7 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                 }
             };
             
-            const userDocRef = doc(db, 'users', currentUser.id);
+            const userDocRef = doc(db!, 'users', currentUser.id);
             await setDoc(userDocRef, updatedUser, { merge: true });
             return updatedUser;
         }
@@ -205,7 +218,8 @@ export const togglePremiumFeature = createAsyncThunk(
             if (result.success && result.updatedUser) {
                 return { feature, enabled, updatedUser: result.updatedUser as User };
             }
-            throw new Error(result.error);
+            const errMsg = (result as any)?.error || 'Failed to toggle premium feature';
+            throw new Error(errMsg);
         } catch (error: any) {
              return rejectWithValue(error.message);
         }
@@ -226,6 +240,7 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
             ...restOfUser, 
             role: 'owner', 
             status: 'pending_approval',
+            guestId: null,
             subscription: { 
                 planId: 'pro',
                 status: 'trialing',
@@ -238,11 +253,12 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
             } 
         };
 
-        if (!db) throw new Error('Firestore is not initialized.');
-        const userDocRef = doc(db, 'users', currentUser.id);
+        const userDocRef = doc(db!, 'users', currentUser.id);
         await setDoc(userDocRef, updatedUser, { merge: true });
         
-        await auth.signOut(); // This will trigger the auth state listener to clear the state
+        if (auth) {
+            await auth.signOut(); // This will trigger the auth state listener to clear the state
+        }
         return updatedUser;
     }
 );

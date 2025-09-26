@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Building2, User } from 'lucide-react'
+import { Loader2, Building2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { finalizeUserRole } from '@/lib/slices/userSlice'
@@ -51,10 +51,10 @@ export default function CompleteProfilePage() {
                  <CardHeader className="text-center">
                     <CardTitle className="text-2xl">One Last Step!</CardTitle>
                     <CardDescription>
-                        What brings you to RentSutra? Tell us your role to personalize your experience.
+                        Create your owner account to get started with RentSutra.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className="grid grid-cols-1 gap-4">
                     <Button 
                         variant="outline" 
                         className="h-auto p-6 flex flex-col gap-2 items-center"
@@ -63,17 +63,7 @@ export default function CompleteProfilePage() {
                     >
                         {loadingRole === 'owner' ? <Loader2 className="h-8 w-8 animate-spin" /> : <Building2 className="h-8 w-8 text-primary" />}
                         <span className="font-bold text-lg">I'm a Property Owner</span>
-                        <span className="text-xs text-muted-foreground text-center">I want to manage my PG, hostel, or co-living space.</span>
-                    </Button>
-                     <Button 
-                        variant="outline" 
-                        className="h-auto p-6 flex flex-col gap-2 items-center"
-                        onClick={() => handleRoleSelection('tenant')}
-                        disabled={!!loadingRole}
-                    >
-                        {loadingRole === 'tenant' ? <Loader2 className="h-8 w-8 animate-spin" /> : <User className="h-8 w-8 text-primary" />}
-                        <span className="font-bold text-lg">I'm a Tenant</span>
-                        <span className="text-xs text-muted-foreground text-center">I was invited by my property manager to join.</span>
+                        <span className="text-xs text-muted-foreground text-center">Manage your PG, hostel, or co-living space.</span>
                     </Button>
                 </CardContent>
             </Card>
