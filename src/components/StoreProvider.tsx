@@ -7,7 +7,7 @@ import { makeStore, type AppStore } from '@/lib/store'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 import { collection, onSnapshot, doc, getDocs, query, where, type Unsubscribe } from 'firebase/firestore'
 import { getApp } from 'firebase/app'
-import { auth, db, isFirebaseConfigured, getDynamicDb } from '@/lib/firebase'
+import { auth, db, isFirebaseConfigured, getDynamicDb, getOwnerClientDb } from '@/lib/firebase'
 import { getAnalytics, isSupported } from 'firebase/analytics'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { initializeUser, logoutUser } from '@/lib/slices/userSlice'
@@ -103,8 +103,11 @@ function AuthHandler({ children }: { children: ReactNode }) {
     // Determine the correct ID for fetching data
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
     const enterpriseDbId = currentUser.subscription?.enterpriseProject?.databaseId;
+    const clientConfig = currentUser.subscription?.enterpriseProject?.clientConfig;
 
-    const dbInstance = enterpriseDbId ? getDynamicDb(enterpriseDbId) : db;
+    const dbInstance = clientConfig
+      ? getOwnerClientDb(clientConfig, enterpriseDbId)
+      : (enterpriseDbId ? getDynamicDb(enterpriseDbId) : db);
     
     if (!dbInstance) {
         console.error("Database instance could not be determined. This can happen if Firebase is not configured or the user is not properly authenticated.");

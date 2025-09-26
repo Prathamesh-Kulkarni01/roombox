@@ -5,11 +5,9 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-com
 // NOTE: This object will be populated by the build script.
 const firebaseConfig = {
   "apiKey": "AIzaSyAsYtBqzqWREOXUmuugtn2NZ51iqRMiXBw",
-  "authDomain": "roombox-f7bff.firebaseapp.com",
   "projectId": "roombox-f7bff",
-  "storageBucket": "roombox-f7bff.appspot.com",
+  "storageBucket": "roombox-f7bff.firebasestorage.app",
   "messagingSenderId": "990310757816",
-  "appId": "1:990310757816:web:94edde70edba55b9524b4d",
   "measurementId": "G-HPBJCP6QRQ"
 }
 

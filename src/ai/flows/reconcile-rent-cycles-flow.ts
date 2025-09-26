@@ -35,10 +35,14 @@ const reconcileSingleGuestFlow = ai.defineFlow(
   },
   async ({ ownerId, guestId }) => {
     const adminDb = await getAdminDb();
-    const guestDocRef = adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+    const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
+    const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
+    const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
+    const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
+    const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
 
     try {
-        await adminDb.runTransaction(async (transaction) => {
+        await dataDb.runTransaction(async (transaction) => {
             const guestDoc = await transaction.get(guestDocRef);
             if (!guestDoc.exists) {
                 console.error(`[Reconcile] Guest ${guestId} not found.`);
@@ -111,7 +115,10 @@ const reconcileAllGuestsFlow = ai.defineFlow(
 
             for (const ownerDoc of ownersSnapshot.docs) {
                 const ownerId = ownerDoc.id;
-                const guestsSnapshot = await adminDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
+                const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
+                const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
+                const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
+                const guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
 
                 for (const guestDoc of guestsSnapshot.docs) {
                     const result = await reconcileSingleGuestFlow({ ownerId, guestId: guestDoc.id });

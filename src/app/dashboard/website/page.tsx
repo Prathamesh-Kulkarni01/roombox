@@ -80,7 +80,7 @@ export default function WebsiteBuilderPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        setDomain(process.env.NEXT_PUBLIC_SITE_DOMAIN || 'rentvastu.netlify.app');
+        setDomain(process.env.NEXT_PUBLIC_SITE_DOMAIN || 'rentsutra.netlify.app');
     }, [])
 
     const form = useForm<WebsiteConfigFormValues>({

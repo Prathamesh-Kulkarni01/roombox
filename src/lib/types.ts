@@ -320,6 +320,15 @@ export interface User {
     enterpriseProject?: {
         projectId: string;
         databaseId: string;
+        clientConfig?: {
+            apiKey: string;
+            authDomain: string;
+            projectId: string;
+            storageBucket?: string;
+            messagingSenderId?: string;
+            appId?: string;
+            measurementId?: string;
+        };
     };
   };
   fcmToken?: string | null;

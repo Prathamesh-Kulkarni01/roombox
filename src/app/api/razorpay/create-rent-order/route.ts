@@ -41,9 +41,13 @@ export async function POST(req: NextRequest) {
     if (!linkedAccountId) {
         return NextResponse.json({ success: false, error: 'Owner has not configured a primary payout account. Payment cannot be processed.' }, { status: 400 });
     }
+    // Use owner's enterprise database (if configured) for tenant records
+    const enterpriseDbId = owner.subscription?.enterpriseProject?.databaseId;
+    const enterpriseProjectId = owner.subscription?.enterpriseProject?.projectId;
+    const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
     
     // Fetch guest to get their details
-    const guestDoc = await adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
+    const guestDoc = await dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
     if (!guestDoc.exists) {
         return NextResponse.json({ success: false, error: 'Guest not found.' }, { status: 404 });
     }

@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { initializeApp, getApps, cert, App, AppOptions } from 'firebase-admin/app';
@@ -12,16 +11,25 @@ const adminApps: Map<string, App> = new Map();
 
 function initializeAdminApp(projectId?: string, databaseId?: string): App {
   const appName = databaseId || projectId || 'default';
+
+  // Reuse cached instance if available
   if (adminApps.has(appName)) {
     return adminApps.get(appName)!;
   }
+
+  // Reuse already initialized app with the same name
+  const existingByName = getApps().find(a => a.name === appName || (!projectId && !databaseId && a.name === '[DEFAULT]'));
+  if (existingByName) {
+    adminApps.set(appName, existingByName);
+    return existingByName;
+  }
   
-  // If no projectId/dbId is given and default exists, return it
+  // If no project/db specified, and a default app exists, reuse it
   if (!projectId && !databaseId && getApps().length > 0) {
-    const defaultApp = getApps().find(app => app.name === '[DEFAULT]');
+    const defaultApp = getApps().find(app => app.name === '[DEFAULT]') || getApps()[0];
     if (defaultApp) {
-        adminApps.set('default', defaultApp);
-        return defaultApp;
+      adminApps.set(appName, defaultApp);
+      return defaultApp;
     }
   }
 

@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
 
         for (const userDoc of usersSnapshot.docs) {
             const ownerId = userDoc.id;
-            const guestsSnapshot = await adminDb.collection('users_data').doc(ownerId).collection('guests')
+            const enterpriseDbId = (userDoc.data()?.subscription?.enterpriseProject?.databaseId) as string | undefined;
+            const enterpriseProjectId = (userDoc.data()?.subscription?.enterpriseProject?.projectId) as string | undefined;
+            const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
+            const guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
                 .where('isVacated', '==', false)
                 .where('rentStatus', 'in', ['unpaid', 'partial'])
                 .get();

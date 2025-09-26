@@ -52,10 +52,17 @@ export async function POST(req: NextRequest) {
       }
 
       const adminDb = await getAdminDb();
-      const guestDocRef = adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+      const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
+      if (!ownerDoc.exists) {
+          console.error(`Webhook handler: Owner with ID ${ownerId} not found.`);
+          return NextResponse.json({ success: false, error: 'Owner not found.' }, { status: 404 });
+      }
+      const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
+      const dataDb = await getAdminDb(undefined, enterpriseDbId);
+      const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
       
       // Use a transaction to prevent race conditions
-      await adminDb.runTransaction(async (transaction) => {
+      await dataDb.runTransaction(async (transaction) => {
           const guestDoc = await transaction.get(guestDocRef);
           if (!guestDoc.exists) {
               console.error(`Webhook handler: Guest with ID ${guestId} not found.`);
@@ -70,11 +77,6 @@ export async function POST(req: NextRequest) {
               return;
           }
 
-          const ownerDoc = await transaction.get(adminDb.collection('users').doc(ownerId));
-          if (!ownerDoc.exists) {
-              console.error(`Webhook handler: Owner with ID ${ownerId} not found.`);
-              return;
-          }
           const owner = ownerDoc.data() as User;
           const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
