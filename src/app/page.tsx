@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
@@ -8,7 +9,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2, Calendar, ArrowLeftRight, CheckCircle, Pencil, User as UserIcon, BedDouble } from "lucide-react";
+import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2, Calendar, ArrowLeftRight, CheckCircle, Pencil, User as UserIcon, BedDouble, Lock, Server } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
@@ -20,7 +21,7 @@ const Index = () => {
     const router = useRouter();
     const { currentUser, isLoading } = useAppSelector((state) => ({
       currentUser: state.user.currentUser,
-      isLoading: state.app.isLoading,
+      isLoading: state.user.isLoading,
     }));
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
   
@@ -340,6 +341,32 @@ const Index = () => {
                             <div className="flex items-center gap-3"><Banknote className="w-8 h-8 text-primary"/><p className="font-semibold">Instant Payout to Your Bank</p></div>
                         </div>
                     </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                         <div className="space-y-4 md:order-2">
+                            <Badge variant="default" className="bg-indigo-500 hover:bg-indigo-600">Enterprise Data Privacy</Badge>
+                            <h3 className="text-3xl font-bold">Your Data, Your Cloud. Complete Privacy.</h3>
+                            <p className="text-lg text-muted-foreground">For businesses that demand the highest level of security, our Enterprise plan lets you run RentSutra on your own private Firebase project. Your data never leaves your cloud, giving you unparalleled control and peace of mind.</p>
+                             <Button asChild variant="link" className="px-0">
+                                <Link href="/dashboard/enterprise">Learn More about Enterprise <ArrowRight className="ml-2 w-4 h-4"/></Link>
+                            </Button>
+                        </div>
+                        <div className="md:order-1 bg-card p-6 rounded-lg border shadow-md flex items-center justify-center min-h-[250px] relative">
+                            <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+                            <div className="grid grid-cols-3 gap-4 items-center text-center relative">
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className="p-3 bg-muted rounded-full border"><Building2 className="w-6 h-6 text-muted-foreground" /></div>
+                                    <p className="text-xs font-semibold">Other PGs</p>
+                                </div>
+                                 <ArrowLeftRight className="w-8 h-8 text-muted-foreground/30 shrink-0"/>
+                                 <div className="flex flex-col items-center gap-2 border-2 border-primary p-4 rounded-lg bg-primary/10 shadow-lg">
+                                    <div className="p-3 bg-background rounded-full"><Lock className="w-6 h-6 text-primary" /></div>
+                                    <p className="text-xs font-bold text-primary">Your Private Cloud</p>
+                                </div>
+                           </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </section>
@@ -446,7 +473,7 @@ const Index = () => {
                 <Card className="flex flex-col justify-between">
                    <CardHeader>
                         <CardTitle className="text-xl">Enterprise Plan</CardTitle>
-                        <CardDescription>For large-scale chains and custom needs</CardDescription>
+                        <CardDescription>For large chains and custom needs</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="text-4xl font-bold">Custom</div>
@@ -525,7 +552,5 @@ const Index = () => {
 };
 
 export default Index;
-
-    
 
     
