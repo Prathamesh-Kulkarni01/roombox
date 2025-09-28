@@ -137,20 +137,22 @@ const Index = () => {
       )
     },
     {
-      title: "A Professional Tenant App",
-      description: "Provide your residents with a modern mobile app. They can pay rent, raise complaints, check the food menu, and get instant answers from an AI chatbot, reducing your workload.",
+      title: "Enterprise Data Privacy: Your Data, Your Cloud",
+      description: "For businesses that demand the highest level of security, our Enterprise plan lets you run RentSutra on your own private Firebase project. Your data never leaves your cloud, giving you unparalleled control and peace of mind.",
       visual: (
-        <div className="w-full aspect-video bg-card border rounded-lg p-4 flex items-center justify-center shadow-lg">
-            <div className="w-48 h-80 bg-background rounded-2xl shadow-2xl p-3 flex flex-col border">
-                <div className="text-xs font-bold mb-2 text-center text-muted-foreground">Tenant App</div>
-                <div className="space-y-2 text-sm flex-1 overflow-hidden">
-                    <div className="bg-primary text-primary-foreground p-2 rounded-lg ml-auto rounded-br-none max-w-[80%]">What's for dinner?</div>
-                    <div className="bg-muted p-2 rounded-lg mr-auto rounded-bl-none max-w-[80%]">Tonight we are serving Veg Biryani and Raita!</div>
+        <div className="w-full aspect-video bg-card border rounded-lg p-4 flex items-center justify-center shadow-lg relative overflow-hidden">
+            <div className="absolute inset-0 bg-grid-pattern opacity-10" style={{ backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='hsl(var(--border))'%3e%3cpath d='M0 .5 L31 .5 M.5 0 L.5 31'/%3e%3c/svg%3e\")" }}></div>
+            <div className="grid grid-cols-3 gap-4 items-center text-center relative">
+                <div className="flex flex-col items-center gap-2">
+                    <div className="p-3 bg-muted rounded-full border"><Building2 className="w-6 h-6 text-muted-foreground" /></div>
+                    <p className="text-xs font-semibold">Other PGs</p>
                 </div>
-                 <div className="mt-auto text-center">
-                     <Button size="sm" className="w-full h-8 text-xs bg-primary hover:bg-primary/90">Pay Rent</Button>
-                 </div>
-            </div>
+                 <ArrowLeftRight className="w-8 h-8 text-muted-foreground/30 shrink-0"/>
+                 <div className="flex flex-col items-center gap-2 border-2 border-primary p-4 rounded-lg bg-primary/10 shadow-lg">
+                    <div className="p-3 bg-background rounded-full"><Lock className="w-6 h-6 text-primary" /></div>
+                    <p className="text-xs font-bold text-primary">Your Private Cloud</p>
+                </div>
+           </div>
         </div>
       )
     }
