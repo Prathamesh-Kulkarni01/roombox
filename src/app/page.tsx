@@ -499,46 +499,42 @@ const Index = () => {
         {/* Footer */}
         <footer className="bg-card text-card-foreground py-12 border-t">
           <div className="container mx-auto px-4">
-            <div className="grid md:grid-cols-4 gap-8">
-              <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              <div className="col-span-2 md:col-span-1 space-y-4">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-gradient-saffron rounded-lg flex items-center justify-center">
                     <Building2 className="h-6 w-6 text-white" />
                   </div>
                   <span className="text-2xl font-bold">RentSutra</span>
                 </div>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   The Modern OS for Your Rental Property. Made with ❤️ in India.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <h4 className="font-semibold text-lg">Product</h4>
-                <ul className="space-y-2 text-muted-foreground">
-                  <li><Link href="#features" className="hover:text-primary transition-colors">Features</Link></li>
-                  <li><Link href="#pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
-                  <li><Link href="/login" className="hover:text-primary transition-colors">Login</Link></li>
+                <ul className="space-y-2 text-muted-foreground text-sm">
+                  <li><Link href="/#features" className="hover:text-primary transition-colors">Features</Link></li>
+                  <li><Link href="/#pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
                 </ul>
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-semibold text-lg">Support</h4>
-                <ul className="space-y-2 text-muted-foreground">
+                <h4 className="font-semibold text-lg">Company</h4>
+                <ul className="space-y-2 text-muted-foreground text-sm">
+                  <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
+                  <li><Link href="/contact" className="hover:text-primary transition-colors">Contact Us</Link></li>
                   <li><Link href="/blog/onboarding-guest" className="hover:text-primary transition-colors">Help Center</Link></li>
                 </ul>
               </div>
-
+              
               <div className="space-y-4">
-                <h4 className="font-semibold text-lg">Connect</h4>
-                <ul className="space-y-2 text-muted-foreground">
-                  <li className="flex items-center">
-                    <Phone className="w-4 h-4 mr-2" />
-                    +91 9999-123-456
-                  </li>
-                  <li className="flex items-center">
-                    <Globe className="w-4 h-4 mr-2" />
-                    hello@rentsutra.com
-                  </li>
+                <h4 className="font-semibold text-lg">Legal</h4>
+                <ul className="space-y-2 text-muted-foreground text-sm">
+                  <li><Link href="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+                  <li><Link href="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+                  <li><Link href="/refund-policy" className="hover:text-primary transition-colors">Refund Policy</Link></li>
                 </ul>
               </div>
             </div>
@@ -556,3 +552,4 @@ const Index = () => {
 export default Index;
 
     
+
