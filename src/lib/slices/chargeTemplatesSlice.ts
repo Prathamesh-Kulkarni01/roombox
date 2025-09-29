@@ -14,7 +14,7 @@ const initialState: ChargeTemplatesState = {
 };
 
 export const addChargeTemplate = createAsyncThunk<ChargeTemplate, Omit<ChargeTemplate, 'id'>, { state: RootState }>(
-    'chargeTemplates/add',
+    'chargeTemplates/addChargeTemplate',
     async (newTemplateData, { getState, rejectWithValue }) => {
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
@@ -66,6 +66,18 @@ const chargeTemplatesSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(addChargeTemplate.fulfilled, (state, action) => {
+                state.templates.push(action.payload);
+            })
+            .addCase(updateChargeTemplate.fulfilled, (state, action) => {
+                const index = state.templates.findIndex(t => t.id === action.payload.id);
+                if (index !== -1) {
+                    state.templates[index] = action.payload;
+                }
+            })
+            .addCase(deleteChargeTemplate.fulfilled, (state, action) => {
+                state.templates = state.templates.filter(t => t.id !== action.payload);
+            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.templates = [];
             });

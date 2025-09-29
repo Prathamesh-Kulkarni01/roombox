@@ -19,7 +19,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { saveChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from "@/lib/slices/chargeTemplatesSlice"
+import { addChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from '@/lib/slices/chargeTemplatesSlice'
 import { updatePermissions, type FeaturePermissions, type RolePermissions } from '@/lib/slices/permissionsSlice'
 import { saveKycConfig } from '@/lib/slices/kycConfigSlice'
 import { featurePermissionConfig } from '@/lib/permissions';
@@ -157,7 +157,7 @@ export default function SettingsPage() {
             await dispatch(updateChargeTemplate({ ...templateToEdit, ...data })).unwrap();
             toast({ title: "Template Updated", description: "Your charge template has been updated." });
         } else {
-            await dispatch(saveChargeTemplate(data)).unwrap();
+            await dispatch(addChargeTemplate(data)).unwrap();
             toast({ title: "Template Created", description: "Your new charge template is ready to use." });
         }
         setIsTemplateDialogOpen(false);
