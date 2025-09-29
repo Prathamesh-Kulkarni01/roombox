@@ -225,7 +225,7 @@ export interface Complaint {
   status: 'open' | 'in-progress' | 'resolved';
   date: string;
   upvotes?: number;
-  isPublic?: boolean;
+  isPublic: boolean;
   imageUrls?: string[];
 }
 

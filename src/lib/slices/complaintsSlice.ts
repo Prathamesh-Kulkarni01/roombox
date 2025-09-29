@@ -1,10 +1,13 @@
 
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Complaint } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { deletePg } from './pgsSlice';
+import { uploadDataUriToStorage } from '../storage';
+import { createAndSendNotification } from '../actions/notificationActions';
 
 interface ComplaintsState {
     complaints: Complaint[];
@@ -26,6 +29,7 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
         
         let guestName = 'Owner Reported';
         let guestId = newComplaintData.guestId;
+        
         if (user.currentUser.role === 'tenant') {
             const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
             if (currentGuest) {
@@ -37,6 +41,18 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
             if (guest) guestName = guest.name;
         }
 
+        const imageUrls = [];
+        if (newComplaintData.imageUrls) {
+            for (const dataUri of newComplaintData.imageUrls) {
+                try {
+                    const url = await uploadDataUriToStorage(dataUri, `complaints/${ownerId}/${Date.now()}`);
+                    imageUrls.push(url);
+                } catch (e) {
+                    console.error("Failed to upload complaint image:", e);
+                }
+            }
+        }
+
         const newComplaint: Complaint = { 
             ...newComplaintData,
             guestId: guestId || null,
@@ -44,6 +60,8 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
             date: new Date().toISOString(),
             status: 'open',
             guestName,
+            imageUrls,
+            isPublic: newComplaintData.isPublic ?? true,
         };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
@@ -68,6 +86,20 @@ export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: R
             const selectedDb = selectOwnerDataDb(user.currentUser);
             const docRef = doc(selectedDb!, 'users_data', ownerId, 'complaints', updatedComplaint.id);
             await setDoc(docRef, updatedComplaint, { merge: true });
+        }
+        
+        // Send notification to tenant if status changes
+        if (updatedComplaint.guestId && user.currentUser.role === 'owner') {
+             await createAndSendNotification({
+                ownerId: ownerId,
+                notification: {
+                    type: 'complaint-update',
+                    title: `Your complaint status is now "${updatedComplaint.status}"`,
+                    message: `Your issue about "${updatedComplaint.category}" has been updated.`,
+                    link: '/tenants/complaints',
+                    targetId: updatedComplaint.guestId,
+                }
+            });
         }
         
         return updatedComplaint;
