@@ -205,7 +205,7 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
             const updatedUser: User = {
                 ...currentUser,
                 role: 'owner',
-                status: 'pending_approval',
+                status: 'active', // Owners are active by default now
                 subscription: {
                     planId: 'pro',
                     status: 'trialing',
@@ -381,3 +381,5 @@ const userSlice = createSlice({
 
 export const { setCurrentUser, updateUserPlan } = userSlice.actions;
 export default userSlice.reducer;
+
+    

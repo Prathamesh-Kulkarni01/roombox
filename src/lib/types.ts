@@ -213,14 +213,17 @@ export interface Guest {
 
 export interface Complaint {
   id: string;
-  guestId: string;
-  guestName: string;
+  guestId: string | null; // Null if raised by owner for property
+  guestName: string; // "Owner Reported" or guest name
   pgId: string;
+  floorId?: string;
+  roomId?: string;
+  bedId?: string;
+  pgName?: string;
   category: 'maintenance' | 'cleanliness' | 'wifi' | 'food' | 'other';
   description: string;
   status: 'open' | 'in-progress' | 'resolved';
   date: string;
-  pgName?: string;
   upvotes?: number;
   isPublic?: boolean;
   imageUrls?: string[];

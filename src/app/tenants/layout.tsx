@@ -18,7 +18,7 @@ export default function TenantDashboardLayout({
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return; // Wait for the auth check to complete
+    if (isLoading) return;
 
     if (!currentUser) {
         router.replace('/login');
@@ -32,8 +32,6 @@ export default function TenantDashboardLayout({
     }
   }, [isLoading, currentUser, router]);
 
-  // Show a full-page skeleton while the initial user check is happening.
-  // This also catches the case where a non-tenant user might briefly land here before redirection.
   if (isLoading || !currentUser || currentUser.role !== 'tenant') {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
@@ -65,3 +63,5 @@ export default function TenantDashboardLayout({
       </div>
   )
 }
+
+    

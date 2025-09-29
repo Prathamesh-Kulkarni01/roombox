@@ -1,7 +1,8 @@
 
+
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -10,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShieldAlert, Send } from "lucide-react"
+import { ShieldAlert, Send, PlusCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Complaint } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -20,12 +21,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
+import { addComplaint as addComplaintAction, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 import { canAccess } from '@/lib/permissions'
 import Access from '@/components/ui/PermissionWrapper'
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import { useToast } from '@/hooks/use-toast'
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
+import { format } from 'date-fns'
 
 
 const statusColors: Record<Complaint['status'], string> = {
@@ -40,11 +42,74 @@ const noticeSchema = z.object({
 })
 type NoticeFormValues = z.infer<typeof noticeSchema>
 
+const ownerComplaintSchema = z.object({
+  pgId: z.string().min(1, 'Please select a property.'),
+  floorId: z.string().optional(),
+  roomId: z.string().optional(),
+  bedId: z.string().optional(),
+  guestId: z.string().optional(),
+  category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other']),
+  description: z.string().min(10, 'A detailed description is required.'),
+});
+type OwnerComplaintFormValues = z.infer<typeof ownerComplaintSchema>;
+
+
 const ComplaintsView = () => {
-    const dispatch = useAppDispatch()
-    const { complaints } = useAppSelector(state => state.complaints)
-    const { pgs } = useAppSelector(state => state.pgs)
-    const { selectedPgId } = useAppSelector(state => state.app)
+    const dispatch = useAppDispatch();
+    const { complaints } = useAppSelector(state => state.complaints);
+    const { pgs } = useAppSelector(state => state.pgs);
+    const { guests } = useAppSelector(state => state.guests);
+    const { selectedPgId } = useAppSelector(state => state.app);
+    const { currentUser } = useAppSelector(state => state.user);
+
+    const [isOwnerComplaintDialogOpen, setIsOwnerComplaintDialogOpen] = useState(false);
+
+    const form = useForm<OwnerComplaintFormValues>({
+        resolver: zodResolver(ownerComplaintSchema),
+        defaultValues: { pgId: selectedPgId || pgs[0]?.id },
+    });
+    
+    const selectedPgForForm = form.watch('pgId');
+    const selectedFloorForForm = form.watch('floorId');
+    const selectedRoomForForm = form.watch('roomId');
+
+    const floorsInSelectedPg = useMemo(() => pgs.find(p => p.id === selectedPgForForm)?.floors || [], [pgs, selectedPgForForm]);
+    const roomsInSelectedFloor = useMemo(() => floorsInSelectedPg.find(f => f.id === selectedFloorForForm)?.rooms || [], [floorsInSelectedPg, selectedFloorForForm]);
+    const bedsInSelectedRoom = useMemo(() => roomsInSelectedFloor.find(r => r.id === selectedRoomForForm)?.beds || [], [roomsInSelectedFloor, selectedRoomForForm]);
+    const guestsInSelectedRoom = useMemo(() => guests.filter(g => bedsInSelectedRoom.some(b => b.id === g.bedId)), [guests, bedsInSelectedRoom]);
+
+    const handleOwnerComplaintSubmit = async (data: OwnerComplaintFormValues) => {
+        if (!currentUser) return;
+        
+        const pg = pgs.find(p => p.id === data.pgId);
+
+        const resultAction = await dispatch(addComplaintAction({
+            ...data,
+            guestId: data.guestId || null,
+            pgName: pg?.name || 'Unknown PG',
+        }));
+        
+        if (addComplaintAction.fulfilled.match(resultAction)) {
+            // Optional: Send notification to the specific tenant if one was selected
+            if (data.guestId) {
+                const guest = guests.find(g => g.id === data.guestId);
+                if(guest?.userId) {
+                    await createAndSendNotification({
+                        ownerId: currentUser.id,
+                        notification: {
+                            type: 'complaint-update',
+                            title: `Your manager logged a complaint`,
+                            message: `An issue was logged for: "${data.description.substring(0, 50)}..."`,
+                            link: '/tenants/complaints',
+                            targetId: guest.userId,
+                        }
+                    });
+                }
+            }
+            setIsOwnerComplaintDialogOpen(false);
+            form.reset({ pgId: selectedPgId || pgs[0]?.id });
+        }
+    };
 
     const filteredComplaints = useMemo(() => {
         if (!selectedPgId) return complaints;
@@ -59,12 +124,20 @@ const ComplaintsView = () => {
     }
 
     return (
+      <Dialog open={isOwnerComplaintDialogOpen} onOpenChange={setIsOwnerComplaintDialogOpen}>
         <Card>
-            <CardHeader>
-                <CardTitle>Open Complaints</CardTitle>
-                <CardDescription>
-                    Showing complaints {selectedPgId ? `for ${pgs.find(p => p.id === selectedPgId)?.name}` : 'for all properties'}.
-                </CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle>Open Complaints</CardTitle>
+                  <CardDescription>
+                      Showing complaints {selectedPgId ? `for ${pgs.find(p => p.id === selectedPgId)?.name}` : 'for all properties'}.
+                  </CardDescription>
+                </div>
+                <Access feature="complaints" action="add">
+                    <DialogTrigger asChild>
+                        <Button><PlusCircle className="mr-2 h-4 w-4"/>Raise Complaint</Button>
+                    </DialogTrigger>
+                </Access>
             </CardHeader>
             <CardContent>
                 {filteredComplaints.length === 0 ? (
@@ -78,19 +151,22 @@ const ComplaintsView = () => {
                                 <TableRow>
                                     <TableHead>Date</TableHead>
                                     <TableHead>Property</TableHead>
-                                    <TableHead>Guest</TableHead>
-                                    <TableHead>Category</TableHead>
-                                    <TableHead className="w-[40%]">Description</TableHead>
+                                    <TableHead>Location</TableHead>
+                                    <TableHead>Reported By</TableHead>
+                                    <TableHead className="w-[30%]">Description</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredComplaints.map((complaint) => (
                                     <TableRow key={complaint.id}>
-                                        <TableCell>{complaint.date}</TableCell>
+                                        <TableCell>{format(new Date(complaint.date), 'dd MMM, yyyy')}</TableCell>
                                         <TableCell>{complaint.pgName || pgs.find(p=>p.id === complaint.pgId)?.name}</TableCell>
+                                        <TableCell className="text-xs">
+                                          {complaint.floorId && <div>Floor: {pgs.flatMap(p=>p.floors || []).find(f=>f.id === complaint.floorId)?.name}</div>}
+                                          {complaint.roomId && <div>Room: {pgs.flatMap(p=>p.floors || []).flatMap(f=>f.rooms).find(r=>r.id === complaint.roomId)?.name}</div>}
+                                        </TableCell>
                                         <TableCell>{complaint.guestName}</TableCell>
-                                        <TableCell className="capitalize">{complaint.category}</TableCell>
                                         <TableCell className="truncate">{complaint.description}</TableCell>
                                         <TableCell>
                                             <Access feature="complaints" action="edit">
@@ -125,7 +201,7 @@ const ComplaintsView = () => {
                                         <p className="font-bold">{complaint.guestName}</p>
                                         <p className="text-sm text-muted-foreground">{complaint.pgName || pgs.find(p => p.id === complaint.pgId)?.name}</p>
                                     </div>
-                                    <p className="text-sm text-muted-foreground">{complaint.date}</p>
+                                    <p className="text-sm text-muted-foreground">{format(new Date(complaint.date), 'dd MMM')}</p>
                                 </div>
                                 <p className="text-sm">{complaint.description}</p>
                                 <div className="flex justify-between items-center text-sm">
@@ -155,6 +231,43 @@ const ComplaintsView = () => {
                  )}
             </CardContent>
         </Card>
+        <DialogContent className="max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>Raise a New Complaint</DialogTitle>
+                <DialogDescription>Log an issue for a property, room, or specific guest.</DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+                <form id="owner-complaint-form" onSubmit={form.handleSubmit(handleOwnerComplaintSubmit)} className="space-y-4 pt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="pgId" render={({ field }) => (
+                            <FormItem><FormLabel>Property</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="floorId" render={({ field }) => (
+                            <FormItem><FormLabel>Floor (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{floorsInSelectedPg.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                        )}/>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="roomId" render={({ field }) => (
+                            <FormItem><FormLabel>Room (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedFloorForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{roomsInSelectedFloor.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="guestId" render={({ field }) => (
+                            <FormItem><FormLabel>For Guest (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedRoomForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="">General / None</SelectItem>{guestsInSelectedRoom.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                        )}/>
+                    </div>
+                    <FormField control={form.control} name="category" render={({ field }) => (
+                        <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{Object.keys(statusColors).map(c=><SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}<SelectItem value="other">Other</SelectItem></SelectContent></Select><FormMessage/></FormItem>
+                    )}/>
+                    <FormField control={form.control} name="description" render={({ field }) => (
+                        <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={4} placeholder="Describe the issue..." {...field}/></FormControl><FormMessage/></FormItem>
+                    )}/>
+                </form>
+            </Form>
+            <DialogFooter>
+                <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
+                <Button type="submit" form="owner-complaint-form">Submit Complaint</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
 };
 

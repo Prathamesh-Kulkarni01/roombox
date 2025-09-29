@@ -439,7 +439,7 @@ const Index = () => {
                     </CardContent>
                      <CardFooter>
                         <Button className="w-full" variant="hero" onClick={handleChoosePlan}>Choose Pro</Button>
-                    </CardFooter>
+                     </CardFooter>
                 </Card>
 
                 {/* Enterprise Plan */}
@@ -525,5 +525,7 @@ const Index = () => {
 };
 
 export default Index;
+
+    
 
     
