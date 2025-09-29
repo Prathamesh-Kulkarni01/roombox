@@ -17,28 +17,17 @@ const initialState: ComplaintsState = {
     complaints: [],
 };
 
-export type NewComplaintData = Omit<Complaint, 'id' | 'date' | 'status' | 'guestName'>;
-
-export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { state: RootState }>(
+// For tenants raising a complaint
+export type NewTenantComplaintData = Omit<Complaint, 'id' | 'date' | 'status' | 'guestName' | 'guestId' | 'pgId' | 'pgName'>;
+export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, { state: RootState }>(
     'complaints/addComplaint',
     async (newComplaintData, { getState, rejectWithValue }) => {
         const { user, guests } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
-        if (!ownerId) return rejectWithValue('Owner not found');
-        
-        let guestName = 'Owner Reported';
-        let guestId = newComplaintData.guestId;
-        
-        if (user.currentUser.role === 'tenant') {
-            const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
-            if (currentGuest) {
-                guestName = currentGuest.name;
-                guestId = currentGuest.id;
-            }
-        } else if (newComplaintData.guestId) {
-            const guest = guests.guests.find(g => g.id === newComplaintData.guestId);
-            if (guest) guestName = guest.name;
+        const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
+        const ownerId = user.currentUser?.ownerId;
+
+        if (!user.currentUser || !currentGuest || !ownerId) {
+            return rejectWithValue('User or guest data is incomplete');
         }
 
         const imageUrls = [];
@@ -52,27 +41,83 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
                 }
             }
         }
-
+        
         const newComplaint: Complaint = { 
             ...newComplaintData,
-            guestId: guestId || null,
+            imageUrls,
             id: `cmp-${Date.now()}`,
             date: new Date().toISOString(),
             status: 'open',
-            guestName,
-            imageUrls,
+            guestId: currentGuest.id,
+            guestName: currentGuest.name,
+            pgId: currentGuest.pgId,
+            pgName: currentGuest.pgName,
             isPublic: newComplaintData.isPublic ?? true,
         };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        
+        if (isFirebaseConfigured()) {
             const selectedDb = selectOwnerDataDb(user.currentUser);
-            const docRef = doc(selectedDb!, 'users_data', ownerId, 'complaints', newComplaint.id);
+            const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
             await setDoc(docRef, newComplaint);
         }
         
         return newComplaint;
     }
 );
+
+// For owners raising a complaint
+export type NewOwnerComplaintData = Omit<Complaint, 'id' | 'date' | 'status' | 'guestName' | 'pgName'>;
+export const addOwnerComplaint = createAsyncThunk<Complaint, NewOwnerComplaintData, { state: RootState }>(
+    'complaints/addOwnerComplaint',
+    async (newComplaintData, { getState, rejectWithValue }) => {
+        const { user, guests, pgs } = getState();
+        const ownerId = user.currentUser?.id;
+
+        if (!user.currentUser || !ownerId || user.currentUser.role !== 'owner') {
+            return rejectWithValue('Only owners can perform this action.');
+        }
+
+        let guestName = 'Owner Reported';
+        if (newComplaintData.guestId) {
+            const guest = guests.guests.find(g => g.id === newComplaintData.guestId);
+            if (guest) guestName = guest.name;
+        }
+
+        const pgName = pgs.pgs.find(p => p.id === newComplaintData.pgId)?.name || 'Unknown PG';
+
+        const imageUrls = [];
+        if (newComplaintData.imageUrls) {
+            for (const dataUri of newComplaintData.imageUrls) {
+                try {
+                    const url = await uploadDataUriToStorage(dataUri, `complaints/${ownerId}/${Date.now()}`);
+                    imageUrls.push(url);
+                } catch (e) {
+                    console.error("Failed to upload complaint image:", e);
+                }
+            }
+        }
+
+        const newComplaint: Complaint = {
+            ...newComplaintData,
+            imageUrls,
+            id: `cmp-${Date.now()}`,
+            date: new Date().toISOString(),
+            status: 'open',
+            guestName,
+            pgName,
+            guestId: newComplaintData.guestId || null,
+        };
+
+        if (isFirebaseConfigured()) {
+            const selectedDb = selectOwnerDataDb(user.currentUser);
+            const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
+            await setDoc(docRef, newComplaint);
+        }
+        
+        return newComplaint;
+    }
+);
+
 
 export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: RootState }>(
     'complaints/updateComplaint',
@@ -118,6 +163,9 @@ const complaintsSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(addComplaint.fulfilled, (state, action) => {
+                state.complaints.unshift(action.payload);
+            })
+             .addCase(addOwnerComplaint.fulfilled, (state, action) => {
                 state.complaints.unshift(action.payload);
             })
             .addCase(updateComplaint.fulfilled, (state, action) => {

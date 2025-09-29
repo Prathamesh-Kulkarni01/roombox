@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
@@ -20,11 +21,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { addComplaint as addComplaintAction, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
+import { addOwnerComplaint, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 import { canAccess } from '@/lib/permissions'
 import Access from '@/components/ui/PermissionWrapper'
 import { useToast } from '@/hooks/use-toast'
-import { createAndSendNotification } from '@/lib/actions/notificationActions';
+import { createAndSendNotification } from '@/lib/actions/notificationActions'
 import { format, formatDistanceToNow } from 'date-fns'
 import { ThumbsUp, Lightbulb } from 'lucide-react'
 import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
@@ -65,12 +66,19 @@ const ComplaintsView = () => {
     const { guests } = useAppSelector(state => state.guests);
     const { selectedPgId } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
+    const { toast } = useToast();
 
     const [isOwnerComplaintDialogOpen, setIsOwnerComplaintDialogOpen] = useState(false);
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+
 
     const form = useForm<OwnerComplaintFormValues>({
         resolver: zodResolver(ownerComplaintSchema),
-        defaultValues: { pgId: selectedPgId || pgs[0]?.id },
+        defaultValues: { 
+          pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
+          isPublic: false,
+          imageUrls: [],
+        },
     });
     
     const selectedPgForForm = form.watch('pgId');
@@ -80,38 +88,66 @@ const ComplaintsView = () => {
     const floorsInSelectedPg = useMemo(() => pgs.find(p => p.id === selectedPgForForm)?.floors || [], [pgs, selectedPgForForm]);
     const roomsInSelectedFloor = useMemo(() => floorsInSelectedPg.find(f => f.id === selectedFloorForForm)?.rooms || [], [floorsInSelectedPg, selectedFloorForForm]);
     const bedsInSelectedRoom = useMemo(() => roomsInSelectedFloor.find(r => r.id === selectedRoomForForm)?.beds || [], [roomsInSelectedFloor, selectedRoomForForm]);
-    const guestsInSelectedRoom = useMemo(() => guests.filter(g => bedsInSelectedRoom.some(b => b.id === g.bedId)), [guests, bedsInSelectedRoom]);
+    
+    // This now correctly finds guests associated with beds in the selected room
+    const guestsInSelectedRoom = useMemo(() => {
+        if (!selectedRoomForForm) return [];
+        const bedIdsInRoom = new Set(bedsInSelectedRoom.map(b => b.id));
+        return guests.filter(g => g.bedId && bedIdsInRoom.has(g.bedId) && !g.isVacated);
+    }, [guests, bedsInSelectedRoom, selectedRoomForForm]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if ((imagePreviews.length + files.length) > 3) {
+            toast({ variant: 'destructive', title: 'Too many files', description: 'You can upload a maximum of 3 photos.' });
+            return;
+        }
+        const newPreviews: string[] = [];
+        const newImageUrls: string[] = [];
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const dataUri = event.target?.result as string;
+                newPreviews.push(dataUri);
+                newImageUrls.push(dataUri);
+                if (newPreviews.length === files.length) {
+                    setImagePreviews(prev => [...prev, ...newPreviews]);
+                    form.setValue('imageUrls', [...(form.getValues('imageUrls') || []), ...newImageUrls], { shouldValidate: true });
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    };
 
     const handleOwnerComplaintSubmit = async (data: OwnerComplaintFormValues) => {
         if (!currentUser) return;
         
-        const pg = pgs.find(p => p.id === data.pgId);
-
-        const resultAction = await dispatch(addComplaintAction({
-            ...data,
-            guestId: data.guestId || null,
-            pgName: pg?.name || 'Unknown PG',
-        }));
+        const resultAction = await dispatch(addOwnerComplaint(data));
         
-        if (addComplaintAction.fulfilled.match(resultAction)) {
+        if (addOwnerComplaint.fulfilled.match(resultAction)) {
+            const newComplaint = resultAction.payload;
             // Optional: Send notification to the specific tenant if one was selected
-            if (data.guestId) {
-                const guest = guests.find(g => g.id === data.guestId);
+            if (newComplaint.guestId) {
+                const guest = guests.find(g => g.id === newComplaint.guestId);
                 if(guest?.userId) {
                     await createAndSendNotification({
                         ownerId: currentUser.id,
                         notification: {
                             type: 'complaint-update',
                             title: `Your manager logged a complaint`,
-                            message: `An issue was logged for: "${data.description.substring(0, 50)}..."`,
+                            message: `An issue was logged for: "${newComplaint.description.substring(0, 50)}..."`,
                             link: '/tenants/complaints',
                             targetId: guest.userId,
                         }
                     });
                 }
             }
+            toast({ title: 'Complaint Logged', description: 'The new issue has been added to the board.'});
             setIsOwnerComplaintDialogOpen(false);
-            form.reset({ pgId: selectedPgId || pgs[0]?.id });
+            form.reset({ pgId: selectedPgId || pgs[0]?.id, isPublic: false, imageUrls: [] });
+            setImagePreviews([]);
+        } else {
+            toast({ variant: 'destructive', title: 'Failed to log complaint', description: resultAction.payload as string || 'An unknown error occurred.' });
         }
     };
 
@@ -264,6 +300,26 @@ const ComplaintsView = () => {
                     <FormField control={form.control} name="description" render={({ field }) => (
                         <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={4} placeholder="Describe the issue..." {...field}/></FormControl><FormMessage/></FormItem>
                     )}/>
+                     <FormField
+                        control={form.control}
+                        name="imageUrls"
+                        render={() => (
+                            <FormItem>
+                                <FormLabel>Upload Photos (Optional, max 3)</FormLabel>
+                                <FormControl>
+                                    <Input type="file" accept="image/*" multiple onChange={handleFileChange} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                         )}
+                     />
+                     {imagePreviews.length > 0 && (
+                        <div className="flex gap-2">
+                            {imagePreviews.map((src, i) => (
+                                <Image key={i} src={src} alt={`Preview ${i+1}`} width={80} height={80} className="rounded-md object-cover border" />
+                            ))}
+                        </div>
+                     )}
                 </form>
             </Form>
             <DialogFooter>
