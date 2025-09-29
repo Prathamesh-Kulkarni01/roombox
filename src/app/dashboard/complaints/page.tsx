@@ -50,7 +50,6 @@ const ownerComplaintSchema = z.object({
   pgId: z.string().min(1, 'Please select a property.'),
   floorId: z.string().optional(),
   roomId: z.string().optional(),
-  bedId: z.string().optional(),
   guestId: z.string().optional(),
   category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other']),
   description: z.string().min(10, 'A detailed description is required.'),
@@ -139,6 +138,7 @@ const ComplaintsView = () => {
             // Step 2: Prepare data for Redux action (without large data URIs)
             const submissionData = {
                 ...data,
+                guestId: data.guestId === "none" ? undefined : data.guestId,
                 imageUrls: uploadedImageUrls,
             };
 
@@ -316,7 +316,7 @@ const ComplaintsView = () => {
                             <FormItem><FormLabel>Room (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedFloorForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{roomsInSelectedFloor.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
                         )}/>
                         <FormField control={form.control} name="guestId" render={({ field }) => (
-                            <FormItem><FormLabel>For Guest (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedRoomForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="">General / None</SelectItem>{guestsInSelectedRoom.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                            <FormItem><FormLabel>For Guest (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedRoomForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="none">General / None</SelectItem>{guestsInSelectedRoom.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
                         )}/>
                     </div>
                     <FormField control={form.control} name="category" render={({ field }) => (
@@ -341,7 +341,7 @@ const ComplaintsView = () => {
                      {imagePreviews.length > 0 && (
                         <div className="flex gap-2">
                             {imagePreviews.map((src, i) => (
-                                <Image key={i} src={src} alt={`Preview ${i+1}`} width={80} height={80} className="rounded-md object-cover border" />
+                                <Image key={i} src={src} alt={`Preview ${''}${i+1}`} width={80} height={80} className="rounded-md object-cover border" />
                             ))}
                         </div>
                      )}
