@@ -6,7 +6,6 @@ import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { deletePg } from './pgsSlice';
-import { uploadDataUriToStorage } from '../storage';
 import { createAndSendNotification } from '../actions/notificationActions';
 
 interface ComplaintsState {
@@ -30,21 +29,9 @@ export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, 
             return rejectWithValue('User or guest data is incomplete');
         }
 
-        const imageUrls = [];
-        if (newComplaintData.imageUrls) {
-            for (const dataUri of newComplaintData.imageUrls) {
-                try {
-                    const url = await uploadDataUriToStorage(dataUri, `complaints/${ownerId}/${Date.now()}`);
-                    imageUrls.push(url);
-                } catch (e) {
-                    console.error("Failed to upload complaint image:", e);
-                }
-            }
-        }
-        
+        // Image URLs are already uploaded URLs at this point
         const newComplaint: Complaint = { 
             ...newComplaintData,
-            imageUrls,
             id: `cmp-${Date.now()}`,
             date: new Date().toISOString(),
             status: 'open',
@@ -85,21 +72,8 @@ export const addOwnerComplaint = createAsyncThunk<Complaint, NewOwnerComplaintDa
 
         const pgName = pgs.pgs.find(p => p.id === newComplaintData.pgId)?.name || 'Unknown PG';
 
-        const imageUrls = [];
-        if (newComplaintData.imageUrls) {
-            for (const dataUri of newComplaintData.imageUrls) {
-                try {
-                    const url = await uploadDataUriToStorage(dataUri, `complaints/${ownerId}/${Date.now()}`);
-                    imageUrls.push(url);
-                } catch (e) {
-                    console.error("Failed to upload complaint image:", e);
-                }
-            }
-        }
-
         const newComplaint: Complaint = {
             ...newComplaintData,
-            imageUrls,
             id: `cmp-${Date.now()}`,
             date: new Date().toISOString(),
             status: 'open',

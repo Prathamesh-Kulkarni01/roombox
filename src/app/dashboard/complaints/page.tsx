@@ -31,7 +31,8 @@ import { ThumbsUp, Lightbulb } from 'lucide-react'
 import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import Image from 'next/image'
-import { Switch } from '../ui/switch'
+import { Switch } from '@/components/ui/switch'
+import { uploadDataUriToStorage } from '@/lib/storage'
 
 const statusColors: Record<Complaint['status'], string> = {
     open: "bg-red-100 text-red-800",
@@ -89,7 +90,6 @@ const ComplaintsView = () => {
     const roomsInSelectedFloor = useMemo(() => floorsInSelectedPg.find(f => f.id === selectedFloorForForm)?.rooms || [], [floorsInSelectedPg, selectedFloorForForm]);
     const bedsInSelectedRoom = useMemo(() => roomsInSelectedFloor.find(r => r.id === selectedRoomForForm)?.beds || [], [roomsInSelectedFloor, selectedRoomForForm]);
     
-    // This now correctly finds guests associated with beds in the selected room
     const guestsInSelectedRoom = useMemo(() => {
         if (!selectedRoomForForm) return [];
         const bedIdsInRoom = new Set(bedsInSelectedRoom.map(b => b.id));
@@ -121,35 +121,60 @@ const ComplaintsView = () => {
 
     const handleOwnerComplaintSubmit = async (data: OwnerComplaintFormValues) => {
         if (!currentUser) return;
-        
-        const resultAction = await dispatch(addOwnerComplaint(data));
-        
-        if (addOwnerComplaint.fulfilled.match(resultAction)) {
-            const newComplaint = resultAction.payload;
-            // Optional: Send notification to the specific tenant if one was selected
-            if (newComplaint.guestId) {
-                const guest = guests.find(g => g.id === newComplaint.guestId);
-                if(guest?.userId) {
-                    await createAndSendNotification({
-                        ownerId: currentUser.id,
-                        notification: {
-                            type: 'complaint-update',
-                            title: `Your manager logged a complaint`,
-                            message: `An issue was logged for: "${newComplaint.description.substring(0, 50)}..."`,
-                            link: '/tenants/complaints',
-                            targetId: guest.userId,
-                        }
-                    });
+
+        try {
+            // Step 1: Upload images if they exist and are data URIs
+            const uploadedImageUrls = [];
+            if (data.imageUrls && data.imageUrls.length > 0) {
+                for (const dataUri of data.imageUrls) {
+                    if (dataUri.startsWith('data:')) {
+                        const url = await uploadDataUriToStorage(dataUri, `complaints/${currentUser.id}/${Date.now()}`);
+                        uploadedImageUrls.push(url);
+                    } else {
+                        uploadedImageUrls.push(dataUri); // It's already a URL
+                    }
                 }
             }
-            toast({ title: 'Complaint Logged', description: 'The new issue has been added to the board.'});
-            setIsOwnerComplaintDialogOpen(false);
-            form.reset({ pgId: selectedPgId || pgs[0]?.id, isPublic: false, imageUrls: [] });
-            setImagePreviews([]);
-        } else {
-            toast({ variant: 'destructive', title: 'Failed to log complaint', description: resultAction.payload as string || 'An unknown error occurred.' });
+
+            // Step 2: Prepare data for Redux action (without large data URIs)
+            const submissionData = {
+                ...data,
+                imageUrls: uploadedImageUrls,
+            };
+
+            // Step 3: Dispatch the Redux action
+            const resultAction = await dispatch(addOwnerComplaint(submissionData));
+            
+            if (addOwnerComplaint.fulfilled.match(resultAction)) {
+                const newComplaint = resultAction.payload;
+                // Optional: Send notification to the specific tenant if one was selected
+                if (newComplaint.guestId) {
+                    const guest = guests.find(g => g.id === newComplaint.guestId);
+                    if(guest?.userId) {
+                        await createAndSendNotification({
+                            ownerId: currentUser.id,
+                            notification: {
+                                type: 'complaint-update',
+                                title: `Your manager logged a complaint`,
+                                message: `An issue was logged for: "${newComplaint.description.substring(0, 50)}..."`,
+                                link: '/tenants/complaints',
+                                targetId: guest.userId,
+                            }
+                        });
+                    }
+                }
+                toast({ title: 'Complaint Logged', description: 'The new issue has been added to the board.'});
+                setIsOwnerComplaintDialogOpen(false);
+                form.reset({ pgId: selectedPgId || pgs[0]?.id, isPublic: false, imageUrls: [] });
+                setImagePreviews([]);
+            } else {
+                throw new Error(resultAction.payload as string || 'An unknown error occurred.');
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Failed to log complaint', description: error.message });
         }
     };
+
 
     const filteredComplaints = useMemo(() => {
         if (!selectedPgId) return complaints;
