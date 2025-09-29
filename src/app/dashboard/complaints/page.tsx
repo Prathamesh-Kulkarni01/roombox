@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShieldAlert, Send, PlusCircle, Image as ImageIcon, XCircle } from "lucide-react"
+import { ShieldAlert, Send, PlusCircle, Image as ImageIcon, XCircle, Users, Home, Building as BuildingIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Complaint } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,18 +21,20 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { addOwnerComplaint, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
+import { addOwnerComplaint } from '@/lib/slices/complaintsSlice'
 import { canAccess } from '@/lib/permissions'
 import Access from '@/components/ui/PermissionWrapper'
 import { useToast } from '@/hooks/use-toast'
 import { createAndSendNotification } from '@/lib/actions/notificationActions'
-import { format, formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import { ThumbsUp, Lightbulb } from 'lucide-react'
 import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import Image from 'next/image'
 import { Switch } from '@/components/ui/switch'
 import { uploadDataUriToStorage } from '@/lib/storage'
+import MultiSelect from '@/components/dashboard/add-room/MultiSelect'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 const statusColors: Record<Complaint['status'], string> = {
     open: "bg-red-100 text-red-800",
@@ -47,17 +49,16 @@ const noticeSchema = z.object({
 type NoticeFormValues = z.infer<typeof noticeSchema>
 
 const ownerComplaintSchema = z.object({
-  pgId: z.string().min(1, 'Please select a property.'),
-  floorId: z.string().optional(),
-  roomId: z.string().optional(),
-  guestId: z.string().optional(),
+  pgIds: z.array(z.string()).min(1, 'Please select at least one property.'),
+  targetType: z.enum(['general', 'specific']).default('general'),
+  roomIds: z.array(z.string()).optional(),
+  guestIds: z.array(z.string()).optional(),
   category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other']),
   description: z.string().min(10, 'A detailed description is required.'),
   imageUrls: z.array(z.string()).optional(),
   isPublic: z.boolean().default(true),
 });
 type OwnerComplaintFormValues = z.infer<typeof ownerComplaintSchema>;
-
 
 const ComplaintsView = ({onRaiseComplaintClick}: {onRaiseComplaintClick: () => void}) => {
     const dispatch = useAppDispatch();
@@ -112,7 +113,7 @@ const ComplaintsView = ({onRaiseComplaintClick}: {onRaiseComplaintClick: () => v
                             <TableBody>
                                 {filteredComplaints.map((complaint) => (
                                     <TableRow key={complaint.id}>
-                                        <TableCell>{format(new Date(complaint.date), 'dd MMM, yyyy')}</TableCell>
+                                        <TableCell>{new Date(complaint.date).toLocaleDateString()}</TableCell>
                                         <TableCell>{complaint.pgName || pgs.find(p=>p.id === complaint.pgId)?.name}</TableCell>
                                         <TableCell className="text-xs">
                                           {complaint.floorId && <div>Floor: {pgs.flatMap(p=>p.floors || []).find(f=>f.id === complaint.floorId)?.name}</div>}
@@ -153,7 +154,7 @@ const ComplaintsView = ({onRaiseComplaintClick}: {onRaiseComplaintClick: () => v
                                         <p className="font-bold">{complaint.guestName}</p>
                                         <p className="text-sm text-muted-foreground">{complaint.pgName || pgs.find(p => p.id === complaint.pgId)?.name}</p>
                                     </div>
-                                    <p className="text-sm text-muted-foreground">{format(new Date(complaint.date), 'dd MMM')}</p>
+                                    <p className="text-sm text-muted-foreground">{formatDistanceToNow(new Date(complaint.date), { addSuffix: true })}</p>
                                 </div>
                                 <p className="text-sm">{complaint.description}</p>
                                 <div className="flex justify-between items-center text-sm">
@@ -288,26 +289,32 @@ export default function ComplaintsDashboardPage() {
     
     const form = useForm<OwnerComplaintFormValues>({
         resolver: zodResolver(ownerComplaintSchema),
-        defaultValues: { 
-          pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
+        defaultValues: {
+          pgIds: selectedPgId ? [selectedPgId] : [],
+          targetType: 'general',
           isPublic: false,
           imageUrls: [],
         },
     });
 
-    const selectedPgForForm = form.watch('pgId');
-    const selectedFloorForForm = form.watch('floorId');
-    const selectedRoomForForm = form.watch('roomId');
+    const { watch, setValue } = form;
+    const selectedPgIds = watch('pgIds', []);
+    const targetType = watch('targetType');
 
-    const floorsInSelectedPg = useMemo(() => pgs.find(p => p.id === selectedPgForForm)?.floors || [], [pgs, selectedPgForForm]);
-    const roomsInSelectedFloor = useMemo(() => floorsInSelectedPg.find(f => f.id === selectedFloorForForm)?.rooms || [], [floorsInSelectedPg, selectedFloorForForm]);
-    const bedsInSelectedRoom = useMemo(() => roomsInSelectedFloor.find(r => r.id === selectedRoomForForm)?.beds || [], [roomsInSelectedFloor, selectedRoomForForm]);
-    
-    const guestsInSelectedRoom = useMemo(() => {
-        if (!selectedRoomForForm) return [];
-        const bedIdsInRoom = new Set(bedsInSelectedRoom.map(b => b.id));
-        return guests.filter(g => g.bedId && bedIdsInRoom.has(g.bedId) && !g.isVacated);
-    }, [guests, bedsInSelectedRoom, selectedRoomForForm]);
+    const pgOptions = useMemo(() => pgs.map(pg => ({ id: pg.id, label: pg.name })), [pgs]);
+
+    const roomOptions = useMemo(() => {
+        return pgs
+            .filter(pg => selectedPgIds.includes(pg.id))
+            .flatMap(pg => pg.floors?.flatMap(f => f.rooms.map(r => ({ id: r.id, label: `${r.name} (${pg.name})` }))) || []);
+    }, [pgs, selectedPgIds]);
+
+    const guestOptions = useMemo(() => {
+        return guests
+            .filter(g => selectedPgIds.includes(g.pgId) && !g.isVacated)
+            .map(g => ({ id: g.id, label: `${g.name} (${g.pgName})` }));
+    }, [guests, selectedPgIds]);
+
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -316,16 +323,14 @@ export default function ComplaintsDashboardPage() {
             return;
         }
         const newPreviews: string[] = [];
-        const newImageUrls: string[] = [];
         files.forEach(file => {
             const reader = new FileReader();
             reader.onload = (event) => {
                 const dataUri = event.target?.result as string;
                 newPreviews.push(dataUri);
-                newImageUrls.push(dataUri);
                 if (newPreviews.length === files.length) {
                     setImagePreviews(prev => [...prev, ...newPreviews]);
-                    form.setValue('imageUrls', [...(form.getValues('imageUrls') || []), ...newImageUrls], { shouldValidate: true });
+                    setValue('imageUrls', [...(form.getValues('imageUrls') || []), ...newPreviews], { shouldValidate: true });
                 }
             };
             reader.readAsDataURL(file);
@@ -335,53 +340,36 @@ export default function ComplaintsDashboardPage() {
     const handleRemoveImage = (indexToRemove: number) => {
         setImagePreviews(prev => prev.filter((_, index) => index !== indexToRemove));
         const currentUrls = form.getValues('imageUrls') || [];
-        form.setValue('imageUrls', currentUrls.filter((_, index) => index !== indexToRemove), { shouldValidate: true });
+        setValue('imageUrls', currentUrls.filter((_, index) => index !== indexToRemove), { shouldValidate: true });
     };
 
     const handleOwnerComplaintSubmit = async (data: OwnerComplaintFormValues) => {
         if (!currentUser) return;
     
         try {
-            const uploadedImageUrls = [];
+            let uploadedImageUrls: string[] = [];
             if (data.imageUrls && data.imageUrls.length > 0) {
-                for (const dataUri of data.imageUrls) {
-                    if (dataUri.startsWith('data:')) {
-                        const url = await uploadDataUriToStorage(dataUri, `complaints/${currentUser.id}/${Date.now()}`);
-                        uploadedImageUrls.push(url);
-                    } else {
-                        uploadedImageUrls.push(dataUri);
-                    }
-                }
+                 uploadedImageUrls = await Promise.all(
+                    data.imageUrls.map(uri => {
+                        if (uri.startsWith('data:')) {
+                            return uploadDataUriToStorage(uri, `complaints/${currentUser.id}/${Date.now()}`);
+                        }
+                        return Promise.resolve(uri);
+                    })
+                );
             }
     
             const submissionData = {
                 ...data,
-                guestId: data.guestId === "none" ? undefined : data.guestId,
                 imageUrls: uploadedImageUrls,
             };
     
             const resultAction = await dispatch(addOwnerComplaint(submissionData));
             
             if (addOwnerComplaint.fulfilled.match(resultAction)) {
-                const newComplaint = resultAction.payload;
-                if (newComplaint.guestId) {
-                    const guest = guests.find(g => g.id === newComplaint.guestId);
-                    if(guest?.userId) {
-                        await createAndSendNotification({
-                            ownerId: currentUser.id,
-                            notification: {
-                                type: 'complaint-update',
-                                title: `Your manager logged a complaint`,
-                                message: `An issue was logged for: "${newComplaint.description.substring(0, 50)}..."`,
-                                link: '/tenants/complaints',
-                                targetId: guest.userId,
-                            }
-                        });
-                    }
-                }
-                toast({ title: 'Complaint Logged', description: 'The new issue has been added to the board.'});
+                toast({ title: 'Complaint(s) Logged', description: 'The new issue has been added to the board.'});
                 setIsOwnerComplaintDialogOpen(false);
-                form.reset({ pgId: selectedPgId || pgs[0]?.id, isPublic: false, imageUrls: [] });
+                form.reset({ pgIds: selectedPgId ? [selectedPgId] : [], targetType: 'general', isPublic: false, imageUrls: [] });
                 setImagePreviews([]);
             } else {
                 throw new Error(resultAction.payload as string || 'An unknown error occurred.');
@@ -393,10 +381,10 @@ export default function ComplaintsDashboardPage() {
     
     const handleRaiseComplaintClick = () => {
         form.reset({
-            pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
-            floorId: undefined,
-            roomId: undefined,
-            guestId: undefined,
+            pgIds: selectedPgId ? [selectedPgId] : [],
+            targetType: 'general',
+            roomIds: [],
+            guestIds: [],
             category: undefined,
             description: '',
             imageUrls: [],
@@ -456,28 +444,62 @@ export default function ComplaintsDashboardPage() {
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Raise a New Complaint</DialogTitle>
-                    <DialogDescription>Log an issue for a property, room, or specific guest.</DialogDescription>
+                    <DialogDescription>Log an issue for one or more properties, rooms, or guests.</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form id="owner-complaint-form" onSubmit={form.handleSubmit(handleOwnerComplaintSubmit)} className="space-y-4 pt-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="pgId" render={({ field }) => (
-                                <FormItem><FormLabel>Property</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                            )}/>
-                            <FormField control={form.control} name="floorId" render={({ field }) => (
-                                <FormItem><FormLabel>Floor (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{floorsInSelectedPg.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                            )}/>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="roomId" render={({ field }) => (
-                                <FormItem><FormLabel>Room (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedFloorForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{roomsInSelectedFloor.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                            )}/>
-                            <FormField control={form.control} name="guestId" render={({ field }) => (
-                                <FormItem><FormLabel>For Guest (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedRoomForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="none">General / None</SelectItem>{guestsInSelectedRoom.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                            )}/>
-                        </div>
+                        <FormField
+                            control={form.control}
+                            name="pgIds"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Select Properties</FormLabel>
+                                    <MultiSelect options={pgOptions} selected={field.value} onChange={field.onChange} placeholder="Choose properties..."/>
+                                    <FormMessage/>
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="targetType"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Complaint For?</FormLabel>
+                                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="general" /></FormControl><FormLabel className="font-normal flex items-center gap-2"><BuildingIcon className="w-4 h-4"/>General / Property-wide</FormLabel></FormItem>
+                                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific" /></FormControl><FormLabel className="font-normal flex items-center gap-2"><Users className="w-4 h-4"/>Specific Rooms/Guests</FormLabel></FormItem>
+                                    </RadioGroup>
+                                </FormItem>
+                            )}
+                        />
+                         {targetType === 'specific' && (
+                             <div className="pl-4 border-l-2 space-y-4">
+                                 <FormField
+                                    control={form.control}
+                                    name="roomIds"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Select Rooms (Optional)</FormLabel>
+                                            <MultiSelect options={roomOptions} selected={field.value || []} onChange={field.onChange} placeholder="Choose rooms..."/>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )}
+                                />
+                                 <FormField
+                                    control={form.control}
+                                    name="guestIds"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Select Guests (Optional)</FormLabel>
+                                            <MultiSelect options={guestOptions} selected={field.value || []} onChange={field.onChange} placeholder="Choose guests..."/>
+                                            <FormMessage/>
+                                        </FormItem>
+                                    )}
+                                />
+                             </div>
+                        )}
                         <FormField control={form.control} name="category" render={({ field }) => (
-                            <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{['maintenance', 'cleanliness', 'wifi', 'food', 'other'].map(c=><SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                            <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a category..."/></SelectTrigger></FormControl><SelectContent>{['maintenance', 'cleanliness', 'wifi', 'food', 'other'].map(c=><SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
                         )}/>
                         <FormField control={form.control} name="description" render={({ field }) => (
                             <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={4} placeholder="Describe the issue..." {...field}/></FormControl><FormMessage/></FormItem>
@@ -499,7 +521,7 @@ export default function ComplaintsDashboardPage() {
                             <div className="flex gap-2 flex-wrap">
                                 {imagePreviews.map((src, i) => (
                                     <div key={i} className="relative w-20 h-20">
-                                        <Image src={src} alt={`Preview ${i+1}`} fill sizes="80px" className="rounded-md object-cover border" />
+                                        <Image src={src} alt={`Preview ${i+1}`} layout="fill" objectFit="cover" className="rounded-md border" />
                                         <Button
                                             type="button"
                                             variant="destructive"

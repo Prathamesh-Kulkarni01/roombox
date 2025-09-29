@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 
 export interface Option {
   id: string;
@@ -44,11 +45,17 @@ export default function MultiSelect({ options, selected, onChange, className, pl
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between font-normal", className)}
+          className={cn("w-full justify-between font-normal h-auto min-h-10", className)}
         >
-            <span className="truncate">
-          {selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder}
-            </span>
+            <div className="flex gap-1 flex-wrap items-center">
+                {selectedLabels.length > 0 ? (
+                    selectedLabels.map(label => (
+                        <Badge key={label} variant="secondary" className="font-normal">{label}</Badge>
+                    ))
+                ) : (
+                    <span className="text-muted-foreground">{placeholder}</span>
+                )}
+            </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

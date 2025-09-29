@@ -3,7 +3,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Complaint } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { deletePg } from './pgsSlice';
 import { createAndSendNotification } from '../actions/notificationActions';
@@ -52,11 +52,21 @@ export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, 
     }
 );
 
-// For owners raising a complaint
-export type NewOwnerComplaintData = Omit<Complaint, 'id' | 'date' | 'status' | 'guestName' | 'pgName'>;
-export const addOwnerComplaint = createAsyncThunk<Complaint, NewOwnerComplaintData, { state: RootState }>(
+// For owners raising a complaint, now supports multiple entities
+export type NewOwnerComplaintData = {
+    pgIds: string[];
+    targetType: 'general' | 'specific';
+    roomIds?: string[];
+    guestIds?: string[];
+    category: 'maintenance' | 'cleanliness' | 'wifi' | 'food' | 'other';
+    description: string;
+    imageUrls?: string[];
+    isPublic: boolean;
+};
+
+export const addOwnerComplaint = createAsyncThunk<Complaint[], NewOwnerComplaintData, { state: RootState }>(
     'complaints/addOwnerComplaint',
-    async (newComplaintData, { getState, rejectWithValue }) => {
+    async (complaintData, { getState, rejectWithValue }) => {
         const { user, guests, pgs } = getState();
         const ownerId = user.currentUser?.id;
 
@@ -64,31 +74,99 @@ export const addOwnerComplaint = createAsyncThunk<Complaint, NewOwnerComplaintDa
             return rejectWithValue('Only owners can perform this action.');
         }
 
-        let guestName = 'Owner Reported';
-        if (newComplaintData.guestId) {
-            const guest = guests.guests.find(g => g.id === newComplaintData.guestId);
-            if (guest) guestName = guest.name;
-        }
+        const selectedDb = selectOwnerDataDb(user.currentUser);
+        const batch = writeBatch(selectedDb);
+        const createdComplaints: Complaint[] = [];
 
-        const pgName = pgs.pgs.find(p => p.id === newComplaintData.pgId)?.name || 'Unknown PG';
-
-        const newComplaint: Complaint = {
-            ...newComplaintData,
-            id: `cmp-${Date.now()}`,
-            date: new Date().toISOString(),
-            status: 'open',
-            guestName,
-            pgName,
-            guestId: newComplaintData.guestId || null,
+        const createComplaintObject = (
+            pgId: string, 
+            guestId: string | null, 
+            roomId: string | null, 
+            floorId: string | null
+        ): Complaint => {
+            const guestName = guestId ? (guests.guests.find(g => g.id === guestId)?.name || 'Unknown Guest') : 'Owner Reported';
+            const pgName = pgs.pgs.find(p => p.id === pgId)?.name || 'Unknown PG';
+            
+            return {
+                id: `cmp-${Date.now()}-${Math.random()}`,
+                date: new Date().toISOString(),
+                status: 'open',
+                pgId,
+                pgName,
+                guestId,
+                guestName,
+                roomId: roomId || undefined,
+                floorId: floorId || undefined,
+                category: complaintData.category,
+                description: complaintData.description,
+                imageUrls: complaintData.imageUrls,
+                isPublic: complaintData.isPublic,
+            };
         };
 
-        if (isFirebaseConfigured()) {
-            const selectedDb = selectOwnerDataDb(user.currentUser);
-            const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
-            await setDoc(docRef, newComplaint);
+        if (complaintData.targetType === 'general') {
+            for (const pgId of complaintData.pgIds) {
+                const newComplaint = createComplaintObject(pgId, null, null, null);
+                const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
+                batch.set(docRef, newComplaint);
+                createdComplaints.push(newComplaint);
+            }
+        } else { // 'specific'
+            const handledGuests = new Set<string>();
+
+            // Handle specific guests first
+            if (complaintData.guestIds && complaintData.guestIds.length > 0) {
+                for (const guestId of complaintData.guestIds) {
+                    const guest = guests.guests.find(g => g.id === guestId);
+                    if (guest && complaintData.pgIds.includes(guest.pgId)) {
+                        const pg = pgs.pgs.find(p => p.id === guest.pgId);
+                        const room = pg?.floors?.flatMap(f => f.rooms).find(r => r.beds.some(b => b.guestId === guest.id));
+                        const floor = pg?.floors?.find(f => f.id === room?.floorId);
+                        
+                        const newComplaint = createComplaintObject(guest.pgId, guestId, room?.id || null, floor?.id || null);
+                        const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
+                        batch.set(docRef, newComplaint);
+                        createdComplaints.push(newComplaint);
+                        handledGuests.add(guestId);
+                    }
+                }
+            }
+
+            // Handle specific rooms, but only for guests not already covered
+            if (complaintData.roomIds && complaintData.roomIds.length > 0) {
+                for (const roomId of complaintData.roomIds) {
+                    const pg = pgs.pgs.find(p => p.floors?.some(f => f.rooms.some(r => r.id === roomId)));
+                    const floor = pg?.floors?.find(f => f.rooms.some(r => r.id === roomId));
+                    
+                    if (pg && complaintData.pgIds.includes(pg.id)) {
+                        const guestsInRoom = guests.guests.filter(g => g.roomId === roomId && !g.isVacated && !handledGuests.has(g.id));
+                        if(guestsInRoom.length > 0) {
+                             for (const guest of guestsInRoom) {
+                                const newComplaint = createComplaintObject(pg.id, guest.id, roomId, floor?.id || null);
+                                const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
+                                batch.set(docRef, newComplaint);
+                                createdComplaints.push(newComplaint);
+                                handledGuests.add(guest.id);
+                            }
+                        } else {
+                            // Room-specific complaint with no active guest
+                            const newComplaint = createComplaintObject(pg.id, null, roomId, floor?.id || null);
+                            const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
+                            batch.set(docRef, newComplaint);
+                            createdComplaints.push(newComplaint);
+                        }
+                    }
+                }
+            }
         }
         
-        return newComplaint;
+        if (createdComplaints.length === 0) {
+            return rejectWithValue("No valid targets found for the complaint.");
+        }
+        
+        await batch.commit();
+        
+        return createdComplaints;
     }
 );
 
@@ -139,8 +217,8 @@ const complaintsSlice = createSlice({
             .addCase(addComplaint.fulfilled, (state, action) => {
                 state.complaints.unshift(action.payload);
             })
-             .addCase(addOwnerComplaint.fulfilled, (state, action) => {
-                state.complaints.unshift(action.payload);
+            .addCase(addOwnerComplaint.fulfilled, (state, action) => {
+                state.complaints.unshift(...action.payload);
             })
             .addCase(updateComplaint.fulfilled, (state, action) => {
                 const index = state.complaints.findIndex(c => c.id === action.payload.id);
