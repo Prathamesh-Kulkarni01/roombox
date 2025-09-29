@@ -17,7 +17,7 @@ import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateG
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
 import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
-import { sanitizeObjectForFirebase } from "@/lib/utils"
+import { sanitizeObjectForFirebase, calculateFirstDueDate } from "@/lib/utils"
 
 const addGuestSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -182,23 +182,12 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsEditGuestDialogOpen(true);
   };
 
-  const calculateFirstDueDate = (moveInDate: Date, unit: RentCycleUnit, value: number) => {
-    const addFn = {
-        months: addMonths,
-        weeks: addWeeks,
-        days: addDays,
-        hours: addHours,
-        minutes: addMinutes,
-    }[unit];
-    return addFn(moveInDate, value);
-  };
-
   const handleAddGuestSubmit = (values: z.infer<typeof addGuestSchema>) => {
     if (!selectedBedForGuestAdd) return;
-    console.log({values})
+
     const { pg, bed } = selectedBedForGuestAdd;
-    
-    const firstDueDate = calculateFirstDueDate(new Date(values.moveInDate), values.rentCycleUnit, values.rentCycleValue);
+    const moveInDate = new Date(values.moveInDate);
+    const firstDueDate = calculateFirstDueDate(moveInDate, values.rentCycleUnit, values.rentCycleValue, moveInDate.getDate());
     
     const guestData: Omit<Guest, 'id'> = {
       name: values.name,
@@ -217,6 +206,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       noticePeriodDays: 30,
       rentCycleUnit: values.rentCycleUnit,
       rentCycleValue: values.rentCycleValue,
+      billingAnchorDay: moveInDate.getDate(),
       isVacated: false,
     };
     
@@ -252,7 +242,24 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       const updatedGuest = produce(guest, draft => {
           if (!draft.paymentHistory) draft.paymentHistory = [];
           draft.paymentHistory.push(newPayment);
-          draft.rentPaidAmount = (draft.rentPaidAmount || 0) + values.amountPaid;
+
+          const totalPaidInCycle = (draft.rentPaidAmount || 0) + values.amountPaid;
+          const balanceBf = draft.balanceBroughtForward || 0;
+          const chargesDue = (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+          const totalBillForCycle = balanceBf + draft.rentAmount + chargesDue;
+
+          if (totalPaidInCycle >= totalBillForCycle) {
+              // Full payment logic
+              draft.rentStatus = 'paid';
+              draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle; // Carry over any extra amount
+              draft.rentPaidAmount = 0; // Reset for next cycle
+              draft.additionalCharges = []; // Clear charges for the paid cycle
+              draft.dueDate = format(calculateFirstDueDate(new Date(draft.dueDate), draft.rentCycleUnit, draft.rentCycleValue, draft.billingAnchorDay), 'yyyy-MM-dd');
+          } else {
+              // Partial payment logic
+              draft.rentStatus = 'partial';
+              draft.rentPaidAmount = totalPaidInCycle;
+          }
       });
       
       dispatch(updateGuestAction({ updatedGuest }));
@@ -564,5 +571,7 @@ Thank you!`;
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
 
   
+
+    
 
     
