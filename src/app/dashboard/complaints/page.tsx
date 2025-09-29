@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
@@ -255,7 +254,7 @@ const ComplaintsView = () => {
                         )}/>
                     </div>
                     <FormField control={form.control} name="category" render={({ field }) => (
-                        <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{Object.keys(statusColors).map(c=><SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}<SelectItem value="other">Other</SelectItem></SelectContent></Select><FormMessage/></FormItem>
+                        <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{['maintenance', 'cleanliness', 'wifi', 'food', 'other'].map(c=><SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
                     )}/>
                     <FormField control={form.control} name="description" render={({ field }) => (
                         <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={4} placeholder="Describe the issue..." {...field}/></FormControl><FormMessage/></FormItem>

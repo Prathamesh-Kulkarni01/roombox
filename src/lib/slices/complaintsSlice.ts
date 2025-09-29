@@ -25,15 +25,21 @@ export const addComplaint = createAsyncThunk<Complaint, NewComplaintData, { stat
         if (!ownerId) return rejectWithValue('Owner not found');
         
         let guestName = 'Owner Reported';
-        if (newComplaintData.guestId) {
+        let guestId = newComplaintData.guestId;
+        if (user.currentUser.role === 'tenant') {
+            const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
+            if (currentGuest) {
+                guestName = currentGuest.name;
+                guestId = currentGuest.id;
+            }
+        } else if (newComplaintData.guestId) {
             const guest = guests.guests.find(g => g.id === newComplaintData.guestId);
             if (guest) guestName = guest.name;
-        } else if (user.currentUser.role === 'tenant') {
-            guestName = user.currentUser.name;
         }
 
         const newComplaint: Complaint = { 
             ...newComplaintData,
+            guestId: guestId || null,
             id: `cmp-${Date.now()}`,
             date: new Date().toISOString(),
             status: 'open',
