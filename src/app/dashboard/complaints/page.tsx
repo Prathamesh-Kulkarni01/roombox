@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShieldAlert, Send, PlusCircle, Image as ImageIcon } from "lucide-react"
+import { ShieldAlert, Send, PlusCircle, Image as ImageIcon, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Complaint } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -117,12 +117,17 @@ const ComplaintsView = () => {
             reader.readAsDataURL(file);
         });
     };
+    
+    const handleRemoveImage = (indexToRemove: number) => {
+        setImagePreviews(prev => prev.filter((_, index) => index !== indexToRemove));
+        const currentUrls = form.getValues('imageUrls') || [];
+        form.setValue('imageUrls', currentUrls.filter((_, index) => index !== indexToRemove), { shouldValidate: true });
+    };
 
     const handleOwnerComplaintSubmit = async (data: OwnerComplaintFormValues) => {
         if (!currentUser) return;
 
         try {
-            // Step 1: Upload images if they exist and are data URIs
             const uploadedImageUrls = [];
             if (data.imageUrls && data.imageUrls.length > 0) {
                 for (const dataUri of data.imageUrls) {
@@ -130,24 +135,21 @@ const ComplaintsView = () => {
                         const url = await uploadDataUriToStorage(dataUri, `complaints/${currentUser.id}/${Date.now()}`);
                         uploadedImageUrls.push(url);
                     } else {
-                        uploadedImageUrls.push(dataUri); // It's already a URL
+                        uploadedImageUrls.push(dataUri);
                     }
                 }
             }
 
-            // Step 2: Prepare data for Redux action (without large data URIs)
             const submissionData = {
                 ...data,
                 guestId: data.guestId === "none" ? undefined : data.guestId,
                 imageUrls: uploadedImageUrls,
             };
 
-            // Step 3: Dispatch the Redux action
             const resultAction = await dispatch(addOwnerComplaint(submissionData));
             
             if (addOwnerComplaint.fulfilled.match(resultAction)) {
                 const newComplaint = resultAction.payload;
-                // Optional: Send notification to the specific tenant if one was selected
                 if (newComplaint.guestId) {
                     const guest = guests.find(g => g.id === newComplaint.guestId);
                     if(guest?.userId) {
@@ -189,7 +191,13 @@ const ComplaintsView = () => {
     }
 
     return (
-      <Dialog open={isOwnerComplaintDialogOpen} onOpenChange={setIsOwnerComplaintDialogOpen}>
+      <Dialog open={isOwnerComplaintDialogOpen} onOpenChange={(open) => {
+          setIsOwnerComplaintDialogOpen(open);
+          if (!open) {
+              setImagePreviews([]); // Clear previews on close
+              form.reset({ pgId: selectedPgId || pgs[0]?.id, isPublic: false, imageUrls: [] });
+          }
+      }}>
         <Card>
             <CardHeader className="flex flex-row items-start justify-between">
                 <div>
@@ -339,9 +347,20 @@ const ComplaintsView = () => {
                          )}
                      />
                      {imagePreviews.length > 0 && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                             {imagePreviews.map((src, i) => (
-                                <Image key={i} src={src} alt={`Preview ${''}${i+1}`} width={80} height={80} className="rounded-md object-cover border" />
+                                <div key={i} className="relative w-20 h-20">
+                                    <Image src={src} alt={`Preview ${i+1}`} fill sizes="80px" className="rounded-md object-cover border" />
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                                        onClick={() => handleRemoveImage(i)}
+                                    >
+                                        <XCircle className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             ))}
                         </div>
                      )}
