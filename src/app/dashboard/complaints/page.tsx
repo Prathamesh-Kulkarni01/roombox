@@ -59,124 +59,12 @@ const ownerComplaintSchema = z.object({
 type OwnerComplaintFormValues = z.infer<typeof ownerComplaintSchema>;
 
 
-const ComplaintsView = () => {
+const ComplaintsView = ({onRaiseComplaintClick}: {onRaiseComplaintClick: () => void}) => {
     const dispatch = useAppDispatch();
     const { complaints } = useAppSelector(state => state.complaints);
     const { pgs } = useAppSelector(state => state.pgs);
-    const { guests } = useAppSelector(state => state.guests);
     const { selectedPgId } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
-    const { toast } = useToast();
-
-    const [isOwnerComplaintDialogOpen, setIsOwnerComplaintDialogOpen] = useState(false);
-    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-
-
-    const form = useForm<OwnerComplaintFormValues>({
-        resolver: zodResolver(ownerComplaintSchema),
-        defaultValues: { 
-          pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
-          isPublic: false,
-          imageUrls: [],
-        },
-    });
-    
-    const selectedPgForForm = form.watch('pgId');
-    const selectedFloorForForm = form.watch('floorId');
-    const selectedRoomForForm = form.watch('roomId');
-
-    const floorsInSelectedPg = useMemo(() => pgs.find(p => p.id === selectedPgForForm)?.floors || [], [pgs, selectedPgForForm]);
-    const roomsInSelectedFloor = useMemo(() => floorsInSelectedPg.find(f => f.id === selectedFloorForForm)?.rooms || [], [floorsInSelectedPg, selectedFloorForForm]);
-    const bedsInSelectedRoom = useMemo(() => roomsInSelectedFloor.find(r => r.id === selectedRoomForForm)?.beds || [], [roomsInSelectedFloor, selectedRoomForForm]);
-    
-    const guestsInSelectedRoom = useMemo(() => {
-        if (!selectedRoomForForm) return [];
-        const bedIdsInRoom = new Set(bedsInSelectedRoom.map(b => b.id));
-        return guests.filter(g => g.bedId && bedIdsInRoom.has(g.bedId) && !g.isVacated);
-    }, [guests, bedsInSelectedRoom, selectedRoomForForm]);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []);
-        if ((imagePreviews.length + files.length) > 3) {
-            toast({ variant: 'destructive', title: 'Too many files', description: 'You can upload a maximum of 3 photos.' });
-            return;
-        }
-        const newPreviews: string[] = [];
-        const newImageUrls: string[] = [];
-        files.forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const dataUri = event.target?.result as string;
-                newPreviews.push(dataUri);
-                newImageUrls.push(dataUri);
-                if (newPreviews.length === files.length) {
-                    setImagePreviews(prev => [...prev, ...newPreviews]);
-                    form.setValue('imageUrls', [...(form.getValues('imageUrls') || []), ...newImageUrls], { shouldValidate: true });
-                }
-            };
-            reader.readAsDataURL(file);
-        });
-    };
-    
-    const handleRemoveImage = (indexToRemove: number) => {
-        setImagePreviews(prev => prev.filter((_, index) => index !== indexToRemove));
-        const currentUrls = form.getValues('imageUrls') || [];
-        form.setValue('imageUrls', currentUrls.filter((_, index) => index !== indexToRemove), { shouldValidate: true });
-    };
-
-    const handleOwnerComplaintSubmit = async (data: OwnerComplaintFormValues) => {
-        if (!currentUser) return;
-
-        try {
-            const uploadedImageUrls = [];
-            if (data.imageUrls && data.imageUrls.length > 0) {
-                for (const dataUri of data.imageUrls) {
-                    if (dataUri.startsWith('data:')) {
-                        const url = await uploadDataUriToStorage(dataUri, `complaints/${currentUser.id}/${Date.now()}`);
-                        uploadedImageUrls.push(url);
-                    } else {
-                        uploadedImageUrls.push(dataUri);
-                    }
-                }
-            }
-
-            const submissionData = {
-                ...data,
-                guestId: data.guestId === "none" ? undefined : data.guestId,
-                imageUrls: uploadedImageUrls,
-            };
-
-            const resultAction = await dispatch(addOwnerComplaint(submissionData));
-            
-            if (addOwnerComplaint.fulfilled.match(resultAction)) {
-                const newComplaint = resultAction.payload;
-                if (newComplaint.guestId) {
-                    const guest = guests.find(g => g.id === newComplaint.guestId);
-                    if(guest?.userId) {
-                        await createAndSendNotification({
-                            ownerId: currentUser.id,
-                            notification: {
-                                type: 'complaint-update',
-                                title: `Your manager logged a complaint`,
-                                message: `An issue was logged for: "${newComplaint.description.substring(0, 50)}..."`,
-                                link: '/tenants/complaints',
-                                targetId: guest.userId,
-                            }
-                        });
-                    }
-                }
-                toast({ title: 'Complaint Logged', description: 'The new issue has been added to the board.'});
-                setIsOwnerComplaintDialogOpen(false);
-                form.reset({ pgId: selectedPgId || pgs[0]?.id, isPublic: false, imageUrls: [] });
-                setImagePreviews([]);
-            } else {
-                throw new Error(resultAction.payload as string || 'An unknown error occurred.');
-            }
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Failed to log complaint', description: error.message });
-        }
-    };
-
 
     const filteredComplaints = useMemo(() => {
         if (!selectedPgId) return complaints;
@@ -191,13 +79,6 @@ const ComplaintsView = () => {
     }
 
     return (
-      <Dialog open={isOwnerComplaintDialogOpen} onOpenChange={(open) => {
-          setIsOwnerComplaintDialogOpen(open);
-          if (!open) {
-              setImagePreviews([]); // Clear previews on close
-              form.reset({ pgId: selectedPgId || pgs[0]?.id, isPublic: false, imageUrls: [] });
-          }
-      }}>
         <Card>
             <CardHeader className="flex flex-row items-start justify-between">
                 <div>
@@ -207,9 +88,7 @@ const ComplaintsView = () => {
                   </CardDescription>
                 </div>
                 <Access feature="complaints" action="add">
-                    <DialogTrigger asChild>
-                        <Button><PlusCircle className="mr-2 h-4 w-4"/>Raise Complaint</Button>
-                    </DialogTrigger>
+                    <Button onClick={onRaiseComplaintClick}><PlusCircle className="mr-2 h-4 w-4"/>Raise Complaint</Button>
                 </Access>
             </CardHeader>
             <CardContent>
@@ -304,74 +183,6 @@ const ComplaintsView = () => {
                  )}
             </CardContent>
         </Card>
-        <DialogContent className="max-w-2xl">
-            <DialogHeader>
-                <DialogTitle>Raise a New Complaint</DialogTitle>
-                <DialogDescription>Log an issue for a property, room, or specific guest.</DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-                <form id="owner-complaint-form" onSubmit={form.handleSubmit(handleOwnerComplaintSubmit)} className="space-y-4 pt-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="pgId" render={({ field }) => (
-                            <FormItem><FormLabel>Property</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="floorId" render={({ field }) => (
-                            <FormItem><FormLabel>Floor (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{floorsInSelectedPg.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                        )}/>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="roomId" render={({ field }) => (
-                            <FormItem><FormLabel>Room (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedFloorForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{roomsInSelectedFloor.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="guestId" render={({ field }) => (
-                            <FormItem><FormLabel>For Guest (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedRoomForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="none">General / None</SelectItem>{guestsInSelectedRoom.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                        )}/>
-                    </div>
-                    <FormField control={form.control} name="category" render={({ field }) => (
-                        <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{['maintenance', 'cleanliness', 'wifi', 'food', 'other'].map(c=><SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
-                    )}/>
-                    <FormField control={form.control} name="description" render={({ field }) => (
-                        <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={4} placeholder="Describe the issue..." {...field}/></FormControl><FormMessage/></FormItem>
-                    )}/>
-                     <FormField
-                        control={form.control}
-                        name="imageUrls"
-                        render={() => (
-                            <FormItem>
-                                <FormLabel>Upload Photos (Optional, max 3)</FormLabel>
-                                <FormControl>
-                                    <Input type="file" accept="image/*" multiple onChange={handleFileChange} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                         )}
-                     />
-                     {imagePreviews.length > 0 && (
-                        <div className="flex gap-2 flex-wrap">
-                            {imagePreviews.map((src, i) => (
-                                <div key={i} className="relative w-20 h-20">
-                                    <Image src={src} alt={`Preview ${i+1}`} fill sizes="80px" className="rounded-md object-cover border" />
-                                    <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-                                        onClick={() => handleRemoveImage(i)}
-                                    >
-                                        <XCircle className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
-                     )}
-                </form>
-            </Form>
-            <DialogFooter>
-                <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
-                <Button type="submit" form="owner-complaint-form">Submit Complaint</Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
     );
 };
 
@@ -465,7 +276,135 @@ const NoticeBoardView = () => {
 }
 
 export default function ComplaintsDashboardPage() {
-    const { isLoading } = useAppSelector(state => state.app)
+    const { isLoading, selectedPgId } = useAppSelector(state => state.app)
+    const { pgs } = useAppSelector(state => state.pgs);
+    const { guests } = useAppSelector(state => state.guests);
+    const { currentUser } = useAppSelector(state => state.user);
+    const dispatch = useAppDispatch();
+    const { toast } = useToast();
+
+    const [isOwnerComplaintDialogOpen, setIsOwnerComplaintDialogOpen] = useState(false);
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+    
+    const form = useForm<OwnerComplaintFormValues>({
+        resolver: zodResolver(ownerComplaintSchema),
+        defaultValues: { 
+          pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
+          isPublic: false,
+          imageUrls: [],
+        },
+    });
+
+    const selectedPgForForm = form.watch('pgId');
+    const selectedFloorForForm = form.watch('floorId');
+    const selectedRoomForForm = form.watch('roomId');
+
+    const floorsInSelectedPg = useMemo(() => pgs.find(p => p.id === selectedPgForForm)?.floors || [], [pgs, selectedPgForForm]);
+    const roomsInSelectedFloor = useMemo(() => floorsInSelectedPg.find(f => f.id === selectedFloorForForm)?.rooms || [], [floorsInSelectedPg, selectedFloorForForm]);
+    const bedsInSelectedRoom = useMemo(() => roomsInSelectedFloor.find(r => r.id === selectedRoomForForm)?.beds || [], [roomsInSelectedFloor, selectedRoomForForm]);
+    
+    const guestsInSelectedRoom = useMemo(() => {
+        if (!selectedRoomForForm) return [];
+        const bedIdsInRoom = new Set(bedsInSelectedRoom.map(b => b.id));
+        return guests.filter(g => g.bedId && bedIdsInRoom.has(g.bedId) && !g.isVacated);
+    }, [guests, bedsInSelectedRoom, selectedRoomForForm]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if ((imagePreviews.length + files.length) > 3) {
+            toast({ variant: 'destructive', title: 'Too many files', description: 'You can upload a maximum of 3 photos.' });
+            return;
+        }
+        const newPreviews: string[] = [];
+        const newImageUrls: string[] = [];
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const dataUri = event.target?.result as string;
+                newPreviews.push(dataUri);
+                newImageUrls.push(dataUri);
+                if (newPreviews.length === files.length) {
+                    setImagePreviews(prev => [...prev, ...newPreviews]);
+                    form.setValue('imageUrls', [...(form.getValues('imageUrls') || []), ...newImageUrls], { shouldValidate: true });
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+    
+    const handleRemoveImage = (indexToRemove: number) => {
+        setImagePreviews(prev => prev.filter((_, index) => index !== indexToRemove));
+        const currentUrls = form.getValues('imageUrls') || [];
+        form.setValue('imageUrls', currentUrls.filter((_, index) => index !== indexToRemove), { shouldValidate: true });
+    };
+
+    const handleOwnerComplaintSubmit = async (data: OwnerComplaintFormValues) => {
+        if (!currentUser) return;
+    
+        try {
+            const uploadedImageUrls = [];
+            if (data.imageUrls && data.imageUrls.length > 0) {
+                for (const dataUri of data.imageUrls) {
+                    if (dataUri.startsWith('data:')) {
+                        const url = await uploadDataUriToStorage(dataUri, `complaints/${currentUser.id}/${Date.now()}`);
+                        uploadedImageUrls.push(url);
+                    } else {
+                        uploadedImageUrls.push(dataUri);
+                    }
+                }
+            }
+    
+            const submissionData = {
+                ...data,
+                guestId: data.guestId === "none" ? undefined : data.guestId,
+                imageUrls: uploadedImageUrls,
+            };
+    
+            const resultAction = await dispatch(addOwnerComplaint(submissionData));
+            
+            if (addOwnerComplaint.fulfilled.match(resultAction)) {
+                const newComplaint = resultAction.payload;
+                if (newComplaint.guestId) {
+                    const guest = guests.find(g => g.id === newComplaint.guestId);
+                    if(guest?.userId) {
+                        await createAndSendNotification({
+                            ownerId: currentUser.id,
+                            notification: {
+                                type: 'complaint-update',
+                                title: `Your manager logged a complaint`,
+                                message: `An issue was logged for: "${newComplaint.description.substring(0, 50)}..."`,
+                                link: '/tenants/complaints',
+                                targetId: guest.userId,
+                            }
+                        });
+                    }
+                }
+                toast({ title: 'Complaint Logged', description: 'The new issue has been added to the board.'});
+                setIsOwnerComplaintDialogOpen(false);
+                form.reset({ pgId: selectedPgId || pgs[0]?.id, isPublic: false, imageUrls: [] });
+                setImagePreviews([]);
+            } else {
+                throw new Error(resultAction.payload as string || 'An unknown error occurred.');
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Failed to log complaint', description: error.message });
+        }
+    };
+    
+    const handleRaiseComplaintClick = () => {
+        form.reset({
+            pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
+            floorId: undefined,
+            roomId: undefined,
+            guestId: undefined,
+            category: undefined,
+            description: '',
+            imageUrls: [],
+            isPublic: false
+        });
+        setImagePreviews([]);
+        setIsOwnerComplaintDialogOpen(true);
+    };
 
     if (isLoading) {
         return (
@@ -507,12 +446,81 @@ export default function ComplaintsDashboardPage() {
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="complaints">
-                <ComplaintsView />
+                <ComplaintsView onRaiseComplaintClick={handleRaiseComplaintClick} />
             </TabsContent>
             <TabsContent value="notice-board">
                 <NoticeBoardView />
             </TabsContent>
         </Tabs>
+         <Dialog open={isOwnerComplaintDialogOpen} onOpenChange={setIsOwnerComplaintDialogOpen}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Raise a New Complaint</DialogTitle>
+                    <DialogDescription>Log an issue for a property, room, or specific guest.</DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form id="owner-complaint-form" onSubmit={form.handleSubmit(handleOwnerComplaintSubmit)} className="space-y-4 pt-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="pgId" render={({ field }) => (
+                                <FormItem><FormLabel>Property</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="floorId" render={({ field }) => (
+                                <FormItem><FormLabel>Floor (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{floorsInSelectedPg.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                            )}/>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="roomId" render={({ field }) => (
+                                <FormItem><FormLabel>Room (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedFloorForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{roomsInSelectedFloor.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="guestId" render={({ field }) => (
+                                <FormItem><FormLabel>For Guest (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedRoomForForm}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="none">General / None</SelectItem>{guestsInSelectedRoom.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                            )}/>
+                        </div>
+                        <FormField control={form.control} name="category" render={({ field }) => (
+                            <FormItem><FormLabel>Category</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{['maintenance', 'cleanliness', 'wifi', 'food', 'other'].map(c=><SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent></Select><FormMessage/></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="description" render={({ field }) => (
+                            <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea rows={4} placeholder="Describe the issue..." {...field}/></FormControl><FormMessage/></FormItem>
+                        )}/>
+                        <FormField
+                            control={form.control}
+                            name="imageUrls"
+                            render={() => (
+                                <FormItem>
+                                    <FormLabel>Upload Photos (Optional, max 3)</FormLabel>
+                                    <FormControl>
+                                        <Input type="file" accept="image/*" multiple onChange={handleFileChange} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        {imagePreviews.length > 0 && (
+                            <div className="flex gap-2 flex-wrap">
+                                {imagePreviews.map((src, i) => (
+                                    <div key={i} className="relative w-20 h-20">
+                                        <Image src={src} alt={`Preview ${i+1}`} fill sizes="80px" className="rounded-md object-cover border" />
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                                            onClick={() => handleRemoveImage(i)}
+                                        >
+                                            <XCircle className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </form>
+                </Form>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="secondary">Cancel</Button></DialogClose>
+                    <Button type="submit" form="owner-complaint-form">Submit Complaint</Button>
+                </DialogFooter>
+            </DialogContent>
+          </Dialog>
       </Access>
     )
 }
