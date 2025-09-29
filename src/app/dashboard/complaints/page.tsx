@@ -10,24 +10,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShieldAlert, Send, PlusCircle } from "lucide-react"
+import { ShieldAlert, Send, PlusCircle, Image as ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Complaint } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { addComplaint as addComplaintAction, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 import { canAccess } from '@/lib/permissions'
 import Access from '@/components/ui/PermissionWrapper'
-import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import { useToast } from '@/hooks/use-toast'
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
-import { format } from 'date-fns'
-
+import { format, formatDistanceToNow } from 'date-fns'
+import { ThumbsUp, Lightbulb } from 'lucide-react'
+import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
+import { Alert, AlertTitle } from '@/components/ui/alert'
+import Image from 'next/image'
+import { Switch } from '../ui/switch'
 
 const statusColors: Record<Complaint['status'], string> = {
     open: "bg-red-100 text-red-800",
@@ -49,6 +52,8 @@ const ownerComplaintSchema = z.object({
   guestId: z.string().optional(),
   category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other']),
   description: z.string().min(10, 'A detailed description is required.'),
+  imageUrls: z.array(z.string()).optional(),
+  isPublic: z.boolean().default(true),
 });
 type OwnerComplaintFormValues = z.infer<typeof ownerComplaintSchema>;
 
@@ -361,29 +366,6 @@ const NoticeBoardView = () => {
 
 export default function ComplaintsDashboardPage() {
     const { isLoading } = useAppSelector(state => state.app)
-    const { currentPlan } = useAppSelector(state => state.user)
-    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false)
-
-    if (!currentPlan?.hasComplaints) {
-         return (
-             <>
-                <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Complaints Management</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
-                            <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                            <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                            <p className="mt-2 text-muted-foreground max-w-sm">The complaints management feature is not included in your current plan. Please upgrade to access this feature.</p>
-                            <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
-                        </div>
-                    </CardContent>
-                </Card>
-             </>
-        )
-    }
 
     if (isLoading) {
         return (

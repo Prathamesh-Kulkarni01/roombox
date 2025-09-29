@@ -48,7 +48,8 @@ export const featurePermissionConfig = {
     label: "Complaints",
     actions: {
       view: "View Complaints",
-      edit: "Update Complaint Status"
+      edit: "Update Complaint Status",
+      add: "Raise a new complaint"
     }
   },
   food: {
@@ -149,7 +150,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: false },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
-    complaints: { view: true, edit: true },
+    complaints: { view: true, edit: true, add: true },
     food: { view: true, edit: true },
     staff: { view: false, add: false, edit: false, delete: false },
     website: { view: false, edit: false },
@@ -160,7 +161,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
-    complaints: { view: true, edit: true },
+    complaints: { view: true, edit: true, add: true },
     food: { view: true, edit: true },
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
