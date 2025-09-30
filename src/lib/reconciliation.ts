@@ -40,11 +40,24 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
   const cyclesToProcess = Math.floor(totalDifference / cycleValue);
 
   if (cyclesToProcess <= 0) {
+    // This can happen if the due date is in the past, but not a full cycle ago.
+    // However, if the status was 'paid', it should now become 'unpaid' because the due date has passed.
+    if (guest.rentStatus === 'paid') {
+      const updatedGuest: Guest = {
+        ...guest,
+        rentStatus: 'unpaid',
+        // The balance from the 'paid' state was 0, so the new balance is just the new cycle's rent.
+        balanceBroughtForward: guest.rentAmount,
+        rentPaidAmount: 0,
+        additionalCharges: [],
+      };
+       // This counts as one cycle because we're transitioning from paid to unpaid.
+      return { guest: updatedGuest, cyclesProcessed: 1 };
+    }
     return { guest, cyclesProcessed: 0 };
   }
 
   // If we are here, it means at least one full cycle has passed.
-  // The rent for the missed cycles is added to any existing balance.
   const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
   const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
 
