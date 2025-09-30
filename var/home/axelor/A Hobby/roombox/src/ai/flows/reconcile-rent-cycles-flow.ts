@@ -1,13 +1,12 @@
 
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { ai } from '../genkit';
 import { z } from 'zod';
-import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
-import { format, parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
-import type { Guest, RentCycleUnit } from '@/lib/types';
-import { calculateFirstDueDate } from '@/lib/utils';
-
+import { getAdminDb, selectOwnerDataAdminDb } from '../../lib/firebaseAdmin';
+import type { Guest, RentCycleUnit } from '../../lib/types';
+import { calculateFirstDueDate } from '../../lib/utils';
+import { parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
 
 /**
  * A pure function that calculates the new state of a guest after rent reconciliation.
@@ -17,14 +16,14 @@ import { calculateFirstDueDate } from '@/lib/utils';
  * @returns An object with the updated guest state and the number of cycles processed.
  */
 export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
-  if (guest.isVacated || guest.exitDate || guest.rentStatus === 'paid') {
+  // A guest who has vacated or is on notice period should not accumulate new rent.
+  if (guest.isVacated || guest.exitDate) {
     return { guest, cyclesProcessed: 0 };
   }
 
   const currentDueDate = parseISO(guest.dueDate);
   
-  // The core logic fix: Do not process if the current time is not yet *after* the due date.
-  // This correctly handles all "due today" and "due in the future" cases.
+  // Do not process if the current time is not yet *after* the due date.
   if (!isAfter(now, currentDueDate)) {
      return { guest, cyclesProcessed: 0 };
   }
@@ -50,7 +49,7 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
   }
 
   // If we are here, it means at least one full cycle has passed.
-  // We need to account for the balance that was due *at* the start of the overdue period.
+  // The rent for the missed cycles is added to any existing balance.
   const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
   const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
 
@@ -64,7 +63,7 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
       dueDate: newDueDate.toISOString(),
       balanceBroughtForward: newBalance,
       rentPaidAmount: 0,
-      rentStatus: 'unpaid',
+      rentStatus: 'unpaid', // The status is now 'unpaid' as a new cycle is due.
       additionalCharges: [],
   };
 
@@ -100,8 +99,9 @@ const reconcileSingleGuestFlow = ai.defineFlow(
             // Use the pure, centralized logic function
             const result = runReconciliationLogic(guest, new Date());
             
-            if (result.cyclesProcessed === 0 && guest.rentStatus === result.guest.rentStatus) {
-                // No changes needed
+            if (result.cyclesProcessed === 0) {
+                // No changes needed, unless the status needs a flip from paid->unpaid on the due date itself
+                // but our logic only runs *after* due date, so this is fine.
                 return 0;
             }
 
