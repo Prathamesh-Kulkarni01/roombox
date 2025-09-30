@@ -2,7 +2,8 @@
 'use server';
 import type { Guest, RentCycleUnit } from './types';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths, setDate, lastDayOfMonth } from 'date-fns';
-import { calculateFirstDueDate } from '@/lib/utils';
+import { calculateFirstDueDate } from './utils';
+
 
 /**
  * A pure function that calculates the new state of a guest after rent reconciliation.

@@ -1,16 +1,15 @@
 
 
 
-
 // NOTE: This file now contains UNIT TESTS that run inside the Cypress environment.
 // It tests the pure reconciliation logic directly without hitting an API endpoint.
 
 import { runReconciliationLogic } from '../../src/lib/reconciliation';
-import type { Guest } from '../../src/lib/types';
+// import type { Guest } from '../../src/lib/types';
 
 
 // Helper function to create a mock guest object with defaults
-const createMockGuest = (overrides: Partial<Guest>): Guest => ({
+const createMockGuest = (overrides: any): any => ({
   id: `guest-test`,
   name: 'Test Guest',
   email: 'guest@test.com',
