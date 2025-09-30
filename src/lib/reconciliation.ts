@@ -1,8 +1,6 @@
 
-'use server';
-
 import type { Guest, RentCycleUnit } from './types';
-import { calculateFirstDueDate } from './utils';
+import { calculateFirstDueDate } from '@/lib/utils';
 import { parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
 
 /**
