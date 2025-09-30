@@ -20,7 +20,7 @@ const createMockGuest = (overrides: Partial<Guest>): Guest => ({
   rentAmount: 1, // Default rent of ₹1 for minute-based tests
   depositAmount: 0,
   moveInDate: '2024-08-01T09:00:00.000Z',
-  dueDate: '2024-08-01T10:00:00.000Z',
+  dueDate: '2024-08-01T10:00:00.000Z', // Due at 10:00 AM
   isVacated: false,
   rentCycleUnit: 'minutes',
   rentCycleValue: 3,
@@ -39,7 +39,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
     it('Scenario 1: 2 minutes overdue - should NOT add a new cycle', () => {
       const guest = createMockGuest({});
-      const now = new Date('2024-08-01T10:02:00.000Z');
+      const now = new Date('2024-08-01T10:02:00.000Z'); // 2 minutes past due
       const result = runReconciliationLogic(guest, now);
 
       expect(result.cyclesProcessed).to.equal(0);
@@ -49,7 +49,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
     it('Scenario 2: 4 minutes overdue - should add ONE new cycle', () => {
       const guest = createMockGuest({});
-      const now = new Date('2024-08-01T10:04:00.000Z');
+      const now = new Date('2024-08-01T10:04:00.000Z'); // 4 minutes past due
       const result = runReconciliationLogic(guest, now);
       
       expect(result.cyclesProcessed).to.equal(1);
@@ -59,7 +59,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
     it('Scenario 3: 7 minutes overdue - should add TWO new cycles', () => {
       const guest = createMockGuest({});
-      const now = new Date('2024-08-01T10:07:00.000Z');
+      const now = new Date('2024-08-01T10:07:00.000Z'); // 7 minutes past due
       const result = runReconciliationLogic(guest, now);
       
       expect(result.cyclesProcessed).to.equal(2);
@@ -69,7 +69,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
      it('Scenario 4: Exactly 9 minutes overdue - should add THREE new cycles', () => {
       const guest = createMockGuest({});
-      const now = new Date('2024-08-01T10:09:00.000Z');
+      const now = new Date('2024-08-01T10:09:00.000Z'); // Exactly 3 cycles past due
       const result = runReconciliationLogic(guest, now);
 
       expect(result.cyclesProcessed).to.equal(3);
@@ -139,6 +139,14 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
        expect(result.cyclesProcessed).to.equal(0);
     });
     
+    it('Edge Case: Due date is tomorrow', () => {
+       const guest = createMockGuest({ dueDate: '2024-08-15T00:00:00.000Z' });
+       const now = new Date('2024-08-16T00:00:00.000Z'); // Exactly 1 day after
+       const result = runReconciliationLogic(guest, now);
+
+       expect(result.cyclesProcessed).to.equal(1);
+    });
+
     it('End of Month: 31st to 30th', () => {
         const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 5000, dueDate: '2024-08-31T00:00:00.000Z', billingAnchorDay: 31, balanceBroughtForward: 0 });
         const now = new Date('2024-10-01T00:00:00.000Z');
