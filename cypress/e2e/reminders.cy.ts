@@ -1,7 +1,7 @@
 
 
 import type { Guest, RentCycleUnit } from '../../src/lib/types';
-import { format, addDays, subDays, addMinutes, subMinutes } from 'date-fns';
+import { format, addDays, subDays, addMinutes, subMinutes, isPast } from 'date-fns';
 
 // This is the function we want to test. It's not a real component, but the logic itself.
 // We've copied it here for direct testing without involving API calls.
@@ -34,58 +34,59 @@ function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
     }
 
     const dueDate = new Date(guest.dueDate);
+    const minutesDifference = (dueDate.getTime() - now.getTime()) / 60000;
 
     // Overdue Logic
-    if (now > dueDate) {
-        const minutesOverdue = Math.round((now.getTime() - dueDate.getTime()) / 60000);
-        if (minutesOverdue > 0) {
+    if (minutesDifference < 0) {
+        const minutesOverdue = Math.abs(minutesDifference);
+        if (minutesOverdue >= 1) { // Only send if at least 1 minute overdue
              return {
                 shouldSend: true,
                 title: 'Action Required: Your Rent is Overdue',
                 body: `Hi ${guest.name}, your rent payment is ${getHumanReadableDuration(minutesOverdue)} overdue. Please complete the payment as soon as possible.`
             };
         }
-    }
-    
-    // Upcoming Reminder Logic
-    const rentCycleUnit: RentCycleUnit = guest.rentCycleUnit || 'months';
-    let shouldSendReminder = false;
-    let timeUntilDue = '';
+    } else { // Upcoming Reminder Logic
+      const rentCycleUnit: RentCycleUnit = guest.rentCycleUnit || 'months';
+      let shouldSendReminder = false;
+      let timeUntilDue = '';
 
-    switch (rentCycleUnit) {
-        case 'minutes':
-            const minutesUntilDue = Math.round((dueDate.getTime() - now.getTime()) / 60000);
-            if (minutesUntilDue > 0 && minutesUntilDue <= 5) {
-                shouldSendReminder = true;
-                timeUntilDue = `${minutesUntilDue} minute(s)`;
-            }
-            break;
-        case 'hours':
-            const hoursUntilDue = Math.round((dueDate.getTime() - now.getTime()) / 3600000);
-             if (hoursUntilDue > 0 && hoursUntilDue <= 3) {
-                shouldSendReminder = true;
-                timeUntilDue = `${hoursUntilDue} hour(s)`;
-            }
-            break;
-        case 'days':
-        case 'weeks':
-        case 'months':
-        default:
-            const daysUntilDue = Math.round((dueDate.getTime() - now.getTime()) / 86400000);
-             if (daysUntilDue > 0 && daysUntilDue <= 5) {
-                shouldSendReminder = true;
-                timeUntilDue = `${daysUntilDue} day(s) on ${format(dueDate, 'do MMM')}`;
-            }
-            break;
+      switch (rentCycleUnit) {
+          case 'minutes':
+              const minutesUntilDue = Math.round(minutesDifference);
+              if (minutesUntilDue > 0 && minutesUntilDue <= 5) {
+                  shouldSendReminder = true;
+                  timeUntilDue = `${minutesUntilDue} minute(s)`;
+              }
+              break;
+          case 'hours':
+              const hoursUntilDue = Math.round(minutesDifference / 60);
+               if (hoursUntilDue > 0 && hoursUntilDue <= 3) {
+                  shouldSendReminder = true;
+                  timeUntilDue = `${hoursUntilDue} hour(s)`;
+              }
+              break;
+          case 'days':
+          case 'weeks':
+          case 'months':
+          default:
+              const daysUntilDue = Math.round(minutesDifference / 1440);
+               if (daysUntilDue > 0 && daysUntilDue <= 5) {
+                  shouldSendReminder = true;
+                  timeUntilDue = `${daysUntilDue} day(s) on ${format(dueDate, 'do MMM')}`;
+              }
+              break;
+      }
+
+      if (shouldSendReminder) {
+          return {
+              shouldSend: true,
+              title: `Gentle Reminder: Your Rent is Due Soon`,
+              body: `Hi ${guest.name}, a friendly reminder that your rent is due in ${timeUntilDue}.`
+          };
+      }
     }
 
-    if (shouldSendReminder) {
-        return {
-            shouldSend: true,
-            title: `Gentle Reminder: Your Rent is Due Soon`,
-            body: `Hi ${guest.name}, a friendly reminder that your rent is due in ${timeUntilDue}.`
-        };
-    }
 
     return { shouldSend: false, title: '', body: '' };
 }
@@ -220,7 +221,7 @@ describe('Rent Reminder Logic Unit Tests', () => {
 
             const dueDate = new Date('2024-08-15T10:00:00.000Z');
             const now = new Date('2024-08-15T09:00:00.000Z');
-            const guest = createBaseGuest({ dueDate: dueDate.toISOString() });
+            const guest = createBaseGuest({ dueDate: dueDate.toISOString(), rentCycleUnit: 'hours' });
             
             const result = getReminderForGuest(guest, now);
 
@@ -243,4 +244,5 @@ describe('Rent Reminder Logic Unit Tests', () => {
 });
 
 
+    
     
