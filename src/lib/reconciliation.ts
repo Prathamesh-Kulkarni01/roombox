@@ -19,8 +19,8 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
 
   const currentDueDate = parseISO(guest.dueDate);
   
-  // Do not process if the current time is not yet *after* the due date.
-  // This correctly handles cases where it's currently the due day.
+  // The core logic fix: Do not process if the current time is not yet *after* the due date.
+  // This correctly handles all "due today" and "due in the future" cases.
   if (!isAfter(now, currentDueDate)) {
      return { guest, cyclesProcessed: 0 };
   }

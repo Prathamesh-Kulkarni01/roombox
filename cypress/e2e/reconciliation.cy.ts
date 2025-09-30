@@ -132,7 +132,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Edge Case: Due date is today', () => {
-       const guest = createMockGuest({ dueDate: '2024-08-15T00:00:00.000Z' });
+       const guest = createMockGuest({ rentCycleUnit: 'days', rentCycleValue: 1, dueDate: '2024-08-15T00:00:00.000Z' });
        const now = new Date('2024-08-15T12:00:00.000Z');
        const result = runReconciliationLogic(guest, now);
 
@@ -140,7 +140,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
     
     it('Edge Case: Due date is tomorrow', () => {
-       const guest = createMockGuest({ dueDate: '2024-08-15T00:00:00.000Z' });
+       const guest = createMockGuest({ rentCycleUnit: 'days', rentCycleValue: 1, dueDate: '2024-08-15T00:00:00.000Z' });
        const now = new Date('2024-08-16T00:00:00.000Z'); // Exactly 1 day after
        const result = runReconciliationLogic(guest, now);
 
