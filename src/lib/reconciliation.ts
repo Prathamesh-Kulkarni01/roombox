@@ -20,6 +20,20 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
   
   // Do not process if the current time is not yet *after* the due date.
   if (!isAfter(now, currentDueDate)) {
+    // However, if the status was 'paid', it should now become 'unpaid' because the due date has passed.
+    // This handles the edge case where the cron runs exactly on the due date but before the next cycle starts.
+    if (guest.rentStatus === 'paid' && now >= currentDueDate) {
+      const updatedGuest: Guest = {
+        ...guest,
+        rentStatus: 'unpaid',
+        // The balance from the 'paid' state was 0, so the new balance is just the new cycle's rent.
+        balanceBroughtForward: guest.rentAmount, 
+        rentPaidAmount: 0,
+        additionalCharges: [],
+      };
+       // This counts as one cycle because we're transitioning from paid to unpaid.
+      return { guest: updatedGuest, cyclesProcessed: 1 };
+    }
      return { guest, cyclesProcessed: 0 };
   }
 
@@ -40,20 +54,6 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
   const cyclesToProcess = Math.floor(totalDifference / cycleValue);
 
   if (cyclesToProcess <= 0) {
-    // This can happen if the due date is in the past, but not a full cycle ago.
-    // However, if the status was 'paid', it should now become 'unpaid' because the due date has passed.
-    if (guest.rentStatus === 'paid') {
-      const updatedGuest: Guest = {
-        ...guest,
-        rentStatus: 'unpaid',
-        // The balance from the 'paid' state was 0, so the new balance is just the new cycle's rent.
-        balanceBroughtForward: guest.rentAmount,
-        rentPaidAmount: 0,
-        additionalCharges: [],
-      };
-       // This counts as one cycle because we're transitioning from paid to unpaid.
-      return { guest: updatedGuest, cyclesProcessed: 1 };
-    }
     return { guest, cyclesProcessed: 0 };
   }
 
