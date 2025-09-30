@@ -6,16 +6,9 @@ import { format, addMonths, setDate, lastDayOfMonth } from 'date-fns';
 import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
+import { calculateFirstDueDate } from '@/lib/utils';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
-
-function getNextDueDate(currentDueDate: Date, anchorDay: number): Date {
-    const nextMonth = addMonths(currentDueDate, 1);
-    const lastDayNextMonth = lastDayOfMonth(nextMonth).getDate();
-    const newDay = Math.min(anchorDay, lastDayNextMonth);
-    return setDate(nextMonth, newDay);
-}
-
 
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
@@ -107,7 +100,7 @@ export async function POST(req: NextRequest) {
                   draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle;
                   draft.rentPaidAmount = 0;
                   draft.additionalCharges = [];
-                  draft.dueDate = format(getNextDueDate(new Date(draft.dueDate), draft.billingAnchorDay), 'yyyy-MM-dd');
+                  draft.dueDate = format(calculateFirstDueDate(new Date(draft.dueDate), draft.rentCycleUnit, draft.rentCycleValue, draft.billingAnchorDay), 'yyyy-MM-dd');
               } else {
                   draft.rentStatus = 'partial';
                   draft.rentPaidAmount = totalPaidInCycle;
