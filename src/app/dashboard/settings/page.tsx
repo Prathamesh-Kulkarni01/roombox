@@ -67,7 +67,7 @@ type KycConfigFormValues = z.infer<typeof kycConfigSchema>;
 export default function SettingsPage() {
   const dispatch = useAppDispatch()
   const { currentUser, currentPlan } = useAppSelector((state) => state.user)
-  const { chargeTemplates } = useAppSelector((state) => state.chargeTemplates)
+  const { templates: chargeTemplates } = useAppSelector((state) => state.chargeTemplates)
   const { kycConfigs } = useAppSelector((state) => state.kycConfig)
   const { guests } = useAppSelector((state) => state.guests);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
