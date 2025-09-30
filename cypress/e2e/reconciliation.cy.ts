@@ -3,7 +3,7 @@
 // NOTE: This file now contains UNIT TESTS that run inside the Cypress environment.
 // It tests the pure reconciliation logic directly without hitting an API endpoint.
 
-import { runReconciliationLogic } from '../../src/ai/flows/reconcile-rent-cycles-flow';
+import { runReconciliationLogic } from '../../src/lib/reconciliation';
 import type { Guest } from '../../src/lib/types';
 
 
@@ -94,6 +94,51 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
   });
 
+  context('Paid to Overdue Cycle', () => {
+    it('should NOT add a new cycle if the due date is in the future', () => {
+      cy.log('**Initial State:** Guest paid up. Rent is not due until 11:00 AM. Balance is 0.');
+      cy.log('**Action:** The current time is 10:59 AM.');
+      cy.log('**Expected Outcome:** No cycles processed. Status remains "paid", balance remains 0.');
+
+      const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0, dueDate: '2024-08-01T11:00:00.000Z' });
+      const now = new Date('2024-08-01T10:59:00.000Z');
+      const result = runReconciliationLogic(guest, now);
+
+      expect(result.cyclesProcessed).to.equal(0);
+    });
+
+    it('should add a new cycle when a "paid" guest becomes overdue', () => {
+      cy.log('**Initial State:** Guest paid up. Rent was due at 11:00 AM. Balance is 0. Rent is 1 per 3 mins.');
+      cy.log('**Action:** The current time is 11:04 AM (one cycle overdue).');
+      cy.log('**Expected Outcome:** One cycle processed. Status becomes "unpaid", balance becomes 1.');
+
+      const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0, dueDate: '2024-08-01T11:00:00.000Z' });
+      const now = new Date('2024-08-01T11:04:00.000Z');
+      const result = runReconciliationLogic(guest, now);
+
+      expect(result.cyclesProcessed).to.equal(1);
+      expect(result.guest.rentStatus).to.equal('unpaid');
+      expect(result.guest.balanceBroughtForward).to.equal(1);
+      expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-08-01T11:03:00.000Z');
+    });
+
+    it('should add multiple cycles when a "paid" guest becomes multiple cycles overdue', () => {
+      cy.log('**Initial State:** Guest paid up. Rent was due at 11:00 AM. Balance is 0. Rent is 1 per 3 mins.');
+      cy.log('**Action:** The current time is 11:07 AM (two cycles overdue).');
+      cy.log('**Expected Outcome:** Two cycles processed. Status becomes "unpaid", balance becomes 2.');
+
+      const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0, dueDate: '2024-08-01T11:00:00.000Z' });
+      const now = new Date('2024-08-01T11:07:00.000Z');
+      const result = runReconciliationLogic(guest, now);
+
+      expect(result.cyclesProcessed).to.equal(2);
+      expect(result.guest.rentStatus).to.equal('unpaid');
+      expect(result.guest.balanceBroughtForward).to.equal(2);
+      expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-08-01T11:06:00.000Z');
+    });
+  });
+
+
   context('Monthly Cycles & Edge Cases', () => {
     it('Monthly Case #1: One month overdue', () => {
         cy.log('**Initial State:** Guest rent of ₹500 was due on July 15th.');
@@ -121,18 +166,6 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
         expect(result.cyclesProcessed).to.equal(3);
         expect(result.guest.balanceBroughtForward).to.equal(3000);
         expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-08-15T00:00:00.000Z');
-    });
-
-    it('Edge Case: Guest is fully paid', () => {
-        cy.log('**Initial State:** Guest rent status is "paid" and balance is zero.');
-        cy.log('**Action:** Run reconciliation.');
-        cy.log('**Expected Outcome:** No cycles should be processed.');
-
-        const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0, dueDate: '2024-09-01T00:00:00.000Z' });
-        const now = new Date('2024-08-15T00:00:00.000Z');
-        const result = runReconciliationLogic(guest, now);
-
-        expect(result.cyclesProcessed).to.equal(0);
     });
 
     it('Edge Case: Guest is on notice period', () => {

@@ -1,70 +1,11 @@
 
 'use server';
 
-import { ai } from '../genkit';
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getAdminDb, selectOwnerDataAdminDb } from '../../lib/firebaseAdmin';
-import type { Guest, RentCycleUnit } from '../../lib/types';
-import { calculateFirstDueDate } from '../../lib/utils';
-import { parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
-
-/**
- * A pure function that calculates the new state of a guest after rent reconciliation.
- * It does not perform any database operations.
- * @param guest The current guest object.
- * @param now The current date/time to reconcile against.
- * @returns An object with the updated guest state and the number of cycles processed.
- */
-export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
-  if (guest.isVacated || guest.exitDate || guest.rentStatus === 'paid') {
-    return { guest, cyclesProcessed: 0 };
-  }
-
-  const currentDueDate = parseISO(guest.dueDate);
-  
-  if (!isAfter(now, currentDueDate)) {
-     return { guest, cyclesProcessed: 0 };
-  }
-
-  let totalDifference = 0;
-  const cycleUnit = guest.rentCycleUnit || 'months';
-  const cycleValue = guest.rentCycleValue || 1;
-
-  switch (cycleUnit) {
-      case 'minutes': totalDifference = differenceInMinutes(now, currentDueDate); break;
-      case 'hours': totalDifference = differenceInHours(now, currentDueDate); break;
-      case 'days': totalDifference = differenceInDays(now, currentDueDate); break;
-      case 'weeks': totalDifference = differenceInWeeks(now, currentDueDate); break;
-      case 'months': totalDifference = differenceInMonths(now, currentDueDate); break;
-      default: totalDifference = differenceInMonths(now, currentDueDate);
-  }
-
-  const cyclesToProcess = Math.floor(totalDifference / cycleValue);
-
-  if (cyclesToProcess <= 0) {
-    return { guest, cyclesProcessed: 0 };
-  }
-
-  const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
-  const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
-
-  let newDueDate = currentDueDate;
-  for (let i = 0; i < cyclesToProcess; i++) {
-    newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, guest.billingAnchorDay);
-  }
-  
-  const updatedGuest: Guest = {
-      ...guest,
-      dueDate: newDueDate.toISOString(),
-      balanceBroughtForward: newBalance,
-      rentPaidAmount: 0,
-      rentStatus: 'unpaid',
-      additionalCharges: [],
-  };
-
-  return { guest: updatedGuest, cyclesProcessed: cyclesToProcess };
-}
-
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
+import type { Guest } from '@/lib/types';
+import { runReconciliationLogic } from '@/lib/reconciliation';
 
 // --- GENKIT FLOWS ---
 
@@ -91,9 +32,12 @@ const reconcileSingleGuestFlow = ai.defineFlow(
 
             const guest = guestDoc.data() as Guest;
             
+            // Use the pure, centralized logic function
             const result = runReconciliationLogic(guest, new Date());
             
-            if (result.cyclesProcessed === 0 && guest.rentStatus === result.guest.rentStatus) {
+            if (result.cyclesProcessed === 0) {
+                // No changes needed, unless the status needs a flip from paid->unpaid on the due date itself
+                // but our logic only runs *after* due date, so this is fine.
                 return 0;
             }
 
