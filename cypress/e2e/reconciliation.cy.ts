@@ -80,7 +80,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
   context('Monthly Cycles & Edge Cases', () => {
     it('Monthly Case #1: One month overdue', () => {
-        const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 500, balanceBroughtForward: 500, dueDate: '2024-07-15T00:00:00.000Z' });
+        const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 500, balanceBroughtForward: 500, dueDate: '2024-07-15T00:00:00.000Z', billingAnchorDay: 15 });
         const now = new Date('2024-08-16T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
 
@@ -90,7 +90,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Monthly Case #2: Three months overdue', () => {
-        const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 1000, balanceBroughtForward: 0, dueDate: '2024-05-15T00:00:00.000Z' });
+        const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 1000, balanceBroughtForward: 0, dueDate: '2024-05-15T00:00:00.000Z', billingAnchorDay: 15 });
         const now = new Date('2024-08-16T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
 

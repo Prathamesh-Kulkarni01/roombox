@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Guest } from './types';
+import type { Guest, RentCycleUnit } from './types';
 import { calculateFirstDueDate } from './utils';
 import { parseISO, isBefore, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
 
@@ -13,49 +13,55 @@ import { parseISO, isBefore, differenceInMinutes, differenceInHours, differenceI
  * @returns An object with the updated guest state and the number of cycles processed.
  */
 export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
-  if (guest.isVacated || guest.exitDate || guest.rentStatus === 'paid') {
+  // Do not process guests who are vacated, on notice, or fully paid with a future due date
+  if (guest.isVacated || guest.exitDate || (guest.rentStatus === 'paid' && isBefore(now, parseISO(guest.dueDate)))) {
     return { guest, cyclesProcessed: 0 };
   }
 
   const currentDueDate = parseISO(guest.dueDate);
 
-  if (!isBefore(now, currentDueDate)) {
-      // Due date is in the past, reconciliation might be needed.
-  } else {
-      // Due date is in the future.
+  // Do not process if the due date is in the future
+  if (isBefore(now, currentDueDate)) {
       return { guest, cyclesProcessed: 0 };
   }
   
   let totalDifference = 0;
-  switch (guest.rentCycleUnit) {
+  const cycleUnit = guest.rentCycleUnit || 'months';
+
+  // Calculate the difference in the given unit
+  switch (cycleUnit) {
       case 'minutes': totalDifference = differenceInMinutes(now, currentDueDate); break;
       case 'hours': totalDifference = differenceInHours(now, currentDueDate); break;
       case 'days': totalDifference = differenceInDays(now, currentDueDate); break;
       case 'weeks': totalDifference = differenceInWeeks(now, currentDueDate); break;
       case 'months': totalDifference = differenceInMonths(now, currentDueDate); break;
+      default: totalDifference = differenceInMonths(now, currentDueDate);
   }
 
-  const cyclesToProcess = Math.floor(totalDifference / guest.rentCycleValue);
+  // Calculate how many full cycles have been missed
+  const cyclesToProcess = Math.floor(totalDifference / (guest.rentCycleValue || 1));
 
   if (cyclesToProcess <= 0) {
     return { guest, cyclesProcessed: 0 };
   }
 
   const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
+  // Any existing dues are carried forward, plus the rent for all the missed cycles.
   const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
 
+  // Correctly iterate the due date forward using the proper utility function
   let newDueDate = currentDueDate;
   for (let i = 0; i < cyclesToProcess; i++) {
-    newDueDate = calculateFirstDueDate(newDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+    newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
   }
   
   const updatedGuest: Guest = {
       ...guest,
       dueDate: newDueDate.toISOString(),
       balanceBroughtForward: newBalance,
-      rentPaidAmount: 0,
-      rentStatus: 'unpaid',
-      additionalCharges: [],
+      rentPaidAmount: 0, // Reset paid amount for the new cycle(s)
+      rentStatus: 'unpaid', // Mark as unpaid since new cycles are added
+      additionalCharges: [], // Clear one-time charges from previous cycle
   };
 
   return { guest: updatedGuest, cyclesProcessed: cyclesToProcess };
