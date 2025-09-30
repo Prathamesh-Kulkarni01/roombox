@@ -58,10 +58,10 @@ const reconcileSingleGuestFlow = ai.defineFlow(
             const now = new Date();
             let cyclesToProcess = 0;
             
-            // Determine how many full cycles have passed
+            // Correctly loop through cycles until the due date is in the future
             while (isBefore(currentDueDate, now)) {
-                cyclesToProcess++;
                 currentDueDate = calculateFirstDueDate(currentDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+                cyclesToProcess++;
             }
             
             // If no full cycles have passed, do nothing
@@ -70,7 +70,6 @@ const reconcileSingleGuestFlow = ai.defineFlow(
             }
 
             // This guest's rent for the current (now overdue) cycle was not fully paid.
-            // We need to roll over the unpaid amount to the balance and set up the new cycle.
             const balanceBf = guest.balanceBroughtForward || 0;
             const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
             const totalBillForLastCycle = balanceBf + guest.rentAmount + chargesDue;
@@ -85,7 +84,7 @@ const reconcileSingleGuestFlow = ai.defineFlow(
               balanceBroughtForward: newBalanceBroughtForward,
               rentPaidAmount: 0, // Reset for the new cycle
               additionalCharges: [], // Clear charges as they are now part of the balance
-              rentStatus: newBalanceBroughtForward > 0 ? 'unpaid' : 'paid',
+              rentStatus: 'unpaid',
             };
 
             transaction.update(guestDocRef, updatedGuestData);
