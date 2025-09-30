@@ -1,8 +1,8 @@
 
 'use server';
 
-import type { Guest } from '@/lib/types';
-import { calculateFirstDueDate } from '@/lib/utils';
+import type { Guest } from './types';
+import { calculateFirstDueDate } from './utils';
 import { parseISO, isBefore } from 'date-fns';
 
 /**
@@ -14,33 +14,33 @@ import { parseISO, isBefore } from 'date-fns';
  */
 export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
   // --- Pre-computation checks ---
-  if (guest.isVacated || guest.exitDate) {
+  if (guest.isVacated || guest.exitDate || guest.rentStatus === 'paid') {
     return { guest, cyclesProcessed: 0 };
   }
 
-  let currentDueDate = parseISO(guest.dueDate);
-  if (!isBefore(now, currentDueDate)) {
-    // If due date is not in the past, no reconciliation needed.
+  let dueDate = parseISO(guest.dueDate);
+  if (!isBefore(now, dueDate)) {
+      // Due date is in the past, reconciliation might be needed
   } else {
-    // The due date is in the past. Proceed.
+      return { guest, cyclesProcessed: 0 };
   }
 
   let cyclesToProcess = 0;
-  let nextDueDate = new Date(currentDueDate.getTime());
+  let nextDueDate = new Date(dueDate.getTime());
 
   // Count how many full cycles have passed
   while (isBefore(nextDueDate, now)) {
       cyclesToProcess++;
+      dueDate = nextDueDate; // The start of the last processed cycle
       nextDueDate = calculateFirstDueDate(nextDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
   }
-
-  // If no full cycle has passed, do nothing.
+  
   if (cyclesToProcess === 0) {
       return { guest, cyclesProcessed: 0 };
   }
 
-  const newRentDue = guest.rentAmount * cyclesToProcess;
-  const newBalance = (guest.balanceBroughtForward || 0) + newRentDue;
+  const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
+  const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
   
   const updatedGuest: Guest = {
       ...guest,
