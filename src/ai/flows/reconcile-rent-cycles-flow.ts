@@ -51,33 +51,31 @@ const reconcileSingleGuestFlow = ai.defineFlow(
                 return;
             }
 
-            let currentDueDate = parseISO(guest.dueDate);
+            let dueDate = parseISO(guest.dueDate);
             const now = new Date();
-            let newDueDate = currentDueDate;
+            let newDueDate = dueDate;
+            let missedCycles = 0;
             
-            // This loop correctly counts how many full cycles have passed.
             while (isBefore(newDueDate, now)) {
-                cyclesProcessed++;
                 newDueDate = calculateFirstDueDate(newDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+                missedCycles++;
             }
             
-            // If no full cycles have passed, do nothing.
-            if (cyclesProcessed === 0) {
-                return;
+            if (missedCycles === 0) {
+                return; // No full cycles have passed.
             }
-
-            // The amount for the newly passed cycles.
-            const rentForMissedCycles = guest.rentAmount * cyclesProcessed;
             
-            // New balance is the existing balance plus rent for all newly completed cycles.
-            const newBalanceBroughtForward = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
+            cyclesProcessed = missedCycles;
             
-            // The rent for the new, current cycle is NOT added to the balance yet.
-            // It will be part of the "total due" calculation on the frontend.
+            const unpaidFromLastCycle = guest.rentAmount - (guest.rentPaidAmount || 0) + (guest.balanceBroughtForward || 0);
+            const rentForNewCycles = guest.rentAmount * (missedCycles - 1);
+            const newBalanceBroughtForward = unpaidFromLastCycle + rentForNewCycles;
+            
             const updatedGuestData: Partial<Guest> = {
               dueDate: format(newDueDate, 'yyyy-MM-dd'),
               balanceBroughtForward: newBalanceBroughtForward,
-              rentStatus: 'unpaid', // Since a cycle has passed, it must be unpaid.
+              rentPaidAmount: 0,
+              rentStatus: 'unpaid',
             };
 
             transaction.update(guestDocRef, updatedGuestData);
