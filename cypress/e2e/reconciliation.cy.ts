@@ -11,7 +11,7 @@ const triggerReconciliation = (scenario: string) => {
     headers: {
       'X-Cypress-Scenario': scenario,
     },
-    timeout: 60000,
+    timeout: 60000, // Increased timeout just in case
     failOnStatusCode: false,
   });
 };
@@ -23,8 +23,9 @@ describe('Rent Reconciliation API Endpoint', () => {
       triggerReconciliation('2_mins_overdue').then((response) => {
         expect(response.status).to.equal(200);
         expect(response.body).to.have.property('success', true);
-        expect(response.body.guest).to.have.property('balanceBroughtForward', 1);
-        expect(response.body.guest.dueDate).to.include('10:00'); // No change
+        expect(response.body.guest.balanceBroughtForward).to.equal(1);
+        // The due date should not change because a full cycle has not passed
+        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:00:00.000Z');
       });
     });
 
@@ -32,8 +33,9 @@ describe('Rent Reconciliation API Endpoint', () => {
       triggerReconciliation('4_mins_overdue').then((response) => {
         expect(response.status).to.equal(200);
         expect(response.body).to.have.property('success', true);
-        expect(response.body.guest).to.have.property('balanceBroughtForward', 2);
-        expect(response.body.guest.dueDate).to.include('10:03');
+        expect(response.body.guest.balanceBroughtForward).to.equal(2);
+        // Should advance to the start of the next cycle. Original due date was 10:00, next is 10:03.
+        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:03:00.000Z');
       });
     });
 
@@ -41,8 +43,9 @@ describe('Rent Reconciliation API Endpoint', () => {
       triggerReconciliation('7_mins_overdue').then((response) => {
         expect(response.status).to.equal(200);
         expect(response.body).to.have.property('success', true);
-        expect(response.body.guest).to.have.property('balanceBroughtForward', 3);
-        expect(response.body.guest.dueDate).to.include('10:06');
+        expect(response.body.guest.balanceBroughtForward).to.equal(3);
+        // 10:00 -> 10:03 -> 10:06. New due date is 10:06.
+        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:06:00.000Z');
       });
     });
 
@@ -50,8 +53,9 @@ describe('Rent Reconciliation API Endpoint', () => {
       triggerReconciliation('9_mins_overdue').then((response) => {
         expect(response.status).to.equal(200);
         expect(response.body).to.have.property('success', true);
-        expect(response.body.guest).to.have.property('balanceBroughtForward', 4);
-        expect(response.body.guest.dueDate).to.include('10:09');
+        expect(response.body.guest.balanceBroughtForward).to.equal(4);
+        // 10:00 -> 10:03 -> 10:06 -> 10:09.
+        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:09:00.000Z');
       });
     });
   });
@@ -61,7 +65,7 @@ describe('Rent Reconciliation API Endpoint', () => {
         triggerReconciliation('1_month_overdue').then(response => {
             expect(response.status).to.equal(200);
             expect(response.body.guest.balanceBroughtForward).to.equal(1000);
-            expect(response.body.guest.dueDate).to.equal('2024-08-15');
+            expect(response.body.guest.dueDate).to.equal('2024-08-15T00:00:00.000Z');
         });
     });
 
@@ -69,7 +73,7 @@ describe('Rent Reconciliation API Endpoint', () => {
         triggerReconciliation('3_months_overdue').then(response => {
             expect(response.status).to.equal(200);
             expect(response.body.guest.balanceBroughtForward).to.equal(3000);
-            expect(response.body.guest.dueDate).to.equal('2024-08-15');
+            expect(response.body.guest.dueDate).to.equal('2024-08-15T00:00:00.000Z');
         });
     });
 
@@ -112,7 +116,7 @@ describe('Rent Reconciliation API Endpoint', () => {
          triggerReconciliation('eom_31_to_30').then(response => {
             expect(response.status).to.equal(200);
             expect(response.body.guest.balanceBroughtForward).to.equal(5000);
-            expect(response.body.guest.dueDate).to.equal('2024-09-30');
+            expect(response.body.guest.dueDate).to.equal('2024-09-30T00:00:00.000Z');
         });
     });
 
@@ -120,7 +124,7 @@ describe('Rent Reconciliation API Endpoint', () => {
         triggerReconciliation('eom_feb_non_leap').then(response => {
             expect(response.status).to.equal(200);
             expect(response.body.guest.balanceBroughtForward).to.equal(5000);
-            expect(response.body.guest.dueDate).to.equal('2025-02-28');
+            expect(response.body.guest.dueDate).to.equal('2025-02-28T00:00:00.000Z');
         });
     });
 
@@ -128,7 +132,7 @@ describe('Rent Reconciliation API Endpoint', () => {
         triggerReconciliation('eom_feb_leap').then(response => {
             expect(response.status).to.equal(200);
             expect(response.body.guest.balanceBroughtForward).to.equal(5000);
-            expect(response.body.guest.dueDate).to.equal('2024-02-29');
+            expect(response.body.guest.dueDate).to.equal('2024-02-29T00:00:00.000Z');
         });
     });
 
