@@ -2,20 +2,24 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
 import { reconcileAllGuests } from '@/ai/flows/reconcile-rent-cycles-flow';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 import type { Guest, RentCycleUnit } from '@/lib/types';
 import { format, parseISO, isPast, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 
 function getHumanReadableDuration(minutes: number): string {
-    if (minutes < 1) return "just now";
-    if (minutes < 60) return `${minutes} minute(s)`;
-    const hours = Math.floor(minutes / 60);
+    const positiveMinutes = Math.abs(Math.round(minutes));
+
+    if (positiveMinutes < 1) return "just now";
+    if (positiveMinutes < 60) return `${positiveMinutes} minute(s)`;
+    
+    const hours = Math.floor(positiveMinutes / 60);
     if (hours < 24) {
-        const remainingMinutes = minutes % 60;
+        const remainingMinutes = positiveMinutes % 60;
         return `${hours} hour(s)${remainingMinutes > 0 ? ` and ${remainingMinutes} minute(s)` : ''}`;
     }
+    
     const days = Math.floor(hours / 24);
     const remainingHours = hours % 24;
     return `${days} day(s)${remainingHours > 0 ? ` and ${remainingHours} hour(s)` : ''}`;
