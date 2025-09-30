@@ -2,8 +2,8 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
-import { reconcileAllGuests } from '@/ai/flows/reconcile-rent-cycles-flow';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import { reconcileAllGuests } from '@/lib/actions/reconciliationActions';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 import type { Guest, RentCycleUnit } from '@/lib/types';
 import { format, parseISO, isPast, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';

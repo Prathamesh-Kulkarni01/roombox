@@ -1,7 +1,7 @@
 
 'use server';
 
-import { reconcileAllGuests } from '@/ai/flows/reconcile-rent-cycles-flow';
+import { reconcileAllGuests } from '@/lib/actions/reconciliationActions';
 import { NextRequest, NextResponse } from 'next/server';
 
 // --- API ROUTE HANDLER ---
