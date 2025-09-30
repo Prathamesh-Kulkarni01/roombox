@@ -1,7 +1,8 @@
 
+'use server';
 import type { Guest, RentCycleUnit } from './types';
+import { addMinutes, addHours, addDays, addWeeks, addMonths, parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths, setDate, lastDayOfMonth } from 'date-fns';
 import { calculateFirstDueDate } from '@/lib/utils';
-import { parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
 
 /**
  * A pure function that calculates the new state of a guest after rent reconciliation.
@@ -11,37 +12,36 @@ import { parseISO, isAfter, differenceInMinutes, differenceInHours, differenceIn
  * @returns An object with the updated guest state and the number of cycles processed.
  */
 export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
-  // A guest who has vacated or is on notice period should not accumulate new rent.
   if (guest.isVacated || guest.exitDate) {
     return { guest, cyclesProcessed: 0 };
   }
 
   const currentDueDate = parseISO(guest.dueDate);
-  
-  // Do not process if the current time is not yet *after* the due date.
+
   if (!isAfter(now, currentDueDate)) {
-    // However, if the status was 'paid', it should now become 'unpaid' because the due date has passed.
-    // This handles the edge case where the cron runs exactly on the due date but before the next cycle starts.
-    if (guest.rentStatus === 'paid' && now >= currentDueDate) {
-      const updatedGuest: Guest = {
-        ...guest,
-        rentStatus: 'unpaid',
-        // The balance from the 'paid' state was 0, so the new balance is just the new cycle's rent.
-        balanceBroughtForward: guest.rentAmount, 
-        rentPaidAmount: 0,
-        additionalCharges: [],
-      };
-       // This counts as one cycle because we're transitioning from paid to unpaid.
-      return { guest: updatedGuest, cyclesProcessed: 1 };
-    }
-     return { guest, cyclesProcessed: 0 };
+    return { guest, cyclesProcessed: 0 };
   }
 
-  let totalDifference = 0;
   const cycleUnit = guest.rentCycleUnit || 'months';
   const cycleValue = guest.rentCycleValue || 1;
 
-  // Calculate the total number of full cycles that have passed.
+  // Special handling for guests who were 'paid' and have now become overdue.
+  if (guest.rentStatus === 'paid') {
+      const nextDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, guest.billingAnchorDay);
+      const updatedGuest: Guest = {
+        ...guest,
+        dueDate: nextDueDate.toISOString(),
+        rentStatus: 'unpaid',
+        balanceBroughtForward: guest.rentAmount,
+        rentPaidAmount: 0,
+        additionalCharges: [],
+      };
+      
+      // Recalculate if more cycles are due from this new date.
+      return runReconciliationLogic(updatedGuest, now);
+  }
+
+  let totalDifference = 0;
   switch (cycleUnit) {
       case 'minutes': totalDifference = differenceInMinutes(now, currentDueDate); break;
       case 'hours': totalDifference = differenceInHours(now, currentDueDate); break;
@@ -57,7 +57,6 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
     return { guest, cyclesProcessed: 0 };
   }
 
-  // If we are here, it means at least one full cycle has passed.
   const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
   const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
 
@@ -71,7 +70,7 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
       dueDate: newDueDate.toISOString(),
       balanceBroughtForward: newBalance,
       rentPaidAmount: 0,
-      rentStatus: 'unpaid', // The status is now 'unpaid' as a new cycle is due.
+      rentStatus: 'unpaid',
       additionalCharges: [],
   };
 
