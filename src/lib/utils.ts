@@ -62,3 +62,21 @@ export function calculateFirstDueDate(startDate: Date, unit: RentCycleUnit, valu
     
     return addFn(startDate, value);
 };
+
+/**
+ * Provides a simple, actionable suggestion for common tenant complaints.
+ * @param category The category of the complaint.
+ * @returns A suggestion string or an empty string if no simple solution is obvious.
+ */
+export function getComplaintSuggestion(category: 'maintenance' | 'cleanliness' | 'wifi' | 'food' | 'other'): string {
+    switch (category) {
+        case 'wifi':
+            return "Have you tried restarting the Wi-Fi router? Unplugging it for 30 seconds and plugging it back in often solves the issue.";
+        case 'maintenance':
+            return "For urgent issues like a major leak, please contact the manager directly. For minor issues like a flickering bulb, ensure it's tightly screwed in.";
+        case 'cleanliness':
+            return "Please let the cleaning staff know during their next scheduled round. For urgent spills, please inform the front desk.";
+        default:
+            return "";
+    }
+}

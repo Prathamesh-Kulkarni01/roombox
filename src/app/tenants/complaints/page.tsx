@@ -22,11 +22,11 @@ import { formatDistanceToNow } from 'date-fns'
 import { addComplaint as addComplaintAction, updateComplaint as updateComplaintAction } from '@/lib/slices/complaintsSlice'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
-import { suggestComplaintSolution } from '@/ai/flows/suggest-complaint-solution'
 import { createAndSendNotification } from '@/lib/actions/notificationActions'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import Image from 'next/image'
 import { canAccess } from '@/lib/permissions';
+import { getComplaintSuggestion } from '@/lib/utils'
 
 const complaintSchema = z.object({
   category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other'], {
@@ -75,31 +75,15 @@ export default function TenantComplaintsPage() {
         defaultValues: { description: '', isPublic: true, imageUrls: [] },
     })
 
-    const complaintDescription = form.watch('description');
     const complaintCategory = form.watch('category');
 
     useEffect(() => {
-        const handler = setTimeout(async () => {
-            if (complaintDescription && complaintDescription.length > 20 && complaintCategory) {
-                setIsSuggesting(true);
-                try {
-                    const result = await suggestComplaintSolution({
-                        description: complaintDescription,
-                        category: complaintCategory,
-                    });
-                    setSuggestion(result.suggestion);
-                } catch (error) {
-                    console.error("AI suggestion failed", error);
-                } finally {
-                    setIsSuggesting(false);
-                }
-            } else {
-                setSuggestion('');
-            }
-        }, 1000); // Debounce for 1 second
-
-        return () => clearTimeout(handler);
-    }, [complaintDescription, complaintCategory]);
+        if (complaintCategory) {
+            setSuggestion(getComplaintSuggestion(complaintCategory));
+        } else {
+            setSuggestion('');
+        }
+    }, [complaintCategory]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
