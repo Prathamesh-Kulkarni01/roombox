@@ -1,4 +1,5 @@
 
+
 // NOTE: This file now contains UNIT TESTS that run inside the Cypress environment.
 // It tests the pure reconciliation logic directly without hitting an API endpoint.
 
@@ -52,8 +53,8 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
       const result = runReconciliationLogic(guest, now);
       
       expect(result.cyclesProcessed).to.equal(1);
-      expect(result.guest.balanceBroughtForward).to.equal(2);
-      expect(result.guest.dueDate).to.equal('2024-08-01T10:03:00.000Z');
+      expect(result.guest.balanceBroughtForward).to.equal(2); // 1 (old) + 1 (new)
+      expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-08-01T10:03:00.000Z');
     });
 
     it('Scenario 3: 7 minutes overdue - should add TWO new cycles', () => {
@@ -62,8 +63,8 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
       const result = runReconciliationLogic(guest, now);
       
       expect(result.cyclesProcessed).to.equal(2);
-      expect(result.guest.balanceBroughtForward).to.equal(3);
-      expect(result.guest.dueDate).to.equal('2024-08-01T10:06:00.000Z');
+      expect(result.guest.balanceBroughtForward).to.equal(3); // 1 (old) + 2 (new)
+      expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-08-01T10:06:00.000Z');
     });
 
      it('Scenario 4: Exactly 9 minutes overdue - should add THREE new cycles', () => {
@@ -73,7 +74,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
       expect(result.cyclesProcessed).to.equal(3);
       expect(result.guest.balanceBroughtForward).to.equal(4);
-      expect(result.guest.dueDate).to.equal('2024-08-01T10:09:00.000Z');
+      expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-08-01T10:09:00.000Z');
     });
   });
 
@@ -85,7 +86,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
         expect(result.cyclesProcessed).to.equal(1);
         expect(result.guest.balanceBroughtForward).to.equal(1000);
-        expect(result.guest.dueDate).to.equal('2024-08-15T00:00:00.000Z');
+        expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-08-15T00:00:00.000Z');
     });
 
     it('Monthly Case #2: Three months overdue', () => {
@@ -95,7 +96,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
         expect(result.cyclesProcessed).to.equal(3);
         expect(result.guest.balanceBroughtForward).to.equal(3000);
-        expect(result.guest.dueDate).to.equal('2024-08-15T00:00:00.000Z');
+        expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-08-15T00:00:00.000Z');
     });
 
     it('Edge Case: Guest is fully paid', () => {
@@ -145,7 +146,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
         expect(result.cyclesProcessed).to.equal(1);
         expect(result.guest.balanceBroughtForward).to.equal(5000);
-        expect(result.guest.dueDate).to.equal('2024-09-30T00:00:00.000Z');
+        expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-09-30T00:00:00.000Z');
     });
 
     it('End of Month: February in a non-leap year', () => {
@@ -155,7 +156,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
         expect(result.cyclesProcessed).to.equal(1);
         expect(result.guest.balanceBroughtForward).to.equal(5000);
-        expect(result.guest.dueDate).to.equal('2025-02-28T00:00:00.000Z');
+        expect(new Date(result.guest.dueDate).toISOString()).to.equal('2025-02-28T00:00:00.000Z');
     });
 
     it('End of Month: February in a leap year', () => {
@@ -165,7 +166,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
         
         expect(result.cyclesProcessed).to.equal(1);
         expect(result.guest.balanceBroughtForward).to.equal(5000);
-        expect(result.guest.dueDate).to.equal('2024-02-29T00:00:00.000Z');
+        expect(new Date(result.guest.dueDate).toISOString()).to.equal('2024-02-29T00:00:00.000Z');
     });
 
     // Add more cases to reach 30+

@@ -55,6 +55,7 @@ export function calculateFirstDueDate(startDate: Date, unit: RentCycleUnit, valu
     if (unit === 'months') {
         const nextMonth = addMonths(startDate, value);
         const lastDayNextMonth = lastDayOfMonth(nextMonth).getDate();
+        // If the original anchor day was something like the 31st, and the next month only has 30 days, use the 30th.
         const newDay = Math.min(anchorDay, lastDayNextMonth);
         return setDate(nextMonth, newDay);
     }
