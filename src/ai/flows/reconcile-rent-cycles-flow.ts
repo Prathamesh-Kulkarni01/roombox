@@ -8,21 +8,60 @@ import { format, parseISO, isBefore } from 'date-fns';
 import type { Guest } from '@/lib/types';
 import { calculateFirstDueDate } from '@/lib/utils';
 
+/**
+ * A pure function that calculates the new state of a guest after rent reconciliation.
+ * It does not perform any database operations.
+ * @param guest The current guest object.
+ * @param now The current date/time to reconcile against.
+ * @returns An object with the updated guest state and the number of cycles processed.
+ */
+export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
+  let dueDate = parseISO(guest.dueDate);
+  let newDueDate = dueDate;
+  let cyclesPassed = 0;
 
-// Kept for single guest reconciliation if needed elsewhere
-export async function reconcileSingleGuest(params: {
-  ownerId: string;
-  guestId: string;
-}): Promise<{ success: boolean; reconciledCount?: number }> {
-  const result = await reconcileSingleGuestFlow(params);
-  return { success: result.success, reconciledCount: result.success ? 1 : 0 };
+  if (guest.isVacated || guest.exitDate || isBefore(now, dueDate)) {
+    return { guest, cyclesProcessed: 0 };
+  }
+  
+  // Count how many full cycles have passed by advancing the due date until it's in the future
+  while (isBefore(newDueDate, now)) {
+    newDueDate = calculateFirstDueDate(newDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+    cyclesPassed++;
+  }
+
+  const newCyclesToBill = cyclesPassed > 0 ? cyclesPassed -1 : 0;
+  
+  if (newCyclesToBill === 0) {
+      // The guest might be overdue, but not by a full cycle yet.
+      return { guest: { ...guest, rentStatus: guest.balanceBroughtForward > 0 ? 'unpaid' : guest.rentStatus }, cyclesProcessed: 0 };
+  }
+  
+  // Calculate the total outstanding amount before adding new cycles
+  const unpaidFromLastCycle = (guest.balanceBroughtForward || 0);
+
+  // Add rent for the newly completed cycles
+  const rentForNewCycles = guest.rentAmount * newCyclesToBill;
+
+  const newBalance = unpaidFromLastCycle + rentForNewCycles;
+  
+  //The new due date should be the start of the *next* billing cycle, not the one that just passed.
+  const finalDueDate = newDueDate;
+
+  const updatedGuest: Guest = {
+      ...guest,
+      dueDate: finalDueDate.toISOString(),
+      balanceBroughtForward: newBalance,
+      rentPaidAmount: 0, // Reset paid amount for the new cycle
+      rentStatus: 'unpaid',
+      additionalCharges: [], // Clear one-time charges as they belong to the previous cycle
+  };
+
+  return { guest: updatedGuest, cyclesProcessed: newCyclesToBill };
 }
 
-export async function reconcileAllGuests(limit?: number): Promise<{ success: boolean; reconciledCount: number; }> {
-    const result = await reconcileAllGuestsFlow({ limit });
-    return { success: result.success, reconciledCount: result.reconciledCount };
-}
 
+// --- GENKIT FLOWS ---
 
 const reconcileSingleGuestFlow = ai.defineFlow(
   {
@@ -36,50 +75,28 @@ const reconcileSingleGuestFlow = ai.defineFlow(
   async ({ ownerId, guestId }) => {
     const dataDb = await selectOwnerDataAdminDb(ownerId);
     const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
-    let cyclesProcessed = 0;
 
     try {
-        await dataDb.runTransaction(async (transaction) => {
+        const cyclesProcessed = await dataDb.runTransaction(async (transaction) => {
             const guestDoc = await transaction.get(guestDocRef);
             if (!guestDoc.exists) {
                 console.error(`[Reconcile] Guest ${guestId} not found.`);
-                return;
+                return 0;
             }
 
             const guest = guestDoc.data() as Guest;
-            if (guest.isVacated || guest.exitDate) {
-                return;
+            
+            // Use the pure, centralized logic function
+            const result = runReconciliationLogic(guest, new Date());
+            
+            if (result.cyclesProcessed === 0 && guest.rentStatus === result.guest.rentStatus) {
+                // No changes needed
+                return 0;
             }
 
-            let dueDate = parseISO(guest.dueDate);
-            const now = new Date();
-            let newDueDate = dueDate;
-            let missedCycles = 0;
-            
-            while (isBefore(newDueDate, now)) {
-                newDueDate = calculateFirstDueDate(newDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
-                missedCycles++;
-            }
-            
-            if (missedCycles === 0) {
-                return; // No full cycles have passed.
-            }
-            
-            cyclesProcessed = missedCycles;
-            
-            const unpaidFromLastCycle = guest.rentAmount - (guest.rentPaidAmount || 0) + (guest.balanceBroughtForward || 0);
-            const rentForNewCycles = guest.rentAmount * (missedCycles - 1);
-            const newBalanceBroughtForward = unpaidFromLastCycle + rentForNewCycles;
-            
-            const updatedGuestData: Partial<Guest> = {
-              dueDate: format(newDueDate, 'yyyy-MM-dd'),
-              balanceBroughtForward: newBalanceBroughtForward,
-              rentPaidAmount: 0,
-              rentStatus: 'unpaid',
-            };
-
-            transaction.update(guestDocRef, updatedGuestData);
-            console.log(`[Reconcile] Processed ${cyclesProcessed} cycle(s) for guest ${guest.name}. New balance: ${newBalanceBroughtForward}, New Due Date: ${updatedGuestData.dueDate}`);
+            transaction.update(guestDocRef, result.guest);
+            console.log(`[Reconcile] Processed ${result.cyclesProcessed} cycle(s) for guest ${guest.name}. New balance: ${result.guest.balanceBroughtForward}, New Due Date: ${result.guest.dueDate}`);
+            return result.cyclesProcessed;
         });
 
         return { success: true, cyclesProcessed };
@@ -113,7 +130,7 @@ const reconcileAllGuestsFlow = ai.defineFlow(
                 for (const guestDoc of guestsSnapshot.docs) {
                      if (limit && processedGuestCount >= limit) {
                         console.log(`[Reconcile All] Reached processing limit of ${limit}.`);
-                        break; // Break from inner loop
+                        break; 
                     }
 
                     try {
@@ -129,7 +146,7 @@ const reconcileAllGuestsFlow = ai.defineFlow(
                     }
                 }
                  if (limit && processedGuestCount >= limit) {
-                    break; // Break from outer loop
+                    break;
                 }
             }
             console.log(`[Reconcile All] Successfully processed reconciliation for ${processedGuestCount} guests. Failed: ${totalErrors}.`);
@@ -140,3 +157,16 @@ const reconcileAllGuestsFlow = ai.defineFlow(
         }
     }
 );
+
+// Exporting the main functions for use elsewhere
+export async function reconcileSingleGuest(params: { ownerId: string; guestId: string; }): Promise<{ success: boolean; reconciledCount?: number }> {
+    const result = await reconcileSingleGuestFlow(params);
+    return { success: result.success, reconciledCount: result.success ? 1 : 0 };
+}
+
+export async function reconcileAllGuests(limit?: number): Promise<{ success: boolean; reconciledCount: number; }> {
+    const result = await reconcileAllGuestsFlow({ limit });
+    return { success: result.success, reconciledCount: result.reconciledCount };
+}
+
+    

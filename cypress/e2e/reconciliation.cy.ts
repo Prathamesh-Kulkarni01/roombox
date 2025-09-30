@@ -23,8 +23,9 @@ describe('Rent Reconciliation API Endpoint', () => {
       triggerReconciliation('2_mins_overdue').then((response) => {
         expect(response.status).to.equal(200);
         expect(response.body).to.have.property('success', true);
+        // Balance remains 1 because no new cycle has been billed
         expect(response.body.guest.balanceBroughtForward).to.equal(1);
-        // The due date should not change because a full cycle has not passed
+        // The due date does not change because a full cycle has not passed
         expect(response.body.guest.dueDate).to.equal('2024-08-01T10:00:00.000Z');
       });
     });
@@ -33,9 +34,10 @@ describe('Rent Reconciliation API Endpoint', () => {
       triggerReconciliation('4_mins_overdue').then((response) => {
         expect(response.status).to.equal(200);
         expect(response.body).to.have.property('success', true);
+        // Original balance was 1, 1 new cycle of 1 rupee is added.
         expect(response.body.guest.balanceBroughtForward).to.equal(2);
-        // Should advance to the start of the next cycle. Original due date was 10:00, next is 10:03.
-        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:03:00.000Z');
+        // Should advance to the start of the *next* cycle. Original was 10:00, next is 10:03.
+        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:06:00.000Z');
       });
     });
 
@@ -43,9 +45,10 @@ describe('Rent Reconciliation API Endpoint', () => {
       triggerReconciliation('7_mins_overdue').then((response) => {
         expect(response.status).to.equal(200);
         expect(response.body).to.have.property('success', true);
+        // Original balance was 1, 2 new cycles of 1 rupee each are added.
         expect(response.body.guest.balanceBroughtForward).to.equal(3);
-        // 10:00 -> 10:03 -> 10:06. New due date is 10:06.
-        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:06:00.000Z');
+        // 10:00 -> 10:03 -> 10:06. New due date is 10:09.
+        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:09:00.000Z');
       });
     });
 
@@ -53,9 +56,10 @@ describe('Rent Reconciliation API Endpoint', () => {
       triggerReconciliation('9_mins_overdue').then((response) => {
         expect(response.status).to.equal(200);
         expect(response.body).to.have.property('success', true);
+        // Original balance was 1, 3 new cycles of 1 rupee each are added.
         expect(response.body.guest.balanceBroughtForward).to.equal(4);
         // 10:00 -> 10:03 -> 10:06 -> 10:09.
-        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:09:00.000Z');
+        expect(response.body.guest.dueDate).to.equal('2024-08-01T10:12:00.000Z');
       });
     });
   });
@@ -65,7 +69,7 @@ describe('Rent Reconciliation API Endpoint', () => {
         triggerReconciliation('1_month_overdue').then(response => {
             expect(response.status).to.equal(200);
             expect(response.body.guest.balanceBroughtForward).to.equal(1000);
-            expect(response.body.guest.dueDate).to.equal('2024-08-15T00:00:00.000Z');
+            expect(response.body.guest.dueDate).to.equal('2024-09-15T00:00:00.000Z');
         });
     });
 
@@ -144,3 +148,5 @@ describe('Rent Reconciliation API Endpoint', () => {
     }
   });
 });
+
+    

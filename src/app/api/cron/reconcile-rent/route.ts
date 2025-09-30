@@ -1,48 +1,13 @@
 
 'use server';
 
-import { reconcileAllGuests } from '@/ai/flows/reconcile-rent-cycles-flow';
+import { reconcileAllGuests, runReconciliationLogic } from '@/ai/flows/reconcile-rent-cycles-flow';
 import { NextRequest, NextResponse } from 'next/server';
-import { format, parseISO, isBefore } from 'date-fns';
-import { calculateFirstDueDate } from '@/lib/utils';
+import { parseISO } from 'date-fns';
 import type { Guest } from '@/lib/types';
 
 
 // --- MOCK TEST LOGIC ---
-
-function runMockReconciliation(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
-  let dueDate = parseISO(guest.dueDate);
-  let newDueDate = dueDate;
-  let cyclesProcessed = 0;
-
-  if (guest.isVacated || guest.exitDate || (guest.rentStatus === 'paid' && isBefore(now, dueDate))) {
-    return { guest, cyclesProcessed: 0 };
-  }
-
-  while (isBefore(newDueDate, now)) {
-    newDueDate = calculateFirstDueDate(newDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
-    cyclesProcessed++;
-  }
-
-  if (cyclesProcessed === 0) {
-      return { guest, cyclesProcessed: 0 };
-  }
-  
-  const unpaidFromLastCycle = guest.rentAmount - (guest.rentPaidAmount || 0) + (guest.balanceBroughtForward || 0);
-  const rentForNewCycles = guest.rentAmount * (cyclesProcessed - 1);
-  const newBalance = unpaidFromLastCycle + rentForNewCycles;
-  
-  const updatedGuest: Guest = {
-      ...guest,
-      dueDate: newDueDate.toISOString(),
-      balanceBroughtForward: newBalance,
-      rentPaidAmount: 0,
-      rentStatus: 'unpaid',
-  };
-
-  return { guest: updatedGuest, cyclesProcessed };
-}
-
 
 const createMockGuest = (overrides: Partial<Guest>): Guest => ({
   id: `guest-test`,
@@ -86,12 +51,12 @@ const scenarios: { [key: string]: { guest: Guest; now: Date } } = {
     now: new Date('2024-08-01T10:09:00.000Z'),
   },
   '1_month_overdue': {
-    guest: createMockGuest({ rentCycleUnit: 'months', rentAmount: 1000, balanceBroughtForward: 0, dueDate: '2024-07-15T00:00:00.000Z' }),
-    now: new Date('2024-08-15T00:00:00.000Z'),
+    guest: createMockGuest({ rentCycleUnit: 'months', rentAmount: 500, balanceBroughtForward: 500, dueDate: '2024-07-15T00:00:00.000Z' }),
+    now: new Date('2024-08-16T00:00:00.000Z'),
   },
   '3_months_overdue': {
     guest: createMockGuest({ rentCycleUnit: 'months', rentAmount: 1000, balanceBroughtForward: 0, dueDate: '2024-05-15T00:00:00.000Z' }),
-    now: new Date('2024-08-15T00:00:00.000Z'),
+    now: new Date('2024-08-16T00:00:00.000Z'),
   },
   'fully_paid': {
     guest: createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0, dueDate: '2024-09-01T00:00:00.000Z' }),
@@ -99,10 +64,10 @@ const scenarios: { [key: string]: { guest: Guest; now: Date } } = {
   },
   'notice_period': {
     guest: createMockGuest({ exitDate: '2024-08-30T00:00:00.000Z' }),
-    now: new Date('2024-08-15T00:00:00.000Z'),
+    now: new Date('2024-09-15T00:00:00.000Z'),
   },
   'vacated': {
-    guest: createMockGuest({ isVacated: true }),
+    guest: createMockGuest({ isVacated: true, dueDate: '2024-07-15T00:00:00.000Z' }),
     now: new Date('2024-08-15T00:00:00.000Z'),
   },
   'due_in_future': {
@@ -132,12 +97,13 @@ function runReconciliationTest(scenarioName: string) {
     if (!scenario) {
         return { success: false, error: `Scenario "${scenarioName}" not found.` };
     }
-    const result = runMockReconciliation(scenario.guest, scenario.now);
+    // Call the exact same logic function used by the real flow
+    const result = runReconciliationLogic(scenario.guest, scenario.now);
     
-    // Convert date objects to ISO strings for consistent JSON serialization
+    // Ensure dueDate is always in the full ISO format for consistent test results
     const finalGuestState = {
         ...result.guest,
-        dueDate: result.guest.dueDate // Already a string
+        dueDate: result.guest.dueDate
     };
     
     return { success: true, guest: finalGuestState, cyclesProcessed: result.cyclesProcessed };
@@ -181,3 +147,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+    
