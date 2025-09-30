@@ -54,14 +54,14 @@ const reconcileSingleGuestFlow = ai.defineFlow(
                 return;
             }
 
-            let nextDueDate = parseISO(guest.dueDate);
+            let currentDueDate = parseISO(guest.dueDate);
             const now = new Date();
             let cyclesToProcess = 0;
             
             // Determine how many full cycles have passed
-            while (isBefore(nextDueDate, now)) {
+            while (isBefore(currentDueDate, now)) {
                 cyclesToProcess++;
-                nextDueDate = calculateFirstDueDate(nextDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
+                currentDueDate = calculateFirstDueDate(currentDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
             }
             
             // If no full cycles have passed, do nothing
@@ -69,23 +69,24 @@ const reconcileSingleGuestFlow = ai.defineFlow(
                 return;
             }
 
-            const totalOwedBeforeThisRun = (guest.balanceBroughtForward || 0) + guest.rentAmount + (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-            const unpaidFromLastCycle = totalOwedBeforeThisRun - (guest.rentPaidAmount || 0);
+            // This guest's rent for the current (now overdue) cycle was not fully paid.
+            // We need to roll over the unpaid amount to the balance and set up the new cycle.
+            const balanceBf = guest.balanceBroughtForward || 0;
+            const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+            const totalBillForLastCycle = balanceBf + guest.rentAmount + chargesDue;
+            const unpaidFromLastCycle = totalBillForLastCycle - (guest.rentPaidAmount || 0);
 
-            // New balance includes the unpaid amount from last cycle PLUS the rent for all newly missed cycles.
-            const newBalanceBroughtForward = unpaidFromLastCycle + (guest.rentAmount * cyclesToProcess);
+            // The new balance is the unpaid amount from last cycle PLUS the rent for all newly missed cycles.
+            // We subtract 1 from cyclesToProcess because the first missed cycle's rent is already part of unpaidFromLastCycle.
+            const newBalanceBroughtForward = unpaidFromLastCycle + (guest.rentAmount * (cyclesToProcess - 1));
 
             const updatedGuestData: Partial<Guest> = {
-              dueDate: format(nextDueDate, 'yyyy-MM-dd'),
+              dueDate: format(currentDueDate, 'yyyy-MM-dd'),
               balanceBroughtForward: newBalanceBroughtForward,
               rentPaidAmount: 0, // Reset for the new cycle
               additionalCharges: [], // Clear charges as they are now part of the balance
-              rentStatus: 'unpaid' // If a cycle has passed, it's always unpaid or partial initially
+              rentStatus: newBalanceBroughtForward > 0 ? 'unpaid' : 'paid',
             };
-            
-            if(newBalanceBroughtForward <= 0) {
-                updatedGuestData.rentStatus = 'paid';
-            }
 
             transaction.update(guestDocRef, updatedGuestData);
             console.log(`[Reconcile] Processed ${cyclesToProcess} cycle(s) for guest ${guest.name}. New balance: ${newBalanceBroughtForward}`);
