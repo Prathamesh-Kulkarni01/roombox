@@ -38,6 +38,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
   context('Minute-based Rent Cycles (Rent: ₹1, Cycle: 3 minutes)', () => {
 
     it('Scenario 1: 2 minutes overdue - should NOT add a new cycle', () => {
+      cy.log('**Initial State:** Guest rent is due at 10:00 AM with a balance of ₹1.');
+      cy.log('**Action:** The current time is 10:02 AM, which is less than one full 3-minute cycle overdue.');
+      cy.log('**Expected Outcome:** No new rent cycle should be added. The balance should remain ₹1, and the due date should not change.');
+
       const guest = createMockGuest({});
       const now = new Date('2024-08-01T10:02:00.000Z'); // 2 minutes past due
       const result = runReconciliationLogic(guest, now);
@@ -48,6 +52,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Scenario 2: 4 minutes overdue - should add ONE new cycle', () => {
+      cy.log('**Initial State:** Guest rent is due at 10:00 AM with a balance of ₹1.');
+      cy.log('**Action:** The current time is 10:04 AM, which is more than one full 3-minute cycle overdue.');
+      cy.log('**Expected Outcome:** One new rent cycle of ₹1 should be added. The balance should become ₹2. The due date should advance by 3 minutes.');
+      
       const guest = createMockGuest({});
       const now = new Date('2024-08-01T10:04:00.000Z'); // 4 minutes past due
       const result = runReconciliationLogic(guest, now);
@@ -58,6 +66,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Scenario 3: 7 minutes overdue - should add TWO new cycles', () => {
+      cy.log('**Initial State:** Guest rent is due at 10:00 AM with a balance of ₹1.');
+      cy.log('**Action:** The current time is 10:07 AM, which is more than two full 3-minute cycles overdue.');
+      cy.log('**Expected Outcome:** Two new rent cycles (₹2) should be added. The balance should become ₹3. The due date should advance by 6 minutes.');
+
       const guest = createMockGuest({});
       const now = new Date('2024-08-01T10:07:00.000Z'); // 7 minutes past due
       const result = runReconciliationLogic(guest, now);
@@ -68,6 +80,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
      it('Scenario 4: Exactly 9 minutes overdue - should add THREE new cycles', () => {
+      cy.log('**Initial State:** Guest rent is due at 10:00 AM with a balance of ₹1.');
+      cy.log('**Action:** The current time is 10:09 AM, exactly three 3-minute cycles overdue.');
+      cy.log('**Expected Outcome:** Three new rent cycles (₹3) should be added. The balance should become ₹4. The due date should advance by 9 minutes.');
+
       const guest = createMockGuest({});
       const now = new Date('2024-08-01T10:09:00.000Z'); // Exactly 3 cycles past due
       const result = runReconciliationLogic(guest, now);
@@ -80,6 +96,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
 
   context('Monthly Cycles & Edge Cases', () => {
     it('Monthly Case #1: One month overdue', () => {
+        cy.log('**Initial State:** Guest rent of ₹500 was due on July 15th.');
+        cy.log('**Action:** The current time is August 16th.');
+        cy.log('**Expected Outcome:** One new monthly cycle should be added. New balance should be ₹1000. New due date should be August 15th.');
+        
         const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 500, balanceBroughtForward: 500, dueDate: '2024-07-15T00:00:00.000Z', billingAnchorDay: 15 });
         const now = new Date('2024-08-16T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
@@ -90,6 +110,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Monthly Case #2: Three months overdue', () => {
+        cy.log('**Initial State:** Guest rent of ₹1000 was due on May 15th with a zero balance.');
+        cy.log('**Action:** The current time is August 16th.');
+        cy.log('**Expected Outcome:** Three new monthly cycles should be added. New balance should be ₹3000. New due date should be August 15th.');
+
         const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 1000, balanceBroughtForward: 0, dueDate: '2024-05-15T00:00:00.000Z', billingAnchorDay: 15 });
         const now = new Date('2024-08-16T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
@@ -100,6 +124,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Edge Case: Guest is fully paid', () => {
+        cy.log('**Initial State:** Guest rent status is "paid" and balance is zero.');
+        cy.log('**Action:** Run reconciliation.');
+        cy.log('**Expected Outcome:** No cycles should be processed.');
+
         const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0, dueDate: '2024-09-01T00:00:00.000Z' });
         const now = new Date('2024-08-15T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
@@ -108,6 +136,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Edge Case: Guest is on notice period', () => {
+        cy.log('**Initial State:** Guest has an exit date set (is on notice period).');
+        cy.log('**Action:** Run reconciliation even after the due date.');
+        cy.log('**Expected Outcome:** No new cycles should be added for a guest on notice period.');
+
         const guest = createMockGuest({ exitDate: '2024-08-30T00:00:00.000Z' });
         const now = new Date('2024-09-15T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
@@ -116,6 +148,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Edge Case: Guest is already vacated', () => {
+        cy.log('**Initial State:** Guest is marked as vacated.');
+        cy.log('**Action:** Run reconciliation.');
+        cy.log('**Expected Outcome:** No cycles should be processed.');
+        
         const guest = createMockGuest({ isVacated: true, dueDate: '2024-07-15T00:00:00.000Z' });
         const now = new Date('2024-08-15T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
@@ -124,6 +160,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Edge Case: Due date is in the future', () => {
+        cy.log('**Initial State:** Guest due date is in the future.');
+        cy.log('**Action:** Run reconciliation.');
+        cy.log('**Expected Outcome:** No cycles should be processed.');
+
         const guest = createMockGuest({ dueDate: '2024-09-01T00:00:00.000Z' });
         const now = new Date('2024-08-15T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
@@ -132,6 +172,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('Edge Case: Due date is today', () => {
+       cy.log('**Initial State:** Guest due date is today.');
+       cy.log('**Action:** Run reconciliation at noon on the due date.');
+       cy.log('**Expected Outcome:** No new cycle should be processed. Guest has the full day to pay.');
+       
        const guest = createMockGuest({ rentCycleUnit: 'days', rentCycleValue: 1, dueDate: '2024-08-15T00:00:00.000Z' });
        const now = new Date('2024-08-15T12:00:00.000Z');
        const result = runReconciliationLogic(guest, now);
@@ -140,6 +184,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
     
     it('Edge Case: Due date is tomorrow', () => {
+       cy.log('**Initial State:** Guest due date was yesterday (1 day rent cycle).');
+       cy.log('**Action:** Run reconciliation exactly one day after the due date.');
+       cy.log('**Expected Outcome:** Exactly one new cycle should be processed.');
+       
        const guest = createMockGuest({ rentCycleUnit: 'days', rentCycleValue: 1, dueDate: '2024-08-15T00:00:00.000Z' });
        const now = new Date('2024-08-16T00:00:00.000Z'); // Exactly 1 day after
        const result = runReconciliationLogic(guest, now);
@@ -148,6 +196,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('End of Month: 31st to 30th', () => {
+        cy.log('**Initial State:** Guest billing anchor day is 31st, rent due on Aug 31st.');
+        cy.log('**Action:** Run reconciliation on Oct 1st.');
+        cy.log('**Expected Outcome:** New due date should be Sep 30th, not Oct 1st. One cycle processed.');
+
         const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 5000, dueDate: '2024-08-31T00:00:00.000Z', billingAnchorDay: 31, balanceBroughtForward: 0 });
         const now = new Date('2024-10-01T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
@@ -158,6 +210,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('End of Month: February in a non-leap year', () => {
+        cy.log('**Initial State:** Guest billing anchor day is 31st, rent due on Jan 31st, 2025.');
+        cy.log('**Action:** Run reconciliation on Mar 1st, 2025.');
+        cy.log('**Expected Outcome:** New due date should be Feb 28th, 2025. One cycle processed.');
+        
         const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 5000, dueDate: '2025-01-31T00:00:00.000Z', billingAnchorDay: 31, balanceBroughtForward: 0 });
         const now = new Date('2025-03-01T00:00:00.000Z');
         const result = runReconciliationLogic(guest, now);
@@ -168,6 +224,10 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     });
 
     it('End of Month: February in a leap year', () => {
+        cy.log('**Initial State:** Guest billing anchor day is 31st, rent due on Jan 31st, 2024 (a leap year).');
+        cy.log('**Action:** Run reconciliation on Mar 1st, 2024.');
+        cy.log('**Expected Outcome:** New due date should be Feb 29th, 2024. One cycle processed.');
+
         const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 5000, dueDate: '2024-01-31T00:00:00.000Z', billingAnchorDay: 31, balanceBroughtForward: 0 });
         const now = new Date('2024-03-01T00:00:00.00Z');
         const result = runReconciliationLogic(guest, now);
@@ -189,5 +249,7 @@ describe('Rent Reconciliation Logic Unit Tests', () => {
     }
   });
 });
+
+    
 
     
