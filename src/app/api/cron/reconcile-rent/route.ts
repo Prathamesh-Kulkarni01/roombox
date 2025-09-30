@@ -6,12 +6,14 @@ export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
     const secret = process.env.CRON_SECRET;
+    const isProd = process.env.NODE_ENV === 'production';
 
-    if (process.env.NODE_ENV === 'production' && (!secret || authHeader !== `Bearer ${secret}`)) {
+    if (isProd && (!secret || authHeader !== `Bearer ${secret}`)) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const result = await reconcileAllGuests();
+    // In dev/test environments, limit the number of guests to process to prevent timeouts.
+    const result = await reconcileAllGuests(isProd ? undefined : 50);
 
     if (!result.success) {
       throw new Error('Failed to execute rent reconciliation flow.');

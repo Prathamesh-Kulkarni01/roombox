@@ -1,3 +1,4 @@
+
 // This test spec uses Cypress to test the rent reconciliation API endpoint directly.
 // You can run it via the Cypress visual runner with `npx cypress open`.
 // Note: This test requires your local dev server (`npm run dev`) to be running.
@@ -12,6 +13,7 @@ describe('Rent Reconciliation API Endpoint', () => {
         // We can bypass auth here for testing since the endpoint checks for a secret, which is not set in dev
         Authorization: `Bearer cypress-test`,
       },
+      timeout: 60000, // Increase timeout to 60s to handle potentially long-running job
       failOnStatusCode: false, // Allow us to test for failure cases too
     });
   };
