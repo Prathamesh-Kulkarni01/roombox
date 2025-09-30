@@ -3,14 +3,14 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { format, parseISO, isBefore } from 'date-fns';
 import type { Guest } from '@/lib/types';
 import { calculateFirstDueDate } from '@/lib/utils';
 
 
 // Kept for single guest reconciliation if needed elsewhere
-export async function reconcileRentCycles(params: {
+export async function reconcileSingleGuest(params: {
   ownerId: string;
   guestId: string;
 }): Promise<{ success: boolean; reconciledCount?: number }> {
@@ -31,17 +31,14 @@ const reconcileSingleGuestFlow = ai.defineFlow(
       ownerId: z.string(),
       guestId: z.string(),
     }),
-    outputSchema: z.object({ success: z.boolean() }),
+    outputSchema: z.object({ success: z.boolean(), cyclesProcessed: z.number() }),
   },
   async ({ ownerId, guestId }) => {
-    const adminDb = await getAdminDb();
-    const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
-    const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
-    const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
-    const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
+    const dataDb = await selectOwnerDataAdminDb(ownerId);
     const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
 
     try {
+        let cyclesProcessed = 0;
         await dataDb.runTransaction(async (transaction) => {
             const guestDoc = await transaction.get(guestDocRef);
             if (!guestDoc.exists) {
@@ -54,46 +51,39 @@ const reconcileSingleGuestFlow = ai.defineFlow(
                 return;
             }
 
-            let currentDueDate = parseISO(guest.dueDate);
+            let newDueDate = parseISO(guest.dueDate);
             const now = new Date();
-            let cyclesToProcess = 0;
             
-            // Correctly loop through cycles until the due date is in the future
-            while (isBefore(currentDueDate, now)) {
-                currentDueDate = calculateFirstDueDate(currentDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
-                cyclesToProcess++;
+            // Loop until the due date is in the future
+            while (isBefore(newDueDate, now)) {
+                cyclesProcessed++;
+                newDueDate = calculateFirstDueDate(newDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
             }
             
             // If no full cycles have passed, do nothing
-            if (cyclesToProcess === 0) {
+            if (cyclesProcessed === 0) {
                 return;
             }
 
-            // This guest's rent for the current (now overdue) cycle was not fully paid.
-            const balanceBf = guest.balanceBroughtForward || 0;
-            const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-            const totalBillForLastCycle = balanceBf + guest.rentAmount + chargesDue;
-            const unpaidFromLastCycle = totalBillForLastCycle - (guest.rentPaidAmount || 0);
-
-            // The new balance is the unpaid amount from last cycle PLUS the rent for all newly missed cycles.
-            // We subtract 1 from cyclesToProcess because the first missed cycle's rent is already part of unpaidFromLastCycle.
-            const newBalanceBroughtForward = unpaidFromLastCycle + (guest.rentAmount * (cyclesToProcess - 1));
+            // Calculate the total amount owed for the cycles that have just passed.
+            const rentForMissedCycles = guest.rentAmount * cyclesProcessed;
+            
+            // The new balance is the existing balance plus the rent for all newly missed cycles.
+            const newBalanceBroughtForward = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
 
             const updatedGuestData: Partial<Guest> = {
-              dueDate: format(currentDueDate, 'yyyy-MM-dd'),
+              dueDate: format(newDueDate, 'yyyy-MM-dd'),
               balanceBroughtForward: newBalanceBroughtForward,
-              rentPaidAmount: 0, // Reset for the new cycle
-              additionalCharges: [], // Clear charges as they are now part of the balance
-              rentStatus: 'unpaid',
+              rentStatus: 'unpaid', // Since a cycle has passed, it's unpaid.
             };
 
             transaction.update(guestDocRef, updatedGuestData);
-            console.log(`[Reconcile] Processed ${cyclesToProcess} cycle(s) for guest ${guest.name}. New balance: ${newBalanceBroughtForward}`);
+            console.log(`[Reconcile] Processed ${cyclesProcessed} cycle(s) for guest ${guest.name}. New balance: ${newBalanceBroughtForward}, New Due Date: ${updatedGuestData.dueDate}`);
         });
-        return { success: true };
+        return { success: true, cyclesProcessed };
     } catch (err: any) {
         console.error(`[Reconcile] Error processing guest ${guestId}:`, err.message);
-        return { success: false };
+        return { success: false, cyclesProcessed: 0 };
     }
   }
 );
@@ -115,16 +105,19 @@ const reconcileAllGuestsFlow = ai.defineFlow(
 
             for (const ownerDoc of ownersSnapshot.docs) {
                 const ownerId = ownerDoc.id;
-                const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
-                const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
-                const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
+                const dataDb = await selectOwnerDataAdminDb(ownerId);
                 const guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
 
                 for (const guestDoc of guestsSnapshot.docs) {
-                    const result = await reconcileSingleGuestFlow({ ownerId, guestId: guestDoc.id });
-                    if (result.success) {
-                        reconciledCount++;
-                    } else {
+                    try {
+                        const result = await reconcileSingleGuestFlow({ ownerId, guestId: guestDoc.id });
+                        if (result.success && result.cyclesProcessed > 0) {
+                            reconciledCount++;
+                        } else if (!result.success) {
+                            totalErrors++;
+                        }
+                    } catch (e) {
+                        console.error(`[Reconcile All] Failed for guest ${guestDoc.id} of owner ${ownerId}`, e);
                         totalErrors++;
                     }
                 }

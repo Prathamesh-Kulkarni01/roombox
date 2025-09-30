@@ -1,5 +1,5 @@
 
-import { reconcileRentCycles } from '@/ai/flows/reconcile-rent-cycles-flow';
+import { reconcileAllGuests } from '@/ai/flows/reconcile-rent-cycles-flow';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const result = await reconcileRentCycles();
+    const result = await reconcileAllGuests();
 
     if (!result.success) {
       throw new Error('Failed to execute rent reconciliation flow.');
