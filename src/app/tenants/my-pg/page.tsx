@@ -5,13 +5,13 @@ import { useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck, Loader2 } from "lucide-react"
-import { format, differenceInDays, parseISO, isValid } from "date-fns"
+import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck, Loader2, User } from "lucide-react"
+import { format, differenceInDays, parseISO, isValid, differenceInSeconds } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { useMemo, useState, useTransition } from "react"
+import { useMemo, useState, useTransition, useEffect } from "react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -48,6 +48,7 @@ export default function MyPgPage() {
     const { isLoading } = useAppSelector(state => state.app)
     const { toast } = useToast();
     const [isPaying, startPaymentTransition] = useTransition();
+    const [timeLeft, setTimeLeft] = useState('');
 
     const currentGuest = useMemo(() => {
         if (!currentUser || !currentUser.guestId) return null;
@@ -85,6 +86,32 @@ export default function MyPgPage() {
 
         return { totalDue: due, balanceBroughtForward: balanceBf, totalBillForCycle: totalBill };
     }, [currentGuest]);
+    
+     useEffect(() => {
+        if (!currentGuest?.dueDate) return;
+
+        const interval = setInterval(() => {
+            const dueDate = parseISO(currentGuest.dueDate);
+            const now = new Date();
+
+            if (isValid(dueDate) && dueDate > now) {
+                const totalSeconds = differenceInSeconds(dueDate, now);
+                const days = Math.floor(totalSeconds / (3600 * 24));
+                const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                
+                setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+            } else {
+                setTimeLeft('Due');
+                clearInterval(interval);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+
+    }, [currentGuest?.dueDate]);
+
 
     const handlePayNow = () => {
         if (!currentGuest || !currentUser || !currentUser.ownerId || totalDue <= 0) return;
@@ -256,10 +283,17 @@ export default function MyPgPage() {
                         <CardDescription>Due on {dueDate && isValid(dueDate) ? format(dueDate, "do MMMM, yyyy") : 'N/A'}</CardDescription>
                     </CardHeader>
                      <CardContent className="space-y-4">
+                        {currentGuest.rentStatus !== 'paid' && timeLeft && (
+                            <div className="text-center p-3 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800">
+                                <p className="text-sm text-yellow-800 dark:text-yellow-300 font-semibold">Time Left to Pay</p>
+                                <p className="text-2xl font-bold font-mono text-yellow-900 dark:text-yellow-200 tracking-wider">{timeLeft}</p>
+                            </div>
+                        )}
                         <div className="flex justify-between items-center text-sm">
                             <span>Status:</span>
                             <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[currentGuest.rentStatus])}>{currentGuest.rentStatus}</Badge>
                         </div>
+                        
                         <div className="space-y-2 pt-4 border-t text-sm">
                             <div className="flex justify-between items-center text-muted-foreground">
                                 <span>Total Bill for Cycle:</span>
@@ -272,9 +306,10 @@ export default function MyPgPage() {
                                 </div>
                             )}
                         </div>
+
                         <div className="flex justify-between items-center pt-4 border-t">
                             <span className="font-bold text-lg">Total Amount Due:</span>
-                            <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
+                            <span className="font-extrabold text-2xl text-primary flex items-center"><IndianRupee className="w-6 h-6"/>{totalDue.toLocaleString('en-IN')}</span>
                         </div>
                     </CardContent>
                     <CardFooter>
