@@ -18,24 +18,26 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
     return { guest, cyclesProcessed: 0 };
   }
 
-  let dueDate = parseISO(guest.dueDate);
-  if (!isBefore(now, dueDate)) {
+  let currentDueDate = parseISO(guest.dueDate);
+  if (!isBefore(now, currentDueDate)) {
       // Due date is in the past, reconciliation might be needed
   } else {
       return { guest, cyclesProcessed: 0 };
   }
 
   let cyclesToProcess = 0;
-  let nextDueDate = new Date(dueDate.getTime());
+  let nextDueDate = new Date(currentDueDate.getTime());
 
   // Count how many full cycles have passed
   while (isBefore(nextDueDate, now)) {
       cyclesToProcess++;
-      dueDate = nextDueDate; // The start of the last processed cycle
+      currentDueDate = nextDueDate; // The start of the last processed cycle
       nextDueDate = calculateFirstDueDate(nextDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
   }
   
   if (cyclesToProcess === 0) {
+      // Even if overdue, if a full cycle hasn't passed, no new rent is billed.
+      // The rentStatus remains 'unpaid' or 'partial'.
       return { guest, cyclesProcessed: 0 };
   }
 
@@ -44,12 +46,21 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
   
   const updatedGuest: Guest = {
       ...guest,
-      dueDate: nextDueDate.toISOString(),
+      dueDate: currentDueDate.toISOString(), // The due date should be the *start* of the current cycle.
       balanceBroughtForward: newBalance,
-      rentPaidAmount: 0,
+      rentPaidAmount: 0, // Reset paid amount for the new cycle(s).
       rentStatus: 'unpaid',
       additionalCharges: [], // Clear one-time charges as we roll over to a new cycle
   };
 
-  return { guest: updatedGuest, cyclesProcessed: cyclesToProcess };
+  // Re-run the logic with the updated guest state to set the final correct due date
+  let finalGuest = updatedGuest;
+  let finalDueDate = currentDueDate;
+  while(isBefore(finalDueDate, now)) {
+      finalDueDate = calculateFirstDueDate(finalDueDate, finalGuest.rentCycleUnit, finalGuest.rentCycleValue, finalGuest.billingAnchorDay);
+  }
+  finalGuest.dueDate = finalDueDate.toISOString();
+
+
+  return { guest: finalGuest, cyclesProcessed: cyclesToProcess };
 }
