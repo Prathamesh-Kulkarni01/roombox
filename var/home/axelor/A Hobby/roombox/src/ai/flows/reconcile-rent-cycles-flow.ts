@@ -1,12 +1,13 @@
 
 'use server';
 
-import { ai } from '../genkit';
+import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { getAdminDb, selectOwnerDataAdminDb } from '../../lib/firebaseAdmin';
-import type { Guest, RentCycleUnit } from '../../lib/types';
-import { calculateFirstDueDate } from '../../lib/utils';
-import { parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
+import { format, parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
+import type { Guest, RentCycleUnit } from '@/lib/types';
+import { calculateFirstDueDate } from '@/lib/utils';
+
 
 /**
  * A pure function that calculates the new state of a guest after rent reconciliation.
@@ -22,6 +23,8 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
 
   const currentDueDate = parseISO(guest.dueDate);
   
+  // The core logic fix: Do not process if the current time is not yet *after* the due date.
+  // This correctly handles all "due today" and "due in the future" cases.
   if (!isAfter(now, currentDueDate)) {
      return { guest, cyclesProcessed: 0 };
   }
@@ -30,6 +33,7 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
   const cycleUnit = guest.rentCycleUnit || 'months';
   const cycleValue = guest.rentCycleValue || 1;
 
+  // Calculate the total number of full cycles that have passed.
   switch (cycleUnit) {
       case 'minutes': totalDifference = differenceInMinutes(now, currentDueDate); break;
       case 'hours': totalDifference = differenceInHours(now, currentDueDate); break;
@@ -45,6 +49,8 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
     return { guest, cyclesProcessed: 0 };
   }
 
+  // If we are here, it means at least one full cycle has passed.
+  // We need to account for the balance that was due *at* the start of the overdue period.
   const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
   const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
 
@@ -91,9 +97,11 @@ const reconcileSingleGuestFlow = ai.defineFlow(
 
             const guest = guestDoc.data() as Guest;
             
+            // Use the pure, centralized logic function
             const result = runReconciliationLogic(guest, new Date());
             
             if (result.cyclesProcessed === 0 && guest.rentStatus === result.guest.rentStatus) {
+                // No changes needed
                 return 0;
             }
 
