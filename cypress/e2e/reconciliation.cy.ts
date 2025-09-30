@@ -36,7 +36,7 @@ describe('Rent Reconciliation API Endpoint', () => {
         expect(response.body).to.have.property('success', true);
         // Original balance was 1, 1 new cycle of 1 rupee is added.
         expect(response.body.guest.balanceBroughtForward).to.equal(2);
-        // Should advance to the start of the *next* cycle. Original was 10:00, next is 10:03.
+        // Should advance to the start of the *next* cycle. Original was 10:00, next is 10:03. New due date is 10:06.
         expect(response.body.guest.dueDate).to.equal('2024-08-01T10:06:00.000Z');
       });
     });
@@ -58,7 +58,7 @@ describe('Rent Reconciliation API Endpoint', () => {
         expect(response.body).to.have.property('success', true);
         // Original balance was 1, 3 new cycles of 1 rupee each are added.
         expect(response.body.guest.balanceBroughtForward).to.equal(4);
-        // 10:00 -> 10:03 -> 10:06 -> 10:09.
+        // 10:00 -> 10:03 -> 10:06 -> 10:09. New due date is 10:12.
         expect(response.body.guest.dueDate).to.equal('2024-08-01T10:12:00.000Z');
       });
     });
@@ -148,5 +148,3 @@ describe('Rent Reconciliation API Endpoint', () => {
     }
   });
 });
-
-    

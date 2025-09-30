@@ -6,60 +6,7 @@ import { z } from 'zod';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { format, parseISO, isBefore } from 'date-fns';
 import type { Guest } from '@/lib/types';
-import { calculateFirstDueDate } from '@/lib/utils';
-
-/**
- * A pure function that calculates the new state of a guest after rent reconciliation.
- * It does not perform any database operations.
- * @param guest The current guest object.
- * @param now The current date/time to reconcile against.
- * @returns An object with the updated guest state and the number of cycles processed.
- */
-export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
-  let dueDate = parseISO(guest.dueDate);
-  let newDueDate = dueDate;
-  let cyclesPassed = 0;
-
-  if (guest.isVacated || guest.exitDate || isBefore(now, dueDate)) {
-    return { guest, cyclesProcessed: 0 };
-  }
-  
-  // Count how many full cycles have passed by advancing the due date until it's in the future
-  while (isBefore(newDueDate, now)) {
-    newDueDate = calculateFirstDueDate(newDueDate, guest.rentCycleUnit, guest.rentCycleValue, guest.billingAnchorDay);
-    cyclesPassed++;
-  }
-
-  const newCyclesToBill = cyclesPassed > 0 ? cyclesPassed -1 : 0;
-  
-  if (newCyclesToBill === 0) {
-      // The guest might be overdue, but not by a full cycle yet.
-      return { guest: { ...guest, rentStatus: guest.balanceBroughtForward > 0 ? 'unpaid' : guest.rentStatus }, cyclesProcessed: 0 };
-  }
-  
-  // Calculate the total outstanding amount before adding new cycles
-  const unpaidFromLastCycle = (guest.balanceBroughtForward || 0);
-
-  // Add rent for the newly completed cycles
-  const rentForNewCycles = guest.rentAmount * newCyclesToBill;
-
-  const newBalance = unpaidFromLastCycle + rentForNewCycles;
-  
-  //The new due date should be the start of the *next* billing cycle, not the one that just passed.
-  const finalDueDate = newDueDate;
-
-  const updatedGuest: Guest = {
-      ...guest,
-      dueDate: finalDueDate.toISOString(),
-      balanceBroughtForward: newBalance,
-      rentPaidAmount: 0, // Reset paid amount for the new cycle
-      rentStatus: 'unpaid',
-      additionalCharges: [], // Clear one-time charges as they belong to the previous cycle
-  };
-
-  return { guest: updatedGuest, cyclesProcessed: newCyclesToBill };
-}
-
+import { runReconciliationLogic } from '@/lib/reconciliation';
 
 // --- GENKIT FLOWS ---
 
@@ -168,5 +115,3 @@ export async function reconcileAllGuests(limit?: number): Promise<{ success: boo
     const result = await reconcileAllGuestsFlow({ limit });
     return { success: result.success, reconciledCount: result.reconciledCount };
 }
-
-    
