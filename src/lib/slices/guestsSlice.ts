@@ -38,7 +38,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         let existingUser: User | null = null;
 
         // Check if a user with this email already exists
-        const userQuery = query(collection(selectedDb, "users"), where("email", "==", guestData.email));
+        const userQuery = query(collection(db!, "users"), where("email", "==", guestData.email));
         const userSnapshot = await getDocs(userQuery);
         
         if (!userSnapshot.empty) {
@@ -62,13 +62,21 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         const moveInDate = new Date(guestData.moveInDate);
         const firstDueDate = calculateFirstDueDate(moveInDate, guestData.rentCycleUnit, guestData.rentCycleValue, moveInDate.getDate());
 
+        const initialRentEntry: LedgerEntry = {
+            id: `rent-${Date.now()}`,
+            date: moveInDate.toISOString(),
+            type: 'debit',
+            description: `First Rent Cycle`,
+            amount: guestData.rentAmount,
+        };
+
         const newGuest: Guest = { 
             ...guestData, 
             id: `g-${Date.now()}`,
             kycStatus: 'not-started',
             isVacated: false,
             userId: existingUser ? existingUser.id : null,
-            ledger: [],
+            ledger: [initialRentEntry], // Initialize ledger with the first rent due
             dueDate: format(firstDueDate, 'yyyy-MM-dd'),
             billingAnchorDay: moveInDate.getDate(),
         };
