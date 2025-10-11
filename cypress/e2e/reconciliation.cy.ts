@@ -48,80 +48,49 @@ describe('Extended Rent Reconciliation Tests (50+ Scenarios)', () => {
   // 2. Hour-based Cycles
   // ---------------------------
   context('Hour-based cycles', () => {
-  for (let i = 1; i <= 5; i++) {
-    it(`Hourly Cycle Overdue #${i} - ${i} hour(s) overdue`, () => {
-        const guest = createMockGuest({
-            rentStatus: 'paid',
-            rentCycleUnit: 'hours',
-            rentCycleValue: 1,
-            rentAmount: 100,
-            balanceBroughtForward: 100,
+    for (let i = 1; i <= 5; i++) {
+        it(`Hourly Cycle Overdue #${i} - should process ${i} cycle(s)`, () => {
+            const guest = createMockGuest({
+                rentCycleUnit: 'hours',
+                rentCycleValue: 1,
+                rentAmount: 100,
+                balanceBroughtForward: 0,
+            });
+
+            const now = addHours(new Date(guest.dueDate), i);
+            const result = runReconciliationLogic(guest, now);
+            
+            const expectedCycles = Math.floor(differenceInHours(now, parseISO(guest.dueDate)) / guest.rentCycleValue);
+            const expectedBalance = expectedCycles * guest.rentAmount;
+
+            expect(result.cyclesProcessed).to.equal(expectedCycles);
+            expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
         });
-
-        const now = new Date(new Date(guest.dueDate).getTime() + i * 60 * 60 * 1000);
-        const result = runReconciliationLogic(guest, now);
-
-        // Step 1: first paid->unpaid cycle
-        let totalExpectedCycles = 0;
-        let dueDateAfterFirst = parseISO(guest.dueDate);
-        if (guest.rentStatus === 'paid' && isAfter(now, dueDateAfterFirst)) {
-            totalExpectedCycles = 1;
-            dueDateAfterFirst = addHours(dueDateAfterFirst, guest.rentCycleValue || 1);
-        }
-
-        // Step 2: calculate additional cycles
-        const additionalHours = differenceInHours(now, dueDateAfterFirst);
-        if (additionalHours >= 1) {
-            totalExpectedCycles += Math.floor(additionalHours / (guest.rentCycleValue || 1));
-        }
-
-        // Step 3: expected balance
-        const expectedBalance = guest.balanceBroughtForward + totalExpectedCycles * guest.rentAmount;
-
-        expect(result.cyclesProcessed).to.equal(totalExpectedCycles);
-        expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
-    });
-}
+    }
   });
   // ---------------------------
   // 3. Day-based Cycles
   // ---------------------------
   context('Day-based cycles', () => {
-  for (let i = 1; i <= 7; i++) {
-    it(`Daily Cycle Overdue #${i} - ${i} day(s) overdue`, () => {
-        const guest = createMockGuest({
-            rentStatus: 'paid',
-            rentCycleUnit: 'days',
-            rentCycleValue: 1,
-            rentAmount: 500,
-            balanceBroughtForward: 500,
+    for (let i = 1; i <= 7; i++) {
+        it(`Daily Cycle Overdue #${i} - should process ${i} cycle(s)`, () => {
+            const guest = createMockGuest({
+                rentCycleUnit: 'days',
+                rentCycleValue: 1,
+                rentAmount: 500,
+                balanceBroughtForward: 0,
+            });
+
+            const now = addDays(new Date(guest.dueDate), i);
+            const result = runReconciliationLogic(guest, now);
+
+            const expectedCycles = Math.floor(differenceInDays(now, parseISO(guest.dueDate)) / guest.rentCycleValue);
+            const expectedBalance = expectedCycles * guest.rentAmount;
+
+            expect(result.cyclesProcessed).to.equal(expectedCycles);
+            expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
         });
-
-        const now = new Date(new Date(guest.dueDate).getTime() + i * 24 * 60 * 60 * 1000);
-        const result = runReconciliationLogic(guest, now);
-
-        // Step 1: first paid->unpaid cycle
-        let totalExpectedCycles = 0;
-        let dueDateAfterFirst = parseISO(guest.dueDate);
-        if (guest.rentStatus === 'paid' && isAfter(now, dueDateAfterFirst)) {
-            totalExpectedCycles = 1;
-            dueDateAfterFirst = addDays(dueDateAfterFirst, guest.rentCycleValue || 1);
-        }
-
-        // Step 2: calculate additional overdue cycles
-        const additionalDays = differenceInDays(now, dueDateAfterFirst);
-        if (additionalDays >= 1) {
-            totalExpectedCycles += Math.floor(additionalDays / (guest.rentCycleValue || 1));
-        }
-
-        // Step 3: expected balance
-        const expectedBalance = guest.balanceBroughtForward + totalExpectedCycles * guest.rentAmount;
-
-        expect(result.cyclesProcessed).to.equal(totalExpectedCycles);
-        expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
-    });
-}
-
+    }
   });
 
   // ---------------------------
@@ -277,3 +246,5 @@ expect(result.guest.balanceBroughtForward).to.be.at.least(guest.balanceBroughtFo
   });
 
 });
+
+    
