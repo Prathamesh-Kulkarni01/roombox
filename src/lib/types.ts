@@ -176,12 +176,12 @@ export interface Guest {
   pgName: string;
   bedId: string;
   rentStatus: 'paid' | 'unpaid' | 'partial';
-  dueDate: string; // Next due date
+  dueDate: string; // ISO string
   rentAmount: number;
   depositAmount: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
   kycRejectReason?: string | null;
-  moveInDate: string;
+  moveInDate: string; // ISO string
   noticePeriodDays: number;
   rentCycleUnit: RentCycleUnit; // e.g., 'months'
   rentCycleValue: number; // e.g., 1

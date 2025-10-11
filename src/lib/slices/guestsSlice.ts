@@ -59,7 +59,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
 
-        const moveInDate = new Date(guestData.moveInDate);
+        const moveInDate = new Date();
         const firstDueDate = calculateFirstDueDate(moveInDate, guestData.rentCycleUnit, guestData.rentCycleValue, moveInDate.getDate());
 
         const initialRentEntry: LedgerEntry = {
@@ -77,7 +77,8 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
             isVacated: false,
             userId: existingUser ? existingUser.id : null,
             ledger: [initialRentEntry], // Initialize ledger with the first rent due
-            dueDate: format(firstDueDate, 'yyyy-MM-dd'),
+            dueDate: firstDueDate.toISOString(),
+            moveInDate: moveInDate.toISOString(),
             billingAnchorDay: moveInDate.getDate(),
         };
 
@@ -103,7 +104,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         } else {
              // Create an invite for a completely new user
             const invite: Invite = { email: newGuest.email, ownerId: user.currentUser.id, role: 'tenant', details: newGuest };
-            const inviteDocRef = doc(selectedDb, 'invites', newGuest.email);
+            const inviteDocRef = doc(db!, 'invites', newGuest.email);
             batch.set(inviteDocRef, invite);
 
             if (isFirebaseConfigured() && auth) {
@@ -491,7 +492,7 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
 
             // Also update the user record to clear the active guestId
             if (guest.userId) {
-                const userDocRef = doc(selectedDb, 'users', guest.userId);
+                const userDocRef = doc(db!, 'users', guest.userId);
                 batch.update(userDocRef, {
                     guestId: null,
                     pgId: null,
@@ -527,7 +528,7 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
                  const unpaidFromLastCycle = totalBillForCycle - (draft.rentPaidAmount || 0);
 
                  draft.balanceBroughtForward = unpaidFromLastCycle + (draft.rentAmount * (monthsOverdue - 1));
-                 draft.dueDate = format(addMonths(dueDate, monthsOverdue), 'yyyy-MM-dd');
+                 draft.dueDate = addMonths(dueDate, monthsOverdue).toISOString();
                  draft.rentPaidAmount = 0;
                  draft.rentStatus = 'unpaid';
                  draft.additionalCharges = [];
