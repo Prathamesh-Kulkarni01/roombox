@@ -31,17 +31,17 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
 
     // Handle the initial transition from 'paid' to 'unpaid' if necessary
     if (workingGuest.rentStatus === 'paid') {
-        const nextDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, workingGuest.billingAnchorDay);
         workingGuest = {
           ...workingGuest,
-          dueDate: nextDueDate.toISOString(),
           rentStatus: 'unpaid',
           balanceBroughtForward: (workingGuest.balanceBroughtForward || 0) + workingGuest.rentAmount,
           rentPaidAmount: 0,
           additionalCharges: [],
         };
         totalCyclesProcessed = 1;
-        currentDueDate = nextDueDate; // Update the due date we're comparing against
+        
+        // After this first cycle, we *don't* advance the due date yet.
+        // We let the main logic below handle calculating all overdue cycles from the original due date.
     }
     
     // If we're still overdue after the potential 'paid' -> 'unpaid' flip, calculate further cycles
@@ -59,13 +59,17 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
         default: totalDifference = differenceInMonths(now, currentDueDate);
     }
     
+    // This is the total number of full cycles that have been missed since the last due date.
     const additionalCyclesToProcess = Math.floor(totalDifference / cycleValue);
 
     if (additionalCyclesToProcess <= 0) {
        return { guest: workingGuest, cyclesProcessed: totalCyclesProcessed };
     }
 
+    // Add rent for the cycles that were just calculated as missed.
     const rentForMissedCycles = workingGuest.rentAmount * additionalCyclesToProcess;
+    
+    // The balance is the existing balance (which might have been updated from the 'paid' state) + rent for newly missed cycles.
     const newBalance = (workingGuest.balanceBroughtForward || 0) + rentForMissedCycles;
     
     let newDueDate = currentDueDate;
@@ -81,7 +85,7 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
         rentStatus: 'unpaid',
     };
 
+    // The total cycles are the initial 'paid'->'unpaid' one PLUS any additional ones.
     return { guest: finalGuest, cyclesProcessed: totalCyclesProcessed + additionalCyclesToProcess };
 }
 
-    
