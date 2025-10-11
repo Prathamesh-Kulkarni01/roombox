@@ -1,3 +1,4 @@
+
 import { runReconciliationLogic } from "../../src/lib/reconciliation";
 import type { Guest, LedgerEntry } from "../../src/lib/types";
 import {
@@ -42,6 +43,28 @@ const calculateBalance = (ledger: LedgerEntry[]): number => {
 
 describe("Rent Reconciliation Logic (Ledger-based)", () => {
   context("Minute-based cycles", () => {
+    it("should correctly process a single overdue minute-based cycle for a new guest", () => {
+      // Simulate a guest whose first rent is already in the ledger
+      const initialLedger: LedgerEntry[] = [
+        {
+          id: "rent-initial",
+          date: "2024-08-01T09:00:00.000Z",
+          type: "debit",
+          description: "First Rent Cycle",
+          amount: 100,
+        },
+      ];
+      const guest = createMockGuest({ ledger: initialLedger }); // Balance is 100
+      const now = addMinutes(new Date(guest.dueDate), 4); // 1 cycle overdue (3 min cycle + 1 min buffer)
+      const result = runReconciliationLogic(guest, now);
+
+      expect(result.cyclesProcessed).to.equal(1);
+      expect(
+        result.guest.ledger.filter((e) => e.type === "debit").length
+      ).to.equal(2); // Initial rent + 1 new rent
+      expect(calculateBalance(result.guest.ledger)).to.equal(200);
+    });
+    
     it("should correctly process a single overdue minute-based cycle", () => {
       const guest = createMockGuest({});
       const now = addMinutes(new Date(guest.dueDate), 4); // 1 cycle overdue
@@ -226,67 +249,69 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
     });
 
     it("should correctly handle a complex scenario of payments and charges", () => {
-      let guest = createMockGuest({
-        rentAmount: 1,
-        rentCycleValue: 3,
-        rentStatus: "paid",
+        let guest = createMockGuest({
+          rentAmount: 1,
+          rentCycleValue: 3,
+          rentStatus: "paid",
+          ledger: [], // Start with a completely clean slate
+          dueDate: new Date().toISOString()
+        });
+
+        // --- First reconciliation run (2 cycles overdue) ---
+        let now1 = addMinutes(parseISO(guest.dueDate), 7); // 7 mins past initial due
+        let result1 = runReconciliationLogic(guest, now1);
+  
+        expect(result1.cyclesProcessed).to.equal(2);
+        expect(calculateBalance(result1.guest.ledger)).to.equal(2);
+        guest = result1.guest;
+  
+        // --- User pays full amount ---
+        guest = {
+          ...guest,
+          ledger: [
+            ...guest.ledger,
+            {
+              id: "pay-1",
+              date: new Date().toISOString(),
+              type: "credit",
+              description: "Payment",
+              amount: 2,
+            },
+          ],
+        };
+        expect(calculateBalance(guest.ledger)).to.equal(0);
+  
+        // --- Third cycle due (1 cycle after updated dueDate) ---
+        let now2 = addMinutes(parseISO(guest.dueDate), guest.rentCycleValue + 1);
+        let result2 = runReconciliationLogic(guest, now2);
+  
+        expect(result2.cyclesProcessed).to.equal(1);
+        expect(calculateBalance(result2.guest.ledger)).to.equal(1);
+        guest = result2.guest;
+  
+        // --- Add additional charge ---
+        guest = {
+          ...guest,
+          ledger: [
+            ...guest.ledger,
+            {
+              id: "ac1",
+              date: new Date().toISOString(),
+              type: "debit",
+              description: "Electricity",
+              amount: 2,
+            },
+          ],
+        };
+        expect(calculateBalance(guest.ledger)).to.equal(3); // 1 (rent) + 2 (charge)
+  
+        // --- Fourth cycle due ---
+        let now3 = addMinutes(parseISO(guest.dueDate), guest.rentCycleValue + 1);
+        let result3 = runReconciliationLogic(guest, now3);
+  
+        expect(result3.cyclesProcessed).to.equal(1);
+        expect(calculateBalance(result3.guest.ledger)).to.equal(4); // 3 (previous balance) + 1 (new rent)
       });
-
-      // --- First reconciliation run (2 cycles overdue) ---
-      let now1 = addMinutes(parseISO(guest.dueDate), 7); // 7 mins past initial due
-      let result1 = runReconciliationLogic(guest, now1);
-
-      expect(result1.cyclesProcessed).to.equal(2);
-      expect(calculateBalance(result1.guest.ledger)).to.equal(2);
-      guest = result1.guest;
-
-      // --- User pays full amount ---
-      guest = {
-        ...guest,
-        ledger: [
-          ...guest.ledger,
-          {
-            id: "pay-1",
-            date: new Date().toISOString(),
-            type: "credit",
-            description: "Payment",
-            amount: 2,
-          },
-        ],
-      };
-      expect(calculateBalance(guest.ledger)).to.equal(0);
-
-      // --- Third cycle due (1 cycle after updated dueDate) ---
-      let now2 = addMinutes(parseISO(guest.dueDate), guest.rentCycleValue + 1);
-      let result2 = runReconciliationLogic(guest, now2);
-
-      expect(result2.cyclesProcessed).to.equal(1);
-      expect(calculateBalance(result2.guest.ledger)).to.equal(1);
-      guest = result2.guest;
-
-      // --- Add additional charge ---
-      guest = {
-        ...guest,
-        ledger: [
-          ...guest.ledger,
-          {
-            id: "ac1",
-            date: new Date().toISOString(),
-            type: "debit",
-            description: "Electricity",
-            amount: 2,
-          },
-        ],
-      };
-      expect(calculateBalance(guest.ledger)).to.equal(3);
-
-      // --- Fourth cycle due ---
-      let now3 = addMinutes(parseISO(guest.dueDate), guest.rentCycleValue + 1);
-      let result3 = runReconciliationLogic(guest, now3);
-
-      expect(result3.cyclesProcessed).to.equal(1);
-      expect(calculateBalance(result3.guest.ledger)).to.equal(4);
-    });
       context('Minute-based complex cycles', () => {
 
     it('should handle multiple cycles with partial payments and extra charges', () => {
