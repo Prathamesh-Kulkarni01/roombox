@@ -53,7 +53,7 @@ export default function MyPgPage() {
         if (!currentPg || !currentGuest) return { roomName: 'N/A', bedName: 'N/A' };
         const pg = pgs.find(p => p.id === currentPg.id)
         if (!pg) return { roomName: 'N/A', bedName: 'N/A' };
-        const floor = pg.floors?.find(f => f.rooms?.some(r => r.beds.some(b => b.id === currentGuest.bedId)));
+        const floor = pg.floors?.find(f => f.rooms.some(r => r.beds.some(b => b.id === currentGuest.bedId)));
         if (!floor) return { roomName: 'N/A', bedName: 'N/A' };
         const room = floor.rooms.find(r => r.beds.some(b => b.id === currentGuest.bedId));
         if (!room) return { roomName: 'N/A', bedName: 'N/A' };
@@ -62,17 +62,20 @@ export default function MyPgPage() {
         return { roomName: room.name, bedName: bed.name };  
     }, [currentPg, currentGuest, pgs]);
 
-     const { totalDue, sortedLedger } = useMemo(() => {
-        if (!currentGuest) return { totalDue: 0, sortedLedger: [] };
+     const { totalDue, sortedLedger, dueItems } = useMemo(() => {
+        if (!currentGuest) return { totalDue: 0, sortedLedger: [], dueItems: [] };
         
-        const debits = currentGuest.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-        const credits = currentGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+        const debits = currentGuest.ledger.filter(e => e.type === 'debit');
+        const credits = currentGuest.ledger.filter(e => e.type === 'credit');
         
-        const due = debits - credits;
+        const totalDebits = debits.reduce((sum, e) => sum + e.amount, 0);
+        const totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
+        
+        const due = totalDebits - totalCredits;
 
         const sorted = [...currentGuest.ledger].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        return { totalDue: due, sortedLedger: sorted };
+        return { totalDue: due, sortedLedger: sorted, dueItems: debits };
     }, [currentGuest]);
     
      useEffect(() => {
@@ -247,7 +250,7 @@ export default function MyPgPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {sortedLedger.slice(0, 5).map(entry => (
+                                    {sortedLedger.map(entry => (
                                         <TableRow key={entry.id}>
                                             <TableCell>{format(parseISO(entry.date), 'dd MMM, yyyy')}</TableCell>
                                             <TableCell>{entry.description}</TableCell>
@@ -282,9 +285,20 @@ export default function MyPgPage() {
                             <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[currentGuest.rentStatus])}>{currentGuest.rentStatus}</Badge>
                         </div>
                         
-                        <div className="flex justify-between items-center pt-4 border-t">
-                            <span className="font-bold text-lg">Total Amount Due:</span>
-                            <span className="font-extrabold text-2xl text-primary flex items-center"><IndianRupee className="w-6 h-6"/>{totalDue.toLocaleString('en-IN')}</span>
+                         <div className="space-y-2 pt-4 border-t">
+                             <p className="font-semibold text-base">Dues Breakdown</p>
+                             {dueItems.length > 0 ? dueItems.map(item => (
+                                <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
+                                    <span>{item.description}</span>
+                                    <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
+                                </div>
+                            )) : <p className="text-sm text-muted-foreground">No outstanding charges.</p>}
+                        </div>
+
+
+                        <div className="flex justify-between items-center text-base pt-4 border-t">
+                            <span className="font-bold">Total Amount Due:</span>
+                            <span className="font-bold text-lg text-primary flex items-center"><IndianRupee className="w-5 h-5"/>{totalDue.toLocaleString('en-IN')}</span>
                         </div>
                     </CardContent>
                     <CardFooter>

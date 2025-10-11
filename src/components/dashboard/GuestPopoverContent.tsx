@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { Guest } from "@/lib/types"
 import { format, differenceInDays, parseISO } from "date-fns"
-import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle, Pencil, User } from "lucide-react"
+import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle, Pencil, User, IndianRupee } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
@@ -28,6 +28,9 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
   const { currentUser } = useAppSelector(state => state.user);
   const { featurePermissions } = useAppSelector(state => state.permissions);
 
+  const totalDue = guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
+
+
   return (
     <PopoverContent className="w-64 p-0">
       <div className="p-4 space-y-2">
@@ -46,6 +49,10 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
             <span>Rent Status:</span>
             <Badge variant="outline" className={cn("capitalize", rentStatusColors[guest.rentStatus])}>{guest.rentStatus}</Badge>
           </div>
+           <div className="flex justify-between items-center">
+            <span>Total Due:</span>
+            <span className="font-bold text-base flex items-center"><IndianRupee className="w-3.5 h-3.5"/>{totalDue.toLocaleString('en-IN')}</span>
+          </div>
           <div className="flex justify-between">
             <span>Due Date:</span>
             <span className="font-medium">{format(new Date(guest.dueDate), "do MMM")}</span>
@@ -59,12 +66,12 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
         </div>
       </div>
       <div className="flex flex-col gap-1 p-2 bg-muted/50">
-        {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
+        {(guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && (
           <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleOpenPaymentDialog(guest)}>
             <Wallet className="mr-2 h-4 w-4" /> Collect Rent
           </Button>
         )}
-        {currentPlan?.hasAiRentReminders && (guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial') && !guest.exitDate && (
+        {currentPlan?.hasAiRentReminders && (guest.rentStatus === 'unpaid' || guest.rentStatus === 'partial' || totalDue > 0) && !guest.exitDate && (
           <Button variant="ghost" size="sm" className="justify-start" onClick={() => handleOpenReminderDialog(guest)}>
             <MessageCircle className="mr-2 h-4 w-4" /> Send Reminder
           </Button>

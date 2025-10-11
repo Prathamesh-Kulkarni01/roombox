@@ -72,7 +72,8 @@ export default function BedCard(props: BedCardProps) {
           const hasComplaint = guest && complaints.some(c => c.guestId === guest.id && c.status !== 'resolved');
           const isFirstAvailable = !guest && !isFirstAvailableBedFound.current;
           if (isFirstAvailable) isFirstAvailableBedFound.current = true;
-          const pendingAmount = guest ? guest.rentAmount - (guest.rentPaidAmount || 0) : 0;
+          
+          const totalDue = guest ? guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0) : 0;
 
           if (isEditMode) {
             return (
@@ -132,14 +133,9 @@ export default function BedCard(props: BedCardProps) {
                     </div>
 
                      <div className="w-full text-center mt-auto">
-                        {status === 'rent-pending' && (
-                            <div className="font-semibold text-xs bg-red-500 text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
-                                <Wallet className="w-3 h-3"/> ₹{pendingAmount.toLocaleString('en-IN')} Due
-                            </div>
-                        )}
-                         {status === 'rent-partial' && (
-                            <div className="font-semibold text-xs bg-orange-500 text-white rounded-full px-2 py-1 flex items-center justify-center gap-1">
-                                <Wallet className="w-3 h-3"/> ₹{pendingAmount.toLocaleString('en-IN')} Due
+                        {(status === 'rent-pending' || status === 'rent-partial') && totalDue > 0 && (
+                            <div className={cn("font-semibold text-xs text-white rounded-full px-2 py-1 flex items-center justify-center gap-1", status === 'rent-pending' ? 'bg-red-500' : 'bg-orange-500')}>
+                                <Wallet className="w-3 h-3"/> ₹{totalDue.toLocaleString('en-IN')} Due
                             </div>
                         )}
                         {status === 'occupied' && (
