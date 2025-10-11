@@ -53,7 +53,7 @@ function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
 
       switch (rentCycleUnit) {
           case 'minutes':
-              const minutesUntilDue = Math.round(minutesDifference);
+              const minutesUntilDue = Math.ceil(minutesDifference);
               if (minutesUntilDue > 0 && minutesUntilDue <= 5) {
                   shouldSendReminder = true;
                   timeUntilDue = `${minutesUntilDue} minute(s)`;
