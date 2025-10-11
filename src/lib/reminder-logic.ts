@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Guest, RentCycleUnit } from './types';
+import type { Guest } from './types';
 import { format, parseISO, differenceInDays, differenceInMinutes, differenceInHours, isPast } from 'date-fns';
 
 interface ReminderInfo {
@@ -37,7 +37,7 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
                 unit = 'day(s)';
         }
         
-        // This was the source of the bug. A positive difference means it's overdue.
+        // Only send if at least one full unit of time has passed.
         if (diff <= 0) {
             return { shouldSend: false, title: '', body: '' };
         }
@@ -52,30 +52,34 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
     // --- Upcoming Reminders Logic ---
     let diff: number;
     let unit: string;
+    let sendWindowDays: number;
 
     switch (guest.rentCycleUnit) {
         case 'minutes':
             diff = differenceInMinutes(dueDate, now);
             unit = 'minute(s)';
+            sendWindowDays = 1; // e.g., reminders within the same day for minute-cycles
             break;
         case 'hours':
             diff = differenceInHours(dueDate, now);
             unit = 'hour(s)';
+            sendWindowDays = 1; 
             break;
         default:
             diff = differenceInDays(dueDate, now);
             unit = 'day(s)';
+            sendWindowDays = 5; // Standard 5-day window for daily/weekly/monthly cycles
     }
     
-    // Only send upcoming reminders if they are within a reasonable window (e.g., 5 days)
+    // Only send upcoming reminders if they are within a reasonable window
     // and the time difference is positive.
-    if (diff >= 0 && differenceInDays(dueDate, now) <= 5) {
-         const dayText = diff === 0 ? 'today' : `in ${diff} ${unit} on ${format(dueDate, 'do MMM')}`;
+    if (diff >= 0 && differenceInDays(dueDate, now) <= sendWindowDays) {
+         const dayText = diff === 0 ? 'today' : `in ${diff} ${unit}`;
 
          return {
             shouldSend: true,
             title: 'Gentle Reminder: Your Rent is Due Soon',
-            body: `Hi ${guest.name}, a friendly reminder that your rent is due ${dayText}.`
+            body: `Hi ${guest.name}, a friendly reminder that your rent is due ${dayText} on ${format(dueDate, 'do MMM')}.`
         };
     }
 
