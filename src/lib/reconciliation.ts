@@ -1,4 +1,6 @@
 
+'use server';
+
 import type { Guest, RentCycleUnit } from './types';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
 import { calculateFirstDueDate } from './utils';
@@ -16,31 +18,36 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
       return { guest, cyclesProcessed: 0 };
     }
 
-    const currentDueDate = parseISO(guest.dueDate);
+    let currentGuestState = { ...guest };
+    let initialCyclesProcessed = 0;
+    
+    let currentDueDate = parseISO(currentGuestState.dueDate);
 
     if (!isAfter(now, currentDueDate)) {
-      return { guest, cyclesProcessed: 0 };
+      return { guest: currentGuestState, cyclesProcessed: 0 };
     }
 
-    const cycleUnit = guest.rentCycleUnit || 'months';
-    const cycleValue = guest.rentCycleValue || 1;
+    const cycleUnit = currentGuestState.rentCycleUnit || 'months';
+    const cycleValue = currentGuestState.rentCycleValue || 1;
 
     // Special handling for guests who were 'paid' and have now become overdue.
-    if (guest.rentStatus === 'paid') {
-        const nextDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, guest.billingAnchorDay);
-        const updatedGuest: Guest = {
-          ...guest,
-          dueDate: nextDueDate.toISOString(),
+    // This is the first cycle that makes them 'unpaid'.
+    if (currentGuestState.rentStatus === 'paid') {
+        currentDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, currentGuestState.billingAnchorDay);
+        currentGuestState = {
+          ...currentGuestState,
+          dueDate: currentDueDate.toISOString(),
           rentStatus: 'unpaid',
-          balanceBroughtForward: guest.rentAmount,
+          balanceBroughtForward: currentGuestState.rentAmount,
           rentPaidAmount: 0,
           additionalCharges: [],
         };
-
-        // Recalculate if more cycles are due from this new date.
-        const result = runReconciliationLogic(updatedGuest, now);
-        // The first cycle is the one that just turned unpaid, plus any subsequent ones.
-        return { guest: result.guest, cyclesProcessed: 1 + result.cyclesProcessed };
+        initialCyclesProcessed = 1;
+        
+        // If the current time is still not after the newly calculated due date, we are done.
+        if (!isAfter(now, currentDueDate)) {
+             return { guest: currentGuestState, cyclesProcessed: initialCyclesProcessed };
+        }
     }
 
     let totalDifference = 0;
@@ -53,22 +60,22 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
         default: totalDifference = differenceInMonths(now, currentDueDate);
     }
 
-    const cyclesToProcess = Math.floor(totalDifference / cycleValue);
+    const additionalCyclesToProcess = Math.floor(totalDifference / cycleValue);
 
-    if (cyclesToProcess <= 0) {
-      return { guest, cyclesProcessed: 0 };
+    if (additionalCyclesToProcess <= 0) {
+      return { guest: currentGuestState, cyclesProcessed: initialCyclesProcessed };
     }
 
-    const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
-    const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
+    const rentForMissedCycles = currentGuestState.rentAmount * additionalCyclesToProcess;
+    const newBalance = (currentGuestState.balanceBroughtForward || 0) + rentForMissedCycles;
 
     let newDueDate = currentDueDate;
-    for (let i = 0; i < cyclesToProcess; i++) {
-      newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, guest.billingAnchorDay);
+    for (let i = 0; i < additionalCyclesToProcess; i++) {
+      newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, currentGuestState.billingAnchorDay);
     }
 
     const updatedGuest: Guest = {
-        ...guest,
+        ...currentGuestState,
         dueDate: newDueDate.toISOString(),
         balanceBroughtForward: newBalance,
         rentPaidAmount: 0,
@@ -76,5 +83,5 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
         additionalCharges: [],
     };
 
-    return { guest: updatedGuest, cyclesProcessed: cyclesToProcess };
+    return { guest: updatedGuest, cyclesProcessed: initialCyclesProcessed + additionalCyclesToProcess };
 }
