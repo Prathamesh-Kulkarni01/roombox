@@ -1,9 +1,11 @@
 
+
 'use server';
 
 import type { Guest, RentCycleUnit } from './types';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths } from 'date-fns';
 import { calculateFirstDueDate } from './utils';
+import { produce } from 'immer';
 
 
 /**
@@ -18,74 +20,54 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
       return { guest, cyclesProcessed: 0 };
     }
 
-    let currentDueDate = parseISO(guest.dueDate);
-    if (!isAfter(now, currentDueDate)) {
+    const dueDate = parseISO(guest.dueDate);
+    if (!isAfter(now, dueDate)) {
       return { guest, cyclesProcessed: 0 };
     }
-    
-    let workingGuest = { ...guest };
-    let totalCyclesProcessed = 0;
 
-    const cycleUnit = workingGuest.rentCycleUnit || 'months';
-    const cycleValue = workingGuest.rentCycleValue || 1;
-
-    // Handle the initial transition from 'paid' to 'unpaid' if necessary
-    if (workingGuest.rentStatus === 'paid') {
-        workingGuest = {
-          ...workingGuest,
-          rentStatus: 'unpaid',
-          balanceBroughtForward: (workingGuest.balanceBroughtForward || 0) + workingGuest.rentAmount,
-          rentPaidAmount: 0,
-          additionalCharges: [],
-        };
-        totalCyclesProcessed = 1;
-        
-        // After this first cycle, we *don't* advance the due date yet.
-        // We let the main logic below handle calculating all overdue cycles from the original due date.
-    }
-    
-    // If we're still overdue after the potential 'paid' -> 'unpaid' flip, calculate further cycles
-    if (!isAfter(now, currentDueDate)) {
-        return { guest: workingGuest, cyclesProcessed: totalCyclesProcessed };
-    }
+    const cycleUnit: RentCycleUnit = guest.rentCycleUnit || 'months';
+    const cycleValue: number = guest.rentCycleValue || 1;
+    const rentAmount = guest.rentAmount;
 
     let totalDifference = 0;
     switch (cycleUnit) {
-        case 'minutes': totalDifference = differenceInMinutes(now, currentDueDate); break;
-        case 'hours': totalDifference = differenceInHours(now, currentDueDate); break;
-        case 'days': totalDifference = differenceInDays(now, currentDueDate); break;
-        case 'weeks': totalDifference = differenceInWeeks(now, currentDueDate); break;
-        case 'months': totalDifference = differenceInMonths(now, currentDueDate); break;
-        default: totalDifference = differenceInMonths(now, currentDueDate);
+        case 'minutes': totalDifference = differenceInMinutes(now, dueDate); break;
+        case 'hours': totalDifference = differenceInHours(now, dueDate); break;
+        case 'days': totalDifference = differenceInDays(now, dueDate); break;
+        case 'weeks': totalDifference = differenceInWeeks(now, dueDate); break;
+        case 'months': totalDifference = differenceInMonths(now, dueDate); break;
+        default: totalDifference = 0;
     }
     
-    // This is the total number of full cycles that have been missed since the last due date.
-    const additionalCyclesToProcess = Math.floor(totalDifference / cycleValue);
+    // Calculate how many full cycles have passed.
+    const cyclesToProcess = Math.floor(totalDifference / cycleValue);
 
-    if (additionalCyclesToProcess <= 0) {
-       return { guest: workingGuest, cyclesProcessed: totalCyclesProcessed };
-    }
-
-    // Add rent for the cycles that were just calculated as missed.
-    const rentForMissedCycles = workingGuest.rentAmount * additionalCyclesToProcess;
-    
-    // The balance is the existing balance (which might have been updated from the 'paid' state) + rent for newly missed cycles.
-    const newBalance = (workingGuest.balanceBroughtForward || 0) + rentForMissedCycles;
-    
-    let newDueDate = currentDueDate;
-    for (let i = 0; i < additionalCyclesToProcess; i++) {
-      newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, workingGuest.billingAnchorDay);
+    if (cyclesToProcess <= 0) {
+        return { guest, cyclesProcessed: 0 };
     }
     
-    const finalGuest: Guest = {
-        ...workingGuest,
-        dueDate: newDueDate.toISOString(),
-        balanceBroughtForward: newBalance,
-        rentPaidAmount: 0,
-        rentStatus: 'unpaid',
-    };
+    const updatedGuest = produce(guest, draft => {
+        // If the guest was paid, their first overdue cycle makes them 'unpaid'.
+        // The balance from last cycle becomes their new current balance.
+        if (draft.rentStatus === 'paid') {
+            draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + (draft.rentPaidAmount || 0);
+            draft.rentPaidAmount = 0;
+        }
 
-    // The total cycles are the initial 'paid'->'unpaid' one PLUS any additional ones.
-    return { guest: finalGuest, cyclesProcessed: totalCyclesProcessed + additionalCyclesToProcess };
+        // Add rent for all the overdue cycles.
+        draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + (rentAmount * cyclesToProcess);
+        
+        // Advance the due date for all processed cycles.
+        let newDueDate = dueDate;
+        for (let i = 0; i < cyclesToProcess; i++) {
+            newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, draft.billingAnchorDay);
+        }
+        draft.dueDate = newDueDate.toISOString();
+        
+        // The guest is now definitely unpaid.
+        draft.rentStatus = 'unpaid';
+        draft.additionalCharges = []; // Old charges are rolled into balanceBroughtForward
+    });
+
+    return { guest: updatedGuest, cyclesProcessed: cyclesToProcess };
 }
-
