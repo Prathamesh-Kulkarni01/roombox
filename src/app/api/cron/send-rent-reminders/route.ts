@@ -37,18 +37,21 @@ export async function GET(request: NextRequest) {
             const enterpriseProjectId = (userDoc.data()?.subscription?.enterpriseProject?.projectId) as string | undefined;
             const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
 
-            // Fetch only guests who have a user account and are not vacated
+            // Fetch all non-vacated guests for the owner
             const guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
                 .where('isVacated', '==', false)
-                .where('userId', '!=', null)
                 .get();
 
             if (guestsSnapshot.empty) {
                 continue;
             }
 
-            for (const guestDoc of guestsSnapshot.docs) {
-                const guest = guestDoc.data() as Guest;
+            // Filter for guests with a userId in application code to avoid composite index requirement
+            const guestsWithAccounts = guestsSnapshot.docs
+                .map(doc => doc.data() as Guest)
+                .filter(guest => !!guest.userId);
+
+            for (const guest of guestsWithAccounts) {
                 
                 // Use the centralized reminder logic
                 const reminderInfo = getReminderForGuest(guest, now);

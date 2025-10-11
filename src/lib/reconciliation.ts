@@ -40,6 +40,9 @@ export function runReconciliationLogic(
   if (cyclesToProcess <= 0) return { guest, cyclesProcessed: 0 };
 
   const updatedGuest = produce(guest, (draft) => {
+    if (!draft.ledger) {
+      draft.ledger = [];
+    }
     let currentDueDate = parseISO(draft.dueDate);
 
     for (let i = 0; i < cyclesToProcess; i++) {
@@ -61,7 +64,18 @@ export function runReconciliationLogic(
     const totalCredits = draft.ledger.filter((e) => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
     const balance = totalDebits - totalCredits;
 
-    draft.rentStatus = balance <= 0 ? 'paid' : 'unpaid';
+    if (balance <= 0) {
+      draft.rentStatus = 'paid';
+    } else {
+        const totalRentDebits = draft.ledger.filter(e => e.type === 'debit' && e.description.toLowerCase().includes('rent')).reduce((sum, e) => sum + e.amount, 0);
+        if (totalCredits >= totalRentDebits) {
+            draft.rentStatus = 'paid'; // Rent part is paid, only other charges are due
+        } else if (totalCredits > 0) {
+            draft.rentStatus = 'partial';
+        } else {
+            draft.rentStatus = 'unpaid';
+        }
+    }
   });
 
   // Return fully mutable guest including ledger
