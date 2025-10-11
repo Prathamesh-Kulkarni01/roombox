@@ -16,8 +16,9 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
   const { totalDue, dueItems } = useMemo(() => {
     if (!selectedGuestForPayment) return { totalDue: 0, dueItems: [] };
     
-    const debits = selectedGuestForPayment.ledger.filter(e => e.type === 'debit');
-    const credits = selectedGuestForPayment.ledger.filter(e => e.type === 'credit');
+    const ledger = selectedGuestForPayment.ledger || [];
+    const debits = ledger.filter(e => e.type === 'debit');
+    const credits = ledger.filter(e => e.type === 'credit');
     
     const totalDebits = debits.reduce((sum, e) => sum + e.amount, 0);
     const totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
