@@ -28,8 +28,8 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
     }
 
     const dueDate = parseISO(guest.dueDate);
-    const isOverdue = isPast(dueDate);
     const minutesDifference = differenceInMinutes(dueDate, now);
+    const isOverdue = minutesDifference < 0;
 
     // --- Overdue Logic ---
     if (isOverdue) {
@@ -49,22 +49,13 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
       
       switch (rentCycleUnit) {
           case 'minutes':
+          case 'hours':
               const minutesUntilDue = Math.ceil(minutesDifference);
               if (minutesUntilDue > 0 && minutesUntilDue <= 5) {
                   return {
                       shouldSend: true,
                       title: `Gentle Reminder: Your Rent is Due Soon`,
                       body: `Hi ${guest.name}, a friendly reminder that your rent is due in ${minutesUntilDue} minute(s).`
-                  };
-              }
-              break;
-          case 'hours':
-              const hoursUntilDue = Math.ceil(minutesDifference / 60);
-               if (hoursUntilDue > 0 && hoursUntilDue <= 3) {
-                  return {
-                      shouldSend: true,
-                      title: `Gentle Reminder: Your Rent is Due Soon`,
-                      body: `Hi ${guest.name}, a friendly reminder that your rent is due in ${hoursUntilDue} hour(s).`
                   };
               }
               break;
