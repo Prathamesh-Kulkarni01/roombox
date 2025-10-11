@@ -1,7 +1,7 @@
 
 import type { Guest, RentCycleUnit } from './types';
 import { addMinutes, addHours, addDays, addWeeks, addMonths, parseISO, isAfter, differenceInMinutes, differenceInHours, differenceInDays, differenceInWeeks, differenceInMonths, setDate, lastDayOfMonth } from 'date-fns';
-import { calculateFirstDueDate } from './utils';
+import { calculateFirstDueDate } from '@/lib/utils';
 
 
 /**
@@ -38,7 +38,8 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
       };
       
       // Recalculate if more cycles are due from this new date.
-      return runReconciliationLogic(updatedGuest, now);
+      const result = runReconciliationLogic(updatedGuest, now);
+      return { guest: result.guest, cyclesProcessed: 1 + result.cyclesProcessed };
   }
 
   let totalDifference = 0;
@@ -59,7 +60,7 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
 
   const rentForMissedCycles = guest.rentAmount * cyclesToProcess;
   const newBalance = (guest.balanceBroughtForward || 0) + rentForMissedCycles;
-
+  
   let newDueDate = currentDueDate;
   for (let i = 0; i < cyclesToProcess; i++) {
     newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, guest.billingAnchorDay);
@@ -76,3 +77,4 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
 
   return { guest: updatedGuest, cyclesProcessed: cyclesToProcess };
 }
+
