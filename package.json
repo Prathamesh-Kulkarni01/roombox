@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "cy:open": "cypress open"
+    "test": "cypress open"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.7",
