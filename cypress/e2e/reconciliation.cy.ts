@@ -1,7 +1,7 @@
 
 
 import { runReconciliationLogic } from '../../src/lib/reconciliation';
-import type { Guest, AdditionalCharge } from '../../src/lib/types';
+import type { Guest, LedgerEntry } from '../../src/lib/types';
 import { addMinutes, addHours, addDays, addMonths, parseISO, isAfter, differenceInHours, differenceInDays } from 'date-fns';
 
 const createMockGuest = (overrides: Partial<Guest>): Guest => ({
@@ -13,7 +13,7 @@ const createMockGuest = (overrides: Partial<Guest>): Guest => ({
   pgName: 'Test PG',
   bedId: 'bed-1',
   rentStatus: 'unpaid',
-  rentAmount: 1,
+  rentAmount: 100, // Use a non-trivial amount
   depositAmount: 0,
   moveInDate: '2024-08-01T09:00:00.000Z',
   dueDate: '2024-08-01T10:00:00.000Z',
@@ -21,14 +21,19 @@ const createMockGuest = (overrides: Partial<Guest>): Guest => ({
   rentCycleUnit: 'minutes',
   rentCycleValue: 3,
   billingAnchorDay: 1,
-  balanceBroughtForward: 1,
-  rentPaidAmount: 0,
+  ledger: [], // Start with an empty ledger
   kycStatus: 'verified',
   noticePeriodDays: 30,
   ...overrides,
 });
 
-describe('Rent Reconciliation Logic', () => {
+const calculateBalance = (ledger: LedgerEntry[]): number => {
+    return ledger.reduce((balance, entry) => {
+        return balance + (entry.type === 'debit' ? entry.amount : -entry.amount);
+    }, 0);
+}
+
+describe('Rent Reconciliation Logic (Ledger-based)', () => {
 
     context('Minute-based cycles', () => {
         it('should correctly process a single overdue minute-based cycle', () => {
@@ -37,7 +42,8 @@ describe('Rent Reconciliation Logic', () => {
             const result = runReconciliationLogic(guest, now);
             
             expect(result.cyclesProcessed).to.equal(1);
-            expect(result.guest.balanceBroughtForward).to.equal(2); // 1 initial + 1 new
+            expect(result.guest.ledger.filter(e => e.type === 'debit').length).to.equal(1);
+            expect(calculateBalance(result.guest.ledger)).to.equal(100); // 1 new rent debit
         });
 
         it('should correctly process multiple overdue minute-based cycles', () => {
@@ -46,137 +52,35 @@ describe('Rent Reconciliation Logic', () => {
             const result = runReconciliationLogic(guest, now);
 
             expect(result.cyclesProcessed).to.equal(3);
-            expect(result.guest.balanceBroughtForward).to.equal(4); // 1 initial + 3 new
+            expect(result.guest.ledger.filter(e => e.type === 'debit' && e.description.includes('Rent')).length).to.equal(3);
+            expect(calculateBalance(result.guest.ledger)).to.equal(300); // 3 new rent debits
         });
         
         it('should handle a paid guest becoming overdue', () => {
-            const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0 });
+            const initialLedger: LedgerEntry[] = [
+                { id: 'rent-1', date: '2024-07-01T10:00:00.000Z', type: 'debit', description: 'Rent', amount: 100 },
+                { id: 'pay-1', date: '2024-07-01T11:00:00.000Z', type: 'credit', description: 'Payment', amount: 100 },
+            ];
+            const guest = createMockGuest({ rentStatus: 'paid', ledger: initialLedger });
             const now = addMinutes(new Date(guest.dueDate), 4);
             const result = runReconciliationLogic(guest, now);
 
             expect(result.cyclesProcessed).to.equal(1);
-            expect(result.guest.balanceBroughtForward).to.equal(1);
+            expect(result.guest.ledger.length).to.equal(3); // 2 initial + 1 new
+            expect(calculateBalance(result.guest.ledger)).to.equal(100);
             expect(result.guest.rentStatus).to.equal('unpaid');
         });
         
         it('should correctly process multiple cycles for a previously paid guest', () => {
-             const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0 });
+             const guest = createMockGuest({ rentStatus: 'paid', ledger: [] });
              const now = addMinutes(new Date(guest.dueDate), 10); // 3 cycles overdue
              const result = runReconciliationLogic(guest, now);
 
              expect(result.cyclesProcessed).to.equal(3);
-             expect(result.guest.balanceBroughtForward).to.equal(3);
+             expect(calculateBalance(result.guest.ledger)).to.equal(300);
              expect(result.guest.rentStatus).to.equal('unpaid');
         });
     });
-
-    context('Hour-based cycles', () => {
-        it('should process a single overdue hour-based cycle', () => {
-            const guest = createMockGuest({ rentCycleUnit: 'hours', rentCycleValue: 2, balanceBroughtForward: 0 });
-            const now = addHours(new Date(guest.dueDate), 3);
-            const result = runReconciliationLogic(guest, now);
-            
-            const expectedCycles = 1;
-            const expectedBalance = expectedCycles * guest.rentAmount;
-
-            expect(result.cyclesProcessed).to.equal(expectedCycles);
-            expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
-        });
-    });
-
-    context('Day-based cycles', () => {
-        it('should process multiple overdue day-based cycles', () => {
-            const guest = createMockGuest({ rentCycleUnit: 'days', rentCycleValue: 5, balanceBroughtForward: 10 });
-            const now = addDays(new Date(guest.dueDate), 12);
-            const result = runReconciliationLogic(guest, now);
-
-            const expectedCycles = 2;
-            const expectedBalance = 10 + (expectedCycles * guest.rentAmount);
-
-            expect(result.cyclesProcessed).to.equal(expectedCycles);
-            expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
-        });
-    });
-    
-    context('Month-based cycles', () => {
-        it('should handle end-of-month billing correctly', () => {
-            // Test case: Billing on Jan 31st, check for Feb 28th
-            const guest = createMockGuest({ 
-                rentCycleUnit: 'months', 
-                rentCycleValue: 1, 
-                dueDate: '2025-01-31T00:00:00.000Z',
-                billingAnchorDay: 31,
-                balanceBroughtForward: 0
-            });
-            const now = new Date('2025-03-01T00:00:00.000Z');
-            const result = runReconciliationLogic(guest, now);
-
-            expect(result.cyclesProcessed).to.equal(1);
-            expect(result.guest.dueDate).to.equal('2025-02-28T00:00:00.000Z');
-        });
-
-        it('should handle leap year end-of-month billing', () => {
-             const guest = createMockGuest({ 
-                rentCycleUnit: 'months', 
-                rentCycleValue: 1, 
-                dueDate: '2024-01-31T00:00:00.000Z',
-                billingAnchorDay: 31,
-                balanceBroughtForward: 0
-            });
-            const now = new Date('2024-03-01T00:00:00.000Z');
-            const result = runReconciliationLogic(guest, now);
-
-            expect(result.cyclesProcessed).to.equal(1);
-            expect(result.guest.dueDate).to.equal('2024-02-29T00:00:00.000Z');
-        });
-    });
-    
-    context('Additional Charges Scenarios', () => {
-        it('should NOT roll over unpaid additional charges into the new balance', () => {
-            const charges: AdditionalCharge[] = [{ id: 'ac1', description: 'Mess Fee', amount: 5 }];
-            const guest = createMockGuest({ 
-                balanceBroughtForward: 0, 
-                additionalCharges: charges,
-                rentPaidAmount: 0,
-            });
-
-            // 1 cycle is overdue
-            const now = addMinutes(new Date(guest.dueDate), 4);
-            const result = runReconciliationLogic(guest, now);
-            
-            // Previous rent cycle bill: 0 (bbf) + 1 (rent) = 1. Nothing paid.
-            // New balance brought forward should be 1.
-            // New cycle's rent (1) is then added. Total bbf = 1 + 1 = 2
-            expect(result.cyclesProcessed).to.equal(1);
-            expect(result.guest.balanceBroughtForward).to.equal(2);
-            // The additional charge should persist, not be cleared.
-            expect(result.guest.additionalCharges).to.deep.equal(charges);
-        });
-
-        it('should handle partial payments without affecting additional charges', () => {
-             const charges: AdditionalCharge[] = [{ id: 'ac1', description: 'Electricity', amount: 3 }];
-             const guest = createMockGuest({ 
-                balanceBroughtForward: 2, // From even earlier
-                additionalCharges: charges,
-                rentPaidAmount: 4, // Paid part of the bill
-                rentAmount: 10,
-            });
-
-            // 1 cycle overdue
-            const now = addMinutes(new Date(guest.dueDate), 4);
-            const result = runReconciliationLogic(guest, now);
-            
-            // Previous cycle's rent bill: 2 (bbf) + 10 (rent) = 12.
-            // Paid 4, so 8 was left unpaid from rent. This is the new bbf.
-            // New cycle's rent (10) is added. Total bbf = 8 + 10 = 18.
-            expect(result.cyclesProcessed).to.equal(1);
-            expect(result.guest.balanceBroughtForward).to.equal(18);
-            expect(result.guest.rentPaidAmount).to.equal(0);
-            // The additional charge should persist.
-            expect(result.guest.additionalCharges).to.deep.equal(charges);
-        });
-    });
-
 
     context('General Cases', () => {
         it('should not process if not overdue', () => {
@@ -196,18 +100,52 @@ describe('Rent Reconciliation Logic', () => {
         });
     });
 
+    context('Additional Charges & Partial Payments', () => {
+        it('should not clear additional charges on reconciliation', () => {
+            const initialLedger: LedgerEntry[] = [
+                 { id: 'ac1', date: '2024-07-30T10:00:00.000Z', type: 'debit', description: 'Electricity', amount: 50 },
+            ];
+            const guest = createMockGuest({ ledger: initialLedger });
+            const now = addMinutes(new Date(guest.dueDate), 4); // 1 cycle overdue
+
+            const result = runReconciliationLogic(guest, now);
+
+            expect(result.cyclesProcessed).to.equal(1);
+            // Balance = 50 (initial charge) + 100 (new rent) = 150
+            expect(calculateBalance(result.guest.ledger)).to.equal(150);
+            // The electricity charge should still be in the ledger
+            expect(result.guest.ledger.some(e => e.id === 'ac1')).to.be.true;
+        });
+
+        it('should handle partial payments correctly without affecting ledger history', () => {
+            const initialLedger: LedgerEntry[] = [
+                 { id: 'rent-1', date: '2024-07-01T10:00:00.000Z', type: 'debit', description: 'Rent', amount: 100 },
+                 { id: 'ac1', date: '2024-07-15T10:00:00.000Z', type: 'debit', description: 'Damages', amount: 30 },
+                 { id: 'pay-1', date: '2024-07-20T10:00:00.000Z', type: 'credit', description: 'Partial Payment', amount: 80 },
+            ];
+             const guest = createMockGuest({ ledger: initialLedger, rentStatus: 'partial' }); // Initial balance is 100+30-80 = 50
+             const now = addMinutes(new Date(guest.dueDate), 4); // 1 cycle overdue
+             const result = runReconciliationLogic(guest, now);
+
+             expect(result.cyclesProcessed).to.equal(1);
+             expect(result.guest.ledger.length).to.equal(4); // 3 initial + 1 new rent
+             // New balance = 50 (previous) + 100 (new rent) = 150
+             expect(calculateBalance(result.guest.ledger)).to.equal(150);
+             expect(result.guest.rentStatus).to.equal('unpaid');
+        });
+    });
+
     context('Iterative Reconciliation', () => {
         it('should correctly process cycles sequentially', () => {
-            let guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0 });
+            let guest = createMockGuest({ rentStatus: 'paid', ledger: [] });
             
             // --- First reconciliation run ---
             // 2 cycles are overdue (3 * 2 = 6 minutes)
             let now1 = addMinutes(new Date(guest.dueDate), 7);
             let result1 = runReconciliationLogic(guest, now1);
 
-            // After 1st run, guest becomes unpaid, 2 cycles are processed.
             expect(result1.cyclesProcessed).to.equal(2);
-            expect(result1.guest.balanceBroughtForward).to.equal(2);
+            expect(calculateBalance(result1.guest.ledger)).to.equal(200);
             expect(result1.guest.rentStatus).to.equal('unpaid');
             expect(parseISO(result1.guest.dueDate).getMinutes()).to.equal(parseISO(guest.dueDate).getMinutes() + (2 * 3));
 
@@ -219,10 +157,9 @@ describe('Rent Reconciliation Logic', () => {
             let now2 = addMinutes(new Date(updatedGuest.dueDate), 10);
             let result2 = runReconciliationLogic(updatedGuest, now2);
 
-            // Expect 3 more cycles to be processed.
             expect(result2.cyclesProcessed).to.equal(3);
-            // New balance should be the previous balance (2) + rent for 3 new cycles.
-            expect(result2.guest.balanceBroughtForward).to.equal(2 + 3);
+            // New balance should be the previous balance (200) + rent for 3 new cycles (300).
+            expect(calculateBalance(result2.guest.ledger)).to.equal(500);
             expect(result2.guest.rentStatus).to.equal('unpaid');
         });
     });

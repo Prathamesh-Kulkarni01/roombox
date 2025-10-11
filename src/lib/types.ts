@@ -91,6 +91,7 @@ export interface PG {
   rating: number;
   occupancy: number;
   totalBeds: number;
+  totalRooms: number;
   rules: string[];
   contact: string; // WhatsApp number
   floors?: Floor[];
@@ -101,10 +102,13 @@ export interface PG {
   status: 'active' | 'pending_approval' | 'rejected' | 'suspended';
 }
 
-export interface AdditionalCharge {
-  id: string;
-  description: string;
-  amount: number;
+export interface LedgerEntry {
+    id: string;
+    date: string; // ISO string
+    type: 'debit' | 'credit';
+    description: string;
+    amount: number;
+    paymentId?: string; // Link to a Payment record for credits
 }
 
 export interface Payment {
@@ -112,12 +116,7 @@ export interface Payment {
     date: string; // ISO string
     amount: number;
     method: 'cash' | 'upi' | 'in-app' | 'other';
-    forMonth: string; // e.g., "July 2024"
     notes?: string;
-    payoutId?: string;
-    payoutStatus?: 'pending' | 'processed' | 'failed';
-    payoutFailureReason?: string;
-    payoutTo?: string; // Name of the owner's payout account used
 }
 
 // Payment Method Types
@@ -186,17 +185,11 @@ export interface Guest {
   pgName: string;
   bedId: string;
   rentStatus: 'paid' | 'unpaid' | 'partial';
-  dueDate: string;
+  dueDate: string; // Next due date
   rentAmount: number;
-  rentPaidAmount?: number;
-  balanceBroughtForward?: number; // For carrying over previous unpaid amounts
   depositAmount?: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
   kycRejectReason?: string | null;
-  kycExtractedName?: string | null;
-  kycExtractedDob?: string | null;
-  kycExtractedIdNumber?: string | null;
-  hasMessage?: boolean;
   moveInDate: string;
   noticePeriodDays: number;
   rentCycleUnit: RentCycleUnit; // e.g., 'months'
@@ -205,10 +198,8 @@ export interface Guest {
   exitDate?: string;
   userId?: string | null; // Link to the user account
   isVacated: boolean; // True if the guest has permanently left the PG
-  additionalCharges?: AdditionalCharge[];
-  paymentHistory?: Payment[];
+  ledger: LedgerEntry[];
   documents?: SubmittedKycDocument[];
-  lastReminderSentAt?: string;
 }
 
 export interface Complaint {
