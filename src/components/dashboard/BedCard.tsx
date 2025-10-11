@@ -73,7 +73,7 @@ export default function BedCard(props: BedCardProps) {
           const isFirstAvailable = !guest && !isFirstAvailableBedFound.current;
           if (isFirstAvailable) isFirstAvailableBedFound.current = true;
           
-          const totalDue = guest ? guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0) : 0;
+          const totalDue = guest ? (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0) : 0;
 
           if (isEditMode) {
             return (
