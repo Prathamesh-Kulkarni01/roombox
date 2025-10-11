@@ -19,10 +19,9 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
     }
 
     let currentGuestState = { ...guest };
-    let initialCyclesProcessed = 0;
-    
+    let cyclesProcessed = 0;
     let currentDueDate = parseISO(currentGuestState.dueDate);
-
+    
     if (!isAfter(now, currentDueDate)) {
       return { guest: currentGuestState, cyclesProcessed: 0 };
     }
@@ -30,23 +29,24 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
     const cycleUnit = currentGuestState.rentCycleUnit || 'months';
     const cycleValue = currentGuestState.rentCycleValue || 1;
 
-    // Special handling for guests who were 'paid' and have now become overdue.
-    // This is the first cycle that makes them 'unpaid'.
+    // Handle the transition from 'paid' to 'unpaid' first.
     if (currentGuestState.rentStatus === 'paid') {
-        currentDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, currentGuestState.billingAnchorDay);
+        const nextDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, currentGuestState.billingAnchorDay);
         currentGuestState = {
           ...currentGuestState,
-          dueDate: currentDueDate.toISOString(),
+          dueDate: nextDueDate.toISOString(),
           rentStatus: 'unpaid',
           balanceBroughtForward: currentGuestState.rentAmount,
           rentPaidAmount: 0,
           additionalCharges: [],
         };
-        initialCyclesProcessed = 1;
-        
-        // If the current time is still not after the newly calculated due date, we are done.
+        cyclesProcessed = 1;
+        // The due date has been advanced by one cycle. Update our reference.
+        currentDueDate = nextDueDate;
+
+        // If the current time is still not after the new due date, we're done.
         if (!isAfter(now, currentDueDate)) {
-             return { guest: currentGuestState, cyclesProcessed: initialCyclesProcessed };
+            return { guest: currentGuestState, cyclesProcessed: cyclesProcessed };
         }
     }
 
@@ -63,17 +63,17 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
     const additionalCyclesToProcess = Math.floor(totalDifference / cycleValue);
 
     if (additionalCyclesToProcess <= 0) {
-      return { guest: currentGuestState, cyclesProcessed: initialCyclesProcessed };
+      return { guest: currentGuestState, cyclesProcessed: cyclesProcessed };
     }
 
     const rentForMissedCycles = currentGuestState.rentAmount * additionalCyclesToProcess;
     const newBalance = (currentGuestState.balanceBroughtForward || 0) + rentForMissedCycles;
-
+    
     let newDueDate = currentDueDate;
     for (let i = 0; i < additionalCyclesToProcess; i++) {
       newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, currentGuestState.billingAnchorDay);
     }
-
+    
     const updatedGuest: Guest = {
         ...currentGuestState,
         dueDate: newDueDate.toISOString(),
@@ -83,5 +83,5 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
         additionalCharges: [],
     };
 
-    return { guest: updatedGuest, cyclesProcessed: initialCyclesProcessed + additionalCyclesToProcess };
+    return { guest: updatedGuest, cyclesProcessed: cyclesProcessed + additionalCyclesToProcess };
 }
