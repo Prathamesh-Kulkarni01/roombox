@@ -12,12 +12,14 @@ import { calculateFirstDueDate } from '@/lib/utils';
  * @returns An object with the updated guest state and the number of cycles processed.
  */
 export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest, cyclesProcessed: number } {
+  // A guest who has vacated or is on notice period should not accumulate new rent.
   if (guest.isVacated || guest.exitDate) {
     return { guest, cyclesProcessed: 0 };
   }
 
   const currentDueDate = parseISO(guest.dueDate);
-
+  
+  // Do not process if the current time is not yet *after* the due date.
   if (!isAfter(now, currentDueDate)) {
     return { guest, cyclesProcessed: 0 };
   }
@@ -25,24 +27,29 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
   const cycleUnit = guest.rentCycleUnit || 'months';
   const cycleValue = guest.rentCycleValue || 1;
 
-  // Special handling for guests who were 'paid' and have now become overdue.
+  // If rent was paid, but the due date has now passed, a new cycle must be initiated.
   if (guest.rentStatus === 'paid') {
       const nextDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, guest.billingAnchorDay);
-      const updatedGuest: Guest = {
+
+      let updatedGuest: Guest = {
         ...guest,
         dueDate: nextDueDate.toISOString(),
         rentStatus: 'unpaid',
-        balanceBroughtForward: guest.rentAmount,
+        // The balance from the 'paid' state was 0, so the new balance is just the new cycle's rent.
+        balanceBroughtForward: guest.rentAmount, 
         rentPaidAmount: 0,
         additionalCharges: [],
       };
-      
-      // Recalculate if more cycles are due from this new date.
-      const result = runReconciliationLogic(updatedGuest, now);
-      return { guest: result.guest, cyclesProcessed: 1 + result.cyclesProcessed };
+       
+       // Now, run reconciliation again on this new state to see if even more cycles are overdue.
+       // This handles cases where a guest is overdue by multiple cycles from a 'paid' state.
+       const result = runReconciliationLogic(updatedGuest, now);
+       return { guest: result.guest, cyclesProcessed: 1 + result.cyclesProcessed };
   }
 
   let totalDifference = 0;
+  
+  // Calculate the total number of full cycles that have passed.
   switch (cycleUnit) {
       case 'minutes': totalDifference = differenceInMinutes(now, currentDueDate); break;
       case 'hours': totalDifference = differenceInHours(now, currentDueDate); break;
@@ -77,4 +84,3 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
 
   return { guest: updatedGuest, cyclesProcessed: cyclesToProcess };
 }
-
