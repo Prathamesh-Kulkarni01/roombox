@@ -37,8 +37,8 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
                 unit = 'day(s)';
         }
         
-        // If the difference is less than 1 full unit (e.g., 30 seconds for a minute cycle), don't send.
-        if (diff < 1) {
+        // This was the source of the bug. A positive difference means it's overdue.
+        if (diff <= 0) {
             return { shouldSend: false, title: '', body: '' };
         }
         
