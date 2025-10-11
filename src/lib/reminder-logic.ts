@@ -18,6 +18,7 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
 
     const dueDate = parseISO(guest.dueDate);
     
+    // --- Overdue Reminders Logic ---
     if (isPast(dueDate)) {
         let diff: number;
         let unit: string;
@@ -31,12 +32,15 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
                  diff = differenceInHours(now, dueDate);
                  unit = 'hour(s)';
                  break;
-            default:
+            default: // Default to days for 'days', 'weeks', 'months'
                 diff = differenceInDays(now, dueDate);
                 unit = 'day(s)';
         }
         
-        if (diff < 1) return { shouldSend: false, title: '', body: '' };
+        // If the difference is less than 1 full unit (e.g., 30 seconds for a minute cycle), don't send.
+        if (diff < 1) {
+            return { shouldSend: false, title: '', body: '' };
+        }
         
         return {
             shouldSend: true,
@@ -45,7 +49,7 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
         };
     }
 
-    // Upcoming Reminders Logic
+    // --- Upcoming Reminders Logic ---
     let diff: number;
     let unit: string;
 
@@ -63,8 +67,9 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
             unit = 'day(s)';
     }
     
-    // Send reminders up to 5 days in advance
-    if (differenceInDays(dueDate, now) <= 5) {
+    // Only send upcoming reminders if they are within a reasonable window (e.g., 5 days)
+    // and the time difference is positive.
+    if (diff >= 0 && differenceInDays(dueDate, now) <= 5) {
          const dayText = diff === 0 ? 'today' : `in ${diff} ${unit} on ${format(dueDate, 'do MMM')}`;
 
          return {
@@ -74,6 +79,6 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
         };
     }
 
-    // No reminder needed
+    // No reminder needed if it's too far in the future
     return { shouldSend: false, title: '', body: '' };
 }
