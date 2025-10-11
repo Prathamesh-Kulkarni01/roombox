@@ -9,7 +9,7 @@ interface ReminderInfo {
 }
 
 function getHumanReadableDuration(minutes: number): string {
-    const positiveMinutes = Math.abs(Math.round(minutes));
+    const positiveMinutes = Math.abs(Math.ceil(minutes));
     if (positiveMinutes < 1) return "just now";
     if (positiveMinutes < 60) return `${positiveMinutes} minute(s)`;
     const hours = Math.floor(positiveMinutes / 60);
