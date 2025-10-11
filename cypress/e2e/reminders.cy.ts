@@ -81,8 +81,8 @@ describe('Rent Reminder Logic Unit Tests', () => {
             cy.log('**Scenario:** A guest with minute-based billing has a payment due in 2 minutes.');
             cy.log('**Expected Outcome:** A "Gentle Reminder" should be sent.');
             
-            const dueDate = new Date('2024-08-15T10:00:00.000Z');
-            const now = subMinutes(dueDate, 2);
+            const dueDate = new Date('2024-08-15T10:02:00.000Z');
+            const now = new Date('2024-08-15T10:00:00.000Z');
             const guest = createBaseGuest({ dueDate: dueDate.toISOString(), rentCycleUnit: 'minutes' });
             
             const result = getReminderForGuest(guest, now);
@@ -127,17 +127,19 @@ describe('Rent Reminder Logic Unit Tests', () => {
             expect(result.shouldSend).to.be.false;
         });
 
-        it('should NOT send a reminder if due date is today but not yet past', () => {
-             cy.log('**Scenario:** Rent is due today at 10 AM, and the current time is 9 AM.');
-             cy.log('**Expected Outcome:** An upcoming reminder should be sent (e.g., "due in 1 hour").');
+        it('should send a "due today" reminder if due date is today but not yet past', () => {
+            cy.log('**Scenario:** Rent is due today at 10 AM, and the current time is 9 AM.');
+            cy.log('**Expected Outcome:** An upcoming reminder should be sent (e.g., "due in 1 hour").');
 
-            const dueDate = new Date('2024-08-15T10:00:00.000Z');
-            const now = new Date('2024-08-15T09:00:00.000Z');
-            const guest = createBaseGuest({ dueDate: dueDate.toISOString(), rentCycleUnit: 'hours' });
-            
-            const result = getReminderForGuest(guest, now);
+           const dueDate = new Date('2024-08-15T10:00:00.000Z');
+           const now = new Date('2024-08-15T09:00:00.000Z');
+           const guest = createBaseGuest({ dueDate: dueDate.toISOString(), rentCycleUnit: 'hours' });
+           
+           const result = getReminderForGuest(guest, now);
 
-            expect(result.shouldSend).to.be.true; // It will send a "due in X hours" reminder
+           expect(result.shouldSend).to.be.true;
+           expect(result.title).to.contain('Gentle Reminder');
+           expect(result.body).to.contain('1 hour(s)');
         });
         
          it('should NOT send an upcoming reminder if due date is in the past (overdue logic handles this)', () => {
@@ -145,12 +147,14 @@ describe('Rent Reminder Logic Unit Tests', () => {
              cy.log('**Expected Outcome:** The system should generate an "Overdue" reminder, not an "Upcoming" one.');
 
             const dueDate = new Date('2024-08-15T10:00:00.000Z');
-            const now = new Date('2024-08-15T11:00:00.0Z');
+            const now = new Date('2024-08-15T11:00:00.00Z');
             const guest = createBaseGuest({ dueDate: dueDate.toISOString() });
             
             const result = getReminderForGuest(guest, now);
-
+            
             expect(result.title).to.contain('Overdue'); // Handled by overdue logic, not upcoming
         });
     });
 });
+
+    

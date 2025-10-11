@@ -18,36 +18,35 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
       return { guest, cyclesProcessed: 0 };
     }
 
-    let currentGuestState = { ...guest };
-    let cyclesProcessed = 0;
-    let currentDueDate = parseISO(currentGuestState.dueDate);
-    
+    let currentDueDate = parseISO(guest.dueDate);
     if (!isAfter(now, currentDueDate)) {
-      return { guest: currentGuestState, cyclesProcessed: 0 };
+      return { guest, cyclesProcessed: 0 };
     }
+    
+    let workingGuest = { ...guest };
+    let totalCyclesProcessed = 0;
 
-    const cycleUnit = currentGuestState.rentCycleUnit || 'months';
-    const cycleValue = currentGuestState.rentCycleValue || 1;
+    const cycleUnit = workingGuest.rentCycleUnit || 'months';
+    const cycleValue = workingGuest.rentCycleValue || 1;
 
-    // Handle the transition from 'paid' to 'unpaid' first.
-    if (currentGuestState.rentStatus === 'paid') {
-        const nextDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, currentGuestState.billingAnchorDay);
-        currentGuestState = {
-          ...currentGuestState,
+    // Handle the initial transition from 'paid' to 'unpaid' if necessary
+    if (workingGuest.rentStatus === 'paid') {
+        const nextDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, workingGuest.billingAnchorDay);
+        workingGuest = {
+          ...workingGuest,
           dueDate: nextDueDate.toISOString(),
           rentStatus: 'unpaid',
-          balanceBroughtForward: currentGuestState.rentAmount,
+          balanceBroughtForward: (workingGuest.balanceBroughtForward || 0) + workingGuest.rentAmount,
           rentPaidAmount: 0,
           additionalCharges: [],
         };
-        cyclesProcessed = 1;
-        // The due date has been advanced by one cycle. Update our reference.
-        currentDueDate = nextDueDate;
-
-        // If the current time is still not after the new due date, we're done.
-        if (!isAfter(now, currentDueDate)) {
-            return { guest: currentGuestState, cyclesProcessed: cyclesProcessed };
-        }
+        totalCyclesProcessed = 1;
+        currentDueDate = nextDueDate; // Update the due date we're comparing against
+    }
+    
+    // If we're still overdue after the potential 'paid' -> 'unpaid' flip, calculate further cycles
+    if (!isAfter(now, currentDueDate)) {
+        return { guest: workingGuest, cyclesProcessed: totalCyclesProcessed };
     }
 
     let totalDifference = 0;
@@ -59,29 +58,30 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
         case 'months': totalDifference = differenceInMonths(now, currentDueDate); break;
         default: totalDifference = differenceInMonths(now, currentDueDate);
     }
-
+    
     const additionalCyclesToProcess = Math.floor(totalDifference / cycleValue);
 
     if (additionalCyclesToProcess <= 0) {
-      return { guest: currentGuestState, cyclesProcessed: cyclesProcessed };
+       return { guest: workingGuest, cyclesProcessed: totalCyclesProcessed };
     }
 
-    const rentForMissedCycles = currentGuestState.rentAmount * additionalCyclesToProcess;
-    const newBalance = (currentGuestState.balanceBroughtForward || 0) + rentForMissedCycles;
+    const rentForMissedCycles = workingGuest.rentAmount * additionalCyclesToProcess;
+    const newBalance = (workingGuest.balanceBroughtForward || 0) + rentForMissedCycles;
     
     let newDueDate = currentDueDate;
     for (let i = 0; i < additionalCyclesToProcess; i++) {
-      newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, currentGuestState.billingAnchorDay);
+      newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, workingGuest.billingAnchorDay);
     }
     
-    const updatedGuest: Guest = {
-        ...currentGuestState,
+    const finalGuest: Guest = {
+        ...workingGuest,
         dueDate: newDueDate.toISOString(),
         balanceBroughtForward: newBalance,
         rentPaidAmount: 0,
         rentStatus: 'unpaid',
-        additionalCharges: [],
     };
 
-    return { guest: updatedGuest, cyclesProcessed: cyclesProcessed + additionalCyclesToProcess };
+    return { guest: finalGuest, cyclesProcessed: totalCyclesProcessed + additionalCyclesToProcess };
 }
+
+    
