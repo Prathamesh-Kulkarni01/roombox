@@ -12,15 +12,17 @@ interface ReminderInfo {
 
 function getHumanReadableDuration(minutes: number): string {
     const absoluteMinutes = Math.abs(minutes);
-    if (absoluteMinutes < 60) {
-        return `${absoluteMinutes} minute(s)`;
+    const days = Math.floor(absoluteMinutes / 1440);
+    const hours = Math.floor((absoluteMinutes % 1440) / 60);
+    const mins = absoluteMinutes % 60;
+
+    if (days > 0) {
+        return `${days} day(s)`;
     }
-    const hours = Math.floor(absoluteMinutes / 60);
-    if (hours < 24) {
+    if (hours > 0) {
         return `${hours} hour(s)`;
     }
-    const days = Math.floor(hours / 24);
-    return `${days} day(s)`;
+    return `${mins} minute(s)`;
 }
 
 export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
@@ -32,6 +34,9 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
     
     if (isPast(dueDate)) {
         const minutesOverdue = differenceInMinutes(now, dueDate);
+        // Only send if it's been at least a minute
+        if (minutesOverdue < 1) return { shouldSend: false, title: '', body: '' };
+        
         const durationText = getHumanReadableDuration(minutesOverdue);
         return {
             shouldSend: true,
@@ -40,45 +45,22 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
         };
     }
 
-    const minutesUntilDue = differenceInMinutes(dueDate, now);
-
     // Upcoming Reminders Logic
-    switch (guest.rentCycleUnit) {
-        case 'minutes':
-            if (minutesUntilDue >= 0 && minutesUntilDue <= 5) {
-                return {
-                    shouldSend: true,
-                    title: 'Gentle Reminder: Your Rent is Due Soon',
-                    body: `Hi ${guest.name}, a friendly reminder that your rent is due in ${minutesUntilDue} minute(s).`
-                };
-            }
-            break;
-        case 'hours':
-            const hoursUntilDue = Math.ceil(minutesUntilDue / 60);
-             if (hoursUntilDue >= 0 && hoursUntilDue <= 3) {
-                const hourText = hoursUntilDue === 0 ? 'in less than an hour' : `in ${hoursUntilDue} hour(s)`;
-                return {
-                    shouldSend: true,
-                    title: 'Gentle Reminder: Your Rent is Due Soon',
-                    body: `Hi ${guest.name}, a friendly reminder that your rent is due ${hourText}.`
-                };
-            }
-            break;
-        default: // days, weeks, months
-            const daysUntilDue = Math.ceil(minutesUntilDue / (60 * 24));
-            if (daysUntilDue >= 0 && daysUntilDue <= 5) {
-                const dayText = daysUntilDue === 0 ? 'today' : `in ${daysUntilDue} day(s) on ${format(dueDate, 'do MMM')}`;
-                return {
-                    shouldSend: true,
-                    title: 'Gentle Reminder: Your Rent is Due Soon',
-                    body: `Hi ${guest.name}, a friendly reminder that your rent is due ${dayText}.`
-                };
-            }
-            break;
+    const minutesUntilDue = differenceInMinutes(dueDate, now);
+    const daysUntilDue = Math.ceil(minutesUntilDue / (60 * 24));
+
+    if (daysUntilDue <= 5) {
+         const durationText = getHumanReadableDuration(minutesUntilDue);
+         const dayText = daysUntilDue === 0 ? 'today' : `in ${durationText} on ${format(dueDate, 'do MMM')}`;
+
+         return {
+            shouldSend: true,
+            title: 'Gentle Reminder: Your Rent is Due Soon',
+            body: `Hi ${guest.name}, a friendly reminder that your rent is due ${dayText}.`
+        };
     }
+
 
     // No reminder needed
     return { shouldSend: false, title: '', body: '' };
 }
-
-    
