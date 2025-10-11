@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import type { Guest, RentCycleUnit } from './types';
@@ -47,15 +46,18 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
     }
     
     const updatedGuest = produce(guest, draft => {
-        // If the guest was paid, their first overdue cycle makes them 'unpaid'.
-        // The balance from last cycle becomes their new current balance.
-        if (draft.rentStatus === 'paid') {
-            draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + (draft.rentPaidAmount || 0);
-            draft.rentPaidAmount = 0;
-        }
+        // "Close the books" on the cycle that just became overdue.
+        // Calculate what was owed for the *last* cycle.
+        const billForLastCycle = (draft.balanceBroughtForward || 0) + draft.rentAmount + (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+        
+        // Calculate what was left unpaid from that cycle.
+        const unpaidFromLastCycle = billForLastCycle - (draft.rentPaidAmount || 0);
 
-        // Add rent for all the overdue cycles.
-        draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) + (rentAmount * cyclesToProcess);
+        // This unpaid amount becomes the NEW starting balance for the next cycles.
+        draft.balanceBroughtForward = unpaidFromLastCycle;
+        
+        // Add rent for all the newly overdue cycles.
+        draft.balanceBroughtForward += (rentAmount * cyclesToProcess);
         
         // Advance the due date for all processed cycles.
         let newDueDate = dueDate;
@@ -64,9 +66,10 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
         }
         draft.dueDate = newDueDate.toISOString();
         
-        // The guest is now definitely unpaid.
+        // Reset for the new cycle.
         draft.rentStatus = 'unpaid';
-        draft.additionalCharges = []; // Old charges are rolled into balanceBroughtForward
+        draft.rentPaidAmount = 0;
+        draft.additionalCharges = [];
     });
 
     return { guest: updatedGuest, cyclesProcessed: cyclesToProcess };
