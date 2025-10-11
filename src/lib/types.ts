@@ -108,7 +108,6 @@ export interface LedgerEntry {
     type: 'debit' | 'credit';
     description: string;
     amount: number;
-    paymentId?: string; // Link to a Payment record for credits
 }
 
 export interface Payment {
@@ -117,6 +116,10 @@ export interface Payment {
     amount: number;
     method: 'cash' | 'upi' | 'in-app' | 'other';
     notes?: string;
+    payoutId?: string;
+    payoutStatus?: 'processed' | 'pending' | 'failed';
+    payoutTo?: string;
+    payoutFailureReason?: string;
 }
 
 // Payment Method Types
@@ -187,7 +190,7 @@ export interface Guest {
   rentStatus: 'paid' | 'unpaid' | 'partial';
   dueDate: string; // Next due date
   rentAmount: number;
-  depositAmount?: number;
+  depositAmount: number;
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
   kycRejectReason?: string | null;
   moveInDate: string;
@@ -200,6 +203,7 @@ export interface Guest {
   isVacated: boolean; // True if the guest has permanently left the PG
   ledger: LedgerEntry[];
   documents?: SubmittedKycDocument[];
+  paymentHistory?: Payment[]; // For legacy or separate payment tracking
 }
 
 export interface Complaint {
