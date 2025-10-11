@@ -10,20 +10,6 @@ interface ReminderInfo {
   body: string;
 }
 
-function getHumanReadableDuration(minutes: number): string {
-    const absoluteMinutes = Math.abs(minutes);
-    const days = Math.floor(absoluteMinutes / 1440);
-    const hours = Math.floor((absoluteMinutes % 1440) / 60);
-    const mins = absoluteMinutes % 60;
-
-    if (days > 0) {
-        return `${days} day(s)`;
-    }
-    if (hours > 0) {
-        return `${hours} hour(s)`;
-    }
-    return `${mins} minute(s)`;
-}
 
 export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
     if (!guest.userId || guest.isVacated || guest.rentStatus === 'paid') {
@@ -33,25 +19,53 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
     const dueDate = parseISO(guest.dueDate);
     
     if (isPast(dueDate)) {
-        const minutesOverdue = differenceInMinutes(now, dueDate);
-        // Only send if it's been at least a minute
-        if (minutesOverdue < 1) return { shouldSend: false, title: '', body: '' };
+        let diff: number;
+        let unit: string;
+
+        switch (guest.rentCycleUnit) {
+            case 'minutes':
+                diff = differenceInMinutes(now, dueDate);
+                unit = 'minute(s)';
+                break;
+            case 'hours':
+                 diff = differenceInHours(now, dueDate);
+                 unit = 'hour(s)';
+                 break;
+            default:
+                diff = differenceInDays(now, dueDate);
+                unit = 'day(s)';
+        }
         
-        const durationText = getHumanReadableDuration(minutesOverdue);
+        if (diff < 1) return { shouldSend: false, title: '', body: '' };
+        
         return {
             shouldSend: true,
             title: 'Action Required: Your Rent is Overdue',
-            body: `Hi ${guest.name}, your rent payment is ${durationText} overdue. Please pay as soon as possible.`
+            body: `Hi ${guest.name}, your rent payment is ${diff} ${unit} overdue. Please pay as soon as possible.`
         };
     }
 
     // Upcoming Reminders Logic
-    const minutesUntilDue = differenceInMinutes(dueDate, now);
-    const daysUntilDue = Math.ceil(minutesUntilDue / (60 * 24));
+    let diff: number;
+    let unit: string;
 
-    if (daysUntilDue <= 5) {
-         const durationText = getHumanReadableDuration(minutesUntilDue);
-         const dayText = daysUntilDue === 0 ? 'today' : `in ${durationText} on ${format(dueDate, 'do MMM')}`;
+    switch (guest.rentCycleUnit) {
+        case 'minutes':
+            diff = differenceInMinutes(dueDate, now);
+            unit = 'minute(s)';
+            break;
+        case 'hours':
+            diff = differenceInHours(dueDate, now);
+            unit = 'hour(s)';
+            break;
+        default:
+            diff = differenceInDays(dueDate, now);
+            unit = 'day(s)';
+    }
+    
+    // Send reminders up to 5 days in advance
+    if (differenceInDays(dueDate, now) <= 5) {
+         const dayText = diff === 0 ? 'today' : `in ${diff} ${unit} on ${format(dueDate, 'do MMM')}`;
 
          return {
             shouldSend: true,
@@ -59,7 +73,6 @@ export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
             body: `Hi ${guest.name}, a friendly reminder that your rent is due ${dayText}.`
         };
     }
-
 
     // No reminder needed
     return { shouldSend: false, title: '', body: '' };
