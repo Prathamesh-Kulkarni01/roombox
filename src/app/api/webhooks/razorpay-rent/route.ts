@@ -1,4 +1,5 @@
 
+
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAdminDb } from '@/lib/firebaseAdmin';
@@ -90,20 +91,56 @@ export async function POST(req: NextRequest) {
               if (!draft.paymentHistory) draft.paymentHistory = [];
               draft.paymentHistory.push(newPayment);
 
-              const totalPaidInCycle = (draft.rentPaidAmount || 0) + amountPaid;
-              const balanceBf = draft.balanceBroughtForward || 0;
-              const additionalChargesTotal = (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-              const totalBillForCycle = balanceBf + draft.rentAmount + additionalChargesTotal;
+              let remainingAmountToSettle = amountPaid;
+              
+              // 1. Settle additional charges first
+              const existingCharges = draft.additionalCharges || [];
+              const newCharges = [];
+              for(const charge of existingCharges) {
+                  if (remainingAmountToSettle >= charge.amount) {
+                      remainingAmountToSettle -= charge.amount;
+                  } else {
+                      charge.amount -= remainingAmountToSettle;
+                      remainingAmountToSettle = 0;
+                      newCharges.push(charge);
+                  }
+                  if(remainingAmountToSettle === 0) break;
+              }
+              draft.additionalCharges = newCharges;
 
-              if (totalPaidInCycle >= totalBillForCycle) {
+              // 2. Settle balance brought forward
+              const previousBalance = draft.balanceBroughtForward || 0;
+              if (remainingAmountToSettle > 0 && previousBalance > 0) {
+                  const amountToSettle = Math.min(remainingAmountToSettle, previousBalance);
+                  draft.balanceBroughtForward = previousBalance - amountToSettle;
+                  remainingAmountToSettle -= amountToSettle;
+              }
+
+              // 3. Settle current month's rent
+              const totalPaidInCycle = (draft.rentPaidAmount || 0) + remainingAmountToSettle;
+              const totalRentBillForCycle = draft.rentAmount;
+
+              if (totalPaidInCycle >= totalRentBillForCycle) {
                   draft.rentStatus = 'paid';
-                  draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle;
+                  // Any overpayment on rent is added to the (now smaller) balanceBroughtForward
+                  draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) - (totalPaidInCycle - totalRentBillForCycle);
                   draft.rentPaidAmount = 0;
-                  draft.additionalCharges = [];
                   draft.dueDate = format(calculateFirstDueDate(new Date(draft.dueDate), draft.rentCycleUnit, draft.rentCycleValue, draft.billingAnchorDay), 'yyyy-MM-dd');
               } else {
                   draft.rentStatus = 'partial';
                   draft.rentPaidAmount = totalPaidInCycle;
+              }
+              
+              // If after all settlements, there are no dues, mark as paid. This handles edge cases.
+              const finalDue = (draft.balanceBroughtForward || 0) + (draft.additionalCharges || []).reduce((s,c)=>s+c.amount,0) + draft.rentAmount - (draft.rentPaidAmount || 0);
+              if (finalDue <= 0 && draft.rentStatus !== 'paid') {
+                 // This is a safety net. If all dues are cleared but rent status isn't 'paid', it implies a full payment was made.
+                 // This can happen if payment equals exact due amount.
+                 draft.rentStatus = 'paid';
+                 draft.balanceBroughtForward = -finalDue; // a negative due means overpayment
+                 draft.rentPaidAmount = 0;
+                 draft.additionalCharges = [];
+                 draft.dueDate = format(calculateFirstDueDate(new Date(draft.dueDate), draft.rentCycleUnit, draft.rentCycleValue, draft.billingAnchorDay), 'yyyy-MM-dd');
               }
           });
 

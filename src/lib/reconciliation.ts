@@ -31,32 +31,29 @@ export function runReconciliationLogic(guest: Guest, now: Date): { guest: Guest,
     if (cyclesToProcess <= 0) return { guest, cyclesProcessed: 0 };
 
     const updatedGuest = produce(guest, draft => {
-        const previousAdditionalCharges = draft.additionalCharges || [];
-        const previousUnpaid = draft.balanceBroughtForward || 0;
+        // --- Step 2: Settle the books for the cycle that just ended ---
+        const previousRentBill = (draft.balanceBroughtForward || 0) + draft.rentAmount;
+        const totalPaid = draft.rentPaidAmount || 0;
+        
+        // Unpaid rent from the previous cycle. Additional charges are kept separate.
+        const unpaidRent = previousRentBill - totalPaid;
 
-        // --- Step 2: Calculate total balance including previous unpaid + all overdue cycles ---
-        // First, add previous unpaid + previous additional charges + first overdue cycle rent
-        let totalBalance = previousUnpaid
-            + previousAdditionalCharges.reduce((sum, c) => sum + c.amount, 0)
-            + rentAmount;
+        // --- Step 3: Calculate the new balance forward ---
+        // New balance is the unpaid rent from the last cycle plus rent for all newly overdue cycles.
+        let newBalance = unpaidRent + (rentAmount * cyclesToProcess);
+        
+        draft.balanceBroughtForward = newBalance;
 
-        // Then, if more than 1 cycle overdue, add remaining cycles rent
-        if (cyclesToProcess > 1) {
-            totalBalance += rentAmount * (cyclesToProcess - 1);
-        }
-
-        draft.balanceBroughtForward = totalBalance;
-
-        // --- Step 3: Advance due date ---
+        // --- Step 4: Advance due date ---
         let newDueDate = dueDate;
         for (let i = 0; i < cyclesToProcess; i++) {
             newDueDate = calculateFirstDueDate(newDueDate, cycleUnit, cycleValue, draft.billingAnchorDay);
         }
         draft.dueDate = newDueDate.toISOString();
 
-        // --- Step 4: Reset rent paid and additional charges for new cycle ---
+        // --- Step 5: Reset rent paid for the new cycle ---
+        // Additional charges are NOT cleared. They persist until paid.
         draft.rentPaidAmount = 0;
-        draft.additionalCharges = [];
         draft.rentStatus = 'unpaid';
     });
 

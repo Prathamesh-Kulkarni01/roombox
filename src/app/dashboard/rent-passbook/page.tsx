@@ -40,7 +40,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
         const uniqueGuests = Array.from(guestMap.values());
 
         return uniqueGuests.filter(g => {
-            const isDue = g.rentStatus === 'unpaid' || g.rentStatus === 'partial';
+            const isDue = g.rentStatus === 'unpaid' || g.rentStatus === 'partial' || (g.additionalCharges && g.additionalCharges.length > 0);
             const pgMatch = filters.pgId === 'all' || g.pgId === filters.pgId;
             return isDue && pgMatch;
         });
@@ -56,9 +56,10 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                 {filteredPendingGuests.map(guest => {
                      const balanceBf = guest.balanceBroughtForward || 0;
                      const chargesDue = (guest.additionalCharges || []).reduce((sum: number, charge: { amount: number; }) => sum + charge.amount, 0);
-                     const totalOwed = balanceBf + guest.rentAmount + chargesDue;
-                     const totalPaid = guest.rentPaidAmount || 0;
-                     const totalDue = totalOwed - totalPaid;
+                     const rentDue = (guest.rentStatus === 'paid') ? 0 : guest.rentAmount - (guest.rentPaidAmount || 0);
+                     const totalDue = balanceBf + chargesDue + rentDue;
+
+                     if (totalDue <= 0) return null; // Don't show if there's nothing to pay
 
                     return (
                         <AccordionItem value={guest.id} key={guest.id}>
@@ -77,33 +78,28 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                             <AccordionContent>
                                 <div className="p-4 bg-muted/50 rounded-md border space-y-4">
                                     <div className="space-y-2 text-sm">
-                                        <h4 className="font-semibold mb-2">Rent Breakdown for {format(parseISO(guest.dueDate), 'MMMM yyyy')}</h4>
+                                        <h4 className="font-semibold mb-2">Dues Breakdown for {guest.name}</h4>
                                          {balanceBf > 0 && (
                                             <div className="flex justify-between items-center text-muted-foreground">
                                                 <span>Balance from previous months:</span>
                                                 <span className="font-medium text-foreground">₹{balanceBf.toLocaleString('en-IN')}</span>
                                             </div>
                                         )}
-                                        <div className="flex justify-between items-center text-muted-foreground">
-                                            <span>Current month's rent:</span>
-                                            <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span>
-                                        </div>
+                                        {rentDue > 0 &&
+                                            <div className="flex justify-between items-center text-muted-foreground">
+                                                <span>Current month's rent:</span>
+                                                <span className="font-medium text-foreground">₹{rentDue.toLocaleString('en-IN')}</span>
+                                            </div>
+                                        }
                                         {(guest.additionalCharges || []).map((charge: any) => (
                                             <div key={charge.id} className="flex justify-between items-center text-muted-foreground pl-4">
                                                 <span>- {charge.description}</span>
                                                 <span className="font-medium text-foreground">₹{charge.amount.toLocaleString('en-IN')}</span>
                                             </div>
                                         ))}
-                                        <div className="flex justify-between items-center border-t pt-2">
-                                            <span className="font-semibold">Total Bill:</span>
-                                            <span className="font-semibold">₹{totalOwed.toLocaleString('en-IN')}</span>
-                                        </div>
-                                         <div className="flex justify-between items-center text-green-600">
-                                            <span>Paid this cycle:</span>
-                                            <span className="font-medium">- ₹{totalPaid.toLocaleString('en-IN')}</span>
-                                        </div>
+                                        
                                          <div className="flex justify-between items-center border-t pt-2 mt-2">
-                                            <span className="font-bold text-base">Amount Due:</span>
+                                            <span className="font-bold text-base">Total Amount Due:</span>
                                             <span className="font-bold text-base text-destructive">₹{totalDue.toLocaleString('en-IN')}</span>
                                         </div>
                                     </div>
@@ -441,7 +437,7 @@ export default function RentPassbookPage() {
                                                 <TableCell className="font-medium">{p.guestName}</TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
                                                 <TableCell>
-                                                    <PayoutStatusBadge payment={p} />
+                                                    <PayoutStatusBadge status={p.payoutStatus} />
                                                 </TableCell>
                                                 <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
                                             </TableRow>

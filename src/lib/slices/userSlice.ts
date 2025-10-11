@@ -1,10 +1,11 @@
 
+
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod, BusinessKycDetails } from '../types';
 import { plans } from '../mock-data';
-import { auth, db, isFirebaseConfigured } from '../firebase';
+import { auth, db, isFirebaseConfigured, getOwnerClientDb } from '../firebase';
 import { getAdminDb } from '../firebaseAdmin';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -381,5 +382,3 @@ const userSlice = createSlice({
 
 export const { setCurrentUser, updateUserPlan } = userSlice.actions;
 export default userSlice.reducer;
-
-    
