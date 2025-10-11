@@ -5,25 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { reconcileAllGuests } from '@/lib/actions/reconciliationActions';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
-import type { Guest, RentCycleUnit } from '@/lib/types';
-import { format, parseISO, isPast, differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
+import type { Guest } from '@/lib/types';
+import { getReminderForGuest } from '@/lib/reminder-logic';
 
-function getHumanReadableDuration(minutes: number): string {
-    const positiveMinutes = Math.abs(Math.round(minutes));
-
-    if (positiveMinutes < 1) return "just now";
-    if (positiveMinutes < 60) return `${positiveMinutes} minute(s)`;
-    
-    const hours = Math.floor(positiveMinutes / 60);
-    if (hours < 24) {
-        const remainingMinutes = positiveMinutes % 60;
-        return `${hours} hour(s)${remainingMinutes > 0 ? ` and ${remainingMinutes} minute(s)` : ''}`;
-    }
-    
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-    return `${days} day(s)${remainingHours > 0 ? ` and ${remainingHours} hour(s)` : ''}`;
-}
 
 export async function GET(request: NextRequest) {
     try {
@@ -34,7 +18,7 @@ export async function GET(request: NextRequest) {
             return new Response('Unauthorized', { status: 401 });
         }
 
-        // --- Step 1: Reconcile all rents first ---
+        // --- Step 1: Reconcile all rents first to ensure guest statuses are up-to-date ---
         const reconciliationResult = await reconcileAllGuests();
         if (!reconciliationResult.success) {
             console.warn('Rent reconciliation part of the reminder job may have failed for some tenants.');
@@ -52,9 +36,11 @@ export async function GET(request: NextRequest) {
             const enterpriseDbId = (userDoc.data()?.subscription?.enterpriseProject?.databaseId) as string | undefined;
             const enterpriseProjectId = (userDoc.data()?.subscription?.enterpriseProject?.projectId) as string | undefined;
             const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
+
+            // Fetch only guests who have a user account and are not vacated
             const guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
                 .where('isVacated', '==', false)
-                .where('rentStatus', 'in', ['unpaid', 'partial'])
+                .where('userId', '!=', null)
                 .get();
 
             if (guestsSnapshot.empty) {
@@ -63,63 +49,19 @@ export async function GET(request: NextRequest) {
 
             for (const guestDoc of guestsSnapshot.docs) {
                 const guest = guestDoc.data() as Guest;
-                if (!guest.userId) continue;
+                
+                // Use the centralized reminder logic
+                const reminderInfo = getReminderForGuest(guest, now);
 
-                const dueDate = parseISO(guest.dueDate);
-                let title = '';
-                let body = '';
-
-                if (isPast(dueDate)) {
-                    const minutesOverdue = differenceInMinutes(now, dueDate);
-                    title = 'Action Required: Your Rent is Overdue';
-                    body = `Hi ${guest.name}, your rent payment is ${getHumanReadableDuration(minutesOverdue)} overdue. Please complete the payment as soon as possible.`;
-                } else {
-                    const rentCycleUnit: RentCycleUnit = guest.rentCycleUnit || 'months';
-                    let shouldSendReminder = false;
-                    let timeUntilDue = '';
-
-                    switch (rentCycleUnit) {
-                        case 'minutes':
-                            const minutesUntilDue = differenceInMinutes(dueDate, now);
-                            if (minutesUntilDue <= 5) {
-                                shouldSendReminder = true;
-                                timeUntilDue = `${minutesUntilDue} minute(s)`;
-                            }
-                            break;
-                        case 'hours':
-                            const hoursUntilDue = differenceInHours(dueDate, now);
-                            if (hoursUntilDue <= 3) {
-                                shouldSendReminder = true;
-                                timeUntilDue = `${hoursUntilDue} hour(s)`;
-                            }
-                            break;
-                        case 'days':
-                        case 'weeks':
-                        case 'months':
-                        default:
-                            const daysUntilDue = differenceInDays(dueDate, now);
-                            if (daysUntilDue <= 5) {
-                                shouldSendReminder = true;
-                                timeUntilDue = `${daysUntilDue} day(s) on ${format(dueDate, 'do MMM')}`;
-                            }
-                            break;
-                    }
-
-                    if (shouldSendReminder) {
-                        title = `Gentle Reminder: Your Rent is Due Soon`;
-                        body = `Hi ${guest.name}, a friendly reminder that your rent is due in ${timeUntilDue}.`;
-                    }
-                }
-
-                if (title && body) {
+                if (reminderInfo.shouldSend) {
                     await createAndSendNotification({
                         ownerId: ownerId,
                         notification: {
                             type: 'rent-reminder',
-                            title: title,
-                            message: body,
+                            title: reminderInfo.title,
+                            message: reminderInfo.body,
                             link: '/tenants/my-pg',
-                            targetId: guest.userId,
+                            targetId: guest.userId!,
                         }
                     });
                     totalRemindersSent++;

@@ -1,96 +1,8 @@
 
 
-import type { Guest, RentCycleUnit } from '../../src/lib/types';
-import { format, addDays, subDays, addMinutes, subMinutes, isPast } from 'date-fns';
-
-// This is the function we want to test. It's not a real component, but the logic itself.
-// We've copied it here for direct testing without involving API calls.
-// In a real-world scenario, this would be exported from a shared lib file.
-
-interface ReminderInfo {
-  shouldSend: boolean;
-  title: string;
-  body: string;
-}
-
-function getHumanReadableDuration(minutes: number): string {
-    const positiveMinutes = Math.abs(Math.round(minutes));
-    if (positiveMinutes < 1) return "just now";
-    if (positiveMinutes < 60) return `${positiveMinutes} minute(s)`;
-    const hours = Math.floor(positiveMinutes / 60);
-    if (hours < 24) {
-        const remainingMinutes = positiveMinutes % 60;
-        return `${hours} hour(s)${remainingMinutes > 0 ? ` and ${remainingMinutes} minute(s)` : ''}`;
-    }
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-    return `${days} day(s)${remainingHours > 0 ? ` and ${remainingHours} hour(s)` : ''}`;
-}
-
-
-function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
-    if (!guest.userId || guest.isVacated || guest.rentStatus === 'paid') {
-        return { shouldSend: false, title: '', body: '' };
-    }
-
-    const dueDate = new Date(guest.dueDate);
-    const minutesDifference = (dueDate.getTime() - now.getTime()) / 60000;
-
-    // Overdue Logic
-    if (minutesDifference < 0) {
-        const minutesOverdue = Math.abs(minutesDifference);
-        if (minutesOverdue >= 1) { // Only send if at least 1 minute overdue
-             return {
-                shouldSend: true,
-                title: 'Action Required: Your Rent is Overdue',
-                body: `Hi ${guest.name}, your rent payment is ${getHumanReadableDuration(minutesOverdue)} overdue. Please complete the payment as soon as possible.`
-            };
-        }
-    } else { // Upcoming Reminder Logic
-      const rentCycleUnit: RentCycleUnit = guest.rentCycleUnit || 'months';
-      let shouldSendReminder = false;
-      let timeUntilDue = '';
-
-      switch (rentCycleUnit) {
-          case 'minutes':
-              const minutesUntilDue = Math.ceil(minutesDifference);
-              if (minutesUntilDue > 0 && minutesUntilDue <= 5) {
-                  shouldSendReminder = true;
-                  timeUntilDue = `${minutesUntilDue} minute(s)`;
-              }
-              break;
-          case 'hours':
-              const hoursUntilDue = Math.round(minutesDifference / 60);
-               if (hoursUntilDue > 0 && hoursUntilDue <= 3) {
-                  shouldSendReminder = true;
-                  timeUntilDue = `${hoursUntilDue} hour(s)`;
-              }
-              break;
-          case 'days':
-          case 'weeks':
-          case 'months':
-          default:
-              const daysUntilDue = Math.round(minutesDifference / 1440);
-               if (daysUntilDue > 0 && daysUntilDue <= 5) {
-                  shouldSendReminder = true;
-                  timeUntilDue = `${daysUntilDue} day(s) on ${format(dueDate, 'do MMM')}`;
-              }
-              break;
-      }
-
-      if (shouldSendReminder) {
-          return {
-              shouldSend: true,
-              title: `Gentle Reminder: Your Rent is Due Soon`,
-              body: `Hi ${guest.name}, a friendly reminder that your rent is due in ${timeUntilDue}.`
-          };
-      }
-    }
-
-
-    return { shouldSend: false, title: '', body: '' };
-}
-
+import type { Guest } from '../../src/lib/types';
+import { format, addDays, subDays, addMinutes, subMinutes } from 'date-fns';
+import { getReminderForGuest } from '../../src/lib/reminder-logic';
 
 // --- Test Suite ---
 
@@ -233,7 +145,7 @@ describe('Rent Reminder Logic Unit Tests', () => {
              cy.log('**Expected Outcome:** The system should generate an "Overdue" reminder, not an "Upcoming" one.');
 
             const dueDate = new Date('2024-08-15T10:00:00.000Z');
-            const now = new Date('2024-08-15T11:00:00.000Z');
+            const now = new Date('2024-08-15T11:00:00.0Z');
             const guest = createBaseGuest({ dueDate: dueDate.toISOString() });
             
             const result = getReminderForGuest(guest, now);
@@ -242,7 +154,3 @@ describe('Rent Reminder Logic Unit Tests', () => {
         });
     });
 });
-
-
-    
-    
