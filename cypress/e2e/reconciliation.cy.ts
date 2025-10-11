@@ -1,7 +1,7 @@
 
 
 import { runReconciliationLogic } from '../../src/lib/reconciliation';
-import type { Guest } from '../../src/lib/types';
+import type { Guest, AdditionalCharge } from '../../src/lib/types';
 import { addMinutes, addHours, addDays, addMonths, parseISO, isAfter, differenceInHours, differenceInDays } from 'date-fns';
 
 const createMockGuest = (overrides: Partial<Guest>): Guest => ({
@@ -128,6 +128,50 @@ describe('Rent Reconciliation Logic', () => {
 
             expect(result.cyclesProcessed).to.equal(1);
             expect(result.guest.dueDate).to.equal('2024-02-29T00:00:00.000Z');
+        });
+    });
+    
+    context('Additional Charges Scenarios', () => {
+        it('should roll over unpaid additional charges into the new balance', () => {
+            const charges: AdditionalCharge[] = [{ id: 'ac1', description: 'Mess Fee', amount: 5 }];
+            const guest = createMockGuest({ 
+                balanceBroughtForward: 0, 
+                additionalCharges: charges,
+                rentPaidAmount: 0,
+            });
+
+            // 1 cycle is overdue
+            const now = addMinutes(new Date(guest.dueDate), 4);
+            const result = runReconciliationLogic(guest, now);
+
+            // Previous cycle's bill: 0 (bbf) + 1 (rent) + 5 (charge) = 6. Nothing paid.
+            // New balance brought forward should be 6.
+            // New cycle's rent (1) is then added. Total bbf = 6 + 1 = 7
+            expect(result.cyclesProcessed).to.equal(1);
+            expect(result.guest.balanceBroughtForward).to.equal(7);
+            expect(result.guest.additionalCharges).to.have.lengthOf(0);
+        });
+
+        it('should handle partial payments with additional charges correctly', () => {
+             const charges: AdditionalCharge[] = [{ id: 'ac1', description: 'Electricity', amount: 3 }];
+             const guest = createMockGuest({ 
+                balanceBroughtForward: 2, // From even earlier
+                additionalCharges: charges,
+                rentPaidAmount: 4, // Paid part of the bill
+                rentAmount: 10,
+            });
+
+            // 1 cycle overdue
+            const now = addMinutes(new Date(guest.dueDate), 4);
+            const result = runReconciliationLogic(guest, now);
+            
+            // Previous cycle's bill: 2 (bbf) + 10 (rent) + 3 (charge) = 15.
+            // Paid 4, so 11 was left unpaid. This is the new bbf.
+            // New cycle's rent (10) is added. Total bbf = 11 + 10 = 21
+            expect(result.cyclesProcessed).to.equal(1);
+            expect(result.guest.balanceBroughtForward).to.equal(21);
+            expect(result.guest.rentPaidAmount).to.equal(0);
+            expect(result.guest.additionalCharges).to.have.lengthOf(0);
         });
     });
 
