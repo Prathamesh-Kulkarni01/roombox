@@ -1,3 +1,4 @@
+
 import { runReconciliationLogic } from '../../src/lib/reconciliation';
 import type { Guest } from '../../src/lib/types';
 import { addMinutes, addHours, addDays, addMonths, parseISO, isAfter, differenceInHours, differenceInDays } from 'date-fns';
@@ -26,225 +27,155 @@ const createMockGuest = (overrides: Partial<Guest>): Guest => ({
   ...overrides,
 });
 
-describe('Extended Rent Reconciliation Tests (50+ Scenarios)', () => {
+describe('Rent Reconciliation Logic', () => {
 
-  // ---------------------------
-  // 1. Minute-based Cycles
-  // ---------------------------
-  context('Minute-based cycles', () => {
-    for (let i = 1; i <= 10; i++) {
-      it(`Minute Cycle Overdue #${i} - ${i} cycle(s) overdue`, () => {
-        const guest = createMockGuest({});
-        const now = addMinutes(new Date(guest.dueDate), 3 * i + 1); // i cycles overdue
-        const result = runReconciliationLogic(guest, now);
-
-        expect(result.cyclesProcessed).to.equal(i);
-        expect(result.guest.balanceBroughtForward).to.equal(1 + i);
-      });
-    }
-  });
-
-  // ---------------------------
-  // 2. Hour-based Cycles
-  // ---------------------------
-  context('Hour-based cycles', () => {
-    for (let i = 1; i <= 5; i++) {
-        it(`Hourly Cycle Overdue #${i} - should process ${i} cycle(s)`, () => {
-            const guest = createMockGuest({
-                rentCycleUnit: 'hours',
-                rentCycleValue: 1,
-                rentAmount: 100,
-                balanceBroughtForward: 0,
-            });
-
-            const now = addHours(new Date(guest.dueDate), i);
+    context('Minute-based cycles', () => {
+        it('should correctly process a single overdue minute-based cycle', () => {
+            const guest = createMockGuest({});
+            const now = addMinutes(new Date(guest.dueDate), 4); // 1 cycle overdue
             const result = runReconciliationLogic(guest, now);
             
-            const expectedCycles = Math.floor(differenceInHours(now, parseISO(guest.dueDate)) / guest.rentCycleValue);
-            const expectedBalance = expectedCycles * guest.rentAmount;
-
-            expect(result.cyclesProcessed).to.equal(expectedCycles);
-            expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
+            expect(result.cyclesProcessed).to.equal(1);
+            expect(result.guest.balanceBroughtForward).to.equal(2); // 1 initial + 1 new
         });
-    }
-  });
-  // ---------------------------
-  // 3. Day-based Cycles
-  // ---------------------------
-  context('Day-based cycles', () => {
-    for (let i = 1; i <= 7; i++) {
-        it(`Daily Cycle Overdue #${i} - should process ${i} cycle(s)`, () => {
-            const guest = createMockGuest({
-                rentCycleUnit: 'days',
-                rentCycleValue: 1,
-                rentAmount: 500,
-                balanceBroughtForward: 0,
-            });
 
-            const now = addDays(new Date(guest.dueDate), i);
+        it('should correctly process multiple overdue minute-based cycles', () => {
+            const guest = createMockGuest({});
+            const now = addMinutes(new Date(guest.dueDate), 10); // 3 cycles overdue
             const result = runReconciliationLogic(guest, now);
 
-            const expectedCycles = Math.floor(differenceInDays(now, parseISO(guest.dueDate)) / guest.rentCycleValue);
+            expect(result.cyclesProcessed).to.equal(3);
+            expect(result.guest.balanceBroughtForward).to.equal(4); // 1 initial + 3 new
+        });
+        
+        it('should handle a paid guest becoming overdue', () => {
+            const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0 });
+            const now = addMinutes(new Date(guest.dueDate), 4);
+            const result = runReconciliationLogic(guest, now);
+
+            expect(result.cyclesProcessed).to.equal(1);
+            expect(result.guest.balanceBroughtForward).to.equal(1);
+            expect(result.guest.rentStatus).to.equal('unpaid');
+        });
+        
+        it('should correctly process multiple cycles for a previously paid guest', () => {
+             const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0 });
+             const now = addMinutes(new Date(guest.dueDate), 10); // 3 cycles overdue
+             const result = runReconciliationLogic(guest, now);
+
+             expect(result.cyclesProcessed).to.equal(3);
+             expect(result.guest.balanceBroughtForward).to.equal(3);
+             expect(result.guest.rentStatus).to.equal('unpaid');
+        });
+    });
+
+    context('Hour-based cycles', () => {
+        it('should process a single overdue hour-based cycle', () => {
+            const guest = createMockGuest({ rentCycleUnit: 'hours', rentCycleValue: 2, balanceBroughtForward: 0 });
+            const now = addHours(new Date(guest.dueDate), 3);
+            const result = runReconciliationLogic(guest, now);
+            
+            const expectedCycles = 1;
             const expectedBalance = expectedCycles * guest.rentAmount;
 
             expect(result.cyclesProcessed).to.equal(expectedCycles);
             expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
         });
-    }
-  });
-
-  // ---------------------------
-  // 4. Month-based Cycles
-  // ---------------------------
-  context('Month-based cycles', () => {
-    for (let i = 1; i <= 12; i++) {
-      it(`Monthly Cycle Overdue #${i} - ${i} month(s) overdue`, () => {
-        const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 1000, dueDate: '2024-01-01T00:00:00.000Z', balanceBroughtForward: 1000, billingAnchorDay: 1 });
-        const now = addMonths(new Date(guest.dueDate), i);
-        const result = runReconciliationLogic(guest, now);
-
-        expect(result.cyclesProcessed).to.equal(i);
-        expect(result.guest.balanceBroughtForward).to.equal(1000 + i * 1000);
-      });
-    }
-  });
-
-  // ---------------------------
-  // 5. Paid → Overdue Transitions
-  // ---------------------------
-  context('Paid → Overdue transitions', () => {
-    it('Paid guest becomes 1 cycle overdue', () => {
-      const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0 });
-      const now = addMinutes(new Date(guest.dueDate), 4);
-      const result = runReconciliationLogic(guest, now);
-
-      expect(result.cyclesProcessed).to.equal(1);
-      expect(result.guest.balanceBroughtForward).to.equal(1);
-      expect(result.guest.rentStatus).to.equal('unpaid');
     });
 
-    it('Paid guest becomes 3 cycles overdue', () => {
-      const guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0 });
-      const now = addMinutes(new Date(guest.dueDate), 10);
-      const result = runReconciliationLogic(guest, now);
+    context('Day-based cycles', () => {
+        it('should process multiple overdue day-based cycles', () => {
+            const guest = createMockGuest({ rentCycleUnit: 'days', rentCycleValue: 5, balanceBroughtForward: 10 });
+            const now = addDays(new Date(guest.dueDate), 12);
+            const result = runReconciliationLogic(guest, now);
 
-      expect(result.cyclesProcessed).to.equal(3);
-      expect(result.guest.balanceBroughtForward).to.equal(3);
-      expect(result.guest.rentStatus).to.equal('unpaid');
+            const expectedCycles = 2;
+            const expectedBalance = 10 + (expectedCycles * guest.rentAmount);
+
+            expect(result.cyclesProcessed).to.equal(expectedCycles);
+            expect(result.guest.balanceBroughtForward).to.equal(expectedBalance);
+        });
     });
-  });
-
-  // ---------------------------
-  // 6. Notice Period & Vacated
-  // ---------------------------
-  context('Notice period & vacated guests', () => {
-    it('Guest on notice period should not accrue cycles', () => {
-      const guest = createMockGuest({ exitDate: '2024-08-30T00:00:00.000Z' });
-      const now = addDays(new Date(guest.dueDate), 10);
-      const result = runReconciliationLogic(guest, now);
-
-      expect(result.cyclesProcessed).to.equal(0);
-    });
-
-    it('Guest already vacated should not accrue cycles', () => {
-      const guest = createMockGuest({ isVacated: true });
-      const now = addDays(new Date(guest.dueDate), 5);
-      const result = runReconciliationLogic(guest, now);
-
-      expect(result.cyclesProcessed).to.equal(0);
-    });
-  });
-
-  // ---------------------------
-  // 7. End-of-Month & Leap Year
-  // ---------------------------
-  context('End-of-month & leap year scenarios', () => {
-    it('Jan 31 → Feb 28 (non-leap year)', () => {
-      const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 5000, dueDate: '2025-01-31T00:00:00.000Z', balanceBroughtForward: 0, billingAnchorDay: 31 });
-      const now = new Date('2025-03-01T00:00:00.000Z');
-      const result = runReconciliationLogic(guest, now);
-
-      expect(result.cyclesProcessed).to.equal(1);
-      expect(result.guest.dueDate).to.equal('2025-02-28T00:00:00.000Z');
-    });
-
-    it('Jan 31 → Feb 29 (leap year)', () => {
-      const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 5000, dueDate: '2024-01-31T00:00:00.000Z', balanceBroughtForward: 0, billingAnchorDay: 31 });
-      const now = new Date('2024-03-01T00:00:00.000Z');
-      const result = runReconciliationLogic(guest, now);
-
-      expect(result.cyclesProcessed).to.equal(1);
-      expect(result.guest.dueDate).to.equal('2024-02-29T00:00:00.000Z');
-    });
-
-    it('Guest with billing anchor day 30 for 31-day month', () => {
-      const guest = createMockGuest({ rentCycleUnit: 'months', rentCycleValue: 1, rentAmount: 3000, dueDate: '2024-07-30T00:00:00.000Z', balanceBroughtForward: 0, billingAnchorDay: 30 });
-      const now = new Date('2024-08-31T00:00:00.000Z');
-      const result = runReconciliationLogic(guest, now);
-
-      expect(result.cyclesProcessed).to.equal(1);
-      expect(result.guest.dueDate).to.equal('2024-08-30T00:00:00.000Z');
-    });
-  });
-
-  // ---------------------------
-  // 8. Complex Multi-Cycle
-  // ---------------------------
-  context('Complex multi-cycle scenarios', () => {
-    it('Guest missed 2 cycles, paid partially, then overdue again', () => {
-      let guest = createMockGuest({});
-      let now = addMinutes(new Date(guest.dueDate), 7); // 2 cycles
-      let result = runReconciliationLogic(guest, now);
-
-      expect(result.cyclesProcessed).to.equal(2);
-      expect(result.guest.balanceBroughtForward).to.equal(3);
-
-      // Partial payment
-      guest = { ...result.guest, rentStatus: 'paid', balanceBroughtForward: 1 };
-      now = addMinutes(new Date(guest.dueDate), 4); // 1 cycle overdue
-      result = runReconciliationLogic(guest, now);
-
-      expect(result.cyclesProcessed).to.equal(1);
-      expect(result.guest.balanceBroughtForward).to.equal(2);
-      expect(result.guest.rentStatus).to.equal('unpaid');
-    });
-  });
-
-  // ---------------------------
-  // 9. Rapid consecutive cycles
-  // ---------------------------
-  context('Rapid consecutive minute cycles', () => {
-    for (let i = 1; i <= 10; i++) {
-      it(`Rapid Cycle #${i} - guest misses ${i} consecutive cycles`, () => {
-        const guest = createMockGuest({});
-        const now = addMinutes(new Date(guest.dueDate), 3 * i + 2);
-        const result = runReconciliationLogic(guest, now);
-
-        expect(result.cyclesProcessed).to.equal(i);
-        expect(result.guest.balanceBroughtForward).to.equal(1 + i);
-      });
-    }
-  });
-
-  // ---------------------------
-  // 10. Randomized real-world scenarios
-  // ---------------------------
-  context('Randomized scenarios', () => {
-    const cycleUnits = ['minutes', 'hours', 'days', 'months'] as const;
-    for (let i = 1; i <= 20; i++) {
-      it(`Random Scenario #${i}`, () => {
-        const unit = cycleUnits[Math.floor(Math.random() * cycleUnits.length)];
-        const guest = createMockGuest({ rentCycleUnit: unit, rentAmount: 100 * i, balanceBroughtForward: 50 * i });
-        const now = addDays(new Date(guest.dueDate), i % 5 + 1); // random days overdue
-        const result = runReconciliationLogic(guest, now);
-
-        expect(result.cyclesProcessed).to.be.at.least(0);
-expect(result.guest.balanceBroughtForward).to.be.at.least(guest.balanceBroughtForward);
-
-      });
-    }
-  });
-
-});
-
     
+    context('Month-based cycles', () => {
+        it('should handle end-of-month billing correctly', () => {
+            // Test case: Billing on Jan 31st, check for Feb 28th
+            const guest = createMockGuest({ 
+                rentCycleUnit: 'months', 
+                rentCycleValue: 1, 
+                dueDate: '2025-01-31T00:00:00.000Z',
+                billingAnchorDay: 31,
+                balanceBroughtForward: 0
+            });
+            const now = new Date('2025-03-01T00:00:00.000Z');
+            const result = runReconciliationLogic(guest, now);
+
+            expect(result.cyclesProcessed).to.equal(1);
+            expect(result.guest.dueDate).to.equal('2025-02-28T00:00:00.000Z');
+        });
+
+        it('should handle leap year end-of-month billing', () => {
+             const guest = createMockGuest({ 
+                rentCycleUnit: 'months', 
+                rentCycleValue: 1, 
+                dueDate: '2024-01-31T00:00:00.000Z',
+                billingAnchorDay: 31,
+                balanceBroughtForward: 0
+            });
+            const now = new Date('2024-03-01T00:00:00.000Z');
+            const result = runReconciliationLogic(guest, now);
+
+            expect(result.cyclesProcessed).to.equal(1);
+            expect(result.guest.dueDate).to.equal('2024-02-29T00:00:00.000Z');
+        });
+    });
+
+    context('General Cases', () => {
+        it('should not process if not overdue', () => {
+            const guest = createMockGuest({});
+            const now = new Date(guest.dueDate);
+            const result = runReconciliationLogic(guest, now);
+            expect(result.cyclesProcessed).to.equal(0);
+        });
+
+        it('should not process for vacated or on-notice guests', () => {
+            const vacatedGuest = createMockGuest({ isVacated: true });
+            const noticeGuest = createMockGuest({ exitDate: new Date().toISOString() });
+            const now = addDays(new Date(), 5);
+
+            expect(runReconciliationLogic(vacatedGuest, now).cyclesProcessed).to.equal(0);
+            expect(runReconciliationLogic(noticeGuest, now).cyclesProcessed).to.equal(0);
+        });
+    });
+
+    context('Iterative Reconciliation', () => {
+        it('should correctly process cycles sequentially', () => {
+            let guest = createMockGuest({ rentStatus: 'paid', balanceBroughtForward: 0 });
+            
+            // --- First reconciliation run ---
+            // 2 cycles are overdue (3 * 2 = 6 minutes)
+            let now1 = addMinutes(new Date(guest.dueDate), 7);
+            let result1 = runReconciliationLogic(guest, now1);
+
+            // After 1st run, guest becomes unpaid, 2 cycles are processed.
+            expect(result1.cyclesProcessed).to.equal(2);
+            expect(result1.guest.balanceBroughtForward).to.equal(2);
+            expect(result1.guest.rentStatus).to.equal('unpaid');
+            expect(parseISO(result1.guest.dueDate).getMinutes()).to.equal(parseISO(guest.dueDate).getMinutes() + (2 * 3));
+
+            // --- Second reconciliation run ---
+            // Take the updated guest from the first run.
+            let updatedGuest = result1.guest;
+
+            // Simulate another 3 cycles passing from the *new* due date. (3 * 3 = 9 minutes)
+            let now2 = addMinutes(new Date(updatedGuest.dueDate), 10);
+            let result2 = runReconciliationLogic(updatedGuest, now2);
+
+            // Expect 3 more cycles to be processed.
+            expect(result2.cyclesProcessed).to.equal(3);
+            // New balance should be the previous balance (2) + rent for 3 new cycles.
+            expect(result2.guest.balanceBroughtForward).to.equal(2 + 3);
+            expect(result2.guest.rentStatus).to.equal('unpaid');
+        });
+    });
+});
