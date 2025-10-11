@@ -28,7 +28,7 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
   const { currentUser } = useAppSelector(state => state.user);
   const { featurePermissions } = useAppSelector(state => state.permissions);
 
-  const totalDue = guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
+  const totalDue = (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
 
 
   return (
