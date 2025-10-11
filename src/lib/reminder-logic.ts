@@ -1,76 +1,82 @@
-
-'use server';
-
 import type { Guest } from './types';
-import { format, parseISO, differenceInMinutes, isPast } from 'date-fns';
 
-interface ReminderInfo {
+interface ReminderResult {
   shouldSend: boolean;
   title: string;
   body: string;
 }
 
-function getHumanReadableDuration(totalMinutes: number): { value: number; unit: string } {
-    if (totalMinutes >= 24 * 60) {
-        const days = Math.floor(totalMinutes / (24 * 60));
-        return { value: days, unit: 'day(s)' };
-    }
-    if (totalMinutes >= 60) {
-        const hours = Math.floor(totalMinutes / 60);
-        return { value: hours, unit: 'hour(s)' };
-    }
-    return { value: totalMinutes, unit: 'minute(s)' };
-}
+const REMINDER_WINDOW = 3; // last 3 units or days
 
-export function getReminderForGuest(guest: Guest, now: Date): ReminderInfo {
-    if (!guest.userId || guest.isVacated || guest.rentStatus === 'paid') {
-        return { shouldSend: false, title: '', body: '' };
-    }
+export function getReminderForGuest(guest: Guest, now: Date = new Date()): ReminderResult {
+  const dueDate = new Date(guest.dueDate);
 
-    const dueDate = parseISO(guest.dueDate);
-    const totalMinutesDifference = differenceInMinutes(dueDate, now);
-
-    // --- Overdue Reminders Logic ---
-    if (totalMinutesDifference < 0) {
-        const minutesOverdue = Math.abs(totalMinutesDifference);
-        
-        // Don't send if it's less than a minute overdue
-        if (minutesOverdue < 1) {
-            return { shouldSend: false, title: '', body: '' };
-        }
-
-        const duration = getHumanReadableDuration(minutesOverdue);
-        
-        return {
-            shouldSend: true,
-            title: 'Action Required: Your Rent is Overdue',
-            body: `Hi ${guest.name}, your rent payment is ${duration.value} ${duration.unit} overdue. Please pay as soon as possible.`
-        };
-    }
-
-    // --- Upcoming Reminders Logic ---
-    const minutesUntilDue = totalMinutesDifference;
-    
-    // Set a reasonable window for upcoming reminders (e.g., 5 days for monthly cycles)
-    const upcomingWindowMinutes = {
-        months: 5 * 24 * 60,
-        weeks: 3 * 24 * 60,
-        days: 2 * 24 * 60,
-        hours: 120, // 2 hours
-        minutes: 10, // 10 minutes
-    }[guest.rentCycleUnit || 'months'];
-    
-    if (minutesUntilDue >= 0 && minutesUntilDue <= upcomingWindowMinutes) {
-         const duration = getHumanReadableDuration(minutesUntilDue);
-         const dayText = minutesUntilDue === 0 ? 'today' : `in ${duration.value} ${duration.unit}`;
-
-         return {
-            shouldSend: true,
-            title: 'Gentle Reminder: Your Rent is Due Soon',
-            body: `Hi ${guest.name}, a friendly reminder that your rent is due ${dayText} on ${format(dueDate, 'do MMM')}.`
-        };
-    }
-
-    // No reminder needed if it's too far in the future
+  // Skip reminders for paid or vacated tenants
+  if (guest.rentStatus === 'paid' || guest.isVacated) {
     return { shouldSend: false, title: '', body: '' };
+  }
+
+  const diffMs = dueDate.getTime() - now.getTime(); // positive = upcoming
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  // -----------------------------
+  // Overdue
+  // -----------------------------
+  if (diffMs < 0) {
+    const overdueMinutes = Math.ceil(Math.abs(diffMinutes));
+    const overdueHours = Math.ceil(Math.abs(diffHours));
+    const overdueDays = Math.ceil(Math.abs(diffDays));
+
+    let body = '';
+    switch (guest.rentCycleUnit) {
+      case 'minutes':
+        body = `Hi ${guest.name}, your rent payment is ${overdueMinutes} minute(s) overdue. Please pay as soon as possible.`;
+        break;
+      case 'hours':
+        body = `Hi ${guest.name}, your rent payment is ${overdueHours} hour(s) overdue. Please pay as soon as possible.`;
+        break;
+      case 'days':
+        body = `Hi ${guest.name}, your rent payment is ${overdueDays} day(s) overdue. Please pay as soon as possible.`;
+        break;
+      case 'months':
+        const monthsOverdue = Math.floor(overdueDays / (30 * guest.rentCycleValue));
+        body = monthsOverdue > 0
+          ? `Hi ${guest.name}, your rent payment is ${monthsOverdue} month(s) overdue. Please pay as soon as possible.`
+          : `Hi ${guest.name}, your rent payment is ${overdueDays} day(s) overdue. Please pay as soon as possible.`;
+        break;
+    }
+    return { shouldSend: true, title: 'Overdue', body };
+  }
+
+  // -----------------------------
+  // Upcoming / Due today
+  // -----------------------------
+  let shouldSend = false;
+  let body = '';
+
+  switch (guest.rentCycleUnit) {
+    case 'minutes':
+      if (diffMinutes <= REMINDER_WINDOW) shouldSend = true;
+      body = `Hi ${guest.name}, your rent is due in ${Math.max(1, diffMinutes)} minute(s).`;
+      break;
+    case 'hours':
+      if (diffHours <= REMINDER_WINDOW) shouldSend = true;
+      body = `Hi ${guest.name}, your rent is due in ${Math.max(1, diffHours)} hour(s).`;
+      break;
+    case 'days':
+      if (diffDays <= REMINDER_WINDOW) shouldSend = true;
+      body = `Hi ${guest.name}, your rent is due in ${Math.max(1, diffDays)} day(s).`;
+      break;
+    case 'months':
+      // For monthly cycle, send reminders in last 3 days before due
+      if (diffDays <= REMINDER_WINDOW) shouldSend = true;
+      body = `Hi ${guest.name}, your rent is due in ${Math.max(1, diffDays)} day(s).`;
+      break;
+  }
+
+  if (!shouldSend) return { shouldSend: false, title: '', body: '' };
+
+  return { shouldSend: true, title: 'Gentle Reminder', body };
 }
