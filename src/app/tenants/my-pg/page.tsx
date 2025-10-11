@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { useAppSelector } from "@/lib/hooks"
@@ -8,14 +9,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck, Loader2, User } from "lucide-react"
 import { format, differenceInDays, parseISO, isValid, differenceInSeconds } from "date-fns"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useMemo, useState, useTransition, useEffect } from "react"
-import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { Payment } from "@/lib/types"
+import type { LedgerEntry } from "@/lib/types"
 
 const rentStatusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-800 border-green-300',
@@ -29,16 +28,6 @@ const kycStatusColors: Record<string, string> = {
     rejected: 'text-red-600 dark:text-red-400',
     'not-started': 'text-gray-600 dark:text-gray-400',
 };
-
-const PayoutStatusBadge = ({ status }: { status: Payment['payoutStatus'] }) => {
-    if (status === 'processed') {
-        return <Badge variant="secondary" className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1"/> Success</Badge>;
-    }
-    if (status === 'failed') {
-        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1"/> Failed</Badge>;
-    }
-    return <Badge variant="outline"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Processing</Badge>;
-}
 
 
 export default function MyPgPage() {
@@ -73,18 +62,17 @@ export default function MyPgPage() {
         return { roomName: room.name, bedName: bed.name };  
     }, [currentPg, currentGuest, pgs]);
 
-     const { totalDue, balanceBroughtForward, totalBillForCycle } = useMemo(() => {
-        if (!currentGuest) return { totalDue: 0, balanceBroughtForward: 0, totalBillForCycle: 0 };
+     const { totalDue, sortedLedger } = useMemo(() => {
+        if (!currentGuest) return { totalDue: 0, sortedLedger: [] };
         
-        const balanceBf = currentGuest.balanceBroughtForward || 0;
-        const currentMonthRent = currentGuest.rentAmount;
-        const chargesDue = (currentGuest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
+        const debits = currentGuest.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+        const credits = currentGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
         
-        const totalBill = balanceBf + currentMonthRent + chargesDue;
-        const totalPaid = currentGuest.rentPaidAmount || 0;
-        const due = totalBill - totalPaid;
+        const due = debits - credits;
 
-        return { totalDue: due, balanceBroughtForward: balanceBf, totalBillForCycle: totalBill };
+        const sorted = [...currentGuest.ledger].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        return { totalDue: due, sortedLedger: sorted };
     }, [currentGuest]);
     
      useEffect(() => {
@@ -245,27 +233,27 @@ export default function MyPgPage() {
                 
                  <Card>
                     <CardHeader>
-                        <CardTitle className="text-xl">Payment History</CardTitle>
-                        <CardDescription>Your record of recent rent payments.</CardDescription>
+                        <CardTitle className="text-xl">Financial Ledger</CardTitle>
+                        <CardDescription>A complete history of your payments and charges.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                         {(currentGuest.paymentHistory && currentGuest.paymentHistory.length > 0) ? (
+                         {(sortedLedger && sortedLedger.length > 0) ? (
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Date</TableHead>
-                                        <TableHead>For Month</TableHead>
-                                        <TableHead>Method</TableHead>
+                                        <TableHead>Description</TableHead>
                                         <TableHead className="text-right">Amount</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {currentGuest.paymentHistory.slice(0, 5).map(payment => (
-                                        <TableRow key={payment.id}>
-                                            <TableCell>{format(parseISO(payment.date), 'dd MMM, yyyy')}</TableCell>
-                                            <TableCell>{payment.forMonth}</TableCell>
-                                            <TableCell className="text-muted-foreground text-xs">{payment.notes || payment.method}</TableCell>
-                                            <TableCell className="text-right font-semibold">₹{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                    {sortedLedger.slice(0, 5).map(entry => (
+                                        <TableRow key={entry.id}>
+                                            <TableCell>{format(parseISO(entry.date), 'dd MMM, yyyy')}</TableCell>
+                                            <TableCell>{entry.description}</TableCell>
+                                            <TableCell className={cn("text-right font-semibold", entry.type === 'debit' ? 'text-destructive' : 'text-green-600')}>
+                                                {entry.type === 'credit' ? '-' : '+'} ₹{entry.amount.toLocaleString('en-IN')}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -294,19 +282,6 @@ export default function MyPgPage() {
                             <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[currentGuest.rentStatus])}>{currentGuest.rentStatus}</Badge>
                         </div>
                         
-                        <div className="space-y-2 pt-4 border-t text-sm">
-                            <div className="flex justify-between items-center text-muted-foreground">
-                                <span>Total Bill for Cycle:</span>
-                                <span className="font-medium text-foreground">₹{totalBillForCycle.toLocaleString('en-IN')}</span>
-                            </div>
-                            {(currentGuest.rentPaidAmount || 0) > 0 && (
-                                <div className="flex justify-between items-center text-green-600 dark:text-green-400">
-                                    <span>Paid this cycle:</span>
-                                    <span className="font-medium">- ₹{(currentGuest.rentPaidAmount || 0).toLocaleString('en-IN')}</span>
-                                </div>
-                            )}
-                        </div>
-
                         <div className="flex justify-between items-center pt-4 border-t">
                             <span className="font-bold text-lg">Total Amount Due:</span>
                             <span className="font-extrabold text-2xl text-primary flex items-center"><IndianRupee className="w-6 h-6"/>{totalDue.toLocaleString('en-IN')}</span>

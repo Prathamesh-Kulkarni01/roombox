@@ -3,7 +3,7 @@
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, Invite, PG, User, AdditionalCharge, Room, KycDocumentConfig, SubmittedKycDocument, Staff } from '../types';
+import type { Guest, Invite, PG, User, LedgerEntry, Room, KycDocumentConfig, SubmittedKycDocument, Staff } from '../types';
 import { auth, db, isFirebaseConfigured, getOwnerClientDb, selectOwnerDataDb } from '../firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, setDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -68,8 +68,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
             kycStatus: 'not-started',
             isVacated: false,
             userId: existingUser ? existingUser.id : null,
-            additionalCharges: [],
-            balanceBroughtForward: 0,
+            ledger: [],
             dueDate: format(firstDueDate, 'yyyy-MM-dd'),
             billingAnchorDay: moveInDate.getDate(),
         };
@@ -315,7 +314,7 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
     }
 );
 
-export const addAdditionalCharge = createAsyncThunk<Guest, { guestId: string, charge: Omit<AdditionalCharge, 'id'> }, { state: RootState }>(
+export const addAdditionalCharge = createAsyncThunk<Guest, { guestId: string, charge: Omit<LedgerEntry, 'id' | 'date' | 'type'> }, { state: RootState }>(
     'guests/addAdditionalCharge',
     async ({ guestId, charge }, { getState, rejectWithValue }) => {
         const { user, guests } = getState();
@@ -324,20 +323,19 @@ export const addAdditionalCharge = createAsyncThunk<Guest, { guestId: string, ch
 
         if (!ownerId || !guest) return rejectWithValue('User or guest not found');
         
-        const newCharge: AdditionalCharge = { ...charge, id: `charge-${Date.now()}` };
+        const newCharge: LedgerEntry = { ...charge, id: `charge-${Date.now()}`, date: new Date().toISOString(), type: 'debit' };
         
         if (isFirebaseConfigured()) {
            const selectedDb = selectOwnerDataDb(user.currentUser);
-
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await updateDoc(guestDocRef, {
-                additionalCharges: arrayUnion(newCharge)
+                ledger: arrayUnion(newCharge)
             });
         }
         
         return produce(guest, draft => {
-             if (!draft.additionalCharges) draft.additionalCharges = [];
-             draft.additionalCharges.push(newCharge);
+             if (!draft.ledger) draft.ledger = [];
+             draft.ledger.push(newCharge);
         });
     }
 );
@@ -351,20 +349,19 @@ export const removeAdditionalCharge = createAsyncThunk<Guest, { guestId: string,
 
         if (!ownerId || !guest) return rejectWithValue('User or guest not found');
         
-        const chargeToRemove = (guest.additionalCharges || []).find(c => c.id === chargeId);
+        const chargeToRemove = (guest.ledger || []).find(c => c.id === chargeId);
         if (!chargeToRemove) return rejectWithValue('Charge not found');
         
         if (isFirebaseConfigured()) {
            const selectedDb = selectOwnerDataDb(user.currentUser);
-
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await updateDoc(guestDocRef, {
-                additionalCharges: arrayRemove(chargeToRemove)
+                ledger: arrayRemove(chargeToRemove)
             });
         }
         
         return produce(guest, draft => {
-            draft.additionalCharges = (draft.additionalCharges || []).filter(c => c.id !== chargeId);
+            draft.ledger = (draft.ledger || []).filter(c => c.id !== chargeId);
         });
     }
 );
@@ -393,24 +390,26 @@ export const addSharedChargeToRoom = createAsyncThunk<Guest[], { roomId: string,
         const batch = isFirebaseConfigured() ? writeBatch(selectedDb) : null;
         
         for (const guest of guestsInRoom) {
-            const newCharge: AdditionalCharge = {
+            const newCharge: LedgerEntry = {
                 id: `charge-${Date.now()}-${guest.id}`,
+                date: new Date().toISOString(),
+                type: 'debit',
                 description: description,
                 amount: chargePerGuest,
             };
             
             const updatedGuest = produce(guest, draft => {
-                if (!draft.additionalCharges) {
-                    draft.additionalCharges = [];
+                if (!draft.ledger) {
+                    draft.ledger = [];
                 }
-                draft.additionalCharges.push(newCharge);
+                draft.ledger.push(newCharge);
             });
             updatedGuests.push(updatedGuest);
 
             if (batch) {
                 const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guest.id);
                 batch.update(guestDocRef, {
-                    additionalCharges: arrayUnion(newCharge)
+                    ledger: arrayUnion(newCharge)
                 });
             }
         }

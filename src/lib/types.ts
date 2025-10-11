@@ -110,18 +110,6 @@ export interface LedgerEntry {
     amount: number;
 }
 
-export interface Payment {
-    id: string;
-    date: string; // ISO string
-    amount: number;
-    method: 'cash' | 'upi' | 'in-app' | 'other';
-    notes?: string;
-    payoutId?: string;
-    payoutStatus?: 'processed' | 'pending' | 'failed';
-    payoutTo?: string;
-    payoutFailureReason?: string;
-}
-
 // Payment Method Types
 export interface PaymentMethodBase {
   id: string;
@@ -203,7 +191,6 @@ export interface Guest {
   isVacated: boolean; // True if the guest has permanently left the PG
   ledger: LedgerEntry[];
   documents?: SubmittedKycDocument[];
-  paymentHistory?: Payment[]; // For legacy or separate payment tracking
 }
 
 export interface Complaint {
