@@ -162,5 +162,46 @@ describe('Rent Reconciliation Logic (Ledger-based)', () => {
             expect(calculateBalance(result2.guest.ledger)).to.equal(500);
             expect(result2.guest.rentStatus).to.equal('unpaid');
         });
+
+         it('should correctly handle a complex scenario of payments and charges', () => {
+            // Setup: Rent is 1 per 3 mins.
+            let guest = createMockGuest({
+                rentAmount: 1,
+                rentCycleValue: 3,
+                rentStatus: 'paid', // Start as paid
+                ledger: []
+            });
+
+            // t = 6 mins. Two cycles pass.
+            // Expected: Rent debited twice. Balance is 2.
+            let now1 = addMinutes(new Date(guest.dueDate), 7);
+            let result1 = runReconciliationLogic(guest, now1);
+            expect(result1.cyclesProcessed).to.equal(2);
+            expect(calculateBalance(result1.guest.ledger)).to.equal(2);
+            guest = result1.guest;
+
+            // t = 7 mins. User pays the full amount.
+            guest.ledger.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', description: 'Payment', amount: 2 });
+            expect(calculateBalance(guest.ledger)).to.equal(0);
+
+            // t = 9 mins. Third cycle is due.
+            // Expected: Rent debited once. Balance is 1.
+            let now2 = addMinutes(parseISO(guest.dueDate), 1); // 1 min past the new 9-min due date
+            let result2 = runReconciliationLogic(guest, now2);
+            expect(result2.cyclesProcessed).to.equal(1);
+            expect(calculateBalance(result2.guest.ledger)).to.equal(1);
+            guest = result2.guest;
+
+            // t = 10 mins. Add an additional charge.
+            guest.ledger.push({ id: 'ac1', date: new Date().toISOString(), type: 'debit', description: 'Electricity', amount: 2 });
+            expect(calculateBalance(guest.ledger)).to.equal(3); // 1 (rent) + 2 (charge)
+
+            // t = 12 mins. Fourth cycle is due.
+            // Expected: Rent debited once. Balance is 3 (previous) + 1 (new rent) = 4.
+            let now3 = addMinutes(parseISO(guest.dueDate), 1); // 1 min past the new 12-min due date
+            let result3 = runReconciliationLogic(guest, now3);
+            expect(result3.cyclesProcessed).to.equal(1);
+            expect(calculateBalance(result3.guest.ledger)).to.equal(4);
+        });
     });
 });
