@@ -9,14 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IndianRupee, Loader2, CheckCircle, ShieldX, Building, User, Calendar } from 'lucide-react';
-import type { Guest } from '@/lib/types';
+import type { Guest, LedgerEntry } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 
 type RentDetails = {
-    guest: Omit<Guest, 'paymentHistory' | 'additionalCharges'> & {
+    guest: Omit<Guest, 'paymentHistory' | 'additionalCharges' | 'ledger'> & {
         totalDue: number;
-        balanceBroughtForward: number;
-        additionalCharges: { description: string, amount: number }[];
+        dueItems: LedgerEntry[];
     };
     ownerId: string;
 };
@@ -151,13 +150,17 @@ export default function PublicPaymentPage() {
                     </div>
 
                     <div className="space-y-2 pt-4 border-t">
-                        {guest.balanceBroughtForward > 0 && 
-                            <div className="flex justify-between text-sm text-muted-foreground"><span>Previous Dues</span><span>₹{guest.balanceBroughtForward.toLocaleString('en-IN')}</span></div>
-                        }
-                        <div className="flex justify-between text-sm text-muted-foreground"><span>Current Rent</span><span>₹{guest.rentAmount.toLocaleString('en-IN')}</span></div>
-                        {guest.additionalCharges.map(charge => (
-                             <div key={charge.description} className="flex justify-between text-sm text-muted-foreground"><span>{charge.description}</span><span>₹{charge.amount.toLocaleString('en-IN')}</span></div>
-                        ))}
+                        <p className="font-semibold text-base">Dues Breakdown:</p>
+                        {guest.dueItems && guest.dueItems.length > 0 ? (
+                           guest.dueItems.map(item => (
+                                <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
+                                    <span>{item.description}</span>
+                                    <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
+                                </div>
+                            ))
+                        ) : (
+                           <div className="flex justify-between text-sm text-muted-foreground"><span>Current Rent</span><span>₹{guest.rentAmount.toLocaleString('en-IN')}</span></div>
+                        )}
                     </div>
 
                     <div className="flex justify-between items-center pt-4 border-t">
