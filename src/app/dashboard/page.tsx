@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useMemo, useRef, useState, useEffect, useTransition } from "react"
@@ -38,7 +37,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import QuickActions from "@/components/dashboard/QuickActions"
-import GuidedSetup from "@/components/dashboard/GuidedSetup"
+import { FloatingGuide } from "@/components/dashboard/FloatingGuide"
 import { Badge } from "@/components/ui/badge"
 import { getAuth } from "firebase/auth"
 import { auth } from "@/lib/firebase"
@@ -301,11 +300,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <GuidedSetup
-            pgs={pgs}
-            guests={guests}
-            staff={staff}
-            expenses={expenses}
+        <FloatingGuide
             onAddProperty={() => setIsAddPgSheetOpen(true)}
             onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`)}}
             onAddGuest={() => {
