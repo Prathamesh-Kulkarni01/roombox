@@ -1,7 +1,7 @@
 
 'use client'
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
 import { Progress } from '@/components/ui/progress';
@@ -28,6 +28,7 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
     expenses: state.expenses.expenses,
   }));
   const { t } = useTranslation();
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const hasPgs = pgs.length > 0;
   const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
@@ -49,6 +50,24 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
   const progress = (completedSteps / steps.length) * 100;
   const activeStep = steps.find(step => !step.isComplete);
   const allStepsComplete = !activeStep;
+
+  useEffect(() => {
+    stepRefs.current = stepRefs.current.slice(0, steps.length);
+  }, [steps.length]);
+
+  useEffect(() => {
+    if (isSheetOpen && activeStep) {
+      const activeStepIndex = steps.findIndex(step => step.id === activeStep.id);
+      setTimeout(() => {
+        if (activeStepIndex !== -1 && stepRefs.current[activeStepIndex]) {
+          stepRefs.current[activeStepIndex]?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        }
+      }, 100); // Small delay to ensure sheet is fully rendered
+    }
+  }, [isSheetOpen, activeStep, steps]);
 
   if (allStepsComplete) {
     return null;
@@ -78,8 +97,12 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
         </div>
         <ScrollArea className="flex-1">
           <div className="space-y-4 pr-6">
-            {steps.map(step => (
-              <div key={step.id} className="flex flex-col gap-3 p-3 border rounded-lg">
+            {steps.map((step, index) => (
+              <div 
+                key={step.id} 
+                ref={el => stepRefs.current[index] = el}
+                className="flex flex-col gap-3 p-3 border rounded-lg"
+              >
                 <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-1">
                         {step.isComplete ? <CheckCircle className="w-5 h-5 text-green-500" /> : <Circle className="w-5 h-5 text-primary" />}
