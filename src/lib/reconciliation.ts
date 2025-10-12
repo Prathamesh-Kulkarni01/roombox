@@ -56,14 +56,10 @@ export function runReconciliationLogic(
 
     if (balance <= 0) {
       draft.rentStatus = 'paid';
+    } else if (totalCredits > 0) {
+      draft.rentStatus = 'partial';
     } else {
-        // If balance is positive, check if any payment has been made.
-        // If so, it's 'partial'. If not, it's 'unpaid'.
-        if (totalCredits > 0) {
-             draft.rentStatus = 'partial';
-        } else {
-            draft.rentStatus = 'unpaid';
-        }
+      draft.rentStatus = 'unpaid';
     }
   });
 
@@ -72,3 +68,5 @@ export function runReconciliationLogic(
     cyclesProcessed: cyclesToProcess,
   };
 }
+
+    

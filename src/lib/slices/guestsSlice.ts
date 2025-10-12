@@ -1,5 +1,3 @@
-
-
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
@@ -337,18 +335,29 @@ export const reconcileGuestPayment = createAsyncThunk<Guest, {
             if (!draft.paymentHistory) draft.paymentHistory = [];
             draft.ledger.push(ledgerEntry);
             draft.paymentHistory.push(newPayment);
-        });
 
-        // Run reconciliation to update status and next due date
-        const { guest: finalGuestState } = runReconciliationLogic(guestWithPayment, new Date());
+            // Immediately recalculate balance and set status based on this payment
+            const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+            const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+            const newBalance = totalDebits - totalCredits;
+
+            if (newBalance <= 0) {
+                draft.rentStatus = 'paid';
+            } else {
+                draft.rentStatus = 'partial';
+            }
+        });
         
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
             const selectedDb = selectOwnerDataDb(user.currentUser);
-            const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', finalGuestState.id);
-            await setDoc(guestDocRef, finalGuestState);
+            const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestWithPayment.id);
+            await setDoc(guestDocRef, guestWithPayment);
         }
 
-        return finalGuestState;
+        // Run reconciliation separately to advance the cycle if needed
+        dispatch(reconcileRentCycle(guest.id));
+
+        return guestWithPayment;
     }
 );
 
@@ -671,3 +680,5 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
+
+    
