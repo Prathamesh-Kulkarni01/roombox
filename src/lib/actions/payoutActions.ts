@@ -92,7 +92,7 @@ async function createLinkedAccount(owner: User, details: z.infer<typeof payoutAc
             street2: details.street2 || undefined,
             city: details.city,
             state: details.state,
-            pincode: details.postal_code, // Use pincode instead of postal_code
+            postal_code: details.postal_code,
             country: "IN",
           },
         },
