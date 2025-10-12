@@ -104,15 +104,16 @@ export default function PgLayout(props: PgLayoutProps) {
   } = props
   
   const floorDefaultValues = useMemo(() => {
-    return pg.floors?.map(f => f.id) || [];
-  }, [pg.floors]);
+    return isEditMode ? (pg.floors?.map(f => f.id) || []) : [];
+  }, [pg.floors, isEditMode]);
 
   const roomDefaultValues = useMemo(() => {
-    if (viewMode === 'bed') {
+    // Open all rooms in edit mode OR if the view mode is set to 'bed' (which shows beds inside rooms)
+    if (isEditMode || viewMode === 'bed') {
       return pg.floors?.flatMap(f => f.rooms.map(r => r.id)) || [];
     }
     return [];
-  }, [pg.floors, viewMode]);
+  }, [pg.floors, viewMode, isEditMode]);
 
   return (
     <Accordion 
@@ -140,7 +141,7 @@ export default function PgLayout(props: PgLayoutProps) {
             )}
           </div>
           <AccordionContent className="pt-4 px-4">
-            <Accordion type="multiple" defaultValue={roomDefaultValues} key={viewMode}>
+            <Accordion type="multiple" defaultValue={roomDefaultValues} key={`${viewMode}-${isEditMode}`}>
               {floor.rooms.map(room => (
                  <AccordionItem key={room.id} value={room.id} className="border rounded-lg overflow-hidden mb-4">
                     <div className="flex items-center p-4">
