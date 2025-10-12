@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo, useTransition } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/lib/hooks';
 import Link from 'next/link';
@@ -20,31 +20,16 @@ import { useTranslation } from '@/context/language-context';
 const Index = () => {
     const router = useRouter();
     const { t } = useTranslation();
-    const { currentUser, isLoading } = useAppSelector((state) => ({
-      currentUser: state.user.currentUser,
-      isLoading: state.user.isLoading,
-    }));
+    const { currentUser } = useAppSelector((state) => state.user);
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
   
-    useEffect(() => {
-      if (!isLoading && currentUser) {
-        if (currentUser.role === 'unassigned') {
-          router.replace('/complete-profile');
-        } else if (currentUser.role === 'tenant') {
-          router.replace('/tenants/my-pg');
-        } else {
-          router.replace('/dashboard');
-        }
+    const handleChoosePlan = () => {
+      if (!currentUser) {
+        router.push('/login');
+      } else {
+        setIsSubDialogOpen(true);
       }
-    }, [isLoading, currentUser, router]);
-
-  const handleChoosePlan = () => {
-    if (!currentUser) {
-      router.push('/login');
-    } else {
-      setIsSubDialogOpen(true);
-    }
-  };
+    };
   
     const primaryFeatures = [
     {

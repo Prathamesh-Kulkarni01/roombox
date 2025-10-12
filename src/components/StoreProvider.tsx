@@ -20,11 +20,13 @@ import { setChargeTemplates } from '@/lib/slices/chargeTemplatesSlice'
 import { setNotifications } from '@/lib/slices/notificationsSlice'
 import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
-import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense, User } from '@/lib/types'
+import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense, User, UserRole } from '@/lib/types'
 import { setLoading } from '@/lib/slices/appSlice'
 import { fetchPermissions } from '@/lib/slices/permissionsSlice'
 import { fetchKycConfig } from '@/lib/slices/kycConfigSlice'
 import { initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications'
+import { useRouter, usePathname } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 
 
 function AuthHandler({ children }: { children: ReactNode }) {
@@ -34,6 +36,9 @@ function AuthHandler({ children }: { children: ReactNode }) {
   const [dataListeners, setDataListeners] = useState<Unsubscribe[]>([]);
   const { toast } = useToast();
   const { selectedPgId } = useAppSelector((state) => state.app);
+  const [authReady, setAuthReady] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (isFirebaseConfigured()) {
@@ -71,7 +76,10 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
   // Auth state listener
   useEffect(() => {
-    if (!isFirebaseConfigured() || authListenerStarted.current || !auth) return;
+    if (!isFirebaseConfigured() || authListenerStarted.current || !auth) {
+        setAuthReady(true); // Mark auth as ready if firebase isn't configured
+        return;
+    };
 
     authListenerStarted.current = true;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
@@ -80,6 +88,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
       } else {
         dispatch(logoutUser());
       }
+      setAuthReady(true);
     });
 
     return () => {
@@ -87,6 +96,36 @@ function AuthHandler({ children }: { children: ReactNode }) {
       authListenerStarted.current = false;
     };
   }, [dispatch]);
+
+   // Centralized redirection logic
+  useEffect(() => {
+    if (!authReady) return; // Don't redirect until auth state is confirmed
+
+    const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin'];
+
+    // Don't redirect if we're already on a public page or login
+    const publicPages = ['/', '/login', '/signup', '/privacy-policy', '/terms-of-service', '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog'];
+    if (publicPages.some(p => pathname.startsWith(p) && p !== '/')) {
+        if(pathname === '/' && currentUser) {
+            // User is logged in and on the homepage, redirect them
+        } else {
+            return;
+        }
+    }
+
+    if (currentUser) {
+        if (currentUser.role === 'tenant' && !pathname.startsWith('/tenants')) {
+            router.replace('/tenants/my-pg');
+        } else if (allowedDashboardRoles.includes(currentUser.role) && !pathname.startsWith('/dashboard') && !pathname.startsWith('/admin')) {
+             router.replace('/dashboard');
+        } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile') {
+            router.replace('/complete-profile');
+        }
+    } else if (!publicPages.some(p => pathname.startsWith(p))) {
+        // If not logged in and not on a public page, go to login
+        router.replace('/login');
+    }
+  }, [authReady, currentUser, pathname, router]);
 
   // Data fetching logic based on user role
   useEffect(() => {
@@ -238,6 +277,13 @@ function AuthHandler({ children }: { children: ReactNode }) {
     };
   }, [currentUser, currentPlan, dispatch]);
 
+  if (!authReady) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }
