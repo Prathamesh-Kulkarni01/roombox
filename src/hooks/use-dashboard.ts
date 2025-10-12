@@ -14,7 +14,7 @@ import { useConfetti } from "@/context/confetti-provider"
 
 import type { Guest, Bed, Room, PG, Floor, AdditionalCharge, Payment, RentCycleUnit, LedgerEntry } from "@/lib/types"
 import { format, addMonths, addDays, addHours, addMinutes, addWeeks } from "date-fns"
-import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
+import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom, reconcileGuestPayment } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
 import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
@@ -235,42 +235,18 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsPaymentDialogOpen(true);
   };
 
-  const handlePaymentSubmit = (values: z.infer<typeof paymentSchema>) => {
-      if (!selectedGuestForPayment) return;
-      
-      const guest = selectedGuestForPayment;
-      
-      const newPayment: Payment = {
-          id: `pay-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          date: new Date().toISOString(),
-          amount: values.amountPaid,
-          method: values.paymentMethod,
-          forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
-      };
-
-      const ledgerEntry: LedgerEntry = {
-          id: `credit-${newPayment.id}`,
-          date: newPayment.date,
-          type: 'credit',
-          description: `Rent payment via ${values.paymentMethod}`,
-          amount: values.amountPaid
-      };
-
-      const guestAfterPayment = produce(guest, draft => {
-          if (!draft.ledger) draft.ledger = [];
-          if (!draft.paymentHistory) draft.paymentHistory = [];
-          
-          draft.ledger.push(ledgerEntry);
-          draft.paymentHistory.push(newPayment);
-      });
-
-      // Run reconciliation to update status and next due date
-      const { guest: reconciledGuest } = runReconciliationLogic(guestAfterPayment, new Date());
-      
-      dispatch(updateGuestAction({ updatedGuest: reconciledGuest }));
-      setIsPaymentDialogOpen(false);
-      setSelectedGuestForPayment(null);
-  };
+  const handlePaymentSubmit = async (values: z.infer<typeof paymentSchema>) => {
+    if (!selectedGuestForPayment) return;
+    
+    await dispatch(reconcileGuestPayment({
+        guest: selectedGuestForPayment,
+        paymentAmount: values.amountPaid,
+        paymentMethod: values.paymentMethod,
+    })).unwrap();
+    
+    setIsPaymentDialogOpen(false);
+    setSelectedGuestForPayment(null);
+};
 
 
   const handleOpenSharedChargeDialog = (room: Room) => {
@@ -574,3 +550,5 @@ Thank you!`;
 }
 
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
+
+    

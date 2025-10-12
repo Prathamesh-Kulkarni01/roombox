@@ -305,6 +305,51 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
     }
 );
 
+export const reconcileGuestPayment = createAsyncThunk<Guest, {
+    guest: Guest;
+    paymentAmount: number;
+    paymentMethod: 'cash' | 'upi' | 'in-app';
+}, { state: RootState }>(
+    'guests/reconcileGuestPayment',
+    async ({ guest, paymentAmount, paymentMethod }, { getState, dispatch, rejectWithValue }) => {
+        const { user } = getState();
+        const ownerId = user.currentUser?.id;
+        if (!ownerId) return rejectWithValue('Not authenticated as owner');
+
+        const newPayment: Payment = {
+            id: `pay-${Date.now()}`,
+            date: new Date().toISOString(),
+            amount: paymentAmount,
+            method: paymentMethod,
+            forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
+        };
+
+        const ledgerEntry: LedgerEntry = {
+            id: `credit-${newPayment.id}`,
+            date: newPayment.date,
+            type: 'credit',
+            description: `Rent payment via ${paymentMethod}`,
+            amount: paymentAmount
+        };
+
+        const guestWithPayment = produce(guest, draft => {
+            if (!draft.ledger) draft.ledger = [];
+            if (!draft.paymentHistory) draft.paymentHistory = [];
+            draft.ledger.push(ledgerEntry);
+            draft.paymentHistory.push(newPayment);
+        });
+
+        // Run reconciliation to update status and next due date
+        const { guest: finalGuestState } = runReconciliationLogic(guestWithPayment, new Date());
+        
+        // This is a full state replacement for the guest, dispatched via updateGuest
+        dispatch(updateGuestAction({ updatedGuest: finalGuestState }));
+
+        return finalGuestState;
+    }
+);
+
+
 export const addAdditionalCharge = createAsyncThunk<Guest, { guestId: string, charge: Omit<LedgerEntry, 'id' | 'date' | 'type'> }, { state: RootState }>(
     'guests/addAdditionalCharge',
     async ({ guestId, charge }, { getState, rejectWithValue }) => {
@@ -539,6 +584,12 @@ const guestsSlice = createSlice({
                 } else if (state.guests.length === 1 && state.guests[0].id === action.payload.updatedGuest.id) {
                     // This handles the case for a tenant updating their own record
                     state.guests[0] = action.payload.updatedGuest;
+                }
+            })
+             .addCase(reconcileGuestPayment.fulfilled, (state, action) => {
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
+                if (index !== -1) {
+                    state.guests[index] = action.payload;
                 }
             })
             .addCase(updateGuestKyc.fulfilled, (state, action) => {
