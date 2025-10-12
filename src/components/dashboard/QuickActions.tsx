@@ -85,7 +85,7 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
                                     <p className="font-semibold">{guest.name}</p>
                                     <p className="text-sm text-muted-foreground">{guest.pgName}</p>
                                 </div>
-                                 <p className="text-sm font-semibold text-destructive">₹{(guest.rentAmount + (guest.balanceBroughtForward || 0) - (guest.rentPaidAmount || 0)).toLocaleString('en-IN')}</p>
+                                 <p className="text-sm font-semibold text-destructive">₹{(guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0)).toLocaleString('en-IN')}</p>
                             </div>
                         ))}
                          {guestsWithDues.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No guests with pending dues.</p>}
