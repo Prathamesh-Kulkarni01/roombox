@@ -119,11 +119,11 @@ export default function PgLayout(props: PgLayoutProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="p-4">
         <CardTitle>{pg.name}</CardTitle>
         <CardDescription>{pg.location}, {pg.city}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 pt-0">
         <Accordion 
           type="multiple" 
           className="w-full space-y-4" 
