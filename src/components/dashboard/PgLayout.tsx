@@ -2,6 +2,7 @@
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "../ui/button"
 import { Layers, PlusCircle, Trash2, Pencil, DoorOpen, IndianRupee, BedDouble, Wifi, Wind, UtensilsCrossed } from "lucide-react"
 import type { PG, Floor, Room } from "@/lib/types"
@@ -116,71 +117,80 @@ export default function PgLayout(props: PgLayoutProps) {
   }, [pg.floors, viewMode, isEditMode]);
 
   return (
-    <Accordion 
-      type="multiple" 
-      className="w-full space-y-4" 
-      defaultValue={floorDefaultValues}
-    >
-      {pg.floors?.map(floor => (
-        <AccordionItem value={floor.id} key={floor.id} className="border-b-0 bg-card rounded-lg overflow-hidden">
-          <div className="flex items-center p-4 border-b">
-             <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 py-0">
-                <div className="flex items-center gap-4 w-full">
-                  <Layers /> {floor.name}
-                </div>
-            </AccordionTrigger>
-            {isEditMode && (
-              <div className="flex items-center ml-auto pl-4">
-                 <Access feature="properties" action="edit">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenFloorDialog(floor, pg)}><Pencil className="w-4 h-4" /></Button>
-                </Access>
-                 <Access feature="properties" action="delete">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600" onClick={() => setItemToDelete({ type: 'floor', ids: { pgId: pg.id, floorId: floor.id } })}><Trash2 className="w-4 h-4" /></Button>
-                </Access>
-              </div>
-            )}
-          </div>
-          <AccordionContent className="pt-4 px-4">
-            <Accordion type="multiple" defaultValue={roomDefaultValues} key={`${viewMode}-${isEditMode}`}>
-              {floor.rooms.map(room => (
-                 <AccordionItem key={room.id} value={room.id} className="border rounded-lg overflow-hidden mb-4">
-                    <div className="flex items-center p-4">
-                        <AccordionTrigger className="p-0 hover:no-underline flex-1">
-                            <RoomAccordionTrigger room={room} />
-                        </AccordionTrigger>
-                        {isEditMode && (
-                            <div className="flex items-center ml-auto pl-4">
-                                <Access feature="properties" action="edit">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenRoomDialog(room, floor.id, pg.id)}>
-                                        <Pencil className="w-4 h-4" />
-                                    </Button>
-                                </Access>
-                            </div>
-                        )}
+    <Card>
+      <CardHeader>
+        <CardTitle>{pg.name}</CardTitle>
+        <CardDescription>{pg.location}, {pg.city}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Accordion 
+          type="multiple" 
+          className="w-full space-y-4" 
+          defaultValue={floorDefaultValues}
+          key={`floor-accordion-${isEditMode}`}
+        >
+          {pg.floors?.map(floor => (
+            <AccordionItem value={floor.id} key={floor.id} className="border-b-0 bg-muted/30 rounded-lg overflow-hidden">
+              <div className="flex items-center p-4 border-b">
+                <AccordionTrigger className="text-lg font-medium hover:no-underline flex-1 py-0">
+                    <div className="flex items-center gap-4 w-full">
+                      <Layers /> {floor.name}
                     </div>
-                    <AccordionContent className="p-4 pt-0 border-t">
-                        <BedCard {...props} room={room} floor={floor} handleOpenBedDialog={handleOpenBedDialog} />
-                    </AccordionContent>
-                 </AccordionItem>
-              ))}
-            </Accordion>
-            {isEditMode && (
-                <Access feature="properties" action="add">
-                  <button data-tour="add-room-button" onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="mt-4 min-h-[100px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>
-                </Access>
+                </AccordionTrigger>
+                {isEditMode && (
+                  <div className="flex items-center ml-auto pl-4">
+                    <Access feature="properties" action="edit">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenFloorDialog(floor, pg)}><Pencil className="w-4 h-4" /></Button>
+                    </Access>
+                    <Access feature="properties" action="delete">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600" onClick={() => setItemToDelete({ type: 'floor', ids: { pgId: pg.id, floorId: floor.id } })}><Trash2 className="w-4 h-4" /></Button>
+                    </Access>
+                  </div>
+                )}
+              </div>
+              <AccordionContent className="pt-4 px-4">
+                <Accordion type="multiple" defaultValue={roomDefaultValues} key={`room-accordion-${viewMode}-${isEditMode}`}>
+                  {floor.rooms.map(room => (
+                    <AccordionItem key={room.id} value={room.id} className="border rounded-lg overflow-hidden mb-4">
+                        <div className="flex items-center p-4">
+                            <AccordionTrigger className="p-0 hover:no-underline flex-1">
+                                <RoomAccordionTrigger room={room} />
+                            </AccordionTrigger>
+                            {isEditMode && (
+                                <div className="flex items-center ml-auto pl-4">
+                                    <Access feature="properties" action="edit">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenRoomDialog(room, floor.id, pg.id)}>
+                                            <Pencil className="w-4 h-4" />
+                                        </Button>
+                                    </Access>
+                                </div>
+                            )}
+                        </div>
+                        <AccordionContent className="p-4 pt-0 border-t">
+                            <BedCard {...props} room={room} floor={floor} handleOpenBedDialog={handleOpenBedDialog} />
+                        </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+                {isEditMode && (
+                    <Access feature="properties" action="add">
+                      <button data-tour="add-room-button" onClick={() => handleOpenRoomDialog(null, floor.id, pg.id)} className="mt-4 min-h-[100px] h-full w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="w-8 h-8 mb-2" /><span className="font-medium">Add New Room</span></button>
+                    </Access>
+                )}
+                {floor.rooms.length === 0 && !isEditMode && (
+                  <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable 'Edit Building' to add one.</div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+          {isEditMode && (
+              <Access feature="properties" action="add">
+                <button data-tour="add-floor-button" onClick={() => handleOpenFloorDialog(null, pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
+              </Access>
             )}
-            {floor.rooms.length === 0 && !isEditMode && (
-              <div className="text-center py-8 text-muted-foreground">No rooms in this floor yet. Enable 'Edit Building' to add one.</div>
-            )}
-          </AccordionContent>
-        </AccordionItem>
-      ))}
-       {isEditMode && (
-          <Access feature="properties" action="add">
-            <button data-tour="add-floor-button" onClick={() => handleOpenFloorDialog(null, pg)} className="mt-6 w-full flex items-center justify-center p-4 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"><PlusCircle className="mr-2 h-5 w-5" /><span className="font-medium">Add New Floor</span></button>
-          </Access>
-        )}
-        {(!pg.floors || pg.floors.length === 0) && !isEditMode && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Click 'Edit Building' to start.</div>)}
-    </Accordion>
+            {(!pg.floors || pg.floors.length === 0) && !isEditMode && (<div className="text-center text-muted-foreground p-8">This property has no floors configured. Click 'Edit Building' to start.</div>)}
+        </Accordion>
+      </CardContent>
+    </Card>
   )
 }
