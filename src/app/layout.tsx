@@ -6,6 +6,7 @@ import Header from '@/components/header';
 import StoreProvider from '@/components/StoreProvider';
 import { ThemeProvider } from '@/components/theme-provider';
 import Script from 'next/script';
+import { LanguageProvider } from '@/context/language-context';
 
 const APP_NAME = "RentSutra";
 const APP_DESCRIPTION = "RentSutra is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
@@ -125,11 +126,13 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <StoreProvider>
-            <div className="flex min-h-screen flex-col">
-              <Header />
-              <main className="flex-1">{children}</main>
-            </div>
-            <Toaster />
+            <LanguageProvider>
+              <div className="flex min-h-screen flex-col">
+                <Header />
+                <main className="flex-1">{children}</main>
+              </div>
+              <Toaster />
+            </LanguageProvider>
           </StoreProvider>
         </ThemeProvider>
       </body>

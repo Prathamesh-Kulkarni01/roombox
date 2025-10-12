@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Menu, HomeIcon, Building2, BookOpen, ChevronRight } from 'lucide-react';
+import { Menu, HomeIcon, Building2, BookOpen, ChevronRight, Languages } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import NotificationsPopover from './notifications-popover';
@@ -17,6 +17,14 @@ import { setSelectedPgId } from '@/lib/slices/appSlice';
 import { ThemeToggle } from './theme-toggle';
 import { Separator } from './ui/separator';
 import { trainingGuides } from '@/lib/blog-data';
+import { useTranslation } from '@/context/language-context';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 
 const navLinks = [
   { href: '/', label: 'Home', roles: ['all'] },
@@ -32,6 +40,7 @@ export default function Header() {
   const { selectedPgId, isLoading } = useAppSelector((state) => state.app);
   const { currentUser } = useAppSelector((state) => state.user);
   const isCustomDbConnected = !!currentUser?.subscription?.enterpriseProject?.projectId;
+  const { language, setLanguage } = useTranslation();
 
   const isDashboard = pathname.startsWith('/dashboard');
   const isTenantDashboard = pathname.startsWith('/tenants');
@@ -112,6 +121,18 @@ export default function Header() {
               {isCustomDbConnected ? 'Custom DB' : 'App DB'}
             </span>
           )}
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <Languages className="h-[1.2rem] w-[1.2rem]"/>
+                    <span className="sr-only">Change language</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setLanguage('en')}>English</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLanguage('hi')}>हिंदी (Hindi)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <ThemeToggle />
           {currentUser && (isDashboard || isTenantDashboard) && <NotificationsPopover />}
            {isLandingPage && (

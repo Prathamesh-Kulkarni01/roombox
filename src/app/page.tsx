@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState, useMemo, useTransition } from 'react';
@@ -15,10 +14,12 @@ import { cn } from '@/lib/utils';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import InstallPWA from '@/components/install-pwa';
 import type { User as UserType } from '@/lib/types';
+import { useTranslation } from '@/context/language-context';
 
 
 const Index = () => {
     const router = useRouter();
+    const { t } = useTranslation();
     const { currentUser, isLoading } = useAppSelector((state) => ({
       currentUser: state.user.currentUser,
       isLoading: state.user.isLoading,
@@ -182,32 +183,31 @@ const Index = () => {
             <div className="absolute inset-0 bg-gradient-hero blur-3xl opacity-20 animate-pulse-slow"></div>
             <div className="container mx-auto px-4 text-center relative z-10">
                 <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2 text-base shadow-lg">
-                    The OS for Modern Rental Properties
+                    {t('hero_badge')}
                 </Badge>
                 <h1 className="text-4xl lg:text-6xl font-bold leading-tight mt-6 max-w-4xl mx-auto">
-                    Standardize Your PG,
+                    {t('hero_title_1')}
                     <br />
                     <span className="bg-gradient-saffron bg-clip-text text-transparent">
-                        Automate Your Growth.
+                        {t('hero_title_2')}
                     </span>
                 </h1>
                 <p className="text-xl text-muted-foreground leading-relaxed mt-8 max-w-2xl mx-auto">
-                    RentSutra is the all-in-one platform to run your entire PG, hostel, or co-living business.
-                    Replace your spreadsheets and WhatsApp chats with a single, intelligent system.
+                    {t('hero_subtitle')}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
                     <Button size="lg" variant="hero" className="text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-shadow" asChild>
                         <Link href="/login">
                             <Smartphone className="mr-2 h-5 w-5" />
-                            Get Started for Free
+                            {t('hero_cta')}
                         </Link>
                     </Button>
                     <InstallPWA />
                 </div>
                  <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm text-muted-foreground mt-8">
-                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />No credit card required</div>
-                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Free forever for up to 10 beds</div>
-                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />App size less than 1MB</div>
+                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />{t('hero_check_1')}</div>
+                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />{t('hero_check_2')}</div>
+                    <div className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />{t('hero_check_3')}</div>
                 </div>
             </div>
         </section>
@@ -236,10 +236,10 @@ const Index = () => {
              <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-12">
                     <h2 className="text-4xl lg:text-5xl font-bold">
-                       One App to Rule Them All
+                       {t('all_features_title')}
                     </h2>
                     <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                        From guest check-in to financial reconciliation, RentSutra has every feature you'll ever need to run a successful rental business.
+                        {t('all_features_subtitle')}
                     </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -263,10 +263,10 @@ const Index = () => {
             <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-16">
                     <h2 className="text-4xl lg:text-5xl font-bold">
-                        Supercharge Your Business with <span className="bg-gradient-saffron bg-clip-text text-transparent">Automation</span>
+                        {t('supercharge_title_1')} <span className="bg-gradient-saffron bg-clip-text text-transparent">{t('supercharge_title_2')}</span>
                     </h2>
                     <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                        Go beyond basic management. Unlock powerful tools to grow your brand and automate your entire workflow.
+                        {t('supercharge_subtitle')}
                     </p>
                 </div>
                 <div className="space-y-24">
@@ -377,9 +377,9 @@ const Index = () => {
         <section className="py-20 bg-muted/40">
             <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-12">
-                    <h2 className="text-4xl lg:text-5xl font-bold">Stop Juggling, Start Managing</h2>
+                    <h2 className="text-4xl lg:text-5xl font-bold">{t('why_title')}</h2>
                     <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                        Tired of the chaos? See how RentSutra transforms your daily operations.
+                        {t('why_subtitle')}
                     </p>
                 </div>
                 <div className="grid md:grid-cols-2 gap-8 items-center max-w-5xl mx-auto">
@@ -389,13 +389,13 @@ const Index = () => {
                             <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
                                <X className="w-6 h-6 text-red-500" />
                             </div>
-                            <h3 className="text-2xl font-bold">The Old Way</h3>
+                            <h3 className="text-2xl font-bold">{t('old_way_title')}</h3>
                         </div>
                         <ul className="space-y-3 text-muted-foreground">
-                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Endless WhatsApp chats for rent reminders and complaints.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Messy Excel sheets and paper registers for financial tracking.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>No clear view of your real-time occupancy or revenue.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>Manually calculating and reconciling monthly bills and dues.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>{t('old_way_1')}</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>{t('old_way_2')}</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>{t('old_way_3')}</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-red-500 mt-1">&bull;</span><span>{t('old_way_4')}</span></li>
                         </ul>
                     </div>
                      {/* The RentSutra Way */}
@@ -404,13 +404,13 @@ const Index = () => {
                             <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
                                <Check className="w-6 h-6 text-green-500" />
                             </div>
-                            <h3 className="text-2xl font-bold">The RentSutra Way</h3>
+                            <h3 className="text-2xl font-bold">{t('new_way_title')}</h3>
                         </div>
                         <ul className="space-y-3 text-muted-foreground">
-                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>Automated rent reminders and a professional tenant app.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>A single dashboard for all financial and operational data.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>Instant insights into occupancy, revenue, and pending dues.</span></li>
-                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>One-click rent reconciliation and bill splitting.</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>{t('new_way_1')}</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>{t('new_way_2')}</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>{t('new_way_3')}</span></li>
+                            <li className="flex items-start gap-3"><span className="font-bold text-green-500 mt-1">&bull;</span><span>{t('new_way_4')}</span></li>
                         </ul>
                     </div>
                 </div>
@@ -422,10 +422,10 @@ const Index = () => {
           <div className="container mx-auto px-4">
             <div className="text-center space-y-4 mb-16">
               <h2 className="text-4xl lg:text-5xl font-bold">
-                Simple, Fair Pricing That <span className="bg-gradient-saffron bg-clip-text text-transparent">Grows With You</span>
+                {t('pricing_title_1')} <span className="bg-gradient-saffron bg-clip-text text-transparent">{t('pricing_title_2')}</span>
               </h2>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                No complex plans, no hidden charges. Just one simple, affordable price that scales with your business.
+                {t('pricing_subtitle')}
               </p>
             </div>
 
@@ -433,62 +433,62 @@ const Index = () => {
                 {/* Free Plan */}
                 <Card className="flex flex-col justify-between">
                     <CardHeader>
-                        <CardTitle className="text-xl">Free Plan</CardTitle>
-                        <CardDescription>Perfect for getting started</CardDescription>
+                        <CardTitle className="text-xl">{t('plan_free_name')}</CardTitle>
+                        <CardDescription>{t('plan_free_desc')}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="text-4xl font-bold">₹0</div>
-                        <p className="font-semibold">Up to 10 Beds</p>
+                        <div className="text-4xl font-bold">{t('plan_free_price')}</div>
+                        <p className="font-semibold">{t('plan_free_limit')}</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
-                            <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Core Property & Tenant Management</li>
-                            <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Basic Expense Tracking</li>
+                            <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />{t('plan_free_feat1')}</li>
+                            <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />{t('plan_free_feat2')}</li>
                         </ul>
                     </CardContent>
                     <CardFooter>
-                         <Button className="w-full" variant="outline" asChild><Link href="/login">Get Started</Link></Button>
+                         <Button className="w-full" variant="outline" asChild><Link href="/login">{t('plan_cta')}</Link></Button>
                     </CardFooter>
                 </Card>
 
                 {/* Pro Plan */}
                  <Card className="relative border-2 border-primary shadow-2xl shadow-primary/20 flex flex-col justify-between">
-                    <Badge className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-saffron text-white shadow-lg">Most Popular</Badge>
+                    <Badge className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-saffron text-white shadow-lg">{t('plan_pro_badge')}</Badge>
                      <CardHeader>
-                        <CardTitle className="text-xl">Pro Plan</CardTitle>
-                        <CardDescription>For growing businesses that need automation</CardDescription>
+                        <CardTitle className="text-xl">{t('plan_pro_name')}</CardTitle>
+                        <CardDescription>{t('plan_pro_desc')}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                         <div className="text-4xl font-bold">₹25<span className="text-lg text-muted-foreground">/bed/month</span></div>
-                        <p className="font-semibold">1 - 50 Beds</p>
+                         <div className="text-4xl font-bold">₹25<span className="text-lg text-muted-foreground">{t('plan_pro_price_period')}</span></div>
+                        <p className="font-semibold">{t('plan_pro_limit')}</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
-                             <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Everything in Free, plus:</li>
-                             <li className="flex items-center"><Zap className="w-4 h-4 text-primary mr-2" />Unlimited Properties & Staff</li>
-                             <li className="flex items-center"><BrainCircuit className="w-4 h-4 text-primary mr-2" />All AI-Powered Features</li>
-                             <li className="flex items-center"><IndianRupee className="w-4 h-4 text-primary mr-2" />Automated Payouts</li>
+                             <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />{t('plan_pro_feat1')}</li>
+                             <li className="flex items-center"><Zap className="w-4 h-4 text-primary mr-2" />{t('plan_pro_feat2')}</li>
+                             <li className="flex items-center"><BrainCircuit className="w-4 h-4 text-primary mr-2" />{t('plan_pro_feat3')}</li>
+                             <li className="flex items-center"><IndianRupee className="w-4 h-4 text-primary mr-2" />{t('plan_pro_feat4')}</li>
                         </ul>
                     </CardContent>
                      <CardFooter>
-                        <Button className="w-full" variant="hero" onClick={handleChoosePlan}>Choose Pro</Button>
+                        <Button className="w-full" variant="hero" onClick={handleChoosePlan}>{t('plan_pro_cta')}</Button>
                      </CardFooter>
                 </Card>
 
                 {/* Enterprise Plan */}
                 <Card className="flex flex-col justify-between">
                    <CardHeader>
-                        <CardTitle className="text-xl">Enterprise Plan</CardTitle>
-                        <CardDescription>For large chains and custom needs</CardDescription>
+                        <CardTitle className="text-xl">{t('plan_enterprise_name')}</CardTitle>
+                        <CardDescription>{t('plan_enterprise_desc')}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="text-4xl font-bold">Custom</div>
-                        <p className="font-semibold">50+ Beds</p>
+                        <div className="text-4xl font-bold">{t('plan_enterprise_price')}</div>
+                        <p className="font-semibold">{t('plan_enterprise_limit')}</p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
-                            <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />Everything in Pro, plus:</li>
-                            <li className="flex items-center"><IndianRupee className="w-4 h-4 text-primary mr-2" />Volume discounts (from ₹28/bed)</li>
-                            <li className="flex items-center"><Globe className="w-4 h-4 text-primary mr-2" />Custom Domain & Branding</li>
-                            <li className="flex items-center"><Users className="w-4 h-4 text-primary mr-2" />Dedicated Account Manager</li>
+                            <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />{t('plan_enterprise_feat1')}</li>
+                            <li className="flex items-center"><IndianRupee className="w-4 h-4 text-primary mr-2" />{t('plan_enterprise_feat2')}</li>
+                            <li className="flex items-center"><Globe className="w-4 h-4 text-primary mr-2" />{t('plan_enterprise_feat3')}</li>
+                            <li className="flex items-center"><Users className="w-4 h-4 text-primary mr-2" />{t('plan_enterprise_feat4')}</li>
                         </ul>
                     </CardContent>
                      <CardFooter>
-                        <Button className="w-full" variant="outline" asChild><a href="mailto:hello@rentsutra.com">Contact Sales</a></Button>
+                        <Button className="w-full" variant="outline" asChild><a href="mailto:hello@rentsutra.com">{t('plan_enterprise_cta')}</a></Button>
                     </CardFooter>
                 </Card>
             </div>
@@ -508,33 +508,33 @@ const Index = () => {
                   <span className="text-2xl font-bold">RentSutra</span>
                 </div>
                 <p className="text-muted-foreground text-sm">
-                  The Modern OS for Your Rental Property. Made with ❤️ in India.
+                  {t('footer_tagline')}
                 </p>
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-semibold text-lg">Product</h4>
+                <h4 className="font-semibold text-lg">{t('footer_product_title')}</h4>
                 <ul className="space-y-2 text-muted-foreground text-sm">
-                  <li><Link href="/#features" className="hover:text-primary transition-colors">Features</Link></li>
-                  <li><Link href="/#pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
+                  <li><Link href="/#features" className="hover:text-primary transition-colors">{t('footer_product_link1')}</Link></li>
+                  <li><Link href="/#pricing" className="hover:text-primary transition-colors">{t('footer_product_link2')}</Link></li>
                 </ul>
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-semibold text-lg">Company</h4>
+                <h4 className="font-semibold text-lg">{t('footer_company_title')}</h4>
                 <ul className="space-y-2 text-muted-foreground text-sm">
-                  <li><Link href="/about" className="hover:text-primary transition-colors">About Us</Link></li>
-                  <li><Link href="/contact" className="hover:text-primary transition-colors">Contact Us</Link></li>
-                  <li><Link href="/blog/onboarding-guest" className="hover:text-primary transition-colors">Help Center</Link></li>
+                  <li><Link href="/about" className="hover:text-primary transition-colors">{t('footer_company_link1')}</Link></li>
+                  <li><Link href="/contact" className="hover:text-primary transition-colors">{t('footer_company_link2')}</Link></li>
+                  <li><Link href="/blog/onboarding-guest" className="hover:text-primary transition-colors">{t('footer_company_link3')}</Link></li>
                 </ul>
               </div>
               
               <div className="space-y-4">
-                <h4 className="font-semibold text-lg">Legal</h4>
+                <h4 className="font-semibold text-lg">{t('footer_legal_title')}</h4>
                 <ul className="space-y-2 text-muted-foreground text-sm">
-                  <li><Link href="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
-                  <li><Link href="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link></li>
-                  <li><Link href="/refund-policy" className="hover:text-primary transition-colors">Refund Policy</Link></li>
+                  <li><Link href="/privacy-policy" className="hover:text-primary transition-colors">{t('footer_legal_link1')}</Link></li>
+                  <li><Link href="/terms-of-service" className="hover:text-primary transition-colors">{t('footer_legal_link2')}</Link></li>
+                  <li><Link href="/refund-policy" className="hover:text-primary transition-colors">{t('footer_legal_link3')}</Link></li>
                 </ul>
               </div>
             </div>
@@ -550,6 +550,3 @@ const Index = () => {
 };
 
 export default Index;
-
-    
-
