@@ -23,7 +23,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 
 const navLinks = [
@@ -115,12 +116,34 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {currentUser && (
-            <span className={cn("px-2 py-1 text-xs rounded-md border", isCustomDbConnected ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200")}
-              title={isCustomDbConnected ? `Custom DB: ${currentUser.subscription?.enterpriseProject?.projectId}${currentUser.subscription?.enterpriseProject?.databaseId ? '/' + currentUser.subscription?.enterpriseProject?.databaseId : ''}` : 'Using App DB'}>
-              {isCustomDbConnected ? 'Custom DB' : 'App DB'}
-            </span>
-          )}
+            {currentUser && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <div className="relative flex h-3 w-3">
+                                <span className={cn(
+                                    "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                                    isCustomDbConnected ? "bg-green-400" : "bg-yellow-400"
+                                )}></span>
+                                <span className={cn(
+                                    "relative inline-flex rounded-full h-3 w-3",
+                                    isCustomDbConnected ? "bg-green-500" : "bg-yellow-500"
+                                )}></span>
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="text-sm font-medium">
+                                {isCustomDbConnected ? 'Connected to Custom DB' : 'Connected to App DB'}
+                            </p>
+                            {isCustomDbConnected && currentUser.subscription?.enterpriseProject && (
+                                <p className="text-xs text-muted-foreground">
+                                    {currentUser.subscription.enterpriseProject.projectId} / {currentUser.subscription.enterpriseProject.databaseId}
+                                </p>
+                            )}
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
            <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
