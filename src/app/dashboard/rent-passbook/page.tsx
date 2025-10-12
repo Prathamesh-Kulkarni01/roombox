@@ -120,6 +120,10 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
 const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
     const [open, setOpen] = useState(false);
     
+    if (!payment) {
+        return <Badge variant="outline">N/A</Badge>;
+    }
+
     const statusMeta = {
         processed: { text: "Processed", icon: CheckCircle, className: "bg-green-100 text-green-800" },
         failed: { text: "Failed", icon: XCircle, className: "bg-red-100 text-red-800" },
@@ -437,7 +441,7 @@ export default function RentPassbookPage() {
                                                 <TableCell className="font-medium">{p.guestName}</TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
                                                 <TableCell>
-                                                    <PayoutStatusBadge status={p.payoutStatus} />
+                                                    <PayoutStatusBadge payment={p} />
                                                 </TableCell>
                                                 <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
                                             </TableRow>
