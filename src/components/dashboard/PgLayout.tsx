@@ -105,8 +105,9 @@ export default function PgLayout(props: PgLayoutProps) {
   } = props
   
   const floorDefaultValues = useMemo(() => {
-    return isEditMode ? (pg.floors?.map(f => f.id) || []) : [];
-  }, [pg.floors, isEditMode]);
+    // Floors should always be open now for clarity.
+    return pg.floors?.map(f => f.id) || [];
+  }, [pg.floors]);
 
   const roomDefaultValues = useMemo(() => {
     // Open all rooms in edit mode OR if the view mode is set to 'bed' (which shows beds inside rooms)
