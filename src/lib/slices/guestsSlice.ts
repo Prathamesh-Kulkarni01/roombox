@@ -59,29 +59,8 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
-
-        const moveInDate = new Date();
-        const firstDueDate = calculateFirstDueDate(moveInDate, guestData.rentCycleUnit, guestData.rentCycleValue, moveInDate.getDate());
-
-        const initialRentEntry: LedgerEntry = {
-            id: `rent-${Date.now()}`,
-            date: moveInDate.toISOString(),
-            type: 'debit',
-            description: `First Rent Cycle`,
-            amount: guestData.rentAmount,
-        };
-
-        const newGuest: Guest = { 
-            ...guestData, 
-            id: `g-${Date.now()}`,
-            kycStatus: 'not-started',
-            isVacated: false,
-            userId: existingUser ? existingUser.id : null,
-            ledger: [initialRentEntry], // Initialize ledger with the first rent due
-            dueDate: firstDueDate.toISOString(),
-            moveInDate: moveInDate.toISOString(),
-            billingAnchorDay: moveInDate.getDate(),
-        };
+        
+        const newGuest: Guest = { ...guestData, id: `g-${Date.now()}` };
 
         const updatedPg = produce(pg, draft => {
             draft.occupancy += 1;
@@ -162,7 +141,9 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
             });
         }
         
-        const updatedGuest = { ...guestToUpdate, kycStatus: 'pending' as const, documents: uploadedDocuments };
+        let kycUpdate: Partial<Guest> = { kycStatus: 'pending', documents: uploadedDocuments };
+        
+        const updatedGuest = { ...guestToUpdate, ...kycUpdate };
         
         if (isFirebaseConfigured()) {
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestToUpdate.id);
@@ -636,3 +617,5 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
+
+    

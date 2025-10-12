@@ -11,7 +11,7 @@ import { produce } from 'immer'
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
 
-import type { Guest, Bed, Room, PG, Floor, AdditionalCharge, Payment, RentCycleUnit } from "@/lib/types"
+import type { Guest, Bed, Room, PG, Floor, AdditionalCharge, Payment, RentCycleUnit, LedgerEntry } from "@/lib/types"
 import { format, addMonths, addDays, addHours, addMinutes, addWeeks } from "date-fns"
 import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom } from "@/lib/slices/guestsSlice"
 import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
@@ -188,6 +188,14 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     const { pg, bed } = selectedBedForGuestAdd;
     const moveInDate = new Date(values.moveInDate);
     const firstDueDate = calculateFirstDueDate(moveInDate, values.rentCycleUnit, values.rentCycleValue, moveInDate.getDate());
+
+    const initialRentEntry: LedgerEntry = {
+        id: `rent-${Date.now()}`,
+        date: moveInDate.toISOString(),
+        type: 'debit',
+        description: `First Rent Cycle`,
+        amount: values.rentAmount,
+    };
     
     const guestData: Omit<Guest, 'id'> = {
       name: values.name,
@@ -198,16 +206,17 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       bedId: bed.id,
       rentStatus: 'unpaid',
       rentPaidAmount: 0,
-      dueDate: format(firstDueDate, 'yyyy-MM-dd'),
+      dueDate: firstDueDate.toISOString(),
       rentAmount: values.rentAmount,
       depositAmount: values.depositAmount,
       kycStatus: 'not-started',
-      moveInDate: format(values.moveInDate, 'yyyy-MM-dd'),
+      moveInDate: moveInDate.toISOString(),
       noticePeriodDays: 30,
       rentCycleUnit: values.rentCycleUnit,
       rentCycleValue: values.rentCycleValue,
       billingAnchorDay: moveInDate.getDate(),
       isVacated: false,
+      ledger: [initialRentEntry],
     };
     
     dispatch(addGuestAction(guestData));
@@ -239,26 +248,33 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
           forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
       };
 
+      const ledgerEntry: LedgerEntry = {
+          id: `credit-${newPayment.id}`,
+          date: newPayment.date,
+          type: 'credit',
+          description: `Rent payment via ${values.paymentMethod}`,
+          amount: values.amountPaid
+      };
+
       const updatedGuest = produce(guest, draft => {
+          if (!draft.ledger) draft.ledger = [];
           if (!draft.paymentHistory) draft.paymentHistory = [];
+          
+          draft.ledger.push(ledgerEntry);
           draft.paymentHistory.push(newPayment);
 
-          const totalPaidInCycle = (draft.rentPaidAmount || 0) + values.amountPaid;
-          const balanceBf = draft.balanceBroughtForward || 0;
-          const chargesDue = (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-          const totalBillForCycle = balanceBf + draft.rentAmount + chargesDue;
-
-          if (totalPaidInCycle >= totalBillForCycle) {
-              // Full payment logic
+          const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+          const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+          const newBalance = totalDebits - totalCredits;
+          
+          if (newBalance <= 0) {
               draft.rentStatus = 'paid';
-              draft.balanceBroughtForward = totalPaidInCycle - totalBillForCycle; // Carry over any extra amount
               draft.rentPaidAmount = 0; // Reset for next cycle
-              draft.additionalCharges = []; // Clear charges for the paid cycle
-              draft.dueDate = format(calculateFirstDueDate(new Date(draft.dueDate), draft.rentCycleUnit, draft.rentCycleValue, draft.billingAnchorDay), 'yyyy-MM-dd');
+              // Reconciliation will add next month's rent debit and advance the due date.
+              // We leave the old due date for reconciliation logic to process correctly based on payment date.
           } else {
-              // Partial payment logic
               draft.rentStatus = 'partial';
-              draft.rentPaidAmount = totalPaidInCycle;
+              draft.rentPaidAmount = (draft.rentPaidAmount || 0) + values.amountPaid;
           }
       });
       
@@ -571,6 +587,8 @@ Thank you!`;
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
 
   
+
+    
 
     
 
