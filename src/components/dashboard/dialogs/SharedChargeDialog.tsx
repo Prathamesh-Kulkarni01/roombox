@@ -1,11 +1,13 @@
 
 
+'use client';
+
 import { useEffect, useState, useMemo } from "react"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
@@ -29,8 +31,13 @@ type SharedChargeDialogProps = Pick<UseDashboardReturn, 'isSharedChargeDialogOpe
 export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsSharedChargeDialogOpen, sharedChargeForm, handleSharedChargeSubmit, roomForSharedCharge }: SharedChargeDialogProps) {
     const { chargeTemplates=[] } = useAppSelector(state => state.chargeTemplates);
     const { guests } = useAppSelector(state => state.guests);
+    
+    const getDefaultTab = () => {
+        return chargeTemplates.find(t => t.autoAddToDialog)?.id || 'custom';
+    };
+    
+    const [activeTab, setActiveTab] = useState(getDefaultTab);
 
-    const [activeTab, setActiveTab] = useState('custom');
 
     const totalAmount = sharedChargeForm.watch('totalAmount');
     const units = sharedChargeForm.watch('units');
@@ -86,11 +93,13 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
     const chargePerGuest = occupiedGuests.length > 0 && calculatedTotal ? (calculatedTotal / occupiedGuests.length) : 0;
 
     useEffect(() => {
-        if (isSharedChargeDialogOpen && roomForSharedCharge) {
-            const defaultTab = chargeTemplates.find(t => t.autoAddToDialog)?.id || 'custom';
-            onTabChange(defaultTab);
+        if (isSharedChargeDialogOpen) {
+            const defaultTab = getDefaultTab();
+            setActiveTab(defaultTab);
+            onTabChange(defaultTab); // Call this to reset the form as well
         }
     }, [isSharedChargeDialogOpen, roomForSharedCharge, chargeTemplates]);
+
 
     const onTabChange = (tabValue: string) => {
         setActiveTab(tabValue);
