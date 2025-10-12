@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { useAppSelector } from "@/lib/hooks"
@@ -62,8 +61,8 @@ export default function MyPgPage() {
         return { roomName: room.name, bedName: bed.name };  
     }, [currentPg, currentGuest, pgs]);
 
-     const { totalDue, sortedLedger, dueItems } = useMemo(() => {
-        if (!currentGuest?.ledger) return { totalDue: 0, sortedLedger: [], dueItems: [] };
+     const { totalDue, dueItems } = useMemo(() => {
+        if (!currentGuest?.ledger) return { totalDue: 0, dueItems: [] };
         
         let balance = 0;
         const unpaidDebits: LedgerEntry[] = [];
@@ -85,9 +84,8 @@ export default function MyPgPage() {
         }
         
         balance = unpaidDebits.reduce((sum, item) => sum + item.amount, 0);
-        const sorted = [...currentGuest.ledger].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        return { totalDue: balance, sortedLedger: sorted, dueItems: unpaidDebits };
+        return { totalDue: balance, dueItems: unpaidDebits };
     }, [currentGuest]);
     
      useEffect(() => {
@@ -189,14 +187,6 @@ export default function MyPgPage() {
                             <Skeleton className="h-6 w-full" />
                         </CardContent>
                     </Card>
-                    <Card>
-                         <CardHeader>
-                            <Skeleton className="h-7 w-1/3" />
-                         </CardHeader>
-                         <CardContent>
-                            <Skeleton className="h-14 w-full" />
-                         </CardContent>
-                    </Card>
                 </div>
                 <div className="lg:col-span-1 space-y-6">
                      <Card>
@@ -244,39 +234,6 @@ export default function MyPgPage() {
                             </Alert>
                         </CardFooter>
                     )}
-                </Card>
-                
-                 <Card>
-                    <CardHeader>
-                        <CardTitle className="text-xl">Financial Ledger</CardTitle>
-                        <CardDescription>A complete history of your payments and charges.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         {(sortedLedger && sortedLedger.length > 0) ? (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Description</TableHead>
-                                        <TableHead className="text-right">Amount</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {sortedLedger.map(entry => (
-                                        <TableRow key={entry.id}>
-                                            <TableCell>{format(parseISO(entry.date), 'dd MMM, yyyy')}</TableCell>
-                                            <TableCell>{entry.description}</TableCell>
-                                            <TableCell className={cn("text-right font-semibold", entry.type === 'debit' ? 'text-destructive' : 'text-green-600')}>
-                                                {entry.type === 'credit' ? '-' : '+'} ₹{entry.amount.toLocaleString('en-IN')}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                         ) : (
-                             <p className="text-sm text-muted-foreground text-center py-4">No payment history yet.</p>
-                         )}
-                    </CardContent>
                 </Card>
             </div>
             <div className="lg:col-span-1 space-y-6">
