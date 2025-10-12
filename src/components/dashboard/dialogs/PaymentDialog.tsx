@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo } from "react"
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import type { Guest, LedgerEntry } from "@/lib/types"
+import { produce } from "immer";
 
 type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setIsPaymentDialogOpen' | 'selectedGuestForPayment' | 'paymentForm' | 'handlePaymentSubmit'>
 
@@ -16,18 +18,31 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
   
   const { totalDue, dueItems } = useMemo(() => {
     if (!selectedGuestForPayment?.ledger) return { totalDue: 0, dueItems: [] };
-    
-    const debits = selectedGuestForPayment.ledger.filter(e => e.type === 'debit');
-    const credits = selectedGuestForPayment.ledger.filter(e => e.type === 'credit');
-    
-    const totalDebits = debits.reduce((sum, e) => sum + e.amount, 0);
-    const totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
-    
-    const balance = totalDebits - totalCredits;
 
+    let balance = 0;
+    const unpaidDebits: LedgerEntry[] = [];
+    const allCredits = selectedGuestForPayment.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+    let creditsToApply = allCredits;
+
+    const allDebits = selectedGuestForPayment.ledger.filter(e => e.type === 'debit');
+
+    for (const debit of allDebits) {
+        if (creditsToApply >= debit.amount) {
+            creditsToApply -= debit.amount;
+        } else {
+            unpaidDebits.push({
+                ...debit,
+                amount: debit.amount - creditsToApply,
+            });
+            creditsToApply = 0;
+        }
+    }
+    
+    balance = unpaidDebits.reduce((sum, item) => sum + item.amount, 0);
+    
     return { 
         totalDue: balance,
-        dueItems: debits 
+        dueItems: unpaidDebits
     };
   }, [selectedGuestForPayment]);
 

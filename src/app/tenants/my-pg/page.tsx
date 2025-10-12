@@ -65,17 +65,29 @@ export default function MyPgPage() {
      const { totalDue, sortedLedger, dueItems } = useMemo(() => {
         if (!currentGuest?.ledger) return { totalDue: 0, sortedLedger: [], dueItems: [] };
         
-        const debits = currentGuest.ledger.filter(e => e.type === 'debit');
-        const credits = currentGuest.ledger.filter(e => e.type === 'credit');
+        let balance = 0;
+        const unpaidDebits: LedgerEntry[] = [];
+        const allCredits = currentGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+        let creditsToApply = allCredits;
 
-        const totalDebits = debits.reduce((sum, e) => sum + e.amount, 0);
-        const totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
+        const allDebits = currentGuest.ledger.filter(e => e.type === 'debit');
 
-        const balance = totalDebits - totalCredits;
+        for (const debit of allDebits) {
+            if (creditsToApply >= debit.amount) {
+                creditsToApply -= debit.amount;
+            } else {
+                unpaidDebits.push({
+                    ...debit,
+                    amount: debit.amount - creditsToApply,
+                });
+                creditsToApply = 0;
+            }
+        }
         
+        balance = unpaidDebits.reduce((sum, item) => sum + item.amount, 0);
         const sorted = [...currentGuest.ledger].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        return { totalDue: balance, sortedLedger: sorted, dueItems: debits };
+        return { totalDue: balance, sortedLedger: sorted, dueItems: unpaidDebits };
     }, [currentGuest]);
     
      useEffect(() => {

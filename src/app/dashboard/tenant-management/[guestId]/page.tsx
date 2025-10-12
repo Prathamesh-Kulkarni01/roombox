@@ -28,7 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
-import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment } from "@/lib/types"
+import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment, LedgerEntry } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -142,8 +142,28 @@ export default function GuestProfilePage() {
 
     const { totalDue, dueItems } = useMemo(() => {
         if (!guest?.ledger) return { totalDue: 0, dueItems: [] };
-        const totalDue = guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
-        return { totalDue, dueItems: guest.ledger.filter(e => e.type === 'debit') };
+        let balance = 0;
+        const unpaidDebits: LedgerEntry[] = [];
+        const allCredits = guest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+        let creditsToApply = allCredits;
+
+        const allDebits = guest.ledger.filter(e => e.type === 'debit');
+
+        for (const debit of allDebits) {
+            if (creditsToApply >= debit.amount) {
+                creditsToApply -= debit.amount;
+            } else {
+                unpaidDebits.push({
+                    ...debit,
+                    amount: debit.amount - creditsToApply,
+                });
+                creditsToApply = 0;
+            }
+        }
+        
+        balance = unpaidDebits.reduce((sum, item) => sum + item.amount, 0);
+
+        return { totalDue: balance, dueItems: unpaidDebits };
     }, [guest]);
     
     const chargeForm = useForm<z.infer<typeof chargeSchema>>({
@@ -642,3 +662,4 @@ export default function GuestProfilePage() {
 }
 
     
+
