@@ -4,7 +4,7 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "../ui/button"
-import { Layers, PlusCircle, Trash2, Pencil, DoorOpen, IndianRupee, BedDouble, Wifi, Wind, UtensilsCrossed } from "lucide-react"
+import { Layers, PlusCircle, Trash2, Pencil, DoorOpen, IndianRupee, BedDouble, Wifi, Wind, UtensilsCrossed, Users as UsersIcon } from "lucide-react"
 import type { PG, Floor, Room } from "@/lib/types"
 import BedCard from "./BedCard"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
@@ -101,7 +101,7 @@ interface PgLayoutProps extends Pick<UseDashboardReturn,
 export default function PgLayout(props: PgLayoutProps) {
   const { 
     pg, isEditMode, setItemToDelete, viewMode, 
-    handleOpenFloorDialog, handleOpenRoomDialog, handleOpenBedDialog 
+    handleOpenFloorDialog, handleOpenRoomDialog, handleOpenBedDialog, handleOpenSharedChargeDialog
   } = props
   
   const floorDefaultValues = useMemo(() => {
@@ -157,15 +157,21 @@ export default function PgLayout(props: PgLayoutProps) {
                             <AccordionTrigger className="p-0 hover:no-underline flex-1">
                                 <RoomAccordionTrigger room={room} />
                             </AccordionTrigger>
-                            {isEditMode && (
-                                <div className="flex items-center ml-auto pl-4">
+                            <div className="flex items-center ml-auto pl-4">
+                                {isEditMode ? (
                                     <Access feature="properties" action="edit">
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenRoomDialog(room, floor.id, pg.id)}>
                                             <Pencil className="w-4 h-4" />
                                         </Button>
                                     </Access>
-                                </div>
-                            )}
+                                ) : (
+                                    <Access feature="properties" action="sharedCharge">
+                                        <Button variant="outline" size="sm" onClick={() => handleOpenSharedChargeDialog(room)}>
+                                            <UsersIcon className="mr-2 h-4 w-4" /> Shared Charge
+                                        </Button>
+                                    </Access>
+                                )}
+                            </div>
                         </div>
                         <AccordionContent className="p-4 pt-0 border-t">
                             <BedCard {...props} room={room} floor={floor} handleOpenBedDialog={handleOpenBedDialog} />
