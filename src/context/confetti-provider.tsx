@@ -30,9 +30,9 @@ export default function ConfettiProvider({ children }: { children: ReactNode }) 
       particleCount = 200, 
       duration = 5000, 
       recycle = false,
-      spread = 70,
+      spread = 90,
       startVelocity = 40,
-      scalar = 1, // Increased from a likely smaller default
+      scalar = 1.2,
      } = options;
 
     setConfettiConfig({ particleCount, duration, recycle, spread, startVelocity, scalar });
@@ -46,19 +46,20 @@ export default function ConfettiProvider({ children }: { children: ReactNode }) 
     <ConfettiContext.Provider value={{ showConfetti }}>
       {children}
       {isRunning && (
-        <Confetti
-          width={width}
-          height={height}
-          numberOfPieces={confettiConfig.particleCount}
-          recycle={confettiConfig.recycle}
-          run={isRunning}
-          onConfettiComplete={() => setIsRunning(false)}
-          className="!z-[9999]"
-          spread={confettiConfig.spread}
-          startVelocity={confettiConfig.startVelocity}
-          scalar={confettiConfig.scalar}
-          gravity={0.15} // Makes particles fall a bit slower
-        />
+        <div className="fixed inset-0 w-full h-full pointer-events-none z-[9999]">
+            <Confetti
+              width={width}
+              height={height}
+              numberOfPieces={confettiConfig.particleCount}
+              recycle={confettiConfig.recycle}
+              run={isRunning}
+              onConfettiComplete={() => setIsRunning(false)}
+              spread={confettiConfig.spread}
+              initialVelocityY={-20}
+              gravity={0.1}
+              scalar={confettiConfig.scalar}
+            />
+        </div>
       )}
     </ConfettiContext.Provider>
   );
