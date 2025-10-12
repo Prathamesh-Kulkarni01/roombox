@@ -1,4 +1,5 @@
 
+'use client';
 
 import { useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
@@ -14,17 +15,18 @@ type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setI
 export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit }: PaymentDialogProps) {
   
   const { totalDue, dueItems } = useMemo(() => {
-    if (!selectedGuestForPayment) return { totalDue: 0, dueItems: [] };
+    if (!selectedGuestForPayment?.ledger) return { totalDue: 0, dueItems: [] };
     
-    const ledger = selectedGuestForPayment.ledger || [];
-    const debits = ledger.filter(e => e.type === 'debit');
-    const credits = ledger.filter(e => e.type === 'credit');
+    const debits = selectedGuestForPayment.ledger.filter(e => e.type === 'debit');
+    const credits = selectedGuestForPayment.ledger.filter(e => e.type === 'credit');
     
     const totalDebits = debits.reduce((sum, e) => sum + e.amount, 0);
     const totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
     
+    const balance = totalDebits - totalCredits;
+
     return { 
-        totalDue: totalDebits - totalCredits,
+        totalDue: balance,
         dueItems: debits 
     };
   }, [selectedGuestForPayment]);

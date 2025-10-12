@@ -58,16 +58,10 @@ export function runReconciliationLogic(
       draft.rentStatus = 'paid';
     } else {
         const totalRentDebits = draft.ledger.filter(e => e.type === 'debit' && e.description.toLowerCase().includes('rent')).reduce((sum, e) => sum + e.amount, 0);
-        const rentPaidThisCycle = (draft.rentPaidAmount || 0);
 
-        // A partial payment means some money was paid, but not enough to cover all rent debits.
-        // An unpaid status means no money has been paid towards any rent debit.
-        if (totalCredits > (totalDebits - draft.rentAmount)) { // Paid more than previous balance, but not full current rent
+        if (totalCredits > 0) {
              draft.rentStatus = 'partial';
-        } else if (balance < totalRentDebits) { // Some payment was made but not enough
-             draft.rentStatus = 'partial';
-        }
-        else {
+        } else {
             draft.rentStatus = 'unpaid';
         }
     }
