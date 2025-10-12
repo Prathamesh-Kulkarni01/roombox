@@ -19,6 +19,7 @@ interface FloatingGuideProps {
 
 export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: FloatingGuideProps) {
   const router = useRouter();
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const { pgs, guests, staff, expenses } = useAppSelector(state => ({
     pgs: state.pgs.pgs,
     guests: state.guests.guests,
@@ -51,11 +52,16 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
   if (allStepsComplete) {
     return null;
   }
+  
+  const handleAction = (action: () => void) => {
+    action();
+    setIsSheetOpen(false);
+  }
 
   return (
-    <Sheet>
+    <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
       <SheetTrigger asChild>
-        <Button className="fixed bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-50 flex flex-col items-center justify-center gap-1" variant="hero">
+        <Button className="fixed bottom-20 md:bottom-6 right-6 h-16 w-16 rounded-full shadow-lg z-50 flex flex-col items-center justify-center gap-1" variant="hero">
           <span className="text-sm font-bold">{completedSteps}/{steps.length}</span>
           <span className="text-xs">Setup</span>
         </Button>
@@ -80,8 +86,8 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
                         <p className="text-sm text-muted-foreground">{t(step.descKey as any)}</p>
                     </div>
                 </div>
-                {!step.isComplete && step.id === activeStep.id && (
-                  <Button size="sm" onClick={step.action} disabled={step.disabled}>
+                {!step.isComplete && step.id === activeStep?.id && (
+                  <Button size="sm" onClick={() => handleAction(step.action)} disabled={step.disabled}>
                     {t(step.actionKey as any)} <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 )}
