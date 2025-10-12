@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useEffect, useState, useMemo } from "react"
@@ -7,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
-import { Form } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
@@ -16,7 +15,7 @@ import { Users, IndianRupee, Calendar } from "lucide-react"
 import { useAppSelector } from "@/lib/hooks"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, startOfMonth, endOfMonth, subMonths, setDate, addMonths, isValid } from 'date-fns'
-import type { Room } from "@/lib/types"
+import type { Room, Guest } from "@/lib/types"
 import Access from "@/components/ui/PermissionWrapper"
 
 const sharedChargeSchema = z.object({
@@ -96,9 +95,9 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
         if (isSharedChargeDialogOpen) {
             const defaultTab = getDefaultTab();
             setActiveTab(defaultTab);
-            onTabChange(defaultTab); // Call this to reset the form as well
+            onTabChange(defaultTab);
         }
-    }, [isSharedChargeDialogOpen, roomForSharedCharge, chargeTemplates]);
+    }, [isSharedChargeDialogOpen, roomForSharedCharge?.room?.id]); // Depend on a stable room id
 
 
     const onTabChange = (tabValue: string) => {
@@ -118,7 +117,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
             sharedChargeForm.reset({
                 description: template ? template.name : '',
                 unitCost: template?.unitCost || undefined,
-                totalAmount: currentValues.totalAmount,
+                totalAmount: currentValues.totalAmount, // Keep user input if they switch back and forth
                 units: currentValues.units,
             });
         }
