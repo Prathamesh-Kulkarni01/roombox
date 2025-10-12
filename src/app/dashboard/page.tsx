@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil, View, Rows, PlusCircle, XCircle } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil, View, Rows, PlusCircle, XCircle, CheckCircle } from "lucide-react"
 import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from '@/lib/permissions';
@@ -41,6 +41,7 @@ import { FloatingGuide } from "@/components/dashboard/FloatingGuide"
 import { Badge } from "@/components/ui/badge"
 import { getAuth } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { useConfetti } from "@/context/confetti-provider"
 
 
 const bedLegend: Record<BedStatus, { label: string, className: string }> = {
@@ -68,6 +69,7 @@ export default function DashboardPage() {
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { showConfetti } = useConfetti();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
@@ -258,6 +260,13 @@ export default function DashboardPage() {
      toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
   }
 
+  const handleToggleEditMode = () => {
+    if(isEditMode) {
+      showConfetti({ particleCount: 100, spread: 120, startVelocity: 25, scalar: 0.9, ticks: 150 });
+    }
+    setIsEditMode(!isEditMode);
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
@@ -378,7 +387,7 @@ export default function DashboardPage() {
                     </ToggleGroup>
                     <Access feature="properties" action="edit">
                         <Button
-                            onClick={() => setIsEditMode(!isEditMode)}
+                            onClick={handleToggleEditMode}
                             variant="outline"
                         >
                             <Pencil className="mr-2 h-4 w-4" />
@@ -425,7 +434,7 @@ export default function DashboardPage() {
                 <Button
                     size="lg"
                     className="shadow-lg animate-in fade-in zoom-in-95"
-                    onClick={() => setIsEditMode(false)}
+                    onClick={handleToggleEditMode}
                 >
                     <CheckCircle className="mr-2 h-5 w-5" />
                     Done Editing
