@@ -445,14 +445,25 @@ export default function GuestProfilePage() {
                         )}
                     </CardContent>
                 </Card>
-                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-                    <DialogHeader>
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+                    <DialogHeader className="p-6 pb-4 border-b">
                         <DialogTitle>Document Preview: {selectedDoc?.label}</DialogTitle>
                     </DialogHeader>
-                    <div className="flex-1 flex items-center justify-center overflow-hidden">
+                    <div className="flex-1 flex items-center justify-center overflow-hidden bg-muted/30 p-4">
                         {selectedDoc && (
                             isImageUrl(selectedDoc.url) ? (
-                                <img src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} className="max-w-full max-h-full object-contain" />
+                                <div className="relative w-full h-full">
+                                    <Image src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} layout="fill" objectFit="contain" />
+                                    <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 opacity-15">
+                                        {Array.from({ length: 9 }).map((_, i) => (
+                                            <div key={i} className="flex items-center justify-center">
+                                                <p className="text-foreground/50 text-center font-bold text-lg rotate-[-30deg] select-none">
+                                                    {pg?.name || 'RentSutra'}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             ) : (
                                 <div className="text-center">
                                     <p className="mb-4">PDF preview is not available here. Please open it in a new tab.</p>
@@ -654,3 +665,5 @@ export default function GuestProfilePage() {
       </>
     )
 }
+
+    
