@@ -10,6 +10,7 @@ import { useAppSelector } from '@/lib/hooks';
 import { useRouter } from 'next/navigation';
 import type { PG, Guest, Staff, Expense } from '@/lib/types';
 import { useTranslation } from '@/context/language-context';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface FloatingGuideProps {
   onAddProperty: () => void;
@@ -66,7 +67,7 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
           <span className="text-xs">Setup</span>
         </Button>
       </SheetTrigger>
-      <SheetContent>
+      <SheetContent className="flex flex-col">
         <SheetHeader>
           <SheetTitle>{t('guided_setup_title')}</SheetTitle>
           <SheetDescription>{t('guided_setup_subtitle')}</SheetDescription>
@@ -74,7 +75,9 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
         <div className="py-4">
           <Progress value={progress} className="w-full mb-4" />
           <p className="text-center text-sm text-muted-foreground mb-6">{completedSteps} of {steps.length} steps completed</p>
-          <div className="space-y-4">
+        </div>
+        <ScrollArea className="flex-1">
+          <div className="space-y-4 pr-6">
             {steps.map(step => (
               <div key={step.id} className="flex flex-col gap-3 p-3 border rounded-lg">
                 <div className="flex items-start gap-3">
@@ -94,7 +97,7 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
               </div>
             ))}
           </div>
-        </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   );
