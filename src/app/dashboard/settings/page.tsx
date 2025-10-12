@@ -21,17 +21,14 @@ import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { addChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from '@/lib/slices/chargeTemplatesSlice'
 import { updatePermissions, type FeaturePermissions, type RolePermissions } from '@/lib/slices/permissionsSlice'
-import { saveKycConfig } from '@/lib/slices/kycConfigSlice'
 import { featurePermissionConfig } from '@/lib/permissions';
 import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
 import { setMockDate } from "@/lib/slices/appSlice"
-import { reconcileRentCycle } from "@/lib/slices/guestsSlice"
 import { getBillingDetails } from "@/lib/actions/billingActions"
-import { disassociateAndCreateOwnerAccount, updateUserPlan, setCurrentUser } from "@/lib/slices/userSlice"
-import { togglePremiumFeature } from "@/lib/actions/userActions"
+import { togglePremiumFeature } from "@/lib/slices/userSlice"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { KycDocumentConfig, ChargeTemplate, UserRole, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types'
+import type { ChargeTemplate, UserRole, PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types'
 import { PRICING_CONFIG } from '@/lib/mock-data';
 import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from "@/lib/actions/payoutActions"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -50,26 +47,13 @@ const chargeTemplateSchema = z.object({
   billingDayOfMonth: z.coerce.number().min(1).max(28).default(1),
 })
 
-const kycConfigItemSchema = z.object({
-    id: z.string(),
-    label: z.string().min(1, 'Label is required'),
-    type: z.enum(['image', 'pdf']),
-    required: z.boolean(),
-});
-const kycConfigSchema = z.object({
-    configs: z.array(kycConfigItemSchema)
-});
-
 type ChargeTemplateFormValues = z.infer<typeof chargeTemplateSchema>;
-type KycConfigFormValues = z.infer<typeof kycConfigSchema>;
 
 
 export default function SettingsPage() {
   const dispatch = useAppDispatch()
   const { currentUser, currentPlan } = useAppSelector((state) => state.user)
   const { templates: chargeTemplates } = useAppSelector((state) => state.chargeTemplates)
-  const { kycConfigs } = useAppSelector((state) => state.kycConfig)
-  const { guests } = useAppSelector((state) => state.guests);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
   const { mockDate } = useAppSelector((state) => state.app);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -85,20 +69,6 @@ export default function SettingsPage() {
   const chargeTemplateForm = useForm<ChargeTemplateFormValues>({
     resolver: zodResolver(chargeTemplateSchema),
   });
-
-  const kycConfigForm = useForm<KycConfigFormValues>({
-    resolver: zodResolver(kycConfigSchema),
-    defaultValues: { configs: [] }
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control: kycConfigForm.control,
-    name: "configs",
-  });
-  
-  React.useEffect(() => {
-    kycConfigForm.reset({ configs: kycConfigs || [] })
-  }, [kycConfigs, kycConfigForm]);
 
   const calculationType = chargeTemplateForm.watch('calculation');
 
@@ -171,19 +141,6 @@ export default function SettingsPage() {
         dispatch(deleteChargeTemplate(templateId));
         toast({ title: "Template Deleted" });
     }
-  }
-
-  const handleSaveKycConfig = async (data: KycConfigFormValues) => {
-    try {
-        await dispatch(saveKycConfig(data.configs)).unwrap();
-        toast({ title: "KYC Configuration Saved", description: "Your KYC document requirements have been updated." });
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: "Error", description: error.message || "Could not save KYC configuration." });
-    }
-  }
-
-  const addNewKycDoc = () => {
-      append({ id: `doc-${Date.now()}`, label: 'New Document', type: 'image', required: true });
   }
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -307,51 +264,6 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
                 ))}
             </CardContent>
         </Card>
-
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><FileText /> KYC Document Configuration</CardTitle>
-                <CardDescription>Define which documents are required for tenant verification.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Form {...kycConfigForm}>
-                    <form id="kyc-config-form" onSubmit={kycConfigForm.handleSubmit(handleSaveKycConfig)} className="space-y-4">
-                        {fields && fields.map((field, index) => (
-                            <div key={field.id} className="grid grid-cols-1 md:grid-cols-8 gap-2 items-end p-2 border rounded-md">
-                                <FormField control={kycConfigForm.control} name={`configs.${index}.label`} render={({ field }) => (
-                                    <FormItem className="md:col-span-3"><FormLabel>Document Label</FormLabel><FormControl><Input placeholder="e.g., Aadhaar Card" {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={kycConfigForm.control} name={`configs.${index}.type`} render={({ field }) => (
-                                    <FormItem className="md:col-span-2"><FormLabel>Type</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="image">Image</SelectItem>
-                                                <SelectItem value="pdf">PDF</SelectItem>
-                                            </SelectContent>
-                                        </Select><FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={kycConfigForm.control} name={`configs.${index}.required`} render={({ field }) => (
-                                    <FormItem className="flex flex-col justify-end h-full md:col-span-2">
-                                        <div className="flex items-center space-x-2 h-10">
-                                            <Switch id={`required-${index}`} checked={field.value} onCheckedChange={field.onChange} />
-                                            <Label htmlFor={`required-${index}`}>Required</Label>
-                                        </div>
-                                    </FormItem>
-                                )} />
-                                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                            </div>
-                        ))}
-                        <Button type="button" variant="outline" onClick={addNewKycDoc} className="border-dashed"><PlusCircle className="mr-2 h-4 w-4" /> Add Document Requirement</Button>
-                    </form>
-                </Form>
-            </CardContent>
-            <CardFooter>
-                <Button type="submit" form="kyc-config-form">Save KYC Configuration</Button>
-            </CardFooter>
-        </Card>
-
 
         <Card>
             <CardHeader>
