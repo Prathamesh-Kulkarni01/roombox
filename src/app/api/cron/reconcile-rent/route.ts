@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { reconcileAllGuests } from '@/lib/actions/reconciliationActions';
@@ -22,12 +23,15 @@ export async function GET(request: NextRequest) {
     const result = await reconcileAllGuests(isProd ? undefined : 50);
 
     if (!result.success) {
-      throw new Error('Failed to execute rent reconciliation flow.');
+      // Even if some guests fail, we don't want to throw an error for the whole job.
+      // The individual errors are logged in reconcileAllGuests.
+      console.warn(`Rent reconciliation job completed with ${result.errorCount} error(s).`);
     }
 
     return NextResponse.json({
       success: true,
-      message: `Successfully reconciled rent cycles for ${result.reconciledCount} tenants.`,
+      message: `Successfully reconciled rent cycles for ${result.reconciledCount} guests.`,
+      errors: result.errorCount,
     });
   } catch (error: any) {
     console.error('Cron job error [reconcile-rent]:', error);

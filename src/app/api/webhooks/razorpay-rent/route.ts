@@ -65,15 +65,14 @@ export async function POST(req: NextRequest) {
           }
 
           const guest = guestDoc.data() as Guest;
+          const owner = ownerDoc.data() as User;
+          const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
           // Idempotency Check
           if (guest.paymentHistory?.some(p => p.id === payment.id)) {
               console.log(`Payment ${payment.id} already processed for guest ${guestId}. Skipping.`);
               return;
           }
-
-          const owner = ownerDoc.data() as User;
-          const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
 
           const newPayment: Payment = {
               id: payment.id,
@@ -86,61 +85,30 @@ export async function POST(req: NextRequest) {
               payoutStatus: 'processed',
               payoutTo: primaryPayoutAccount?.name || 'Linked Account',
           };
+          
+          const ledgerEntry: LedgerEntry = {
+              id: `credit-${payment.id}`,
+              date: newPayment.date,
+              type: 'credit',
+              description: `Rent payment via ${payment.method}`,
+              amount: amountPaid
+          };
 
           const updatedGuest = produce(guest, draft => {
+              draft.ledger.push(ledgerEntry);
               if (!draft.paymentHistory) draft.paymentHistory = [];
               draft.paymentHistory.push(newPayment);
 
-              let remainingAmountToSettle = amountPaid;
-              
-              // 1. Settle additional charges first
-              const existingCharges = draft.additionalCharges || [];
-              const newCharges = [];
-              for(const charge of existingCharges) {
-                  if (remainingAmountToSettle >= charge.amount) {
-                      remainingAmountToSettle -= charge.amount;
-                  } else {
-                      charge.amount -= remainingAmountToSettle;
-                      remainingAmountToSettle = 0;
-                      newCharges.push(charge);
-                  }
-                  if(remainingAmountToSettle === 0) break;
-              }
-              draft.additionalCharges = newCharges;
+              const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+              const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+              const newBalance = totalDebits - totalCredits;
 
-              // 2. Settle balance brought forward
-              const previousBalance = draft.balanceBroughtForward || 0;
-              if (remainingAmountToSettle > 0 && previousBalance > 0) {
-                  const amountToSettle = Math.min(remainingAmountToSettle, previousBalance);
-                  draft.balanceBroughtForward = previousBalance - amountToSettle;
-                  remainingAmountToSettle -= amountToSettle;
-              }
-
-              // 3. Settle current month's rent
-              const totalPaidInCycle = (draft.rentPaidAmount || 0) + remainingAmountToSettle;
-              const totalRentBillForCycle = draft.rentAmount;
-
-              if (totalPaidInCycle >= totalRentBillForCycle) {
+              if (newBalance <= 0) {
                   draft.rentStatus = 'paid';
-                  // Any overpayment on rent is added to the (now smaller) balanceBroughtForward
-                  draft.balanceBroughtForward = (draft.balanceBroughtForward || 0) - (totalPaidInCycle - totalRentBillForCycle);
-                  draft.rentPaidAmount = 0;
-                  draft.dueDate = format(calculateFirstDueDate(new Date(draft.dueDate), draft.rentCycleUnit, draft.rentCycleValue, draft.billingAnchorDay), 'yyyy-MM-dd');
+                  // Recalculate the next due date based on the *previous* due date, not the payment date
+                  draft.dueDate = calculateFirstDueDate(new Date(draft.dueDate), draft.rentCycleUnit, draft.rentCycleValue, draft.billingAnchorDay).toISOString();
               } else {
                   draft.rentStatus = 'partial';
-                  draft.rentPaidAmount = totalPaidInCycle;
-              }
-              
-              // If after all settlements, there are no dues, mark as paid. This handles edge cases.
-              const finalDue = (draft.balanceBroughtForward || 0) + (draft.additionalCharges || []).reduce((s,c)=>s+c.amount,0) + draft.rentAmount - (draft.rentPaidAmount || 0);
-              if (finalDue <= 0 && draft.rentStatus !== 'paid') {
-                 // This is a safety net. If all dues are cleared but rent status isn't 'paid', it implies a full payment was made.
-                 // This can happen if payment equals exact due amount.
-                 draft.rentStatus = 'paid';
-                 draft.balanceBroughtForward = -finalDue; // a negative due means overpayment
-                 draft.rentPaidAmount = 0;
-                 draft.additionalCharges = [];
-                 draft.dueDate = format(calculateFirstDueDate(new Date(draft.dueDate), draft.rentCycleUnit, draft.rentCycleValue, draft.billingAnchorDay), 'yyyy-MM-dd');
               }
           });
 

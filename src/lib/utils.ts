@@ -36,32 +36,34 @@ export function sanitizeObjectForFirebase(obj: any): any {
 
 /**
  * Calculates the next due date based on a start date, cycle, and anchor day.
- * This function correctly handles end-of-month dates to prevent date drift.
+ * This function correctly handles end-of-month dates for monthly cycles and preserves the time for all cycles.
  * @param startDate The starting date of the cycle.
  * @param unit The unit of the rent cycle (e.g., 'months', 'days').
  * @param value The number of units in the cycle.
- * @param anchorDay The original day of the month for billing.
+ * @param anchorDay The original day of the month for billing (only used for monthly cycles).
  * @returns The new calculated due date.
  */
 export function calculateFirstDueDate(startDate: Date, unit: RentCycleUnit, value: number, anchorDay: number): Date {
     const addFn = {
-        months: addMonths,
-        weeks: addWeeks,
-        days: addDays,
-        hours: addHours,
         minutes: addMinutes,
+        hours: addHours,
+        days: addDays,
+        weeks: addWeeks,
+        months: addMonths,
     }[unit];
 
     if (unit === 'months') {
-        const nextMonth = addMonths(startDate, value);
-        const lastDayNextMonth = lastDayOfMonth(nextMonth).getDate();
+        const nextMonthBase = addMonths(startDate, value);
+        const lastDayNextMonth = lastDayOfMonth(nextMonthBase).getDate();
         // If the original anchor day was something like the 31st, and the next month only has 30 days, use the 30th.
         const newDay = Math.min(anchorDay, lastDayNextMonth);
-        return setDate(nextMonth, newDay);
+        return setDate(nextMonthBase, newDay);
     }
     
+    // For all other units, simply add the value. This preserves the time component.
     return addFn(startDate, value);
 };
+
 
 /**
  * Provides a simple, actionable suggestion for common tenant complaints.

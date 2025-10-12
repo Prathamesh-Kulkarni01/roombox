@@ -15,6 +15,7 @@ import { format, addMonths, isAfter, parseISO, differenceInMonths, isSameDay, se
 import { uploadDataUriToStorage } from '../storage';
 import { deletePg } from './pgsSlice';
 import { calculateFirstDueDate } from '@/lib/utils';
+import { runReconciliationLogic } from '../reconciliation';
 
 interface GuestsState {
     guests: Guest[];
@@ -512,42 +513,27 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
         const { user, guests, app } = getState();
         const guest = guests.guests.find(g => g.id === guestId);
 
-        if (!user.currentUser || !guest || !guest.dueDate) return rejectWithValue('Guest or due date not found');
+        if (!user.currentUser || !guest || !guest.dueDate) {
+            return rejectWithValue('Guest or due date not found');
+        }
 
         const now = app.mockDate ? parseISO(app.mockDate) : new Date();
-        const dueDate = parseISO(guest.dueDate);
-
-        if (now < dueDate && !isSameDay(now, dueDate)) {
-            return rejectWithValue('Rent is not due for reconciliation yet.');
+        const { guest: reconciledGuest, cyclesProcessed } = runReconciliationLogic(guest, now);
+        
+        if (cyclesProcessed === 0) {
+            return rejectWithValue('No reconciliation needed.');
         }
 
-        const updatedGuest = produce(guest, draft => {
-            const monthsOverdue = differenceInMonths(now, dueDate) + (now.getDate() >= dueDate.getDate() ? 1 : 0);
-            if (monthsOverdue > 0) {
-                 const totalBillForCycle = (draft.balanceBroughtForward || 0) + draft.rentAmount + (draft.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-                 const unpaidFromLastCycle = totalBillForCycle - (draft.rentPaidAmount || 0);
-
-                 draft.balanceBroughtForward = unpaidFromLastCycle + (draft.rentAmount * (monthsOverdue - 1));
-                 draft.dueDate = addMonths(dueDate, monthsOverdue).toISOString();
-                 draft.rentPaidAmount = 0;
-                 draft.rentStatus = 'unpaid';
-                 draft.additionalCharges = [];
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+            if (ownerId) {
+                const selectedDb = selectOwnerDataDb(user.currentUser);
+                const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
+                await setDoc(guestDocRef, reconciledGuest, { merge: true });
             }
-        });
-
-        if (JSON.stringify(updatedGuest) !== JSON.stringify(guest)) {
-            if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-                const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
-                if (ownerId) {
-                    const selectedDb = selectOwnerDataDb(user.currentUser);
-                    const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
-                    await setDoc(guestDocRef, updatedGuest, { merge: true });
-                }
-            }
-            return updatedGuest;
         }
-
-        return rejectWithValue('No reconciliation needed.');
+        
+        return reconciledGuest;
     }
 );
 

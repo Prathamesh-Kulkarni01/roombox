@@ -35,23 +35,14 @@ export function runReconciliationLogic(
     let currentDueDate = parseISO(draft.dueDate);
 
     for (let i = 0; i < cyclesToProcess; i++) {
-      // Check if a rent debit for this specific due date already exists to prevent duplicates.
-      const rentEntryExists = draft.ledger.some(entry => 
-        entry.type === 'debit' && 
-        entry.description.toLowerCase().includes('rent') &&
-        parseISO(entry.date).getTime() === currentDueDate.getTime()
-      );
-
-      if (!rentEntryExists) {
-        const rentEntry: LedgerEntry = {
-          id: `rent-${format(currentDueDate, 'yyyy-MM-dd-HH-mm-ss')}`,
-          date: currentDueDate.toISOString(),
-          type: 'debit',
-          description: `Rent for Cycle Starting ${format(currentDueDate, 'do MMM')}`,
-          amount: draft.rentAmount,
-        };
-        draft.ledger.push(rentEntry);
-      }
+      const rentEntry: LedgerEntry = {
+        id: `rent-${format(currentDueDate, 'yyyy-MM-dd-HH-mm-ss')}`,
+        date: currentDueDate.toISOString(),
+        type: 'debit',
+        description: `Rent for Cycle Starting ${format(currentDueDate, 'do MMM')}`,
+        amount: draft.rentAmount,
+      };
+      draft.ledger.push(rentEntry);
       
       currentDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, billingAnchorDay);
     }

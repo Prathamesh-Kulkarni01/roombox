@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
@@ -26,9 +27,15 @@ async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: string, gue
             }
 
             transaction.update(guestDocRef, result.guest);
-            console.log(`[Reconcile] Processed ${result.cyclesProcessed} cycle(s) for guest ${guest.name}. New balance: ${result.guest.balanceBroughtForward}, New Due Date: ${result.guest.dueDate}`);
             return result.cyclesProcessed;
         });
+        
+        if(cyclesProcessed > 0) {
+            const guestDoc = await guestDocRef.get();
+            const finalGuest = guestDoc.data() as Guest;
+             console.log(`[Reconcile] Processed ${cyclesProcessed} cycle(s) for guest ${finalGuest.name}. New Due Date: ${finalGuest.dueDate}`);
+        }
+
 
         return { success: true, cyclesProcessed };
     } catch (err: any) {
@@ -38,7 +45,7 @@ async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: string, gue
 }
 
 
-export async function reconcileAllGuests(limit?: number): Promise<{ success: boolean; reconciledCount: number; }> {
+export async function reconcileAllGuests(limit?: number): Promise<{ success: boolean; reconciledCount: number; errorCount: number; }> {
     const adminDb = await getAdminDb();
     let processedGuestCount = 0;
     let totalErrors = 0;
@@ -74,9 +81,9 @@ export async function reconcileAllGuests(limit?: number): Promise<{ success: boo
             }
         }
         console.log(`[Reconcile All] Successfully processed reconciliation for ${processedGuestCount} guests. Failed: ${totalErrors}.`);
-        return { success: totalErrors === 0, reconciledCount: processedGuestCount };
+        return { success: totalErrors === 0, reconciledCount: processedGuestCount, errorCount: totalErrors };
     } catch (error: any) {
         console.error('[Reconcile All] Cron job failed:', error);
-        return { success: false, reconciledCount: 0 };
+        return { success: false, reconciledCount: 0, errorCount: totalErrors };
     }
 }
