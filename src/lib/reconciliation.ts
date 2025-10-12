@@ -1,4 +1,5 @@
 
+
 import type { Guest, RentCycleUnit, LedgerEntry } from './types';
 import { format, parseISO, isAfter } from 'date-fns';
 import { calculateFirstDueDate } from './utils';
@@ -57,11 +58,16 @@ export function runReconciliationLogic(
       draft.rentStatus = 'paid';
     } else {
         const totalRentDebits = draft.ledger.filter(e => e.type === 'debit' && e.description.toLowerCase().includes('rent')).reduce((sum, e) => sum + e.amount, 0);
-        if (totalCredits >= totalRentDebits && balance > 0) {
-            draft.rentStatus = 'partial'; // Rent is paid, but other charges are pending.
-        } else if (totalCredits > 0) {
-            draft.rentStatus = 'partial';
-        } else {
+        const rentPaidThisCycle = (draft.rentPaidAmount || 0);
+
+        // A partial payment means some money was paid, but not enough to cover all rent debits.
+        // An unpaid status means no money has been paid towards any rent debit.
+        if (totalCredits > (totalDebits - draft.rentAmount)) { // Paid more than previous balance, but not full current rent
+             draft.rentStatus = 'partial';
+        } else if (balance < totalRentDebits) { // Some payment was made but not enough
+             draft.rentStatus = 'partial';
+        }
+        else {
             draft.rentStatus = 'unpaid';
         }
     }

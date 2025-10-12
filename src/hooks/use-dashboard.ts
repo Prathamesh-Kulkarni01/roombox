@@ -19,6 +19,7 @@ import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
 
 import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
 import { sanitizeObjectForFirebase, calculateFirstDueDate } from "@/lib/utils"
+import { runReconciliationLogic } from "@/lib/reconciliation"
 
 const addGuestSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -155,12 +156,8 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
   useEffect(() => {
     if (selectedGuestForPayment) {
-        const balanceBf = selectedGuestForPayment.balanceBroughtForward || 0;
-        const currentMonthRent = selectedGuestForPayment.rentAmount;
-        const chargesDue = (selectedGuestForPayment.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-        
-        const total = balanceBf + currentMonthRent + chargesDue - (selectedGuestForPayment.rentPaidAmount || 0);
-        paymentForm.reset({ paymentMethod: 'cash', amountPaid: total > 0 ? Number(total.toFixed(2)) : 0 });
+        const totalDue = (selectedGuestForPayment.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
+        paymentForm.reset({ paymentMethod: 'cash', amountPaid: totalDue > 0 ? Number(totalDue.toFixed(2)) : 0 });
     }
   }, [selectedGuestForPayment, paymentForm]);
 
@@ -259,29 +256,18 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
           amount: values.amountPaid
       };
 
-      const updatedGuest = produce(guest, draft => {
+      const guestAfterPayment = produce(guest, draft => {
           if (!draft.ledger) draft.ledger = [];
           if (!draft.paymentHistory) draft.paymentHistory = [];
           
           draft.ledger.push(ledgerEntry);
           draft.paymentHistory.push(newPayment);
-
-          const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-          const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-          const newBalance = totalDebits - totalCredits;
-          
-          if (newBalance <= 0) {
-              draft.rentStatus = 'paid';
-              draft.rentPaidAmount = 0; // Reset for next cycle
-              // Reconciliation will add next month's rent debit and advance the due date.
-              // We leave the old due date for reconciliation logic to process correctly based on payment date.
-          } else {
-              draft.rentStatus = 'partial';
-              draft.rentPaidAmount = (draft.rentPaidAmount || 0) + values.amountPaid;
-          }
       });
+
+      // Run reconciliation to update status and next due date
+      const { guest: reconciledGuest } = runReconciliationLogic(guestAfterPayment, new Date());
       
-      dispatch(updateGuestAction({ updatedGuest }));
+      dispatch(updateGuestAction({ updatedGuest: reconciledGuest }));
       setIsPaymentDialogOpen(false);
       setSelectedGuestForPayment(null);
   };
@@ -340,10 +326,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsReminderDialogOpen(true);
     setReminderMessage("Generating payment link...");
 
-    const balanceBf = guest.balanceBroughtForward || 0;
-    const currentMonthRent = guest.rentAmount;
-    const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-    const totalDue = balanceBf + currentMonthRent + chargesDue - (guest.rentPaidAmount || 0);
+    const totalDue = (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
 
     try {
         const response = await fetch('/api/generate-payment-link', {

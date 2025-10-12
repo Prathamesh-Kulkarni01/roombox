@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from "react"
@@ -139,20 +140,10 @@ export default function GuestProfilePage() {
     }, [guest?.documents]);
 
 
-    const { totalDue, balanceBroughtForward } = useMemo(() => {
-        if (!guest) return { totalDue: 0, balanceBroughtForward: 0 };
-        
-        if (guest.rentStatus === 'paid') {
-            return { totalDue: 0, balanceBroughtForward: guest.balanceBroughtForward || 0 };
-        }
-
-        const balanceBf = guest.balanceBroughtForward || 0;
-        const currentMonthRent = guest.rentAmount;
-        const chargesDue = (guest.additionalCharges || []).reduce((sum, charge) => sum + charge.amount, 0);
-        
-        const total = balanceBf + currentMonthRent + chargesDue - (guest.rentPaidAmount || 0);
-
-        return { totalDue: total, balanceBroughtForward: balanceBf };
+    const { totalDue, dueItems } = useMemo(() => {
+        if (!guest?.ledger) return { totalDue: 0, dueItems: [] };
+        const totalDue = guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
+        return { totalDue, dueItems: guest.ledger.filter(e => e.type === 'debit') };
     }, [guest]);
     
     const chargeForm = useForm<z.infer<typeof chargeSchema>>({
@@ -323,33 +314,17 @@ export default function GuestProfilePage() {
                             
                             <div className="space-y-2 pt-4 border-t">
                                 <p className="font-semibold text-base">Current Bill Details (Due: {format(parseISO(guest.dueDate), "do MMMM, yyyy")})</p>
-                                 <div className="flex justify-between items-center text-muted-foreground">
-                                    <span>Balance from previous months:</span>
-                                    <span className="font-medium text-foreground">₹{balanceBroughtForward.toLocaleString('en-IN')}</span>
-                                </div>
-                                 <div className="flex justify-between items-center text-muted-foreground">
-                                    <span>Current month's rent:</span>
-                                    <span className="font-medium text-foreground">₹{guest.rentAmount.toLocaleString('en-IN')}</span>
-                                </div>
-                                {guest.additionalCharges && guest.additionalCharges.length > 0 && (
-                                    <div className="space-y-1 pt-1">
-                                        {guest.additionalCharges.map(charge => (
-                                            <div key={charge.id} className="flex justify-between items-center text-muted-foreground">
-                                                <span className="flex items-center gap-2">
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive -ml-2" onClick={() => handleRemoveCharge(charge.id)}><Trash2 className="w-3 h-3"/></Button>
-                                                    {charge.description}
-                                                </span>
-                                                <span className="font-medium text-foreground">₹{charge.amount.toLocaleString('en-IN')}</span>
-                                            </div>
-                                        ))}
+                                {dueItems.length > 0 ? dueItems.map(item => (
+                                    <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
+                                        <span className="flex items-center gap-2">
+                                            {item.type === 'debit' && (
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive -ml-2" onClick={() => handleRemoveCharge(item.id)}><Trash2 className="w-3 h-3"/></Button>
+                                            )}
+                                            {item.description}
+                                        </span>
+                                        <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
                                     </div>
-                                )}
-                                {(guest.rentPaidAmount || 0) > 0 && (
-                                    <div className="flex justify-between items-center text-green-600 dark:text-green-400">
-                                        <span>Paid this cycle:</span>
-                                        <span className="font-medium">- ₹{(guest.rentPaidAmount || 0).toLocaleString('en-IN')}</span>
-                                    </div>
-                                )}
+                                )) : <p className="text-sm text-muted-foreground">No outstanding charges.</p>}
                             </div>
 
                             <div className="flex justify-between items-center text-base pt-4 border-t">

@@ -63,19 +63,14 @@ export default function MyPgPage() {
     }, [currentPg, currentGuest, pgs]);
 
      const { totalDue, sortedLedger, dueItems } = useMemo(() => {
-        if (!currentGuest) return { totalDue: 0, sortedLedger: [], dueItems: [] };
+        if (!currentGuest?.ledger) return { totalDue: 0, sortedLedger: [], dueItems: [] };
         
+        const totalDue = currentGuest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
         const debits = currentGuest.ledger.filter(e => e.type === 'debit');
-        const credits = currentGuest.ledger.filter(e => e.type === 'credit');
-        
-        const totalDebits = debits.reduce((sum, e) => sum + e.amount, 0);
-        const totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
-        
-        const due = totalDebits - totalCredits;
 
         const sorted = [...currentGuest.ledger].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        return { totalDue: due, sortedLedger: sorted, dueItems: debits };
+        return { totalDue, sortedLedger: sorted, dueItems: debits };
     }, [currentGuest]);
     
      useEffect(() => {
