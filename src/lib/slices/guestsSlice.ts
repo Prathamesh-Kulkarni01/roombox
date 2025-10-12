@@ -342,8 +342,11 @@ export const reconcileGuestPayment = createAsyncThunk<Guest, {
         // Run reconciliation to update status and next due date
         const { guest: finalGuestState } = runReconciliationLogic(guestWithPayment, new Date());
         
-        // This is a full state replacement for the guest, dispatched via updateGuest
-        dispatch(updateGuestAction({ updatedGuest: finalGuestState }));
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+            const selectedDb = selectOwnerDataDb(user.currentUser);
+            const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', finalGuestState.id);
+            await setDoc(guestDocRef, finalGuestState);
+        }
 
         return finalGuestState;
     }
@@ -668,5 +671,3 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
-
-    
