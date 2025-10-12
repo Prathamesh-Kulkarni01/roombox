@@ -293,19 +293,15 @@ export default function GuestManagementPage() {
                 </CardHeader>
                 <CardContent>
                      <Tabs defaultValue="active-guests" className="w-full">
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="active-guests">Active Guests</TabsTrigger>
                             <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
-                            <TabsTrigger value="kyc-management">KYCs</TabsTrigger>
                         </TabsList>
                         <TabsContent value="active-guests" className="mt-4">
                             <GuestList guests={activeGuests} onEdit={() => {}} canEdit={canEditGuests}/>
                         </TabsContent>
                         <TabsContent value="exited-guests" className="mt-4">
                             <GuestList guests={exitedGuests} onEdit={() => {}} canEdit={canEditGuests}/>
-                        </TabsContent>
-                         <TabsContent value="kyc-management" className="mt-4">
-                            <KycManagementTab guests={guests} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

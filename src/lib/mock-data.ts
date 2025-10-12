@@ -1,7 +1,7 @@
 
 
 import type { Menu, Plan, PlanName, PG } from './types';
-import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen, IndianRupee, HandCoins } from 'lucide-react';
+import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen, IndianRupee, HandCoins, ShieldCheck } from 'lucide-react';
 
 
 export const defaultMenu: Menu = {
@@ -117,6 +117,7 @@ export const allNavItems: NavGroup[] = [
         { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav', description: 'Your central hub for everything.' },
         { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav', description: 'Manage property layouts.' },
         { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'guests', description: 'View all your guests.' },
+        { href: '/dashboard/kyc', label: 'KYC Management', icon: ShieldCheck, feature: 'kyc', description: 'Verify tenant documents.' },
         { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff', description: 'Manage your team.' },
     ]
   },
