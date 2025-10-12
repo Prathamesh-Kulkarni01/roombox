@@ -322,7 +322,6 @@ export default function DashboardPage() {
                 handleOpenAddGuestDialog={handleOpenAddGuestDialog}
                 handleOpenPaymentDialog={handleOpenPaymentDialog}
                 onSendMassReminder={handleSendMassReminder}
-                isSendingReminders={isSendingReminders}
                 onSendAnnouncement={handleSendAnnouncement}
             />
             
@@ -420,6 +419,19 @@ export default function DashboardPage() {
             </Card>
         )}
       </div>
+        
+        {isEditMode && (
+            <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50">
+                <Button
+                    size="lg"
+                    className="shadow-lg animate-in fade-in zoom-in-95"
+                    onClick={() => setIsEditMode(false)}
+                >
+                    <CheckCircle className="mr-2 h-5 w-5" />
+                    Done Editing
+                </Button>
+            </div>
+        )}
 
       {/* DIALOGS */}
       <Access feature="properties" action="add">
