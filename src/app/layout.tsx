@@ -7,6 +7,7 @@ import StoreProvider from '@/components/StoreProvider';
 import { ThemeProvider } from '@/components/theme-provider';
 import Script from 'next/script';
 import { LanguageProvider } from '@/context/language-context';
+import ConfettiProvider from '@/context/confetti-provider';
 
 const APP_NAME = "RentSutra";
 const APP_DESCRIPTION = "RentSutra is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
@@ -127,11 +128,13 @@ export default function RootLayout({
               defaultTheme="rose"
               disableTransitionOnChange
             >
-              <div className="flex min-h-screen flex-col">
-                <Header />
-                <main className="flex-1">{children}</main>
-              </div>
-              <Toaster />
+              <ConfettiProvider>
+                <div className="flex min-h-screen flex-col">
+                  <Header />
+                  <main className="flex-1">{children}</main>
+                </div>
+                <Toaster />
+              </ConfettiProvider>
             </ThemeProvider>
           </LanguageProvider>
         </StoreProvider>

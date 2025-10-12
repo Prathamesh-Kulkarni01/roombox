@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PG } from '@/lib/types'
 import { addPg as addPgAction } from '@/lib/slices/pgsSlice'
+import { useConfetti } from '@/context/confetti-provider'
 
 const pgSchema = z.object({
   name: z.string().min(3, "Property name must be at least 3 characters."),
@@ -48,6 +49,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
   const dispatch = useAppDispatch()
   const { currentUser } = useAppSelector(state => state.user);
   const { featurePermissions } = useAppSelector(state => state.permissions);
+  const { showConfetti } = useConfetti();
 
   const form = useForm<PgFormValues>({
     resolver: zodResolver(pgSchema),
@@ -68,6 +70,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
       if(onPgAdded) {
           onPgAdded(newPgId)
       }
+      showConfetti({ particleCount: 200, spread: 100 });
     }
   }
 

@@ -10,6 +10,7 @@ import { produce } from 'immer'
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useToast } from '@/hooks/use-toast'
+import { useConfetti } from "@/context/confetti-provider"
 
 import type { Guest, Bed, Room, PG, Floor, AdditionalCharge, Payment, RentCycleUnit, LedgerEntry } from "@/lib/types"
 import { format, addMonths, addDays, addHours, addMinutes, addWeeks } from "date-fns"
@@ -66,6 +67,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const { chargeTemplates } = useAppSelector(state => state.chargeTemplates);
   const { currentPlan, currentUser } = useAppSelector(state => state.user)
   const [isSavingRoom, startRoomTransition] = useTransition();
+  const { showConfetti } = useConfetti();
 
   
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
@@ -221,6 +223,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     
     dispatch(addGuestAction(guestData));
     setIsAddGuestDialogOpen(false);
+    showConfetti({ particleCount: 150, spread: 80 });
   };
 
   const handleEditGuestSubmit = (values: z.infer<typeof editGuestSchema>) => {
@@ -392,6 +395,7 @@ Thank you!`;
     });
     dispatch(updatePgAction(nextState));
     setIsFloorDialogOpen(false);
+    showConfetti({ particleCount: 50, spread: 60, startVelocity: 20 });
   };
   
   const processRoomSubmit = (values: RoomFormValues) => {
@@ -437,6 +441,7 @@ Thank you!`;
         await dispatch(updatePgAction(nextState)).unwrap();
         toast({ title: roomToEdit ? 'Room Updated' : 'Room Added', description: `The room has been successfully ${roomToEdit ? 'updated' : 'added'}.`})
         setIsRoomDialogOpen(false);
+        showConfetti({ particleCount: 100, spread: 70 });
     });
   }
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
@@ -459,6 +464,7 @@ Thank you!`;
     });
     dispatch(updatePgAction(nextState));
     setIsBedDialogOpen(false);
+    showConfetti({ particleCount: 30, spread: 50, startVelocity: 10, decay: 0.9 });
   };
 
   const handleDelete = (type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string }) => {

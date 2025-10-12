@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from "@/components/ui/skeleton"
-import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil, View, Rows } from "lucide-react"
+import { Building, IndianRupee, MessageSquareWarning, Users, FileWarning, Loader2, Filter, Search, UserPlus, Wallet, BellRing, Send, Pencil, View, Rows, CheckCircle } from "lucide-react"
 import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from '@/lib/permissions';
@@ -38,10 +38,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import QuickActions from "@/components/dashboard/QuickActions"
-import GuidedSetup from "@/components/dashboard/GuidedSetup"
+import { FloatingGuide } from "@/components/dashboard/FloatingGuide"
 import { Badge } from "@/components/ui/badge"
 import { getAuth } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { useConfetti } from "@/context/confetti-provider"
 
 
 const bedLegend: Record<BedStatus, { label: string, className: string }> = {
@@ -69,6 +70,7 @@ export default function DashboardPage() {
   const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { showConfetti } = useConfetti();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
@@ -259,6 +261,13 @@ export default function DashboardPage() {
      toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
   }
 
+  const handleToggleEditMode = () => {
+    if(isEditMode) {
+      showConfetti({ particleCount: 100, spread: 120, startVelocity: 25, scalar: 0.9, ticks: 150 });
+    }
+    setIsEditMode(!isEditMode);
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
@@ -301,11 +310,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <GuidedSetup
-            pgs={pgs}
-            guests={guests}
-            staff={staff}
-            expenses={expenses}
+        <FloatingGuide
             onAddProperty={() => setIsAddPgSheetOpen(true)}
             onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`)}}
             onAddGuest={() => {
@@ -318,77 +323,82 @@ export default function DashboardPage() {
             }}
         />
         <StatsCards stats={stats} />
-        <QuickActions 
-            pgs={pgs}
-            guests={guests}
-            handleOpenAddGuestDialog={handleOpenAddGuestDialog}
-            handleOpenPaymentDialog={handleOpenPaymentDialog}
-            onSendMassReminder={handleSendMassReminder}
-            onSendAnnouncement={handleSendAnnouncement}
-        />
         
-        <div className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Search by guest, room, or bed..."
-                        className="pl-8 sm:w-full"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+        {pgs.length > 0 && (
+          <>
+            <QuickActions 
+                pgs={pgs}
+                guests={guests}
+                handleOpenAddGuestDialog={handleOpenAddGuestDialog}
+                handleOpenPaymentDialog={handleOpenPaymentDialog}
+                onSendMassReminder={handleSendMassReminder}
+                onSendAnnouncement={handleSendAnnouncement}
+            />
+            
+            <div className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="search"
+                            placeholder="Search by guest, room, or bed..."
+                            className="pl-8 sm:w-full"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full sm:w-auto justify-start">
+                                <Filter className="mr-2 h-4 w-4" />
+                                Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64">
+                            <div className="grid gap-4">
+                                <div className="space-y-2">
+                                    <h4 className="font-medium leading-none">Filter by Status</h4>
+                                    <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
+                                </div>
+                                <div className="grid gap-2">
+                                    {Object.entries(bedLegend).map(([status, { label }]) => (
+                                        <div key={status} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`filter-${status}`}
+                                                checked={activeFilters.includes(status as BedStatus)}
+                                                onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
+                                            />
+                                            <Label htmlFor={`filter-${status}`} className="font-normal">{label}</Label>
+                                        </div>
+                                    ))}
+                                </div>
+                                <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
                 </div>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full sm:w-auto justify-start">
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+                <div className="flex items-center gap-2">
+                    <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)} className="w-full sm:w-auto">
+                        <ToggleGroupItem value="bed" aria-label="Beds" className="w-full">
+                            <View className="mr-2 h-4 w-4"/> Beds
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="room" aria-label="Rooms" className="w-full">
+                            <Rows className="mr-2 h-4 w-4"/> Rooms
+                        </ToggleGroupItem>
+                    </ToggleGroup>
+                    <Access feature="properties" action="edit">
+                        <Button
+                            onClick={handleToggleEditMode}
+                            variant="outline"
+                        >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            {isEditMode ? "Done" : "Edit Building"}
                         </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64">
-                        <div className="grid gap-4">
-                            <div className="space-y-2">
-                                <h4 className="font-medium leading-none">Filter by Status</h4>
-                                <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
-                            </div>
-                            <div className="grid gap-2">
-                                {Object.entries(bedLegend).map(([status, { label }]) => (
-                                    <div key={status} className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id={`filter-${status}`}
-                                            checked={activeFilters.includes(status as BedStatus)}
-                                            onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
-                                        />
-                                        <Label htmlFor={`filter-${status}`} className="font-normal">{label}</Label>
-                                    </div>
-                                ))}
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
-                        </div>
-                    </PopoverContent>
-                </Popover>
+                    </Access>
+                </div>
             </div>
-            <div className="flex items-center gap-2">
-                <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)} className="w-full sm:w-auto">
-                    <ToggleGroupItem value="bed" aria-label="Beds" className="w-full">
-                        <View className="mr-2 h-4 w-4"/> Beds
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="room" aria-label="Rooms" className="w-full">
-                        <Rows className="mr-2 h-4 w-4"/> Rooms
-                    </ToggleGroupItem>
-                </ToggleGroup>
-                <Access feature="properties" action="edit">
-                    <Button
-                        onClick={() => setIsEditMode(!isEditMode)}
-                        variant="outline"
-                    >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        {isEditMode ? "Done" : "Edit Building"}
-                    </Button>
-                </Access>
-            </div>
-        </div>
+          </>
+        )}
 
         {pgsToDisplay.map(pg => (
           <PgLayout
@@ -411,7 +421,7 @@ export default function DashboardPage() {
           />
         ))}
 
-        {pgsToDisplay.length === 0 && (
+        {pgsToDisplay.length === 0 && pgs.length > 0 && (
             <Card>
                 <CardContent className="p-10 text-center text-muted-foreground">
                     No results found for your search or filter criteria.
@@ -419,6 +429,19 @@ export default function DashboardPage() {
             </Card>
         )}
       </div>
+        
+        {isEditMode && (
+            <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50">
+                <Button
+                    size="lg"
+                    className="shadow-lg animate-in fade-in zoom-in-95"
+                    onClick={handleToggleEditMode}
+                >
+                    <CheckCircle className="mr-2 h-5 w-5" />
+                    Done Editing
+                </Button>
+            </div>
+        )}
 
       {/* DIALOGS */}
       <Access feature="properties" action="add">
