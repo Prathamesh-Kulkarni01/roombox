@@ -12,7 +12,17 @@ export function runReconciliationLogic(
   if (guest.isVacated || guest.exitDate) return { guest, cyclesProcessed: 0 };
 
   const dueDate = parseISO(guest.dueDate);
-  if (!isAfter(now, dueDate)) return { guest, cyclesProcessed: 0 };
+  if (!isAfter(now, dueDate)) {
+    // Even if not overdue, let's ensure the status is correct based on the current balance.
+    const currentBalance = (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
+    if (guest.rentStatus !== 'paid' && currentBalance <= 0) {
+        const correctedGuest = produce(guest, draft => {
+            draft.rentStatus = 'paid';
+        });
+        return { guest: correctedGuest, cyclesProcessed: 0 };
+    }
+    return { guest, cyclesProcessed: 0 };
+  }
 
   const cycleUnit: RentCycleUnit = guest.rentCycleUnit || 'months';
   const cycleValue: number = guest.rentCycleValue || 1;
@@ -54,12 +64,14 @@ export function runReconciliationLogic(
     const totalCredits = draft.ledger.filter((e) => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
     const balance = totalDebits - totalCredits;
 
-    if (balance <= 0) {
-      draft.rentStatus = 'paid';
-    } else if (totalCredits > 0) {
-      draft.rentStatus = 'partial';
-    } else {
+    // Corrected Logic: If a new cycle has been added, the balance will be > 0.
+    // The status should become 'unpaid' because this is a new, unpaid charge.
+    // The 'partial' status should only be set when a *payment* is made that doesn't clear the balance.
+    // The reconciliation logic's job is to add debits, thus making it 'unpaid'.
+    if (balance > 0) {
       draft.rentStatus = 'unpaid';
+    } else {
+      draft.rentStatus = 'paid';
     }
   });
 
