@@ -120,21 +120,21 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <ThemeProvider
-          attribute="data-theme"
-          defaultTheme="rose"
-          disableTransitionOnChange
-        >
-          <StoreProvider>
-            <LanguageProvider>
+        <StoreProvider>
+          <LanguageProvider>
+            <ThemeProvider
+              attribute="data-theme"
+              defaultTheme="rose"
+              disableTransitionOnChange
+            >
               <div className="flex min-h-screen flex-col">
                 <Header />
                 <main className="flex-1">{children}</main>
               </div>
               <Toaster />
-            </LanguageProvider>
-          </StoreProvider>
-        </ThemeProvider>
+            </ThemeProvider>
+          </LanguageProvider>
+        </StoreProvider>
       </body>
     </html>
   );

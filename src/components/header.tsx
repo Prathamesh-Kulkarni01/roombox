@@ -40,7 +40,7 @@ export default function Header() {
   const { selectedPgId, isLoading } = useAppSelector((state) => state.app);
   const { currentUser } = useAppSelector((state) => state.user);
   const isCustomDbConnected = !!currentUser?.subscription?.enterpriseProject?.projectId;
-  const { language, setLanguage } = useTranslation();
+  const { language, setLanguage, t } = useTranslation();
 
   const isDashboard = pathname.startsWith('/dashboard');
   const isTenantDashboard = pathname.startsWith('/tenants');
@@ -171,7 +171,7 @@ export default function Header() {
                     <Separator className="my-4"/>
 
                     <div className="flex flex-col gap-1 px-4">
-                        <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">Guides &amp; Training</h4>
+                        <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">{t('nav_training')}</h4>
                         <div className="space-y-1">
                           {trainingGuides.map((guide) => (
                               <Link
@@ -193,7 +193,7 @@ export default function Header() {
                 <div className="mt-auto p-4 border-t">
                     {isLandingPage && <InstallPWA />}
                     {currentUser ? (
-                        <Button onClick={handleLogout} className="w-full mt-4">Logout</Button>
+                        <Button onClick={handleLogout} className="w-full mt-4">{t('logout')}</Button>
                     ) : (
                         <Button asChild className="w-full mt-4 bg-primary hover:bg-primary/90">
                             <Link href="/login">Login / Sign Up</Link>
