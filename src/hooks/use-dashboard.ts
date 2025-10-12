@@ -257,26 +257,34 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
     const handleSharedChargeSubmit = (values: z.infer<typeof sharedChargeSchema>) => {
         if (!roomForSharedCharge) return;
-        const template = chargeTemplates.find(t => t.name === values.description);
-        let totalAmount = values.totalAmount;
         
-        if(template?.calculation === 'unit'){
-            totalAmount = (values.units || 0) * (template.unitCost || 0);
+        const { description, totalAmount, units, unitCost } = values;
+
+        let finalAmount = totalAmount;
+
+        // If unit cost is provided, it takes precedence
+        if (typeof units === 'number' && typeof unitCost === 'number') {
+            finalAmount = units * unitCost;
         }
 
-        if (!totalAmount || totalAmount <= 0) {
-            toast({ variant: 'destructive', title: 'Invalid Amount', description: 'Total charge amount must be greater than zero.' });
+        if (!finalAmount || finalAmount <= 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid Amount',
+                description: 'Calculated charge amount must be greater than zero.',
+            });
             return;
         }
 
         dispatch(addSharedChargeToRoom({
             roomId: roomForSharedCharge.room.id,
-            description: values.description,
-            totalAmount: totalAmount
+            description: description,
+            totalAmount: finalAmount
         }));
         
-        toast({ title: 'Shared Charge Added', description: `The charge for "${values.description}" has been added to guests in room ${roomForSharedCharge.room.name}.` });
+        toast({ title: 'Shared Charge Added', description: `The charge for "${description}" has been added to guests in room ${roomForSharedCharge.room.name}.` });
         setIsSharedChargeDialogOpen(false);
+        sharedChargeForm.reset();
     };
 
   const handleConfirmInitiateExit = () => {
@@ -551,4 +559,3 @@ Thank you!`;
 
 export type UseDashboardReturn = ReturnType<typeof useDashboard>;
 
-    
