@@ -64,6 +64,7 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       // Ledger should have initial rent + 1 new rent debit
       expect(result.guest.ledger.filter((e) => e.type === "debit").length).to.equal(2); 
       expect(calculateBalance(result.guest.ledger)).to.equal(200);
+      expect(result.guest.rentStatus).to.equal("unpaid");
     });
 
     it("should correctly process multiple overdue minute-based cycles", () => {
@@ -77,7 +78,52 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       // Initial rent + 2 new rent debits
       expect(result.guest.ledger.filter((e) => e.type === "debit").length).to.equal(3);
       expect(calculateBalance(result.guest.ledger)).to.equal(300);
+      expect(result.guest.rentStatus).to.equal("unpaid");
     });
+
+    it("should correctly set status to 'paid' after exact payment", () => {
+      const guestWithDebit = createMockGuest({}); // Balance: 100
+      
+      const guestPaid = produce(guestWithDebit, draft => {
+        draft.ledger.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 100, description: 'Payment' });
+      });
+
+      const result = runReconciliationLogic(guestPaid, addMinutes(new Date(guestPaid.dueDate), -1)); // Not overdue yet
+      expect(calculateBalance(result.guest.ledger)).to.equal(0);
+      expect(result.guest.rentStatus).to.equal('paid');
+    });
+
+    it("should correctly set status to 'paid' after overpayment", () => {
+      const guestWithDebit = createMockGuest({}); // Balance: 100
+      
+      const guestPaid = produce(guestWithDebit, draft => {
+        draft.ledger.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 150, description: 'Payment' });
+      });
+
+      const result = runReconciliationLogic(guestPaid, addMinutes(new Date(guestPaid.dueDate), -1)); // Not overdue yet
+      expect(calculateBalance(result.guest.ledger)).to.equal(-50);
+      expect(result.guest.rentStatus).to.equal('paid');
+    });
+
+     it("should become 'unpaid' when a new cycle starts after being fully paid", () => {
+      const guestWithDebit = createMockGuest({}); // Balance: 100
+      
+      const guestPaid = produce(guestWithDebit, draft => {
+        draft.ledger.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 100, description: 'Payment' });
+      });
+
+      let result = runReconciliationLogic(guestPaid, addMinutes(new Date(guestPaid.dueDate), -1)); // Not overdue yet
+      expect(result.guest.rentStatus).to.equal('paid');
+
+      // Now move time past the next due date
+      const now = addMinutes(new Date(result.guest.dueDate), 1);
+      result = runReconciliationLogic(result.guest, now);
+      
+      expect(result.cyclesProcessed).to.equal(1);
+      expect(calculateBalance(result.guest.ledger)).to.equal(100); // 100 (initial) - 100 (paid) + 100 (new) = 100
+      expect(result.guest.rentStatus).to.equal('unpaid');
+    });
+
 
     it("should handle a paid guest becoming overdue", () => {
       const initialLedger: LedgerEntry[] = [
