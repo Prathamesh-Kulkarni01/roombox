@@ -11,6 +11,7 @@ import type { PG, Guest, Staff, Expense } from '@/lib/types';
 import { ScrollArea, ScrollBar } from '../ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useTranslation } from '@/context/language-context';
 
 interface GuidedSetupProps {
   pgs: PG[];
@@ -26,6 +27,7 @@ export default function GuidedSetup({ pgs, guests, staff, expenses, onAddPropert
   const router = useRouter();
   const activeStepRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
   
   const hasPgs = pgs.length > 0;
   const hasLayout = hasPgs && pgs.some(p => p.totalBeds > 0);
@@ -114,8 +116,8 @@ export default function GuidedSetup({ pgs, guests, staff, expenses, onAddPropert
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Welcome to RentSutra! Let's Get You Set Up.</CardTitle>
-        <CardDescription>Follow these steps to get your property fully operational.</CardDescription>
+        <CardTitle>{t('guided_setup_title')}</CardTitle>
+        <CardDescription>{t('guided_setup_subtitle')}</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="w-full">
@@ -149,13 +151,13 @@ export default function GuidedSetup({ pgs, guests, staff, expenses, onAddPropert
                         )}
                     </div>
                      <div>
-                        <h4 className="font-semibold">{step.title}</h4>
-                        <p className="text-sm text-muted-foreground">{step.description}</p>
+                        <h4 className="font-semibold">{t(`guided_step_${step.id}_title` as any)}</h4>
+                        <p className="text-sm text-muted-foreground">{t(`guided_step_${step.id}_desc` as any)}</p>
                     </div>
                 </div>
                 {isNextStep && (
                     <Button size="sm" className="mt-auto" onClick={step.action} disabled={step.disabled}>
-                        {step.actionText} <ArrowRight className="ml-2 h-4 w-4" />
+                        {t(`guided_step_${step.id}_action` as any)} <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 )}
                 </div>

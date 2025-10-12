@@ -112,38 +112,38 @@ export interface NavGroup {
 
 export const allNavItems: NavGroup[] = [
   {
-    title: "Core Management",
+    title: "nav_group_core",
     items: [
-        { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav', description: 'Your central hub for everything.' },
-        { href: '/dashboard/pg-management', label: 'Properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav', description: 'Manage property layouts.' },
-        { href: '/dashboard/tenant-management', label: 'Guests', icon: Users, feature: 'guests', description: 'View all your guests.' },
-        { href: '/dashboard/kyc', label: 'KYC Management', icon: ShieldCheck, feature: 'kyc', description: 'Verify tenant documents.' },
-        { href: '/dashboard/staff', label: 'Staff', icon: Contact, feature: 'staff', description: 'Manage your team.' },
+        { href: '/dashboard', label: 'nav_dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav', description: 'nav_dashboard_desc' },
+        { href: '/dashboard/pg-management', label: 'nav_properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav', description: 'nav_properties_desc' },
+        { href: '/dashboard/tenant-management', label: 'nav_guests', icon: Users, feature: 'guests', description: 'nav_guests_desc' },
+        { href: '/dashboard/kyc', label: 'nav_kyc', icon: ShieldCheck, feature: 'kyc', description: 'nav_kyc_desc' },
+        { href: '/dashboard/staff', label: 'nav_staff', icon: Contact, feature: 'staff', description: 'nav_staff_desc' },
     ]
   },
   {
-    title: "Financial",
+    title: "nav_group_financial",
     items: [
-        { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances', description: 'Track rent and dues.' },
-        { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances', description: 'Log property expenses.' },
-        { href: '/dashboard/payouts', label: 'Payouts', icon: HandCoins, feature: 'finances', description: 'Manage bank settlements.' },
+        { href: '/dashboard/rent-passbook', label: 'nav_rentbook', icon: BookUser, feature: 'finances', description: 'nav_rentbook_desc' },
+        { href: '/dashboard/expense', label: 'nav_expenses', icon: Wallet, feature: 'finances', description: 'nav_expenses_desc' },
+        { href: '/dashboard/payouts', label: 'nav_payouts', icon: HandCoins, feature: 'finances', description: 'nav_payouts_desc' },
     ]
   },
   {
-    title: "Operations",
+    title: "nav_group_operations",
     items: [
-        { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints', description: 'Handle tenant issues.' },
-        { href: '/dashboard/food', label: 'Food Menu', icon: UtensilsCrossed, feature: 'food', description: 'Plan weekly meals.' },
+        { href: '/dashboard/complaints', label: 'nav_complaints', icon: MessageSquareWarning, feature: 'complaints', description: 'nav_complaints_desc' },
+        { href: '/dashboard/food', label: 'nav_food', icon: UtensilsCrossed, feature: 'food', description: 'nav_food_desc' },
     ]
   },
   {
-      title: "Growth & Settings",
+      title: "nav_group_growth",
       items: [
-          { href: '/dashboard/website', label: 'Website', icon: Globe, feature: 'website', description: 'Manage your public site.' },
-          { href: '/dashboard/subscription', label: 'Billing', icon: CreditCard, feature: 'core', description: 'Manage your plan & billing.' },
-          { href: '/dashboard/training', label: 'Training', icon: BookOpen, feature: 'core', description: 'Learn how to use RentSutra.' },
-          { href: '/dashboard/enterprise', label: 'Enterprise', icon: Building, feature: 'core', description: 'Connect your own Firebase project.' },
-          { href: '/dashboard/settings', label: 'Settings', icon: Settings, feature: 'core', description: 'Configure your account.' },
+          { href: '/dashboard/website', label: 'nav_website', icon: Globe, feature: 'website', description: 'nav_website_desc' },
+          { href: '/dashboard/subscription', label: 'nav_billing', icon: CreditCard, feature: 'core', description: 'nav_billing_desc' },
+          { href: '/dashboard/training', label: 'nav_training', icon: BookOpen, feature: 'core', description: 'nav_training_desc' },
+          { href: '/dashboard/enterprise', label: 'nav_enterprise', icon: Building, feature: 'core', description: 'nav_enterprise_desc' },
+          { href: '/dashboard/settings', label: 'nav_settings', icon: Settings, feature: 'core', description: 'nav_settings_desc' },
       ]
   }
 ];
@@ -166,6 +166,7 @@ export const mockPgs: PG[] = [
     rating: 4.5,
     occupancy: 25,
     totalBeds: 30,
+    totalRooms: 10,
     rules: [
       'No guests allowed after 10 PM.',
       'Maintain cleanliness in common areas.',

@@ -15,12 +15,14 @@ import { LogOut, Shield, BookOpen, BookUser } from 'lucide-react';
 import type { RolePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
+import { useTranslation } from '@/context/language-context';
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const { t } = useTranslation();
   
   if (!currentUser || !currentPlan) {
     return (
@@ -48,13 +50,13 @@ export default function DashboardSidebar() {
     <aside className="w-64 flex-col border-r bg-card hidden md:flex">
       <div className="flex-1 flex flex-col gap-y-2">
         <div className="p-4">
-            <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
+            <h2 className="text-xl font-bold text-primary font-headline">{t('nav_owner_dashboard')}</h2>
         </div>
         <nav className="flex flex-col gap-1 px-4">
           {accessibleNavGroups.map((group, index) => (
             <div key={group.title}>
               {index > 0 && <Separator className="my-2" />}
-               <h4 className="px-3 py-2 text-xs font-semibold text-muted-foreground">{group.title}</h4>
+               <h4 className="px-3 py-2 text-xs font-semibold text-muted-foreground">{t(group.title as any)}</h4>
                {group.items.map(item => (
                    <Link
                       key={item.href}
@@ -66,7 +68,7 @@ export default function DashboardSidebar() {
                       )}
                     >
                       <item.icon className="h-4 w-4" />
-                      {item.label}
+                      {t(item.label as any)}
                     </Link>
                ))}
             </div>
@@ -80,7 +82,7 @@ export default function DashboardSidebar() {
                 )}
               >
                 <Shield className="h-4 w-4" />
-                Admin Panel
+                {t('nav_admin_panel')}
               </Link>
           )}
         </nav>
@@ -103,7 +105,7 @@ export default function DashboardSidebar() {
                 <DropdownMenuContent className="w-40 mb-2" align="end" forceMount>
                      <DropdownMenuItem onClick={() => dispatch(logoutUser())}>
                         <LogOut className="mr-2 h-4 w-4" />
-                        Logout
+                        {t('logout')}
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

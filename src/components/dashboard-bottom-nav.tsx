@@ -17,6 +17,7 @@ import { allNavItems } from '@/lib/mock-data';
 import { useAppSelector } from '@/lib/hooks';
 import { canViewFeature } from '@/lib/permissions';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from '@/context/language-context';
 
 export default function DashboardBottomNav() {
   const pathname = usePathname();
@@ -24,16 +25,17 @@ export default function DashboardBottomNav() {
   const { featurePermissions } = useAppSelector((state) => state.permissions);
   const { complaints } = useAppSelector((state) => state.complaints);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const { t } = useTranslation();
 
   const unreadComplaints = complaints.filter(c => c.status === 'open').length;
 
   if (!currentUser || !currentPlan) return null;
 
   const mainNavItems = [
-    { href: '/dashboard', label: 'Dashboard', icon: Home, feature: 'properties' },
-    { href: '/dashboard/rent-passbook', label: 'Rentbook', icon: BookUser, feature: 'finances' },
-    { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquareWarning, feature: 'complaints', badge: unreadComplaints > 0 ? unreadComplaints : undefined },
-    { href: '/dashboard/expense', label: 'Expenses', icon: Wallet, feature: 'finances' },
+    { href: '/dashboard', label: 'nav_dashboard', icon: Home, feature: 'properties' },
+    { href: '/dashboard/rent-passbook', label: 'nav_rentbook', icon: BookUser, feature: 'finances' },
+    { href: '/dashboard/complaints', label: 'nav_complaints', icon: MessageSquareWarning, feature: 'complaints', badge: unreadComplaints > 0 ? unreadComplaints : undefined },
+    { href: '/dashboard/expense', label: 'nav_expenses', icon: Wallet, feature: 'finances' },
   ];
   
   const accessibleMoreNavGroups = allNavItems
@@ -74,7 +76,7 @@ export default function DashboardBottomNav() {
               </Badge>
             )}
             <item.icon className="h-5 w-5" />
-            <span className="text-xs font-medium">{item.label}</span>
+            <span className="text-xs font-medium">{t(item.label as any)}</span>
           </Link>
         ))}
         
@@ -82,17 +84,17 @@ export default function DashboardBottomNav() {
             <SheetTrigger asChild>
               <button className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors h-full hover:text-primary">
                 <MoreHorizontal className="h-5 w-5" />
-                <span className="text-xs font-medium">More</span>
+                <span className="text-xs font-medium">{t('more')}</span>
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-auto max-h-[80dvh] flex flex-col rounded-t-lg p-0">
                <SheetHeader className="p-4 border-b text-left">
-                <SheetTitle>More Options</SheetTitle>
+                <SheetTitle>{t('more_options')}</SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto p-2">
                 {accessibleMoreNavGroups.map(group => (
                   <div key={group.title} className="py-2">
-                    <h4 className="px-2 mb-2 text-sm font-semibold text-muted-foreground">{group.title}</h4>
+                    <h4 className="px-2 mb-2 text-sm font-semibold text-muted-foreground">{t(group.title as any)}</h4>
                     <div className="space-y-1">
                       {group.items.map((item) => (
                          <Link
@@ -112,8 +114,8 @@ export default function DashboardBottomNav() {
                               <item.icon className="h-5 w-5" />
                             </div>
                             <div className="flex-1">
-                              <p className="font-semibold text-sm">{item.label}</p>
-                              <p className="text-xs text-muted-foreground">{item.description}</p>
+                              <p className="font-semibold text-sm">{t(item.label as any)}</p>
+                              <p className="text-xs text-muted-foreground">{t(item.description as any)}</p>
                             </div>
                             <ChevronRight className="w-5 h-5 text-muted-foreground ml-auto" />
                         </Link>
