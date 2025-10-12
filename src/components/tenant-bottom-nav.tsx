@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, ShieldCheck } from 'lucide-react';
+import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, ShieldCheck, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/lib/hooks';
 import { canViewFeature } from '@/lib/permissions';
@@ -11,7 +11,7 @@ import { canViewFeature } from '@/lib/permissions';
 const navItems = [
   { href: '/tenants/my-pg', label: 'My Property', icon: Home },
   { href: '/tenants/complaints', label: 'Complaints', icon: MessageSquareWarning },
-  { href: '/tenants/kyc', label: 'KYC', icon: ShieldCheck },
+  { href: '/tenants/ledger', label: 'Ledger', icon: History },
   { href: '/tenants/food', label: 'Menu', icon: UtensilsCrossed },
   { href: '/tenants/chatbot', label: 'AI Helper', icon: Bot },
 ];
