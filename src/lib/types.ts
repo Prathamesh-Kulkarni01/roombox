@@ -175,6 +175,7 @@ export interface Guest {
   pgId: string;
   pgName: string;
   bedId: string;
+  roomId?: string;
   rentStatus: 'paid' | 'unpaid' | 'partial';
   dueDate: string; // ISO string
   rentAmount: number;
