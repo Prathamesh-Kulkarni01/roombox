@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useEffect, useState, useMemo, useTransition } from 'react';
@@ -51,8 +52,8 @@ const websiteConfigSchema = z.object({
   siteTitle: z.string().min(5, 'Site title is too short.'),
   contactPhone: z.string().optional(),
   contactEmail: z.string().email('Invalid email address.').optional(),
-  logoUrl: z.string().optional(),
-  faviconUrl: z.string().optional(),
+  logoUrl: z.string().url().optional(),
+  faviconUrl: z.string().url().optional(),
   themeColor: z.string().regex(/^#([0-9a-f]{3}){1,2}$/i, 'Must be a valid hex color').optional().or(z.literal('')),
   listedPgs: z.array(z.string()).refine(value => value.some(item => item), {
     message: "You must select at least one property to display.",
@@ -386,8 +387,8 @@ export default function WebsiteBuilderPage() {
                                                 ) : <Skeleton className="w-32 h-32"/>}
                                                 <div className="flex flex-col gap-2 w-full">
                                                     <InstallPWA />
-                                                    <Button variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4"/>Share App Link</Button>
-                                                    <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(appUrl); toast({title: 'Link Copied!'}); }}><Copy className="mr-2 h-4 w-4"/>Copy Link</Button>
+                                                    <Button type="button" variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4"/>Share App Link</Button>
+                                                    <Button type="button" variant="outline" onClick={async () => { await navigator.clipboard.writeText(appUrl); toast({title: 'Link Copied!'}); }}><Copy className="mr-2 h-4 w-4"/>Copy Link</Button>
                                                 </div>
                                             </CardContent>
                                         </Card>
