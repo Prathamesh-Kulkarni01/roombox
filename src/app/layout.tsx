@@ -9,24 +9,10 @@ import Script from 'next/script';
 import { LanguageProvider } from '@/context/language-context';
 import ConfettiProvider from '@/context/confetti-provider';
 
-const APP_NAME = "RentSutra";
-const APP_DESCRIPTION = "RentSutra is the all-in-one rental management software for PGs, hostels, and co-living spaces. Automate rent collection, track expenses, manage tenants, and grow your business. Start for free today.";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
-  applicationName: APP_NAME,
-  title: {
-    default: "RentSutra | All-in-One Rental Management Software",
-    template: `%s - ${APP_NAME}`,
-  },
-  description: APP_DESCRIPTION,
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: APP_NAME,
-  },
   keywords: [
       "rental management software",
       "property management",
@@ -44,12 +30,6 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "/",
-    title: {
-      default: "RentSutra | All-in-One Rental Management Software",
-      template: `%s - ${APP_NAME}`,
-    },
-    description: APP_DESCRIPTION,
-    siteName: APP_NAME,
     images: [
       {
         url: "/og-image.png",
@@ -61,11 +41,6 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: {
-      default: "RentSutra | All-in-One Rental Management Software",
-      template: `%s - ${APP_NAME}`,
-    },
-    description: APP_DESCRIPTION,
     images: ["/og-image.png"],
     creator: "@rentsutra_app",
   },
