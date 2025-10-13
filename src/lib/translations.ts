@@ -1,4 +1,3 @@
-
 const translations = {
   en: {
     hero_badge: "The OS for Modern Rental Properties",
@@ -110,8 +109,8 @@ const translations = {
     nav_food_desc: "Plan weekly meals.",
 
     nav_group_growth: "Growth & Settings",
-    nav_website: "Website",
-    nav_website_desc: "Manage your public site.",
+    nav_app_website: "App & Website",
+    nav_app_website_desc: "Manage your public brand.",
     nav_billing: "Billing",
     nav_billing_desc: "Manage your plan & billing.",
     nav_training: "Training",
@@ -252,12 +251,12 @@ const translations = {
     nav_food_desc: "साप्ताहिक भोजन की योजना बनाएं।",
 
     nav_group_growth: "विकास और सेटिंग्स",
-    nav_website: "वेबसाइट",
-    nav_website_desc: "अपनी सार्वजनिक साइट प्रबंधित करें।",
+    nav_app_website: "ऐप और वेबसाइट",
+    nav_app_website_desc: "अपने सार्वजनिक ब्रांड का प्रबंधन करें।",
     nav_billing: "बिलिंग",
     nav_billing_desc: "अपनी योजना और बिलिंग प्रबंधित करें।",
     nav_training: "प्रशिक्षण",
-    nav_training_desc: "RentSutra का उपयोग करना सीखें।",
+    nav_training_desc: "RentSutra का उपयोग کرنا سیکھیں۔",
     nav_enterprise: "एंटरप्राइज",
     nav_enterprise_desc: "अपना खुद का फायरबेस प्रोजेक्ट कनेक्ट करें।",
     nav_settings: "सेटिंग्स",

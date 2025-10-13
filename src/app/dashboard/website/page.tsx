@@ -1,5 +1,3 @@
-
-
 'use client'
 
 import React, { useEffect, useState, useMemo, useTransition } from 'react';
@@ -19,7 +17,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2, Share2, Power, PowerOff, GripVertical, Plus, Minus, Palette } from 'lucide-react'
+import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2, Share2, Power, PowerOff, GripVertical, Plus, Minus, Palette, AppWindow, Brush } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, updateSiteStatus, type SiteConfig } from '@/lib/actions/siteActions'
@@ -29,6 +27,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import { uploadDataUriToStorage } from '@/lib/storage'
 import { FileUp } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const featureSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -254,7 +253,7 @@ export default function WebsiteBuilderPage() {
                 <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
                 <Card>
                     <CardHeader>
-                        <CardTitle>Website Builder</CardTitle>
+                        <CardTitle>App & Website Builder</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
@@ -334,148 +333,104 @@ export default function WebsiteBuilderPage() {
     }
 
     return (
-        <Form {...form}>
-            <form className="space-y-4">
-                <Accordion type="multiple" defaultValue={['basic-info', 'hero', 'about']} className="w-full">
-                    <AccordionItem value="basic-info">
-                        <AccordionTrigger className="text-lg font-semibold">Basic Information</AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                             <FormField control={form.control} name="subdomain" render={({ field }) => (<FormItem><FormLabel>Your Subdomain</FormLabel><div className="flex items-center"><Input placeholder="sunshine-pg" {...field} className="rounded-r-none" disabled={!!siteConfig}/><span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground h-10">.{domain}</span></div><FormDescription>This will be your website's public address. Cannot be changed later.</FormDescription><FormMessage /></FormItem>)} />
-                             <FormField control={form.control} name="siteTitle" render={({ field }) => (<FormItem><FormLabel>Website Title</FormLabel><Input placeholder="e.g., Sunshine PG & Hostels" {...field} /><FormDescription>This appears in the browser tab and search results.</FormDescription><FormMessage /></FormItem>)} />
-                             <div className="grid md:grid-cols-2 gap-6">
-                                <FormField control={form.control} name="contactPhone" render={({ field }) => (<FormItem><FormLabel>Public Phone Number</FormLabel><Input type="tel" placeholder="Your business phone number" {...field} /><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name="contactEmail" render={({ field }) => (<FormItem><FormLabel>Public Email</FormLabel><Input type="email" placeholder="Your business email" {...field} /><FormMessage /></FormItem>)} />
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="branding">
-                        <AccordionTrigger className="text-lg font-semibold">Branding &amp; PWA</AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                            <div className="grid md:grid-cols-2 gap-6 items-center">
-                                <FormField control={form.control} name="logoUrl" render={() => (
-                                    <FormItem><FormLabel>Your Logo</FormLabel>
-                                    <div className="w-48 h-24 border rounded-md flex items-center justify-center bg-muted/40 overflow-hidden">
-                                        {logoPreview ? <Image src={logoPreview} alt="Logo Preview" width={192} height={96} className="object-contain"/> : '192x96'}
+        <Card>
+            <CardHeader>
+                <CardTitle>App & Website Builder</CardTitle>
+                <CardDescription>Customize your brand, PWA, and public-facing website.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form className="space-y-4">
+                        <Tabs defaultValue="branding" className="w-full">
+                            <TabsList className="grid w-full grid-cols-3">
+                                <TabsTrigger value="branding"><Brush className="w-4 h-4 mr-2" />Branding</TabsTrigger>
+                                <TabsTrigger value="app"><AppWindow className="w-4 h-4 mr-2" />App (PWA)</TabsTrigger>
+                                <TabsTrigger value="website"><Globe className="w-4 h-4 mr-2" />Website</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="branding" className="mt-6">
+                                <div className="space-y-6">
+                                    <FormField control={form.control} name="siteTitle" render={({ field }) => (<FormItem><FormLabel>Brand / App Name</FormLabel><Input placeholder="e.g., Sunshine PG & Hostels" {...field} /><FormDescription>This name appears on your website, PWA, and in search results.</FormDescription><FormMessage /></FormItem>)} />
+                                    <div className="grid md:grid-cols-2 gap-6 items-center">
+                                        <FormField control={form.control} name="logoUrl" render={() => (
+                                            <FormItem><FormLabel>Your Logo</FormLabel>
+                                            <div className="w-48 h-24 border rounded-md flex items-center justify-center bg-muted/40 overflow-hidden">
+                                                {logoPreview ? <Image src={logoPreview} alt="Logo Preview" width={192} height={96} className="object-contain"/> : '192x96'}
+                                            </div>
+                                            <FormControl><Input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'logo')} /></FormControl>
+                                            <FormMessage /></FormItem>
+                                        )}/>
+                                        <FormField control={form.control} name="faviconUrl" render={() => (
+                                            <FormItem><FormLabel>Your Favicon / App Icon</FormLabel>
+                                            <div className="w-16 h-16 border rounded-md flex items-center justify-center bg-muted/40 overflow-hidden">
+                                                {faviconPreview ? <Image src={faviconPreview} alt="Favicon Preview" width={64} height={64} className="object-contain"/> : '64x64'}
+                                            </div>
+                                            <FormControl><Input type="file" accept="image/png, image/x-icon" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'favicon')} /></FormControl>
+                                            <FormMessage /></FormItem>
+                                        )}/>
                                     </div>
-                                    <FormControl><Input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'logo')} /></FormControl>
-                                    <FormMessage /></FormItem>
-                                )}/>
-                                 <FormField control={form.control} name="faviconUrl" render={() => (
-                                    <FormItem><FormLabel>Your Favicon</FormLabel>
-                                    <div className="w-16 h-16 border rounded-md flex items-center justify-center bg-muted/40 overflow-hidden">
-                                        {faviconPreview ? <Image src={faviconPreview} alt="Favicon Preview" width={64} height={64} className="object-contain"/> : '64x64'}
-                                    </div>
-                                    <FormControl><Input type="file" accept="image/png, image/x-icon" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'favicon')} /></FormControl>
-                                    <FormMessage /></FormItem>
-                                )}/>
-                            </div>
-                             <FormField control={form.control} name="themeColor" render={({ field }) => (
-                                <FormItem><FormLabel>Theme Color</FormLabel>
-                                <div className="flex items-center gap-2">
-                                <FormControl><Input placeholder="#2563EB" {...field} className="w-48"/></FormControl>
-                                <div className="w-8 h-8 rounded-full border" style={{ backgroundColor: field.value || '#ffffff' }} />
-                                </div><FormMessage /></FormItem>
-                            )}/>
-                        </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="hero">
-                        <AccordionTrigger className="text-lg font-semibold">Hero Section</AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                            <FormField control={form.control} name="heroHeadline" render={({ field }) => (<FormItem><FormLabel>Headline</FormLabel><Input placeholder="Welcome to..." {...field} /><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="heroSubtext" render={({ field }) => (<FormItem><FormLabel>Subtext</FormLabel><Textarea placeholder="Describe your properties in a sentence." {...field} /><FormMessage /></FormItem>)} />
-                        </AccordionContent>
-                    </AccordionItem>
-                     <AccordionItem value="about">
-                        <AccordionTrigger className="text-lg font-semibold">About Section</AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                            <FormField control={form.control} name="aboutTitle" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><Input placeholder="A Better Way to Live" {...field} /><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="aboutDescription" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><Textarea placeholder="Tell your brand story briefly..." {...field} /><FormMessage /></FormItem>)} />
-                        </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="listed-pgs">
-                        <AccordionTrigger className="text-lg font-semibold">Listed Properties</AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                            <FormField control={form.control} name="listedPgs" render={() => ( <FormItem><FormDescription>Select which of your properties to show on the public website.</FormDescription><div className="space-y-3 pt-2">{pgs.map((pg) => (<FormField key={pg.id} control={form.control} name="listedPgs" render={({ field }) => (<FormItem key={pg.id} className="flex flex-row items-start space-x-3 space-y-0"><FormControl><Checkbox checked={field.value?.includes(pg.id)} onCheckedChange={(checked) => { return checked ? field.onChange([...(field.value || []), pg.id]) : field.onChange(field.value?.filter((value) => value !== pg.id))}}/></FormControl><FormLabel className="font-normal">{pg.name} - <span className="text-muted-foreground">{pg.location}</span></FormLabel></FormItem>)} />))}</div><FormMessage /></FormItem>)} />
-                        </AccordionContent>
-                    </AccordionItem>
-                     <AccordionItem value="features">
-                        <AccordionTrigger className="text-lg font-semibold">Features Section</AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                            <FormField control={form.control} name="featuresTitle" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><Input placeholder="Everything You Need..." {...field} /><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="featuresDescription" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><Textarea placeholder="We provide top-notch facilities..." {...field} /><FormMessage /></FormItem>)} />
-                            <div className="space-y-4">
-                                <Label>Feature Items</Label>
-                                {featureFields.map((field, index) => (
-                                    <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md">
-                                        <GripVertical className="h-5 w-5 mt-8 text-muted-foreground" />
-                                        <div className="flex-1 grid gap-2">
-                                            <FormField control={form.control} name={`features.${index}.title`} render={({ field }) => (<Input placeholder="Feature Title" {...field} />)} />
-                                            <FormField control={form.control} name={`features.${index}.description`} render={({ field }) => (<Textarea placeholder="Feature Description" {...field} />)} />
-                                        </div>
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeFeature(index)} className="mt-6"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                    </div>
-                                ))}
-                                <Button type="button" variant="outline" size="sm" onClick={() => appendFeature({title: '', description: ''})}><Plus className="mr-2"/> Add Feature</Button>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                     <AccordionItem value="faqs">
-                        <AccordionTrigger className="text-lg font-semibold">FAQ Section</AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                            <div className="space-y-4">
-                                <Label>FAQ Items</Label>
-                                {faqFields.map((field, index) => (
-                                    <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md">
-                                        <GripVertical className="h-5 w-5 mt-8 text-muted-foreground" />
-                                        <div className="flex-1 grid gap-2">
-                                            <FormField control={form.control} name={`faqs.${index}.q`} render={({ field }) => (<Input placeholder="Question" {...field} />)} />
-                                            <FormField control={form.control} name={`faqs.${index}.a`} render={({ field }) => (<Textarea placeholder="Answer" {...field} />)} />
-                                        </div>
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeFaq(index)} className="mt-6"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                    </div>
-                                ))}
-                                <Button type="button" variant="outline" size="sm" onClick={() => appendFaq({q: '', a: ''})}><Plus className="mr-2"/> Add FAQ</Button>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="testimonials">
-                        <AccordionTrigger className="text-lg font-semibold">Testimonials Section</AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                            <div className="space-y-4">
-                                <Label>Testimonials</Label>
-                                {testimonialFields.map((field, index) => (
-                                    <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md">
-                                        <GripVertical className="h-5 w-5 mt-8 text-muted-foreground" />
-                                        <div className="flex-1 grid gap-2">
-                                            <FormField control={form.control} name={`testimonials.${index}.quote`} render={({ field }) => (<Textarea placeholder="Quote" {...field} />)} />
-                                            <FormField control={form.control} name={`testimonials.${index}.author`} render={({ field }) => (<Input placeholder="Author, e.g., Akash S." {...field} />)} />
-                                        </div>
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => removeTestimonial(index)} className="mt-6"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                    </div>
-                                ))}
-                                <Button type="button" variant="outline" size="sm" onClick={() => appendTestimonial({quote: '', author: ''})}><Plus className="mr-2"/> Add Testimonial</Button>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-
-                <div className="flex justify-end gap-2 pt-4">
-                    {viewMode === 'edit' && siteConfig && (
-                        <Button type="button" variant="secondary" onClick={() => {
-                            form.reset(siteConfig);
-                            setViewMode('display');
-                        }}>Cancel</Button>
-                    )}
-                    <Button type="button" variant="outline" onClick={form.handleSubmit(data => onSubmit(data, 'draft'))} disabled={isSaving}>
-                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save as Draft
-                    </Button>
-                    <Button type="button" onClick={form.handleSubmit(data => onSubmit(data, 'published'))} disabled={isSaving}>
-                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {siteConfig ? 'Update & Publish' : 'Create & Publish'}
-                    </Button>
-                </div>
-            </form>
-        </Form>
-    )
+                                    <FormField control={form.control} name="themeColor" render={({ field }) => (
+                                        <FormItem><FormLabel>Theme Color</FormLabel>
+                                        <div className="flex items-center gap-2">
+                                        <FormControl><Input placeholder="#2563EB" {...field} className="w-48"/></FormControl>
+                                        <div className="w-8 h-8 rounded-full border" style={{ backgroundColor: field.value || '#ffffff' }} />
+                                        </div><FormMessage /></FormItem>
+                                    )}/>
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="app" className="mt-6">
+                                <div className="space-y-6">
+                                     <FormField control={form.control} name="subdomain" render={({ field }) => (<FormItem><FormLabel>Your App's Subdomain</FormLabel><div className="flex items-center"><Input placeholder="sunshine-pg" {...field} className="rounded-r-none" disabled={!!siteConfig}/><span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground h-10">.{domain}</span></div><FormDescription>This will be your app's unique address. Cannot be changed later.</FormDescription><FormMessage /></FormItem>)} />
+                                    <Alert>
+                                        <AppWindow className="h-4 w-4" />
+                                        <AlertTitle>PWA Configuration</AlertTitle>
+                                        <AlertDescription>
+                                            Your app's name, icon, and colors are automatically configured from the 'Branding' tab. When a user visits your subdomain and adds it to their home screen, it will install as a PWA with your branding.
+                                        </AlertDescription>
+                                    </Alert>
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="website" className="mt-6">
+                                 <Accordion type="multiple" defaultValue={['hero', 'about']} className="w-full">
+                                    <AccordionItem value="hero">
+                                        <AccordionTrigger className="text-lg font-semibold">Hero Section</AccordionTrigger>
+                                        <AccordionContent className="space-y-6 pt-4">
+                                            <FormField control={form.control} name="heroHeadline" render={({ field }) => (<FormItem><FormLabel>Headline</FormLabel><Input placeholder="Welcome to..." {...field} /><FormMessage /></FormItem>)} />
+                                            <FormField control={form.control} name="heroSubtext" render={({ field }) => (<FormItem><FormLabel>Subtext</FormLabel><Textarea placeholder="Describe your properties in a sentence." {...field} /><FormMessage /></FormItem>)} />
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                    <AccordionItem value="about">
+                                        <AccordionTrigger className="text-lg font-semibold">About Section</AccordionTrigger>
+                                        <AccordionContent className="space-y-6 pt-4">
+                                            <FormField control={form.control} name="aboutTitle" render={({ field }) => (<FormItem><FormLabel>Title</FormLabel><Input placeholder="A Better Way to Live" {...field} /><FormMessage /></FormItem>)} />
+                                            <FormField control={form.control} name="aboutDescription" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><Textarea placeholder="Tell your brand story briefly..." {...field} /><FormMessage /></FormItem>)} />
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                     <AccordionItem value="listed-pgs">
+                                        <AccordionTrigger className="text-lg font-semibold">Listed Properties</AccordionTrigger>
+                                        <AccordionContent className="space-y-6 pt-4">
+                                            <FormField control={form.control} name="listedPgs" render={() => ( <FormItem><FormDescription>Select which of your properties to show on the public website.</FormDescription><div className="space-y-3 pt-2">{pgs.map((pg) => (<FormField key={pg.id} control={form.control} name="listedPgs" render={({ field }) => (<FormItem key={pg.id} className="flex flex-row items-start space-x-3 space-y-0"><FormControl><Checkbox checked={field.value?.includes(pg.id)} onCheckedChange={(checked) => { return checked ? field.onChange([...(field.value || []), pg.id]) : field.onChange(field.value?.filter((value) => value !== pg.id))}}/></FormControl><FormLabel className="font-normal">{pg.name} - <span className="text-muted-foreground">{pg.location}</span></FormLabel></FormItem>)} />))}</div><FormMessage /></FormItem>)} />
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
+                            </TabsContent>
+                        </Tabs>
+                        <div className="flex justify-end gap-2 pt-4 border-t mt-6">
+                            {viewMode === 'edit' && siteConfig && (
+                                <Button type="button" variant="secondary" onClick={() => { form.reset(siteConfig); setViewMode('display'); }}>Cancel</Button>
+                            )}
+                            <Button type="button" variant="outline" onClick={form.handleSubmit(data => onSubmit(data, 'draft'))} disabled={isSaving}>
+                                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save as Draft
+                            </Button>
+                            <Button type="button" onClick={form.handleSubmit(data => onSubmit(data, 'published'))} disabled={isSaving}>
+                                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {siteConfig ? 'Update & Publish' : 'Create & Publish'}
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
+            </CardContent>
+        </Card>
+    );
 }
+
