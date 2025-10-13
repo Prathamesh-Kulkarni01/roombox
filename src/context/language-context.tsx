@@ -32,7 +32,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   const t = (key: TranslationKey, ...args: any[]): string => {
     const langDict = translations[language] || translations.en;
-    let text = langDict[key] || translations.en[key] || key;
+    let text = (langDict as any)[key] || (translations.en as any)[key] || String(key);
 
     if (args.length > 0) {
       args.forEach((arg, index) => {

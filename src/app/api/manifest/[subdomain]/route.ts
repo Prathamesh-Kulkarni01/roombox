@@ -21,18 +21,15 @@ export async function GET(
   }
 
   // Define default icons, but allow them to be overridden by config
-  const defaultIcon = {
-    src: '/icons/icon-192x192.png',
-    sizes: '192x192',
-    type: 'image/png',
-  };
-  
-  const defaultLargeIcon = {
-    src: '/icons/icon-512x512.png',
-    sizes: '512x512',
-    type: 'image/png',
-  };
-  
+  const defaultIconUrl = '/icons/icon-192x192.png';
+  const defaultLargeIconUrl = '/icons/icon-512x512.png';
+
+  const getIcon = (url: string | undefined, defaultUrl: string, size: string) => ({
+      src: url || defaultUrl,
+      sizes: size,
+      type: 'image/png',
+  });
+
   const manifest = {
     name: config.siteTitle || 'RentSutra Property',
     short_name: config.siteTitle || 'RentSutra',
@@ -42,8 +39,8 @@ export async function GET(
     background_color: config.themeColor || '#ffffff',
     theme_color: config.themeColor || '#2563EB',
     icons: [
-      config.faviconUrl ? { src: config.faviconUrl, sizes: '192x192', type: 'image/png' } : defaultIcon,
-      config.logoUrl ? { src: config.logoUrl, sizes: '512x512', type: 'image/png' } : defaultLargeIcon
+        getIcon(config.faviconUrl, defaultIconUrl, '192x192'),
+        getIcon(config.logoUrl || config.faviconUrl, defaultLargeIconUrl, '512x512')
     ],
   };
 
