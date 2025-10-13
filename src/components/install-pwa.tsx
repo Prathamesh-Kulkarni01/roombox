@@ -22,7 +22,7 @@ export default function InstallPWA() {
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+      setDeferredPrompt(e as BeforeInstallpwaEvent);
     };
 
     const handleAppInstalled = () => {
@@ -33,8 +33,7 @@ export default function InstallPWA() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    // Check if the app is already running as a standalone PWA
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    if (typeof window !== "undefined" && window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
     }
 
@@ -57,7 +56,7 @@ export default function InstallPWA() {
     }
     setDeferredPrompt(null);
   };
-
+  
   const getTooltipContent = () => {
     if (isInstalled) return "The app is already installed on your device.";
     if (!deferredPrompt) return "Installation is not available on this browser or has already been prompted.";
@@ -68,23 +67,21 @@ export default function InstallPWA() {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          {/* The button is wrapped in a div to ensure the tooltip works even when the button is disabled. */}
           <div>
             <Button 
               onClick={handleInstallClick} 
               variant="outline"
-              size="lg" 
-              className="w-full text-lg px-8 py-6"
+              className="w-full"
               disabled={!deferredPrompt || isInstalled}
             >
               {isInstalled ? (
                 <>
-                  <CheckCircle className="mr-2 h-5 w-5" />
+                  <CheckCircle className="mr-2 h-4 w-4" />
                   App Installed
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-5 w-5" />
+                  <Download className="mr-2 h-4 w-4" />
                   Install App
                 </>
               )}
