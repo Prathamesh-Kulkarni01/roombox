@@ -243,7 +243,7 @@ export default function WebsiteBuilderPage() {
                         <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
                             <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
                             <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                            <p className="mt-2 text-muted-foreground max-w-sm">The Website Builder is not included in your current plan. Please upgrade to access this feature.</p>
+                            <p className="mt-2 text-muted-foreground max-w-sm">The Website Builder is a premium feature. Please upgrade your plan to create a public website for your properties.</p>
                             <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
                         </div>
                     </CardContent>
@@ -282,8 +282,8 @@ export default function WebsiteBuilderPage() {
                         <DialogTrigger asChild>
                             <Button variant="outline"><Eye className="mr-2 h-4 w-4" />Preview</Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
-                            <DialogHeader>
+                        <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-0">
+                            <DialogHeader className="p-6 pb-4 border-b">
                                 <DialogTitle>Website Preview: {publicUrl}</DialogTitle>
                             </DialogHeader>
                             <div className="flex-1 rounded-md border overflow-hidden">
