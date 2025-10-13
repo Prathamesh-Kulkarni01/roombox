@@ -18,7 +18,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2, Share2, Power, PowerOff, GripVertical, Plus, Minus, Palette, AppWindow, Brush } from 'lucide-react'
+import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2, Share2, Power, PowerOff, GripVertical, Plus, Minus, Palette, AppWindow, Brush, Copy, QrCode } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, updateSiteStatus, type SiteConfig } from '@/lib/actions/siteActions'
@@ -29,6 +29,7 @@ import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialo
 import { uploadDataUriToStorage } from '@/lib/storage'
 import { FileUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import InstallPWA from '@/components/install-pwa';
 
 const featureSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -97,11 +98,21 @@ export default function WebsiteBuilderPage() {
     });
     
     const subdomainValue = form.watch('subdomain');
-    const siteUrl = useMemo(() => {
+    const siteTitleValue = form.watch('siteTitle');
+    const faviconValue = form.watch('faviconUrl');
+
+    const appUrl = useMemo(() => {
         const subdomain = siteConfig?.subdomain || subdomainValue;
         if (!subdomain) return '';
-        return `/site/${subdomain}?preview=true`;
+        // Use a placeholder for the origin if window is not available
+        const origin = typeof window !== 'undefined' ? window.location.origin : `https://${domain}`;
+        return `${origin}/site/${subdomain}`;
     }, [subdomainValue, siteConfig, domain]);
+    
+    const siteUrl = useMemo(() => {
+        if (!appUrl) return '';
+        return `${appUrl}?preview=true`;
+    }, [appUrl]);
 
     const fetchConfig = async () => {
         if (!currentUser) return;
@@ -217,20 +228,22 @@ export default function WebsiteBuilderPage() {
     }
 
     const handleShare = async () => {
-        if (!siteUrl) return;
-        const urlToShare = `${window.location.origin}${siteUrl.replace('?preview=true','')}`;
-        if (navigator.share) {
-            try {
+        if (!appUrl) return;
+        const urlToShare = appUrl.replace('?preview=true','');
+        try {
+            if (navigator.share) {
                 await navigator.share({
                     title: siteConfig?.siteTitle || 'My Property',
                     text: `Check out my property: ${siteConfig?.siteTitle}`,
                     url: urlToShare,
                 });
-            } catch (error) {
-                console.error('Error sharing:', error);
+            } else {
+                await navigator.clipboard.writeText(urlToShare);
+                toast({ title: 'Copied to Clipboard', description: 'Website URL copied.' });
             }
-        } else {
-            navigator.clipboard.writeText(urlToShare);
+        } catch (error) {
+            console.error('Error sharing:', error);
+            await navigator.clipboard.writeText(urlToShare);
             toast({ title: 'Copied to Clipboard', description: 'Website URL copied.' });
         }
     };
@@ -286,7 +299,7 @@ export default function WebsiteBuilderPage() {
                             <LinkIcon className="h-4 w-4" />
                             <AlertTitle>Your Website URL</AlertTitle>
                             <AlertDescription>
-                                <a href={`${window.location.origin}/site/${siteConfig.subdomain}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{`${window.location.origin}/site/${siteConfig.subdomain}`}</a>
+                                <a href={appUrl.replace('?preview=true','')} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{appUrl.replace('?preview=true','')}</a>
                             </AlertDescription>
                         </Alert>
                         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -351,15 +364,43 @@ export default function WebsiteBuilderPage() {
                                 </div>
                             </TabsContent>
                             <TabsContent value="app" className="mt-6">
-                                <div className="space-y-6">
-                                     <FormField control={form.control} name="subdomain" render={({ field }) => (<FormItem><FormLabel>Your App's Subdomain</FormLabel><div className="flex items-center"><Input placeholder="sunshine-pg" {...field} className="rounded-r-none" disabled={!!siteConfig}/><span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground h-10">.{domain}</span></div><FormDescription>This will be your app's unique address. Cannot be changed later.</FormDescription><FormMessage /></FormItem>)} />
-                                    <Alert>
-                                        <AppWindow className="h-4 w-4" />
-                                        <AlertTitle>PWA Configuration</AlertTitle>
-                                        <AlertDescription>
-                                            Your app's name, icon, and colors are automatically configured from the 'Branding' tab. When a user visits your subdomain and adds it to their home screen, it will install as a PWA with your branding.
-                                        </AlertDescription>
-                                    </Alert>
+                                <div className="grid md:grid-cols-2 gap-8 items-start">
+                                    <div className="space-y-6">
+                                        <FormField control={form.control} name="subdomain" render={({ field }) => (<FormItem><FormLabel>Your App's Subdomain</FormLabel><div className="flex items-center"><Input placeholder="sunshine-pg" {...field} className="rounded-r-none" disabled={!!siteConfig}/><span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-input bg-muted text-sm text-muted-foreground h-10">.{domain}</span></div><FormDescription>This will be your app's unique address. Cannot be changed later.</FormDescription><FormMessage /></FormItem>)} />
+                                        
+                                        <Card>
+                                            <CardHeader className="pb-4">
+                                                <CardTitle className="text-lg">Share Your App</CardTitle>
+                                                <CardDescription>Let tenants scan the QR code or use the buttons to access and install the app.</CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+                                                {appUrl ? (
+                                                  <div className="p-2 border rounded-md">
+                                                    <Image 
+                                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(appUrl)}`}
+                                                      width={128}
+                                                      height={128}
+                                                      alt="QR code for app"
+                                                    />
+                                                  </div>
+                                                ) : <Skeleton className="w-32 h-32"/>}
+                                                <div className="flex flex-col gap-2 w-full">
+                                                    <InstallPWA />
+                                                    <Button variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4"/>Share App Link</Button>
+                                                    <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(appUrl); toast({title: 'Link Copied!'}); }}><Copy className="mr-2 h-4 w-4"/>Copy Link</Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>App Preview</Label>
+                                        <div className="aspect-[9/16] bg-slate-800 rounded-2xl border-4 border-slate-600 p-4 flex flex-col items-center justify-center">
+                                            <div className="w-16 h-16 bg-background rounded-2xl flex items-center justify-center shadow-lg mb-2">
+                                                {faviconValue ? <Image src={faviconValue} alt="App Icon" width={64} height={64} className="rounded-2xl object-cover" /> : <AppWindow className="w-8 h-8 text-muted-foreground" />}
+                                            </div>
+                                            <p className="text-sm text-white font-medium text-center max-w-[120px] truncate">{siteTitleValue || "Your App Name"}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </TabsContent>
                             <TabsContent value="website" className="mt-6">
@@ -421,4 +462,3 @@ export default function WebsiteBuilderPage() {
         </Card>
     );
 }
-
