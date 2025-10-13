@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useEffect, useState, useMemo, useTransition } from 'react';
@@ -18,7 +19,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2, Share2, Power, PowerOff, GripVertical, Plus, Minus } from 'lucide-react'
+import { ShieldAlert, Globe, Link as LinkIcon, Save, Eye, Loader2, Pencil, Trash2, Share2, Power, PowerOff, GripVertical, Plus, Minus, Palette } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, updateSiteStatus, type SiteConfig } from '@/lib/actions/siteActions'
@@ -26,6 +27,8 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
+import { uploadDataUriToStorage } from '@/lib/storage'
+import { FileUp } from 'lucide-react';
 
 const featureSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -47,6 +50,9 @@ const websiteConfigSchema = z.object({
   siteTitle: z.string().min(5, 'Site title is too short.'),
   contactPhone: z.string().optional(),
   contactEmail: z.string().email('Invalid email address.').optional(),
+  logoUrl: z.string().optional(),
+  faviconUrl: z.string().optional(),
+  themeColor: z.string().regex(/^#([0-9a-f]{3}){1,2}$/i, 'Must be a valid hex color').optional().or(z.literal('')),
   listedPgs: z.array(z.string()).refine(value => value.some(item => item), {
     message: "You must select at least one property to display.",
   }),
@@ -74,6 +80,8 @@ export default function WebsiteBuilderPage() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
 
     const [domain, setDomain] = useState('');
     const [isSaving, startTransition] = useTransition();
@@ -92,17 +100,7 @@ export default function WebsiteBuilderPage() {
     const siteUrl = useMemo(() => {
         const subdomain = siteConfig?.subdomain || subdomainValue;
         if (!subdomain) return '';
-        // Always use route-based path for now, for both dev and prod.
         return `/site/${subdomain}?preview=true`;
-        
-        /* 
-        // Future logic for subdomains
-        const isDev = process.env.NODE_ENV === 'development';
-        if (isDev) {
-             return `/site/${subdomain}?preview=true`;
-        }
-        return `https://${subdomain}.${domain}`;
-        */
     }, [subdomainValue, siteConfig, domain]);
 
     const fetchConfig = async () => {
@@ -112,6 +110,8 @@ export default function WebsiteBuilderPage() {
         if (config) {
             setSiteConfig(config);
             form.reset(config);
+            setLogoPreview(config.logoUrl || null);
+            setFaviconPreview(config.faviconUrl || null);
             setViewMode('display');
         } else {
             form.reset({
@@ -124,11 +124,7 @@ export default function WebsiteBuilderPage() {
                 aboutDescription: `We’re a trusted PG management company with properties across ${pgs[0]?.city || 'the city'}. Our mission is to simplify shared living.`,
                 featuresTitle: "Everything You Need Under One Roof",
                 featuresDescription: "We provide top-notch facilities to ensure a comfortable stay.",
-                features: [],
-                faqs: [],
-                testimonials: [],
-                subdomain: '',
-                contactPhone: ''
+                features: [], faqs: [], testimonials: [], subdomain: '', contactPhone: '', logoUrl: '', faviconUrl: '', themeColor: '',
             });
             setViewMode('edit');
         }
@@ -140,6 +136,25 @@ export default function WebsiteBuilderPage() {
         }
     }, [isAppLoading, currentUser?.id]);
 
+    const handleImageUpload = async (file: File, type: 'logo' | 'favicon') => {
+        if (!currentUser) return;
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onloadend = async () => {
+            const dataUri = reader.result as string;
+            if (type === 'logo') setLogoPreview(dataUri);
+            if (type === 'favicon') setFaviconPreview(dataUri);
+            try {
+                const url = await uploadDataUriToStorage(dataUri, `sites/${currentUser.id}/${type}`);
+                form.setValue(type === 'logo' ? 'logoUrl' : 'faviconUrl', url, { shouldValidate: true });
+                toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Uploaded`, description: "Click save to apply changes." });
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'Upload Failed', description: "Could not upload the image." });
+                 if (type === 'logo') setLogoPreview(siteConfig?.logoUrl || null);
+                 if (type === 'favicon') setFaviconPreview(siteConfig?.faviconUrl || null);
+            }
+        };
+    };
 
     const { fields: featureFields, append: appendFeature, remove: removeFeature } = useFieldArray({ control: form.control, name: "features" });
     const { fields: faqFields, append: appendFaq, remove: removeFaq } = useFieldArray({ control: form.control, name: "faqs" });
@@ -157,6 +172,8 @@ export default function WebsiteBuilderPage() {
                 toast({ title: 'Success!', description: `Your website has been ${status === 'published' ? 'published' : 'saved as a draft'}.`});
                 setSiteConfig(result.config);
                 form.reset(result.config);
+                setLogoPreview(result.config.logoUrl || null);
+                setFaviconPreview(result.config.faviconUrl || null);
                 setViewMode('display');
             } else {
                 if (result.errorField === 'subdomain') {
@@ -329,6 +346,36 @@ export default function WebsiteBuilderPage() {
                                 <FormField control={form.control} name="contactPhone" render={({ field }) => (<FormItem><FormLabel>Public Phone Number</FormLabel><Input type="tel" placeholder="Your business phone number" {...field} /><FormMessage /></FormItem>)} />
                                 <FormField control={form.control} name="contactEmail" render={({ field }) => (<FormItem><FormLabel>Public Email</FormLabel><Input type="email" placeholder="Your business email" {...field} /><FormMessage /></FormItem>)} />
                             </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="branding">
+                        <AccordionTrigger className="text-lg font-semibold">Branding &amp; PWA</AccordionTrigger>
+                        <AccordionContent className="space-y-6 pt-4">
+                            <div className="grid md:grid-cols-2 gap-6 items-center">
+                                <FormField control={form.control} name="logoUrl" render={() => (
+                                    <FormItem><FormLabel>Your Logo</FormLabel>
+                                    <div className="w-48 h-24 border rounded-md flex items-center justify-center bg-muted/40 overflow-hidden">
+                                        {logoPreview ? <Image src={logoPreview} alt="Logo Preview" width={192} height={96} className="object-contain"/> : '192x96'}
+                                    </div>
+                                    <FormControl><Input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'logo')} /></FormControl>
+                                    <FormMessage /></FormItem>
+                                )}/>
+                                 <FormField control={form.control} name="faviconUrl" render={() => (
+                                    <FormItem><FormLabel>Your Favicon</FormLabel>
+                                    <div className="w-16 h-16 border rounded-md flex items-center justify-center bg-muted/40 overflow-hidden">
+                                        {faviconPreview ? <Image src={faviconPreview} alt="Favicon Preview" width={64} height={64} className="object-contain"/> : '64x64'}
+                                    </div>
+                                    <FormControl><Input type="file" accept="image/png, image/x-icon" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], 'favicon')} /></FormControl>
+                                    <FormMessage /></FormItem>
+                                )}/>
+                            </div>
+                             <FormField control={form.control} name="themeColor" render={({ field }) => (
+                                <FormItem><FormLabel>Theme Color</FormLabel>
+                                <div className="flex items-center gap-2">
+                                <FormControl><Input placeholder="#2563EB" {...field} className="w-48"/></FormControl>
+                                <div className="w-8 h-8 rounded-full border" style={{ backgroundColor: field.value || '#ffffff' }} />
+                                </div><FormMessage /></FormItem>
+                            )}/>
                         </AccordionContent>
                     </AccordionItem>
                     <AccordionItem value="hero">

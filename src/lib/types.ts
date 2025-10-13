@@ -335,6 +335,9 @@ export interface SiteConfig {
   siteTitle: string;
   contactPhone?: string;
   contactEmail?: string;
+  logoUrl?: string;
+  faviconUrl?: string;
+  themeColor?: string;
   listedPgs: string[];
   status: 'published' | 'draft' | 'suspended';
   heroHeadline?: string;
