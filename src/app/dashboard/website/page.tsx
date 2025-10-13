@@ -1,3 +1,4 @@
+
 'use client'
 
 import React, { useEffect, useState, useMemo, useTransition } from 'react';
@@ -75,7 +76,7 @@ export default function WebsiteBuilderPage() {
     const { isLoading: isAppLoading } = useAppSelector(state => state.app)
     
     const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
-    const [viewMode, setViewMode] = useState<'loading' | 'display' | 'edit'>('loading');
+    const [viewMode, setViewMode] = useState<'loading' | 'ready'>('loading');
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
@@ -111,7 +112,6 @@ export default function WebsiteBuilderPage() {
             form.reset(config);
             setLogoPreview(config.logoUrl || null);
             setFaviconPreview(config.faviconUrl || null);
-            setViewMode('display');
         } else {
             form.reset({
                 siteTitle: `${currentUser.name || 'My'}'s Properties`,
@@ -125,8 +125,8 @@ export default function WebsiteBuilderPage() {
                 featuresDescription: "We provide top-notch facilities to ensure a comfortable stay.",
                 features: [], faqs: [], testimonials: [], subdomain: '', contactPhone: '', logoUrl: '', faviconUrl: '', themeColor: '',
             });
-            setViewMode('edit');
         }
+        setViewMode('ready');
     };
     
     useEffect(() => {
@@ -173,7 +173,6 @@ export default function WebsiteBuilderPage() {
                 form.reset(result.config);
                 setLogoPreview(result.config.logoUrl || null);
                 setFaviconPreview(result.config.faviconUrl || null);
-                setViewMode('display');
             } else {
                 if (result.errorField === 'subdomain') {
                     form.setError('subdomain', { type: 'manual', message: result.error });
@@ -191,7 +190,6 @@ export default function WebsiteBuilderPage() {
         if (result.success) {
             toast({ title: 'Success', description: 'Your public website has been deleted.' });
             setSiteConfig(null);
-            setViewMode('edit');
             fetchConfig(); // re-fetch to set default values
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.error });
@@ -267,78 +265,53 @@ export default function WebsiteBuilderPage() {
             </>
        )
     }
-    
-    if (viewMode === 'display' && siteConfig) {
-        const publicUrl = `${window.location.origin}/site/${siteConfig.subdomain}`;
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Globe/> Your Public Website</CardTitle>
-                    <CardDescription>Your website is live. You can preview, edit, or delete it below.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                     <Alert>
-                        <LinkIcon className="h-4 w-4" />
-                        <AlertTitle>Your Website URL</AlertTitle>
-                        <AlertDescription>
-                            <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{publicUrl}</a>
-                        </AlertDescription>
-                    </Alert>
-                    <div className="flex items-center space-x-2">
-                        <Switch id="site-status" checked={siteConfig.status === 'published'} onCheckedChange={handleStatusToggle} disabled={isSaving}/>
-                        <Label htmlFor="site-status" className="flex items-center gap-1.5">
-                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : siteConfig.status === 'published' ? <Power className="w-4 h-4 text-green-500" /> : <PowerOff className="w-4 h-4 text-red-500" />}
-                            {isSaving ? 'Updating...' : siteConfig.status === 'published' ? 'Live' : 'Suspended'}
-                        </Label>
-                    </div>
-                </CardContent>
-                <CardFooter className="flex-wrap gap-2">
-                    <Button variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4" />Share</Button>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="outline"><Eye className="mr-2 h-4 w-4" />Preview</Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-0">
-                            <DialogHeader className="p-6 pb-4 border-b">
-                                <DialogTitle>Website Preview: {publicUrl}</DialogTitle>
-                            </DialogHeader>
-                            <div className="flex-1 rounded-md border overflow-hidden">
-                                <iframe src={siteUrl} className="w-full h-full" title="Website Preview"/>
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                    <Button onClick={() => setViewMode('edit')}><Pencil className="mr-2 h-4 w-4" />Edit</Button>
-                    <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
-                </CardFooter>
-
-                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will permanently delete your public website at <span className="font-mono text-foreground">{siteConfig.subdomain}.{domain}</span>. This action cannot be undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-                                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </Card>
-        )
-    }
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>App & Website Builder</CardTitle>
-                <CardDescription>Customize your brand, PWA, and public-facing website.</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                    <Globe/> App & Website Builder
+                </CardTitle>
+                <CardDescription>
+                    {siteConfig 
+                        ? "Manage your brand, PWA, and public-facing website." 
+                        : "Create a public website and branded app for your properties."
+                    }
+                </CardDescription>
             </CardHeader>
             <CardContent>
+                {siteConfig && (
+                    <div className="space-y-4 mb-6 p-4 border rounded-lg bg-muted/40">
+                         <Alert>
+                            <LinkIcon className="h-4 w-4" />
+                            <AlertTitle>Your Website URL</AlertTitle>
+                            <AlertDescription>
+                                <a href={`${window.location.origin}/site/${siteConfig.subdomain}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-mono text-sm break-all">{`${window.location.origin}/site/${siteConfig.subdomain}`}</a>
+                            </AlertDescription>
+                        </Alert>
+                        <div className="flex items-center justify-between flex-wrap gap-4">
+                            <div className="flex items-center space-x-2">
+                                <Switch id="site-status" checked={siteConfig.status === 'published'} onCheckedChange={handleStatusToggle} disabled={isSaving}/>
+                                <Label htmlFor="site-status" className="flex items-center gap-1.5">
+                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : siteConfig.status === 'published' ? <Power className="w-4 h-4 text-green-500" /> : <PowerOff className="w-4 h-4 text-red-500" />}
+                                    {isSaving ? 'Updating...' : siteConfig.status === 'published' ? 'Live' : 'Suspended'}
+                                </Label>
+                            </div>
+                             <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" onClick={handleShare}><Share2 className="mr-2 h-4 w-4" />Share</Button>
+                                <Dialog>
+                                    <DialogTrigger asChild><Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" />Preview</Button></DialogTrigger>
+                                    <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-0">
+                                        <DialogHeader className="p-6 pb-4 border-b"><DialogTitle>Website Preview</DialogTitle></DialogHeader>
+                                        <div className="flex-1 rounded-md border overflow-hidden"><iframe src={siteUrl} className="w-full h-full" title="Website Preview"/></div>
+                                    </DialogContent>
+                                </Dialog>
+                                <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete Site</Button>
+                             </div>
+                        </div>
+                    </div>
+                )}
+                
                 <Form {...form}>
                     <form className="space-y-4">
                         <Tabs defaultValue="branding" className="w-full">
@@ -415,9 +388,6 @@ export default function WebsiteBuilderPage() {
                             </TabsContent>
                         </Tabs>
                         <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-                            {viewMode === 'edit' && siteConfig && (
-                                <Button type="button" variant="secondary" onClick={() => { form.reset(siteConfig); setViewMode('display'); }}>Cancel</Button>
-                            )}
                             <Button type="button" variant="outline" onClick={form.handleSubmit(data => onSubmit(data, 'draft'))} disabled={isSaving}>
                                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Save as Draft
@@ -430,6 +400,24 @@ export default function WebsiteBuilderPage() {
                     </form>
                 </Form>
             </CardContent>
+            
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete your public website at <span className="font-mono text-foreground">{siteConfig?.subdomain}.{domain}</span>. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     );
 }
