@@ -22,7 +22,7 @@ export default function InstallPWA() {
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallpwaEvent);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
     const handleAppInstalled = () => {
@@ -69,6 +69,7 @@ export default function InstallPWA() {
         <TooltipTrigger asChild>
           <div>
             <Button 
+              type="button"
               onClick={handleInstallClick} 
               variant="outline"
               className="w-full"
