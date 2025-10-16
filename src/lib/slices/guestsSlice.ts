@@ -1,3 +1,4 @@
+
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
@@ -114,6 +115,20 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
                 targetId: user.currentUser.id,
             }
         }));
+
+        // Send welcome notification to tenant
+        if (newGuest.userId) {
+             dispatch(createAndSendNotification({
+                ownerId: user.currentUser.id,
+                notification: {
+                    type: 'new-guest',
+                    title: `Welcome to ${newGuest.pgName}!`,
+                    message: `Hi ${newGuest.name}, your stay has been set up. You can manage everything from your tenant portal.`,
+                    link: `/tenants/my-pg`,
+                    targetId: newGuest.userId,
+                }
+            }));
+        }
         
         return { newGuest, updatedPg, existingUser: existingUser || undefined };
     }

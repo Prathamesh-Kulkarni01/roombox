@@ -59,6 +59,19 @@ export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, 
             }
         });
         
+        if (currentGuest.userId) {
+            await createAndSendNotification({
+                ownerId,
+                notification: {
+                    type: 'new-complaint-confirmation',
+                    title: 'Complaint Logged',
+                    message: `We have received your complaint about "${newComplaint.category}". The manager has been notified.`,
+                    link: '/tenants/complaints',
+                    targetId: currentGuest.userId
+                }
+            });
+        }
+        
         return newComplaint;
     }
 );
