@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import React, { useEffect, useState, useMemo, useTransition } from 'react';
@@ -68,6 +67,7 @@ const websiteConfigSchema = z.object({
   features: z.array(featureSchema).optional(),
   faqs: z.array(faqSchema).optional(),
   testimonials: z.array(testimonialSchema).optional(),
+  updatedAt: z.number().optional(), // Add this to force re-render
 });
 
 type WebsiteConfigFormValues = z.infer<typeof websiteConfigSchema>;
@@ -178,7 +178,9 @@ export default function WebsiteBuilderPage() {
         }
 
         startTransition(async () => {
-            const result = await saveSiteConfig({ ...data, status, ownerId: currentUser.id, existingSubdomain: siteConfig?.subdomain });
+            const payload = { ...data, status, ownerId: currentUser.id, existingSubdomain: siteConfig?.subdomain, updatedAt: Date.now() };
+            const result = await saveSiteConfig(payload);
+            
             if (result.success && result.config) {
                 toast({ title: 'Success!', description: `Your website has been ${status === 'published' ? 'published' : 'saved as a draft'}.`});
                 setSiteConfig(result.config);
@@ -386,7 +388,7 @@ export default function WebsiteBuilderPage() {
                                                   </div>
                                                 ) : <Skeleton className="w-32 h-32"/>}
                                                 <div className="flex flex-col gap-2 w-full">
-                                                    <InstallPWA />
+                                                    <InstallPWA key={siteConfig?.updatedAt} />
                                                     <Button type="button" variant="outline" onClick={handleShare}><Share2 className="mr-2 h-4 w-4"/>Share App Link</Button>
                                                     <Button type="button" variant="outline" onClick={async () => { await navigator.clipboard.writeText(appUrl); toast({title: 'Link Copied!'}); }}><Copy className="mr-2 h-4 w-4"/>Copy Link</Button>
                                                 </div>

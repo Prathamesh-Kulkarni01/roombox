@@ -1,5 +1,4 @@
 
-
 export type Amenity =
   | 'wifi'
   | 'ac'
@@ -375,6 +374,7 @@ export interface SiteConfig {
   features?: { title: string; description: string; }[];
   faqs?: { q: string; a: string; }[];
   testimonials?: { quote: string; author: string; }[];
+  updatedAt?: number;
 }
 
 export interface ChargeTemplate {
@@ -435,7 +435,6 @@ export type OnboardingStatus = 'complete' | 'pending' | 'error' | 'disabled';
 export interface OnboardingStep {
     id: string;
     title: string;
-    description: string;
     icon: React.ElementType;
     status: OnboardingStatus;
 }
