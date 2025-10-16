@@ -13,6 +13,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
+  manifest: '/manifest.json',
   keywords: [
       "rental management software",
       "property management",
@@ -87,6 +88,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="!scroll-smooth" suppressHydrationWarning>
       <head>
+        <meta name="application-name" content="RentVastu" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="RentVastu" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload"/>
         <meta name="google-site-verification" content="HLDs7KWq0n7qSkYF2Lbuziso5ekVPmQM4ez6Bu6wL1A" />
         <link rel="icon" href="/favicon.ico" sizes="any" />

@@ -9,9 +9,19 @@ const withPWA = withPWAInit({
   disable: isDev,
   register: true,
   skipWaiting: true,
-  sw: 'service-worker.js', // This is the main PWA service worker
+  sw: 'sw.js', // This is the main PWA service worker
   extendDefaultRuntimeCaching: true,
   runtimeCaching: [
+    {
+      urlPattern: /manifest\.json$/i,
+      handler: 'NetworkFirst',
+      options: {
+        cacheName: 'manifest',
+        expiration: {
+          maxAgeSeconds: 60 * 60, // 1 hour
+        },
+      },
+    },
     {
       urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
       handler: 'CacheFirst',

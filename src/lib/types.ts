@@ -1,4 +1,13 @@
 
+export interface PWAConfig {
+  name: string;
+  shortName: string;
+  themeColor: string;
+  backgroundColor: string;
+  logo: string;
+  subdomain?: string;
+}
+
 export type Amenity =
   | 'wifi'
   | 'ac'

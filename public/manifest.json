@@ -1,6 +1,10 @@
 {
-  "name": "RentVastu",
-  "short_name": "RentVastu",
+  "name": "RentSutra",
+  "short_name": "RentSutra",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "icons/icon-48x48.png",
@@ -52,10 +56,5 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ],
-  "start_url": "/",
-  "scope": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000"
+  ]
 }
