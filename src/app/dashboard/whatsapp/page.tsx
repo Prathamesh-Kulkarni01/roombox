@@ -6,21 +6,37 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell } from 'lucide-react';
+import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import { useAppSelector } from '@/lib/hooks';
 
 const notificationEvents = [
-    { id: 'rent-reminder-due', title: 'Rent Reminder (Due)', desc: 'Sent when rent is overdue.', tenant: true, owner: false },
-    { id: 'rent-reminder-upcoming', title: 'Rent Reminder (Upcoming)', desc: 'Sent a few days before the due date.', tenant: true, owner: false },
-    { id: 'payment-confirmation', title: 'Payment Confirmation', desc: 'Sent when a payment is successfully recorded.', tenant: true, owner: true },
-    { id: 'new-complaint', title: 'New Complaint Logged', desc: 'Sent when a tenant raises a new issue.', tenant: false, owner: true },
-    { id: 'complaint-update', title: 'Complaint Status Update', desc: 'Sent when an issue\'s status changes.', tenant: true, owner: false },
-    { id: 'announcement', title: 'General Announcement', desc: 'Sent when you use the notice board.', tenant: true, owner: false },
-    { id: 'kyc-update', title: 'KYC Status Update', desc: 'Informs tenant if KYC is approved or rejected.', tenant: true, owner: false },
-    { id: 'new-guest', title: 'New Guest Onboarded', desc: 'Informs owner when a guest is added.', tenant: false, owner: true },
-    { id: 'guest-exit', title: 'Guest Exit Initiated', desc: 'Notifies owner when a guest starts their notice period.', tenant: false, owner: true },
+    { 
+        category: 'Financial',
+        events: [
+            { id: 'rent-reminder-due', title: 'Rent Overdue', desc: 'Sent when rent is overdue.', icon: AlertCircle, tenant: true, owner: false },
+            { id: 'rent-reminder-upcoming', title: 'Rent Reminder', desc: 'Sent a few days before the due date.', icon: Bell, tenant: true, owner: false },
+            { id: 'payment-confirmation-tenant', title: 'Payment Confirmation (Tenant)', desc: 'Digital receipt sent to tenant on payment.', icon: CheckCircle, tenant: true, owner: false },
+            { id: 'payment-confirmation-owner', title: 'Payment Received (Owner)', desc: 'Instant alert to you when rent is paid online.', icon: IndianRupee, tenant: false, owner: true },
+        ]
+    },
+    {
+        category: 'Operations',
+        events: [
+            { id: 'new-complaint', title: 'New Complaint', desc: 'Alerts you when a tenant raises an issue.', icon: MessageCircle, tenant: false, owner: true },
+            { id: 'complaint-update', title: 'Complaint Status Update', desc: 'Informs tenant when their issue status changes.', icon: CheckCircle, tenant: true, owner: false },
+            { id: 'announcement', title: 'Notice Board', desc: 'Broadcasts general announcements to tenants.', icon: MessageCircle, tenant: true, owner: false },
+        ]
+    },
+    {
+        category: 'Guest Lifecycle',
+        events: [
+            { id: 'new-guest', title: 'New Guest Onboarded', desc: 'Welcomes new tenant and informs owner.', icon: UserPlus, tenant: true, owner: true },
+            { id: 'kyc-update', title: 'KYC Status Update', desc: 'Informs tenant if KYC is approved or rejected.', icon: FileText, tenant: true, owner: false },
+            { id: 'guest-exit', title: 'Guest Exit Initiated', desc: 'Notifies you when a guest starts their notice period.', icon: LogOut, tenant: false, owner: true },
+        ]
+    }
 ]
 
 
@@ -30,7 +46,7 @@ export default function WhatsAppPage() {
     
     const [notificationSettings, setNotificationSettings] = useState(() => {
         const initialState: Record<string, { tenant: boolean; owner: boolean }> = {};
-        notificationEvents.forEach(event => {
+        notificationEvents.flatMap(g => g.events).forEach(event => {
             initialState[event.id] = { tenant: event.tenant, owner: event.owner };
         });
         return initialState;
@@ -84,43 +100,59 @@ export default function WhatsAppPage() {
             </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Settings /> Notification Settings</CardTitle>
-                        <CardDescription>Enable or disable automated WhatsApp notifications for specific events.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {notificationEvents.map(event => (
-                            <div key={event.id} className="p-4 border rounded-lg">
-                                <h4 className="font-semibold">{event.title}</h4>
-                                <p className="text-sm text-muted-foreground mb-3">{event.desc}</p>
-                                <div className="flex items-center gap-6">
-                                     <div className="flex items-center space-x-2">
-                                        <Switch 
-                                            id={`${event.id}-tenant`} 
-                                            disabled={!event.tenant}
-                                            checked={event.tenant && notificationSettings[event.id].tenant}
-                                            onCheckedChange={() => handleToggle(event.id, 'tenant')}
-                                        />
-                                        <Label htmlFor={`${event.id}-tenant`} className="flex items-center gap-1.5"><User className="w-4 h-4"/> Tenant</Label>
-                                    </div>
-                                     <div className="flex items-center space-x-2">
-                                        <Switch 
-                                            id={`${event.id}-owner`}
-                                            disabled={!event.owner}
-                                            checked={event.owner && notificationSettings[event.id].owner}
-                                            onCheckedChange={() => handleToggle(event.id, 'owner')}
-                                        />
-                                        <Label htmlFor={`${event.id}-owner`} className="flex items-center gap-1.5"><Bell className="w-4 h-4"/> Owner</Label>
+                <div className="lg:col-span-2 space-y-6">
+                     <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Settings /> Notification Settings</CardTitle>
+                            <CardDescription>Enable or disable automated WhatsApp notifications for specific events.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {notificationEvents.map(group => (
+                                <div key={group.category}>
+                                    <h3 className="font-semibold text-lg mb-4">{group.category}</h3>
+                                    <div className="space-y-4">
+                                        {group.events.map(event => (
+                                            <div key={event.id} className="p-4 border rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="p-2 bg-muted rounded-full mt-1">
+                                                        <event.icon className="w-4 h-4 text-primary" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-semibold">{event.title}</h4>
+                                                        <p className="text-sm text-muted-foreground mb-3">{event.desc}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-6 pl-11">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Switch
+                                                            id={`${event.id}-tenant`}
+                                                            disabled={!event.tenant}
+                                                            checked={event.tenant && notificationSettings[event.id].tenant}
+                                                            onCheckedChange={() => handleToggle(event.id, 'tenant')}
+                                                        />
+                                                        <Label htmlFor={`${event.id}-tenant`} className="flex items-center gap-1.5"><User className="w-4 h-4"/> Tenant</Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Switch
+                                                            id={`${event.id}-owner`}
+                                                            disabled={!event.owner}
+                                                            checked={event.owner && notificationSettings[event.id].owner}
+                                                            onCheckedChange={() => handleToggle(event.id, 'owner')}
+                                                        />
+                                                        <Label htmlFor={`${event.id}-owner`} className="flex items-center gap-1.5"><Bell className="w-4 h-4"/> Owner</Label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </CardContent>
-                    <CardFooter>
-                        <Button>Save Settings</Button>
-                    </CardFooter>
-                </Card>
+                            ))}
+                        </CardContent>
+                        <CardFooter>
+                            <Button>Save Settings</Button>
+                        </CardFooter>
+                    </Card>
+                </div>
 
                 <div className="lg:col-span-1 space-y-6 lg:sticky top-20">
                      <Card>
@@ -149,4 +181,3 @@ export default function WhatsAppPage() {
         </div>
     );
 }
-
