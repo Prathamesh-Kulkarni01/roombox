@@ -1,5 +1,6 @@
+
 import type { Menu, Plan, PlanName, PG } from './types';
-import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen, IndianRupee, HandCoins, ShieldCheck, AppWindow } from 'lucide-react';
+import { Home, Building, Users, Wand2, UserCircle, LogOut, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, ChevronsUpDown, Globe, BookUser, CreditCard, BookOpen, IndianRupee, HandCoins, ShieldCheck, AppWindow, MessageCircle } from 'lucide-react';
 
 
 export const defaultMenu: Menu = {
@@ -77,7 +78,7 @@ export const plans: Record<PlanName, Plan> = {
     id: 'enterprise',
     name: 'Enterprise',
     price: 'Custom',
-    pricePeriod: 'per year',
+    pricePeriod: '/per year',
     description: "For large chains requiring data isolation and premium support.",
     pgLimit: 'unlimited',
     floorLimit: 'unlimited',
@@ -138,6 +139,7 @@ export const allNavItems: NavGroup[] = [
       title: "nav_group_growth",
       items: [
           { href: '/dashboard/website', label: 'nav_app_website', icon: Globe, feature: 'website', description: 'nav_app_website_desc' },
+          { href: '/dashboard/whatsapp', label: 'nav_whatsapp', icon: MessageCircle, feature: 'whatsapp', description: 'nav_whatsapp_desc' },
           { href: '/dashboard/subscription', label: 'nav_billing', icon: CreditCard, feature: 'core', description: 'nav_billing_desc' },
           { href: '/dashboard/training', label: 'nav_training', icon: BookOpen, feature: 'core', description: 'nav_training_desc' },
           { href: '/dashboard/enterprise', label: 'nav_enterprise', icon: Building, feature: 'core', description: 'nav_enterprise_desc' },
@@ -173,4 +175,3 @@ export const mockPgs: PG[] = [
     contact: '+919876543210',
   },
 ];
-

@@ -102,6 +102,19 @@ export interface PG {
   status: 'active' | 'pending_approval' | 'rejected' | 'suspended';
 }
 
+export interface Payment {
+    id: string; // razorpay payment id
+    date: string;
+    amount: number;
+    method: 'cash' | 'upi' | 'in-app';
+    forMonth: string;
+    notes?: string;
+    payoutId?: string; // razorpay payout id
+    payoutStatus?: 'pending' | 'processed' | 'failed';
+    payoutTo?: string;
+    payoutFailureReason?: string;
+}
+
 export interface LedgerEntry {
     id: string;
     date: string; // ISO string
@@ -192,7 +205,19 @@ export interface Guest {
   isVacated: boolean; // True if the guest has permanently left the PG
   ledger: LedgerEntry[];
   documents?: SubmittedKycDocument[];
+  paymentHistory?: Payment[]; // This is now deprecated in favor of ledger
+  balanceBroughtForward?: number; // Also deprecated, calculated from ledger
+  rentPaidAmount?: number; // Also deprecated
+  additionalCharges?: AdditionalCharge[]; // Also deprecated
 }
+
+export interface AdditionalCharge { // Also deprecated
+    id: string;
+    description: string;
+    amount: number;
+    date: string;
+}
+
 
 export interface Complaint {
   id: string;
