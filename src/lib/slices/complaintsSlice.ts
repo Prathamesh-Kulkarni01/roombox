@@ -20,7 +20,7 @@ const initialState: ComplaintsState = {
 export type NewTenantComplaintData = Omit<Complaint, 'id' | 'date' | 'status' | 'guestName' | 'guestId' | 'pgId' | 'pgName'>;
 export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, { state: RootState }>(
     'complaints/addComplaint',
-    async (newComplaintData, { getState, rejectWithValue }) => {
+    async (newComplaintData, { getState, rejectWithValue, dispatch }) => {
         const { user, guests } = getState();
         const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
         const ownerId = user.currentUser?.ownerId;
@@ -47,6 +47,17 @@ export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, 
             const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
             await setDoc(docRef, newComplaint);
         }
+
+        await createAndSendNotification({
+            ownerId: ownerId,
+            notification: {
+                type: 'new-complaint',
+                title: `New Complaint: ${newComplaint.category}`,
+                message: `${newComplaint.guestName} reported: "${newComplaint.description.substring(0, 100)}${newComplaint.description.length > 100 ? '...' : ''}"`,
+                link: `/dashboard/complaints`,
+                targetId: ownerId, // Send to the owner
+            }
+        });
         
         return newComplaint;
     }

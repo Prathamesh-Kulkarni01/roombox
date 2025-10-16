@@ -1,11 +1,10 @@
 
-
 'use server'
 
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Notification, User } from '@/lib/types';
 import { sendPushToUser } from '../notifications';
-import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, writeBatch } from 'firebase/firestore';
 import axios from 'axios';
 
 interface CreateAndSendNotificationParams {
@@ -101,4 +100,3 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     const notificationDocRef = adminDb.collection('users_data').doc(ownerId).collection('notifications').doc(newNotification.id);
     await notificationDocRef.set(newNotification);
 }
-

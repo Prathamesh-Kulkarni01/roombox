@@ -14,6 +14,7 @@ import { uploadDataUriToStorage } from '../storage';
 import { deletePg } from './pgsSlice';
 import { calculateFirstDueDate } from '@/lib/utils';
 import { runReconciliationLogic } from '../reconciliation';
+import { createAndSendNotification } from '../actions/notificationActions';
 
 interface GuestsState {
     guests: Guest[];
@@ -72,6 +73,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         
         if (existingUser) {
             // Update existing user to point to new active guest record
+            newGuest.userId = existingUser.id;
             const userDocRef = doc(selectedDb, 'users', existingUser.id);
             batch.update(userDocRef, {
                 guestId: newGuest.id,
@@ -101,12 +103,16 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
             await batch.commit();
         }
 
-        dispatch(addNotification({
-            type: 'new-guest',
-            title: 'Guest Added & Invited',
-            message: `${newGuest.name} has been added. A sign-in link was sent to their email.`,
-            link: `/dashboard/tenant-management/${newGuest.id}`,
-            targetId: newGuest.id,
+        // Send notification to owner
+        dispatch(createAndSendNotification({
+            ownerId: user.currentUser.id,
+            notification: {
+                type: 'new-guest',
+                title: 'New Guest Onboarded',
+                message: `${newGuest.name} has been added to ${newGuest.pgName}. Welcome!`,
+                link: `/dashboard/tenant-management/${newGuest.id}`,
+                targetId: user.currentUser.id,
+            }
         }));
         
         return { newGuest, updatedPg, existingUser: existingUser || undefined };
@@ -148,12 +154,16 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
             await setDoc(guestDocRef, { kycStatus: 'pending', documents: uploadedDocuments }, { merge: true });
         }
         
-        dispatch(addNotification({
-            type: 'kyc-submitted',
-            title: `KYC Submitted by ${updatedGuest.name}`,
-            message: `New documents are ready for your review.`,
-            link: `/dashboard/tenant-management/${updatedGuest.id}`,
-            targetId: ownerId, // Notify the owner
+        // Notify owner
+        dispatch(createAndSendNotification({
+            ownerId: ownerId,
+            notification: {
+                type: 'kyc-submitted',
+                title: `KYC Submitted by ${updatedGuest.name}`,
+                message: `New documents are ready for your review.`,
+                link: `/dashboard/tenant-management/${updatedGuest.id}`,
+                targetId: ownerId,
+            }
         }));
 
         return updatedGuest;
@@ -199,12 +209,15 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
         }
         
         if(updatedGuest.userId) {
-            dispatch(addNotification({
-                type: 'kyc-submitted',
-                title: `KYC Status Updated`,
-                message: `Your property manager has submitted documents for you. They are now under review.`,
-                link: `/tenants/kyc`,
-                targetId: updatedGuest.userId,
+            dispatch(createAndSendNotification({
+                ownerId: ownerId,
+                notification: {
+                    type: 'kyc-submitted',
+                    title: `KYC Status Updated`,
+                    message: `Your property manager has submitted documents for you. They are now under review.`,
+                    link: `/tenants/kyc`,
+                    targetId: updatedGuest.userId,
+                }
             }));
         }
 
@@ -237,12 +250,15 @@ export const updateGuestKycStatus = createAsyncThunk<Guest, {
         }
 
         if (updatedGuest.userId) {
-            dispatch(addNotification({
-                type: 'kyc-submitted', // Re-using type
-                title: 'KYC Status Updated',
-                message: `Your KYC has been ${status}. ${reason ? `Reason: ${reason}` : ''}`,
-                link: '/tenants/kyc',
-                targetId: updatedGuest.userId,
+            dispatch(createAndSendNotification({
+                ownerId: ownerId,
+                notification: {
+                    type: 'kyc-update',
+                    title: 'KYC Status Updated',
+                    message: `Your KYC has been ${status}. ${reason ? `Reason: ${reason}` : ''}`,
+                    link: '/tenants/kyc',
+                    targetId: updatedGuest.userId,
+                }
             }));
         }
         return updatedGuest;
@@ -353,6 +369,13 @@ export const reconcileGuestPayment = createAsyncThunk<Guest, {
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestWithPayment.id);
             await setDoc(guestDocRef, guestWithPayment);
         }
+
+        // Notify owner and tenant
+        dispatch(createAndSendNotification({ ownerId, notification: { type: 'rent-paid', title: 'Rent Collected!', message: `Received ₹${paymentAmount} from ${guest.name}.`, link: `/dashboard/tenant-management/${guest.id}`, targetId: ownerId } }));
+        if (guest.userId) {
+            dispatch(createAndSendNotification({ ownerId, notification: { type: 'rent-receipt', title: 'Payment Confirmation', message: `Your payment of ₹${paymentAmount} has been successfully recorded.`, link: '/tenants/my-pg', targetId: guest.userId } }));
+        }
+
 
         // Run reconciliation separately to advance the cycle if needed
         dispatch(reconcileRentCycle(guest.id));
@@ -473,7 +496,7 @@ export const addSharedChargeToRoom = createAsyncThunk<Guest[], { roomId: string,
 
 export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootState }>(
     'guests/initiateGuestExit',
-    async (guestId, { getState, rejectWithValue }) => {
+    async (guestId, { getState, dispatch, rejectWithValue }) => {
         const { user, guests } = getState();
         const guest = guests.guests.find(g => g.id === guestId);
         const ownerId = user.currentUser?.id;
@@ -489,6 +512,10 @@ export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootSt
 
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await setDoc(guestDocRef, updatedGuest, { merge: true });
+        }
+        
+        if (guest.userId) {
+            dispatch(createAndSendNotification({ ownerId, notification: { type: 'guest-exit', title: 'Notice Period Started', message: `Your notice period has been initiated and will end on ${format(exitDate, 'do MMM, yyyy')}.`, link: '/tenants/my-pg', targetId: guest.userId }}));
         }
 
         return updatedGuest;
@@ -559,6 +586,18 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
         const { guest: reconciledGuest, cyclesProcessed } = runReconciliationLogic(guest, now);
         
         if (cyclesProcessed === 0) {
+            // Even if no new cycle, there might be a status update (e.g. balance became 0)
+            if (JSON.stringify(guest) !== JSON.stringify(reconciledGuest)) {
+                 if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+                    const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
+                    if (ownerId) {
+                        const selectedDb = selectOwnerDataDb(user.currentUser);
+                        const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
+                        await setDoc(guestDocRef, reconciledGuest, { merge: true });
+                    }
+                }
+                return reconciledGuest;
+            }
             return rejectWithValue('No reconciliation needed.');
         }
 
@@ -680,5 +719,3 @@ const guestsSlice = createSlice({
 
 export const { setGuests } = guestsSlice.actions;
 export default guestsSlice.reducer;
-
-    
