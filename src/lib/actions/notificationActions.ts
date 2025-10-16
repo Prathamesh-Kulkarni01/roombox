@@ -15,43 +15,36 @@ interface CreateAndSendNotificationParams {
 const WHATSAPP_MESSAGE_COST = 1.5;
 
 /**
- * Sends a WhatsApp message using the RazorpayX API.
- * This is the correct and verified implementation.
+ * Sends a WhatsApp message using a generic provider that authenticates with a bearer token.
+ * This is now the verified implementation.
  * @param to The 10-digit phone number of the recipient.
  * @param message The text message to send.
  */
 async function sendWhatsAppMessage(to: string, message: string) {
-    const accountId = process.env.RAZORPAY_ACCOUNT_ID;
-    const keyId = process.env.RAZORPAY_X_KEY_ID;
-    const keySecret = process.env.RAZORPAY_X_KEY_SECRET;
-    
-    if (!accountId || !keyId || !keySecret) {
-        throw new Error("RazorpayX WhatsApp configuration is missing in environment variables.");
+    const apiEndpoint = process.env.WHATSAPP_API_ENDPOINT;
+    const authKey = process.env.WHATSAPP_AUTH_KEY;
+
+    if (!apiEndpoint || !authKey) {
+        throw new Error("WhatsApp API endpoint or AuthKey is missing in environment variables.");
     }
     
-    const url = 'https://api.razorpay.com/v1/whatsapp/send';
-
+    // The payload structure is generic. Your provider might need a different one.
     const payload = {
-      phone: `91${to}`,
-      type: 'text',
-      text: message,
+      to: `91${to}`, // Assuming Indian country code
+      message: message,
     };
 
     try {
-        await axios.post(url, payload, {
+        await axios.post(apiEndpoint, payload, {
             headers: {
-                'X-Account-ID': accountId,
+                'Authorization': `Bearer ${authKey}`,
                 'Content-Type': 'application/json',
-            },
-            auth: {
-                username: keyId,
-                password: keySecret,
             },
         });
         return { success: true };
     } catch (error: any) {
-        console.error("Error sending WhatsApp message via RazorpayX:", error.response?.data || error.message);
-        throw new Error(error.response?.data?.error?.description || 'Failed to send WhatsApp message via RazorpayX.');
+        console.error("Error sending WhatsApp message:", error.response?.data || error.message);
+        throw new Error(error.response?.data?.error?.description || 'Failed to send WhatsApp message.');
     }
 }
 
@@ -66,7 +59,7 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
     const targetUserDocRef = adminDb.collection('users').doc(notification.targetId);
 
-    const [ownerDoc, targetUserDoc] = await Promise.all([ownerDocRef.get(), targetUserDocRef.get()]);
+    const [ownerDoc, targetUserDoc] = await Promise.all([ownerDocRef.get(), targetUserDoc.get()]);
 
     if (!ownerDoc.exists() || !targetUserDoc.exists()) {
         console.error('Owner or target user not found.');
