@@ -5,61 +5,100 @@
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Notification, User } from '@/lib/types';
 import { sendPushToUser } from '../notifications';
+import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import axios from 'axios';
 
 interface CreateAndSendNotificationParams {
     ownerId: string;
     notification: Omit<Notification, 'id' | 'date' | 'isRead'>;
 }
 
-/**
- * Creates and saves a notification to Firestore, and then sends it as a push notification.
- * This is the primary function to use for all user-facing notifications.
- * @param ownerId The ID of the property owner associated with this event. Notifications are stored under the owner's data.
- * @param notification The notification content. Must include a `targetId` (the user to send to).
- */
+const WHATSAPP_MESSAGE_COST = 1.5;
+
+async function sendWhatsAppMessage(to: string, message: string) {
+    if (!process.env.RAZORPAY_ACCOUNT_ID || !process.env.RAZORPAY_X_KEY_ID || !process.env.RAZORPAY_X_KEY_SECRET) {
+        throw new Error("RazorpayX WhatsApp configuration is missing.");
+    }
+    const url = `https://api.razorpay.com/v1/contacts/${process.env.RAZORPAY_ACCOUNT_ID}/whatsapp`;
+    const payload = {
+      phone: `91${to}`,
+      type: 'text',
+      text: message,
+    };
+    try {
+        await axios.post(url, payload, {
+            auth: {
+                username: process.env.RAZORPAY_X_KEY_ID,
+                password: process.env.RAZORPAY_X_KEY_SECRET,
+            },
+        });
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error sending WhatsApp message via Razorpay:", error.response?.data || error.message);
+        throw new Error(error.response?.data?.error?.description || 'Failed to send WhatsApp message.');
+    }
+}
+
+
 export async function createAndSendNotification({ ownerId, notification }: CreateAndSendNotificationParams) {
     if (!ownerId || !notification || !notification.targetId) {
         console.error('createAndSendNotification: ownerId, notification, and targetId are required.');
         return;
     }
     
+    const adminDb = await getAdminDb();
+    const ownerDocRef = adminDb.collection('users').doc(ownerId);
+    const targetUserDocRef = adminDb.collection('users').doc(notification.targetId);
+
+    const [ownerDoc, targetUserDoc] = await Promise.all([ownerDocRef.get(), targetUserDocRef.get()]);
+
+    if (!ownerDoc.exists() || !targetUserDoc.exists()) {
+        console.error('Owner or target user not found.');
+        return;
+    }
+
+    const owner = ownerDoc.data() as User;
+    const targetUser = targetUserDoc.data() as User;
+
+    // Send WhatsApp if enabled and credits are available
+    if (owner.subscription?.premiumFeatures?.whatsapp?.enabled && targetUser.phone) {
+        if ((owner.subscription.whatsappCredits || 0) >= WHATSAPP_MESSAGE_COST) {
+            try {
+                await sendWhatsAppMessage(targetUser.phone, `${notification.title}\n\n${notification.message}`);
+                await ownerDocRef.update({
+                    'subscription.whatsappCredits': increment(-WHATSAPP_MESSAGE_COST)
+                });
+            } catch (e: any) {
+                console.error(`Failed to send WhatsApp to ${targetUser.phone}:`, e.message);
+            }
+        } else {
+            console.warn(`WhatsApp notification for ${owner.name} skipped due to insufficient credits.`);
+        }
+    }
+    
+    // Always send Push Notification if token exists
+    if (targetUser.fcmToken) {
+        try {
+            await sendPushToUser({
+                userId: notification.targetId,
+                title: notification.title,
+                body: notification.message,
+                link: notification.link || '/dashboard'
+            });
+        } catch (e: any) {
+            console.error(`Failed to send Push Notification to ${targetUser.id}:`, e.message);
+        }
+    }
+
+    // Always save notification to Firestore
     const newNotification: Notification = {
-        id: `notif-${Date.now()}`,
+        id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         ...notification,
         date: new Date().toISOString(),
         isRead: false,
     };
     
-    try {
-        const adminDb = await getAdminDb();
-        
-        // All notifications (for owners and tenants) are stored in the owner's data collection.
-        // The client-side listeners are configured to look here.
-        const docRef = adminDb.collection('users_data').doc(ownerId).collection('notifications').doc(newNotification.id);
-        
-        await docRef.set(newNotification);
-
-        // Fetch user to get FCM token
-        const userDocRef = adminDb.collection('users').doc(newNotification.targetId);
-        const userDoc = await userDocRef.get();
-
-        if (userDoc.exists) {
-            const user = userDoc.data() as User;
-            if (user.fcmToken) {
-                 await sendPushToUser({
-                    userId: newNotification.targetId,
-                    title: newNotification.title,
-                    body: newNotification.message,
-                    link: newNotification.link || '/dashboard'
-                });
-            } else {
-                console.warn(`User ${newNotification.targetId} does not have an FCM token. Skipping push notification.`);
-            }
-        } else {
-             console.warn(`User ${newNotification.targetId} not found. Skipping push notification.`);
-        }
-
-    } catch (error) {
-        console.error("Failed to create and send notification:", error);
-    }
+    const notificationDocRef = adminDb.collection('users_data').doc(ownerId).collection('notifications').doc(newNotification.id);
+    await notificationDocRef.set(newNotification);
 }
+

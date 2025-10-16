@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import React, { useState } from 'react';
@@ -6,13 +7,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut, AlertCircle, BarChart, Plus } from 'lucide-react';
+import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut, AlertCircle, BarChart, Plus, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import { useAppSelector } from '@/lib/hooks';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 const notificationEvents = [
     {
@@ -42,25 +44,12 @@ const notificationEvents = [
     }
 ];
 
-const mockRechargeHistory = [
-    { id: 'rh_1', date: '2024-07-25', amount: 500, messagesAdded: 333, status: 'Success' },
-    { id: 'rh_2', date: '2024-06-20', amount: 200, messagesAdded: 133, status: 'Success' },
-    { id: 'rh_3', date: '2024-05-18', amount: 500, messagesAdded: 333, status: 'Success' },
-]
-
-const mockUsageHistory = [
-    { id: 'uh_1', date: '2024-07-28', type: 'Rent Reminder', to: 'Priya S.', cost: 1.5 },
-    { id: 'uh_2', date: '2024-07-28', type: 'Rent Reminder', to: 'Amit K.', cost: 1.5 },
-    { id: 'uh_3', date: '2024-07-27', type: 'Complaint Update', to: 'Rohan V.', cost: 1.5 },
-    { id: 'uh_4', date: '2024-07-26', type: 'Notice Board', to: 'All Tenants (Sunshine PG)', cost: 30.0 },
-    { id: 'uh_5', date: '2024-07-25', type: 'Payment Received', to: 'Owner', cost: 1.5 },
-]
-
-
 export default function WhatsAppPage() {
-    const { currentPlan } = useAppSelector(state => state.user);
+    const { currentUser, currentPlan } = useAppSelector(state => state.user);
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
-    
+    const [isRecharging, setIsRecharging] = useState(false);
+    const { toast } = useToast();
+
     const [notificationSettings, setNotificationSettings] = useState(() => {
         const initialState: Record<string, { tenant: boolean; owner: boolean }> = {};
         notificationEvents.flatMap(g => g.events).forEach(event => {
@@ -68,12 +57,52 @@ export default function WhatsAppPage() {
         });
         return initialState;
     });
-    
+
     const handleToggle = (eventId: string, type: 'tenant' | 'owner') => {
         setNotificationSettings(prev => ({
             ...prev,
             [eventId]: { ...prev[eventId], [type]: !prev[eventId][type] }
         }));
+    };
+
+    const handleRecharge = async (amount: number) => {
+        if (!currentUser) return;
+        setIsRecharging(true);
+
+        try {
+            const res = await fetch('/api/razorpay/create-whatsapp-recharge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ownerId: currentUser.id, amount }),
+            });
+            const { success, order, error } = await res.json();
+            if (!success || !order) throw new Error(error || 'Failed to create recharge order.');
+
+            const options = {
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                amount: order.amount,
+                currency: order.currency,
+                name: 'RentSutra Wallet Recharge',
+                description: `Add ₹${amount} to your WhatsApp credit wallet.`,
+                order_id: order.id,
+                handler: (response: any) => {
+                    toast({ title: 'Recharge Successful!', description: 'Your new balance will reflect shortly.' });
+                },
+                prefill: { name: currentUser.name, email: currentUser.email, contact: currentUser.phone },
+                theme: { color: '#2563EB' }
+            };
+            
+            const rzp = new (window as any).Razorpay(options);
+            rzp.on('payment.failed', (response: any) => {
+                toast({ variant: 'destructive', title: 'Payment Failed', description: response.error.description || 'Something went wrong.' });
+            });
+            rzp.open();
+
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Error', description: err.message || 'Could not initiate recharge.' });
+        } finally {
+            setIsRecharging(false);
+        }
     };
 
     if (currentPlan && !currentPlan.hasAutomatedWhatsapp) {
@@ -97,6 +126,9 @@ export default function WhatsAppPage() {
         )
     }
 
+    const availableCredits = currentUser?.subscription?.whatsappCredits || 0;
+    const messagesRemaining = Math.floor(availableCredits / 1.5);
+
     return (
         <div className="space-y-6">
             <div>
@@ -108,18 +140,16 @@ export default function WhatsAppPage() {
                 <Info className="h-4 w-4" />
                 <AlertTitle>How It Works</AlertTitle>
                 <AlertDescription>
-                    Each message sent costs credits from your wallet. Toggle which notifications you and your tenants receive.
+                    Each WhatsApp message sent costs ₹1.50 from your credit wallet. Toggle which notifications you and your tenants receive.
                 </AlertDescription>
             </Alert>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="lg:col-span-2">
                      <Tabs defaultValue="settings" className="w-full">
-                        <TabsList className="grid w-full grid-cols-4">
+                        <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2"/>Settings</TabsTrigger>
                             <TabsTrigger value="usage"><History className="w-4 h-4 mr-2"/>Usage History</TabsTrigger>
-                            <TabsTrigger value="recharge"><Wallet className="w-4 h-4 mr-2"/>Recharge History</TabsTrigger>
-                            <TabsTrigger value="analytics"><BarChart className="w-4 h-4 mr-2"/>Analytics</TabsTrigger>
                         </TabsList>
                         <Card className="mt-4">
                             <TabsContent value="settings" className="m-0">
@@ -172,35 +202,9 @@ export default function WhatsAppPage() {
                                     <Button>Save Settings</Button>
                                 </CardFooter>
                             </TabsContent>
-                             <TabsContent value="usage" className="m-0">
-                                <CardHeader><CardTitle>Usage History</CardTitle><CardDescription>A log of all automated messages sent from your account.</CardDescription></CardHeader>
-                                <CardContent>
-                                    <Table>
-                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Type</TableHead><TableHead>Recipient</TableHead><TableHead className="text-right">Cost</TableHead></TableRow></TableHeader>
-                                        <TableBody>
-                                            {mockUsageHistory.map(item => (
-                                                <TableRow key={item.id}><TableCell>{item.date}</TableCell><TableCell>{item.type}</TableCell><TableCell>{item.to}</TableCell><TableCell className="text-right">₹{item.cost.toFixed(2)}</TableCell></TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </CardContent>
-                            </TabsContent>
-                             <TabsContent value="recharge" className="m-0">
-                                <CardHeader><CardTitle>Recharge History</CardTitle><CardDescription>A record of all your wallet top-ups.</CardDescription></CardHeader>
-                                <CardContent>
-                                    <Table>
-                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Amount</TableHead><TableHead>Messages Added</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                                        <TableBody>
-                                            {mockRechargeHistory.map(item => (
-                                                <TableRow key={item.id}><TableCell>{item.date}</TableCell><TableCell>₹{item.amount}</TableCell><TableCell>{item.messagesAdded}</TableCell><TableCell><Badge variant="default">{item.status}</Badge></TableCell></TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </CardContent>
-                            </TabsContent>
-                             <TabsContent value="analytics" className="m-0">
-                                <CardHeader><CardTitle>Usage Analytics</CardTitle><CardDescription>Visual breakdown of your notification costs.</CardDescription></CardHeader>
-                                <CardContent><p className="text-center text-sm text-muted-foreground py-10">(Charts and graphs will be displayed here)</p></CardContent>
+                            <TabsContent value="usage" className="m-0">
+                                <CardHeader><CardTitle>Usage History</CardTitle><CardDescription>This feature is coming soon.</CardDescription></CardHeader>
+                                <CardContent><p className="text-center text-sm text-muted-foreground py-10">(A log of all automated messages sent from your account will be shown here)</p></CardContent>
                             </TabsContent>
                         </Card>
                      </Tabs>
@@ -215,13 +219,13 @@ export default function WhatsAppPage() {
                             <div className="text-center p-4 border rounded-lg bg-muted/40">
                                 <p className="text-sm text-muted-foreground">Available Balance</p>
                                 <p className="text-4xl font-bold flex items-center justify-center">
-                                  <IndianRupee className="w-8 h-8"/>500.00
+                                  <IndianRupee className="w-8 h-8"/>{availableCredits.toFixed(2)}
                                 </p>
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-center">
                                 <div>
                                     <p className="text-sm text-muted-foreground">Messages Remaining</p>
-                                    <p className="font-bold text-lg">~333</p>
+                                    <p className="font-bold text-lg">~{messagesRemaining}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Credits Valid Until</p>
@@ -229,8 +233,21 @@ export default function WhatsAppPage() {
                                 </div>
                             </div>
                         </CardContent>
-                        <CardFooter>
-                            <Button className="w-full"><Plus className="w-4 h-4 mr-2"/> Recharge Wallet</Button>
+                        <CardFooter className="flex-col gap-2">
+                             <div className="flex gap-2 w-full">
+                                <Button className="flex-1" onClick={() => handleRecharge(200)} disabled={isRecharging}>
+                                    {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
+                                    Add ₹200
+                                </Button>
+                                <Button className="flex-1" onClick={() => handleRecharge(500)} disabled={isRecharging}>
+                                     {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
+                                    Add ₹500
+                                </Button>
+                            </div>
+                             <Button className="w-full" variant="outline" onClick={() => handleRecharge(1000)} disabled={isRecharging}>
+                                {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
+                                Add ₹1000 or More
+                            </Button>
                         </CardFooter>
                     </Card>
                 </div>

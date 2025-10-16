@@ -328,6 +328,7 @@ export interface User {
     premiumFeatures?: PremiumFeatures;
     paymentHistory?: UserSubscriptionPayment[];
     kycDetails?: BusinessKycDetails;
+    whatsappCredits?: number;
     enterpriseProject?: {
         projectId: string;
         databaseId: string;
