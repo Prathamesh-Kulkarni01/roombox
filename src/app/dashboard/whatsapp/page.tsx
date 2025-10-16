@@ -6,13 +6,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut } from 'lucide-react';
+import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import { useAppSelector } from '@/lib/hooks';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const notificationEvents = [
-    { 
+    {
         category: 'Financial',
         events: [
             { id: 'rent-reminder-due', title: 'Rent Overdue', desc: 'Sent when rent is overdue.', icon: AlertCircle, tenant: true, owner: false },
@@ -59,7 +60,7 @@ export default function WhatsAppPage() {
         }));
     };
 
-    if (!currentPlan?.hasAutomatedWhatsapp) {
+    if (currentPlan && !currentPlan.hasAutomatedWhatsapp) {
         return (
              <>
                 <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
@@ -80,80 +81,83 @@ export default function WhatsAppPage() {
         )
     }
 
-
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><MessageCircle /> WhatsApp Automation Center</CardTitle>
-                    <CardDescription>Manage your automated notifications and credits here.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Alert>
-                        <Info className="h-4 w-4" />
-                        <AlertTitle>How It Works</AlertTitle>
-                        <AlertDescription>
-                            Each message sent costs credits from your wallet. Toggle which notifications you and your tenants receive.
-                        </AlertDescription>
-                    </Alert>
-                </CardContent>
-            </Card>
+            <div>
+                <h1 className="text-3xl font-bold flex items-center gap-2"><MessageCircle /> WhatsApp Automation Center</h1>
+                <p className="text-muted-foreground">Manage your automated notifications and credits here.</p>
+            </div>
+            
+            <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>How It Works</AlertTitle>
+                <AlertDescription>
+                    Each message sent costs credits from your wallet. Toggle which notifications you and your tenants receive.
+                </AlertDescription>
+            </Alert>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                <div className="lg:col-span-2 space-y-6">
-                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Settings /> Notification Settings</CardTitle>
-                            <CardDescription>Enable or disable automated WhatsApp notifications for specific events.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {notificationEvents.map(group => (
-                                <div key={group.category}>
-                                    <h3 className="font-semibold text-lg mb-4">{group.category}</h3>
-                                    <div className="space-y-4">
+                <Card className="lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Settings /> Notification Settings</CardTitle>
+                        <CardDescription>Enable or disable automated WhatsApp notifications for specific events.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                       <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[50%]">Event</TableHead>
+                                    <TableHead>Send to Tenant</TableHead>
+                                    <TableHead>Send to Owner</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {notificationEvents.map(group => (
+                                    <React.Fragment key={group.category}>
+                                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                            <TableCell colSpan={3} className="font-semibold text-foreground">{group.category}</TableCell>
+                                        </TableRow>
                                         {group.events.map(event => (
-                                            <div key={event.id} className="p-4 border rounded-lg">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="p-2 bg-muted rounded-full mt-1">
-                                                        <event.icon className="w-4 h-4 text-primary" />
+                                             <TableRow key={event.id}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-muted rounded-full">
+                                                            <event.icon className="w-4 h-4 text-primary" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">{event.title}</p>
+                                                            <p className="text-xs text-muted-foreground">{event.desc}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <h4 className="font-semibold">{event.title}</h4>
-                                                        <p className="text-sm text-muted-foreground mb-3">{event.desc}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-6 pl-11">
-                                                    <div className="flex items-center space-x-2">
-                                                        <Switch
-                                                            id={`${event.id}-tenant`}
-                                                            disabled={!event.tenant}
-                                                            checked={event.tenant && notificationSettings[event.id].tenant}
-                                                            onCheckedChange={() => handleToggle(event.id, 'tenant')}
-                                                        />
-                                                        <Label htmlFor={`${event.id}-tenant`} className="flex items-center gap-1.5"><User className="w-4 h-4"/> Tenant</Label>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <Switch
-                                                            id={`${event.id}-owner`}
-                                                            disabled={!event.owner}
-                                                            checked={event.owner && notificationSettings[event.id].owner}
-                                                            onCheckedChange={() => handleToggle(event.id, 'owner')}
-                                                        />
-                                                        <Label htmlFor={`${event.id}-owner`} className="flex items-center gap-1.5"><Bell className="w-4 h-4"/> Owner</Label>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                     <Switch
+                                                        id={`${event.id}-tenant`}
+                                                        disabled={!event.tenant}
+                                                        checked={event.tenant && notificationSettings[event.id].tenant}
+                                                        onCheckedChange={() => handleToggle(event.id, 'tenant')}
+                                                    />
+                                                </TableCell>
+                                                 <TableCell>
+                                                    <Switch
+                                                        id={`${event.id}-owner`}
+                                                        disabled={!event.owner}
+                                                        checked={event.owner && notificationSettings[event.id].owner}
+                                                        onCheckedChange={() => handleToggle(event.id, 'owner')}
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
                                         ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                        <CardFooter>
-                            <Button>Save Settings</Button>
-                        </CardFooter>
-                    </Card>
-                </div>
-
+                                    </React.Fragment>
+                                ))}
+                            </TableBody>
+                       </Table>
+                    </CardContent>
+                    <CardFooter className="sticky bottom-0 bg-background/95 border-t py-4">
+                        <Button>Save Settings</Button>
+                    </CardFooter>
+                </Card>
+                
                 <div className="lg:col-span-1 space-y-6 lg:sticky top-20">
                      <Card>
                         <CardHeader>
