@@ -28,10 +28,12 @@ export async function generateMetadata(
     };
   }
 
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
   return {
     title: config.siteTitle || "Our Properties",
     description: config.aboutDescription || `Welcome to ${config.siteTitle}`,
-    manifest: `/api/manifest/${subdomain}`,
+    manifest: `${APP_URL}/api/manifest/${subdomain}`,
     icons: {
       icon: config.faviconUrl || '/favicon.ico',
       apple: config.logoUrl || '/apple-touch-icon.png',

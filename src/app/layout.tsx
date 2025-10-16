@@ -44,6 +44,8 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
     creator: "@rentsutra_app",
   },
+  // The manifest is now generated dynamically in /site/[subdomain]/page.tsx
+  // and should not be here.
 };
 
 export const viewport: Viewport = {
