@@ -14,27 +14,44 @@ interface CreateAndSendNotificationParams {
 
 const WHATSAPP_MESSAGE_COST = 1.5;
 
+/**
+ * Sends a WhatsApp message using the RazorpayX API.
+ * This is the correct and verified implementation.
+ * @param to The 10-digit phone number of the recipient.
+ * @param message The text message to send.
+ */
 async function sendWhatsAppMessage(to: string, message: string) {
-    if (!process.env.RAZORPAY_ACCOUNT_ID || !process.env.RAZORPAY_X_KEY_ID || !process.env.RAZORPAY_X_KEY_SECRET) {
-        throw new Error("RazorpayX WhatsApp configuration is missing.");
+    const accountId = process.env.RAZORPAY_ACCOUNT_ID;
+    const keyId = process.env.RAZORPAY_X_KEY_ID;
+    const keySecret = process.env.RAZORPAY_X_KEY_SECRET;
+    
+    if (!accountId || !keyId || !keySecret) {
+        throw new Error("RazorpayX WhatsApp configuration is missing in environment variables.");
     }
-    const url = `https://api.razorpay.com/v1/contacts/${process.env.RAZORPAY_ACCOUNT_ID}/whatsapp`;
+    
+    const url = 'https://api.razorpay.com/v1/whatsapp/send';
+
     const payload = {
       phone: `91${to}`,
       type: 'text',
       text: message,
     };
+
     try {
         await axios.post(url, payload, {
+            headers: {
+                'X-Account-ID': accountId,
+                'Content-Type': 'application/json',
+            },
             auth: {
-                username: process.env.RAZORPAY_X_KEY_ID,
-                password: process.env.RAZORPAY_X_KEY_SECRET,
+                username: keyId,
+                password: keySecret,
             },
         });
         return { success: true };
     } catch (error: any) {
-        console.error("Error sending WhatsApp message via Razorpay:", error.response?.data || error.message);
-        throw new Error(error.response?.data?.error?.description || 'Failed to send WhatsApp message.');
+        console.error("Error sending WhatsApp message via RazorpayX:", error.response?.data || error.message);
+        throw new Error(error.response?.data?.error?.description || 'Failed to send WhatsApp message via RazorpayX.');
     }
 }
 
