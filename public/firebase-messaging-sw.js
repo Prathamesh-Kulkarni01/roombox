@@ -1,0 +1,79 @@
+
+importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js');
+
+// NOTE: This object will be populated by the build script.
+const firebaseConfig = {
+  "apiKey": "AIzaSyAsYtBqzqWREOXUmuugtn2NZ51iqRMiXBw",
+  "projectId": "roombox-f7bff",
+  "storageBucket": "roombox-f7bff.firebasestorage.app",
+  "messagingSenderId": "990310757816",
+  "measurementId": "G-HPBJCP6QRQ"
+}
+
+firebase.initializeApp(firebaseConfig);
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+
+  const title = (payload.notification && payload.notification.title) || (payload.data && payload.data.title) || 'Notification';
+  const body = (payload.notification && payload.notification.body) || (payload.data && payload.data.body) || '';
+  const image = (payload.notification && payload.notification.image) || (payload.data && payload.data.image);
+  const url = (payload.fcmOptions && payload.fcmOptions.link) || (payload.data && payload.data.link) || (payload.notification && payload.notification.click_action) || '/';
+
+  const notificationOptions = {
+    body: body,
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-96x96.png',
+    image: image,
+    data: { url, ...(payload.data || {}) },
+    actions: [
+      { action: 'open', title: 'Open' },
+      { action: 'dismiss', title: 'Dismiss' }
+    ],
+    tag: payload.data && payload.data.tag ? payload.data.tag : undefined,
+    renotify: !!(payload.data && payload.data.renotify),
+    requireInteraction: !!(payload.data && payload.data.requireInteraction),
+    timestamp: Date.now(),
+    vibrate: [100, 50, 100]
+  };
+
+  self.registration.showNotification(title, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function(event) {
+  const action = event.action;
+  const n = event.notification;
+  const url = (n && n.data && n.data.url) || '/';
+
+  if (action === 'dismiss') {
+    n.close();
+    return;
+  }
+
+  event.waitUntil((async () => {
+    try {
+      n.close();
+      const targetUrl = new URL(url, self.location.origin).toString();
+      const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      let matchedClient = null;
+      for (const client of windowClients) {
+        // Prefer an existing tab of our origin
+        if (client.url.startsWith(self.location.origin)) {
+          matchedClient = client;
+          break;
+        }
+      }
+      if (matchedClient) {
+        await matchedClient.focus();
+        try { await matchedClient.navigate(targetUrl); } catch (e) {}
+      } else {
+        await clients.openWindow(targetUrl);
+      }
+    } catch (e) {
+      // noop
+    }
+  })());
+});
