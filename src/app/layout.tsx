@@ -9,6 +9,7 @@ import Script from 'next/script';
 import { LanguageProvider } from '@/context/language-context';
 import ConfettiProvider from '@/context/confetti-provider';
 import BottomNav from '@/components/BottomNav';
+import PWAHandler from '@/components/PWAHandler';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.app";
 
@@ -62,27 +63,6 @@ export const viewport: Viewport = {
 };
 
 
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-
-function PWAHandler() {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    // Detect if running in standalone mode (PWA)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-      || (window.navigator as any).standalone
-      || document.referrer.includes('android-app://');
-
-    if (isStandalone && pathname === '/') {
-      // Direct land to dashboard if in PWA and on landing page
-      router.replace('/dashboard');
-    }
-  }, [pathname, router]);
-
-  return null;
-}
 
 export default function RootLayout({
   children,
@@ -140,13 +120,13 @@ export default function RootLayout({
         <StoreProvider>
           <LanguageProvider>
             <ThemeProvider
-              attribute="data-theme"
-              defaultTheme="rose"
-              disableTransitionOnChange
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
             >
               <ConfettiProvider>
+                <PWAHandler />
                 <div className="flex min-h-screen flex-col">
-                  <PWAHandler />
                   <Header />
                   <main className="flex-1 pb-20 md:pb-0">{children}</main>
                   <BottomNav />
