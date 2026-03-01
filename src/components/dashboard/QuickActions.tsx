@@ -226,24 +226,24 @@ export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, ha
 
     return (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Button variant="outline" className="bg-green-50/50 hover:bg-green-100/50 border-green-200/50 text-green-700 hover:text-green-800 shadow-sm" onClick={() => setIsAddGuestOpen(true)}>
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Guest
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm" onClick={() => setIsAddGuestOpen(true)}>
+                <UserPlus className="w-5 h-5 text-primary" />
+                <span className="text-sm font-medium">Add Guest</span>
             </Button>
 
-            <Button variant="outline" className="bg-blue-50/50 hover:bg-blue-100/50 border-blue-200/50 text-blue-700 hover:text-blue-800 shadow-sm" onClick={() => setIsCollectRentOpen(true)}>
-                <Wallet className="w-4 h-4 mr-2" />
-                Collect Rent
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm" onClick={() => setIsCollectRentOpen(true)}>
+                <Wallet className="w-5 h-5 text-primary" />
+                <span className="text-sm font-medium">Collect Rent</span>
             </Button>
 
-            <Button variant="outline" className="bg-orange-50/50 hover:bg-orange-100/50 border-orange-200/50 text-orange-700 hover:text-orange-800 shadow-sm" onClick={() => setIsSendRemindersOpen(true)}>
-                <BellRing className="w-4 h-4 mr-2" />
-                Send Reminders
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm" onClick={() => setIsSendRemindersOpen(true)}>
+                <BellRing className="w-5 h-5 text-primary" />
+                <span className="text-sm font-medium">Send Reminders</span>
             </Button>
 
-            <Button variant="outline" className="bg-purple-50/50 hover:bg-purple-100/50 border-purple-200/50 text-purple-700 hover:text-purple-800 shadow-sm" onClick={onSendAnnouncement}>
-                <Send className="w-4 h-4 mr-2" />
-                Announce
+            <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm" onClick={onSendAnnouncement}>
+                <Send className="w-5 h-5 text-primary" />
+                <span className="text-sm font-medium">Announce</span>
             </Button>
             <AddGuestDialog beds={availableBeds} onSelectBed={handleSelectBedForGuestAdd} open={isAddGuestOpen} onOpenChange={setIsAddGuestOpen} />
             <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />

@@ -1,10 +1,11 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root, [data-theme="light"] {
+
+  :root,
+  [data-theme="light"] {
     --background: 207 90% 96%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -53,7 +54,7 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 207 90% 68%;
   }
-  
+
   [data-theme="saffron"] {
     --background: 24 9.8% 9.8%;
     --foreground: 60 9.1% 97.8%;
@@ -235,6 +236,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv05", "cv11";
@@ -251,17 +253,18 @@
 
   /* Glassmorphism Utilities */
   .glass {
-    @apply bg-background/70 backdrop-blur-md border-white/20;
+    @apply bg-background/70 backdrop-blur-md border-border/40;
   }
 
   .glass-dark {
-    @apply bg-black/40 backdrop-blur-lg border-white/10;
+    @apply bg-black/40 backdrop-blur-lg border-border/20;
   }
 
   /* Mobile-first adjustments */
   @media (max-width: 768px) {
     :root {
-      --radius: 1.25rem; /* Even more rounded on mobile */
+      --radius: 1.25rem;
+      /* Even more rounded on mobile */
     }
   }
 }

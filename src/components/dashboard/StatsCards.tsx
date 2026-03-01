@@ -19,7 +19,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {stats.map((stat) => (
         <Access key={stat.title} feature={stat.feature} action={stat.action}>
-          <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg active:scale-95 border-white/50 dark:border-white/10 overflow-hidden relative group">
+          <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg active:scale-95 overflow-hidden relative group">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2 relative z-10">
               <CardTitle className="text-xs md:text-sm font-semibold tracking-tight text-muted-foreground">{stat.title}</CardTitle>
