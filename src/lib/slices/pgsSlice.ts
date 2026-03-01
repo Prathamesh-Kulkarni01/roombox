@@ -34,35 +34,76 @@ async function updateOwnerPgSummary(selectedDb: any, ownerId: string) {
     }, { merge: true });
 }
 
-type NewPgData = Pick<PG, 'name' | 'location' | 'city' | 'gender'>;
+type NewPgData = Pick<PG, 'name' | 'location' | 'city' | 'gender'> & {
+    autoSetup?: boolean;
+    floorCount?: number;
+    roomsPerFloor?: number;
+};
 
 // Async Thunks
 export const addPg = createAsyncThunk<PG, NewPgData, { state: RootState }>(
     'pgs/addPg',
-    async (newPgData, { getState, rejectWithValue }) => {
+    async (payload, { getState, rejectWithValue }) => {
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        const newPg: PG = { 
-            id: `pg-${Date.now()}`, 
-            ...newPgData, 
-            ownerId: user.currentUser.id, 
-            images: ['https://placehold.co/600x400.png'], 
-            rating: 0, 
-            occupancy: 0, 
-            totalBeds: 0, 
-            totalRooms: 0,
-            rules: [], 
-            contact: '', 
-            priceRange: { min: 0, max: 0 }, 
-            amenities: ['wifi', 'food'], 
-            floors: [], 
+        const { autoSetup, floorCount = 1, roomsPerFloor = 4, ...newPgData } = payload;
+
+        // Generate floors and rooms if autoSetup is true
+        const initialFloors: Floor[] = [];
+        if (autoSetup) {
+            for (let f = 1; f <= floorCount; f++) {
+                const floorId = `floor-${Date.now()}-${f}`;
+                const rooms: Room[] = [];
+                for (let r = 1; r <= roomsPerFloor; r++) {
+                    const roomId = `room-${Date.now()}-${f}-${r}`;
+                    rooms.push({
+                        id: roomId,
+                        name: `${f}0${r}`,
+                        floorId: floorId,
+                        pgId: `pg-${Date.now()}`, // Temporary, fixed below
+                        beds: [], // Start with empty rooms for simplicity
+                        rent: 0,
+                        deposit: 0,
+                        amenities: []
+                    });
+                }
+                initialFloors.push({
+                    id: floorId,
+                    name: `Floor ${f}`,
+                    rooms: rooms,
+                    pgId: `pg-${Date.now()}` // Temporary, fixed below
+                });
+            }
+        }
+
+        const newPgId = `pg-${Date.now()}`;
+        // Fix the pgId in generated floors/rooms
+        initialFloors.forEach(f => {
+            f.pgId = newPgId;
+            f.rooms.forEach(r => r.pgId = newPgId);
+        });
+
+        const newPg: PG = {
+            id: newPgId,
+            ...newPgData,
+            ownerId: user.currentUser.id,
+            images: ['https://placehold.co/600x400.png'],
+            rating: 0,
+            occupancy: 0,
+            totalBeds: 0,
+            totalRooms: initialFloors.reduce((acc, f) => acc + f.rooms.length, 0),
+            rules: [],
+            contact: '',
+            priceRange: { min: 0, max: 0 },
+            amenities: ['wifi', 'food'],
+            floors: initialFloors,
             menu: defaultMenu,
-            status: 'pending_approval' // Set default status
+            status: 'pending_approval'
         };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', newPg.id);
             await setDoc(docRef, newPg);
@@ -77,7 +118,7 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
     async (updatedPg, { getState, rejectWithValue }) => {
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
-        
+
         // Ensure there are no undefined values
         const sanitizedPg: PG = {
             ...updatedPg,
@@ -92,7 +133,7 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
         };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', sanitizedPg.id);
             await setDoc(docRef, sanitizedPg, { merge: true });
@@ -109,7 +150,7 @@ export const addMenuTemplate = createAsyncThunk<{ pgId: string, template: MenuTe
         if (!user.currentUser) return rejectWithValue('No user');
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', pgId);
             await updateDoc(docRef, {
@@ -133,7 +174,7 @@ export const deleteMenuTemplate = createAsyncThunk<{ pgId: string, templateId: s
         if (!templateToDelete) return rejectWithValue('Template not found');
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', pgId);
             await updateDoc(docRef, {
@@ -158,10 +199,10 @@ export const deletePg = createAsyncThunk<string, string, { state: RootState }>(
         }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const batch = writeBatch(selectedDb);
-            
+
             const pgDocRef = doc(selectedDb, 'users_data', ownerId, 'pgs', pgId);
             batch.delete(pgDocRef);
 

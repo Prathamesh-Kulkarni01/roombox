@@ -15,11 +15,11 @@ import { useToast } from '@/hooks/use-toast'
 import { auth } from '@/lib/firebase'
 import { cn } from '@/lib/utils'
 
-const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: {pg: PG, room: Room, bed: Bed}[], onSelectBed: (bed: { pg: PG, room: Room, bed: Bed }) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
+const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: { pg: PG, room: Room, bed: Bed }[], onSelectBed: (bed: { pg: PG, room: Room, bed: Bed }) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const filteredBeds = useMemo(() => {
         if (!searchTerm) return beds;
-        return beds.filter(({ pg, room, bed }) => 
+        return beds.filter(({ pg, room, bed }) =>
             pg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             bed.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -47,7 +47,7 @@ const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: {pg: 
                                 </div>
                             </div>
                         ))}
-                         {filteredBeds.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No vacant beds found.</p>}
+                        {filteredBeds.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No vacant beds found.</p>}
                     </div>
                 </ScrollArea>
             </DialogContent>
@@ -60,7 +60,7 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
     const guestsWithDues = useMemo(() => {
         const guestsWithDues = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
         if (!searchTerm) return guestsWithDues;
-        return guestsWithDues.filter(g => 
+        return guestsWithDues.filter(g =>
             g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             g.pgName.toLowerCase().includes(searchTerm.toLowerCase())
         );
@@ -73,22 +73,22 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
                     <DialogTitle>Collect Rent</DialogTitle>
                     <DialogDescription>Select a guest with pending dues to record a payment.</DialogDescription>
                 </DialogHeader>
-                 <div className="relative">
+                <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Search by guest name or property..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 <ScrollArea className="h-64 mt-4">
                     <div className="space-y-2">
                         {guestsWithDues.map(guest => (
-                             <div key={guest.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => { onSelectGuest(guest); onOpenChange(false); }}>
+                            <div key={guest.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => { onSelectGuest(guest); onOpenChange(false); }}>
                                 <div>
                                     <p className="font-semibold">{guest.name}</p>
                                     <p className="text-sm text-muted-foreground">{guest.pgName}</p>
                                 </div>
-                                 <p className="text-sm font-semibold text-destructive">₹{(guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0)).toLocaleString('en-IN')}</p>
+                                <p className="text-sm font-semibold text-destructive">₹{(guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0)).toLocaleString('en-IN')}</p>
                             </div>
                         ))}
-                         {guestsWithDues.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No guests with pending dues.</p>}
+                        {guestsWithDues.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No guests with pending dues.</p>}
                     </div>
                 </ScrollArea>
             </DialogContent>
@@ -111,7 +111,7 @@ const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], 
     const handleSelectAll = (checked: boolean) => {
         setSelectedGuests(checked ? guests.map(g => g.id) : []);
     };
-    
+
     const handleSelectGuest = (guestId: string, checked: boolean) => {
         setSelectedGuests(prev => checked ? [...prev, guestId] : prev.filter(id => id !== guestId));
     };
@@ -125,18 +125,23 @@ const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], 
         startSendingTransition(async () => {
             toast({ title: 'Sending Reminders...', description: `Sending reminders to ${selectedGuests.length} guest(s).` });
             try {
-                const token = await auth.currentUser?.getIdToken();
-                const response = await fetch('/api/reminders/send-manual', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ guestIds: selectedGuests }),
-                });
+                if (auth && auth.currentUser) {
+                    const token = await auth.currentUser.getIdToken();
+                    const response = await fetch('/api/reminders/send-manual', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify({ guestIds: selectedGuests }),
+                    });
 
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'An unknown error occurred.');
-                
-                toast({ title: 'Reminders Sent!', description: `Successfully queued ${result.sentCount} reminders.` });
-                onOpenChange(false);
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'An unknown error occurred.');
+
+                    toast({ title: 'Reminders Sent!', description: `Successfully queued ${result.sentCount} reminders.` });
+                    onOpenChange(false);
+                } else {
+                    // Handle case where auth.currentUser is not available
+                    toast({ variant: 'destructive', title: 'Authentication Error', description: 'User not authenticated. Please log in again.' });
+                }
             } catch (error: any) {
                 toast({ variant: 'destructive', title: 'Error', description: error.message });
             }
@@ -152,23 +157,23 @@ const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], 
                 </DialogHeader>
                 {guests.length > 0 ? (
                     <>
-                    <div className="flex items-center space-x-2 py-2 border-y">
-                        <Checkbox id="select-all" checked={selectedGuests.length === guests.length && guests.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} />
-                        <Label htmlFor="select-all">Select All ({selectedGuests.length} / {guests.length})</Label>
-                    </div>
-                    <ScrollArea className="h-64">
-                        <div className="space-y-2">
-                            {guests.map(guest => (
-                                <div key={guest.id} className="flex items-center space-x-3 p-2 rounded-md">
-                                    <Checkbox id={`guest-${guest.id}`} checked={selectedGuests.includes(guest.id)} onCheckedChange={(checked) => handleSelectGuest(guest.id, !!checked)} />
-                                    <Label htmlFor={`guest-${guest.id}`} className="flex flex-col cursor-pointer">
-                                        <span className="font-semibold">{guest.name}</span>
-                                        <span className="text-xs text-muted-foreground">{guest.pgName}</span>
-                                    </Label>
-                                </div>
-                            ))}
+                        <div className="flex items-center space-x-2 py-2 border-y">
+                            <Checkbox id="select-all" checked={selectedGuests.length === guests.length && guests.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} />
+                            <Label htmlFor="select-all">Select All ({selectedGuests.length} / {guests.length})</Label>
                         </div>
-                    </ScrollArea>
+                        <ScrollArea className="h-64">
+                            <div className="space-y-2">
+                                {guests.map(guest => (
+                                    <div key={guest.id} className="flex items-center space-x-3 p-2 rounded-md">
+                                        <Checkbox id={`guest-${guest.id}`} checked={selectedGuests.includes(guest.id)} onCheckedChange={(checked) => handleSelectGuest(guest.id, !!checked)} />
+                                        <Label htmlFor={`guest-${guest.id}`} className="flex flex-col cursor-pointer">
+                                            <span className="font-semibold">{guest.name}</span>
+                                            <span className="text-xs text-muted-foreground">{guest.pgName}</span>
+                                        </Label>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
                     </>
                 ) : (
                     <p className="text-center text-sm text-muted-foreground py-10">No guests with pending dues to remind.</p>
@@ -176,7 +181,7 @@ const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], 
                 <DialogFooter>
                     <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
                     <Button onClick={handleSend} disabled={isSending || selectedGuests.length === 0}>
-                        {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                        {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Send Reminders ({selectedGuests.length})
                     </Button>
                 </DialogFooter>
@@ -186,7 +191,7 @@ const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], 
 }
 
 
-export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendAnnouncement }: any) {
+export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendAnnouncement }: any) {
     const [isAddGuestOpen, setIsAddGuestOpen] = useState(false);
     const [isCollectRentOpen, setIsCollectRentOpen] = useState(false);
     const [isSendRemindersOpen, setIsSendRemindersOpen] = useState(false);
@@ -211,7 +216,7 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
         return guests.filter((g: Guest) => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
     }, [guests]);
 
-    const handleSelectBedForGuestAdd = (item: {pg: PG, room: Room, bed: Bed}) => {
+    const handleSelectBedForGuestAdd = (item: { pg: PG, room: Room, bed: Bed }) => {
         handleOpenAddGuestDialog(item.bed, item.room, item.pg);
     }
 
@@ -221,22 +226,22 @@ export default function QuickActions ({ pgs, guests, handleOpenAddGuestDialog, h
 
     return (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-             <Button variant="outline" onClick={() => setIsAddGuestOpen(true)}>
+            <Button variant="outline" className="bg-green-50/50 hover:bg-green-100/50 border-green-200/50 text-green-700 hover:text-green-800 shadow-sm" onClick={() => setIsAddGuestOpen(true)}>
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add Guest
             </Button>
 
-            <Button variant="outline" onClick={() => setIsCollectRentOpen(true)}>
+            <Button variant="outline" className="bg-blue-50/50 hover:bg-blue-100/50 border-blue-200/50 text-blue-700 hover:text-blue-800 shadow-sm" onClick={() => setIsCollectRentOpen(true)}>
                 <Wallet className="w-4 h-4 mr-2" />
                 Collect Rent
             </Button>
 
-            <Button variant="outline" onClick={() => setIsSendRemindersOpen(true)}>
+            <Button variant="outline" className="bg-orange-50/50 hover:bg-orange-100/50 border-orange-200/50 text-orange-700 hover:text-orange-800 shadow-sm" onClick={() => setIsSendRemindersOpen(true)}>
                 <BellRing className="w-4 h-4 mr-2" />
                 Send Reminders
             </Button>
 
-            <Button variant="outline" onClick={onSendAnnouncement}>
+            <Button variant="outline" className="bg-purple-50/50 hover:bg-purple-100/50 border-purple-200/50 text-purple-700 hover:text-purple-800 shadow-sm" onClick={onSendAnnouncement}>
                 <Send className="w-4 h-4 mr-2" />
                 Announce
             </Button>

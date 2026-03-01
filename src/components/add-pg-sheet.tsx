@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useForm } from 'react-hook-form'
@@ -26,7 +25,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { PG } from '@/lib/types'
+import { Switch } from '@/components/ui/switch'
 import { addPg as addPgAction } from '@/lib/slices/pgsSlice'
 import { useConfetti } from '@/context/confetti-provider'
 
@@ -35,6 +34,9 @@ const pgSchema = z.object({
   location: z.string().min(3, "Location is required."),
   city: z.string().min(2, "City is required."),
   gender: z.enum(['male', 'female', 'co-ed']),
+  autoSetup: z.boolean().default(false),
+  floorCount: z.number().min(1).max(10).default(1),
+  roomsPerFloor: z.number().min(1).max(20).default(1),
 })
 
 type PgFormValues = z.infer<typeof pgSchema>
@@ -58,6 +60,9 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
       location: '',
       city: '',
       gender: 'co-ed',
+      autoSetup: false,
+      floorCount: 1,
+      roomsPerFloor: 4,
     },
   })
 
@@ -67,8 +72,8 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
       const newPgId = resultAction.payload.id;
       form.reset()
       onOpenChange(false)
-      if(onPgAdded) {
-          onPgAdded(newPgId)
+      if (onPgAdded) {
+        onPgAdded(newPgId)
       }
       showConfetti({ particleCount: 200, spread: 100 });
     }
@@ -76,11 +81,11 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent data-tour="add-pg-sheet-content">
+      <SheetContent data-tour="add-pg-sheet-content" className="sm:max-w-[425px]">
         <SheetHeader>
           <SheetTitle>Add a New Property</SheetTitle>
           <SheetDescription>
-            Fill in the basic details for your new property. You can add more details later.
+            Fill in the basic details for your new property.
           </SheetDescription>
         </SheetHeader>
         <Form {...form}>
@@ -129,7 +134,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
               name="gender"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Gender</FormLabel>
+                  <FormLabel>Gender Preference</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -146,9 +151,75 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
                 </FormItem>
               )}
             />
+
+            <div className="space-y-4 pt-4 border-t mt-4">
+              <FormField
+                control={form.control}
+                name="autoSetup"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/30">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-sm font-semibold">Auto-Setup Building</FormLabel>
+                      <p className="text-[10px] text-muted-foreground leading-none">Auto-generate floors and rooms.</p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {form.watch('autoSetup') && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <FormField
+                    control={form.control}
+                    name="floorCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Floors</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={10}
+                            {...field}
+                            onChange={e => field.onChange(parseInt(e.target.value) || 1)}
+                            className="h-8 text-xs"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="roomsPerFloor"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Rooms/Floor</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={10}
+                            {...field}
+                            onChange={e => field.onChange(parseInt(e.target.value) || 1)}
+                            className="h-8 text-xs"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </div>
           </form>
         </Form>
-        <SheetFooter>
+        <SheetFooter className="mt-6">
           <SheetClose asChild>
             <Button type="button" variant="secondary">Cancel</Button>
           </SheetClose>
