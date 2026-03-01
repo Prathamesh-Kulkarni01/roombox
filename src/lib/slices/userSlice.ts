@@ -9,8 +9,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod, BusinessKycDetails } from '../types';
 import { plans } from '../mock-data';
-import { auth, db, isFirebaseConfigured, getOwnerClientDb } from '../firebase';
-import { getAdminDb } from '../firebaseAdmin';
+import { auth, db, isFirebaseConfigured, getOwnerClientDb, getDynamicDb } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
@@ -104,19 +103,21 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                             const ownerDoc = await getDoc(doc(db!, 'users', inviteData.ownerId));
                             const enterprise = ownerDoc.data()?.subscription?.enterpriseProject;
                             if (enterprise?.projectId || enterprise?.databaseId) {
-                                // Use Admin SDK to update the owner's DB atomically; then mirror minimal fields in App DB if needed
-                                const adminDb = await getAdminDb(enterprise.projectId, enterprise.databaseId);
-                                if (inviteData.role === 'tenant') {
-                                    await adminDb.collection('users_data').doc(inviteData.ownerId).collection('guests').doc((inviteData.details as Guest).id)
-                                        .set({ userId: firebaseUser.uid }, { merge: true });
-                                } else {
-                                    await adminDb.collection('users_data').doc(inviteData.ownerId).collection('staff').doc((inviteData.details as Staff).id)
-                                        .set({ userId: firebaseUser.uid }, { merge: true });
+                                // IMPROVED: Use client-side dynamic DB if available, otherwise this should be a server action
+                                // Note: Admin SDK was incorrectly used here previously.
+                                const enterpriseDb = enterprise.databaseId ? getDynamicDb(enterprise.databaseId) : db!;
+                                if (enterpriseDb) {
+                                    const targetDocRef = inviteData.role === 'tenant'
+                                        ? doc(enterpriseDb, 'users_data', inviteData.ownerId, 'guests', (inviteData.details as Guest).id)
+                                        : doc(enterpriseDb, 'users_data', inviteData.ownerId, 'staff', (inviteData.details as Staff).id);
+                                    await setDoc(targetDocRef, { userId: firebaseUser.uid }, { merge: true });
                                 }
                             } else {
                                 ownerDataDb = db!; // default app DB
                             }
-                        } catch { }
+                        } catch (err) {
+                            console.error('[initializeUser] Error updating enterprise DB:', err);
+                        }
 
                         let roleUpdate: Partial<User> = {
                             role: inviteData.role,

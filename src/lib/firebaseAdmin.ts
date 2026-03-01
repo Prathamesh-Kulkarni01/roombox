@@ -1,5 +1,4 @@
 
-'use server';
 
 import { initializeApp, getApps, cert, App, AppOptions } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
@@ -23,7 +22,7 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
     adminApps.set(appName, existingByName);
     return existingByName;
   }
-  
+
   // If no project/db specified, and a default app exists, reuse it
   if (!projectId && !databaseId && getApps().length > 0) {
     const defaultApp = getApps().find(app => app.name === '[DEFAULT]') || getApps()[0];
@@ -57,7 +56,7 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
 };
 
 function getAdminApp(projectId?: string, databaseId?: string): App {
-    return initializeAdminApp(projectId, databaseId);
+  return initializeAdminApp(projectId, databaseId);
 }
 
 export async function getAdminDb(projectId?: string, databaseId?: string): Promise<Firestore> {
@@ -70,18 +69,21 @@ export async function getAdminMessaging(projectId?: string): Promise<Messaging> 
 }
 
 export async function getAdminStorage(projectId?: string): Promise<Storage> {
-    return getStorage(getAdminApp(projectId));
+  return getStorage(getAdminApp(projectId));
 }
 
 export async function getAdminAuth(projectId?: string): Promise<Auth> {
-    return getAuth(getAdminApp(projectId));
+  return getAuth(getAdminApp(projectId));
 }
 
 // Generic selector: fetch owner user doc from App DB and return their data DB
 export async function selectOwnerDataAdminDb(ownerId: string): Promise<Firestore> {
-    const appDb = await getAdminDb();
-    const ownerDoc = await appDb.collection('users').doc(ownerId).get();
-    const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
-    const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
-    return getAdminDb(enterpriseProjectId, enterpriseDbId);
+  const appDb = await getAdminDb();
+  const ownerDoc = await appDb.collection('users').doc(ownerId).get();
+  const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
+  const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
+  return getAdminDb(enterpriseProjectId, enterpriseDbId);
 }
+
+// Export auth instance for convenience
+export const auth = getAuth(initializeAdminApp());
