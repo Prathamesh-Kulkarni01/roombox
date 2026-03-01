@@ -120,9 +120,10 @@ export default function RootLayout({
         <StoreProvider>
           <LanguageProvider>
             <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
+              attribute="data-theme"
+              defaultTheme="rose"
               enableSystem
+              disableTransitionOnChange
             >
               <ConfettiProvider>
                 <PWAHandler />
