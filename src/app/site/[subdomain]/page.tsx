@@ -18,7 +18,7 @@ export async function generateMetadata(
   if (!subdomain) {
     return {};
   }
-  
+
   const siteData = await getSiteData(subdomain, false); // Fetch public data for metadata
   const config = siteData?.siteConfig;
 
@@ -33,7 +33,7 @@ export async function generateMetadata(
   return {
     title: config.siteTitle || "Our Properties",
     description: config.aboutDescription || `Welcome to ${config.siteTitle}`,
-    manifest: `${APP_URL}/api/manifest/${subdomain}`,
+    manifest: `${APP_URL}/api/pwa/manifest?subdomain=${subdomain}`,
     icons: {
       icon: config.faviconUrl || '/favicon.ico',
       apple: config.logoUrl || '/apple-touch-icon.png',
@@ -49,7 +49,7 @@ export default async function SitePage({ params, searchParams }: Props) {
   if (!siteData || !siteData.siteConfig) {
     notFound();
   }
-  
+
   // Pass the server-fetched data to the client component
   return <SitePageClient initialData={siteData} subdomain={params.subdomain} />;
 }

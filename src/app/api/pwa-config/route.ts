@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import type { PWAConfig } from '@/lib/types';
 import { savePWAConfig } from '@/lib/pwa-config';
@@ -16,26 +17,6 @@ export async function POST(req: NextRequest) {
     const ownerId = decodedToken.uid;
 
     const pwaConfig: PWAConfig = await req.json();
-    
-    // Generate a dynamic manifest for this PG owner
-    const manifest = {
-      name: pwaConfig.name,
-      short_name: pwaConfig.shortName,
-      start_url: `/${pwaConfig.subdomain || ''}`,
-      display: "standalone",
-      background_color: pwaConfig.backgroundColor,
-      theme_color: pwaConfig.themeColor,
-      icons: [
-        // You'll need to generate these icons from the uploaded logo
-        // For now, using default icons
-        {
-          "src": "icons/icon-48x48.png",
-          "sizes": "48x48",
-          "type": "image/png"
-        },
-        // ... other icon sizes
-      ]
-    };
 
     // Save the PWA config to Firebase
     await savePWAConfig(ownerId, pwaConfig);
@@ -48,15 +29,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-async function saveManifest(subdomain: string, manifest: any) {
-  // Implement your storage solution here
-  // You could store in:
-  // 1. Database (recommended for production)
-  // 2. File system (for development)
-  // 3. Cloud storage
-  
-  // For now, just logging
-  console.log(`Saving manifest for ${subdomain}:`, manifest);
 }

@@ -4,7 +4,7 @@ export interface PWAConfig {
   shortName: string;
   themeColor: string;
   backgroundColor: string;
-  logo: string;
+  logo?: string;
   subdomain?: string;
 }
 
@@ -35,16 +35,16 @@ export interface Room {
 }
 
 export interface Floor {
-  id:string;
+  id: string;
   name: string;
   rooms: Room[];
   pgId: string;
 }
 
 export interface MenuItem {
-    id: string;
-    name: string;
-    category: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  id: string;
+  name: string;
+  category: 'breakfast' | 'lunch' | 'dinner' | 'snack';
 }
 
 export interface Meal {
@@ -52,9 +52,9 @@ export interface Meal {
   lunch: string;
   dinner: string;
   ratings?: {
-      breakfast?: MealFeedback[];
-      lunch?: MealFeedback[];
-      dinner?: MealFeedback[];
+    breakfast?: MealFeedback[];
+    lunch?: MealFeedback[];
+    dinner?: MealFeedback[];
   }
 }
 
@@ -63,30 +63,30 @@ export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'frida
 export type Menu = Record<DayOfWeek, Meal>;
 
 export interface InventoryItem {
-    id: string;
-    name: string;
-    unit: 'kg' | 'grams' | 'litres' | 'ml' | 'pieces' | 'packets';
-    stock: number;
-    threshold: number;
-    lastUpdated: string;
+  id: string;
+  name: string;
+  unit: 'kg' | 'grams' | 'litres' | 'ml' | 'pieces' | 'packets';
+  stock: number;
+  threshold: number;
+  lastUpdated: string;
 }
 
 export interface MealFeedback {
-    guestId: string;
-    rating: number; // 1-5
-    comment?: string;
-    date: string;
+  guestId: string;
+  rating: number; // 1-5
+  comment?: string;
+  date: string;
 }
 
 export interface MenuTemplate {
-    id: string;
-    name: string;
-    menu: Menu;
+  id: string;
+  name: string;
+  menu: Menu;
 }
 
 export interface PG {
   id: string;
-  name:string;
+  name: string;
   location: string;
   city: string;
   gender: 'male' | 'female' | 'co-ed';
@@ -111,24 +111,24 @@ export interface PG {
 }
 
 export interface Payment {
-    id: string; // razorpay payment id
-    date: string;
-    amount: number;
-    method: 'cash' | 'upi' | 'in-app';
-    forMonth: string;
-    notes?: string;
-    payoutId?: string; // razorpay payout id
-    payoutStatus?: 'pending' | 'processed' | 'failed';
-    payoutTo?: string;
-    payoutFailureReason?: string;
+  id: string; // razorpay payment id
+  date: string;
+  amount: number;
+  method: 'cash' | 'upi' | 'in-app';
+  forMonth: string;
+  notes?: string;
+  payoutId?: string; // razorpay payout id
+  payoutStatus?: 'pending' | 'processed' | 'failed';
+  payoutTo?: string;
+  payoutFailureReason?: string;
 }
 
 export interface LedgerEntry {
-    id: string;
-    date: string; // ISO string
-    type: 'debit' | 'credit';
-    description: string;
-    amount: number;
+  id: string;
+  date: string; // ISO string
+  type: 'debit' | 'credit';
+  description: string;
+  amount: number;
 }
 
 // Payment Method Types
@@ -181,9 +181,9 @@ export interface SubmittedKycDocument {
 }
 
 export interface KycDocument {
-    guestId: string;
-    aadhaarUrl: string;
-    photoUrl: string;
+  guestId: string;
+  aadhaarUrl: string;
+  photoUrl: string;
 }
 
 export type RentCycleUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
@@ -220,10 +220,10 @@ export interface Guest {
 }
 
 export interface AdditionalCharge { // Also deprecated
-    id: string;
-    description: string;
-    amount: number;
-    date: string;
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
 }
 
 
@@ -282,9 +282,9 @@ export interface Plan {
 export type SubscriptionStatus = 'trialing' | 'active' | 'inactive' | 'past_due' | 'canceled';
 
 export interface PremiumFeatures {
-    website?: { enabled: boolean };
-    kyc?: { enabled: boolean };
-    whatsapp?: { enabled: boolean };
+  website?: { enabled: boolean };
+  kyc?: { enabled: boolean };
+  whatsapp?: { enabled: boolean };
 }
 
 export interface UserSubscriptionPayment {
@@ -338,17 +338,17 @@ export interface User {
     kycDetails?: BusinessKycDetails;
     whatsappCredits?: number;
     enterpriseProject?: {
+      projectId: string;
+      databaseId: string;
+      clientConfig?: {
+        apiKey: string;
+        authDomain: string;
         projectId: string;
-        databaseId: string;
-        clientConfig?: {
-            apiKey: string;
-            authDomain: string;
-            projectId: string;
-            storageBucket?: string;
-            messagingSenderId?: string;
-            appId?: string;
-            measurementId?: string;
-        };
+        storageBucket?: string;
+        messagingSenderId?: string;
+        appId?: string;
+        measurementId?: string;
+      };
     };
   };
   fcmToken?: string | null;
@@ -387,33 +387,33 @@ export interface SiteConfig {
 }
 
 export interface ChargeTemplate {
-    id: string;
-    name: string; // e.g., "Electricity Bill"
-    calculation: 'fixed' | 'unit'; // Fixed total amount or based on units
-    unitCost: number | null; // Cost per unit (e.g., kWh)
-    splitMethod: 'equal' | 'room' | 'custom'; // Split equally, by room type, or custom
-    frequency: 'monthly' | 'one-time';
-    autoAddToDialog: boolean;
-    billingDayOfMonth: number;
+  id: string;
+  name: string; // e.g., "Electricity Bill"
+  calculation: 'fixed' | 'unit'; // Fixed total amount or based on units
+  unitCost: number | null; // Cost per unit (e.g., kWh)
+  splitMethod: 'equal' | 'room' | 'custom'; // Split equally, by room type, or custom
+  frequency: 'monthly' | 'one-time';
+  autoAddToDialog: boolean;
+  billingDayOfMonth: number;
 }
 
 
 export interface BillingCycleDetails {
-    totalAmount: number;
-    propertyCharge: number;
-    tenantCharge: number;
-    premiumFeaturesCharge: number;
-    premiumFeaturesDetails: Record<string, { charge: number; description: string; }>;
+  totalAmount: number;
+  propertyCharge: number;
+  tenantCharge: number;
+  premiumFeaturesCharge: number;
+  premiumFeaturesDetails: Record<string, { charge: number; description: string; }>;
 }
 
 export interface BillingDetails {
-    currentCycle: BillingCycleDetails;
-    nextCycleEstimate: BillingCycleDetails;
-    details: {
-        propertyCount: number;
-        billableTenantCount: number;
-        pricingConfig: typeof import('./mock-data').PRICING_CONFIG;
-    };
+  currentCycle: BillingCycleDetails;
+  nextCycleEstimate: BillingCycleDetails;
+  details: {
+    propertyCount: number;
+    billableTenantCount: number;
+    pricingConfig: typeof import('./mock-data').PRICING_CONFIG;
+  };
 }
 
 export interface Notification {
@@ -442,8 +442,8 @@ export interface Staff {
 export type OnboardingStatus = 'complete' | 'pending' | 'error' | 'disabled';
 
 export interface OnboardingStep {
-    id: string;
-    title: string;
-    icon: React.ElementType;
-    status: OnboardingStatus;
+  id: string;
+  title: string;
+  icon: React.ElementType;
+  status: OnboardingStatus;
 }

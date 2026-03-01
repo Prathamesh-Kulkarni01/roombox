@@ -20,6 +20,7 @@ interface BedCardProps extends UseDashboardReturn {
   floor: Floor
   pg: PG
   isFirstAvailableBedFound: MutableRefObject<boolean>
+  isEditMode: boolean
 }
 
 export default function BedCard(props: BedCardProps) {
