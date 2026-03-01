@@ -18,6 +18,11 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
+import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
+import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
+import { Popover, PopoverTrigger } from "@/components/ui/popover"
+import GuestPopoverContent from "@/components/dashboard/GuestPopoverContent"
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
@@ -28,7 +33,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu"
 
-import { Building, DoorOpen, BedDouble, PlusCircle, Trash2, ArrowLeft, Pencil, Plus, CheckCircle, Wallet, Clock, UserPlus, Search, List, Grid, Filter } from 'lucide-react'
+import { Building, DoorOpen, BedDouble, PlusCircle, Trash2, ArrowLeft, Pencil, Plus, CheckCircle, Wallet, Clock, UserPlus, Search, List, Grid, Filter, MoreHorizontal } from 'lucide-react'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from '@/lib/permissions'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -56,6 +61,11 @@ export default function RoomManagementPage() {
     isBedDialogOpen, setIsBedDialogOpen, bedToEdit,
     isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit,
+    isEditGuestDialogOpen, setIsEditGuestDialogOpen, guestToEdit, editGuestForm, handleEditGuestSubmit,
+    guestToInitiateExit, setGuestToInitiateExit, handleConfirmInitiateExit,
+    guestToExitImmediately, setGuestToExitImmediately, handleConfirmImmediateExit,
+    isReminderDialogOpen, setIsReminderDialogOpen, selectedGuestForReminder, isGeneratingReminder, reminderMessage, setReminderMessage,
+    handleOpenEditGuestDialog, handleOpenReminderDialog,
     roomForm, floorForm, bedForm,
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
     handleOpenRoomDialog, handleOpenFloorDialog, handleOpenBedDialog,
@@ -317,6 +327,23 @@ export default function RoomManagementPage() {
                                 {guest && !isEditMode && isUnpaid && (
                                   <Button variant="ghost" size="sm" className="h-8 text-xs font-bold text-orange-600 hover:bg-orange-500/10 rounded-lg" onClick={() => handleOpenPaymentDialog(guest)}>Collect</Button>
                                 )}
+                                {guest && !isEditMode && (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-muted/50 rounded-lg shrink-0">
+                                        <MoreHorizontal className="w-4 h-4" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <GuestPopoverContent
+                                      guest={guest}
+                                      handleOpenPaymentDialog={handleOpenPaymentDialog}
+                                      handleOpenReminderDialog={handleOpenReminderDialog}
+                                      handleOpenEditGuestDialog={handleOpenEditGuestDialog}
+                                      setGuestToInitiateExit={setGuestToInitiateExit}
+                                      setGuestToExitImmediately={setGuestToExitImmediately}
+                                    />
+                                  </Popover>
+                                )}
                                 {isEditMode && (
                                   <div className="flex gap-1">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}><Pencil className="w-4 h-4" /></Button>
@@ -376,12 +403,29 @@ export default function RoomManagementPage() {
                                 <p className="font-bold text-sm text-secondary leading-tight">Available</p>
                               )}
                             </div>
-                            <div className="mt-4">
+                            <div className="mt-4 flex gap-2 w-full">
                               {!guest && !isEditMode && (
                                 <Button size="sm" className="w-full h-8 text-xs font-bold rounded-lg" variant="secondary" onClick={() => handleOpenAddGuestDialog(bed, room, pg)}>Book</Button>
                               )}
                               {guest && !isEditMode && isUnpaid && (
                                 <Button size="sm" className="w-full h-8 text-xs font-bold rounded-lg text-white" style={{ backgroundColor: '#f97316' }} onClick={() => handleOpenPaymentDialog(guest)}>Collect</Button>
+                              )}
+                              {guest && !isEditMode && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-muted/50 rounded-lg shrink-0">
+                                      <MoreHorizontal className="w-4 h-4" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <GuestPopoverContent
+                                    guest={guest}
+                                    handleOpenPaymentDialog={handleOpenPaymentDialog}
+                                    handleOpenReminderDialog={handleOpenReminderDialog}
+                                    handleOpenEditGuestDialog={handleOpenEditGuestDialog}
+                                    setGuestToInitiateExit={setGuestToInitiateExit}
+                                    setGuestToExitImmediately={setGuestToExitImmediately}
+                                  />
+                                </Popover>
                               )}
                             </div>
                           </Card>
@@ -439,6 +483,17 @@ export default function RoomManagementPage() {
           handleAddGuestSubmit={handleAddGuestSubmit}
         />
       </Access>
+
+      <Access feature="guests" action="edit">
+        <EditGuestDialog
+          isEditGuestDialogOpen={isEditGuestDialogOpen}
+          setIsEditGuestDialogOpen={setIsEditGuestDialogOpen}
+          guestToEdit={guestToEdit}
+          editGuestForm={editGuestForm}
+          handleEditGuestSubmit={handleEditGuestSubmit}
+        />
+      </Access>
+
       <Access feature="finances" action="add">
         <PaymentDialog
           isPaymentDialogOpen={isPaymentDialogOpen}
@@ -448,6 +503,60 @@ export default function RoomManagementPage() {
           handlePaymentSubmit={handlePaymentSubmit}
         />
       </Access>
+
+      <Access feature="complaints" action="edit">
+        <ReminderDialog
+          isReminderDialogOpen={isReminderDialogOpen}
+          setIsReminderDialogOpen={setIsReminderDialogOpen}
+          selectedGuestForReminder={selectedGuestForReminder}
+          isGeneratingReminder={isGeneratingReminder}
+          reminderMessage={reminderMessage}
+          setReminderMessage={setReminderMessage}
+        />
+      </Access>
+
+      <AlertDialog open={!!guestToInitiateExit} onOpenChange={() => setGuestToInitiateExit(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Initiate Exit Process</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will place {guestToInitiateExit?.name} on their notice period of {guestToInitiateExit?.noticePeriodDays} days. The bed will remain occupied until their exit date. Are you sure?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Access feature="guests" action="edit">
+              <AlertDialogAction
+                onClick={handleConfirmInitiateExit}
+              >
+                Confirm Exit
+              </AlertDialogAction>
+            </Access>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!guestToExitImmediately} onOpenChange={() => setGuestToExitImmediately(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Exit Guest Immediately?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately vacate {guestToExitImmediately?.name} from their bed, bypassing the notice period. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Access feature="guests" action="delete">
+              <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={handleConfirmImmediateExit}
+              >
+                Exit Immediately
+              </AlertDialogAction>
+            </Access>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   )
