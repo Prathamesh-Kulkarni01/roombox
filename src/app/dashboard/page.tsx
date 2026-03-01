@@ -232,7 +232,10 @@ export default function DashboardPage() {
     toast({ title: 'Sending Reminders...', description: `Sending reminders to ${pendingGuests.length} guests.` });
 
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const currentAuth = getAuth();
+      const token = await currentAuth.currentUser?.getIdToken();
+      if (!token) throw new Error('Not authenticated');
+
       const response = await fetch('/api/reminders/send-manual', {
         method: 'POST',
         headers: {
@@ -270,44 +273,73 @@ export default function DashboardPage() {
 
   const handleToggleEditMode = () => {
     if (isEditMode) {
-      showConfetti({ particleCount: 100, spread: 120, startVelocity: 25, scalar: 0.9, ticks: 150 });
+      showConfetti({ particleCount: 100, spread: 120, startVelocity: 25, scalar: 0.9 });
     }
     setIsEditMode(!isEditMode);
   }
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8 animate-pulse">
+        {/* Stats Cards Skeleton */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
+            <Card key={i} className="border-none bg-muted/30">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-3 w-2/3 bg-muted" />
+                <Skeleton className="h-4 w-4 rounded-full bg-muted" />
               </CardHeader>
               <CardContent className="p-4 pt-0">
-                <Skeleton className="h-7 w-1/2" />
+                <Skeleton className="h-8 w-1/2 bg-muted" />
               </CardContent>
             </Card>
           ))}
         </div>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-1/2" />
-            <Skeleton className="h-5 w-3/4" />
+
+        {/* Quick Actions & Search Skeleton */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-md bg-muted/40" />
+            ))}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Skeleton className="h-10 flex-1 rounded-md bg-muted/40" />
+            <Skeleton className="h-10 w-full sm:w-32 rounded-md bg-muted/40" />
+          </div>
+        </div>
+
+        {/* PG Layout Skeleton */}
+        <Card className="border-none bg-muted/10">
+          <CardHeader className="p-4 md:p-6 pb-2">
+            <Skeleton className="h-8 w-1/3 bg-muted" />
+            <Skeleton className="h-4 w-1/2 mt-2 bg-muted" />
           </CardHeader>
-          <CardContent className="p-4 md:p-6 space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <div className="space-y-6 pl-4 border-l">
-              <div className="space-y-4">
-                <Skeleton className="h-8 w-1/3" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-                  <Skeleton className="aspect-square w-full rounded-lg" />
-                  <Skeleton className="aspect-square w-full rounded-lg" />
+          <CardContent className="p-4 md:p-6 space-y-8">
+            {Array.from({ length: 2 }).map((_, floorIndex) => (
+              <div key={floorIndex} className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-6 w-24 bg-muted" />
+                  <Skeleton className="h-px flex-1 bg-muted/20" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {Array.from({ length: 3 }).map((_, roomIndex) => (
+                    <Card key={roomIndex} className="border-muted/30">
+                      <CardHeader className="p-3 pb-0">
+                        <Skeleton className="h-4 w-1/2 bg-muted" />
+                      </CardHeader>
+                      <CardContent className="p-3 pt-4">
+                        <div className="grid grid-cols-3 gap-2">
+                          {Array.from({ length: 3 }).map((_, bedIndex) => (
+                            <Skeleton key={bedIndex} className="aspect-square w-full rounded bg-muted/50" />
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </div>
-            </div>
-            <Skeleton className="h-12 w-full" />
+            ))}
           </CardContent>
         </Card>
       </div>
@@ -321,7 +353,13 @@ export default function DashboardPage() {
           onAddProperty={() => setIsAddPgSheetOpen(true)}
           onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`) }}
           onAddGuest={() => {
-            const firstAvailableBed = pgs.flatMap(pg => pg.floors?.flatMap(f => f.rooms.flatMap(r => r.beds.map(b => ({ pg, room: r, bed: b }))))).find(b => !b.bed.guestId);
+            const firstAvailableBed = pgs.flatMap(pg =>
+              (pg.floors || []).flatMap(f =>
+                f.rooms.flatMap(r =>
+                  r.beds.map(b => ({ pg, room: r, bed: b }))
+                )
+              )
+            ).find(b => b && b.bed && !b.bed.guestId);
             if (firstAvailableBed) {
               handleOpenAddGuestDialog(firstAvailableBed.bed, firstAvailableBed.room, firstAvailableBed.pg);
             } else {

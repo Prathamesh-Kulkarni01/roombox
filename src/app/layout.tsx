@@ -15,16 +15,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   manifest: '/manifest.json',
   keywords: [
-      "rental management software",
-      "property management",
-      "co-living software",
-      "pg management app",
-      "hostel management",
-      "tenant management",
-      "rent collection",
-      "expense tracking",
-      "occupancy management",
-      "RentSutra"
+    "rental management software",
+    "property management",
+    "co-living software",
+    "pg management app",
+    "hostel management",
+    "tenant management",
+    "rent collection",
+    "expense tracking",
+    "occupancy management",
+    "RentSutra"
   ],
   authors: [{ name: "RentSutra Team" }],
   creator: "RentSutra",
@@ -60,29 +60,52 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+
+function PWAHandler() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    // Detect if running in standalone mode (PWA)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as any).standalone
+      || document.referrer.includes('android-app://');
+
+    if (isStandalone && pathname === '/') {
+      // Direct land to dashboard if in PWA and on landing page
+      router.replace('/dashboard');
+    }
+  }, [pathname, router]);
+
+  return null;
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const jsonLd = {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "RentSutra",
-      "applicationCategory": "BusinessApplication",
-      "operatingSystem": "Web",
-      "description": "Simplify your rental property management with RentSutra. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "INR"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "reviewCount": "250"
-      },
-      "keywords": "rental management software, property management, pg management, tenant management, rent collection, expense tracking"
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "RentSutra",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "description": "Simplify your rental property management with RentSutra. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "INR"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "reviewCount": "250"
+    },
+    "keywords": "rental management software, property management, pg management, tenant management, rent collection, expense tracking"
   };
 
   return (
@@ -93,13 +116,18 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="RentVastu" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload"/>
+        <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
         <meta name="google-site-verification" content="HLDs7KWq0n7qSkYF2Lbuziso5ekVPmQM4ez6Bu6wL1A" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+        {/* Performance Optimizations */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link rel="preconnect" href="https://firestore.googleapis.com" />
+        <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
+
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <script
           type="application/ld+json"
@@ -117,6 +145,7 @@ export default function RootLayout({
             >
               <ConfettiProvider>
                 <div className="flex min-h-screen flex-col">
+                  <PWAHandler />
                   <Header />
                   <main className="flex-1">{children}</main>
                 </div>

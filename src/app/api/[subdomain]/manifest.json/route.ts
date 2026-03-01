@@ -5,11 +5,11 @@ import { auth } from '@/lib/firebaseAdmin';
 export async function GET(req: NextRequest) {
   try {
     let pwaConfig = null;
-    
+
     // First try to get config from subdomain
     const hostname = req.headers.get('host') || '';
     const subdomain = hostname.split('.')[0];
-    
+
     if (subdomain !== 'www' && subdomain !== 'rentvastu') {
       pwaConfig = await getPWAConfigBySubdomain(subdomain);
     }
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
         try {
           const decodedToken = await auth.verifyIdToken(token);
           const userId = decodedToken.uid;
-          
+
           // Check if user is a tenant
           const ownerId = await getOwnerForTenant(userId);
           if (ownerId) {
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const manifest = pwaConfig ? {
       name: pwaConfig.name,
       short_name: pwaConfig.shortName,
-      start_url: pwaConfig.subdomain ? `/${pwaConfig.subdomain}` : '/',
+      start_url: "/dashboard",
       display: "standalone",
       background_color: pwaConfig.backgroundColor,
       theme_color: pwaConfig.themeColor,
@@ -85,12 +85,12 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to serve manifest:', error);
-    
+
     // Return default manifest if custom one not found
     return NextResponse.json({
       name: "RentVastu",
       short_name: "RentVastu",
-      start_url: "/",
+      start_url: "/dashboard",
       display: "standalone",
       background_color: "#ffffff",
       theme_color: "#000000",
@@ -118,7 +118,7 @@ async function getManifest(subdomain: string) {
   return {
     name: "RentVastu",
     short_name: "RentVastu",
-    start_url: "/",
+    start_url: "/dashboard",
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#000000",
