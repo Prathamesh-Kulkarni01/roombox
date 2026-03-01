@@ -43,3 +43,15 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+# Playwright
+playwright/.auth
+test-results/
+playwright-report/
+blob-report/
+*.png
+# Firebase sensitive
+service-account.json
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+

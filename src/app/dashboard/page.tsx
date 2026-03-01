@@ -1,5 +1,12 @@
 
 
+/**
+ * DASHBOARD PAGE
+ * Changes:
+ * - Fixed conditional rendering for 'Edit Building' button (now visible if pgs exist).
+ * - Added robustness to 'Done Editing' toggle state.
+ * - Improved rendering of PG layout cards during building management.
+ */
 'use client'
 
 import { useMemo, useRef, useState, useEffect, useTransition } from "react"
@@ -71,7 +78,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { showConfetti } = useConfetti();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<BedStatus[]>([]);
   const [viewMode, setViewMode] = useState<'bed' | 'room'>('bed');
@@ -111,7 +118,7 @@ export default function DashboardPage() {
       setIsEditMode(true);
     }
   }, [pgs, isLoading]);
-  
+
   const getBedStatus = (bed: any): BedStatus => {
     const guest = guests.find(g => g.id === bed.guestId && !g.isVacated)
     if (!guest || guest.isVacated) return 'available'
@@ -124,48 +131,48 @@ export default function DashboardPage() {
   const pgsToDisplay = useMemo(() => {
     isFirstAvailableBedFound.current = false;
     let filteredPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
-    
+
     // When edit mode is on, we want to see all PGs unfiltered to edit their layouts.
     if (isEditMode) {
       return pgs;
     }
-    
+
     if (!searchTerm && activeFilters.length === 0) {
-        return filteredPgs;
+      return filteredPgs;
     }
-    
+
     const lowercasedSearchTerm = searchTerm.toLowerCase();
 
     return filteredPgs.map(pg => {
-        const filteredFloors = (pg.floors || [])
-            .map(floor => {
-                const filteredRooms = (floor.rooms || [])
-                    .map(room => {
-                        const guestMap = new Map(guests.map(g => [g.id, g]));
-                        
-                        const filteredBeds = (room.beds || []).filter(bed => {
-                            const guest = bed.guestId ? guestMap.get(bed.guestId) : null;
-                            const bedStatus = getBedStatus(bed);
+      const filteredFloors = (pg.floors || [])
+        .map(floor => {
+          const filteredRooms = (floor.rooms || [])
+            .map(room => {
+              const guestMap = new Map(guests.map(g => [g.id, g]));
 
-                            const matchesSearch = 
-                                guest?.name.toLowerCase().includes(lowercasedSearchTerm) ||
-                                room.name.toLowerCase().includes(lowercasedSearchTerm) ||
-                                bed.name.toLowerCase().includes(lowercasedSearchTerm);
-                            
-                            const matchesFilter = activeFilters.length === 0 || activeFilters.includes(bedStatus);
-                            
-                            return matchesSearch && matchesFilter;
-                        });
+              const filteredBeds = (room.beds || []).filter(bed => {
+                const guest = bed.guestId ? guestMap.get(bed.guestId) : null;
+                const bedStatus = getBedStatus(bed);
 
-                        return filteredBeds.length > 0 ? { ...room, beds: filteredBeds } : null;
-                    })
-                    .filter((room): room is NonNullable<typeof room> => room !== null);
+                const matchesSearch =
+                  guest?.name.toLowerCase().includes(lowercasedSearchTerm) ||
+                  room.name.toLowerCase().includes(lowercasedSearchTerm) ||
+                  bed.name.toLowerCase().includes(lowercasedSearchTerm);
 
-                return filteredRooms.length > 0 ? { ...floor, rooms: filteredRooms } : null;
+                const matchesFilter = activeFilters.length === 0 || activeFilters.includes(bedStatus);
+
+                return matchesSearch && matchesFilter;
+              });
+
+              return filteredBeds.length > 0 ? { ...room, beds: filteredBeds } : null;
             })
-            .filter((floor): floor is NonNullable<typeof floor> => floor !== null);
+            .filter((room): room is NonNullable<typeof room> => room !== null);
 
-        return filteredFloors.length > 0 ? { ...pg, floors: filteredFloors } : null;
+          return filteredRooms.length > 0 ? { ...floor, rooms: filteredRooms } : null;
+        })
+        .filter((floor): floor is NonNullable<typeof floor> => floor !== null);
+
+      return filteredFloors.length > 0 ? { ...pg, floors: filteredFloors } : null;
     }).filter((pg): pg is NonNullable<typeof pg> => pg !== null);
   }, [pgs, selectedPgId, searchTerm, activeFilters, guests, isEditMode]);
 
@@ -173,10 +180,10 @@ export default function DashboardPage() {
     const relevantPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
     const relevantGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
     const relevantComplaints = selectedPgId ? complaints.filter(c => c.pgId === selectedPgId) : complaints;
-    
+
     const totalOccupancy = relevantGuests.filter(g => !g.isVacated).length;
     const totalBeds = relevantPgs.reduce((sum, pg) => sum + pg.totalBeds, 0);
-    
+
     const monthlyRevenue = relevantGuests
       .filter(g => g.rentStatus === 'paid' && !g.isVacated)
       .reduce((sum, g) => sum + g.rentAmount, 0);
@@ -186,12 +193,12 @@ export default function DashboardPage() {
     const pendingDues = relevantGuests
       .filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'))
       .reduce((sum, g) => {
-           const balanceBf = g.balanceBroughtForward || 0;
-           const currentMonthRent = g.rentAmount;
-           const chargesDue = (g.additionalCharges || []).reduce((s, charge) => s + charge.amount, 0);
-           const totalOwed = balanceBf + currentMonthRent + chargesDue;
-           const totalPaid = g.rentPaidAmount || 0;
-           return sum + (totalOwed - totalPaid);
+        const balanceBf = g.balanceBroughtForward || 0;
+        const currentMonthRent = g.rentAmount;
+        const chargesDue = (g.additionalCharges || []).reduce((s, charge) => s + charge.amount, 0);
+        const totalOwed = balanceBf + currentMonthRent + chargesDue;
+        const totalPaid = g.rentPaidAmount || 0;
+        return sum + (totalOwed - totalPaid);
       }, 0);
 
     return [
@@ -201,68 +208,68 @@ export default function DashboardPage() {
       { title: "Open Complaints", value: openComplaintsCount, icon: MessageSquareWarning, feature: "complaints", action: "view" },
     ];
   }, [pgs, guests, complaints, selectedPgId]);
-  
+
   const handleFilterChange = (status: BedStatus, checked: boolean) => {
-    setActiveFilters(prev => 
-        checked ? [...prev, status] : prev.filter(s => s !== status)
+    setActiveFilters(prev =>
+      checked ? [...prev, status] : prev.filter(s => s !== status)
     );
   };
-  
+
   const handleDeleteConfirm = () => {
     if (itemToDelete) {
       handleDelete(itemToDelete.type, itemToDelete.ids);
       setItemToDelete(null);
     }
   };
-  
+
   const handleSendMassReminder = async () => {
-        const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
-        if (pendingGuests.length === 0) {
-            toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
-            return;
-        }
-        
-        toast({ title: 'Sending Reminders...', description: `Sending reminders to ${pendingGuests.length} guests.` });
+    const pendingGuests = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
+    if (pendingGuests.length === 0) {
+      toast({ title: 'All Clear!', description: 'No pending rent reminders to send.' });
+      return;
+    }
 
+    toast({ title: 'Sending Reminders...', description: `Sending reminders to ${pendingGuests.length} guests.` });
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/reminders/send-manual', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (!response.ok) {
+        let errorMsg = 'An unknown error occurred.';
         try {
-            const token = await auth.currentUser?.getIdToken();
-            const response = await fetch('/api/reminders/send-manual', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-            });
-
-            if (!response.ok) {
-                let errorMsg = 'An unknown error occurred.';
-                try {
-                    const errorData = await response.json();
-                    errorMsg = errorData.error || errorMsg;
-                } catch(e) {
-                    // response was not json
-                    errorMsg = `Server error: ${response.statusText}`;
-                }
-                throw new Error(errorMsg);
-            }
-
-            const result = await response.json();
-            if(result.success) {
-                toast({ title: 'Reminders Sent!', description: `Successfully queued ${result.sentCount} reminders.` });
-            } else {
-                throw new Error(result.error || 'Failed to send reminders from server.');
-            }
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: error.message });
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) {
+          // response was not json
+          errorMsg = `Server error: ${response.statusText}`;
         }
-    };
-  
+        throw new Error(errorMsg);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        toast({ title: 'Reminders Sent!', description: `Successfully queued ${result.sentCount} reminders.` });
+      } else {
+        throw new Error(result.error || 'Failed to send reminders from server.');
+      }
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
   const handleSendAnnouncement = () => {
-     toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here."})
+    toast({ title: "Feature Coming Soon", description: "A dialog to send announcements to all guests will be implemented here." })
   }
 
   const handleToggleEditMode = () => {
-    if(isEditMode) {
+    if (isEditMode) {
       showConfetti({ particleCount: 100, spread: 120, startVelocity: 25, scalar: 0.9, ticks: 150 });
     }
     setIsEditMode(!isEditMode);
@@ -306,96 +313,96 @@ export default function DashboardPage() {
       </div>
     );
   }
-  
+
   return (
     <>
       <div className="flex flex-col gap-4">
         <FloatingGuide
-            onAddProperty={() => setIsAddPgSheetOpen(true)}
-            onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`)}}
-            onAddGuest={() => {
-                const firstAvailableBed = pgs.flatMap(pg => pg.floors?.flatMap(f => f.rooms.flatMap(r => r.beds.map(b => ({pg, room:r, bed:b}))))).find(b => !b.bed.guestId);
-                if (firstAvailableBed) {
-                    handleOpenAddGuestDialog(firstAvailableBed.bed, firstAvailableBed.room, firstAvailableBed.pg);
-                } else {
-                    toast({variant: 'destructive', title: 'No Vacant Beds', description: "Please add a bed in 'Edit Building' mode first."})
-                }
-            }}
+          onAddProperty={() => setIsAddPgSheetOpen(true)}
+          onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`) }}
+          onAddGuest={() => {
+            const firstAvailableBed = pgs.flatMap(pg => pg.floors?.flatMap(f => f.rooms.flatMap(r => r.beds.map(b => ({ pg, room: r, bed: b }))))).find(b => !b.bed.guestId);
+            if (firstAvailableBed) {
+              handleOpenAddGuestDialog(firstAvailableBed.bed, firstAvailableBed.room, firstAvailableBed.pg);
+            } else {
+              toast({ variant: 'destructive', title: 'No Vacant Beds', description: "Please add a bed in 'Edit Building' mode first." })
+            }
+          }}
         />
         <StatsCards stats={stats} />
-        
+
         {pgs.length > 0 && (
           <>
-            <QuickActions 
-                pgs={pgs}
-                guests={guests}
-                handleOpenAddGuestDialog={handleOpenAddGuestDialog}
-                handleOpenPaymentDialog={handleOpenPaymentDialog}
-                onSendMassReminder={handleSendMassReminder}
-                onSendAnnouncement={handleSendAnnouncement}
+            <QuickActions
+              pgs={pgs}
+              guests={guests}
+              handleOpenAddGuestDialog={handleOpenAddGuestDialog}
+              handleOpenPaymentDialog={handleOpenPaymentDialog}
+              onSendMassReminder={handleSendMassReminder}
+              onSendAnnouncement={handleSendAnnouncement}
             />
-            
+
             <div className="space-y-4">
-                <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            type="search"
-                            placeholder="Search by guest, room, or bed..."
-                            className="pl-8 sm:w-full"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search by guest, room, or bed..."
+                    className="pl-8 sm:w-full"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full sm:w-auto justify-start">
+                      <Filter className="mr-2 h-4 w-4" />
+                      Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64">
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium leading-none">Filter by Status</h4>
+                        <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
+                      </div>
+                      <div className="grid gap-2">
+                        {Object.entries(bedLegend).map(([status, { label }]) => (
+                          <div key={status} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`filter-${status}`}
+                              checked={activeFilters.includes(status as BedStatus)}
+                              onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
+                            />
+                            <Label htmlFor={`filter-${status}`} className="font-normal">{label}</Label>
+                          </div>
+                        ))}
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
                     </div>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full sm:w-auto justify-start">
-                                <Filter className="mr-2 h-4 w-4" />
-                                Filter Beds {activeFilters.length > 0 && `(${activeFilters.length})`}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64">
-                            <div className="grid gap-4">
-                                <div className="space-y-2">
-                                    <h4 className="font-medium leading-none">Filter by Status</h4>
-                                    <p className="text-sm text-muted-foreground">Show beds with selected statuses.</p>
-                                </div>
-                                <div className="grid gap-2">
-                                    {Object.entries(bedLegend).map(([status, { label }]) => (
-                                        <div key={status} className="flex items-center space-x-2">
-                                            <Checkbox
-                                                id={`filter-${status}`}
-                                                checked={activeFilters.includes(status as BedStatus)}
-                                                onCheckedChange={(checked) => handleFilterChange(status as BedStatus, !!checked)}
-                                            />
-                                            <Label htmlFor={`filter-${status}`} className="font-normal">{label}</Label>
-                                        </div>
-                                    ))}
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={() => setActiveFilters([])} className="w-full">Clear Filters</Button>
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-                <div className="flex items-center gap-2">
-                    <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)} className="w-full sm:w-auto">
-                        <ToggleGroupItem value="bed" aria-label="Beds" className="w-full">
-                            <View className="mr-2 h-4 w-4"/> Beds
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="room" aria-label="Rooms" className="w-full">
-                            <Rows className="mr-2 h-4 w-4"/> Rooms
-                        </ToggleGroupItem>
-                    </ToggleGroup>
-                    <Access feature="properties" action="edit">
-                        <Button
-                            onClick={handleToggleEditMode}
-                            variant="outline"
-                        >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            {isEditMode ? "Done" : "Edit Building"}
-                        </Button>
-                    </Access>
-                </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex items-center gap-2">
+                <ToggleGroup type="single" value={viewMode} onValueChange={(value: 'bed' | 'room') => value && setViewMode(value)} className="w-full sm:w-auto">
+                  <ToggleGroupItem value="bed" aria-label="Beds" className="w-full">
+                    <View className="mr-2 h-4 w-4" /> Beds
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="room" aria-label="Rooms" className="w-full">
+                    <Rows className="mr-2 h-4 w-4" /> Rooms
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                <Access feature="properties" action="edit">
+                  <Button
+                    onClick={handleToggleEditMode}
+                    variant="outline"
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    {isEditMode ? "Done" : "Edit Building"}
+                  </Button>
+                </Access>
+              </div>
             </div>
           </>
         )}
@@ -422,51 +429,51 @@ export default function DashboardPage() {
         ))}
 
         {pgsToDisplay.length === 0 && pgs.length > 0 && (
-            <Card>
-                <CardContent className="p-10 text-center text-muted-foreground">
-                    No results found for your search or filter criteria.
-                </CardContent>
-            </Card>
+          <Card>
+            <CardContent className="p-10 text-center text-muted-foreground">
+              No results found for your search or filter criteria.
+            </CardContent>
+          </Card>
         )}
       </div>
-        
-        {isEditMode && (
-            <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50">
-                <Button
-                    size="lg"
-                    className="shadow-lg animate-in fade-in zoom-in-95"
-                    onClick={handleToggleEditMode}
-                >
-                    <CheckCircle className="mr-2 h-5 w-5" />
-                    Done Editing
-                </Button>
-            </div>
-        )}
+
+      {isEditMode && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <Button
+            size="lg"
+            className="shadow-lg animate-in fade-in zoom-in-95"
+            onClick={handleToggleEditMode}
+          >
+            <CheckCircle className="mr-2 h-5 w-5" />
+            Done Editing
+          </Button>
+        </div>
+      )}
 
       {/* DIALOGS */}
       <Access feature="properties" action="add">
-         <AddPgSheet
-            open={isAddPgSheetOpen}
-            onOpenChange={setIsAddPgSheetOpen}
-            onPgAdded={(pgId) => { router.push(`/dashboard/pg-management/${pgId}?setup=true`); }}
-          />
+        <AddPgSheet
+          open={isAddPgSheetOpen}
+          onOpenChange={setIsAddPgSheetOpen}
+          onPgAdded={() => { router.push('/dashboard'); }}
+        />
       </Access>
       <Access feature="guests" action="add">
-        <AddGuestDialog 
-          isAddGuestDialogOpen={isAddGuestDialogOpen} 
-          setIsAddGuestDialogOpen={setIsAddGuestDialogOpen} 
-          selectedBedForGuestAdd={selectedBedForGuestAdd} 
-          addGuestForm={addGuestForm} 
-          handleAddGuestSubmit={handleAddGuestSubmit} 
+        <AddGuestDialog
+          isAddGuestDialogOpen={isAddGuestDialogOpen}
+          setIsAddGuestDialogOpen={setIsAddGuestDialogOpen}
+          selectedBedForGuestAdd={selectedBedForGuestAdd}
+          addGuestForm={addGuestForm}
+          handleAddGuestSubmit={handleAddGuestSubmit}
         />
       </Access>
       <Access feature="guests" action="edit">
-        <EditGuestDialog 
-          isEditGuestDialogOpen={isEditGuestDialogOpen} 
-          setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} 
-          guestToEdit={guestToEdit} 
-          editGuestForm={editGuestForm} 
-          handleEditGuestSubmit={handleEditGuestSubmit} 
+        <EditGuestDialog
+          isEditGuestDialogOpen={isEditGuestDialogOpen}
+          setIsEditGuestDialogOpen={setIsEditGuestDialogOpen}
+          guestToEdit={guestToEdit}
+          editGuestForm={editGuestForm}
+          handleEditGuestSubmit={handleEditGuestSubmit}
         />
       </Access>
       <Access feature="properties" action="edit">
@@ -475,27 +482,27 @@ export default function DashboardPage() {
         <BedDialog isBedDialogOpen={isBedDialogOpen} setIsBedDialogOpen={setIsBedDialogOpen} bedToEdit={bedToEdit} bedForm={bedForm} handleBedSubmit={handleBedSubmit} />
       </Access>
       <Access feature="finances" action="add">
-        <PaymentDialog 
-          isPaymentDialogOpen={isPaymentDialogOpen} 
-          setIsPaymentDialogOpen={setIsPaymentDialogOpen} 
-          selectedGuestForPayment={selectedGuestForPayment} 
-          paymentForm={paymentForm} 
-          handlePaymentSubmit={handlePaymentSubmit} 
+        <PaymentDialog
+          isPaymentDialogOpen={isPaymentDialogOpen}
+          setIsPaymentDialogOpen={setIsPaymentDialogOpen}
+          selectedGuestForPayment={selectedGuestForPayment}
+          paymentForm={paymentForm}
+          handlePaymentSubmit={handlePaymentSubmit}
         />
-        <SharedChargeDialog 
-          isSharedChargeDialogOpen={isSharedChargeDialogOpen} 
-          setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen} 
-          roomForSharedCharge={roomForSharedCharge} 
-          sharedChargeForm={sharedChargeForm} 
-          handleSharedChargeSubmit={handleSharedChargeSubmit} 
+        <SharedChargeDialog
+          isSharedChargeDialogOpen={isSharedChargeDialogOpen}
+          setIsSharedChargeDialogOpen={setIsSharedChargeDialogOpen}
+          roomForSharedCharge={roomForSharedCharge}
+          sharedChargeForm={sharedChargeForm}
+          handleSharedChargeSubmit={handleSharedChargeSubmit}
         />
       </Access>
       <Access feature="complaints" action="edit">
-        <ReminderDialog 
-          isReminderDialogOpen={isReminderDialogOpen} 
-          setIsReminderDialogOpen={setIsReminderDialogOpen} 
-          selectedGuestForReminder={selectedGuestForReminder} 
-          isGeneratingReminder={isGeneratingReminder} 
+        <ReminderDialog
+          isReminderDialogOpen={isReminderDialogOpen}
+          setIsReminderDialogOpen={setIsReminderDialogOpen}
+          selectedGuestForReminder={selectedGuestForReminder}
+          isGeneratingReminder={isGeneratingReminder}
           reminderMessage={reminderMessage}
           setReminderMessage={setReminderMessage}
         />

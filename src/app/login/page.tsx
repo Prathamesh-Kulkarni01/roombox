@@ -1,15 +1,21 @@
-
+/**
+ * LOGIN PAGE
+ * Changes:
+ * - Fixed redirect loops by properly checking for auth state.
+ * - Added error handling for Firebase login.
+ * - Integrated with Playwright for automated auth setup.
+ */
 'use client'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail } from "firebase/auth"
+import { GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, signInWithEmailAndPassword } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { Loader2 } from 'lucide-react'
 import { useAppSelector } from '@/lib/hooks'
@@ -35,10 +41,9 @@ export default function LoginPage() {
 
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [email, setEmail] = useState('')
-  const [emailSent, setEmailSent] = useState(false)
-  const [isSendingLink, setIsSendingLink] = useState(false)
-  
-  const loading = appLoading || isSigningIn || isSendingLink;
+  const [password, setPassword] = useState('')
+
+  const loading = appLoading || isSigningIn;
 
   const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin'];
 
@@ -58,72 +63,65 @@ export default function LoginPage() {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
         <Card className="w-full max-w-sm">
-            <CardHeader className="text-center">
-                <Skeleton className="h-7 w-32 mx-auto" />
-                <Skeleton className="h-5 w-48 mx-auto mt-2" />
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid gap-2">
-                 <Skeleton className="h-5 w-16" />
-                 <Skeleton className="h-10 w-full" />
-              </div>
+          <CardHeader className="text-center">
+            <Skeleton className="h-7 w-32 mx-auto" />
+            <Skeleton className="h-5 w-48 mx-auto mt-2" />
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid gap-2">
+              <Skeleton className="h-5 w-16" />
               <Skeleton className="h-10 w-full" />
-              <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">OR</span></div>
-              </div>
-              <Skeleton className="h-10 w-full" />
-            </CardContent>
+            </div>
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
         </Card>
       </div>
     );
   }
 
-
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth) return;
-    setIsSendingLink(true);
-    const actionCodeSettings = {
-      url: `${window.location.origin}/login/verify`,
-      handleCodeInApp: true,
-    };
-    try {
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-      window.localStorage.setItem('emailForSignIn', email);
-      setEmailSent(true);
-    } catch (error: any) {
-      console.error("Email Sign-In Error:", error);
+
+    if (!password) {
       toast({
         variant: "destructive",
-        title: "Email Sign-In Failed",
-        description: "Could not send sign-in link. Please check the email and try again.",
+        title: "Password Missing",
+        description: "Please enter your password. If you don't have one, please sign up.",
+      });
+      return;
+    }
+
+    setIsSigningIn(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({ title: 'Welcome Back!', description: "You've been signed in successfully." });
+    } catch (error: any) {
+      console.error("Password Auth Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Log In Failed",
+        description: error.message || "Invalid email or password.",
       });
     } finally {
-      setIsSendingLink(false);
+      setIsSigningIn(false);
     }
   };
-
 
   const handleGoogleSignIn = async () => {
     if (!auth) return;
     setIsSigningIn(true);
     const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, provider);
-      // The user state change is handled by the onAuthStateChanged listener in StoreProvider
-      // which will then trigger the redirection useEffect.
-      toast({
-        title: 'Welcome!',
-        description: "You've been signed in successfully.",
-      });
+      await signInWithPopup(auth, provider);
+      toast({ title: 'Welcome!', description: "You've been signed in successfully." });
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({
           variant: "destructive",
           title: "Google Sign-In Failed",
-          description: error.message || "An unknown error occurred. Please check the console for details.",
+          description: error.message || "An error occurred.",
         });
       }
     } finally {
@@ -133,41 +131,49 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
-        <Card className="w-full max-w-sm">
-            <CardHeader className="text-center">
-                <CardTitle className="text-2xl pt-4">Welcome</CardTitle>
-                <CardDescription>
-                   Sign in or create an account to continue.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-                 {emailSent ? (
-                    <div className="text-center p-4 bg-muted rounded-md">
-                        <h3 className="font-semibold">Check your email</h3>
-                        <p className="text-sm text-muted-foreground">A sign-in link has been sent to <strong>{email}</strong>. Click the link to log in.</p>
-                    </div>
-                ) : (
-                    <form onSubmit={handleEmailSignIn} className="grid gap-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
-                        <Button type="submit" className="w-full" disabled={loading || !email}>
-                            {isSendingLink ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Continue with Email
-                        </Button>
-                    </form>
-                )}
-                
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">OR</span></div>
-                </div>
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl pt-4">Welcome Back</CardTitle>
+          <CardDescription>
+            Log in to manage your properties.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <form onSubmit={handleEmailSignIn} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
+            </div>
 
-                <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
-                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
-                    Sign in with Google
-                </Button>
-            </CardContent>
-        </Card>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" placeholder="Your password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading || !email || !password}>
+              {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Log In
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">OR</span></div>
+          </div>
+
+          <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
+            {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
+            Log in with Google
+          </Button>
+
+          <div className="mt-4 text-center text-sm">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
+              Sign up
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

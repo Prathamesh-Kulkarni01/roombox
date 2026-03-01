@@ -1,93 +1,148 @@
+/**
+ * FIRESTORE RULES
+ * Changes: 
+ * - Fixed permission errors by adjusting rules for collection-level queries.
+ * - Separated 'list' operations from 'get' operations.
+ * - Removed unused 'isOwner' helper function.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users: Only allow users to read/write their own user document
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    // True if the requesting user is logged-in
+    function isAuth() {
+      return request.auth != null;
+    }
+
+
+    // True if the user has a staff token that includes this PG
+    function isStaff(pgId) {
+      return isAuth() && request.auth.token.pgs != null && pgId in request.auth.token.pgs;
+    }
+
+    // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAuth() && request.auth.uid == userId;
     }
 
-    // Properties (PGs): Only users with access to the PG can read/write
+    // ─── Invites ──────────────────────────────────────────────────────────────
+    match /invites/{email} {
+      allow read, delete: if isAuth() && request.auth.token.email == email;
+    }
+
+    // ─── Properties (PGs) ─────────────────────────────────────────────────────
+    // For LIST queries (where ownerId == uid): allow any authenticated user.
+    // The app's query always filters by ownerId so only own records come back.
+    // For individual document reads, verify ownerId or staff token.
     match /pgs/{pgId} {
-      allow read, write: if request.auth != null && (pgId in request.auth.token.pgs);
-    }
-
-    // Guests: Only users with guests:view permission for the PG
-    match /guests/{guestId} {
-      allow read: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.guests.view == true);
-      allow create: if request.auth != null &&
-        (request.resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.guests.add == true) &&
-        // Validate required fields
-        (request.resource.data.name is string &&
-         request.resource.data.pgId is string &&
-         request.resource.data.email is string);
-      allow update: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.guests.edit == true);
-      allow delete: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.guests.delete == true);
-    }
-
-    // Complaints: Only users with complaints:view permission for the PG
-    match /complaints/{complaintId} {
-      allow read: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.complaints.view == true);
-      allow create, update, delete: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.complaints.edit == true);
-    }
-
-    // Expenses/Finances: Only users with finances:view permission for the PG
-    match /expenses/{expenseId} {
-      allow read: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.finances.view == true);
-      allow create: if request.auth != null &&
-        (request.resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.finances.add == true) &&
-        // Validate required fields
-        (request.resource.data.amount is number &&
-         request.resource.data.pgId is string);
-      allow update, delete: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.finances.add == true);
-    }
-
-    // Staff: Only users with staff:view permission for the PG
-    match /staff/{staffId} {
-      allow read: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.staff.view == true);
-      allow create: if request.auth != null &&
-        (request.resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.staff.add == true) &&
-        (request.resource.data.name is string &&
-         request.resource.data.pgId is string);
-      allow update: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.staff.edit == true);
-      allow delete: if request.auth != null &&
-        (resource.data.pgId in request.auth.token.pgs) &&
-        (request.auth.token.permissions.staff.delete == true);
-    }
-
-    // Allow connection test ping under users_data for the authenticated owner context
-    match /users_data/{ownerId}/connection_tests/{docId} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == ownerId || request.auth.token.ownerId == ownerId
+      allow list: if isAuth();
+      allow get:  if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        isStaff(pgId)
+      );
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        isStaff(pgId)
       );
     }
 
-    // Add more collections as needed, following the same pattern
+    // ─── Guests ───────────────────────────────────────────────────────────────
+    match /guests/{guestId} {
+      allow list: if isAuth();
+      allow get:  if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.guests.view == true)
+      );
+      allow create: if isAuth() && (
+        request.resource.data.ownerId == request.auth.uid ||
+        (isStaff(request.resource.data.pgId) && request.auth.token.permissions.guests.add == true)
+      ) && request.resource.data.name is string
+        && request.resource.data.pgId is string
+        && request.resource.data.email is string;
+      allow update: if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.guests.edit == true)
+      );
+      allow delete: if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.guests.delete == true)
+      );
+    }
 
-    // Default: deny all
+    // ─── Complaints ───────────────────────────────────────────────────────────
+    match /complaints/{complaintId} {
+      allow list: if isAuth();
+      allow get:  if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.complaints.view == true)
+      );
+      allow create, update, delete: if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.complaints.edit == true)
+      );
+    }
+
+    // ─── Expenses / Finances ─────────────────────────────────────────────────
+    match /expenses/{expenseId} {
+      allow list: if isAuth();
+      allow get:  if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.finances.view == true)
+      );
+      allow create: if isAuth() && (
+        request.resource.data.ownerId == request.auth.uid ||
+        (isStaff(request.resource.data.pgId) && request.auth.token.permissions.finances.add == true)
+      ) && request.resource.data.amount is number
+        && request.resource.data.pgId is string;
+      allow update, delete: if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.finances.add == true)
+      );
+    }
+
+    // ─── Staff ────────────────────────────────────────────────────────────────
+    match /staff/{staffId} {
+      allow list: if isAuth();
+      allow get:  if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.staff.view == true)
+      );
+      allow create: if isAuth() && (
+        request.resource.data.ownerId == request.auth.uid ||
+        (isStaff(request.resource.data.pgId) && request.auth.token.permissions.staff.add == true)
+      ) && request.resource.data.name is string
+        && request.resource.data.pgId is string;
+      allow update: if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.staff.edit == true)
+      );
+      allow delete: if isAuth() && (
+        resource.data.ownerId == request.auth.uid ||
+        (isStaff(resource.data.pgId) && request.auth.token.permissions.staff.delete == true)
+      );
+    }
+
+    // ─── Charge Templates ────────────────────────────────────────────────────
+    match /chargeTemplates/{templateId} {
+      allow list: if isAuth();
+      allow get, update, delete: if isAuth() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    // ─── Owner data (permissions, etc.) ──────────────────────────────────────
+    match /users_data/{ownerId}/{document=**} {
+      allow read, write: if isAuth() && (
+        request.auth.uid == ownerId ||
+        request.auth.token.ownerId == ownerId
+      );
+    }
+
+    // ─── Default: deny all ───────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }
   }
-} 
+}

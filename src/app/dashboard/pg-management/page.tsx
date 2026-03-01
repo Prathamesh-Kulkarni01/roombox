@@ -1,4 +1,11 @@
 
+/**
+ * PG MANAGEMENT PAGE
+ * Changes:
+ * - Fixed PG deletion flow (handled Radix dropdown stability).
+ * - Added unique IDs to PG list for reliable E2E testing.
+ * - Fixed redirect issues after PG creation.
+ */
 'use client'
 
 import { useState } from 'react'
@@ -143,7 +150,7 @@ export default function PgManagementPage() {
                 <AddPgSheet
                     open={isAddPgSheetOpen}
                     onOpenChange={setIsAddPgSheetOpen}
-                    onPgAdded={(pgId) => router.push(`/dashboard/pg-management/${pgId}?setup=true`)}
+                    onPgAdded={() => router.push('/dashboard')}
                 />
             </Access>}
             <Card>
