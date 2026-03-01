@@ -8,14 +8,14 @@ const translations = {
     hero_check_1: "No credit card required",
     hero_check_2: "Free forever for up to 10 beds",
     hero_check_3: "App size less than 1MB",
-    
+
     all_features_title: "One App to Rule Them All",
     all_features_subtitle: "From guest check-in to financial reconciliation, RentSutra has every feature you'll ever need to run a successful rental business.",
-    
+
     supercharge_title_1: "Supercharge Your Business with",
     supercharge_title_2: "Automation",
     supercharge_subtitle: "Go beyond basic management. Unlock powerful tools to grow your brand and automate your entire workflow.",
-    
+
     why_title: "Stop Juggling, Start Managing",
     why_subtitle: "Tired of the chaos? See how RentSutra transforms your daily operations.",
     old_way_title: "The Old Way",
@@ -28,11 +28,11 @@ const translations = {
     new_way_2: "A single dashboard for all financial and operational data.",
     new_way_3: "Instant insights into occupancy, revenue, and pending dues.",
     new_way_4: "One-click rent reconciliation and bill splitting.",
-    
+
     pricing_title_1: "Simple, Fair Pricing That",
     pricing_title_2: "Grows With You",
     pricing_subtitle: "No complex plans, no hidden charges. Just one simple, affordable price that scales with your business.",
-    
+
     plan_free_name: "Free Plan",
     plan_free_desc: "Perfect for getting started",
     plan_free_price: "₹0",
@@ -40,7 +40,7 @@ const translations = {
     plan_free_feat1: "Core Property & Tenant Management",
     plan_free_feat2: "Basic Expense Tracking",
     plan_cta: "Get Started",
-    
+
     plan_pro_badge: "Most Popular",
     plan_pro_name: "Pro Plan",
     plan_pro_desc: "For growing businesses that need automation",
@@ -121,7 +121,7 @@ const translations = {
     nav_enterprise_desc: "Connect your own Firebase project.",
     nav_settings: "Settings",
     nav_settings_desc: "Configure your account.",
-    
+
     guided_setup_title: "Welcome to RentSutra! Let's Get You Set Up.",
     guided_setup_subtitle: "Follow these steps to get your property fully operational.",
     guided_step_1_title: "Add Your First Property",
@@ -142,6 +142,9 @@ const translations = {
     guided_step_6_title: "Log Your First Expense",
     guided_step_6_desc: "Start tracking your property expenses to manage finances.",
     guided_step_6_action: "Go to Expenses",
+    dashboard_title: "Dashboard",
+    dashboard_welcome: "Welcome back to your property overview.",
+    add_property: "Add Property",
   },
   hi: {
     hero_badge: "आधुनिक किराये की संपत्तियों के लिए ऑपरेटिंग सिस्टम",
@@ -155,11 +158,11 @@ const translations = {
 
     all_features_title: "सब पर शासन करने वाला एक ऐप",
     all_features_subtitle: "अतिथि चेक-इन से लेकर वित्तीय मिलान तक, RentSutra में वे सभी सुविधाएँ हैं जिनकी आपको एक सफल किराये का व्यवसाय चलाने के लिए कभी भी आवश्यकता होगी।",
-    
+
     supercharge_title_1: "अपने व्यवसाय को",
     supercharge_title_2: "स्वचालन से Supercharge करें",
     supercharge_subtitle: "बुनियादी प्रबंधन से आगे बढ़ें। अपने ब्रांड को विकसित करने और अपने पूरे वर्कफ़्लो को स्वचालित करने के लिए शक्तिशाली टूल अनलॉक करें।",
-    
+
     why_title: "उलझन बंद करो, प्रबंधन शुरू करो",
     why_subtitle: "अराजकता से थक गए? देखें कि RentSutra आपके दैनिक कार्यों को कैसे बदलता है।",
     old_way_title: "पुराना तरीका",
@@ -172,11 +175,11 @@ const translations = {
     new_way_2: "सभी वित्तीय और परिचालन डेटा के लिए एक एकल डैशबोर्ड।",
     new_way_3: "occupancy, राजस्व, और लंबित बकाया में तत्काल अंतर्दृष्टि।",
     new_way_4: "एक-क्लिक किराया मिलान और बिल विभाजन।",
-    
+
     pricing_title_1: "सरल, उचित मूल्य निर्धारण जो",
     pricing_title_2: "आपके साथ बढ़ता है",
     pricing_subtitle: "कोई जटिल योजना नहीं, कोई छिपा हुआ शुल्क नहीं। बस एक सरल, सस्ती कीमत जो आपके व्यवसाय के साथ बढ़ती है।",
-    
+
     plan_free_name: "मुफ्त योजना",
     plan_free_desc: "शुरू करने के लिए बिल्कुल सही",
     plan_free_price: "₹0",
@@ -184,7 +187,7 @@ const translations = {
     plan_free_feat1: "मुख्य संपत्ति और किरायेदार प्रबंधन",
     plan_free_feat2: "बुनियादी व्यय ट्रैकिंग",
     plan_cta: "शुरू हो जाओ",
-    
+
     plan_pro_badge: "सबसे लोकप्रिय",
     plan_pro_name: "प्रो योजना",
     plan_pro_desc: "बढ़ते व्यवसायों के लिए जिन्हें स्वचालन की आवश्यकता है",
@@ -265,7 +268,7 @@ const translations = {
     nav_enterprise_desc: "अपना खुद का फायरबेस प्रोजेक्ट कनेक्ट करें।",
     nav_settings: "सेटिंग्स",
     nav_settings_desc: "अपना खाता कॉन्फ़िगर करें।",
-    
+
     guided_setup_title: "RentSutra में आपका स्वागत है! आइए आपको सेट अप करें।",
     guided_setup_subtitle: "अपनी संपत्ति को पूरी तरह से चालू करने के लिए इन चरणों का पालन करें।",
     guided_step_1_title: "अपनी पहली संपत्ति जोड़ें",
@@ -286,6 +289,9 @@ const translations = {
     guided_step_6_title: "अपना पहला खर्च लॉग करें",
     guided_step_6_desc: "वित्त प्रबंधन के लिए अपनी संपत्ति के खर्चों को ट्रैक करना शुरू करें।",
     guided_step_6_action: "खर्च पर जाएं",
+    dashboard_title: "डैशबोर्ड",
+    dashboard_welcome: "अपने प्रॉपर्टी ओवरव्यू में वापस स्वागत है।",
+    add_property: "संपत्ति जोड़ें",
   },
 };
 

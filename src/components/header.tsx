@@ -55,43 +55,43 @@ export default function Header() {
     dispatch(logoutUser());
     router.push('/login');
   }
-  
+
   if (isLandingPage && !currentUser) { // Don't show header on landing page for logged-out users
-      return null;
+    return null;
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-40 w-full glass border-b border-border/40 shadow-sm transition-all duration-300">
       <div className="container mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 gap-4">
         <div className="flex items-center gap-2 md:gap-4 flex-1 md:flex-none">
-            <Link href="/" className="flex items-center gap-2 mr-2">
-                <div className="w-8 h-8 bg-gradient-saffron rounded-lg flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-white" />
-                </div>
-                <span className="font-bold text-lg font-headline hidden sm:inline-block">RentSutra</span>
-            </Link>
-             {isDashboard && currentUser && (
-                isLoading ? (
-                    <Skeleton className="h-10 w-[120px] sm:w-[180px]" />
-                ) : pgs.length > 0 ? (
-                    <Select
-                        value={selectedPgId || 'all'}
-                        onValueChange={handleValueChange}
-                    >
-                        <SelectTrigger className="w-auto sm:w-[180px] flex-1 min-w-[120px]">
-                            <SelectValue placeholder="Select a Property..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                             <SelectItem value="all">All Properties</SelectItem>
-                            {pgs.map((pg, index) => (
-                                <SelectItem key={`${pg.id}-${index}`} value={pg.id}>
-                                    {pg.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                ) : null
-             )}
+          <Link href="/" className="flex items-center gap-2 mr-1 md:mr-2 shrink-0">
+            <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-tr from-primary to-primary/80 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center transition-transform active:scale-95">
+              <Building2 className="h-4 w-4 md:h-5 md:h-5 text-white" />
+            </div>
+            <span className="font-bold text-base md:text-lg font-headline tracking-tighter hidden xs:inline-block">RentSutra</span>
+          </Link>
+          {isDashboard && currentUser && (
+            isLoading ? (
+              <Skeleton className="h-10 w-[120px] sm:w-[180px]" />
+            ) : pgs.length > 0 ? (
+              <Select
+                value={selectedPgId || 'all'}
+                onValueChange={handleValueChange}
+              >
+                <SelectTrigger className="glass-dark sm:glass border-0 h-9 md:h-10 w-auto sm:w-[180px] flex-1 min-w-[110px] shadow-inner font-medium text-xs md:text-sm">
+                  <SelectValue placeholder="Select Property" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Properties</SelectItem>
+                  {pgs.map((pg, index) => (
+                    <SelectItem key={`${pg.id}-${index}`} value={pg.id}>
+                      {pg.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null
+          )}
         </div>
 
 
@@ -99,75 +99,75 @@ export default function Header() {
           {navLinks.map((link) => {
             if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;
             if (currentUser && !link.roles.includes('all') && !link.roles.includes(currentUser.role)) return null;
-            
+
             return (
-                <Link
+              <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                    'transition-colors hover:text-foreground/80',
-                    (pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/') ? 'text-foreground' : 'text-muted-foreground'
+                  'transition-colors hover:text-foreground/80 font-medium',
+                  (pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/') ? 'text-primary' : 'text-muted-foreground'
                 )}
-                >
+              >
                 {link.label}
-                </Link>
+              </Link>
             )
           })}
         </nav>
 
         <div className="flex items-center gap-2">
-            {currentUser && (
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger>
-                            <div className="relative flex h-3 w-3">
-                                <span className={cn(
-                                    "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
-                                    isCustomDbConnected ? "bg-green-400" : "bg-yellow-400"
-                                )}></span>
-                                <span className={cn(
-                                    "relative inline-flex rounded-full h-3 w-3",
-                                    isCustomDbConnected ? "bg-green-500" : "bg-yellow-500"
-                                )}></span>
-                            </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p className="text-sm font-medium">
-                                {isCustomDbConnected ? 'Connected to Custom DB' : 'Connected to App DB'}
-                            </p>
-                            {isCustomDbConnected && currentUser.subscription?.enterpriseProject && (
-                                <p className="text-xs text-muted-foreground">
-                                    {currentUser.subscription.enterpriseProject.projectId} / {currentUser.subscription.enterpriseProject.databaseId}
-                                </p>
-                            )}
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            )}
-           <DropdownMenu>
+          {currentUser && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <div className="relative flex h-3 w-3">
+                    <span className={cn(
+                      "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                      isCustomDbConnected ? "bg-green-400" : "bg-yellow-400"
+                    )}></span>
+                    <span className={cn(
+                      "relative inline-flex rounded-full h-3 w-3",
+                      isCustomDbConnected ? "bg-green-500" : "bg-yellow-500"
+                    )}></span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm font-medium">
+                    {isCustomDbConnected ? 'Connected to Custom DB' : 'Connected to App DB'}
+                  </p>
+                  {isCustomDbConnected && currentUser.subscription?.enterpriseProject && (
+                    <p className="text-xs text-muted-foreground">
+                      {currentUser.subscription.enterpriseProject.projectId} / {currentUser.subscription.enterpriseProject.databaseId}
+                    </p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <Languages className="h-[1.2rem] w-[1.2rem]"/>
-                    <span className="sr-only">Change language</span>
-                </Button>
+              <Button variant="ghost" size="icon">
+                <Languages className="h-[1.2rem] w-[1.2rem]" />
+                <span className="sr-only">Change language</span>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setLanguage('en')}>English</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLanguage('hi')}>हिंदी (Hindi)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLanguage('en')}>English</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLanguage('hi')}>हिंदी (Hindi)</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <ThemeToggle />
           {currentUser && (isDashboard || isTenantDashboard) && <NotificationsPopover />}
-           {isLandingPage && (
+          {isLandingPage && (
             <div className="hidden md:flex">
               <InstallPWA />
             </div>
           )}
           {currentUser ? (
-              <Button variant="outline" onClick={handleLogout} className="hidden md:flex">Logout</Button>
+            <Button variant="outline" onClick={handleLogout} className="hidden md:flex">Logout</Button>
           ) : (
-             <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90">
-                <Link href="/login">Login / Sign Up</Link>
+            <Button asChild className="hidden md:flex bg-primary hover:bg-primary/90">
+              <Link href="/login">Login / Sign Up</Link>
             </Button>
           )}
           <Sheet>
@@ -184,44 +184,44 @@ export default function Header() {
               </SheetHeader>
               <div className="flex flex-col h-full">
                 <div className="flex-1 overflow-y-auto">
-                    <Link href="/" className="flex items-center gap-2 mb-4 p-4">
-                        <div className="w-8 h-8 bg-gradient-saffron rounded-lg flex items-center justify-center">
-                            <Building2 className="h-5 w-5 text-white" />
-                        </div>
-                        <span className="font-bold text-lg font-headline">RentSutra</span>
-                    </Link>
-                    
-                    <Separator className="my-4"/>
-
-                    <div className="flex flex-col gap-1 px-4">
-                        <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">{t('nav_training')}</h4>
-                        <div className="space-y-1">
-                          {trainingGuides.map((guide) => (
-                              <Link
-                                  key={guide.slug}
-                                  href={`/blog/${guide.slug}`}
-                                  className='flex items-center justify-between p-3 rounded-lg hover:bg-muted'
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <BookOpen className="w-4 h-4 text-muted-foreground" />
-                                      <span className="font-medium text-sm">{guide.title}</span>
-                                    </div>
-                                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                              </Link>
-                          ))}
-                        </div>
+                  <Link href="/" className="flex items-center gap-2 mb-4 p-4">
+                    <div className="w-8 h-8 bg-gradient-saffron rounded-lg flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-white" />
                     </div>
+                    <span className="font-bold text-lg font-headline">RentSutra</span>
+                  </Link>
+
+                  <Separator className="my-4" />
+
+                  <div className="flex flex-col gap-1 px-4">
+                    <h4 className="px-3 py-2 text-sm font-semibold text-muted-foreground">{t('nav_training')}</h4>
+                    <div className="space-y-1">
+                      {trainingGuides.map((guide) => (
+                        <Link
+                          key={guide.slug}
+                          href={`/blog/${guide.slug}`}
+                          className='flex items-center justify-between p-3 rounded-lg hover:bg-muted'
+                        >
+                          <div className="flex items-center gap-3">
+                            <BookOpen className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium text-sm">{guide.title}</span>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-auto p-4 border-t">
-                    {isLandingPage && <InstallPWA />}
-                    {currentUser ? (
-                        <Button onClick={handleLogout} className="w-full mt-4">{t('logout')}</Button>
-                    ) : (
-                        <Button asChild className="w-full mt-4 bg-primary hover:bg-primary/90">
-                            <Link href="/login">Login / Sign Up</Link>
-                        </Button>
-                    )}
+                  {isLandingPage && <InstallPWA />}
+                  {currentUser ? (
+                    <Button onClick={handleLogout} className="w-full mt-4">{t('logout')}</Button>
+                  ) : (
+                    <Button asChild className="w-full mt-4 bg-primary hover:bg-primary/90">
+                      <Link href="/login">Login / Sign Up</Link>
+                    </Button>
+                  )}
                 </div>
               </div>
             </SheetContent>

@@ -50,6 +50,7 @@ import { Badge } from "@/components/ui/badge"
 import { getAuth } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useConfetti } from "@/context/confetti-provider"
+import { useTranslation } from "@/context/language-context"
 
 
 const bedLegend: Record<BedStatus, { label: string, className: string }> = {
@@ -279,8 +280,33 @@ export default function DashboardPage() {
   }
 
   if (isLoading) {
+    const { t } = useTranslation();
+    const userRole = currentUser?.role;
+    const setIsAddPgOpen = setIsAddPgSheetOpen;
+
     return (
-      <div className="flex flex-col gap-8 animate-pulse">
+      <div className="flex-1 space-y-6 md:space-y-8 p-4 md:p-8 pt-6 pb-24 md:pb-8 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <h2 className="text-2xl md:text-4xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+              {t('dashboard_title')}
+            </h2>
+            <p className="text-sm md:text-lg text-muted-foreground/80 font-medium">
+              {t('dashboard_welcome')}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {currentUser?.role === 'owner' && (
+              <Button
+                onClick={() => setIsAddPgSheetOpen(true)}
+                className="shadow-native hover:shadow-native-lg transition-all active:scale-95 rounded-2xl px-8 h-11 font-bold bg-primary hover:bg-primary/90 text-white border-0"
+              >
+                <PlusCircle className="mr-2 h-5 w-5" />
+                {t('add_property')}
+              </Button>
+            )}
+          </div>
+        </div>
         {/* Stats Cards Skeleton */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (

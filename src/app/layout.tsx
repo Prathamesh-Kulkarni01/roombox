@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import Script from 'next/script';
 import { LanguageProvider } from '@/context/language-context';
 import ConfettiProvider from '@/context/confetti-provider';
+import BottomNav from '@/components/BottomNav';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.app";
 
@@ -147,7 +148,8 @@ export default function RootLayout({
                 <div className="flex min-h-screen flex-col">
                   <PWAHandler />
                   <Header />
-                  <main className="flex-1">{children}</main>
+                  <main className="flex-1 pb-20 md:pb-0">{children}</main>
+                  <BottomNav />
                 </div>
                 <Toaster />
               </ConfettiProvider>
