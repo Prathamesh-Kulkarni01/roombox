@@ -46,7 +46,8 @@ test.describe('Property Layout & Engine', () => {
             const count = await staleRows.count();
             if (count === 0) break;
             console.log(`Found ${count} stale test PG(s), cleaning up...`);
-            await staleRows.first().locator('button[aria-haspopup="true"]').click();
+            // The delete button is typically in the dropdown menu
+            await staleRows.first().locator('button:has(.lucide-more-horizontal)').click();
             await page.click('[role="menuitem"]:has-text("Delete")');
             await page.click('button:has-text("Continue")');
             await page.waitForTimeout(2000);
@@ -64,17 +65,23 @@ test.describe('Property Layout & Engine', () => {
         // Find and click the submit button inside the form  
         await page.click('button[type="submit"]');
 
-        // Should redirect back to /dashboard
-        await page.waitForURL('**/dashboard', { timeout: 20000 });
-        console.log('PG created — redirected to dashboard');
+        // Wait for the sheet to close and the new PG to appear in the list
+        await expect(page.locator(`text=${uniquePgName}`).first()).toBeVisible({ timeout: 15000 });
+        console.log('PG created — appeared in dashboard list');
 
-        // --- 3. Wait for the PG section to appear (either in or out of edit mode) ---
-        // The dashboard may start in edit mode ("Done" button) or normal mode ("Edit Building" button)
-        // We need to reach the state where we see "Edit Building" to click it
-        const editButton = page.locator('button:has-text("Edit Building")');
-        const doneEditingButton = page.locator('button:has-text("Done Editing"), button:has-text("Done")').first();
+        // Navigate into the newly created PG by clicking "Configure" in its row's dropdown
+        const pgRow = page.locator('tr').filter({ hasText: uniquePgName });
+        await pgRow.first().locator('button:has(.lucide-more-horizontal)').click();
+        await page.click('[role="menuitem"]:has-text("Configure")');
 
-        // Wait for EITHER button to confirm PG data has loaded
+        // Wait for the URL to change to the specific PG management page
+        await page.waitForURL('**/dashboard/pg-management/**', { timeout: 15000 });
+
+        // --- 3. Activate Edit Mode ---
+        // The "Edit Building" toggle is now a `Pencil` icon button with class `.lucide-pencil`.
+        const editButton = page.locator('button:has(.lucide-pencil)').first();
+        const doneEditingButton = page.locator('button:has-text("Done")').first();
+
         try {
             await Promise.race([
                 expect(editButton).toBeVisible({ timeout: 25000 }),
@@ -85,33 +92,31 @@ test.describe('Property Layout & Engine', () => {
             throw new Error('PG layout section never appeared. See debug-dashboard-no-edit-button.png');
         }
 
-        // If we are in edit mode, exit it first
-        if (await doneEditingButton.isVisible() && !(await editButton.isVisible())) {
-            await doneEditingButton.click();
-            await expect(editButton).toBeVisible({ timeout: 5000 });
+        // If we are already in edit mode (e.g., from a fresh creation redirect), this will gracefully pass
+        if (await editButton.isVisible() && !(await doneEditingButton.isVisible())) {
+            console.log('"Edit Building" pencil button is visible, activating edit mode');
+            await editButton.click();
         }
 
-        console.log('"Edit Building" button is visible');
-        await editButton.first().click();
-
         // Confirm we're in edit mode — "Done" button appears
-        await expect(page.locator('button:has-text("Done")').first()).toBeVisible({ timeout: 5000 });
+        await expect(doneEditingButton).toBeVisible({ timeout: 5000 });
         console.log('Edit mode activated');
 
         // --- 4. Add a Floor ---
-        await page.click('button:has-text("Add New Floor")');
+        // Click the + icon next to Done button to Add Floor
+        await page.locator('button:has-text("Done")').locator('xpath=following-sibling::button').click();
+
         await page.waitForSelector('input[name="name"]', { state: 'visible', timeout: 5000 });
         await page.fill('input[name="name"]', 'Test Ground Floor');
-        await page.click('button:has-text("Add Floor")');
+        await page.click('button:has-text("Add Floor")'); // Submit the floor dialog
 
         // Confirm the floor appeared
         await expect(page.locator('text=Test Ground Floor').first()).toBeVisible({ timeout: 10000 });
         console.log('Floor "Test Ground Floor" added successfully');
 
         // --- 5. Exit Edit Mode ---
-        const doneButton = page.locator('button:has-text("Done Editing")');
-        if (await doneButton.isVisible()) {
-            await doneButton.click();
+        if (await doneEditingButton.isVisible()) {
+            await doneEditingButton.click();
         }
 
         // --- 6. Cleanup: delete the test PG ---
@@ -119,9 +124,10 @@ test.describe('Property Layout & Engine', () => {
         await expect(page.locator('text=Your Properties').first()).toBeVisible({ timeout: 15000 });
         await page.waitForTimeout(2000);
 
-        const pgRow = page.locator('tr').filter({ hasText: uniquePgName });
-        if (await pgRow.count() > 0) {
-            await pgRow.first().locator('button[aria-haspopup="true"]').click();
+        const cleanupRow = page.locator('tr').filter({ hasText: uniquePgName });
+        if (await cleanupRow.count() > 0) {
+            // Find the dropdown toggle containing `.lucide-more-horizontal`
+            await cleanupRow.first().locator('button:has(.lucide-more-horizontal)').click();
             await page.click('[role="menuitem"]:has-text("Delete")');
             await page.click('button:has-text("Continue")');
             await expect(page.locator(`text=${uniquePgName}`)).toHaveCount(0, { timeout: 10000 });

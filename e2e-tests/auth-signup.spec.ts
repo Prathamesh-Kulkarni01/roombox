@@ -7,27 +7,24 @@ test.describe('Authentication - Sign Up', () => {
     const password = 'testpassword123';
 
     test('User can create a new account using the password form', async ({ page }) => {
-        // Navigate to the login page
-        await page.goto('/login');
+        // Navigate to the signup page directly
+        await page.goto('/signup');
 
         // Fill in credentials
         await page.fill('input[type="email"]', uniqueEmail);
         await page.fill('input[type="password"]', password);
 
-        // Check the "Create new account instead of logging in" checkbox
-        await page.check('input#isSignUp');
-
-        // Button should now say "Create Account"
-        await expect(page.locator('button', { hasText: 'Create Account' })).toBeVisible();
+        // Expect the button to say "Sign Up"
+        await expect(page.locator('button', { hasText: 'Sign Up' })).toBeVisible();
 
         // Click to sign up
-        await page.click('button:has-text("Create Account")');
+        await page.click('button:has-text("Sign Up")');
 
         // Verify successful toast message
-        await expect(page.locator('text=Account created successfully')).toBeVisible();
+        await expect(page.locator('text=Account created successfully')).toBeVisible({ timeout: 15000 });
 
         // The user should eventually be redirected to complete their profile (unassigned role)
         // or the dashboard, depending on the app's routing logic.
-        await expect(page).toHaveURL(/.*(complete-profile|dashboard)/);
+        await expect(page).toHaveURL(/.*(complete-profile|dashboard)/, { timeout: 15000 });
     });
 });

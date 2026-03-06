@@ -25,6 +25,7 @@ import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import GuestPopoverContent from "@/components/dashboard/GuestPopoverContent"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { cn } from '@/lib/utils'
+import { useGetGuestsQuery } from '@/lib/api/apiSlice'
 import {
   DropdownMenu,
   DropdownMenuContent,
