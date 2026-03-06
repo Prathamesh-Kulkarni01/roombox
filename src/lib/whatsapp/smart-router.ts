@@ -1,179 +1,313 @@
 /**
- * SMART WORKFLOW-BASED BOT ROUTER
- * 
- * Uses the workflow engine to route all messages dynamically
- * No hardcoded if/else chains - everything is configuration-driven
+ * Smart Router — WhatsApp Bot Entry Point
+ *
+ * Replaces bot-logic.ts. Routes every incoming message through
+ * the workflow engine. No hardcoded if/else chains.
+ *
+ * Flow:
+ *   1. Load session from Redis
+ *   2. If not authenticated → run auth flow
+ *   3. If authenticated → load/advance workflow
+ *   4. Handle cross-workflow navigation tokens
+ *   5. Save session, send response
  */
 
 import { sendWhatsAppMessage } from './send-message';
 import { getSession, updateSession, clearSession } from './session-state';
 import { workflowEngine } from './workflow-engine';
-import { propertyManagementWorkflow, tenantManagementWorkflow } from './workflow-definitions';
 import { WorkflowContext } from './workflow-types';
-import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
-import { PropertyService } from '../../services/propertyService';
-import { TenantService } from '../../services/tenantService';
+import { getAdminDb } from '../firebaseAdmin';
 
-// Register all workflows
-workflowEngine.registerWorkflow(propertyManagementWorkflow);
-workflowEngine.registerWorkflow(tenantManagementWorkflow);
+// ─── Special navigation tokens produced by nextStepsFn ───────────────────────
+// These tell the router to switch workflows rather than advance within one.
+const WORKFLOW_SWITCH_MAP: Record<string, { workflowId: string; step: string }> = {
+    '__switchPropertyManagement': { workflowId: 'propertyManagement', step: 'selectProperty' },
+    '__switchAddTenant': { workflowId: 'addTenant', step: 'selectPgForTenant' },
+    '__switchManageTenants': { workflowId: 'tenantManagement', step: 'selectTenantToManage' },
+    '__switchTodayPayments': { workflowId: 'mainMenu', step: 'todayPayments' },
+    '__switchMonthlySummary': { workflowId: 'mainMenu', step: 'monthlySummary' },
+    '__switchPendingRents': { workflowId: 'mainMenu', step: 'pendingRents' },
+    '__goMainMenu': { workflowId: 'mainMenu', step: 'showMenu' },
+};
 
-/**
- * Main smart message handler
- * Routes everything through the workflow engine
- */
-export async function handleMessageViaWorkflow(data: any) {
-    const { from, msgBody } = data;
-    const userInput = msgBody?.trim() || '';
+// ─── Session helpers ──────────────────────────────────────────────────────────
 
-    const session = getSession(from);
-    
-    // User not authenticated
-    if (!session.data?.isAuthenticatedOwner) {
-        await handleAuthentication(from, userInput, session);
+function isContextExpired(ctx: WorkflowContext): boolean {
+    const updated = new Date(ctx.updatedAt).getTime();
+    return Date.now() - updated > 15 * 60 * 1000; // 15 min idle timeout
+}
+
+// ─── Main Entry Point ─────────────────────────────────────────────────────────
+
+export async function handleIncomingMessage(data: {
+    from: string;
+    msgBody: string;
+    messageType?: string;
+    rawData?: any;
+}): Promise<void> {
+    const { from, msgBody, messageType, rawData } = data;
+
+    // Use media ID as input for image messages
+    let text = msgBody?.trim() || '';
+    if (messageType === 'image' && rawData?.image?.id) {
+        text = rawData.image.id;
+    }
+
+    console.log(`[Router] From: ${from} | Type: ${messageType} | Msg: "${text}"`);
+
+    // Load persisted session
+    const session = await getSession(from);
+
+    // ── 1. Not authenticated → run auth ──────────────────────────────
+    if (!session.data?.isAuthenticatedOwner && !session.data?.isAuthenticatedTenant) {
+        await handleAuth(from, text, session);
         return;
     }
 
-    // Load or initialize workflow context
-    let workflowContext = session.data.workflowContext;
-    
-    if (!workflowContext) {
-        // First time in workflow - ask what they want to do
-        workflowContext = createMainMenuContext(session.data.ownerId, from);
-        updateSession(from, 'IN_WORKFLOW', {
-            ...session.data,
-            workflowContext
+    // ── 2. Tenant authenticated ───────────────────────────────────────
+    if (session.data?.isAuthenticatedTenant) {
+        await handleWithWorkflow(from, text, session, 'tenantPortal', 'tenantMenu');
+        return;
+    }
+
+    // ── 3. Owner authenticated ────────────────────────────────────────
+    const lowerText = text.toLowerCase();
+
+    // Global reset commands
+    if (lowerText === 'menu' || lowerText === 'hi' || lowerText === 'hello') {
+        await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
+        return;
+    }
+
+    if (lowerText === 'cancel') {
+        await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
+        await sendWhatsAppMessage(from, '❌ Cancelled. Returning to main menu.');
+        return;
+    }
+
+    // Continue active workflow
+    await handleWithWorkflow(from, text, session,
+        session.data?.workflowId || 'mainMenu',
+        session.data?.currentStep || 'showMenu'
+    );
+}
+
+// ─── Workflow Dispatcher ──────────────────────────────────────────────────────
+
+async function handleWithWorkflow(
+    from: string,
+    text: string,
+    session: any,
+    workflowId: string,
+    currentStep: string
+): Promise<void> {
+    // Restore or build context
+    let ctx: WorkflowContext = session.data?.workflowContext;
+
+    if (!ctx || isContextExpired(ctx)) {
+        // Fresh context — present the current step
+        ctx = workflowEngine.initializeContext(workflowId, from, from, {
+            isAuthenticatedOwner: session.data?.isAuthenticatedOwner || false,
+            isAuthenticatedTenant: session.data?.isAuthenticatedTenant || false,
+            ownerId: session.data?.ownerId,
+            ownerName: session.data?.ownerName,
         });
-        
-        const message = await getMainMenuMessage(session.data.ownerId);
+        ctx.workflowId = workflowId;
+        ctx.currentStep = currentStep;
+
+        // Present the step (with onEnter)
+        const message = await workflowEngine.presentStep(ctx);
         await sendWhatsAppMessage(from, message);
+        await persistWorkflowContext(from, session, ctx);
         return;
     }
 
-    // Process user input through workflow
-    console.log(`[Workflow] Processing input: "${userInput}"`);
-    console.log(`[Workflow] Current step: ${workflowContext.currentStep}`);
+    // Ensure auth fields are always fresh
+    ctx.isAuthenticatedOwner = session.data?.isAuthenticatedOwner || false;
+    ctx.ownerId = session.data?.ownerId;
+    ctx.ownerName = session.data?.ownerName;
 
-    // Handle special commands
-    if (userInput.toLowerCase() === 'menu' || userInput.toLowerCase() === 'hi') {
-        // Reset to main menu
-        workflowContext = createMainMenuContext(session.data.ownerId, from);
-        updateSession(from, 'IN_WORKFLOW', {
-            ...session.data,
-            workflowContext
-        });
-        
-        const message = await getMainMenuMessage(session.data.ownerId);
-        await sendWhatsAppMessage(from, message);
-        return;
-    }
-
-    // Add database helpers to context
-    workflowContext.db = await selectOwnerDataAdminDb(session.data.ownerId);
-    workflowContext.ownerId = session.data.ownerId;
-
-    // Process through appropriate workflow
-    const workflow = workflowEngine.getWorkflow(workflowContext.workflowId);
-    if (!workflow) {
-        await sendWhatsAppMessage(from, '❌ Workflow error. Reply *Menu* to restart.');
-        return;
-    }
-
-    const result = await workflowEngine.processInput(userInput, workflowContext);
+    // Process input through engine
+    const result = await workflowEngine.processInput(text, ctx);
 
     if (!result.success) {
-        // Validation error - show error and repeat current step
-        await sendWhatsAppMessage(from, result.message);
+        // Validation error — repeat current step message
+        await sendWhatsAppMessage(from, result.message || '⚠️ Invalid input. Try again.');
         return;
     }
 
-    if (result.nextStep) {
-        // Show next step message
+    // Handle cross-workflow navigation tokens
+    if (result.nextStep && WORKFLOW_SWITCH_MAP[result.nextStep]) {
+        const { workflowId: nextWfId, step: nextStepId } = WORKFLOW_SWITCH_MAP[result.nextStep];
+        await switchToWorkflow(from, session, nextWfId, nextStepId, ctx);
+        return;
+    }
+
+    // Send the response message
+    if (result.message) {
         await sendWhatsAppMessage(from, result.message);
-        
-        // Update workflow context
-        workflowContext.currentStep = result.nextStep;
-        updateSession(from, 'IN_WORKFLOW', {
-            ...session.data,
-            workflowContext
-        });
-    } else {
-        // Workflow completed
-        await sendWhatsAppMessage(from, '✅ Done! Reply *Menu* to continue.');
-        workflowContext = createMainMenuContext(session.data.ownerId, from);
-        updateSession(from, 'IN_WORKFLOW', {
-            ...session.data,
-            workflowContext
-        });
+    }
+
+    // Persist updated context
+    await persistWorkflowContext(from, session, result.context);
+}
+
+// ─── Switch Workflow ──────────────────────────────────────────────────────────
+
+async function switchToWorkflow(
+    from: string,
+    session: any,
+    workflowId: string,
+    stepId: string,
+    prevCtx?: WorkflowContext
+): Promise<void> {
+    const ctx = workflowEngine.initializeContext(workflowId, from, from, {
+        isAuthenticatedOwner: session.data?.isAuthenticatedOwner || false,
+        isAuthenticatedTenant: session.data?.isAuthenticatedTenant || false,
+        ownerId: session.data?.ownerId,
+        ownerName: session.data?.ownerName,
+        // Preserve cross-workflow data if needed
+        data: prevCtx?.data ? { pgsList: prevCtx.data.pgsList } : {},
+    });
+    ctx.workflowId = workflowId;
+    ctx.currentStep = stepId;
+
+    // Run onEnter and present the step
+    const message = await workflowEngine.presentStep(ctx);
+    await sendWhatsAppMessage(from, message);
+    await persistWorkflowContext(from, session, ctx);
+}
+
+// ─── Session Persistence ──────────────────────────────────────────────────────
+
+async function persistWorkflowContext(from: string, session: any, ctx: WorkflowContext): Promise<void> {
+    await updateSession(from, 'IDLE', {
+        ...session.data,
+        workflowContext: ctx,
+        workflowId: ctx.workflowId,
+        currentStep: ctx.currentStep,
+    });
+}
+
+// ─── Authentication Handler ───────────────────────────────────────────────────
+
+async function handleAuth(from: string, text: string, session: any): Promise<void> {
+    const lowerText = text.toLowerCase();
+    const state = session.state;
+
+    // ── Entry greeting ────────────────────────────────────────────────
+    if (state === 'IDLE') {
+        if (!['hi', 'hello', 'menu', 'start'].includes(lowerText)) {
+            await sendWhatsAppMessage(from, `Welcome to RoomBox 🏠\n\nReply *Hi* to get started.`);
+            return;
+        }
+
+        // Attempt owner auto-login by phone number
+        const matchedOwner = await lookupOwnerByPhone(from);
+
+        if (matchedOwner) {
+            // ✅ Auto-login success
+            await updateSession(from, 'IDLE', {
+                isAuthenticatedOwner: true,
+                ownerName: matchedOwner.name || 'Owner',
+                ownerId: matchedOwner.id,
+            });
+            await sendWhatsAppMessage(from, `✅ *Welcome back, ${matchedOwner.name || 'Owner'}!*`);
+
+            // Switch directly to main menu
+            const updatedSession = await getSession(from);
+            await switchToWorkflow(from, updatedSession, 'mainMenu', 'showMenu');
+            return;
+        }
+
+        // Not an owner — show role selection
+        await updateSession(from, 'AWAITING_USER_ROLE', {});
+        await sendWhatsAppMessage(
+            from,
+            `Welcome to RoomBox 🏠\n\n` +
+            `Who are you?\n\n` +
+            `1️⃣ Property Owner / PG Owner\n` +
+            `2️⃣ Tenant\n` +
+            `3️⃣ Support`
+        );
+        return;
+    }
+
+    // ── Role selection ────────────────────────────────────────────────
+    if (state === 'AWAITING_USER_ROLE') {
+        if (text === '1') {
+            await clearSession(from);
+            await sendWhatsAppMessage(
+                from,
+                `❌ *Not Registered*\n\n` +
+                `Your WhatsApp number isn't verified in our system.\n\n` +
+                `*To get access:*\n` +
+                `1️⃣ Visit: https://roombox.netlify.app/dashboard/settings\n` +
+                `2️⃣ Go to *Settings → WhatsApp*\n` +
+                `3️⃣ Add & verify your phone number\n` +
+                `4️⃣ Reply *Hi* here to login automatically 🪄\n\n` +
+                `Need help? Reply *Support*.`
+            );
+        } else if (text === '2') {
+            await updateSession(from, 'IDLE', { isAuthenticatedTenant: true });
+            await sendWhatsAppMessage(from, `✅ *Tenant Portal*\n\nWelcome to RoomBox Tenant Portal!`);
+            const updatedSession = await getSession(from);
+            await switchToWorkflow(from, updatedSession, 'tenantPortal', 'tenantMenu');
+        } else if (text === '3') {
+            await sendWhatsAppMessage(from, `🆘 *Support*\n\nFor help, email us at: support@roombox.app\n\nOr visit: https://roombox.netlify.app/support\n\nReply *Hi* to go back.`);
+        } else {
+            await sendWhatsAppMessage(from, `Please reply *1* for Owner, *2* for Tenant, or *3* for Support.`);
+        }
+        return;
+    }
+
+    // Fallback
+    await sendWhatsAppMessage(from, `Reply *Hi* to get started.`);
+}
+
+// ─── Owner Lookup ─────────────────────────────────────────────────────────────
+
+async function lookupOwnerByPhone(from: string): Promise<{ id: string; name: string; phone: string } | null> {
+    try {
+        const adminDb = await getAdminDb();
+
+        // Format phone — WhatsApp sends with country code e.g. 919876543210
+        const allDigits = from.replace(/\D/g, '');
+        const withoutCC = allDigits.startsWith('91') && allDigits.length === 12
+            ? allDigits.substring(2)
+            : allDigits;
+
+        const queries = [
+            // Try with country code
+            adminDb.collection('users')
+                .where('role', '==', 'owner')
+                .where('phone', '==', allDigits)
+                .limit(1)
+                .get(),
+            // Try without country code
+            adminDb.collection('users')
+                .where('role', '==', 'owner')
+                .where('phone', '==', withoutCC)
+                .limit(1)
+                .get(),
+        ];
+
+        const results = await Promise.all(queries);
+
+        for (const snap of results) {
+            if (!snap.empty) {
+                const doc = snap.docs[0];
+                return { id: doc.id, ...doc.data() as any };
+            }
+        }
+
+        console.log(`[Auth] No owner found for phone: ${from} (tried ${allDigits} and ${withoutCC})`);
+        return null;
+
+    } catch (err) {
+        console.error('[Auth] Owner lookup error:', err);
+        return null;
     }
 }
 
-/**
- * Create main menu workflow context
- */
-function createMainMenuContext(ownerId: string, phone: string): WorkflowContext {
-    return {
-        workflowId: 'mainMenu',
-        currentStep: 'mainMenu',
-        stepHistory: ['mainMenu'],
-        inputHistory: [],
-        data: {},
-        lastMessage: '',
-        availableOptions: ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
-        userId: ownerId,
-        userPhone: phone,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        sessionId: `${ownerId}-${Date.now()}`
-    } as any;
-}
-
-/**
- * Get main menu message dynamically
- */
-async function getMainMenuMessage(ownerId: string): Promise<string> {
-    return `🏠 *Welcome!*\n\nWhat would you like to do?\n\n1️⃣ View Properties\n2️⃣ Today's Payments\n3️⃣ Monthly Summary\n4️⃣ Pending Rents\n5️⃣ Send Reminders\n6️⃣ Add Tenant\n7️⃣ Manage Tenants\n8️⃣ Reports\n9️⃣ Dashboard`;
-}
-
-/**
- * Handle main menu selection
- */
-export async function handleMainMenuSelection(choice: string, session: any, from: string): Promise<void> {
-    const ownerId = session.data.ownerId;
-
-    switch (choice) {
-        case '1': // View Properties
-            const adminDb = await selectOwnerDataAdminDb(ownerId);
-            const buildings = await PropertyService.getBuildings(adminDb, ownerId);
-            
-            let workflowContext = session.data.workflowContext;
-            workflowContext.data.pgsList = buildings;
-            workflowContext.currentStep = 'selectProperty';
-            workflowContext.workflowId = 'propertyManagement';
-            
-            updateSession(from, 'IN_WORKFLOW', { ...session.data, workflowContext });
-            await handleMessageViaWorkflow({ from, msgBody: '1' });
-            break;
-
-        case '6': // Add Tenant
-            workflowContext = session.data.workflowContext;
-            workflowContext.workflowId = 'tenantManagement';
-            workflowContext.currentStep = 'selectPropertyForTenant';
-            
-            updateSession(from, 'IN_WORKFLOW', { ...session.data, workflowContext });
-            await handleMessageViaWorkflow({ from, msgBody: '1' });
-            break;
-
-        // ... other menu items route to appropriate workflows
-    }
-}
-
-/**
- * Authentication handler (for non-authenticated users)
- */
-async function handleAuthentication(from: string, userInput: string, session: any): Promise<void> {
-    // Implement existing auth logic
-    // This stays the same for now
-}
-
-export default handleMessageViaWorkflow;
+export default handleIncomingMessage;

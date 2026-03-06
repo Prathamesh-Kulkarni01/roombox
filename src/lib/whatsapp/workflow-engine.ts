@@ -1,7 +1,8 @@
 /**
- * Intelligent Workflow Engine
- * 
- * Core logic for dynamic, context-aware conversation flows
+ * Workflow Engine
+ *
+ * Drives all WhatsApp conversation flows from declarative definitions.
+ * No if/else chains — pure data-driven routing.
  */
 
 import {
@@ -10,37 +11,25 @@ import {
     WorkflowResult,
     ParsedInput,
     StepDefinition,
-    WorkflowOption
 } from './workflow-types';
 
 export class WorkflowEngine {
     private workflows: Map<string, WorkflowDefinition> = new Map();
 
-    /**
-     * Register a workflow definition
-     */
     registerWorkflow(definition: WorkflowDefinition): void {
         this.workflows.set(definition.id, definition);
-        console.log(`[WorkflowEngine] Registered workflow: ${definition.id}`);
     }
 
-    /**
-     * Get workflow definition
-     */
     getWorkflow(workflowId: string): WorkflowDefinition | undefined {
         return this.workflows.get(workflowId);
     }
 
-    /**
-     * Get current step definition
-     */
     getStep(workflow: WorkflowDefinition, stepId: string): StepDefinition | undefined {
         return workflow.steps[stepId];
     }
 
-    /**
-     * Parse and validate user input based on current step
-     */
+    // ─── Input Parsing & Validation ──────────────────────────────────
+
     async parseInput(
         input: string,
         step: StepDefinition,
@@ -48,138 +37,114 @@ export class WorkflowEngine {
     ): Promise<ParsedInput> {
         const normalized = input.trim().toLowerCase();
 
-        // Check if input matches validation regex
+        // Regex validation
         if (step.validation?.regex) {
-            if (!step.validation.regex.test(input)) {
+            if (!step.validation.regex.test(input.trim())) {
                 return {
-                    raw: input,
-                    normalized,
-                    isValid: false,
-                    errorMessage: step.validation.errorMessage || 'Invalid input'
+                    raw: input, normalized, isValid: false,
+                    errorMessage: step.validation.errorMessage || 'Invalid input.',
                 };
             }
         }
 
         // Custom validator
         if (step.validation?.customValidator) {
-            const isValid = step.validation.customValidator(input, context);
-            if (!isValid) {
+            const valid = step.validation.customValidator(input.trim(), context);
+            if (!valid) {
                 return {
-                    raw: input,
-                    normalized,
-                    isValid: false,
-                    errorMessage: step.validation.errorMessage || 'Invalid input'
+                    raw: input, normalized, isValid: false,
+                    errorMessage: step.validation.errorMessage || 'Invalid input.',
                 };
             }
         }
 
-        // Check if input matches available options
-        if (step.options && step.options.length > 0) {
-            const selectedOption = step.options.find(
-                opt => opt.key.toString().toLowerCase() === normalized ||
-                       opt.label.toLowerCase().includes(normalized)
+        // Match static options by key
+        if (step.options) {
+            const selected = step.options.find(
+                (opt) =>
+                    opt.key.toString().toLowerCase() === normalized ||
+                    opt.label.toLowerCase() === normalized
             );
-            
-            if (selectedOption) {
-                return {
-                    raw: input,
-                    normalized,
-                    isValid: true,
-                    selectedOption: selectedOption.key
-                };
+            if (selected) {
+                return { raw: input, normalized, isValid: true, selectedOption: selected.key };
             }
         }
 
-        return {
-            raw: input,
-            normalized,
-            isValid: true  // Default valid if no validation specified
-        };
+        return { raw: input, normalized, isValid: true };
     }
 
-    /**
-     * Generate message for current step
-     */
+    // ─── Message Generation ───────────────────────────────────────────
+
     async generateMessage(step: StepDefinition, context: WorkflowContext): Promise<string> {
         let message = '';
 
-        // Use custom builder if available
         if (step.messageBuilder) {
             message = step.messageBuilder(context);
-        } else {
-            // Interpolate template variables
-            message = this.interpolateTemplate(step.messageTemplate, context);
+        } else if (step.messageTemplate) {
+            message = this.interpolate(step.messageTemplate, context);
         }
 
-        // Append options if available
+        // Append static options
         if (step.options && step.options.length > 0) {
             message += '\n\n';
-            step.options.forEach(opt => {
+            step.options.forEach((opt) => {
                 message += `${opt.key}️⃣ ${opt.label}\n`;
             });
         }
 
-        // If dynamic options, generate them
+        // Generate dynamic options
         if (step.optionsFn) {
-            const dynamicOptions = await step.optionsFn(context);
-            message += '\n\n';
-            dynamicOptions.forEach(opt => {
-                message += `${opt.key}️⃣ ${opt.label}\n`;
-            });
-            // Update context with available options
-            context.availableOptions = dynamicOptions.map(opt => opt.key);
+            const dynOpts = await step.optionsFn(context);
+            if (dynOpts.length > 0) {
+                message += message.trim() ? '\n\n' : '';
+                dynOpts.forEach((opt) => {
+                    message += `${opt.key}️⃣ ${opt.label}\n`;
+                });
+                context.availableOptions = dynOpts.map((o) => o.key);
+            }
         }
 
-        return message;
+        return message.trim();
     }
 
-    /**
-     * Determine next step based on input and context
-     */
+    // ─── Next Step Resolution ─────────────────────────────────────────
+
     async getNextStep(
         step: StepDefinition,
         parsedInput: ParsedInput,
         context: WorkflowContext
     ): Promise<string | undefined> {
-        // Use custom function if available
+        // Dynamic function wins
         if (step.nextStepsFn) {
-            return await step.nextStepsFn(parsedInput.raw, context);
+            return await step.nextStepsFn(parsedInput.raw.trim(), context);
         }
 
-        // Check static routing
+        // Static map — try raw, normalized, then selectedOption
         if (step.nextSteps) {
-            // Try exact match first
-            if (step.nextSteps[parsedInput.raw]) {
-                return step.nextSteps[parsedInput.raw];
-            }
-
-            // Try normalized input
-            if (step.nextSteps[parsedInput.normalized]) {
-                return step.nextSteps[parsedInput.normalized];
-            }
-
-            // Try by option key
-            if (step.nextSteps[parsedInput.selectedOption?.toString() || '']) {
-                return step.nextSteps[parsedInput.selectedOption!.toString()];
+            const key = parsedInput.raw.trim();
+            if (step.nextSteps[key]) return step.nextSteps[key];
+            if (step.nextSteps[parsedInput.normalized]) return step.nextSteps[parsedInput.normalized];
+            if (
+                parsedInput.selectedOption !== undefined &&
+                step.nextSteps[parsedInput.selectedOption.toString()]
+            ) {
+                return step.nextSteps[parsedInput.selectedOption.toString()];
             }
         }
 
-        // Fall back to default
         return step.defaultNext;
     }
 
-    /**
-     * Initialize workflow context
-     */
+    // ─── Context Initialization ───────────────────────────────────────
+
     initializeContext(
         workflowId: string,
         userId: string,
-        userPhone: string
+        userPhone: string,
+        authData: Partial<WorkflowContext> = {}
     ): WorkflowContext {
         const workflow = this.getWorkflow(workflowId);
-        if (!workflow) {
-            throw new Error(`Workflow not found: ${workflowId}`);
-        }
+        if (!workflow) throw new Error(`Workflow not found: ${workflowId}`);
 
         return {
             workflowId,
@@ -189,17 +154,19 @@ export class WorkflowEngine {
             data: {},
             lastMessage: '',
             availableOptions: [],
+            isAuthenticatedOwner: false,
+            isAuthenticatedTenant: false,
             userId,
             userPhone,
             createdAt: new Date(),
             updatedAt: new Date(),
-            sessionId: `${userId}-${Date.now()}`
+            sessionId: `${userId}-${Date.now()}`,
+            ...authData,
         };
     }
 
-    /**
-     * Process user input and advance workflow
-     */
+    // ─── Core: Process User Input ─────────────────────────────────────
+
     async processInput(
         userInput: string,
         context: WorkflowContext
@@ -207,127 +174,92 @@ export class WorkflowEngine {
         try {
             const workflow = this.getWorkflow(context.workflowId);
             if (!workflow) {
-                return {
-                    success: false,
-                    message: '❌ Workflow not found',
-                    context,
-                    error: 'Invalid workflow ID'
-                };
+                return { success: false, message: '❌ Workflow not found. Reply *Menu* to restart.', context };
             }
 
             const currentStep = this.getStep(workflow, context.currentStep);
             if (!currentStep) {
-                return {
-                    success: false,
-                    message: '❌ Step not found',
-                    context,
-                    error: 'Invalid step ID'
-                };
+                return { success: false, message: '❌ Invalid step. Reply *Menu* to restart.', context };
             }
 
-            // Parse input
-            const parsedInput = await this.parseInput(userInput, currentStep, context);
-
-            // Validation failed
-            if (!parsedInput.isValid) {
-                return {
-                    success: false,
-                    message: `⚠️ ${parsedInput.errorMessage}`,
-                    context,
-                    error: parsedInput.errorMessage
-                };
+            // Validate input
+            const parsed = await this.parseInput(userInput, currentStep, context);
+            if (!parsed.isValid) {
+                return { success: false, message: `⚠️ ${parsed.errorMessage}`, context };
             }
 
-            // Save input to history
+            // Record history
             context.inputHistory.push(userInput);
 
-            // Store data if it's a form/input step
-            if (currentStep.type === 'form' || currentStep.type === 'input') {
-                const fieldId = currentStep.formFields?.[currentStep.currentFieldIndex || 0]?.id;
-                if (fieldId) {
-                    context.data[fieldId] = userInput;
-                }
-            }
+            // Determine next step
+            const nextStepId = await this.getNextStep(currentStep, parsed, context);
 
-            // Get next step
-            const nextStepId = await this.getNextStep(currentStep, parsedInput, context);
+            // Call exit handler
+            if (currentStep.onExit) await currentStep.onExit(context);
 
             if (!nextStepId) {
-                return {
-                    success: true,
-                    message: '✅ Workflow completed',
-                    context,
-                    data: context.data
-                };
+                // Workflow naturally completed
+                return { success: true, message: '✅ Done! Reply *Menu* to continue.', context, data: context.data };
+            }
+
+            // Handle special cross-workflow navigation tokens
+            if (nextStepId.startsWith('__')) {
+                return { success: true, message: '', nextStep: nextStepId, context };
             }
 
             const nextStep = this.getStep(workflow, nextStepId);
             if (!nextStep) {
-                return {
-                    success: false,
-                    message: '❌ Invalid next step',
-                    context,
-                    error: `Step not found: ${nextStepId}`
-                };
+                return { success: false, message: `❌ Step "${nextStepId}" not found. Reply *Menu*.`, context };
             }
 
-            // Call exit handler for current step
-            if (currentStep.onExit) {
-                await currentStep.onExit(context);
-            }
-
-            // Update context
+            // Advance context
             context.currentStep = nextStepId;
             context.stepHistory.push(nextStepId);
             context.updatedAt = new Date();
 
-            // Call enter handler for next step
-            if (nextStep.onEnter) {
-                await nextStep.onEnter(context);
-            }
+            // Run onEnter for next step (loads data, etc.)
+            if (nextStep.onEnter) await nextStep.onEnter(context);
 
-            // Generate message for next step
+            // Generate message
             const message = await this.generateMessage(nextStep, context);
+            context.lastMessage = message;
 
-            return {
-                success: true,
-                message,
-                nextStep: nextStepId,
-                context,
-                data: context.data
-            };
+            return { success: true, message, nextStep: nextStepId, context, data: context.data };
 
-        } catch (error: any) {
-            return {
-                success: false,
-                message: '❌ Error processing workflow',
-                context,
-                error: error.message
-            };
+        } catch (err: any) {
+            console.error('[WorkflowEngine] Error:', err);
+            return { success: false, message: `❌ Something went wrong: ${err.message}`, context };
         }
     }
 
-    /**
-     * Helper: Interpolate template variables
-     */
-    private interpolateTemplate(template: string, context: WorkflowContext): string {
-        return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-            return context.data[key]?.toString() || match;
-        });
+    // ─── Display Current Step (entry into a step) ─────────────────────
+
+    async presentStep(context: WorkflowContext): Promise<string> {
+        const workflow = this.getWorkflow(context.workflowId);
+        if (!workflow) return '❌ Workflow not found. Reply *Menu*.';
+
+        const step = this.getStep(workflow, context.currentStep);
+        if (!step) return '❌ Step not found. Reply *Menu*.';
+
+        // Run onEnter if presenting fresh
+        if (step.onEnter) await step.onEnter(context);
+
+        const message = await this.generateMessage(step, context);
+        context.lastMessage = message;
+        return message;
     }
 
-    /**
-     * Get workflow summary
-     */
-    getWorkflowSummary(context: WorkflowContext): string {
-        return `
-📋 Workflow: ${context.workflowId}
-📍 Current Step: ${context.currentStep}
-📝 History: ${context.stepHistory.join(' → ')}
-💾 Data: ${JSON.stringify(context.data, null, 2)}
-        `.trim();
+    // ─── Helpers ─────────────────────────────────────────────────────
+
+    private interpolate(template: string, context: WorkflowContext): string {
+        return template.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
+            return context.data[key]?.toString() ?? '';
+        });
     }
 }
 
-// Export singleton instance
+// Singleton — pre-registers all workflows on import
+import { allWorkflows } from './workflow-definitions';
+
 export const workflowEngine = new WorkflowEngine();
+allWorkflows.forEach((wf) => workflowEngine.registerWorkflow(wf));

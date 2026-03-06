@@ -1,77 +1,68 @@
 import { NextResponse } from 'next/server';
-import { handleIncomingMessage } from '@/lib/whatsapp/bot-logic';
+import { handleIncomingMessage } from '@/lib/whatsapp/smart-router';
 import { getEnv } from '@/lib/env';
 import { Redis } from '@upstash/redis';
 
 const WHATSAPP_VERIFY_TOKEN = getEnv('WHATSAPP_VERIFY_TOKEN', 'roombox_whatsapp_dev_token');
 
-// Initialize Redis client (singleton)
+// Singleton Redis client
 let redisClient: Redis | null = null;
 
 function getRedisClient(): Redis {
     if (!redisClient) {
         redisClient = new Redis({
             url: process.env.UPSTASH_REDIS_REST_URL || '',
-            token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
+            token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
         });
     }
     return redisClient;
 }
 
-// Verification endpoint for Meta
+// ── GET: Webhook verification by Meta ────────────────────────────────────────
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get('hub.mode');
     const token = searchParams.get('hub.verify_token');
     const challenge = searchParams.get('hub.challenge');
 
-    if (mode && token) {
-        if (mode === 'subscribe' && token === WHATSAPP_VERIFY_TOKEN) {
-            console.log('WEBHOOK_VERIFIED');
-            return new NextResponse(challenge, { status: 200 });
-        } else {
-            return new NextResponse('Forbidden', { status: 403 });
-        }
+    if (mode === 'subscribe' && token === WHATSAPP_VERIFY_TOKEN) {
+        console.log('[Webhook] Verified by Meta');
+        return new NextResponse(challenge, { status: 200 });
     }
 
-    return new NextResponse('Bad Request', { status: 400 });
+    return new NextResponse('Forbidden', { status: 403 });
 }
 
-// Receive messages from Meta
+// ── POST: Receive messages from Meta ─────────────────────────────────────────
 export async function POST(req: Request) {
+    // Always respond 200 immediately — Meta requires acknowledgement within 30s
+    const responsePromise = NextResponse.json({ status: 'received' }, { status: 200 });
+
     try {
         const body = await req.json();
 
-        if (body.object) {
-            if (
-                body.entry &&
-                body.entry[0].changes &&
-                body.entry[0].changes[0] &&
-                body.entry[0].changes[0].value.messages &&
-                body.entry[0].changes[0].value.messages[0]
-            ) {
-                const phoneNumberId = body.entry[0].changes[0].value.metadata.phone_number_id;
-                const from = body.entry[0].changes[0].value.messages[0].from;
-                const msgBody = body.entry[0].changes[0].value.messages[0].text?.body;
-                const messageType = body.entry[0].changes[0].value.messages[0].type;
+        if (!body.object) return responsePromise;
 
-                console.log(`Received ${messageType} message from ${from}: ${msgBody || '[Media]'}`);
+        const changes = body.entry?.[0]?.changes?.[0];
+        if (!changes?.value?.messages?.[0]) return responsePromise;
 
-                // Initialize Redis for this request
-                const redis = getRedisClient();
+        const message = changes.value.messages[0];
+        const from = message.from;
+        const msgBody = message.text?.body || '';
+        const messageType = message.type;
 
-                // Pass to Bot Logic router with Redis instance
-                await handleIncomingMessage({ from, msgBody, messageType, rawData: body.entry[0].changes[0].value.messages[0], redis });
+        console.log(`[Webhook] ${messageType} from ${from}: "${msgBody || '[media]'}"`);
 
-                return new NextResponse('EVENT_RECEIVED', { status: 200 });
-            }
+        // Initialize Redis for this request (keeps singleton alive)
+        getRedisClient();
 
-            return new NextResponse('EVENT_RECEIVED', { status: 200 }); // Return 200 for other event types (like statuses) to ack
-        } else {
-            return new NextResponse('Not Found', { status: 404 });
-        }
+        // Process asynchronously — don't await so Meta gets 200 immediately
+        handleIncomingMessage({ from, msgBody, messageType, rawData: message })
+            .catch((err) => console.error('[Webhook] Handler error:', err));
+
     } catch (error) {
-        console.error('Webhook POST Error:', error);
-        return new NextResponse('Internal Server Error', { status: 500 });
+        console.error('[Webhook] POST error:', error);
     }
+
+    return responsePromise;
 }

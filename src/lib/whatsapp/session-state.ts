@@ -1,96 +1,98 @@
-// Redis-backed session store for WhatsApp Bot conversational state
-// Uses Upstash Redis for persistence and production scalability
+/**
+ * Redis-backed session store for WhatsApp Bot
+ *
+ * Stores the full WorkflowContext inside session.data.workflowContext
+ * so the bot survives server restarts and scales horizontally.
+ */
+
 import { Redis } from '@upstash/redis';
 
+// BotState is now a single unified state — workflow tracking is inside
+// the WorkflowContext stored in session.data.workflowContext
 export type BotState =
     | 'IDLE'
-    | 'AWAITING_USER_ROLE'
-    | 'SELECTING_PG'
-    | 'SELECTING_ROOM'
-    | 'SELECTING_BED'
-    | 'DYNAMIC_FORM_FILLING'
-    | 'AWAITING_COMPLAINT_ACTION'
-    | 'ADDING_PG_NAME'
-    | 'ADDING_PG_CAPACITY'
-    | 'SELECTING_TENANT_LIFECYCLE'
-    | 'AWAITING_LIFECYCLE_ACTION'
-    | 'EDITING_TENANT_FIELD_SELECTION'
-    | 'EDITING_TENANT_VALUE'
-    | 'AWAITING_KYC_ACTION'
-    | 'AWAITING_OWNER_KYC_UPLOAD_PHOTO'
-    | 'AWAITING_OWNER_KYC_UPLOAD_AADHAAR'
-    | 'SELECTING_PG_DETAILS'
-    | 'AWAITING_PG_ACTION'
-    | 'RECORDING_PAYMENT_AMOUNT'
-    | 'CONFIRMING_VACATE';
+    | 'AWAITING_USER_ROLE';
 
-interface UserSession {
+export interface UserSession {
     state: BotState;
-    data: any; // Temporary data collected during a multi-step flow
+    data: {
+        isAuthenticatedOwner?: boolean;
+        isAuthenticatedTenant?: boolean;
+        ownerId?: string;
+        ownerName?: string;
+        workflowContext?: any;   // Serialized WorkflowContext
+        workflowId?: string;
+        currentStep?: string;
+        [key: string]: any;
+    };
     lastUpdated: number;
 }
 
+const SESSION_TTL = 900; // 15 minutes
+
 let redisClient: Redis | null = null;
-const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
-const SESSION_TTL = 600; // 10 minutes in seconds (for Redis expiry)
 
 function getRedisClient(): Redis {
     if (!redisClient) {
         redisClient = new Redis({
             url: process.env.UPSTASH_REDIS_REST_URL || '',
-            token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
+            token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
         });
     }
     return redisClient;
 }
 
+function sessionKey(phone: string): string {
+    return `roombox:wa:session:${phone}`;
+}
+
+// ── Get session (returns default if not found) ────────────────────────────────
 export async function getSession(phoneNumber: string): Promise<UserSession> {
     try {
         const redis = getRedisClient();
-        const sessionKey = `whatsapp:session:${phoneNumber}`;
-        
-        // Upstash returns the object directly if it was stored as an object
-        const session = await redis.get<UserSession>(sessionKey);
-
+        const session = await redis.get<UserSession>(sessionKey(phoneNumber));
         if (session) {
-            await redis.expire(sessionKey, SESSION_TTL);
+            await redis.expire(sessionKey(phoneNumber), SESSION_TTL);
             return session;
         }
-
-        return { state: 'IDLE', data: {}, lastUpdated: Date.now() };
-    } catch (error) {
-        console.error('[SessionCache] Error reading session:', error);
-        return { state: 'IDLE', data: {}, lastUpdated: Date.now() };
+    } catch (err) {
+        console.error('[Session] Read error:', err);
     }
+    return freshSession();
 }
 
-export async function updateSession(phoneNumber: string, newState: BotState, newData?: any): Promise<void> {
+// ── Update session ─────────────────────────────────────────────────────────────
+export async function updateSession(
+    phoneNumber: string,
+    newState: BotState,
+    newData?: Partial<UserSession['data']>
+): Promise<void> {
     try {
         const redis = getRedisClient();
-        const sessionKey = `whatsapp:session:${phoneNumber}`;
-        
-        // Get current data safely
-        const currentSession = await getSession(phoneNumber);
+        const current = await getSession(phoneNumber);
 
-        const updatedSession: UserSession = {
+        const updated: UserSession = {
             state: newState,
-            data: { ...currentSession.data, ...(newData || {}) },
-            lastUpdated: Date.now()
+            data: { ...current.data, ...(newData || {}) },
+            lastUpdated: Date.now(),
         };
 
-        // Use .set() with 'ex' for Upstash, and pass the object directly
-        await redis.set(sessionKey, updatedSession, { ex: SESSION_TTL });
-    } catch (error) {
-        console.error('[SessionCache] Error updating session:', error);
+        await redis.set(sessionKey(phoneNumber), updated, { ex: SESSION_TTL });
+    } catch (err) {
+        console.error('[Session] Write error:', err);
     }
 }
 
+// ── Clear session ──────────────────────────────────────────────────────────────
 export async function clearSession(phoneNumber: string): Promise<void> {
     try {
         const redis = getRedisClient();
-        const sessionKey = `whatsapp:session:${phoneNumber}`;
-        await redis.del(sessionKey);
-    } catch (error) {
-        console.error('[SessionCache] Error clearing session:', error);
+        await redis.del(sessionKey(phoneNumber));
+    } catch (err) {
+        console.error('[Session] Clear error:', err);
     }
+}
+
+function freshSession(): UserSession {
+    return { state: 'IDLE', data: {}, lastUpdated: Date.now() };
 }
