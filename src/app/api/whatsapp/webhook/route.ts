@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { handleIncomingMessage } from '@/lib/whatsapp/bot-logic';
+import { getEnv } from '@/lib/env';
 
-const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'roombox_whatsapp_dev_token';
+const WHATSAPP_VERIFY_TOKEN = getEnv('WHATSAPP_VERIFY_TOKEN', 'roombox_whatsapp_dev_token');
 
 // Verification endpoint for Meta
 export async function GET(req: Request) {

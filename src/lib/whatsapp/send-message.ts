@@ -1,5 +1,7 @@
-const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+import { getEnv } from '../env';
+
+const WHATSAPP_ACCESS_TOKEN = getEnv('WHATSAPP_ACCESS_TOKEN');
+const WHATSAPP_PHONE_ID = getEnv('WHATSAPP_PHONE_NUMBER_ID');
 
 interface WhatsAppMessagePayload {
     messaging_product: "whatsapp";

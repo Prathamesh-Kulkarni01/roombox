@@ -8,6 +8,8 @@ import { getAuth, Auth } from 'firebase-admin/auth';
 
 const adminApps: Map<string, App> = new Map();
 
+import { getEnv } from './env';
+
 function initializeAdminApp(projectId?: string, databaseId?: string): App {
   const appName = databaseId || projectId || 'default';
 
@@ -32,22 +34,27 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
     }
   }
 
+  const fbProjectId = getEnv('FIREBASE_PROJECT_ID');
+  const fbClientEmail = getEnv('FIREBASE_CLIENT_EMAIL');
+  const fbPrivateKey = getEnv('FIREBASE_PRIVATE_KEY');
+  const legacyConfig = getEnv('FIREBASE_ADMIN_SDK_CONFIG');
+
   let appOptions: AppOptions = {
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    storageBucket: getEnv('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'),
   };
 
   try {
-    if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
+    if (fbPrivateKey && fbClientEmail && fbProjectId) {
       // Use individual environment variables (Netlify 4KB limit workaround)
       appOptions.credential = cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        // Replace escaped newlines if they exist
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        projectId: fbProjectId,
+        clientEmail: fbClientEmail,
+        // Replace escaped newlines if they exist (\n) and handle the literal value
+        privateKey: fbPrivateKey.replace(/\\n/g, '\n').replace(/"/g, ''),
       });
-    } else if (process.env.FIREBASE_ADMIN_SDK_CONFIG) {
+    } else if (legacyConfig) {
       // Fallback to the full JSON string if provided
-      const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG);
+      const serviceAccount = JSON.parse(legacyConfig);
       appOptions.credential = cert(serviceAccount);
     } else {
       throw new Error('Missing Firebase Admin credentials. Please set FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, and FIREBASE_PROJECT_ID.');
