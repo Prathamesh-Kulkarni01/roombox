@@ -1,5 +1,6 @@
-// In-memory session store for WhatsApp Bot conversational state.
-// Note: In production, this should be backed by Redis or Firebase to survive server restarts.
+// Redis-backed session store for WhatsApp Bot conversational state
+// Uses Upstash Redis for persistence and production scalability
+import { Redis } from '@upstash/redis';
 
 export type BotState =
     | 'IDLE'
@@ -29,32 +30,64 @@ interface UserSession {
     lastUpdated: number;
 }
 
-const sessions = new Map<string, UserSession>();
-
+let redisClient: Redis | null = null;
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const SESSION_TTL = 600; // 10 minutes in seconds (for Redis expiry)
 
-export function getSession(phoneNumber: string): UserSession {
-    const session = sessions.get(phoneNumber);
+function getRedisClient(): Redis {
+    if (!redisClient) {
+        redisClient = new Redis({
+            url: process.env.UPSTASH_REDIS_REST_URL || '',
+            token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
+        });
+    }
+    return redisClient;
+}
 
-    // Check timeout
-    if (session && (Date.now() - session.lastUpdated > SESSION_TIMEOUT_MS)) {
-        clearSession(phoneNumber);
+export async function getSession(phoneNumber: string): Promise<UserSession> {
+    try {
+        const redis = getRedisClient();
+        const sessionKey = `whatsapp:session:${phoneNumber}`;
+        const sessionData = await redis.get(sessionKey);
+
+        if (sessionData) {
+            const session = JSON.parse(sessionData as string) as UserSession;
+            // Renew TTL
+            await redis.expire(sessionKey, SESSION_TTL);
+            return session;
+        }
+
+        return { state: 'IDLE', data: {}, lastUpdated: Date.now() };
+    } catch (error) {
+        console.error('[SessionCache] Error reading session:', error);
         return { state: 'IDLE', data: {}, lastUpdated: Date.now() };
     }
-
-    return session || { state: 'IDLE', data: {}, lastUpdated: Date.now() };
 }
 
-export function updateSession(phoneNumber: string, newState: BotState, newData?: any) {
-    const currentSession = getSession(phoneNumber);
+export async function updateSession(phoneNumber: string, newState: BotState, newData?: any): Promise<void> {
+    try {
+        const redis = getRedisClient();
+        const currentSession = await getSession(phoneNumber);
+        const sessionKey = `whatsapp:session:${phoneNumber}`;
 
-    sessions.set(phoneNumber, {
-        state: newState,
-        data: { ...currentSession.data, ...(newData || {}) },
-        lastUpdated: Date.now()
-    });
+        const updatedSession: UserSession = {
+            state: newState,
+            data: { ...currentSession.data, ...(newData || {}) },
+            lastUpdated: Date.now()
+        };
+
+        await redis.setex(sessionKey, SESSION_TTL, JSON.stringify(updatedSession));
+    } catch (error) {
+        console.error('[SessionCache] Error updating session:', error);
+    }
 }
 
-export function clearSession(phoneNumber: string) {
-    sessions.delete(phoneNumber);
+export async function clearSession(phoneNumber: string): Promise<void> {
+    try {
+        const redis = getRedisClient();
+        const sessionKey = `whatsapp:session:${phoneNumber}`;
+        await redis.del(sessionKey);
+    } catch (error) {
+        console.error('[SessionCache] Error clearing session:', error);
+    }
 }

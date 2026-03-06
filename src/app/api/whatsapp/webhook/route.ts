@@ -1,8 +1,22 @@
 import { NextResponse } from 'next/server';
 import { handleIncomingMessage } from '@/lib/whatsapp/bot-logic';
 import { getEnv } from '@/lib/env';
+import { Redis } from '@upstash/redis';
 
 const WHATSAPP_VERIFY_TOKEN = getEnv('WHATSAPP_VERIFY_TOKEN', 'roombox_whatsapp_dev_token');
+
+// Initialize Redis client (singleton)
+let redisClient: Redis | null = null;
+
+function getRedisClient(): Redis {
+    if (!redisClient) {
+        redisClient = new Redis({
+            url: process.env.UPSTASH_REDIS_REST_URL || '',
+            token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
+        });
+    }
+    return redisClient;
+}
 
 // Verification endpoint for Meta
 export async function GET(req: Request) {
@@ -43,8 +57,11 @@ export async function POST(req: Request) {
 
                 console.log(`Received ${messageType} message from ${from}: ${msgBody || '[Media]'}`);
 
-                // Pass to Bot Logic router
-                await handleIncomingMessage({ from, msgBody, messageType, rawData: body.entry[0].changes[0].value.messages[0] });
+                // Initialize Redis for this request
+                const redis = getRedisClient();
+
+                // Pass to Bot Logic router with Redis instance
+                await handleIncomingMessage({ from, msgBody, messageType, rawData: body.entry[0].changes[0].value.messages[0], redis });
 
                 return new NextResponse('EVENT_RECEIVED', { status: 200 });
             }

@@ -1,16 +1,18 @@
 import { sendWhatsAppMessage, sendWhatsAppInteractiveMessage, sendWhatsAppImageMessage } from './send-message';
 import { getSession, updateSession, clearSession } from './session-state';
-import { ADD_TENANT_FORM } from './form-config';
+import { ADD_TENANT_FORM, ADD_PROPERTY_FORM } from './form-config';
 import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
 import { generateUpiIntentLink } from './upi-intent';
 import { PropertyService } from '../../services/propertyService';
 import { TenantService } from '../../services/tenantService';
+import { workflowEngine } from './workflow-engine';
+import { propertyManagementWorkflow, tenantManagementWorkflow } from './workflow-definitions';
 
 export async function handleIncomingMessage(data: any) {
     const { from, msgBody, messageType, rawData } = data;
     const lowerText = msgBody?.toLowerCase() || '';
 
-    const session = getSession(from);
+    const session = await getSession(from);
 
     // Extract text from either the body or use the image ID if it's a media upload
     let text = msgBody?.trim() || '';
@@ -91,9 +93,25 @@ export async function handleIncomingMessage(data: any) {
             console.error("Firestore Error checking phone:", err);
         }
 
+        // Debug: Log phone verification details
+        const allDigits = from.replace(/\D/g, '');
+        console.log(`\n[WhatsApp Login Debug] ──────────────────────────`);
+        console.log(`  From Phone: ${from}`);
+        console.log(`  All Digits: ${allDigits}`);
+        console.log(`  Formatted (no CC): ${formattedPhone}`);
+        console.log(`  Owner Found: ${matchedOwner ? 'YES' : 'NO'}`);
+        if (matchedOwner) {
+            console.log(`  Owner ID: ${matchedOwnerId}`);
+            console.log(`  Owner Name: ${matchedOwner.name}`);
+            console.log(`  Owner Role: ${matchedOwner.role}`);
+            console.log(`  Stored Phone: ${matchedOwner.phone}`);
+            console.log(`  WhatsApp Verified: ${matchedOwner.whatsappVerified === true ? 'YES' : 'NO'}`);
+        }
+        console.log(`[WhatsApp Login Debug] ──────────────────────────\n`);
+
         if (matchedOwner) {
             // AUTO LOGIN 🪄
-            updateSession(from, 'IDLE', {
+            await updateSession(from, 'IDLE', {
                 isAuthenticatedOwner: true,
                 ownerName: matchedOwner.name || 'Owner',
                 ownerId: matchedOwnerId
@@ -104,7 +122,7 @@ export async function handleIncomingMessage(data: any) {
         }
 
         // If not matched directly on "hi", show the fallback menu
-        updateSession(from, 'AWAITING_USER_ROLE', {});
+        await updateSession(from, 'AWAITING_USER_ROLE', {});
         const msg = `Welcome to RentSutra 🏠\n\nWho are you?\n\n1️⃣ Property Owner / PG Owner\n2️⃣ Tenant\n3️⃣ New User (Register)\n4️⃣ Support`;
         await sendWhatsAppMessage(from, msg);
     } else {
@@ -115,7 +133,7 @@ export async function handleIncomingMessage(data: any) {
 // --- AUTHENTICATION HANDLERS ---
 async function handleAuthActiveState(to: string, text: string, session: any) {
     if (text.toLowerCase() === 'cancel') {
-        clearSession(to);
+        await clearSession(to);
         await sendWhatsAppMessage(to, "❌ Login cancelled. Reply *Hi* to start over.");
         return;
     }
@@ -124,11 +142,24 @@ async function handleAuthActiveState(to: string, text: string, session: any) {
         case 'AWAITING_USER_ROLE':
             if (text === '1') {
                 // If they reached here, the auto-login failed.
-                clearSession(to);
-                await sendWhatsAppMessage(to, "❌ Your number is not registered as an Owner.\n\nPlease login to the RentSutra App and navigate to *Settings* to add and verify your WhatsApp number.\n\nDashboard Link: https://reantsutra.netlify.app/dashboard/settings\n\nOnce verified, just say *Hi* here and you will be logged in automatically! 🪄");
+                await clearSession(to);
+                const errorMsg = `❌ *Verification Failed*
+
+Your WhatsApp number is not yet registered or verified in the system.
+
+*What to do:*
+1️⃣ Visit Dashboard: https://rentsutra-1.netlify.app/dashboard/settings
+2️⃣ Go to *Settings* → *WhatsApp*
+3️⃣ Add or verify your phone number
+4️⃣ Come back here and say *Hi*
+
+Once verified, you'll be logged in automatically! 🪄
+
+Need help? Reply *Support* for assistance.`;
+                await sendWhatsAppMessage(to, errorMsg);
             } else if (text === '2') {
                 // Simplified tenant login for now
-                updateSession(to, 'IDLE', { isAuthenticatedTenant: true });
+                await updateSession(to, 'IDLE', { isAuthenticatedTenant: true });
                 await sendWhatsAppMessage(to, "✅ Login Successful!\n\nWelcome to RentSutra Tenant Portal.");
                 await showTenantMenu(to);
             } else {
@@ -137,7 +168,7 @@ async function handleAuthActiveState(to: string, text: string, session: any) {
             break;
 
         default:
-            clearSession(to);
+            await clearSession(to);
             await sendWhatsAppMessage(to, "Session reset. Reply *Hi* to begin.");
     }
 }
@@ -174,7 +205,7 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
         });
         buildingsMsg += `\n${buildings.length + 1}. Add New Property\n\nReply with a number to view PG details.`;
 
-        updateSession(to, 'SELECTING_PG_DETAILS', { ...session.data, pgsList });
+        await updateSession(to, 'SELECTING_PG_DETAILS', { ...session.data, pgsList });
         await sendWhatsAppMessage(to, buildingsMsg);
     } else if (lowerText === '2') {
         // Real Today's Payments (Mocking for now as it requires ledger query)
@@ -221,7 +252,7 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
             onboardingPgs.push({ id: b.id, name: b.name });
         });
 
-        updateSession(to, 'SELECTING_PG', { ...session.data, onboardingPgs });
+        await updateSession(to, 'SELECTING_PG', { ...session.data, onboardingPgs });
         await sendWhatsAppMessage(to, pgsMsg);
     } else if (lowerText === '7') {
         // Real Tenant Management using TenantService
@@ -240,7 +271,7 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
             tenantList.push({ id: t.id, name: t.name });
         });
 
-        updateSession(to, 'SELECTING_TENANT_LIFECYCLE', { ...session.data, tenantList });
+        await updateSession(to, 'SELECTING_TENANT_LIFECYCLE', { ...session.data, tenantList });
         await sendWhatsAppMessage(to, guestsMsg);
     } else if (lowerText === '5') {
         await sendWhatsAppMessage(to, "📢 *Rent Reminders*\n\nThis will send automated WhatsApp reminders to all tenants with pending rent.\n\nType *Confirm* to proceed or *Menu* to cancel.");
@@ -255,7 +286,7 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
 
 async function handleOwnerActiveState(to: string, text: string, session: any) {
     if (text.toLowerCase() === 'cancel') {
-        updateSession(to, 'IDLE');
+        await updateSession(to, 'IDLE');
         await sendWhatsAppMessage(to, "❌ Operation cancelled. Reply *Menu* to start over.");
         return;
     }
@@ -270,18 +301,18 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
                 await sendWhatsAppMessage(to, `⚠️ Please reply with a valid number (1-${onboardingPgs.length}).`);
                 return;
             }
-            updateSession(to, 'SELECTING_ROOM', { ...session.data, selectedPgId: selectedPgObj.id, selectedPgName: selectedPgObj.name });
+            await updateSession(to, 'SELECTING_ROOM', { ...session.data, selectedPgId: selectedPgObj.id, selectedPgName: selectedPgObj.name });
             await sendWhatsAppMessage(to, `Selected Property *${selectedPgObj.name}*.\n\nWhich *Room/Bed* are they moving into? (e.g., Room 101, Bed A)\n\nOr just reply *skip* to skip room assignment.`);
             break;
         }
 
 
         case 'SELECTING_ROOM': {
-            updateSession(to, 'SELECTING_BED', { ...session.data, selectedRoom: text });
+            await updateSession(to, 'SELECTING_BED', { ...session.data, selectedRoom: text });
             await sendWhatsAppMessage(to, `Room *${text}*.\n\nNow enter the tenant's name to begin the onboarding form.`);
             // Skip the bed selection, go straight to form filling
             const skipBedState = { ...session.data, selectedRoom: text, selectedBed: 'N/A', currentFormIndex: 0, formData: {} };
-            updateSession(to, 'DYNAMIC_FORM_FILLING', skipBedState);
+            await updateSession(to, 'DYNAMIC_FORM_FILLING', skipBedState);
             await sendWhatsAppMessage(to, ADD_TENANT_FORM[0].prompt);
             break;
         }
@@ -309,7 +340,7 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
 
             if (nextIndex < ADD_TENANT_FORM.length) {
                 // Continue to next question
-                updateSession(to, 'DYNAMIC_FORM_FILLING', { ...session.data, currentFormIndex: nextIndex, formData: newFormData });
+                await updateSession(to, 'DYNAMIC_FORM_FILLING', { ...session.data, currentFormIndex: nextIndex, formData: newFormData });
                 await sendWhatsAppMessage(to, ADD_TENANT_FORM[nextIndex].prompt);
             } else {
                 // Finished the form. Save tenant via shared API!
@@ -354,7 +385,7 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
                     }
                 } catch (saveErr: any) {
                     console.error('Bot: Failed to save tenant via API:', saveErr);
-                    updateSession(to, 'IDLE');
+                    await updateSession(to, 'IDLE');
                     await sendWhatsAppMessage(to, `⚠️ Could not save tenant: ${saveErr.message}\n\nPlease add them from the dashboard: https://reantsutra.netlify.app/dashboard`);
                     return;
                 }
@@ -366,7 +397,7 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
                 successSummary += `*Deposit:* ₹${finalData.depositAmount || finalData.deposit || 0}\n\n`;
                 successSummary += `They have been added to your tenant list! Reply *Menu* to continue.`;
 
-                updateSession(to, 'IDLE');
+                await updateSession(to, 'IDLE');
                 await sendWhatsAppMessage(to, successSummary);
             }
             break;
@@ -387,27 +418,27 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
             const tenantDoc = await tenantDb.collection('users_data').doc(ownerId).collection('guests').doc(selectedTenant.id).get();
             const tenantData = tenantDoc.exists ? tenantDoc.data() : {};
 
-            updateSession(to, 'AWAITING_LIFECYCLE_ACTION', { ...session.data, tenantId: selectedTenant.id, tenantName: selectedTenant.name });
+            await updateSession(to, 'AWAITING_LIFECYCLE_ACTION', { ...session.data, tenantId: selectedTenant.id, tenantName: selectedTenant.name });
             await sendWhatsAppMessage(to, `*Tenant: ${selectedTenant.name}*\nPG: ${tenantData?.pgName || 'N/A'}\nRent: ₹${tenantData?.rentAmount || 0}\nBalance Due: ₹${tenantData?.balance || 0}\nPhone: ${tenantData?.phone || 'N/A'}\n\nOptions:\n1️⃣ Edit Details\n2️⃣ View KYC\n3️⃣ Record Payment\n4️⃣ Vacate Tenant\n\nReply with a number.`);
             break;
         }
 
         case 'AWAITING_LIFECYCLE_ACTION':
             if (text === '1') {
-                updateSession(to, 'EDITING_TENANT_FIELD_SELECTION', session.data);
+                await updateSession(to, 'EDITING_TENANT_FIELD_SELECTION', session.data);
                 await sendWhatsAppMessage(to, `*Edit Details*\n\nWhat would you like to update?\n1️⃣ Name\n2️⃣ Rent Amount\n3️⃣ Phone Number\n\nReply with a number.`);
             } else if (text === '2') {
-                updateSession(to, 'AWAITING_KYC_ACTION', session.data);
+                await updateSession(to, 'AWAITING_KYC_ACTION', session.data);
                 await sendWhatsAppMessage(to, `*KYC Documents*\n\n1️⃣ View Photo\n2️⃣ View Aadhaar\n3️⃣ Upload Photo\n4️⃣ Upload Aadhaar\n\nReply with a number.`);
             } else if (text === '3') {
                 // Record Payment flow
-                updateSession(to, 'RECORDING_PAYMENT_AMOUNT', session.data);
+                await updateSession(to, 'RECORDING_PAYMENT_AMOUNT', session.data);
                 await sendWhatsAppMessage(to, `💰 *Record Payment for ${session.data.tenantName}*\n\nEnter the amount received (numbers only, e.g. 5000):`);
             } else if (text === '4') {
-                updateSession(to, 'CONFIRMING_VACATE', session.data);
+                await updateSession(to, 'CONFIRMING_VACATE', session.data);
                 await sendWhatsAppMessage(to, `⚠️ *Vacate Tenant*\n\nAre you sure you want to mark *${session.data.tenantName}* as vacated?\n\nReply *YES* to confirm or *CANCEL* to go back.`);
             } else {
-                updateSession(to, 'IDLE');
+                await updateSession(to, 'IDLE');
                 await sendWhatsAppMessage(to, "Invalid choice. Reply *Menu* to start over.");
             }
             break;
@@ -433,10 +464,10 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
                 });
                 const result = await payRes.json();
                 if (!result.success) throw new Error(result.error || 'Payment failed');
-                updateSession(to, 'IDLE');
+                await updateSession(to, 'IDLE');
                 await sendWhatsAppMessage(to, `✅ *Payment of ₹${amount} recorded!*\n\nNew Balance: ₹${result.newBalance}\nStatus: ${result.newStatus}\n\nReply *Menu* to continue.`);
             } catch (payErr: any) {
-                updateSession(to, 'IDLE');
+                await updateSession(to, 'IDLE');
                 await sendWhatsAppMessage(to, `❌ Payment could not be recorded: ${payErr.message}\n\nPlease use the dashboard to record this payment.`);
             }
             break;
@@ -452,14 +483,14 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
                         isVacated: true,
                         exitDate: new Date().toISOString(),
                     });
-                    updateSession(to, 'IDLE');
+                    await updateSession(to, 'IDLE');
                     await sendWhatsAppMessage(to, `✅ *${session.data.tenantName}* has been marked as vacated.\n\nReply *Menu* to continue.`);
                 } catch (vacateErr: any) {
-                    updateSession(to, 'IDLE');
+                    await updateSession(to, 'IDLE');
                     await sendWhatsAppMessage(to, `❌ Could not vacate tenant: ${vacateErr.message}`);
                 }
             } else {
-                updateSession(to, 'IDLE');
+                await updateSession(to, 'IDLE');
                 await sendWhatsAppMessage(to, '❌ Vacate cancelled. Reply *Menu* to continue.');
             }
             break;
@@ -470,20 +501,20 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
                 // Mock viewing a photo
                 await sendWhatsAppMessage(to, "📸 Sending Tenant Photo...");
                 await sendWhatsAppImageMessage(to, "https://firebasestorage.googleapis.com/v0/b/roombox-f7bff.firebasestorage.app/o/mock-kyc-photo.jpg?alt=media");
-                updateSession(to, 'IDLE');
+                await updateSession(to, 'IDLE');
             } else if (text === '2') {
                 // Mock viewing Aadhaar
                 await sendWhatsAppMessage(to, "📄 Sending Aadhaar Card...");
                 await sendWhatsAppImageMessage(to, "https://firebasestorage.googleapis.com/v0/b/roombox-f7bff.firebasestorage.app/o/mock-kyc-aadhaar.jpg?alt=media");
-                updateSession(to, 'IDLE');
+                await updateSession(to, 'IDLE');
             } else if (text === '3') {
-                updateSession(to, 'AWAITING_OWNER_KYC_UPLOAD_PHOTO', session.data);
+                await updateSession(to, 'AWAITING_OWNER_KYC_UPLOAD_PHOTO', session.data);
                 await sendWhatsAppMessage(to, "Please send/upload the *Tenant's Photo* now.");
             } else if (text === '4') {
-                updateSession(to, 'AWAITING_OWNER_KYC_UPLOAD_AADHAAR', session.data);
+                await updateSession(to, 'AWAITING_OWNER_KYC_UPLOAD_AADHAAR', session.data);
                 await sendWhatsAppMessage(to, "Please send/upload the *Aadhaar Card Image* now.");
             } else {
-                updateSession(to, 'IDLE');
+                await updateSession(to, 'IDLE');
                 await sendWhatsAppMessage(to, "Invalid choice. Returning to Menu. Reply *Menu*.");
             }
             break;
@@ -495,7 +526,7 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
             const docType = session.state === 'AWAITING_OWNER_KYC_UPLOAD_PHOTO' ? 'Photo' : 'Aadhaar Card';
 
             // Mock Confirmation
-            updateSession(to, 'IDLE');
+            await updateSession(to, 'IDLE');
             await sendWhatsAppMessage(to, `✅ *KYC Uploaded*\n\nThe ${docType} has been securely saved to the tenant's profile.\n\nReply *Menu* to return.`);
             break;
 
@@ -506,7 +537,7 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
             else if (text === '3') fieldToEdit = 'phone number';
 
             if (fieldToEdit) {
-                updateSession(to, 'EDITING_TENANT_VALUE', { ...session.data, fieldToEdit });
+                await updateSession(to, 'EDITING_TENANT_VALUE', { ...session.data, fieldToEdit });
                 await sendWhatsAppMessage(to, `Please enter the new ${fieldToEdit}:`);
             } else {
                 await sendWhatsAppMessage(to, "Invalid choice. Reply with 1, 2, or 3.");
@@ -518,12 +549,169 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
             const updatedValue = text;
 
             // In a real scenario, we perform a db.collection('guests').doc(tenantId).update({ [fieldToEdit]: updatedValue }) here.
-            updateSession(to, 'IDLE');
+            await updateSession(to, 'IDLE');
             await sendWhatsAppMessage(to, `✅ *Update Successful*\n\nTenant's ${updatedField} has been updated to *${updatedValue}*.\n\nReply *Menu* to return to dashboard.`);
             break;
 
+        // ============= CASCADING HANDLERS =============
+        case 'SELECTING_PG_DETAILS': {
+            const pgIndex = parseInt(text) - 1;
+            const pgsList = session.data?.pgsList || [];
+            
+            // Check if user selected "Add New Property"
+            if (pgIndex === pgsList.length) {
+                // Start property creation form
+                await updateSession(to, 'ADDING_PROPERTY_FORM', { 
+                    ...session.data, 
+                    currentFormIndex: 0, 
+                    formData: {} 
+                });
+                await sendWhatsAppMessage(to, ADD_PROPERTY_FORM[0].prompt);
+                break;
+            }
+            
+            // View existing property details
+            const selectedPgObj = pgsList[pgIndex];
+            if (!selectedPgObj) {
+                await sendWhatsAppMessage(to, `⚠️ Please reply with a valid number (1-${pgsList.length + 1}).`);
+                return;
+            }
+            
+            // Fetch rooms in this property
+            const adminDb = await selectOwnerDataAdminDb(session.data.ownerId);
+            const tenants = await TenantService.getActiveTenants(adminDb, session.data.ownerId, 50, undefined, selectedPgObj.id);
+            
+            let propertyDetailsMsg = `*${selectedPgObj.name}*\n\n`;
+            tenants.forEach((t, i) => {
+                propertyDetailsMsg += `${i + 1}. ${t.name} - Room ${t.roomNumber || 'N/A'}\n`;
+            });
+            propertyDetailsMsg += `\n1️⃣ View Tenant\n2️⃣ Record Payment\n3️⃣ Back\n\nReply with option.`;
+            
+            await updateSession(to, 'VIEWING_PROPERTY_DETAILS', { 
+                ...session.data, 
+                selectedPgId: selectedPgObj.id, 
+                selectedPgName: selectedPgObj.name,
+                tenants: tenants 
+            });
+            await sendWhatsAppMessage(to, propertyDetailsMsg);
+            break;
+        }
+
+        case 'ADDING_PROPERTY_FORM': {
+            const { currentFormIndex, formData } = session.data;
+            const currentField = ADD_PROPERTY_FORM[currentFormIndex];
+
+            // Validation
+            let valueToSave = text;
+            if (currentField.validationRegex && !currentField.validationRegex.test(text.trim())) {
+                await sendWhatsAppMessage(to, `⚠️ ${currentField.validationErrorMsg}`);
+                return;
+            }
+
+            // Save & Increment
+            const newFormData = { ...formData, [currentField.id]: valueToSave };
+            const nextIndex = currentFormIndex + 1;
+
+            if (nextIndex < ADD_PROPERTY_FORM.length) {
+                // Continue to next field
+                await updateSession(to, 'ADDING_PROPERTY_FORM', { 
+                    ...session.data, 
+                    currentFormIndex: nextIndex, 
+                    formData: newFormData 
+                });
+                await sendWhatsAppMessage(to, ADD_PROPERTY_FORM[nextIndex].prompt);
+            } else {
+                // Finished form - Create property
+                try {
+                    const adminDb = await selectOwnerDataAdminDb(session.data.ownerId);
+                    
+                    await adminDb.collection('users_data').doc(session.data.ownerId).collection('properties').add({
+                        name: newFormData.name,
+                        totalBeds: parseInt(newFormData.totalBeds),
+                        location: newFormData.location,
+                        baseRent: parseInt(newFormData.baseRent),
+                        securityDepositPercent: parseInt(newFormData.securityDepositPercent),
+                        createdDate: new Date().toISOString(),
+                        occupancy: 0,
+                        isActive: true
+                    });
+
+                    await updateSession(to, 'IDLE');
+                    await sendWhatsAppMessage(to, 
+                        `✅ *Property Created Successfully!*\n\n` +
+                        `Property: ${newFormData.name}\n` +
+                        `Beds: ${newFormData.totalBeds}\n` +
+                        `Location: ${newFormData.location}\n` +
+                        `Base Rent: ₹${newFormData.baseRent}\n` +
+                        `Security Deposit: ${newFormData.securityDepositPercent}%\n\n` +
+                        `You can now add tenants to this property!\n\n` +
+                        `Reply *Menu* to return to dashboard.`
+                    );
+                } catch (createErr: any) {
+                    await updateSession(to, 'IDLE');
+                    await sendWhatsAppMessage(to, `❌ Could not create property: ${createErr.message}`);
+                }
+            }
+            break;
+        }
+
+        case 'VIEWING_PROPERTY_DETAILS': {
+            if (text === '1') {
+                // View tenant - would need tenant selection here
+                await sendWhatsAppMessage(to, `📋 Tenant details coming soon.`);
+            } else if (text === '2') {
+                // Record payment
+                await updateSession(to, 'RECORDING_PAYMENT', session.data);
+                await sendWhatsAppMessage(to, `💰 How much payment to record?\n(e.g., 5000)`);
+            } else if (text === '3') {
+                // Back to properties
+                await updateSession(to, 'IDLE');
+                await sendWhatsAppMessage(to, `↩️ Back to menu. Reply *Menu* to see options.`);
+            } else {
+                await sendWhatsAppMessage(to, `⚠️ Please reply with 1, 2, or 3.`);
+            }
+            break;
+        }
+
+        case 'RECORDING_PAYMENT': {
+            try {
+                const amount = parseInt(text);
+                if (isNaN(amount) || amount <= 0) {
+                    await sendWhatsAppMessage(to, `⚠️ Please enter a valid amount.`);
+                    return;
+                }
+
+                const adminDb = await selectOwnerDataAdminDb(session.data.ownerId);
+                
+                // Record payment in ledger
+                await adminDb.collection('users_data')
+                    .doc(session.data.ownerId)
+                    .collection('ledger')
+                    .add({
+                        amount: amount,
+                        date: new Date().toISOString(),
+                        type: 'rent_collection',
+                        property: session.data.selectedPgName,
+                        status: 'completed'
+                    });
+
+                await updateSession(to, 'IDLE');
+                await sendWhatsAppMessage(to, 
+                    `✅ *Payment Recorded*\n\n` +
+                    `Amount: ₹${amount}\n` +
+                    `Property: ${session.data.selectedPgName}\n` +
+                    `Status: Completed\n\n` +
+                    `Reply *Menu* to return.`
+                );
+            } catch (paymentErr: any) {
+                await updateSession(to, 'IDLE');
+                await sendWhatsAppMessage(to, `❌ Error: ${paymentErr.message}`);
+            }
+            break;
+        }
+
         default:
-            updateSession(to, 'IDLE');
+            await updateSession(to, 'IDLE');
             await sendWhatsAppMessage(to, "Something went wrong. Let's start over. Reply *Menu*.");
     }
 }

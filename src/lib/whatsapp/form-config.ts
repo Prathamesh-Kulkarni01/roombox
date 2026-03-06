@@ -78,3 +78,47 @@ export const ADD_TENANT_FORM: FormFieldDefinition[] = [
         validationErrorMsg: 'Please enter a valid numeric duration (e.g. 1). Try again:'
     },
 ];
+
+export const ADD_PROPERTY_FORM: FormFieldDefinition[] = [
+    {
+        id: 'name',
+        type: 'text',
+        prompt: '🏠 What is the property name?\n(e.g., "Sharma PG", "Downtown Hostel")',
+        label: 'Property Name',
+        required: true
+    },
+    {
+        id: 'totalBeds',
+        type: 'number',
+        prompt: 'How many beds/rooms does it have?\n(e.g., 10, 20)',
+        label: 'Total Beds',
+        required: true,
+        validationRegex: /^\\d+$/,
+        validationErrorMsg: 'Please enter a valid number (e.g., 10). Try again:'
+    },
+    {
+        id: 'location',
+        type: 'text',
+        prompt: 'What is the location/address?\n(e.g., "Block D, Sector 45")',
+        label: 'Location',
+        required: true
+    },
+    {
+        id: 'baseRent',
+        type: 'number',
+        prompt: 'What is the base rent amount?\n(e.g., 5000)',
+        label: 'Base Rent',
+        required: true,
+        validationRegex: /^\\d+$/,
+        validationErrorMsg: 'Please enter a valid amount (e.g., 5000). Try again:'
+    },
+    {
+        id: 'securityDepositPercent',
+        type: 'number',
+        prompt: 'Security deposit (%)?\n(e.g., 30 for 30% of rent)',
+        label: 'Security Deposit %',
+        required: true,
+        validationRegex: /^\\d+$/,
+        validationErrorMsg: 'Please enter a valid percentage (e.g., 30). Try again:'
+    },
+];
