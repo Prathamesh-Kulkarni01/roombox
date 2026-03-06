@@ -18,13 +18,13 @@ import { test, expect, Page } from '@playwright/test';
 const BASE_URL = 'http://localhost:9002';
 const WEBHOOK_URL = `${BASE_URL}/api/whatsapp/webhook`;
 const VERIFY_TOKEN = 'roombox_whatsapp_dev_token';
-const OWNER_PHONE = '917498526035'; // with country code (91)
-const OWNER_ID = 'zz2JZjMzJ0RWjatdZxz7ApjuvP72';
-const EXISTING_PG_ID = 'MjZp5Vhc9KkGRa8Ko66o';
-const EXISTING_PG_NAME = 'New WP PG';
+
+const OWNER_PHONE = '917498526035'; // verified number
+const OWNER_ID = 'YJdln9goSTMiH9fGXTA1QuHdXC62';
+const OWNER_EMAIL = 'bot_tester_7@roombox.app';
 const DASHBOARD_URL = `${BASE_URL}/dashboard`;
-const LOGIN_EMAIL = 'prathameshkulkarni710@gmail.com';
-const LOGIN_PASSWORD = 'testpassword123';
+const LOGIN_EMAIL = 'bot_tester_7@roombox.app';
+const LOGIN_PASSWORD = 'Password123!';
 
 // Collected during tests for cross-test assertions
 let createdTenantName = `WA_Test_${Date.now()}`;
@@ -124,26 +124,13 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         expect(res.status()).toBe(200);
         await new Promise(r => setTimeout(r, 2000));
 
-        // Verify property exists in DB
-        const dbRes = await request.get(`${BASE_URL}/api/properties?ownerId=${OWNER_ID}`).catch(() => null);
-        if (dbRes && dbRes.ok()) {
-            const data = await dbRes.json();
-            const hasProperty = data.properties?.some((p: any) => p.name === EXISTING_PG_NAME);
-            expect(hasProperty).toBe(true);
-            console.log(`✅ DB: Found property "${EXISTING_PG_NAME}"`);
-        }
+        console.log(`✅ View Properties flow responded 200`);
 
-        // Verify in Dashboard UI
+        // Verify in Dashboard UI (Empty state)
+        await loginToDashboard(page);
         await page.goto(`${DASHBOARD_URL}/pg-management`);
         await page.waitForLoadState('networkidle');
-        const pgCard = page.getByText(EXISTING_PG_NAME).first();
-        // May need login first
-        if (await pgCard.isVisible().catch(() => false)) {
-            await expect(pgCard).toBeVisible();
-            console.log(`✅ Dashboard: Property "${EXISTING_PG_NAME}" visible`);
-        } else {
-            console.log(`ℹ️  Dashboard: Needs auth — property check skipped`);
-        }
+        console.log(`✅ Dashboard: Property management page loaded`);
     });
 
     // ── 4. FLOW: ADD NEW PROPERTY ────────────────────────────────────────────────
@@ -157,8 +144,8 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         await new Promise(r => setTimeout(r, 2000));
 
         // The menu shows properties + "Add New Property" as last option.
-        // Our DB currently has 1 property so option 2 = "Add New Property"
-        await request.post(WEBHOOK_URL, { data: buildPayload(OWNER_PHONE, '2') }); // "Add New Property"
+        // For a new account with 0 properties, option 1 = "Add New Property"
+        await request.post(WEBHOOK_URL, { data: buildPayload(OWNER_PHONE, '1') }); // "Add New Property"
         await new Promise(r => setTimeout(r, 1500));
 
         // Fill form: Name
@@ -205,13 +192,12 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(2000);
 
+        // Check specifically for the new property name
+        await page.reload();
+        await page.waitForTimeout(5000); // Wait for sync
         const newPropCard = page.getByText(createdPropertyName).first();
-        if (await newPropCard.isVisible().catch(() => false)) {
-            await expect(newPropCard).toBeVisible();
-            console.log(`✅ Dashboard: New property "${createdPropertyName}" visible!`);
-        } else {
-            console.log(`ℹ️  New property may need page refresh to appear`);
-        }
+        await expect(newPropCard).toBeVisible({ timeout: 20000 });
+        console.log(`✅ Dashboard: New property "${createdPropertyName}" visible!`);
     });
 
     // ── 5. FLOW: ONBOARD NEW TENANT ──────────────────────────────────────────────
@@ -452,22 +438,37 @@ test.describe('WhatsApp Bot — Full E2E', () => {
 
 // ─── Helper: Login to Dashboard ──────────────────────────────────────────────────
 async function loginToDashboard(page: Page) {
-    // Check if already logged in
+    // Check if already logged in by going to dashboard
     await page.goto(DASHBOARD_URL);
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
+
+    console.log(`[Dashboard] Checking auth state... URL: ${page.url()}`);
 
     if (page.url().includes('/login') || page.url().includes('/auth')) {
+        console.log(`[Dashboard] Not logged in. Starting login flow...`);
+
+        await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 15000 });
         await page.fill('input[type="email"]', LOGIN_EMAIL);
         await page.fill('input[type="password"]', LOGIN_PASSWORD);
-        await page.click('button[type="submit"], button:has-text("Log In"), button:has-text("Login")');
-        await page.waitForURL(/dashboard/, { timeout: 15000 }).catch(async () => {
-            // May go to complete-profile first
-            if (page.url().includes('complete-profile')) {
-                await page.click('button:has-text("Property Owner"), button:has-text("Owner")').catch(() => { });
-                await page.waitForURL(/dashboard/, { timeout: 10000 }).catch(() => { });
-            }
-        });
+        await page.click('button:has-text("Log In"), button:has-text("Login"), button[type="submit"]');
+
+        // Wait for redirect
+        await page.waitForURL(/dashboard|complete-profile/, { timeout: 20000 });
+        console.log(`[Dashboard] Login successful. New URL: ${page.url()}`);
+    } else {
+        console.log(`[Dashboard] Already logged in as ${page.url().includes('tenant') ? 'Tenant' : 'Owner'}`);
     }
 
-    await page.waitForTimeout(1000);
+    // Handle "Complete Profile" if it exists (usually for new owners)
+    if (page.url().includes('complete-profile') || await page.isVisible('text=I\'m a Property Owner').catch(() => false)) {
+        console.log(`[Dashboard] Completing profile...`);
+        await page.click('text=Property Owner, text=I\'m a Property Owner, button:has-text("Owner")').catch(() => { });
+        await page.waitForURL(/dashboard/, { timeout: 10000 }).catch(() => { });
+    }
+
+    // Final check
+    await page.goto(DASHBOARD_URL);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
 }

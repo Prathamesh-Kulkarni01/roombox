@@ -34,10 +34,8 @@ const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { isLoading: appLoading, currentUser } = useAppSelector((state) => ({
-    isLoading: state.app.isLoading,
-    currentUser: state.user.currentUser,
-  }));
+  const appLoading = useAppSelector((state) => state.app.isLoading);
+  const currentUser = useAppSelector((state) => state.user.currentUser);
 
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [email, setEmail] = useState('')

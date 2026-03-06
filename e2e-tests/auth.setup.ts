@@ -11,8 +11,8 @@ setup('Authenticate as Owner', async ({ page }) => {
 
     await page.goto('/login');
 
-    await page.fill('input[type="email"]', 'testowner@rentsutra.com');
-    await page.fill('input[type="password"]', 'testpassword123');
+    await page.fill('input[type="email"]', 'bot_tester_7@roombox.app');
+    await page.fill('input[type="password"]', 'Password123!');
 
     // Try standard login first
     await page.click('button:has-text("Log In")');
@@ -31,8 +31,8 @@ setup('Authenticate as Owner', async ({ page }) => {
         await page.waitForURL('**/signup');
 
         // Fill out signup form
-        await page.fill('input[type="email"]', 'testowner@rentsutra.com');
-        await page.fill('input[type="password"]', 'testpassword123');
+        await page.fill('input[type="email"]', 'bot_tester_7@roombox.app');
+        await page.fill('input[type="password"]', 'Password123!');
 
         await page.click('button:has-text("Sign Up")');
 

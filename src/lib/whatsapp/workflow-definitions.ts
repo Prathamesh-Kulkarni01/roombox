@@ -439,7 +439,10 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             onEnter: async (ctx) => {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    await db.collection('users_data').doc(ctx.ownerId!).collection('properties').add({
+                    const newPgId = `pg-${Date.now()}`;
+                    await db.collection('users_data').doc(ctx.ownerId!).collection('pgs').doc(newPgId).set({
+                        id: newPgId,
+                        ownerId: ctx.ownerId,
                         name: ctx.data.newPropName,
                         totalBeds: ctx.data.newPropBeds,
                         location: ctx.data.newPropLocation,
