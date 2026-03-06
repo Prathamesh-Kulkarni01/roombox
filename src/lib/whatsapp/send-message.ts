@@ -26,6 +26,11 @@ export async function sendWhatsAppMessage(to: string, messageBody: string) {
         return { success: true, mock: true };
     }
 
+    try {
+        const fs = require('fs');
+        fs.appendFileSync('wa-logs.txt', `\\n💬 [BOT SAYS TO ${to}]: ${messageBody}\\n`);
+    } catch (e) { }
+
     const payload: WhatsAppMessagePayload = {
         messaging_product: "whatsapp",
         recipient_type: "individual",
@@ -45,6 +50,11 @@ export async function sendWhatsAppInteractiveMessage(to: string, interactiveData
         console.warn('WhatsApp credentials not configured. Mocking interactive send:', { to, interactiveData });
         return { success: true, mock: true };
     }
+
+    try {
+        const fs = require('fs');
+        fs.appendFileSync('wa-logs.txt', `\\n💬 [BOT SAYS TO ${to} (INTERACTIVE)]:\\n${JSON.stringify(interactiveData, null, 2)}\\n`);
+    } catch (e) { }
 
     const payload: WhatsAppMessagePayload = {
         messaging_product: "whatsapp",

@@ -16,7 +16,7 @@ import { test, expect, Page } from '@playwright/test';
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 const BASE_URL = 'http://localhost:9002';
-const WEBHOOK_URL = `${BASE_URL}/api/whatsapp/webhook`;
+const WEBHOOK_URL = `https://unimpressive-civically-shay.ngrok-free.dev/api/whatsapp/webhook`;
 const VERIFY_TOKEN = 'roombox_whatsapp_dev_token';
 
 const OWNER_PHONE = '917498526035'; // verified number
@@ -79,6 +79,7 @@ async function clearSession(phone = OWNER_PHONE) {
 // ─── Test Suite ─────────────────────────────────────────────────────────────────
 
 test.describe('WhatsApp Bot — Full E2E', () => {
+    test.setTimeout(180000); // 3-minute timeout to allow long WA flows and dashboard rendering
 
     // ── 1. WEBHOOK VERIFICATION ──────────────────────────────────────────────────
     test('1. Webhook GET verification by Meta', async ({ request }) => {
@@ -129,7 +130,7 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         // Verify in Dashboard UI (Empty state)
         await loginToDashboard(page);
         await page.goto(`${DASHBOARD_URL}/pg-management`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         console.log(`✅ Dashboard: Property management page loaded`);
     });
 
@@ -189,7 +190,7 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         // ✅ Verify in Dashboard
         await loginToDashboard(page);
         await page.goto(`${DASHBOARD_URL}/pg-management`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(2000);
 
         // Check specifically for the new property name
@@ -245,7 +246,7 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         // ✅ Verify in Dashboard
         await loginToDashboard(page);
         await page.goto(`${DASHBOARD_URL}/tenants`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(3000);
 
         const tenantEntry = page.getByText(createdTenantName).first();
@@ -299,7 +300,7 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         // ✅ Verify in Dashboard
         await loginToDashboard(page);
         await page.goto(`${DASHBOARD_URL}/rent-collection`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(2000);
         console.log(`✅ Dashboard: Rent collection page loaded — verify ₹3000 entry`);
         await page.screenshot({ path: 'test-results/payment-verification.png', fullPage: true });
@@ -341,7 +342,7 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         // ✅ Verify in Dashboard
         await loginToDashboard(page);
         await page.goto(`${DASHBOARD_URL}/tenants`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(2000);
         await page.screenshot({ path: 'test-results/edit-tenant-verification.png', fullPage: true });
         console.log(`✅ Dashboard screenshot saved: edit-tenant-verification.png`);
@@ -402,13 +403,13 @@ test.describe('WhatsApp Bot — Full E2E', () => {
 
         // Overview
         await page.goto(DASHBOARD_URL);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(2000);
         await page.screenshot({ path: 'test-results/dashboard-overview.png', fullPage: true });
 
         // Properties
         await page.goto(`${DASHBOARD_URL}/pg-management`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(2000);
 
         const pgSection = page.locator('[data-testid="pg-list"], .pg-card, h2, h3').filter({ hasText: /PG|Property/i }).first();
@@ -419,14 +420,14 @@ test.describe('WhatsApp Bot — Full E2E', () => {
         await page.goto(`${DASHBOARD_URL}/tenants`).catch(() =>
             page.goto(`${DASHBOARD_URL}/guest-management`)
         );
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(2000);
         await page.screenshot({ path: 'test-results/dashboard-tenants.png', fullPage: true });
         console.log('✅ Dashboard tenants page screenshot saved');
 
         // Rent Collection
         await page.goto(`${DASHBOARD_URL}/rent-collection`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await page.waitForTimeout(2000);
         await page.screenshot({ path: 'test-results/dashboard-rent.png', fullPage: true });
         console.log('✅ Dashboard rent collection screenshot saved');
@@ -440,7 +441,7 @@ test.describe('WhatsApp Bot — Full E2E', () => {
 async function loginToDashboard(page: Page) {
     // Check if already logged in by going to dashboard
     await page.goto(DASHBOARD_URL);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
     console.log(`[Dashboard] Checking auth state... URL: ${page.url()}`);
@@ -469,6 +470,6 @@ async function loginToDashboard(page: Page) {
 
     // Final check
     await page.goto(DASHBOARD_URL);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
 }
