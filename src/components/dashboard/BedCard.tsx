@@ -8,6 +8,7 @@ import type { Room, Bed, PG, Floor, Guest, BedStatus } from "@/lib/types"
 import { BedDouble, DoorOpen, UserPlus, Pencil, Trash2, PlusCircle, MessageCircle, ShieldAlert, Clock, IndianRupee, Plus, CheckCircle, Wallet, User as UserIcon } from "lucide-react"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { MutableRefObject } from "react"
 import { useRouter } from "next/navigation"
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
@@ -31,7 +32,7 @@ export default function BedCard(props: BedCardProps) {
     complaints: state.complaints.complaints,
   }))
   const { currentUser } = useAppSelector(state => state.user);
-  const { featurePermissions } = useAppSelector(state => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
 
   const getBedStatus = (bed: Bed): BedStatus => {
     const guest = guests.find(g => g.id === bed.guestId && !g.isVacated)

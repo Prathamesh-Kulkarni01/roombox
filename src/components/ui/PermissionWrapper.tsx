@@ -3,7 +3,8 @@
 // <Access feature="properties" action="add" limitKey="pgs" currentCount={pgs.length}><Button>Add Property</Button></Access>
 
 import React, { useState } from 'react';
-import { useAppSelector } from '@/lib/hooks';
+import { useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canAccess, canPlanAccess, getPlanLimit } from '@/lib/permissions';
 import { Badge } from './badge';
 import SubscriptionDialog from '../dashboard/dialogs/SubscriptionDialog';
@@ -70,7 +71,7 @@ const GatedWrapper = ({ children, tooltipText }: { children: React.ReactNode, to
 
 const Access: React.FC<AccessProps> = ({ feature, action, children, limitKey, currentCount }) => {
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
-  const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
 
   const planId = currentPlan?.id;
   const planAllows = canPlanAccess(planId, feature, action);

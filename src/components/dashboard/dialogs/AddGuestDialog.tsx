@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { format } from "date-fns"
-import { useAppSelector } from '@/lib/hooks';
+import { useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canAccess } from '@/lib/permissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RentCycleUnit } from "@/lib/types"
@@ -23,7 +24,7 @@ const rentCycleOptions: { value: RentCycleUnit, label: string }[] = [
 
 export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit }: AddGuestDialogProps) {
   const { currentUser } = useAppSelector((state) => state.user);
-  const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
   const canAddGuest = canAccess(featurePermissions, currentUser?.role, 'guests', 'add');
   
   return (

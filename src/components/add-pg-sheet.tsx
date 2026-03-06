@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { canAccess } from '@/lib/permissions';
 import { Button } from '@/components/ui/button'
 import {
@@ -50,7 +51,7 @@ interface AddPgSheetProps {
 export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheetProps) {
   const dispatch = useAppDispatch()
   const { currentUser } = useAppSelector(state => state.user);
-  const { featurePermissions } = useAppSelector(state => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
   const { showConfetti } = useConfetti();
 
   const form = useForm<PgFormValues>({

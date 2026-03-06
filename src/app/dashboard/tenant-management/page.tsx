@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { useAppSelector } from "@/lib/hooks"
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -188,7 +189,7 @@ export default function GuestManagementPage() {
     const { pgs } = useAppSelector(state => state.pgs);
     const { isLoading, selectedPgId } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
-    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const { featurePermissions } = usePermissionsStore();
     
     const [activeGuests, exitedGuests] = useMemo(() => {
         const active: Guest[] = [];

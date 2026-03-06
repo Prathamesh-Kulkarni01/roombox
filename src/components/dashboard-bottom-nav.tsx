@@ -14,7 +14,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { allNavItems } from '@/lib/mock-data';
-import { useAppSelector } from '@/lib/hooks';
+import { useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canViewFeature } from '@/lib/permissions';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/context/language-context';
@@ -22,7 +23,7 @@ import { useTranslation } from '@/context/language-context';
 export default function DashboardBottomNav() {
   const pathname = usePathname();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
-  const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
   const { complaints } = useAppSelector((state) => state.complaints);
   const { pgs } = useAppSelector((state) => state.pgs);
   const [isSheetOpen, setIsSheetOpen] = useState(false);

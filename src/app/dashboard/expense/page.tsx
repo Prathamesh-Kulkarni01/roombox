@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -98,7 +99,7 @@ export default function ExpensePage() {
     const { expenses } = useAppSelector(state => state.expenses)
     const { isLoading, selectedPgId } = useAppSelector(state => state.app)
     const { currentUser } = useAppSelector(state => state.user);
-    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const { featurePermissions } = usePermissionsStore();
     const canAddExpense = canAccess(featurePermissions, currentUser?.role, 'finances', 'add');
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, ShieldCheck, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAppSelector } from '@/lib/hooks';
+import { useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canViewFeature } from '@/lib/permissions';
 
 const navItems = [
@@ -19,7 +20,7 @@ const navItems = [
 export default function TenantBottomNav() {
   const pathname = usePathname();
   const { currentUser } = useAppSelector((state) => state.user);
-  const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
 
   if (!currentUser) return null;
 

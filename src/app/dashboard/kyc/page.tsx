@@ -6,6 +6,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAppSelector, useAppDispatch } from '@/lib/hooks';
+import { useKycConfigStore } from '@/lib/stores/configStores';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Building, PlusCircle, Trash2 } from 'lucide-react';
@@ -15,9 +16,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { saveKycConfig } from '@/lib/slices/kycConfigSlice';
+
 import type { KycDocumentConfig } from '@/lib/types';
 import KycManagementTab from '@/components/dashboard/KycManagementTab';
 
@@ -41,7 +43,10 @@ export default function KycPage() {
         pgs: state.pgs.pgs,
         isLoading: state.app.isLoading
     }));
-    const { kycConfigs } = useAppSelector((state) => state.kycConfig)
+    const { kycConfigs: kycConfigMap, saveKycConfig: saveKycConfigZustand } = useKycConfigStore();
+    // KYC page manages per-PG config; use the first PG's config or empty
+    const firstPgId = pgs[0]?.id;
+    const kycConfigs: KycDocumentConfig[] = (firstPgId && kycConfigMap[firstPgId]) || [];
     const dispatch = useAppDispatch();
     const { toast } = useToast();
 
@@ -61,7 +66,9 @@ export default function KycPage() {
 
     const handleSaveKycConfig = async (data: KycConfigFormValues) => {
         try {
-            await dispatch(saveKycConfig(data.configs)).unwrap();
+            if (firstPgId) {
+                saveKycConfigZustand(firstPgId, data.configs);
+            }
             toast({ title: "KYC Configuration Saved", description: "Your KYC document requirements have been updated." });
         } catch (error: any) {
             toast({ variant: 'destructive', title: "Error", description: error.message || "Could not save KYC configuration." });
@@ -69,9 +76,9 @@ export default function KycPage() {
     }
 
     const addNewKycDoc = () => {
-      append({ id: `doc-${Date.now()}`, label: 'New Document', type: 'image', required: true });
+        append({ id: `doc-${Date.now()}`, label: 'New Document', type: 'image', required: true });
     }
-    
+
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -88,21 +95,21 @@ export default function KycPage() {
         )
     }
 
-     if (pgs.length === 0) {
+    if (pgs.length === 0) {
         return (
-          <div className="flex items-center justify-center h-full min-h-[calc(100vh-250px)]">
-              <div className="text-center p-8 bg-card rounded-lg border">
-                  <Building className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h2 className="mt-4 text-xl font-semibold">Add a Property First</h2>
-                  <p className="mt-2 text-muted-foreground max-w-sm">You need to add a property before you can manage guest KYC.</p>
-                  <Button asChild className="mt-4">
-                    <Link href="/dashboard/pg-management">Add Property</Link>
-                  </Button>
-              </div>
-          </div>
+            <div className="flex items-center justify-center h-full min-h-[calc(100vh-250px)]">
+                <div className="text-center p-8 bg-card rounded-lg border">
+                    <Building className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h2 className="mt-4 text-xl font-semibold">Add a Property First</h2>
+                    <p className="mt-2 text-muted-foreground max-w-sm">You need to add a property before you can manage guest KYC.</p>
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/pg-management">Add Property</Link>
+                    </Button>
+                </div>
+            </div>
         )
     }
-    
+
     return (
         <div className="space-y-6">
             <Card>
@@ -117,10 +124,10 @@ export default function KycPage() {
                             <TabsTrigger value="configuration">Configuration</TabsTrigger>
                         </TabsList>
                         <TabsContent value="verification" className="mt-4">
-                             <KycManagementTab guests={guests} />
+                            <KycManagementTab guests={guests} />
                         </TabsContent>
                         <TabsContent value="configuration" className="mt-4">
-                             <Form {...kycConfigForm}>
+                            <Form {...kycConfigForm}>
                                 <form id="kyc-config-form" onSubmit={kycConfigForm.handleSubmit(handleSaveKycConfig)} className="space-y-4">
                                     {fields && fields.map((field, index) => (
                                         <div key={field.id} className="grid grid-cols-1 md:grid-cols-8 gap-2 items-end p-2 border rounded-md">
@@ -151,7 +158,7 @@ export default function KycPage() {
                                     ))}
                                     <Button type="button" variant="outline" onClick={addNewKycDoc} className="border-dashed"><PlusCircle className="mr-2 h-4 w-4" /> Add Document Requirement</Button>
                                     <div className="flex justify-end pt-4">
-                                         <Button type="submit" form="kyc-config-form">Save KYC Configuration</Button>
+                                        <Button type="submit" form="kyc-config-form">Save KYC Configuration</Button>
                                     </div>
                                 </form>
                             </Form>

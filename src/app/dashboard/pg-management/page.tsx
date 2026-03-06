@@ -36,6 +36,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from '@/hooks/use-toast'
 import AddPgSheet from '@/components/add-pg-sheet'
@@ -60,7 +61,7 @@ export default function PgManagementPage() {
     const { isLoading } = useAppSelector(state => state.app);
     const { currentPlan } = useAppSelector(state => state.user);
     const { currentUser } = useAppSelector(state => state.user);
-    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const { featurePermissions } = usePermissionsStore();
     const router = useRouter();
     const { toast } = useToast()
     const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false)

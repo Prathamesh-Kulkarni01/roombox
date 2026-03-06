@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
@@ -55,7 +56,7 @@ export default function TenantComplaintsPage() {
     const { complaints } = useAppSelector(state => state.complaints)
     const { currentUser } = useAppSelector(state => state.user)
     const { guests } = useAppSelector(state => state.guests)
-    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const { featurePermissions } = usePermissionsStore();
     const canAddComplaint = canAccess(featurePermissions, currentUser?.role, 'complaints', 'add');
 
     const currentGuest = useMemo(() => {

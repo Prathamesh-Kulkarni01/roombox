@@ -5,6 +5,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { useKycConfigStore } from '@/lib/stores/configStores';
 import { updateGuestKyc } from '@/lib/slices/guestsSlice';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,8 +34,9 @@ export default function KycPage() {
     const { toast } = useToast();
     const { currentUser } = useAppSelector(state => state.user);
     const { guests } = useAppSelector(state => state.guests);
-    const { kycConfigs } = useAppSelector(state => state.kycConfig);
+    const { kycConfigs: kycConfigMap } = useKycConfigStore();
     const guest = guests.find(g => g.id === currentUser?.guestId);
+    const kycConfigs = (guest && kycConfigMap[guest.pgId]) || [];
 
     const [documentUris, setDocumentUris] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,38 +56,38 @@ export default function KycPage() {
         }
     }, [guest?.documents]);
 
-     useEffect(() => {
+    useEffect(() => {
         const getCameraPermission = async () => {
-          if (!isCameraOpen) {
-            if (videoRef.current?.srcObject) {
-              const stream = videoRef.current.srcObject as MediaStream;
-              stream.getTracks().forEach(track => track.stop());
+            if (!isCameraOpen) {
+                if (videoRef.current?.srcObject) {
+                    const stream = videoRef.current.srcObject as MediaStream;
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                return;
             }
-            return;
-          }
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({video: true});
-            setHasCameraPermission(true);
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                setHasCameraPermission(true);
 
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                setHasCameraPermission(false);
+                toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings.',
+                });
             }
-          } catch (error) {
-            console.error('Error accessing camera:', error);
-            setHasCameraPermission(false);
-            toast({
-              variant: 'destructive',
-              title: 'Camera Access Denied',
-              description: 'Please enable camera permissions in your browser settings.',
-            });
-          }
         };
         getCameraPermission();
 
         return () => {
-             if (videoRef.current?.srcObject) {
-              const stream = videoRef.current.srcObject as MediaStream;
-              stream.getTracks().forEach(track => track.stop());
+            if (videoRef.current?.srcObject) {
+                const stream = videoRef.current.srcObject as MediaStream;
+                stream.getTracks().forEach(track => track.stop());
             }
         }
     }, [isCameraOpen, toast]);
@@ -104,7 +106,7 @@ export default function KycPage() {
             reader.readAsDataURL(file);
         }
     };
-    
+
     const handleCapturePhoto = () => {
         if (videoRef.current) {
             const canvas = document.createElement('canvas');
@@ -113,8 +115,8 @@ export default function KycPage() {
             canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
             const dataUri = canvas.toDataURL('image/jpeg');
             const photoConfig = kycConfigs.find(c => c.label.toLowerCase().includes('photo') || c.label.toLowerCase().includes('selfie'));
-            if(photoConfig) {
-                setDocumentUris(prev => ({...prev, [photoConfig.id]: dataUri }));
+            if (photoConfig) {
+                setDocumentUris(prev => ({ ...prev, [photoConfig.id]: dataUri }));
             }
             setIsCameraOpen(false);
         }
@@ -123,7 +125,7 @@ export default function KycPage() {
 
     const handleSubmit = async () => {
         const documentsToSubmit: { config: KycDocumentConfig; dataUri: string }[] = [];
-        
+
         for (const config of kycConfigs) {
             if (config.required && !documentUris[config.id]) {
                 toast({ variant: 'destructive', title: 'Missing Document', description: `Please upload the required document: ${config.label}.` });
@@ -136,7 +138,7 @@ export default function KycPage() {
                 });
             }
         }
-        
+
         if (documentsToSubmit.length === 0) {
             toast({ variant: 'destructive', title: 'No New Documents', description: 'Please upload at least one new document to submit.' });
             return;
@@ -155,13 +157,13 @@ export default function KycPage() {
 
     if (!guest) {
         return (
-             <div className="space-y-6">
+            <div className="space-y-6">
                 <Card><CardHeader><Skeleton className="h-8 w-1/3" /></CardHeader><CardContent><Skeleton className="h-12 w-full" /></CardContent></Card>
                 <Card><CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader><CardContent className="grid md:grid-cols-2 gap-6"><div className="space-y-2"><Skeleton className="h-5 w-1/4" /><Skeleton className="w-full aspect-video rounded-md" /><Skeleton className="h-10 w-full" /></div><div className="space-y-2"><Skeleton className="h-5 w-1/4" /><Skeleton className="w-full aspect-video rounded-md" /><Skeleton className="h-10 w-32" /></div></CardContent><CardFooter><Skeleton className="h-12 w-full" /></CardFooter></Card>
-             </div>
+            </div>
         )
     }
-    
+
     const isVerified = guest.kycStatus === 'verified';
     const isPending = guest.kycStatus === 'pending';
     const isRejected = guest.kycStatus === 'rejected';
@@ -195,7 +197,7 @@ export default function KycPage() {
                             <CardTitle>Your Documents</CardTitle>
                             <CardDescription>Upload the documents required by your property owner.</CardDescription>
                         </CardHeader>
-                         <CardContent>
+                        <CardContent>
                             <ScrollArea className="h-[calc(100vh-22rem)] md:h-auto -mr-6 pr-6">
                                 <div className="space-y-6">
                                     {kycConfigs.length > 0 ? (
@@ -204,41 +206,42 @@ export default function KycPage() {
                                             const fileUrl = documentUris[config.id];
                                             const isPdf = fileUrl?.startsWith('data:application/pdf') || fileUrl?.endsWith('.pdf');
                                             return (
-                                            <div key={config.id} className="space-y-2">
-                                                <Label htmlFor={`doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
-                                                <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
-                                                    {isCameraOpen && isPhotoUpload ? (
-                                                        <div className="w-full h-full flex flex-col items-center justify-center">
-                                                            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline/>
-                                                            {hasCameraPermission === false && <p className="text-destructive text-sm p-2">Camera access denied.</p>}
-                                                        </div>
-                                                    ) : fileUrl ? (
-                                                        isPdf ? (
-                                                            <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10"/><span className="text-xs px-2 truncate max-w-full">{config.label}</span></div>
+                                                <div key={config.id} className="space-y-2">
+                                                    <Label htmlFor={`doc-${config.id}`}>{config.label} {config.required && <span className="text-destructive">*</span>}</Label>
+                                                    <div className="w-full aspect-video rounded-md border-2 border-dashed flex items-center justify-center relative bg-muted/40 overflow-hidden">
+                                                        {isCameraOpen && isPhotoUpload ? (
+                                                            <div className="w-full h-full flex flex-col items-center justify-center">
+                                                                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                                                                {hasCameraPermission === false && <p className="text-destructive text-sm p-2">Camera access denied.</p>}
+                                                            </div>
+                                                        ) : fileUrl ? (
+                                                            isPdf ? (
+                                                                <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10" /><span className="text-xs px-2 truncate max-w-full">{config.label}</span></div>
+                                                            ) : (
+                                                                <Image src={fileUrl} alt="Document Preview" layout="fill" objectFit="contain" />
+                                                            )
                                                         ) : (
-                                                            <Image src={fileUrl} alt="Document Preview" layout="fill" objectFit="contain" />
-                                                        )
-                                                    ) : (
-                                                        <p className="text-muted-foreground text-sm">Upload {config.label}</p>
+                                                            <p className="text-muted-foreground text-sm">Upload {config.label}</p>
+                                                        )}
+                                                    </div>
+                                                    {canSubmit && (
+                                                        <div className="flex gap-2">
+                                                            <div className="relative flex-1">
+                                                                <Input id={`doc-${config.id}`} type="file" accept={config.type === 'pdf' ? '.pdf' : 'image/*'} onChange={(e) => handleFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                                                                <Button asChild variant="outline" className="w-full pointer-events-none"><span><FileUp className="mr-2 h-4 w-4" /> {documentUris[config.id] ? "Change" : "Upload"}</span></Button>
+                                                            </div>
+                                                            {isPhotoUpload && (
+                                                                <Button type="button" variant="secondary" onClick={() => isCameraOpen ? handleCapturePhoto() : setIsCameraOpen(true)}>
+                                                                    {isCameraOpen ? <CheckCircle className="mr-2 h-4 w-4" /> : <Camera className="mr-2 h-4 w-4" />}
+                                                                    {isCameraOpen ? 'Capture' : 'Use Camera'}
+                                                                </Button>
+                                                            )}
+                                                            {isCameraOpen && isPhotoUpload && <Button type="button" variant="ghost" size="icon" onClick={() => setIsCameraOpen(false)}><XCircle className="w-4 h-4" /></Button>}
+                                                        </div>
                                                     )}
                                                 </div>
-                                                {canSubmit && (
-                                                    <div className="flex gap-2">
-                                                        <div className="relative flex-1">
-                                                            <Input id={`doc-${config.id}`} type="file" accept={config.type === 'pdf' ? '.pdf' : 'image/*'} onChange={(e) => handleFileChange(e, config.id)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
-                                                            <Button asChild variant="outline" className="w-full pointer-events-none"><span><FileUp className="mr-2 h-4 w-4"/> {documentUris[config.id] ? "Change" : "Upload"}</span></Button>
-                                                        </div>
-                                                        {isPhotoUpload && (
-                                                            <Button type="button" variant="secondary" onClick={() => isCameraOpen ? handleCapturePhoto() : setIsCameraOpen(true)}>
-                                                                {isCameraOpen ? <CheckCircle className="mr-2 h-4 w-4"/> : <Camera className="mr-2 h-4 w-4"/>}
-                                                                {isCameraOpen ? 'Capture' : 'Use Camera'}
-                                                            </Button>
-                                                        )}
-                                                        {isCameraOpen && isPhotoUpload && <Button type="button" variant="ghost" size="icon" onClick={()=> setIsCameraOpen(false)}><XCircle className="w-4 h-4"/></Button>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )})
+                                            )
+                                        })
                                     ) : (
                                         <div className="md:col-span-2 text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
                                             <p className="font-semibold">No Documents Required</p>
@@ -249,15 +252,15 @@ export default function KycPage() {
                             </ScrollArea>
                         </CardContent>
                         <CardFooter>
-                             {canSubmit && kycConfigs.length > 0 && (
+                            {canSubmit && kycConfigs.length > 0 && (
                                 <Button onClick={handleSubmit} disabled={isSubmitting || !allRequiredSubmitted} className="w-full">
                                     {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
                                     {isSubmitting ? 'Submitting...' : 'Submit for Verification'}
                                 </Button>
-                             )}
-                             {(isVerified || isPending) && (
+                            )}
+                            {(isVerified || isPending) && (
                                 <Button disabled className="w-full">{isVerified ? 'KYC Already Verified' : 'Submission Under Review'}</Button>
-                             )}
+                            )}
                         </CardFooter>
                     </Card>
                 </div>

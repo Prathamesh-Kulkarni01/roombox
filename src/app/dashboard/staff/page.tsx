@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -46,7 +47,7 @@ const roleColors: Record<Staff['role'], string> = {
 const StaffForm = ({ form, onSubmit }: { form: any, onSubmit: (data: StaffFormValues) => void }) => {
     const { pgs } = useAppSelector(state => state.pgs);
     const { currentUser } = useAppSelector(state => state.user);
-    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const { featurePermissions } = usePermissionsStore();
     const staffToEdit = form.getValues(); // Not ideal, but works for this context
     
     return (
@@ -96,7 +97,7 @@ export default function StaffPage() {
     const { isLoading, selectedPgId } = useAppSelector(state => state.app)
     const { currentPlan } = useAppSelector(state => state.user)
     const { currentUser } = useAppSelector(state => state.user);
-    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const { featurePermissions } = usePermissionsStore();
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null)
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false)

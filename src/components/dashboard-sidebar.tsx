@@ -9,7 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { allNavItems, type NavItem } from '@/lib/mock-data';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut, Shield, BookOpen, BookUser } from 'lucide-react';
 import type { RolePermissions } from '@/lib/permissions';
@@ -21,7 +22,7 @@ export default function DashboardSidebar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const { currentUser, currentPlan } = useAppSelector((state) => state.user);
-  const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
   const { t } = useTranslation();
   
   if (!currentUser || !currentPlan) {

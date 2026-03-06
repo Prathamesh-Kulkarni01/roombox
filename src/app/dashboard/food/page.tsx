@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -57,7 +58,7 @@ export default function FoodPage() {
     const [menu, setMenu] = useState<Menu>(initialMenu)
     const { toast } = useToast()
     const { currentUser } = useAppSelector(state => state.user);
-    const { featurePermissions } = useAppSelector(state => state.permissions);
+    const { featurePermissions } = usePermissionsStore();
     const canEditMenu = canAccess(featurePermissions, currentUser?.role, 'food', 'edit');
 
     const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);

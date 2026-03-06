@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -45,7 +46,7 @@ export default function RoomManagementPage() {
   const { pgs } = useAppSelector(state => state.pgs)
   const { guests } = useAppSelector(state => state.guests)
   const { currentUser, currentPlan } = useAppSelector(state => state.user)
-  const { featurePermissions } = useAppSelector(state => state.permissions)
+  const { featurePermissions } = usePermissionsStore()
   const pgId = params.pgId as string
   const { toast } = useToast()
 

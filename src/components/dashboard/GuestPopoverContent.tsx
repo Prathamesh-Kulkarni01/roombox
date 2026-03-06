@@ -11,6 +11,7 @@ import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle, Pencil, User
 import { cn } from "@/lib/utils"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { useAppSelector } from "@/lib/hooks"
+import { usePermissionsStore } from '@/lib/stores/configStores'
 import { canAccess } from '@/lib/permissions';
 
 interface GuestPopoverContentProps extends Omit<UseDashboardReturn, 'stats'> {
@@ -26,7 +27,7 @@ const rentStatusColors: Record<Guest['rentStatus'], string> = {
 export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, handleOpenReminderDialog, handleOpenEditGuestDialog, setGuestToInitiateExit, setGuestToExitImmediately }: GuestPopoverContentProps) {
   const { currentPlan } = useAppSelector(state => state.user)
   const { currentUser } = useAppSelector(state => state.user);
-  const { featurePermissions } = useAppSelector(state => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
 
   const totalDue = (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
 

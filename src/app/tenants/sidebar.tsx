@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, LogOut, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { usePermissionsStore } from '@/lib/stores/configStores';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
@@ -28,7 +29,7 @@ export default function TenantSidebar() {
   const dispatch = useAppDispatch();
   const { currentUser } = useAppSelector((state) => state.user);
   const { guests } = useAppSelector((state) => state.guests);
-  const { featurePermissions } = useAppSelector((state) => state.permissions);
+  const { featurePermissions } = usePermissionsStore();
 
   const currentGuest = useMemo(() => {
     if (!currentUser || !currentUser.guestId) return null;

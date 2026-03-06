@@ -20,8 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { addChargeTemplate, updateChargeTemplate, deleteChargeTemplate } from '@/lib/slices/chargeTemplatesSlice'
-import { updatePermissions, type FeaturePermissions, type RolePermissions } from '@/lib/slices/permissionsSlice'
+import { useChargeTemplatesStore, usePermissionsStore, type RolePermissions } from '@/lib/stores/configStores'
 import { featurePermissionConfig } from '@/lib/permissions';
 import { format, parseISO } from "date-fns"
 import { cn } from "@/lib/utils"
@@ -54,8 +53,8 @@ type ChargeTemplateFormValues = z.infer<typeof chargeTemplateSchema>;
 export default function SettingsPage() {
     const dispatch = useAppDispatch()
     const { currentUser, currentPlan } = useAppSelector((state) => state.user)
-    const { templates: chargeTemplates } = useAppSelector((state) => state.chargeTemplates)
-    const { featurePermissions } = useAppSelector((state) => state.permissions);
+    const { templates: chargeTemplates, addTemplate, updateTemplate: updateTemplateZustand, deleteTemplate } = useChargeTemplatesStore()
+    const { featurePermissions, updatePermissions: savePermissions } = usePermissionsStore();
     const { mockDate } = useAppSelector((state) => state.app);
     const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
     const [templateToEdit, setTemplateToEdit] = useState<ChargeTemplate | null>(null);
@@ -122,24 +121,22 @@ export default function SettingsPage() {
     }
 
     const handleSavePermissions = () => {
-        if (!roleToEdit || !featurePermissions) return;
-        const updatedPermissions = produce(featurePermissions, draft => {
-            draft[roleToEdit] = selectedPermissions[roleToEdit]!;
-        });
-        dispatch(updatePermissions(updatedPermissions));
+        if (!roleToEdit) return;
+        const updatedPermissions = { ...(featurePermissions ?? {}), [roleToEdit]: selectedPermissions[roleToEdit]! } as import('@/lib/permissions').RolePermissions;
+        savePermissions(updatedPermissions);
         toast({ title: "Permissions Updated", description: `Permissions for ${roleToEdit} have been saved.` });
         setIsPermissionsDialogOpen(false);
     }
 
     const handleTemplateSubmit = async (data: ChargeTemplateFormValues) => {
         try {
-            // Convert undefined -> null for Firestore (ChargeTemplate type uses null)
+            // Convert undefined -> null (ChargeTemplate type uses null)
             const templateData = { ...data, unitCost: data.unitCost ?? null };
             if (templateToEdit) {
-                await dispatch(updateChargeTemplate({ ...templateToEdit, ...templateData })).unwrap();
+                updateTemplateZustand({ ...templateToEdit, ...templateData });
                 toast({ title: "Template Updated", description: "Your charge template has been updated." });
             } else {
-                await dispatch(addChargeTemplate(templateData)).unwrap();
+                addTemplate(templateData);
                 toast({ title: "Template Created", description: "Your new charge template is ready to use." });
             }
             setIsTemplateDialogOpen(false);
@@ -150,7 +147,7 @@ export default function SettingsPage() {
 
     const handleDeleteTemplate = (templateId: string) => {
         if (confirm("Are you sure you want to delete this template? This cannot be undone.")) {
-            dispatch(deleteChargeTemplate(templateId));
+            deleteTemplate(templateId);
             toast({ title: "Template Deleted" });
         }
     }
