@@ -48,11 +48,11 @@ export async function getSession(phoneNumber: string): Promise<UserSession> {
     try {
         const redis = getRedisClient();
         const sessionKey = `whatsapp:session:${phoneNumber}`;
-        const sessionData = await redis.get(sessionKey);
+        
+        // Upstash returns the object directly if it was stored as an object
+        const session = await redis.get<UserSession>(sessionKey);
 
-        if (sessionData) {
-            const session = JSON.parse(sessionData as string) as UserSession;
-            // Renew TTL
+        if (session) {
             await redis.expire(sessionKey, SESSION_TTL);
             return session;
         }
@@ -67,8 +67,10 @@ export async function getSession(phoneNumber: string): Promise<UserSession> {
 export async function updateSession(phoneNumber: string, newState: BotState, newData?: any): Promise<void> {
     try {
         const redis = getRedisClient();
-        const currentSession = await getSession(phoneNumber);
         const sessionKey = `whatsapp:session:${phoneNumber}`;
+        
+        // Get current data safely
+        const currentSession = await getSession(phoneNumber);
 
         const updatedSession: UserSession = {
             state: newState,
@@ -76,7 +78,8 @@ export async function updateSession(phoneNumber: string, newState: BotState, new
             lastUpdated: Date.now()
         };
 
-        await redis.setex(sessionKey, SESSION_TTL, JSON.stringify(updatedSession));
+        // Use .set() with 'ex' for Upstash, and pass the object directly
+        await redis.set(sessionKey, updatedSession, { ex: SESSION_TTL });
     } catch (error) {
         console.error('[SessionCache] Error updating session:', error);
     }

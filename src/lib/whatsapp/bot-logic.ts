@@ -14,6 +14,8 @@ export async function handleIncomingMessage(data: any) {
 
     const session = await getSession(from);
 
+    console.log(`[BOT DEBUG] From: ${from} | Msg: ${msgBody} | Active State: ${session.state}`);
+
     // Extract text from either the body or use the image ID if it's a media upload
     let text = msgBody?.trim() || '';
     if (messageType === 'image' && rawData?.image?.id) {
@@ -69,7 +71,7 @@ export async function handleIncomingMessage(data: any) {
             // First check with country code (which is how WhatsApp sends it, e.g. 91xxxxxxxxxx)
             const ownersSnapshot = await adminDb.collection('users')
                 .where('role', '==', 'owner')
-                .where('phone', '==', from.replace(/\\D/g, ''))
+               .where('phone', '==', from.replace(/\D/g, ''))
                 .get();
 
             if (!ownersSnapshot.empty) {
@@ -117,7 +119,7 @@ export async function handleIncomingMessage(data: any) {
                 ownerId: matchedOwnerId
             });
             await sendWhatsAppMessage(from, `✅ *Login Successful*\n\nWelcome back, ${matchedOwner.name || 'Owner'}!`);
-            await showOwnerMenu(from, getSession(from));
+            await showOwnerMenu(from, session);
             return;
         }
 
