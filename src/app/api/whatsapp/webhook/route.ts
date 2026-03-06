@@ -1,22 +1,8 @@
 import { NextResponse } from 'next/server';
 import { handleIncomingMessage } from '@/lib/whatsapp/smart-router';
 import { getEnv } from '@/lib/env';
-import { Redis } from '@upstash/redis';
 
 const WHATSAPP_VERIFY_TOKEN = getEnv('WHATSAPP_VERIFY_TOKEN', 'roombox_whatsapp_dev_token');
-
-// Singleton Redis client
-let redisClient: Redis | null = null;
-
-function getRedisClient(): Redis {
-    if (!redisClient) {
-        redisClient = new Redis({
-            url: process.env.UPSTASH_REDIS_REST_URL || '',
-            token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-        });
-    }
-    return redisClient;
-}
 
 // ── GET: Webhook verification by Meta ────────────────────────────────────────
 export async function GET(req: Request) {
@@ -35,16 +21,17 @@ export async function GET(req: Request) {
 
 // ── POST: Receive messages from Meta ─────────────────────────────────────────
 export async function POST(req: Request) {
-    // Always respond 200 immediately — Meta requires acknowledgement within 30s
-    const responsePromise = NextResponse.json({ status: 'received' }, { status: 200 });
-
     try {
         const body = await req.json();
 
-        if (!body.object) return responsePromise;
+        if (!body.object) {
+            return NextResponse.json({ status: 'received' }, { status: 200 });
+        }
 
         const changes = body.entry?.[0]?.changes?.[0];
-        if (!changes?.value?.messages?.[0]) return responsePromise;
+        if (!changes?.value?.messages?.[0]) {
+            return NextResponse.json({ status: 'received' }, { status: 200 });
+        }
 
         const message = changes.value.messages[0];
         const from = message.from;
@@ -53,16 +40,15 @@ export async function POST(req: Request) {
 
         console.log(`[Webhook] ${messageType} from ${from}: "${msgBody || '[media]'}"`);
 
-        // Initialize Redis for this request (keeps singleton alive)
-        getRedisClient();
-
-        // Process asynchronously — don't await so Meta gets 200 immediately
-        handleIncomingMessage({ from, msgBody, messageType, rawData: message })
-            .catch((err) => console.error('[Webhook] Handler error:', err));
+        // IMPORTANT: We must AWAIT handleIncomingMessage in serverless environments.
+        // If we don't, the function might terminate before the message is processed,
+        // session is saved to Redis, or a reply is sent via the WhatsApp API.
+        await handleIncomingMessage({ from, msgBody, messageType, rawData: message });
 
     } catch (error) {
         console.error('[Webhook] POST error:', error);
     }
 
-    return responsePromise;
+    // Always respond 200 — Meta requires acknowledgment
+    return NextResponse.json({ status: 'received' }, { status: 200 });
 }

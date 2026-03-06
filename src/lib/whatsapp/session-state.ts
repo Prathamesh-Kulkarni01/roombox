@@ -6,6 +6,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { getEnv } from '../env';
 
 // BotState is now a single unified state — workflow tracking is inside
 // the WorkflowContext stored in session.data.workflowContext
@@ -34,9 +35,16 @@ let redisClient: Redis | null = null;
 
 function getRedisClient(): Redis {
     if (!redisClient) {
+        const url = getEnv('UPSTASH_REDIS_REST_URL');
+        const token = getEnv('UPSTASH_REDIS_REST_TOKEN');
+
+        if (!url || !token) {
+            console.error('[Redis] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+        }
+
         redisClient = new Redis({
-            url: process.env.UPSTASH_REDIS_REST_URL || '',
-            token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+            url: url || '',
+            token: token || '',
         });
     }
     return redisClient;

@@ -1,53 +1,58 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
 export default defineConfig({
     testDir: './e2e-tests',
-    /* Run tests in files in parallel */
-    fullyParallel: true,
-    /* Fail the build on CI if you accidentally left test.only in the source code. */
+    fullyParallel: false,   // serial — WA tests depend on session state
     forbidOnly: !!process.env.CI,
-    /* Retry on CI only */
-    retries: process.env.CI ? 2 : 0,
-    /* Opt out of parallel tests on CI. */
-    workers: process.env.CI ? 1 : undefined,
-    /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-    reporter: 'html',
-    /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
-    use: {
-        /* Base URL to use in actions like `await page.goto('/')`. */
-        baseURL: 'http://localhost:9002',
+    retries: 0,
+    workers: 1,             // single worker to avoid session conflicts
+    reporter: [['html'], ['list']],
 
-        /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    use: {
+        baseURL: 'http://localhost:9002',
         trace: 'on-first-retry',
         headless: false,
+        video: 'on',        // record all tests
+        screenshot: 'on',
     },
 
-    /* Configure projects for major browsers */
     projects: [
+        // ── Auth Setup ────────────────────────────────────────────────
         {
             name: 'setup',
             testMatch: /.*\.setup\.ts/,
         },
+
+        // ── WhatsApp Bot E2E (no browser auth needed for webhook calls) ──
         {
-            name: 'chromium',
+            name: 'whatsapp-bot',
+            testMatch: /whatsapp-bot\.spec\.ts/,
             use: {
                 ...devices['Desktop Chrome'],
-                // Use the saved authentication state from the setup project
+                // Reuse saved auth if available, otherwise tests self-login
                 storageState: 'playwright/.auth/user.json',
             },
             dependencies: ['setup'],
         },
-        // We can enable WebKit/Firefox later, keeping it simple (Chromium only) for now.
+
+        // ── General UI Tests ──────────────────────────────────────────
+        {
+            name: 'chromium',
+            testIgnore: /whatsapp-bot\.spec\.ts/,
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: 'playwright/.auth/user.json',
+            },
+            dependencies: ['setup'],
+        },
     ],
 
-    /* Run your local dev server before starting the tests */
     webServer: {
         command: 'npm run dev',
         url: 'http://localhost:9002',
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: true,   // always reuse if already running
         timeout: 120 * 1000,
     },
+
+    outputDir: 'test-results',
 });
