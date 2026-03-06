@@ -1,4 +1,4 @@
-import { sendWhatsAppMessage, sendWhatsAppInteractiveMessage } from './send-message';
+import { sendWhatsAppMessage, sendWhatsAppInteractiveMessage, sendWhatsAppImageMessage } from './send-message';
 import { generateUpiIntentLink } from './upi-intent';
 import { getSession, updateSession, clearSession } from './session-state';
 import { ADD_TENANT_FORM } from './form-config';
@@ -13,7 +13,13 @@ const MOCK_DB = {
 
 export async function handleIncomingMessage(data: any) {
     const { from, msgBody, messageType, rawData } = data;
-    const text = msgBody?.trim() || '';
+
+    // Extract text from either the body or use the image ID if it's a media upload
+    let text = msgBody?.trim() || '';
+    if (messageType === 'image' && rawData?.image?.id) {
+        text = rawData.image.id;
+    }
+
     const lowerText = text.toLowerCase();
 
     console.log(`Analyzing message from ${from}...`);
@@ -159,7 +165,8 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
         await sendWhatsAppMessage(to, "Let's Onboard a New Tenant. Select Property:\n1️⃣ Sai PG\n2️⃣ Ganesh PG\n\nReply with the PG name or ID.");
     } else if (lowerText === '7') {
         // Lifecycle
-        await sendWhatsAppMessage(to, "*Tenant Lifecycle Management*\n\nSelect Tenant:\n1️⃣ Rahul Sharma\n2️⃣ Neha Joshi\n3️⃣ Amit Patil");
+        updateSession(to, 'SELECTING_TENANT_LIFECYCLE');
+        await sendWhatsAppMessage(to, "*Tenant Lifecycle Management*\n\nSelect Tenant to Manage:\n1️⃣ Rahul Sharma\n2️⃣ Neha Joshi\n3️⃣ Amit Patil\n\nReply with a number.");
     } else if (lowerText === '8') {
         await sendWhatsAppMessage(to, "📊 *Reports & Analytics*\n1 Daily Collection\n2 Monthly Collection\n3 Occupancy Rate\n4 Pending Rent Summary\n5 Property Performance");
     } else if (lowerText === '9') {
@@ -240,6 +247,82 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
                 updateSession(to, 'IDLE');
                 await sendWhatsAppMessage(to, successSummary);
             }
+            break;
+
+        case 'SELECTING_TENANT_LIFECYCLE':
+            updateSession(to, 'AWAITING_LIFECYCLE_ACTION', { tenantId: text });
+            await sendWhatsAppMessage(to, `*Tenant Overview*\nName: Selected Tenant\nRent: ₹6000\nPhone: 9876543210\n\nWhat would you like to do?\n1️⃣ Edit Details\n2️⃣ View/Upload KYC\n3️⃣ Start Move-Out\n\nReply with a number.`);
+            break;
+
+        case 'AWAITING_LIFECYCLE_ACTION':
+            if (text === '1') {
+                updateSession(to, 'EDITING_TENANT_FIELD_SELECTION', session.data);
+                await sendWhatsAppMessage(to, `*Edit Details*\n\nWhat would you like to update?\n1️⃣ Name\n2️⃣ Rent Amount\n3️⃣ Phone Number\n\nReply with a number.`);
+            } else if (text === '2') {
+                updateSession(to, 'AWAITING_KYC_ACTION', session.data);
+                await sendWhatsAppMessage(to, `*KYC Documents*\n\n1️⃣ View Photo\n2️⃣ View Aadhaar\n3️⃣ Upload Photo\n4️⃣ Upload Aadhaar\n\nReply with a number.`);
+            } else {
+                updateSession(to, 'IDLE');
+                await sendWhatsAppMessage(to, "Feature not built yet. Returning to Menu. Reply *Menu*.");
+            }
+            break;
+
+        case 'AWAITING_KYC_ACTION':
+            // KYC Management Loop
+            if (text === '1') {
+                // Mock viewing a photo
+                await sendWhatsAppMessage(to, "📸 Sending Tenant Photo...");
+                await sendWhatsAppImageMessage(to, "https://firebasestorage.googleapis.com/v0/b/roombox-f7bff.firebasestorage.app/o/mock-kyc-photo.jpg?alt=media");
+                updateSession(to, 'IDLE');
+            } else if (text === '2') {
+                // Mock viewing Aadhaar
+                await sendWhatsAppMessage(to, "📄 Sending Aadhaar Card...");
+                await sendWhatsAppImageMessage(to, "https://firebasestorage.googleapis.com/v0/b/roombox-f7bff.firebasestorage.app/o/mock-kyc-aadhaar.jpg?alt=media");
+                updateSession(to, 'IDLE');
+            } else if (text === '3') {
+                updateSession(to, 'AWAITING_OWNER_KYC_UPLOAD_PHOTO', session.data);
+                await sendWhatsAppMessage(to, "Please send/upload the *Tenant's Photo* now.");
+            } else if (text === '4') {
+                updateSession(to, 'AWAITING_OWNER_KYC_UPLOAD_AADHAAR', session.data);
+                await sendWhatsAppMessage(to, "Please send/upload the *Aadhaar Card Image* now.");
+            } else {
+                updateSession(to, 'IDLE');
+                await sendWhatsAppMessage(to, "Invalid choice. Returning to Menu. Reply *Menu*.");
+            }
+            break;
+
+        case 'AWAITING_OWNER_KYC_UPLOAD_PHOTO':
+        case 'AWAITING_OWNER_KYC_UPLOAD_AADHAAR':
+            // 🚨 IMPORTANT: Currently, `text` contains the Media ID if the user sends an image, 
+            // but we need to download it from Meta first in a real scenario.
+            const docType = session.state === 'AWAITING_OWNER_KYC_UPLOAD_PHOTO' ? 'Photo' : 'Aadhaar Card';
+
+            // Mock Confirmation
+            updateSession(to, 'IDLE');
+            await sendWhatsAppMessage(to, `✅ *KYC Uploaded*\n\nThe ${docType} has been securely saved to the tenant's profile.\n\nReply *Menu* to return.`);
+            break;
+
+        case 'EDITING_TENANT_FIELD_SELECTION':
+            let fieldToEdit = '';
+            if (text === '1') fieldToEdit = 'name';
+            else if (text === '2') fieldToEdit = 'rent amount';
+            else if (text === '3') fieldToEdit = 'phone number';
+
+            if (fieldToEdit) {
+                updateSession(to, 'EDITING_TENANT_VALUE', { ...session.data, fieldToEdit });
+                await sendWhatsAppMessage(to, `Please enter the new ${fieldToEdit}:`);
+            } else {
+                await sendWhatsAppMessage(to, "Invalid choice. Reply with 1, 2, or 3.");
+            }
+            break;
+
+        case 'EDITING_TENANT_VALUE':
+            const updatedField = session.data.fieldToEdit;
+            const updatedValue = text;
+
+            // In a real scenario, we perform a db.collection('guests').doc(tenantId).update({ [fieldToEdit]: updatedValue }) here.
+            updateSession(to, 'IDLE');
+            await sendWhatsAppMessage(to, `✅ *Update Successful*\n\nTenant's ${updatedField} has been updated to *${updatedValue}*.\n\nReply *Menu* to return to dashboard.`);
             break;
 
         default:

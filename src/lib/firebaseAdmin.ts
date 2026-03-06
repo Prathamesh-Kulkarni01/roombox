@@ -32,17 +32,26 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
     }
   }
 
-  const serviceAccountKey = process.env.FIREBASE_ADMIN_SDK_CONFIG;
-  if (!serviceAccountKey) {
-    throw new Error('FIREBASE_ADMIN_SDK_CONFIG is not set.');
-  }
+  let appOptions: AppOptions = {
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  };
 
   try {
-    const serviceAccount = JSON.parse(serviceAccountKey);
-    const appOptions: AppOptions = {
-      credential: cert(serviceAccount),
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    };
+    if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
+      // Use individual environment variables (Netlify 4KB limit workaround)
+      appOptions.credential = cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        // Replace escaped newlines if they exist
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      });
+    } else if (process.env.FIREBASE_ADMIN_SDK_CONFIG) {
+      // Fallback to the full JSON string if provided
+      const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG);
+      appOptions.credential = cert(serviceAccount);
+    } else {
+      throw new Error('Missing Firebase Admin credentials. Please set FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, and FIREBASE_PROJECT_ID.');
+    }
     if (projectId) appOptions.projectId = projectId;
     // Note: Admin SDK currently binds default database to the app; named databases can be handled at Firestore client level if needed.
 

@@ -55,6 +55,25 @@ export async function sendWhatsAppInteractiveMessage(to: string, interactiveData
     return makeWhatsAppApiCall(payload);
 }
 
+export async function sendWhatsAppImageMessage(to: string, imageLink: string) {
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
+        console.warn('WhatsApp credentials not configured. Mocking image send:', { to, imageLink });
+        return { success: true, mock: true };
+    }
+
+    const payload: WhatsAppMessagePayload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "image",
+        image: {
+            link: imageLink
+        }
+    };
+
+    return makeWhatsAppApiCall(payload);
+}
+
 async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload) {
     try {
         const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
