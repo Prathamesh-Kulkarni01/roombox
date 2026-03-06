@@ -1,18 +1,14 @@
 import { sendWhatsAppMessage, sendWhatsAppInteractiveMessage, sendWhatsAppImageMessage } from './send-message';
+import { generateUpiIntentLink } from './upi-intent';
+import { getSession, updateSession, clearSession } from './session-state';
+import { ADD_TENANT_FORM } from './form-config';
 import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
-import * as fs from 'fs';
-import * as path from 'path';
-
-const DEBUG_LOG = path.join(process.cwd(), 'bot-debug.log');
-function debugLog(msg: string) {
-    fs.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] ${msg}\n`);
-}
 
 export async function handleIncomingMessage(data: any) {
     const { from, msgBody, messageType, rawData } = data;
     const lowerText = msgBody?.toLowerCase() || '';
 
-    debugLog(`Incoming from ${from}: ${msgBody}`);
+    const session = getSession(from);
 
     // Extract text from either the body or use the image ID if it's a media upload
     let text = msgBody?.trim() || '';
@@ -24,8 +20,6 @@ export async function handleIncomingMessage(data: any) {
     const lowerTextFromText = text.toLowerCase();
 
     console.log(`Analyzing message from ${from}...`);
-
-    const session = getSession(from);
 
     // --- LOGGED IN USER ROUTING ---
     if (session.data?.isAuthenticatedOwner) {
@@ -50,9 +44,21 @@ export async function handleIncomingMessage(data: any) {
         let matchedOwner: any = null;
         let matchedOwnerId: string | null = null;
 
-        let formattedPhone = from.replace(/\\D/g, '');
+        let formattedPhone = from.replace(/\D/g, '');
         if (formattedPhone.startsWith('91') && formattedPhone.length === 12) {
-            formattedPhone = formattedPhone.substring(2); // Remove 91 for standard 10 digit check if that's how it's stored
+            formattedPhone = formattedPhone.substring(2);
+        }
+
+        const ownerSnap = await adminDb.collection('users')
+            .where('phone', '==', formattedPhone)
+            .limit(1)
+            .get();
+
+        if (!ownerSnap.empty) {
+            matchedOwner = ownerSnap.docs[0].data();
+            matchedOwnerId = ownerSnap.docs[0].id;
+        } else {
+            // No owner found for phone
         }
 
         try {
