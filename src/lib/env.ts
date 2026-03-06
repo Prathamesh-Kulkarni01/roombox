@@ -6,10 +6,19 @@ export function getEnv(key: string, defaultValue?: string): string {
     const value = process.env[key];
 
     if (value === undefined || value === null) {
+        console.warn(`[getEnv] ${key} is missing, using default: ${defaultValue || 'empty'}`);
         if (defaultValue !== undefined) return defaultValue;
         return '';
     }
 
-    // Trim whitespace and remove surrounding " or '
-    return value.trim().replace(/^["']|["']$/g, '');
+    const sanitized = value.trim().replace(/^["']|["']$/g, '');
+
+    // Log the first and last 3 chars for debugging (masked)
+    if (sanitized.length > 6) {
+        console.log(`[getEnv] Loaded ${key}: ${sanitized.substring(0, 3)}...${sanitized.substring(sanitized.length - 3)} (length: ${sanitized.length})`);
+    } else if (sanitized.length > 0) {
+        console.log(`[getEnv] Loaded ${key}: ${sanitized} (length: ${sanitized.length})`);
+    }
+
+    return sanitized;
 }
