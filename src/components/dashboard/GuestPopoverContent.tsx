@@ -9,13 +9,18 @@ import type { Guest } from "@/lib/types"
 import { format, differenceInDays, parseISO } from "date-fns"
 import { Wallet, MessageCircle, Phone, LogOut, ArrowRight, XCircle, Pencil, User, IndianRupee } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { UseDashboardReturn } from "@/hooks/use-dashboard"
+
 import { useAppSelector } from "@/lib/hooks"
 import { usePermissionsStore } from '@/lib/stores/configStores'
 import { canAccess } from '@/lib/permissions';
 
-interface GuestPopoverContentProps extends Omit<UseDashboardReturn, 'stats'> {
-  guest: Guest
+interface GuestPopoverContentProps {
+  guest: Guest;
+  handleOpenPaymentDialog: (guest: Guest) => void;
+  handleOpenReminderDialog: (guest: Guest) => void;
+  handleOpenEditGuestDialog: (guest: Guest) => void;
+  setGuestToInitiateExit: (guest: Guest | null) => void;
+  setGuestToExitImmediately: (guest: Guest | null) => void;
 }
 
 const rentStatusColors: Record<Guest['rentStatus'], string> = {
@@ -50,20 +55,20 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
             <span>Rent Status:</span>
             <Badge variant="outline" className={cn("capitalize", rentStatusColors[guest.rentStatus])}>{guest.rentStatus}</Badge>
           </div>
-           <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center">
             <span>Total Due:</span>
-            <span className="font-bold text-base flex items-center"><IndianRupee className="w-3.5 h-3.5"/>{totalDue.toLocaleString('en-IN')}</span>
+            <span className="font-bold text-base flex items-center"><IndianRupee className="w-3.5 h-3.5" />{totalDue.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between">
             <span>Due Date:</span>
             <span className="font-medium">{format(new Date(guest.dueDate), "do MMM")}</span>
           </div>
-           {guest.exitDate && !guest.isVacated && (
-                <div className="flex justify-between text-blue-600">
-                    <span>Exiting In:</span>
-                    <span className="font-medium">{differenceInDays(parseISO(guest.exitDate), new Date())} days</span>
-                </div>
-            )}
+          {guest.exitDate && !guest.isVacated && (
+            <div className="flex justify-between text-blue-600">
+              <span>Exiting In:</span>
+              <span className="font-medium">{differenceInDays(parseISO(guest.exitDate), new Date())} days</span>
+            </div>
+          )}
         </div>
       </div>
       <div className="flex flex-col gap-1 p-2 bg-muted/50">
@@ -90,7 +95,7 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
           </Button>
         ) : null}
         {guest.exitDate && canAccess(featurePermissions, currentUser?.role, 'guests', 'delete') && (
-           <Button variant="ghost" size="sm" className="justify-start text-destructive hover:text-destructive" onClick={() => setGuestToExitImmediately(guest)}>
+          <Button variant="ghost" size="sm" className="justify-start text-destructive hover:text-destructive" onClick={() => setGuestToExitImmediately(guest)}>
             <XCircle className="mr-2 h-4 w-4" /> Exit Immediately
           </Button>
         )}

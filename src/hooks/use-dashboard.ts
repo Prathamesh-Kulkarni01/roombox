@@ -15,12 +15,18 @@ import { useConfetti } from "@/context/confetti-provider"
 
 import type { Guest, Bed, Room, PG, Floor, AdditionalCharge, Payment, RentCycleUnit, LedgerEntry } from "@/lib/types"
 import { format, addMonths, addDays, addHours, addMinutes, addWeeks } from "date-fns"
-import { addGuest as addGuestAction, updateGuest as updateGuestAction, initiateGuestExit, vacateGuest as vacateGuestAction, addSharedChargeToRoom, reconcileGuestPayment } from "@/lib/slices/guestsSlice"
-import { updatePg as updatePgAction } from "@/lib/slices/pgsSlice"
-
+import {
+  useGetGuestsQuery,
+  useUpdateGuestMutation,
+  useAddGuestMutation,
+  useInitiateGuestExitMutation,
+  useVacateGuestMutation,
+  useAddSharedRoomChargeMutation,
+  useRecordGuestPaymentMutation,
+  useUpdatePropertyMutation
+} from "@/lib/api/apiSlice"
 import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
-import { sanitizeObjectForFirebase, calculateFirstDueDate } from "@/lib/utils"
-import { runReconciliationLogic } from "@/lib/reconciliation"
+import { sanitizeObjectForFirebase } from "@/lib/utils"
 
 const addGuestSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -70,6 +76,15 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const { currentPlan, currentUser } = useAppSelector(state => state.user)
   const [isSavingRoom, startRoomTransition] = useTransition();
   const { showConfetti } = useConfetti();
+
+  // RTK Query Mutations
+  const [addGuest] = useAddGuestMutation();
+  const [updateGuest] = useUpdateGuestMutation();
+  const [initiateExit] = useInitiateGuestExitMutation();
+  const [vacateGuest] = useVacateGuestMutation();
+  const [addSharedCharge] = useAddSharedRoomChargeMutation();
+  const [recordPayment] = useRecordGuestPaymentMutation();
+  const [updateProperty] = useUpdatePropertyMutation();
 
 
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
@@ -182,139 +197,154 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     setIsEditGuestDialogOpen(true);
   };
 
-  const handleAddGuestSubmit = async (values: z.infer<typeof addGuestSchema>) => {
-    if (!selectedBedForGuestAdd) return;
-
-    const { pg, bed } = selectedBedForGuestAdd;
-    const moveInDate = new Date(values.moveInDate);
-    const firstDueDate = calculateFirstDueDate(moveInDate, values.rentCycleUnit, values.rentCycleValue, moveInDate.getDate());
-
-    const initialRentEntry: LedgerEntry = {
-      id: `rent-${Date.now()}`,
-      date: moveInDate.toISOString(),
-      type: 'debit',
-      description: `First Rent Cycle`,
-      amount: values.rentAmount,
-    };
-
-    const guestData: Omit<Guest, 'id'> = {
-      name: values.name,
-      phone: values.phone,
-      email: values.email,
-      pgId: pg.id,
-      pgName: pg.name,
-      bedId: bed.id,
-      rentStatus: 'unpaid',
-      rentPaidAmount: 0,
-      dueDate: firstDueDate.toISOString(),
-      rentAmount: values.rentAmount,
-      depositAmount: values.depositAmount,
-      kycStatus: 'not-started',
-      moveInDate: moveInDate.toISOString(),
-      noticePeriodDays: 30,
-      rentCycleUnit: values.rentCycleUnit,
-      rentCycleValue: values.rentCycleValue,
-      billingAnchorDay: moveInDate.getDate(),
-      isVacated: false,
-      ledger: [initialRentEntry],
-    };
-
-    const resultAction = await dispatch(addGuestAction(guestData));
-    if (addGuestAction.fulfilled.match(resultAction)) {
-      if (resultAction.payload.whatsAppStatus === 'sent') {
-        toast({ title: 'Success!', description: `${values.name} was added and a welcome message was sent via WhatsApp.` });
-      } else if (resultAction.payload.whatsAppStatus === 'failed') {
-        toast({ variant: 'destructive', title: 'Guest Added, But...', description: 'The welcome message via WhatsApp could not be sent. Please check your settings.' });
-      } else {
-        toast({ title: 'Success!', description: `${values.name} has been successfully added.` });
-      }
-    }
-    setIsAddGuestDialogOpen(false);
-    showConfetti({ particleCount: 150, spread: 80 });
-  };
-
-  const handleEditGuestSubmit = (values: z.infer<typeof editGuestSchema>) => {
-    if (!guestToEdit) return;
-    const updatedGuest = { ...guestToEdit, ...values };
-    dispatch(updateGuestAction({ updatedGuest }));
-    setIsEditGuestDialogOpen(false);
-  };
-
   const handleOpenPaymentDialog = (guest: Guest) => {
     setSelectedGuestForPayment(guest);
     setIsPaymentDialogOpen(true);
   };
 
-  const handlePaymentSubmit = async (values: z.infer<typeof paymentSchema>) => {
-    if (!selectedGuestForPayment) return;
-
-    const resultAction = await dispatch(reconcileGuestPayment({
-      guest: selectedGuestForPayment,
-      paymentAmount: values.amountPaid,
-      paymentMethod: values.paymentMethod,
-    }));
-
-    if (reconcileGuestPayment.fulfilled.match(resultAction)) {
-      if (resultAction.payload.whatsAppStatus === 'sent') {
-        toast({ title: "Payment Recorded", description: "The guest has been notified via WhatsApp." });
-      } else {
-        toast({ title: "Payment Recorded" });
-      }
-    }
-
-    setIsPaymentDialogOpen(false);
-    setSelectedGuestForPayment(null);
-  };
-
-
-  const handleOpenSharedChargeDialog = (room: Room) => {
-    const roomGuests = guests.filter(g => room.beds.some(b => b.id === g.bedId));
-    setRoomForSharedCharge({ room, guests: roomGuests });
+  const handleOpenSharedChargeDialog = (room: Room, guestsInRoom: Guest[]) => {
+    setRoomForSharedCharge({ room, guests: guestsInRoom });
     setIsSharedChargeDialogOpen(true);
+    sharedChargeForm.reset({ description: '', totalAmount: 0 });
   };
 
-  const handleSharedChargeSubmit = (values: z.infer<typeof sharedChargeSchema>) => {
-    if (!roomForSharedCharge) return;
+  const handleAddGuestSubmit = async (values: z.infer<typeof addGuestSchema>) => {
+    if (!selectedBedForGuestAdd || !currentUser) return;
+
+    const { pg, bed } = selectedBedForGuestAdd;
+    const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+    if (!ownerId) return;
+
+    try {
+      const result = await addGuest({
+        ownerId,
+        name: values.name,
+        phone: values.phone,
+        email: values.email,
+        pgId: pg.id,
+        pgName: pg.name,
+        bedId: bed.id,
+        rentAmount: values.rentAmount,
+        depositAmount: values.depositAmount,
+        joinDate: values.moveInDate.toISOString(),
+        rentCycleUnit: values.rentCycleUnit,
+        rentCycleValue: values.rentCycleValue,
+      }).unwrap();
+
+      if (result.success) {
+        toast({ title: 'Success!', description: `${values.name} has been successfully added.` });
+        setIsAddGuestDialogOpen(false);
+        showConfetti({ particleCount: 150, spread: 80 });
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to add guest.' });
+    }
+  };
+
+  const handleEditGuestSubmit = async (values: z.infer<typeof editGuestSchema>) => {
+    if (!guestToEdit || !currentUser) return;
+    const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+    if (!ownerId) return;
+
+    try {
+      await updateGuest({
+        ownerId,
+        guestId: guestToEdit.id,
+        updates: values,
+      }).unwrap();
+      setIsEditGuestDialogOpen(false);
+      toast({ title: 'Guest Updated' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to update guest.' });
+    }
+  };
+
+  const handlePaymentSubmit = async (values: z.infer<typeof paymentSchema>) => {
+    if (!selectedGuestForPayment || !currentUser) return;
+    const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+    if (!ownerId) return;
+
+    try {
+      await recordPayment({
+        ownerId,
+        guest: selectedGuestForPayment,
+        amount: values.amountPaid,
+        method: values.paymentMethod,
+      }).unwrap();
+
+      toast({ title: "Payment Recorded" });
+      setIsPaymentDialogOpen(false);
+      setSelectedGuestForPayment(null);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to record payment.' });
+    }
+  };
+
+  const handleSharedChargeSubmit = async (values: z.infer<typeof sharedChargeSchema>) => {
+    if (!roomForSharedCharge || !currentUser) return;
+    const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+    if (!ownerId) return;
 
     const { description, totalAmount, units, unitCost } = values;
-
     let finalAmount = totalAmount;
 
-    // If unit cost is provided, it takes precedence
     if (typeof units === 'number' && typeof unitCost === 'number') {
       finalAmount = units * unitCost;
     }
 
     if (!finalAmount || finalAmount <= 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid Amount',
-        description: 'Calculated charge amount must be greater than zero.',
-      });
+      toast({ variant: 'destructive', title: 'Invalid Amount', description: 'Calculated charge amount must be greater than zero.' });
       return;
     }
 
-    dispatch(addSharedChargeToRoom({
-      roomId: roomForSharedCharge.room.id,
-      description: description,
-      totalAmount: finalAmount
-    }));
+    try {
+      await addSharedCharge({
+        ownerId,
+        roomId: roomForSharedCharge.room.id,
+        description,
+        amount: finalAmount,
+      }).unwrap();
 
-    toast({ title: 'Shared Charge Added', description: `The charge for "${description}" has been added to guests in room ${roomForSharedCharge.room.name}.` });
-    setIsSharedChargeDialogOpen(false);
-    sharedChargeForm.reset();
+      toast({ title: 'Shared Charge Added', description: `Added to guests in room ${roomForSharedCharge.room.name}.` });
+      setIsSharedChargeDialogOpen(false);
+      sharedChargeForm.reset();
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to add shared charge.' });
+    }
   };
 
-  const handleConfirmInitiateExit = () => {
-    if (!guestToInitiateExit) return;
-    dispatch(initiateGuestExit(guestToInitiateExit.id));
-    setGuestToInitiateExit(null);
+  const handleConfirmInitiateExit = async () => {
+    if (!guestToInitiateExit || !currentUser) return;
+    const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+    if (!ownerId) return;
+
+    try {
+      await initiateExit({
+        ownerId,
+        guestId: guestToInitiateExit.id,
+      }).unwrap();
+      setGuestToInitiateExit(null);
+      toast({ title: 'Exit Initiated' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to initiate exit.' });
+    }
   };
 
-  const handleConfirmImmediateExit = () => {
-    if (!guestToExitImmediately) return;
-    dispatch(vacateGuestAction(guestToExitImmediately.id));
-    setGuestToExitImmediately(null);
+  const handleConfirmImmediateExit = async () => {
+    if (!guestToExitImmediately || !currentUser) return;
+    const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+    if (!ownerId) return;
+
+    try {
+      await vacateGuest({
+        ownerId,
+        guestId: guestToExitImmediately.id,
+      }).unwrap();
+      setGuestToExitImmediately(null);
+      toast({ title: 'Guest Vacated' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to vacate guest.' });
+    }
   };
 
   const handleOpenReminderDialog = async (guest: Guest) => {
@@ -378,7 +408,14 @@ Thank you!`;
         draft.floors.push({ id: `floor-${Date.now()}`, name: values.name, rooms: [], pgId: pg.id });
       }
     });
-    dispatch(updatePgAction(nextState));
+    if (currentUser) {
+      updateProperty({
+        ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
+        pgId: pg.id,
+        updates: nextState
+      });
+    }
+
     setIsFloorDialogOpen(false);
     showConfetti({ particleCount: 50, spread: 60, startVelocity: 20 });
   };
@@ -423,7 +460,14 @@ Thank you!`;
           floor.rooms.push(newRoom);
         }
       });
-      await dispatch(updatePgAction(nextState)).unwrap();
+      if (currentUser) {
+        await updateProperty({
+          ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
+          pgId,
+          updates: nextState
+        }).unwrap();
+      }
+
       toast({ title: roomToEdit ? 'Room Updated' : 'Room Added', description: `The room has been successfully ${roomToEdit ? 'updated' : 'added'}.` })
       setIsRoomDialogOpen(false);
       showConfetti({ particleCount: 100, spread: 70 });
@@ -447,7 +491,14 @@ Thank you!`;
         draft.totalBeds = (draft.totalBeds || 0) + 1;
       }
     });
-    dispatch(updatePgAction(nextState));
+    if (currentUser) {
+      updateProperty({
+        ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
+        pgId: pg.id,
+        updates: nextState
+      });
+    }
+
     setIsBedDialogOpen(false);
     showConfetti({ particleCount: 30, spread: 50, startVelocity: 10, decay: 0.9 });
   };
@@ -505,7 +556,13 @@ Thank you!`;
     });
 
     if (JSON.stringify(pg) !== JSON.stringify(nextState)) {
-      dispatch(updatePgAction(nextState));
+      if (currentUser) {
+        updateProperty({
+          ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
+          pgId: pg.id,
+          updates: nextState
+        });
+      }
     }
   };
 
@@ -518,7 +575,8 @@ Thank you!`;
   }
 
   const openAddFloorDialog = (pg: PG) => {
-    if (currentPlan && (currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit)) {
+    const floorLimit = currentPlan?.floorLimit || 0;
+    if (currentPlan && (floorLimit === 'unlimited' || (pg.floors?.length || 0) < Number(floorLimit))) {
       handleOpenFloorDialog(null, pg);
     } else {
       toast({ variant: 'destructive', title: 'Floor Limit Reached', description: 'Please upgrade your plan to add more floors.' });

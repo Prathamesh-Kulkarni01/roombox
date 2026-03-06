@@ -5,7 +5,6 @@ import type { Complaint } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
-import { deletePg } from './pgsSlice';
 import { createAndSendNotification } from '../actions/notificationActions';
 
 interface ComplaintsState {
@@ -30,7 +29,7 @@ export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, 
         }
 
         // Image URLs are already uploaded URLs at this point
-        const newComplaint: Complaint = { 
+        const newComplaint: Complaint = {
             ...newComplaintData,
             id: `cmp-${Date.now()}`,
             date: new Date().toISOString(),
@@ -41,7 +40,7 @@ export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, 
             pgName: currentGuest.pgName,
             isPublic: newComplaintData.isPublic ?? true,
         };
-        
+
         if (isFirebaseConfigured()) {
             const selectedDb = selectOwnerDataDb(user.currentUser);
             const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
@@ -58,7 +57,7 @@ export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, 
                 targetId: ownerId, // Send to the owner
             }
         });
-        
+
         if (currentGuest.userId) {
             await createAndSendNotification({
                 ownerId,
@@ -71,7 +70,7 @@ export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, 
                 }
             });
         }
-        
+
         return newComplaint;
     }
 );
@@ -103,14 +102,14 @@ export const addOwnerComplaint = createAsyncThunk<Complaint[], NewOwnerComplaint
         const createdComplaints: Complaint[] = [];
 
         const createComplaintObject = (
-            pgId: string, 
-            guestId: string | null, 
-            roomId: string | null, 
+            pgId: string,
+            guestId: string | null,
+            roomId: string | null,
             floorId: string | null
         ): Complaint => {
             const guestName = guestId ? (guests.guests.find(g => g.id === guestId)?.name || 'Unknown Guest') : 'Owner Reported';
             const pgName = pgs.pgs.find(p => p.id === pgId)?.name || 'Unknown PG';
-            
+
             return {
                 id: `cmp-${Date.now()}-${Math.random()}`,
                 date: new Date().toISOString(),
@@ -146,7 +145,7 @@ export const addOwnerComplaint = createAsyncThunk<Complaint[], NewOwnerComplaint
                         const pg = pgs.pgs.find(p => p.id === guest.pgId);
                         const room = pg?.floors?.flatMap(f => f.rooms).find(r => r.beds.some(b => b.guestId === guest.id));
                         const floor = pg?.floors?.find(f => f.id === room?.floorId);
-                        
+
                         const newComplaint = createComplaintObject(guest.pgId, guestId, room?.id || null, floor?.id || null);
                         const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
                         batch.set(docRef, newComplaint);
@@ -161,11 +160,11 @@ export const addOwnerComplaint = createAsyncThunk<Complaint[], NewOwnerComplaint
                 for (const roomId of complaintData.roomIds) {
                     const pg = pgs.pgs.find(p => p.floors?.some(f => f.rooms.some(r => r.id === roomId)));
                     const floor = pg?.floors?.find(f => f.rooms.some(r => r.id === roomId));
-                    
+
                     if (pg && complaintData.pgIds.includes(pg.id)) {
                         const guestsInRoom = guests.guests.filter(g => g.roomId === roomId && !g.isVacated && !handledGuests.has(g.id));
-                        if(guestsInRoom.length > 0) {
-                             for (const guest of guestsInRoom) {
+                        if (guestsInRoom.length > 0) {
+                            for (const guest of guestsInRoom) {
                                 const newComplaint = createComplaintObject(pg.id, guest.id, roomId, floor?.id || null);
                                 const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
                                 batch.set(docRef, newComplaint);
@@ -183,13 +182,13 @@ export const addOwnerComplaint = createAsyncThunk<Complaint[], NewOwnerComplaint
                 }
             }
         }
-        
+
         if (createdComplaints.length === 0) {
             return rejectWithValue("No valid targets found for the complaint.");
         }
-        
+
         await batch.commit();
-        
+
         return createdComplaints;
     }
 );
@@ -208,10 +207,10 @@ export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: R
             const docRef = doc(selectedDb!, 'users_data', ownerId, 'complaints', updatedComplaint.id);
             await setDoc(docRef, updatedComplaint, { merge: true });
         }
-        
+
         // Send notification to tenant if status changes
         if (updatedComplaint.guestId && user.currentUser.role === 'owner') {
-             await createAndSendNotification({
+            await createAndSendNotification({
                 ownerId: ownerId,
                 notification: {
                     type: 'complaint-update',
@@ -222,7 +221,7 @@ export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: R
                 }
             });
         }
-        
+
         return updatedComplaint;
     }
 );
@@ -233,7 +232,7 @@ const complaintsSlice = createSlice({
     initialState,
     reducers: {
         setComplaints: (state, action: PayloadAction<Complaint[]>) => {
-            state.complaints = action.payload.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            state.complaints = action.payload.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         },
     },
     extraReducers: (builder) => {
@@ -249,9 +248,6 @@ const complaintsSlice = createSlice({
                 if (index !== -1) {
                     state.complaints[index] = action.payload;
                 }
-            })
-            .addCase(deletePg.fulfilled, (state, action: PayloadAction<string>) => {
-                state.complaints = state.complaints.filter(c => c.pgId !== action.payload);
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.complaints = [];

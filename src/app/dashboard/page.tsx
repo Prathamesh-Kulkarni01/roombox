@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useAppSelector } from "@/lib/hooks"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Loader2 } from "lucide-react"
 
 import StatsCards, { DashboardStats } from '@/components/dashboard/StatsCards'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
@@ -16,17 +16,34 @@ import { useDashboard } from '@/hooks/use-dashboard'
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Access from '@/components/ui/PermissionWrapper';
 import { useToast } from "@/hooks/use-toast"
+import {
+  useGetPropertiesQuery,
+  useGetGuestsQuery,
+  useGetComplaintsQuery
+} from "@/lib/api/apiSlice"
+import type { PG, Guest, Complaint } from "@/lib/types"
 
 export default function DashboardPage() {
-  const { pgs, guests, complaints } = useAppSelector(state => ({
-    pgs: state.pgs.pgs,
-    guests: state.guests.guests,
-    complaints: state.complaints.complaints,
-  }));
-
+  const { currentUser } = useAppSelector(state => state.user);
   const { selectedPgId } = useAppSelector(state => state.app);
   const router = useRouter();
   const { toast } = useToast();
+
+  // RTK Query hooks
+  const { data: pgsData, isLoading: isLoadingPgs } = useGetPropertiesQuery(currentUser?.id || '', {
+    skip: !currentUser?.id
+  });
+  const { data: guestsData, isLoading: isLoadingGuests } = useGetGuestsQuery({ ownerId: currentUser?.id || '' }, {
+    skip: !currentUser?.id
+  });
+  const { data: complaintsData, isLoading: isLoadingComplaints } = useGetComplaintsQuery({ ownerId: currentUser?.id || '' }, {
+    skip: !currentUser?.id
+  });
+
+  const pgs = pgsData?.buildings || [];
+  const guests = guestsData?.guests || [];
+  const complaints = complaintsData?.complaints || [];
+  const isLoading = isLoadingPgs || isLoadingGuests || isLoadingComplaints;
 
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit,
@@ -36,31 +53,31 @@ export default function DashboardPage() {
   } = useDashboard({ pgs, guests });
 
   const stats: DashboardStats = useMemo(() => {
-    const relevantPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
-    const relevantGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
-    const relevantComplaints = selectedPgId ? complaints.filter(c => c.pgId === selectedPgId) : complaints;
+    const relevantPgs = selectedPgId && selectedPgId !== 'all' ? pgs.filter((p: PG) => p.id === selectedPgId) : pgs;
+    const relevantGuests = selectedPgId && selectedPgId !== 'all' ? guests.filter((g: Guest) => g.pgId === selectedPgId) : guests;
+    const relevantComplaints = selectedPgId && selectedPgId !== 'all' ? complaints.filter((c: Complaint) => c.pgId === selectedPgId) : complaints;
 
-    const totalOccupancy = relevantGuests.filter(g => !g.isVacated).length;
-    const totalBeds = relevantPgs.reduce((sum, pg) => sum + pg.totalBeds, 0);
+    const totalOccupancy = relevantGuests.filter((g: Guest) => !g.isVacated).length;
+    const totalBeds = relevantPgs.reduce((sum: number, pg: PG) => sum + (pg.totalBeds || 0), 0);
 
     const monthlyRevenue = relevantGuests
-      .filter(g => g.rentStatus === 'paid' && !g.isVacated)
-      .reduce((sum, g) => sum + g.rentAmount, 0);
+      .filter((g: Guest) => g.rentStatus === 'paid' && !g.isVacated)
+      .reduce((sum: number, g: Guest) => sum + (g.rentAmount || 0), 0);
 
-    const openComplaintsCount = relevantComplaints.filter(c => c.status === 'open').length;
+    const openComplaintsCount = relevantComplaints.filter((c: Complaint) => c.status === 'open').length;
 
     const pendingDues = relevantGuests
-      .filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'))
-      .reduce((sum, g) => {
+      .filter((g: Guest) => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'))
+      .reduce((sum: number, g: Guest) => {
         const balanceBf = g.balanceBroughtForward || 0;
-        const currentMonthRent = g.rentAmount;
-        const chargesDue = (g.additionalCharges || []).reduce((s, charge) => s + charge.amount, 0);
+        const currentMonthRent = g.rentAmount || 0;
+        const chargesDue = (g.additionalCharges || []).reduce((s: number, charge: any) => s + (charge.amount || 0), 0);
         const totalOwed = balanceBf + currentMonthRent + chargesDue;
         const totalPaid = g.rentPaidAmount || 0;
         return sum + (totalOwed - totalPaid);
       }, 0);
 
-    const newThisMonth = relevantGuests.filter(g => {
+    const newThisMonth = relevantGuests.filter((g: Guest) => {
       if (!g.moveInDate) return false;
       const joinDate = new Date(g.moveInDate);
       const now = new Date();
@@ -76,10 +93,10 @@ export default function DashboardPage() {
   }, [pgs, guests, complaints, selectedPgId]);
 
   const recentGuests = useMemo(() => {
-    const relevantGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
+    const relevantGuests = selectedPgId && selectedPgId !== 'all' ? guests.filter((g: Guest) => g.pgId === selectedPgId) : guests;
     return [...relevantGuests]
-      .filter(g => !g.isVacated)
-      .sort((a, b) => new Date(b.moveInDate).getTime() - new Date(a.moveInDate).getTime())
+      .filter((g: Guest) => !g.isVacated)
+      .sort((a, b) => new Date(b.moveInDate || 0).getTime() - new Date(a.moveInDate || 0).getTime())
       .slice(0, 5);
   }, [guests, selectedPgId]);
 
@@ -91,6 +108,17 @@ export default function DashboardPage() {
     toast({ title: "Announcement", description: "Announcement dialog opened (coming soon)." });
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="flex flex-col gap-6 md:max-w-xl mx-auto md:mx-0 w-full pb-20 mt-4 md:mt-0">
@@ -100,7 +128,6 @@ export default function DashboardPage() {
             <h2 className="text-xl font-bold tracking-tight">Property Overview</h2>
             <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</p>
           </div>
-          {/* The user's design shows a month badge, we provided it via normal text. */}
         </div>
 
         <StatsCards
@@ -128,7 +155,7 @@ export default function DashboardPage() {
               </div>
               <Card className="border-border/40 overflow-hidden shadow-sm">
                 <ul className="divide-y divide-border/20">
-                  {recentGuests.length > 0 ? recentGuests.map(guest => (
+                  {recentGuests.length > 0 ? recentGuests.map((guest: Guest) => (
                     <li key={guest.id} className="p-4 flex items-center justify-between hover:bg-muted/20 transition-colors">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-10 h-10 border shadow-sm">
@@ -138,7 +165,7 @@ export default function DashboardPage() {
                         </Avatar>
                         <div>
                           <p className="font-semibold text-sm leading-tight">{guest.name}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Room {pgs.find(p => p.id === guest.pgId)?.floors?.find(f => f.rooms.some(r => r.id === guest.roomId))?.rooms.find(r => r.id === guest.roomId)?.name || 'N/A'}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Room {pgs.find((p: PG) => p.id === guest.pgId)?.floors?.find(f => f.rooms.some(r => r.id === guest.roomId))?.rooms.find(r => r.id === guest.roomId)?.name || 'N/A'}</p>
                         </div>
                       </div>
                       <div className="text-right">

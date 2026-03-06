@@ -1,11 +1,3 @@
-
-/**
- * PG MANAGEMENT PAGE
- * Changes:
- * - Fixed PG deletion flow (handled Radix dropdown stability).
- * - Added unique IDs to PG list for reliable E2E testing.
- * - Fixed redirect issues after PG creation.
- */
 'use client'
 
 import { useState } from 'react'
@@ -35,39 +27,45 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { useAppDispatch, useAppSelector } from "@/lib/hooks"
+import { useAppSelector } from "@/lib/hooks"
 import { usePermissionsStore } from '@/lib/stores/configStores'
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from '@/hooks/use-toast'
 import AddPgSheet from '@/components/add-pg-sheet'
-import { deletePg as deletePgAction } from '@/lib/slices/pgsSlice'
 import type { PG } from '@/lib/types'
-import { canAccess } from '@/lib/permissions';
 import Access from '@/components/ui/PermissionWrapper';
+import { useGetPropertiesQuery, useGetGuestsQuery, useDeletePropertyMutation } from '@/lib/api/apiSlice'
 
 const genderBadgeColor = {
     male: 'bg-blue-100 text-blue-800',
     female: 'bg-pink-100 text-pink-800',
     'co-ed': 'bg-purple-100 text-purple-800',
+    'co-living': 'bg-purple-100 text-purple-800',
 };
 
 
 export default function PgManagementPage() {
-    const dispatch = useAppDispatch();
-    const { pgs, guests } = useAppSelector(state => ({
-        pgs: state.pgs.pgs,
-        guests: state.guests.guests,
-    }));
-    const { isLoading } = useAppSelector(state => state.app);
-    const { currentPlan } = useAppSelector(state => state.user);
-    const { currentUser } = useAppSelector(state => state.user);
+    const { currentUser, currentPlan } = useAppSelector(state => state.user);
     const { featurePermissions } = usePermissionsStore();
     const router = useRouter();
     const { toast } = useToast()
     const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false)
     const [pgToDelete, setPgToDelete] = useState<PG | null>(null);
 
-    const canAddPg = currentPlan && (currentPlan.pgLimit === 'unlimited' || pgs.length < currentPlan.pgLimit);
+    // RTK Query hooks
+    const { data: pgsData, isLoading: isLoadingPgs, refetch: refetchPgs } = useGetPropertiesQuery(currentUser?.id || '', {
+        skip: !currentUser?.id
+    });
+    const { data: guestsData, isLoading: isLoadingGuests } = useGetGuestsQuery({ ownerId: currentUser?.id || '' }, {
+        skip: !currentUser?.id
+    });
+    const [deleteProperty] = useDeletePropertyMutation();
+
+    const pgs = pgsData?.buildings || [];
+    const guests = guestsData?.guests || [];
+    const isLoading = isLoadingPgs || isLoadingGuests;
+
+    const canAddPg = currentPlan && (currentPlan.pgLimit === 'unlimited' || pgs.length < (currentPlan.pgLimit as number));
 
     const handleAddPgClick = () => {
         if (!canAddPg) {
@@ -82,6 +80,8 @@ export default function PgManagementPage() {
     }
 
     const handleDeletePg = async (pgId: string, pgName: string) => {
+        if (!currentUser) return;
+
         const pgHasGuests = guests.some(g => g.pgId === pgId && !g.exitDate);
         if (pgHasGuests) {
             toast({
@@ -94,7 +94,7 @@ export default function PgManagementPage() {
         }
 
         try {
-            await dispatch(deletePgAction(pgId)).unwrap();
+            await deleteProperty({ ownerId: currentUser.id, pgId }).unwrap();
             toast({
                 title: "Property Deleted",
                 description: `"${pgName}" has been successfully removed.`,
@@ -103,7 +103,7 @@ export default function PgManagementPage() {
             toast({
                 variant: "destructive",
                 title: "Deletion Failed",
-                description: error.message || "An unexpected error occurred.",
+                description: error.data?.message || error.message || "An unexpected error occurred.",
             });
         } finally {
             setPgToDelete(null);
@@ -151,7 +151,7 @@ export default function PgManagementPage() {
                 <AddPgSheet
                     open={isAddPgSheetOpen}
                     onOpenChange={setIsAddPgSheetOpen}
-                    onPgAdded={() => router.push('/dashboard')}
+                    onPgAdded={() => refetchPgs()}
                 />
             </Access>}
             <Card>
@@ -226,14 +226,14 @@ export default function PgManagementPage() {
                                                 <TableCell className="font-medium">{pg.name}</TableCell>
                                                 <TableCell>{pg.location}</TableCell>
                                                 <TableCell>
-                                                    <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
-                                                        {pg.gender}
+                                                    <Badge className={cn("capitalize border-transparent", pg.gender ? genderBadgeColor[pg.gender as keyof typeof genderBadgeColor] : "bg-gray-100 text-gray-800")}>
+                                                        {pg.gender || 'Unknown'}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>{pg.occupancy}/{pg.totalBeds}</TableCell>
                                                 <TableCell className="flex items-center">
                                                     <IndianRupee className="w-4 h-4 mr-1 text-muted-foreground" />
-                                                    {pg.priceRange.min} - {pg.priceRange.max}
+                                                    {pg.priceRange?.min ?? 0} - {pg.priceRange?.max ?? 0}
                                                 </TableCell>
                                                 <TableCell>
                                                     <DropdownMenu>
@@ -303,11 +303,11 @@ export default function PgManagementPage() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <IndianRupee className="w-4 h-4 text-muted-foreground" />
-                                                    <span>{pg.priceRange.min} - {pg.priceRange.max}</span>
+                                                    <span>{pg.priceRange?.min ?? 0} - {pg.priceRange?.max ?? 0}</span>
                                                 </div>
                                             </div>
-                                            <Badge className={cn("capitalize border-transparent", genderBadgeColor[pg.gender])}>
-                                                {pg.gender}
+                                            <Badge className={cn("capitalize border-transparent", pg.gender ? genderBadgeColor[pg.gender as keyof typeof genderBadgeColor] : "bg-gray-100 text-gray-800")}>
+                                                {pg.gender || 'Unknown'}
                                             </Badge>
                                         </div>
                                     </div>

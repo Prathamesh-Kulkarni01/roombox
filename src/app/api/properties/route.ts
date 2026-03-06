@@ -150,3 +150,31 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ error: error.message || 'Failed to delete property' }, { status: 500 });
     }
 }
+
+// PATCH /api/properties — update a property
+export async function PATCH(req: NextRequest) {
+    try {
+        const body = await req.json();
+        const { ownerId, pgId, updates } = body;
+
+        if (!ownerId || !pgId || !updates) {
+            return badRequest('ownerId, pgId, and updates are required');
+        }
+
+        const db = await selectOwnerDataAdminDb(ownerId);
+        const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
+
+        // Perform the update
+        await pgRef.update({
+            ...updates,
+            updatedAt: Date.now(),
+        });
+
+        const updatedPg = (await pgRef.get()).data();
+
+        return NextResponse.json({ success: true, pg: updatedPg });
+    } catch (error: any) {
+        console.error('PATCH /api/properties error:', error);
+        return NextResponse.json({ error: error.message || 'Failed to update property' }, { status: 500 });
+    }
+}

@@ -9,8 +9,7 @@ const firebaseConfig = {
   "projectId": "roombox-f7bff",
   "storageBucket": "roombox-f7bff.firebasestorage.app",
   "messagingSenderId": "990310757816",
-  "appId": "1:990310757816:web:94edde70edba55b9524b4d",
-  "measurementId": "G-HPBJCP6QRQ"
+  "appId": "1:990310757816:web:94edde70edba55b9524b4d"
 }
 
 firebase.initializeApp(firebaseConfig);

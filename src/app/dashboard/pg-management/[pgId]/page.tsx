@@ -44,11 +44,14 @@ export default function RoomManagementPage() {
   const router = useRouter()
   const params = useParams()
   const { pgs } = useAppSelector(state => state.pgs)
-  const { guests } = useAppSelector(state => state.guests)
   const { currentUser, currentPlan } = useAppSelector(state => state.user)
   const { featurePermissions } = usePermissionsStore()
   const pgId = params.pgId as string
   const { toast } = useToast()
+
+  // Migrate guests from Redux to RTK Query
+  const { data: guestsData } = useGetGuestsQuery({ ownerId: currentUser?.role === 'owner' ? currentUser.id : currentUser?.ownerId || '', pgId }, { skip: !currentUser });
+  const guests = guestsData?.guests || [];
 
   const [isEditMode, setIsEditMode] = useState(false)
   const [activeTab, setActiveTab] = useState('all')
@@ -88,7 +91,8 @@ export default function RoomManagementPage() {
 
   const canAddFloor = useMemo(() => {
     if (!pg || !currentPlan || !permissions?.add) return false;
-    return currentPlan.floorLimit === 'unlimited' || (pg.floors?.length || 0) < currentPlan.floorLimit;
+    const floorLimit = currentPlan.floorLimit || 0;
+    return floorLimit === 'unlimited' || (pg.floors?.length || 0) < Number(floorLimit);
   }, [pg, currentPlan, permissions])
 
   if (!pg) {

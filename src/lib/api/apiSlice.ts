@@ -98,6 +98,15 @@ export const api = createApi({
             invalidatesTags: ['Properties'],
         }),
 
+        updateProperty: builder.mutation<{ success: boolean; pg: PG }, {
+            ownerId: string;
+            pgId: string;
+            updates: Partial<PG>;
+        }>({
+            query: (body) => ({ url: 'api/properties', method: 'PATCH', body }),
+            invalidatesTags: ['Properties'],
+        }),
+
         // ─── Tenants (via /api/tenants) ─────────────────────────────────
         getTenants: builder.query<TenantResponse, { ownerId: string; status?: string; limit?: number }>({
             query: ({ ownerId, status, limit }) => {
@@ -138,16 +147,96 @@ export const api = createApi({
             guestId: string;
             updates: Partial<Guest>;
         }>({
-            query: (body) => ({ url: 'api/guests', method: 'PATCH', body }),
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'update' } }),
             invalidatesTags: ['Guests', 'Tenants'],
         }),
 
-        vacateGuest: builder.mutation<{ success: boolean; guestId: string }, {
+        addGuest: builder.mutation<{ success: boolean; guest: Guest }, any>({
+            query: (body) => ({ url: 'api/guests', method: 'POST', body }),
+            invalidatesTags: ['Guests', 'Tenants', 'Properties'],
+        }),
+
+        initiateGuestExit: builder.mutation<{ success: boolean; exitDate: string }, {
+            ownerId: string;
+            guestId: string;
+            noticePeriodDays?: number;
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'initiate-exit' } }),
+            invalidatesTags: ['Guests'],
+        }),
+
+        vacateGuest: builder.mutation<{ success: boolean; guestId: string; pgId: string }, {
             ownerId: string;
             guestId: string;
         }>({
-            query: (body) => ({ url: 'api/guests', method: 'DELETE', body }),
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'vacate' } }),
             invalidatesTags: ['Guests', 'Tenants', 'Properties'],
+        }),
+
+        updateKycStatus: builder.mutation<{ success: boolean; kycStatus: string }, {
+            ownerId: string;
+            guestId: string;
+            status: 'verified' | 'rejected';
+            reason?: string;
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'kyc-status' } }),
+            invalidatesTags: ['Guests'],
+        }),
+
+        submitKycDocuments: builder.mutation<{ success: boolean; kycStatus: string }, {
+            ownerId: string;
+            guestId: string;
+            documents: any[];
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'kyc-submit' } }),
+            invalidatesTags: ['Guests'],
+        }),
+
+        resetKyc: builder.mutation<{ success: boolean; kycStatus: string }, {
+            ownerId: string;
+            guestId: string;
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'kyc-reset' } }),
+            invalidatesTags: ['Guests'],
+        }),
+
+        addGuestCharge: builder.mutation<{ success: boolean; charge: any }, {
+            ownerId: string;
+            guestId: string;
+            description: string;
+            amount: number;
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'add-charge' } }),
+            invalidatesTags: ['Guests', 'Tenants'],
+        }),
+
+        removeGuestCharge: builder.mutation<{ success: boolean; guestId: string; chargeId: string }, {
+            ownerId: string;
+            guestId: string;
+            chargeId: string;
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'remove-charge' } }),
+            invalidatesTags: ['Guests', 'Tenants'],
+        }),
+
+        addSharedRoomCharge: builder.mutation<{ success: boolean; updatedCount: number }, {
+            ownerId: string;
+            roomId: string;
+            description: string;
+            amount: number;
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'shared-charge' } }),
+            invalidatesTags: ['Guests', 'Tenants'],
+        }),
+
+        recordGuestPayment: builder.mutation<{ success: boolean; guest: Guest }, {
+            ownerId: string;
+            guest: Guest;
+            amount: number;
+            method: 'cash' | 'upi' | 'in-app';
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'record-payment' } }),
+            invalidatesTags: ['Guests', 'Tenants', 'Rent'],
         }),
 
         // ─── Rent & Payments ─────────────────────────────────────────────
@@ -253,6 +342,7 @@ export const {
     // Properties
     useGetPropertiesQuery,
     useCreatePropertyMutation,
+    useUpdatePropertyMutation,
     useDeletePropertyMutation,
     // Tenants (via /api/tenants)
     useGetTenantsQuery,
@@ -261,7 +351,16 @@ export const {
     // Guests (via /api/guests)
     useGetGuestsQuery,
     useUpdateGuestMutation,
+    useAddGuestMutation,
+    useInitiateGuestExitMutation,
     useVacateGuestMutation,
+    useUpdateKycStatusMutation,
+    useSubmitKycDocumentsMutation,
+    useResetKycMutation,
+    useAddGuestChargeMutation,
+    useRemoveGuestChargeMutation,
+    useAddSharedRoomChargeMutation,
+    useRecordGuestPaymentMutation,
     // Rent & Payments
     useGetRentDetailsQuery,
     useGetTenantRentQuery,

@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useAppDispatch, useAppSelector } from '@/lib/hooks'
+import { useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores'
 import { canAccess } from '@/lib/permissions';
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { addPg as addPgAction } from '@/lib/slices/pgsSlice'
+import { useCreatePropertyMutation } from '@/lib/api/apiSlice'
 import { useConfetti } from '@/context/confetti-provider'
 
 const pgSchema = z.object({
@@ -49,10 +49,10 @@ interface AddPgSheetProps {
 }
 
 export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheetProps) {
-  const dispatch = useAppDispatch()
   const { currentUser } = useAppSelector(state => state.user);
   const { featurePermissions } = usePermissionsStore();
   const { showConfetti } = useConfetti();
+  const [createProperty, { isLoading: isCreating }] = useCreatePropertyMutation();
 
   const form = useForm<PgFormValues>({
     resolver: zodResolver(pgSchema),
@@ -68,15 +68,30 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
   })
 
   const onSubmit = async (data: PgFormValues) => {
-    const resultAction = await dispatch(addPgAction(data))
-    if (addPgAction.fulfilled.match(resultAction)) {
-      const newPgId = resultAction.payload.id;
-      form.reset()
-      onOpenChange(false)
-      if (onPgAdded) {
-        onPgAdded(newPgId)
+    if (!currentUser) return;
+
+    try {
+      const result = await createProperty({
+        ownerId: currentUser.id,
+        name: data.name,
+        location: data.location,
+        city: data.city,
+        gender: data.gender === 'co-ed' ? 'co-living' : data.gender as any,
+        autoSetup: data.autoSetup,
+        floorCount: data.floorCount,
+        roomsPerFloor: data.roomsPerFloor
+      }).unwrap();
+
+      if (result.success && result.pg) {
+        form.reset()
+        onOpenChange(false)
+        if (onPgAdded) {
+          onPgAdded(result.pg.id)
+        }
+        showConfetti({ particleCount: 200, spread: 100 });
       }
-      showConfetti({ particleCount: 200, spread: 100 });
+    } catch (error: any) {
+      console.error('Failed to create property:', error);
     }
   }
 
@@ -224,7 +239,9 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
           <SheetClose asChild>
             <Button type="button" variant="secondary">Cancel</Button>
           </SheetClose>
-          <Button type="submit" form="add-pg-form" disabled={!canAccess(featurePermissions, currentUser?.role, 'properties', 'add')}>Add Property</Button>
+          <Button type="submit" form="add-pg-form" disabled={!canAccess(featurePermissions, currentUser?.role, 'properties', 'add') || isCreating}>
+            {isCreating ? 'Adding...' : 'Add Property'}
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

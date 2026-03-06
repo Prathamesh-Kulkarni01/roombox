@@ -4,7 +4,6 @@ import type { Expense } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
-import { deletePg } from './pgsSlice';
 
 interface ExpensesState {
     expenses: Expense[];
@@ -43,9 +42,6 @@ const expensesSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            .addCase(deletePg.fulfilled, (state, action: PayloadAction<string>) => {
-                state.expenses = state.expenses.filter(e => e.pgId !== action.payload);
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.expenses = [];
             });

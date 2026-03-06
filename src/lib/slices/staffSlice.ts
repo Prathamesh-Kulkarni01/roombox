@@ -5,7 +5,6 @@ import { db, isFirebaseConfigured, auth, selectOwnerDataDb } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { sendSignInLinkToEmail } from 'firebase/auth';
-import { deletePg } from './pgsSlice';
 
 interface StaffState {
     staff: Staff[];
@@ -30,7 +29,7 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
             if (existingUser.role === 'owner') {
                 return rejectWithValue('This email belongs to an owner. Please use a different email to invite staff.');
             }
-             if (existingUser.role === 'tenant') {
+            if (existingUser.role === 'tenant') {
                 return rejectWithValue('This email belongs to an active tenant. Please use a different email.');
             }
         }
@@ -39,8 +38,8 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
         const invite: Invite = { email: newStaff.email, ownerId: user.currentUser.id, role: newStaff.role, details: newStaff };
 
         if (isFirebaseConfigured() && auth) {
-             const actionCodeSettings = { url: `${window.location.origin}/login/verify`, handleCodeInApp: true };
-            try { await sendSignInLinkToEmail(auth, newStaff.email, actionCodeSettings); } catch {}
+            const actionCodeSettings = { url: `${window.location.origin}/login/verify`, handleCodeInApp: true };
+            try { await sendSignInLinkToEmail(auth, newStaff.email, actionCodeSettings); } catch { }
         }
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
@@ -114,7 +113,6 @@ const staffSlice = createSlice({
                 if (index !== -1) { state.staff[index] = action.payload; }
             })
             .addCase(deleteStaff.fulfilled, (state, action) => { state.staff = state.staff.filter(s => s.id !== action.payload); })
-            .addCase(deletePg.fulfilled, (state, action: PayloadAction<string>) => { state.staff = state.staff.filter(s => s.pgId !== action.payload); })
             .addCase('user/logoutUser/fulfilled', (state) => { state.staff = []; });
     },
 });
