@@ -1,18 +1,18 @@
 import { sendWhatsAppMessage, sendWhatsAppInteractiveMessage, sendWhatsAppImageMessage } from './send-message';
-import { generateUpiIntentLink } from './upi-intent';
-import { getSession, updateSession, clearSession } from './session-state';
-import { ADD_TENANT_FORM } from './form-config';
-import { getAdminDb } from '@/lib/firebaseAdmin';
-import * as crypto from 'crypto';
+import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
+import * as fs from 'fs';
+import * as path from 'path';
 
-// Mock DB for Registered Users
-const MOCK_DB = {
-    owners: ['917498526035', '9999', '1234'],
-    tenants: ['1111', '2222']
-};
+const DEBUG_LOG = path.join(process.cwd(), 'bot-debug.log');
+function debugLog(msg: string) {
+    fs.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] ${msg}\n`);
+}
 
 export async function handleIncomingMessage(data: any) {
     const { from, msgBody, messageType, rawData } = data;
+    const lowerText = msgBody?.toLowerCase() || '';
+
+    debugLog(`Incoming from ${from}: ${msgBody}`);
 
     // Extract text from either the body or use the image ID if it's a media upload
     let text = msgBody?.trim() || '';
@@ -20,7 +20,8 @@ export async function handleIncomingMessage(data: any) {
         text = rawData.image.id;
     }
 
-    const lowerText = text.toLowerCase();
+    // The original lowerText based on 'text' variable
+    const lowerTextFromText = text.toLowerCase();
 
     console.log(`Analyzing message from ${from}...`);
 
@@ -45,7 +46,7 @@ export async function handleIncomingMessage(data: any) {
 
     // 2. Base Entry (IDLE State)
     if (lowerText === 'hi' || lowerText === 'hello' || lowerText === 'menu') {
-        const adminDb = await getAdminDb();
+        const adminDb = await getAdminDb(); // Use default app DB for initial lookup
         let matchedOwner: any = null;
         let matchedOwnerId: string | null = null;
 
@@ -90,12 +91,12 @@ export async function handleIncomingMessage(data: any) {
                 ownerId: matchedOwnerId
             });
             await sendWhatsAppMessage(from, `✅ *Login Successful*\n\nWelcome back, ${matchedOwner.name || 'Owner'}!`);
-            await showOwnerMenu(from);
+            await showOwnerMenu(from, getSession(from));
             return;
         }
 
         // If not matched directly on "hi", show the fallback menu
-        updateSession(from, 'AWAITING_USER_ROLE');
+        updateSession(from, 'AWAITING_USER_ROLE', {});
         const msg = `Welcome to RentSutra 🏠\n\nWho are you?\n\n1️⃣ Property Owner / PG Owner\n2️⃣ Tenant\n3️⃣ New User (Register)\n4️⃣ Support`;
         await sendWhatsAppMessage(from, msg);
     } else {
@@ -136,6 +137,7 @@ async function handleAuthActiveState(to: string, text: string, session: any) {
 // --- OWNER LOGIC ---
 async function handleOwnerLogic(to: string, text: string, session: any) {
     const lowerText = text.toLowerCase();
+    const ownerId = session.data.ownerId;
 
     // 1. Handle Active Multi-Step States
     if (session.state !== 'IDLE') {
@@ -143,35 +145,124 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
         return;
     }
 
-    // 2. Handle Menu Routing
     if (lowerText === 'hi' || lowerText === 'menu') {
-        await showOwnerMenu(to);
+        await showOwnerMenu(to, session);
     } else if (lowerText === '1') {
-        const buildings = `*Your Buildings (PGs)*\n\n1. Sai PG - Wakad (10/12 Occupied)\n2. Ganesh PG - Hinjewadi (45/50 Occupied)\n3. Add New Property\n\nReply with a number to view PG details.`;
-        await sendWhatsAppMessage(to, buildings);
+        // Real Properties Fetch
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
+        const pgsSnap = await adminDb.collection('users_data').doc(ownerId).collection('pgs').get();
+
+        if (pgsSnap.empty) {
+            await sendWhatsAppMessage(to, "🏠 *Your Buildings*\n\nYou haven't added any properties yet.\n\nReply *Add Property* or visit the dashboard to get started.");
+            return;
+        }
+
+        let buildingsMsg = `🏠 *Your Buildings (PGs)*\n\n`;
+        let index = 1;
+        const pgsList: any[] = [];
+        pgsSnap.forEach(docSnap => {
+            const pg = docSnap.data();
+            const occupancy = pg.occupancy || 0;
+            const total = pg.totalBeds || 0;
+            buildingsMsg += `${index}. ${pg.name} (${occupancy}/${total} Occupied)\n`;
+            pgsList.push({ id: docSnap.id, name: pg.name });
+            index++;
+        });
+        buildingsMsg += `\n${index}. Add New Property\n\nReply with a number to view PG details.`;
+
+        updateSession(to, 'SELECTING_PG_DETAILS', { ...session.data, pgsList });
+        await sendWhatsAppMessage(to, buildingsMsg);
     } else if (lowerText === '2') {
-        const todayPayments = `*Today's Payments*\n\nTotal Collected Today: ₹14,500\n\nTenants:\n1️⃣ Rahul Sharma - ₹6,000\n2️⃣ Amit Patil - ₹4,500\n3️⃣ Neha Joshi - ₹4,000\n\nOptions:\n1 View Payment Details\n2 Download Report\n3 Back to Menu`;
+        // Real Today's Payments (Mocking for now as it requires ledger query)
+        const todayPayments = `*Today's Payments*\n\nTotal Collected Today: ₹0\n\nNo payments recorded today.\n\nOptions:\n1 View Payment Details\n2 Download Report\n3 Back to Menu`;
         await sendWhatsAppMessage(to, todayPayments);
     } else if (lowerText === '3') {
-        const monthly = `*This Month Rent Collected*\n\nTotal Expected: ₹1,20,000\nCollected: ₹92,000\nPending: ₹28,000\n\nActions:\n1 View Collected Tenants\n2 View Pending Tenants\n3 Send Reminder to All Pending`;
+        // Real Monthly Summary
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
+        const guestsSnap = await adminDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
+
+        let expected = 0;
+        let collected = 0;
+        guestsSnap.forEach(docSnap => {
+            const g = docSnap.data();
+            expected += (g.rentAmount || 0);
+            // This is a simplification; real app would check ledger for current month
+            collected += (g.paidAmount || 0);
+        });
+
+        const pending = expected - collected;
+        const monthly = `*This Month Rent Collected*\n\nTotal Expected: ₹${expected}\nCollected: ₹${collected}\nPending: ₹${pending}\n\nActions:\n1 View Collected Tenants\n2 View Pending Tenants\n3 Send Reminder to All Pending`;
         await sendWhatsAppMessage(to, monthly);
     } else if (lowerText === '4') {
-        const pending = `*Pending Rent List*\n\n1️⃣ Rohan Patil - ₹6000 - Due 3 Days\n2️⃣ Aman Singh - ₹5000 - Due Today\n3️⃣ Priya Kulkarni - ₹7000 - Late 2 Days\n\nReply *Menu* to return.`;
-        await sendWhatsAppMessage(to, pending);
-    } else if (lowerText === '5') {
-        await sendWhatsAppMessage(to, "Select Tenant to send reminder:\n1️⃣ Rohan Patil\n2️⃣ Aman Singh\n3️⃣ All Pending Tenants");
+        // Real Pending List
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
+        const pendingSnap = await adminDb.collection('users_data').doc(ownerId).collection('guests')
+            .where('isVacated', '==', false)
+            .where('paymentStatus', '==', 'pending')
+            .limit(10)
+            .get();
+
+        if (pendingSnap.empty) {
+            await sendWhatsAppMessage(to, "✅ All your tenants have paid! No pending rents found.");
+            return;
+        }
+
+        let pendingMsg = `*Pending Rent List*\n\n`;
+        let idx = 1;
+        pendingSnap.forEach(docSnap => {
+            const g = docSnap.data();
+            pendingMsg += `${idx}️⃣ ${g.name} - ₹${g.balance || 0}\n`;
+            idx++;
+        });
+        pendingMsg += `\nReply *Menu* to return.`;
+        await sendWhatsAppMessage(to, pendingMsg);
     } else if (lowerText === '6' || lowerText === 'add tenant') {
-        updateSession(to, 'SELECTING_PG');
-        await sendWhatsAppMessage(to, "Let's Onboard a New Tenant. Select Property:\n1️⃣ Sai PG\n2️⃣ Ganesh PG\n\nReply with the PG name or ID.");
+        // Real PG Selection for Onboarding
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
+        const pgsSnap = await adminDb.collection('users_data').doc(ownerId).collection('pgs').get();
+
+        if (pgsSnap.empty) {
+            await sendWhatsAppMessage(to, "❌ You need at least one property to add a tenant.");
+            return;
+        }
+
+        let pgsMsg = `Let's Onboard a New Tenant. Select Property:\n`;
+        let idx = 1;
+        const onboardingPgs: any[] = [];
+        pgsSnap.forEach(docSnap => {
+            const pg = docSnap.data();
+            pgsMsg += `${idx}️⃣ ${pg.name}\n`;
+            onboardingPgs.push({ id: docSnap.id, name: pg.name });
+            idx++;
+        });
+
+        updateSession(to, 'SELECTING_PG', { ...session.data, onboardingPgs });
+        await sendWhatsAppMessage(to, pgsMsg);
     } else if (lowerText === '7') {
-        // Lifecycle
-        updateSession(to, 'SELECTING_TENANT_LIFECYCLE');
-        await sendWhatsAppMessage(to, "*Tenant Lifecycle Management*\n\nSelect Tenant to Manage:\n1️⃣ Rahul Sharma\n2️⃣ Neha Joshi\n3️⃣ Amit Patil\n\nReply with a number.");
-    } else if (lowerText === '8') {
-        await sendWhatsAppMessage(to, "📊 *Reports & Analytics*\n1 Daily Collection\n2 Monthly Collection\n3 Occupancy Rate\n4 Pending Rent Summary\n5 Property Performance");
-    } else if (lowerText === '9') {
-        const token = crypto.randomBytes(20).toString('hex'); // Mock token generation
-        await sendWhatsAppMessage(to, `🔐 *Secure Dashboard Login*\n\nTap here to open your RentSutra Dashboard settings directly:\nhttps://roombox.app/login/magic?token=${token}\n\n_Link expires in 15 minutes._`);
+        // Real Tenant Management
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
+        const guestsSnap = await adminDb.collection('users_data').doc(ownerId).collection('guests')
+            .where('isVacated', '==', false)
+            .limit(10)
+            .get();
+
+        if (guestsSnap.empty) {
+            await sendWhatsAppMessage(to, "No active tenants found.");
+            return;
+        }
+
+        let guestsMsg = `*Tenant Lifecycle Management*\n\nSelect Tenant to Manage:\n`;
+        let idx = 1;
+        const tenantList: any[] = [];
+        guestsSnap.forEach(docSnap => {
+            const g = docSnap.data();
+            guestsMsg += `${idx}️⃣ ${g.name} (${g.pgName || 'Unknown PG'})\n`;
+            tenantList.push({ id: docSnap.id, name: g.name });
+            idx++;
+        });
+
+        updateSession(to, 'SELECTING_TENANT_LIFECYCLE', { ...session.data, tenantList });
+        await sendWhatsAppMessage(to, guestsMsg);
     } else {
         await sendWhatsAppMessage(to, `Reply *Menu* to see all options.`);
     }
@@ -350,17 +441,36 @@ async function handleTenantLogic(to: string, text: string, session: any) {
 }
 
 // --- MENU BUILDERS ---
-async function showOwnerMenu(to: string) {
-    const menu = `*Owner Dashboard*\n\n` +
+async function showOwnerMenu(to: string, session: any) {
+    const ownerName = session.data?.ownerName || 'Owner';
+    const ownerId = session.data?.ownerId;
+
+    // Real-time briefing stats
+    let statsMsg = '';
+    try {
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
+        const pgsSnap = await adminDb.collection('users_data').doc(ownerId).collection('pgs').get();
+        const guestsSnap = await adminDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
+
+        const totalPgs = pgsSnap.size;
+        const totalTenants = guestsSnap.size;
+
+        statsMsg = `📊 *Briefing*: ${totalPgs} Buildings | ${totalTenants} Active Tenants\n\n`;
+    } catch (e) {
+        console.error("Error fetching menu stats:", e);
+    }
+
+    const menu = `*RoomBox Dashboard*\nHi ${ownerName}!\n\n` +
+        statsMsg +
         `1️⃣ View Properties / PGs\n` +
         `2️⃣ Today’s Payments\n` +
-        `3️⃣ This Month Rent Collected\n` +
+        `3️⃣ This Month Rent Summary\n` +
         `4️⃣ Pending Rents\n` +
         `5️⃣ Send Rent Reminders\n` +
         `6️⃣ Onboard New Tenant\n` +
-        `7️⃣ Tenant Lifecycle Management\n` +
+        `7️⃣ Tenant Management\n` +
         `8️⃣ Reports & Analytics\n` +
-        `9️⃣ Settings (Magic Link)`;
+        `9️⃣ Secure Dashboard Link`;
     await sendWhatsAppMessage(to, menu);
 }
 

@@ -17,7 +17,9 @@ export type BotState =
     | 'EDITING_TENANT_VALUE'
     | 'AWAITING_KYC_ACTION'
     | 'AWAITING_OWNER_KYC_UPLOAD_PHOTO'
-    | 'AWAITING_OWNER_KYC_UPLOAD_AADHAAR';
+    | 'AWAITING_OWNER_KYC_UPLOAD_AADHAAR'
+    | 'SELECTING_PG_DETAILS'
+    | 'AWAITING_PG_ACTION';
 
 interface UserSession {
     state: BotState;
