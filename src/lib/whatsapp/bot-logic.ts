@@ -123,7 +123,7 @@ async function handleAuthActiveState(to: string, text: string, session: any) {
             if (text === '1') {
                 // If they reached here, the auto-login failed.
                 clearSession(to);
-                await sendWhatsAppMessage(to, "❌ Your number is not registered as an Owner.\n\nPlease login to the RentSutra App and navigate to *Settings* to add and verify your WhatsApp number.\n\nDashboard Link: https://roombox.app/dashboard/settings\n\nOnce verified, just say *Hi* here and you will be logged in automatically! 🪄");
+                await sendWhatsAppMessage(to, "❌ Your number is not registered as an Owner.\n\nPlease login to the RentSutra App and navigate to *Settings* to add and verify your WhatsApp number.\n\nDashboard Link: https://reantsutra.netlify.app/dashboard/settings\n\nOnce verified, just say *Hi* here and you will be logged in automatically! 🪄");
             } else if (text === '2') {
                 // Simplified tenant login for now
                 updateSession(to, 'IDLE', { isAuthenticatedTenant: true });
@@ -269,6 +269,12 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
 
         updateSession(to, 'SELECTING_TENANT_LIFECYCLE', { ...session.data, tenantList });
         await sendWhatsAppMessage(to, guestsMsg);
+    } else if (lowerText === '5') {
+        await sendWhatsAppMessage(to, "📢 *Rent Reminders*\n\nThis will send automated WhatsApp reminders to all tenants with pending rent.\n\nType *Confirm* to proceed or *Menu* to cancel.");
+    } else if (lowerText === '8') {
+        await sendWhatsAppMessage(to, "📈 *Reports & Analytics*\n\nVisit your dashboard to view detailed financial reports and occupancy analytics.");
+    } else if (lowerText === '9') {
+        await sendWhatsAppMessage(to, "🔗 *Your Secure Dashboard*\n\nAccess your full property management suite here:\nhttps://reantsutra.netlify.app/dashboard");
     } else {
         await sendWhatsAppMessage(to, `Reply *Menu* to see all options.`);
     }
