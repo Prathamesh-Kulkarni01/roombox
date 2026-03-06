@@ -1,8 +1,10 @@
 import { sendWhatsAppMessage, sendWhatsAppInteractiveMessage, sendWhatsAppImageMessage } from './send-message';
-import { generateUpiIntentLink } from './upi-intent';
 import { getSession, updateSession, clearSession } from './session-state';
 import { ADD_TENANT_FORM } from './form-config';
 import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
+import { generateUpiIntentLink } from './upi-intent';
+import { PropertyService } from '../../services/propertyService';
+import { TenantService } from '../../services/tenantService';
 
 export async function handleIncomingMessage(data: any) {
     const { from, msgBody, messageType, rawData } = data;
@@ -154,27 +156,23 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
     if (lowerText === 'hi' || lowerText === 'menu') {
         await showOwnerMenu(to, session);
     } else if (lowerText === '1') {
-        // Real Properties Fetch
+        // Real Properties Fetch using PropertyService
         const adminDb = await selectOwnerDataAdminDb(ownerId);
-        const pgsSnap = await adminDb.collection('users_data').doc(ownerId).collection('pgs').get();
+        const buildings = await PropertyService.getBuildings(adminDb, ownerId);
 
-        if (pgsSnap.empty) {
+        if (buildings.length === 0) {
             await sendWhatsAppMessage(to, "🏠 *Your Buildings*\n\nYou haven't added any properties yet.\n\nReply *Add Property* or visit the dashboard to get started.");
             return;
         }
 
         let buildingsMsg = `🏠 *Your Buildings (PGs)*\n\n`;
-        let index = 1;
         const pgsList: any[] = [];
-        pgsSnap.forEach(docSnap => {
-            const pg = docSnap.data();
-            const occupancy = pg.occupancy || 0;
-            const total = pg.totalBeds || 0;
-            buildingsMsg += `${index}. ${pg.name} (${occupancy}/${total} Occupied)\n`;
-            pgsList.push({ id: docSnap.id, name: pg.name });
-            index++;
+        buildings.forEach((b, i) => {
+            const index = i + 1;
+            buildingsMsg += `${index}. ${b.name} (${b.occupancy}/${b.totalBeds} Occupied)\n`;
+            pgsList.push({ id: b.id, name: b.name });
         });
-        buildingsMsg += `\n${index}. Add New Property\n\nReply with a number to view PG details.`;
+        buildingsMsg += `\n${buildings.length + 1}. Add New Property\n\nReply with a number to view PG details.`;
 
         updateSession(to, 'SELECTING_PG_DETAILS', { ...session.data, pgsList });
         await sendWhatsAppMessage(to, buildingsMsg);
@@ -183,88 +181,63 @@ async function handleOwnerLogic(to: string, text: string, session: any) {
         const todayPayments = `*Today's Payments*\n\nTotal Collected Today: ₹0\n\nNo payments recorded today.\n\nOptions:\n1 View Payment Details\n2 Download Report\n3 Back to Menu`;
         await sendWhatsAppMessage(to, todayPayments);
     } else if (lowerText === '3') {
-        // Real Monthly Summary
+        // Real Monthly Summary using TenantService
         const adminDb = await selectOwnerDataAdminDb(ownerId);
-        const guestsSnap = await adminDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
+        const summary = await TenantService.getMonthlyRentSummary(adminDb, ownerId);
 
-        let expected = 0;
-        let collected = 0;
-        guestsSnap.forEach(docSnap => {
-            const g = docSnap.data();
-            expected += (g.rentAmount || 0);
-            // This is a simplification; real app would check ledger for current month
-            collected += (g.paidAmount || 0);
-        });
-
-        const pending = expected - collected;
-        const monthly = `*This Month Rent Collected*\n\nTotal Expected: ₹${expected}\nCollected: ₹${collected}\nPending: ₹${pending}\n\nActions:\n1 View Collected Tenants\n2 View Pending Tenants\n3 Send Reminder to All Pending`;
+        const monthly = `*This Month Rent Collected*\n\nTotal Expected: ₹${summary.expected}\nCollected: ₹${summary.collected}\nPending: ₹${summary.pending}\n\nActions:\n1 View Collected Tenants\n2 View Pending Tenants\n3 Send Reminder to All Pending`;
         await sendWhatsAppMessage(to, monthly);
     } else if (lowerText === '4') {
-        // Real Pending List
+        // Real Pending List using TenantService
         const adminDb = await selectOwnerDataAdminDb(ownerId);
-        const pendingSnap = await adminDb.collection('users_data').doc(ownerId).collection('guests')
-            .where('isVacated', '==', false)
-            .where('paymentStatus', '==', 'pending')
-            .limit(10)
-            .get();
+        const pendingTenants = await TenantService.getActiveTenants(adminDb, ownerId, 10, 'pending');
 
-        if (pendingSnap.empty) {
+        if (pendingTenants.length === 0) {
             await sendWhatsAppMessage(to, "✅ All your tenants have paid! No pending rents found.");
             return;
         }
 
         let pendingMsg = `*Pending Rent List*\n\n`;
-        let idx = 1;
-        pendingSnap.forEach(docSnap => {
-            const g = docSnap.data();
-            pendingMsg += `${idx}️⃣ ${g.name} - ₹${g.balance || 0}\n`;
-            idx++;
+        pendingTenants.forEach((t, i) => {
+            pendingMsg += `${i + 1}️⃣ ${t.name} - ₹${t.balance || 0}\n`;
         });
         pendingMsg += `\nReply *Menu* to return.`;
         await sendWhatsAppMessage(to, pendingMsg);
     } else if (lowerText === '6' || lowerText === 'add tenant') {
-        // Real PG Selection for Onboarding
+        // Real PG Selection for Onboarding using PropertyService
         const adminDb = await selectOwnerDataAdminDb(ownerId);
-        const pgsSnap = await adminDb.collection('users_data').doc(ownerId).collection('pgs').get();
+        const buildings = await PropertyService.getBuildings(adminDb, ownerId);
 
-        if (pgsSnap.empty) {
+        if (buildings.length === 0) {
             await sendWhatsAppMessage(to, "❌ You need at least one property to add a tenant.");
             return;
         }
 
         let pgsMsg = `Let's Onboard a New Tenant. Select Property:\n`;
-        let idx = 1;
         const onboardingPgs: any[] = [];
-        pgsSnap.forEach(docSnap => {
-            const pg = docSnap.data();
-            pgsMsg += `${idx}️⃣ ${pg.name}\n`;
-            onboardingPgs.push({ id: docSnap.id, name: pg.name });
-            idx++;
+        buildings.forEach((b, i) => {
+            const index = i + 1;
+            pgsMsg += `${index}️⃣ ${b.name}\n`;
+            onboardingPgs.push({ id: b.id, name: b.name });
         });
 
         updateSession(to, 'SELECTING_PG', { ...session.data, onboardingPgs });
         await sendWhatsAppMessage(to, pgsMsg);
     } else if (lowerText === '7') {
-        // Real Tenant Management
+        // Real Tenant Management using TenantService
         const adminDb = await selectOwnerDataAdminDb(ownerId);
-        const guestsSnap = await adminDb.collection('users_data').doc(ownerId).collection('guests')
-            .where('isVacated', '==', false)
-            .limit(10)
-            .get();
+        const activeTenants = await TenantService.getActiveTenants(adminDb, ownerId, 10);
 
-        if (guestsSnap.empty) {
+        if (activeTenants.length === 0) {
             await sendWhatsAppMessage(to, "No active tenants found.");
             return;
         }
 
         let guestsMsg = `*Tenant Lifecycle Management*\n\nSelect Tenant to Manage:\n`;
-        let idx = 1;
         const tenantList: any[] = [];
-        guestsSnap.forEach(docSnap => {
-            const g = docSnap.data();
-            guestsMsg += `${idx}️⃣ ${g.name} (${g.pgName || 'Unknown PG'})\n`;
-            tenantList.push({ id: docSnap.id, name: g.name });
-            idx++;
+        activeTenants.forEach((t, i) => {
+            guestsMsg += `${i + 1}️⃣ ${t.name} (${t.pgName || 'Unknown PG'})\n`;
+            tenantList.push({ id: t.id, name: t.name });
         });
 
         updateSession(to, 'SELECTING_TENANT_LIFECYCLE', { ...session.data, tenantList });
@@ -288,26 +261,30 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
     }
 
     switch (session.state) {
-        case 'SELECTING_PG':
-            updateSession(to, 'SELECTING_ROOM', { selectedPg: text });
-            await sendWhatsAppMessage(to, `Selected Property *${text}*. Now, which *Room* are they moving into? (e.g. 101)`);
-            break;
 
-        case 'SELECTING_ROOM':
+        case 'SELECTING_PG': {
+            const pgIndex = parseInt(text) - 1;
+            const onboardingPgs = session.data?.onboardingPgs || [];
+            const selectedPgObj = onboardingPgs[pgIndex];
+            if (!selectedPgObj) {
+                await sendWhatsAppMessage(to, `⚠️ Please reply with a valid number (1-${onboardingPgs.length}).`);
+                return;
+            }
+            updateSession(to, 'SELECTING_ROOM', { ...session.data, selectedPgId: selectedPgObj.id, selectedPgName: selectedPgObj.name });
+            await sendWhatsAppMessage(to, `Selected Property *${selectedPgObj.name}*.\n\nWhich *Room/Bed* are they moving into? (e.g., Room 101, Bed A)\n\nOr just reply *skip* to skip room assignment.`);
+            break;
+        }
+
+
+        case 'SELECTING_ROOM': {
             updateSession(to, 'SELECTING_BED', { ...session.data, selectedRoom: text });
-            await sendWhatsAppMessage(to, `Room *${text}*. Which *Bed*? (e.g. B1)`);
+            await sendWhatsAppMessage(to, `Room *${text}*.\n\nNow enter the tenant's name to begin the onboarding form.`);
+            // Skip the bed selection, go straight to form filling
+            const skipBedState = { ...session.data, selectedRoom: text, selectedBed: 'N/A', currentFormIndex: 0, formData: {} };
+            updateSession(to, 'DYNAMIC_FORM_FILLING', skipBedState);
+            await sendWhatsAppMessage(to, ADD_TENANT_FORM[0].prompt);
             break;
-
-        case 'SELECTING_BED':
-            const startState = {
-                ...session.data,
-                selectedBed: text,
-                currentFormIndex: 0,
-                formData: {}
-            };
-            updateSession(to, 'DYNAMIC_FORM_FILLING', startState);
-            await sendWhatsAppMessage(to, `Bed *${text}* saved.\n\n` + ADD_TENANT_FORM[0].prompt);
-            break;
+        }
 
         case 'DYNAMIC_FORM_FILLING':
             const { currentFormIndex, formData } = session.data;
@@ -335,27 +312,85 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
                 updateSession(to, 'DYNAMIC_FORM_FILLING', { ...session.data, currentFormIndex: nextIndex, formData: newFormData });
                 await sendWhatsAppMessage(to, ADD_TENANT_FORM[nextIndex].prompt);
             } else {
-                // Finished the array. Finalize the Tenant!
+                // Finished the form. Save tenant via shared API!
                 const finalData = {
-                    pg: session.data.selectedPg,
+                    pg: session.data.selectedPgName,
                     room: session.data.selectedRoom,
                     bed: session.data.selectedBed,
+                    pgId: session.data.selectedPgId,
+                    pgName: session.data.selectedPgName,
+                    roomId: session.data.selectedRoom,
+                    roomName: session.data.selectedRoom,
+                    bedId: session.data.selectedBed,
                     ...newFormData
                 };
 
-                let successSummary = `✅ *Tenant Onboarded Successfully*\n\n`;
-                successSummary += `*Tenant Details*\nName: ${finalData.name}\nRoom: ${finalData.room}\nRent: ₹${finalData.rentAmount}\nDeposit: ₹${finalData.depositAmount}\n\n`;
-                successSummary += `Tenant WhatsApp has been activated and they have received their welcome message.`;
+                // Persist through the shared /api/tenants endpoint
+                try {
+                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
+                    const tenantRes = await fetch(`${baseUrl}/api/tenants`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ownerId: session.data.ownerId,
+                            guestData: {
+                                name: finalData.name || finalData.tenantName,
+                                phone: finalData.phone || finalData.phoneNumber,
+                                email: finalData.email || '',
+                                pgId: finalData.pgId,
+                                pgName: finalData.pgName,
+                                roomId: finalData.roomId,
+                                roomName: finalData.roomName,
+                                bedId: finalData.bedId,
+                                rentAmount: finalData.rentAmount || finalData.rent,
+                                deposit: finalData.depositAmount || finalData.deposit || 0,
+                                joinDate: new Date().toISOString(),
+                            }
+                        })
+                    });
+                    const result = await tenantRes.json();
+                    if (!result.success) {
+                        throw new Error(result.error || 'Failed to save tenant');
+                    }
+                } catch (saveErr: any) {
+                    console.error('Bot: Failed to save tenant via API:', saveErr);
+                    updateSession(to, 'IDLE');
+                    await sendWhatsAppMessage(to, `⚠️ Could not save tenant: ${saveErr.message}\n\nPlease add them from the dashboard: https://reantsutra.netlify.app/dashboard`);
+                    return;
+                }
+
+                let successSummary = `✅ *Tenant Onboarded Successfully!*\n\n`;
+                successSummary += `*Name:* ${finalData.name || finalData.tenantName}\n`;
+                successSummary += `*Property:* ${finalData.pgName || finalData.pg}\n`;
+                successSummary += `*Rent:* ₹${finalData.rentAmount || finalData.rent}\n`;
+                successSummary += `*Deposit:* ₹${finalData.depositAmount || finalData.deposit || 0}\n\n`;
+                successSummary += `They have been added to your tenant list! Reply *Menu* to continue.`;
 
                 updateSession(to, 'IDLE');
                 await sendWhatsAppMessage(to, successSummary);
             }
             break;
 
-        case 'SELECTING_TENANT_LIFECYCLE':
-            updateSession(to, 'AWAITING_LIFECYCLE_ACTION', { tenantId: text });
-            await sendWhatsAppMessage(to, `*Tenant Overview*\nName: Selected Tenant\nRent: ₹6000\nPhone: 9876543210\n\nWhat would you like to do?\n1️⃣ Edit Details\n2️⃣ View/Upload KYC\n3️⃣ Start Move-Out\n\nReply with a number.`);
+
+        case 'SELECTING_TENANT_LIFECYCLE': {
+            const tenantIndex = parseInt(text) - 1;
+            const tenantList = session.data?.tenantList || [];
+            const selectedTenant = tenantList[tenantIndex];
+            if (!selectedTenant) {
+                await sendWhatsAppMessage(to, `⚠️ Please reply with a valid number (1-${tenantList.length}).`);
+                return;
+            }
+
+            // Load real tenant data
+            const ownerId = session.data.ownerId;
+            const tenantDb = await (await import('../firebaseAdmin')).selectOwnerDataAdminDb(ownerId);
+            const tenantDoc = await tenantDb.collection('users_data').doc(ownerId).collection('guests').doc(selectedTenant.id).get();
+            const tenantData = tenantDoc.exists ? tenantDoc.data() : {};
+
+            updateSession(to, 'AWAITING_LIFECYCLE_ACTION', { ...session.data, tenantId: selectedTenant.id, tenantName: selectedTenant.name });
+            await sendWhatsAppMessage(to, `*Tenant: ${selectedTenant.name}*\nPG: ${tenantData?.pgName || 'N/A'}\nRent: ₹${tenantData?.rentAmount || 0}\nBalance Due: ₹${tenantData?.balance || 0}\nPhone: ${tenantData?.phone || 'N/A'}\n\nOptions:\n1️⃣ Edit Details\n2️⃣ View KYC\n3️⃣ Record Payment\n4️⃣ Vacate Tenant\n\nReply with a number.`);
             break;
+        }
 
         case 'AWAITING_LIFECYCLE_ACTION':
             if (text === '1') {
@@ -364,9 +399,68 @@ async function handleOwnerActiveState(to: string, text: string, session: any) {
             } else if (text === '2') {
                 updateSession(to, 'AWAITING_KYC_ACTION', session.data);
                 await sendWhatsAppMessage(to, `*KYC Documents*\n\n1️⃣ View Photo\n2️⃣ View Aadhaar\n3️⃣ Upload Photo\n4️⃣ Upload Aadhaar\n\nReply with a number.`);
+            } else if (text === '3') {
+                // Record Payment flow
+                updateSession(to, 'RECORDING_PAYMENT_AMOUNT', session.data);
+                await sendWhatsAppMessage(to, `💰 *Record Payment for ${session.data.tenantName}*\n\nEnter the amount received (numbers only, e.g. 5000):`);
+            } else if (text === '4') {
+                updateSession(to, 'CONFIRMING_VACATE', session.data);
+                await sendWhatsAppMessage(to, `⚠️ *Vacate Tenant*\n\nAre you sure you want to mark *${session.data.tenantName}* as vacated?\n\nReply *YES* to confirm or *CANCEL* to go back.`);
             } else {
                 updateSession(to, 'IDLE');
-                await sendWhatsAppMessage(to, "Feature not built yet. Returning to Menu. Reply *Menu*.");
+                await sendWhatsAppMessage(to, "Invalid choice. Reply *Menu* to start over.");
+            }
+            break;
+
+        case 'RECORDING_PAYMENT_AMOUNT': {
+            const amount = parseFloat(text);
+            if (isNaN(amount) || amount <= 0) {
+                await sendWhatsAppMessage(to, '⚠️ Please enter a valid amount (numbers only, e.g. 5000):');
+                return;
+            }
+            try {
+                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
+                const payRes = await fetch(`${baseUrl}/api/rent`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ownerId: session.data.ownerId,
+                        guestId: session.data.tenantId,
+                        amount,
+                        paymentMode: 'cash',
+                        notes: 'Recorded via WhatsApp'
+                    })
+                });
+                const result = await payRes.json();
+                if (!result.success) throw new Error(result.error || 'Payment failed');
+                updateSession(to, 'IDLE');
+                await sendWhatsAppMessage(to, `✅ *Payment of ₹${amount} recorded!*\n\nNew Balance: ₹${result.newBalance}\nStatus: ${result.newStatus}\n\nReply *Menu* to continue.`);
+            } catch (payErr: any) {
+                updateSession(to, 'IDLE');
+                await sendWhatsAppMessage(to, `❌ Payment could not be recorded: ${payErr.message}\n\nPlease use the dashboard to record this payment.`);
+            }
+            break;
+        }
+
+        case 'CONFIRMING_VACATE':
+            if (text.toLowerCase() === 'yes') {
+                try {
+                    const ownerId = session.data.ownerId;
+                    const tenantId = session.data.tenantId;
+                    const vacateDb = await (await import('../firebaseAdmin')).selectOwnerDataAdminDb(ownerId);
+                    await vacateDb.collection('users_data').doc(ownerId).collection('guests').doc(tenantId).update({
+                        isVacated: true,
+                        exitDate: new Date().toISOString(),
+                    });
+                    updateSession(to, 'IDLE');
+                    await sendWhatsAppMessage(to, `✅ *${session.data.tenantName}* has been marked as vacated.\n\nReply *Menu* to continue.`);
+                } catch (vacateErr: any) {
+                    updateSession(to, 'IDLE');
+                    await sendWhatsAppMessage(to, `❌ Could not vacate tenant: ${vacateErr.message}`);
+                }
+            } else {
+                updateSession(to, 'IDLE');
+                await sendWhatsAppMessage(to, '❌ Vacate cancelled. Reply *Menu* to continue.');
             }
             break;
 
@@ -461,13 +555,8 @@ async function showOwnerMenu(to: string, session: any) {
     let statsMsg = '';
     try {
         const adminDb = await selectOwnerDataAdminDb(ownerId);
-        const pgsSnap = await adminDb.collection('users_data').doc(ownerId).collection('pgs').get();
-        const guestsSnap = await adminDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
-
-        const totalPgs = pgsSnap.size;
-        const totalTenants = guestsSnap.size;
-
-        statsMsg = `📊 *Briefing*: ${totalPgs} Buildings | ${totalTenants} Active Tenants\n\n`;
+        const stats = await PropertyService.getBriefingStats(adminDb, ownerId);
+        statsMsg = `📊 *Briefing*: ${stats.totalBuildings} Buildings | ${stats.totalTenants} Active Tenants\n\n`;
     } catch (e) {
         console.error("Error fetching menu stats:", e);
     }

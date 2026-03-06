@@ -1,7 +1,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { PG, Floor, Room, Bed, MenuTemplate } from '../types';
-import { db, isFirebaseConfigured, getOwnerClientDb, selectOwnerDataDb } from '../firebase';
+import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc, writeBatch, query, where, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { defaultMenu } from '../mock-data';
 import { RootState } from '../store';
@@ -47,69 +47,24 @@ export const addPg = createAsyncThunk<PG, NewPgData, { state: RootState }>(
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        const { autoSetup, floorCount = 1, roomsPerFloor = 4, ...newPgData } = payload;
-
-        // Generate floors and rooms if autoSetup is true
-        const initialFloors: Floor[] = [];
-        if (autoSetup) {
-            for (let f = 1; f <= floorCount; f++) {
-                const floorId = `floor-${Date.now()}-${f}`;
-                const rooms: Room[] = [];
-                for (let r = 1; r <= roomsPerFloor; r++) {
-                    const roomId = `room-${Date.now()}-${f}-${r}`;
-                    rooms.push({
-                        id: roomId,
-                        name: `${f}0${r}`,
-                        floorId: floorId,
-                        pgId: `pg-${Date.now()}`, // Temporary, fixed below
-                        beds: [], // Start with empty rooms for simplicity
-                        rent: 0,
-                        deposit: 0,
-                        amenities: []
-                    });
-                }
-                initialFloors.push({
-                    id: floorId,
-                    name: `Floor ${f}`,
-                    rooms: rooms,
-                    pgId: `pg-${Date.now()}` // Temporary, fixed below
-                });
+        try {
+            // Call the shared API route — used by both UI and WhatsApp bot
+            const res = await fetch('/api/properties', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ownerId: user.currentUser.id,
+                    ...payload,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                return rejectWithValue(data.error || 'Failed to create property');
             }
+            return data.pg as PG;
+        } catch (err: any) {
+            return rejectWithValue(err.message || 'Network error while creating property');
         }
-
-        const newPgId = `pg-${Date.now()}`;
-        // Fix the pgId in generated floors/rooms
-        initialFloors.forEach(f => {
-            f.pgId = newPgId;
-            f.rooms.forEach(r => r.pgId = newPgId);
-        });
-
-        const newPg: PG = {
-            id: newPgId,
-            ...newPgData,
-            ownerId: user.currentUser.id,
-            images: ['https://placehold.co/600x400.png'],
-            rating: 0,
-            occupancy: 0,
-            totalBeds: 0,
-            totalRooms: initialFloors.reduce((acc, f) => acc + f.rooms.length, 0),
-            rules: [],
-            contact: '',
-            priceRange: { min: 0, max: 0 },
-            amenities: ['wifi', 'food'],
-            floors: initialFloors,
-            menu: defaultMenu,
-            status: 'pending_approval'
-        };
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const selectedDb = selectOwnerDataDb(user.currentUser);
-
-            const docRef = doc(selectedDb, 'users_data', user.currentUser.id, 'pgs', newPg.id);
-            await setDoc(docRef, newPg);
-            await updateOwnerPgSummary(selectedDb, user.currentUser.id);
-        }
-        return newPg;
     }
 );
 

@@ -19,7 +19,9 @@ export type BotState =
     | 'AWAITING_OWNER_KYC_UPLOAD_PHOTO'
     | 'AWAITING_OWNER_KYC_UPLOAD_AADHAAR'
     | 'SELECTING_PG_DETAILS'
-    | 'AWAITING_PG_ACTION';
+    | 'AWAITING_PG_ACTION'
+    | 'RECORDING_PAYMENT_AMOUNT'
+    | 'CONFIRMING_VACATE';
 
 interface UserSession {
     state: BotState;

@@ -81,7 +81,11 @@ export default function SettingsPage() {
     const handleOpenTemplateDialog = (template: ChargeTemplate | null) => {
         setTemplateToEdit(template);
         if (template) {
-            chargeTemplateForm.reset(template);
+            // Convert null -> undefined for the form schema (Zod uses undefined not null)
+            chargeTemplateForm.reset({
+                ...template,
+                unitCost: template.unitCost ?? undefined,
+            });
         } else {
             chargeTemplateForm.reset({
                 name: '',
@@ -129,11 +133,13 @@ export default function SettingsPage() {
 
     const handleTemplateSubmit = async (data: ChargeTemplateFormValues) => {
         try {
+            // Convert undefined -> null for Firestore (ChargeTemplate type uses null)
+            const templateData = { ...data, unitCost: data.unitCost ?? null };
             if (templateToEdit) {
-                await dispatch(updateChargeTemplate({ ...templateToEdit, ...data })).unwrap();
+                await dispatch(updateChargeTemplate({ ...templateToEdit, ...templateData })).unwrap();
                 toast({ title: "Template Updated", description: "Your charge template has been updated." });
             } else {
-                await dispatch(addChargeTemplate(data)).unwrap();
+                await dispatch(addChargeTemplate(templateData)).unwrap();
                 toast({ title: "Template Created", description: "Your new charge template is ready to use." });
             }
             setIsTemplateDialogOpen(false);

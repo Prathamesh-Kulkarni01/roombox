@@ -33,33 +33,36 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
     async (guestData, { getState, dispatch, rejectWithValue }) => {
         const { user, pgs } = getState();
         if (!user.currentUser || !guestData.email) return rejectWithValue('No user or guest email');
-       
+
         const selectedDb = selectOwnerDataDb(user.currentUser);
         const batch = writeBatch(selectedDb);
         let existingUser: User | null = null;
 
         // Check if a user with this email already exists
-        const userQuery = query(collection(db!, "users"), where("email", "==", guestData.email));
-        const userSnapshot = await getDocs(userQuery);
-        
-        if (!userSnapshot.empty) {
-            existingUser = userSnapshot.docs[0].data() as User;
-            if (existingUser.role === 'owner') {
-                return rejectWithValue('This email is associated with an owner account. Please use a different email.');
-            }
-             // Check if the user is already an active guest somewhere
-            if (existingUser.guestId && existingUser.ownerId) {
-                const oldGuestRef = doc(selectedDb, 'users_data', existingUser.ownerId, 'guests', existingUser.guestId);
-                const oldGuestDoc = await getDoc(oldGuestRef);
-                if (oldGuestDoc.exists() && !oldGuestDoc.data().isVacated) {
-                    return rejectWithValue(`This guest is already active in "${oldGuestDoc.data().pgName}". Please vacate their previous stay before adding them to a new one.`);
+        // db can be null if Firebase client SDK is not configured
+        if (db && isFirebaseConfigured()) {
+            const userQuery = query(collection(db, "users"), where("email", "==", guestData.email));
+            const userSnapshot = await getDocs(userQuery);
+
+            if (!userSnapshot.empty) {
+                existingUser = userSnapshot.docs[0].data() as User;
+                if (existingUser.role === 'owner') {
+                    return rejectWithValue('This email is associated with an owner account. Please use a different email.');
+                }
+                // Check if the user is already an active guest somewhere
+                if (existingUser.guestId && existingUser.ownerId) {
+                    const oldGuestRef = doc(selectedDb, 'users_data', existingUser.ownerId, 'guests', existingUser.guestId);
+                    const oldGuestDoc = await getDoc(oldGuestRef);
+                    if (oldGuestDoc.exists() && !oldGuestDoc.data().isVacated) {
+                        return rejectWithValue(`This guest is already active in "${oldGuestDoc.data().pgName}". Please vacate their previous stay before adding them to a new one.`);
+                    }
                 }
             }
         }
-        
+
         const pg = pgs.pgs.find(p => p.id === guestData.pgId);
         if (!pg) return rejectWithValue('PG not found');
-        
+
         const newGuest: Guest = { ...guestData, id: `g-${Date.now()}` };
 
         const updatedPg = produce(pg, draft => {
@@ -71,7 +74,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
                 bed.guestId = newGuest.id;
             }
         });
-        
+
         if (existingUser) {
             // Update existing user to point to new active guest record
             newGuest.userId = existingUser.id;
@@ -83,10 +86,12 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
                 guestHistoryIds: arrayUnion(existingUser.guestId)
             });
         } else {
-             // Create an invite for a completely new user
+            // Create an invite for a completely new user
             const invite: Invite = { email: newGuest.email, ownerId: user.currentUser.id, role: 'tenant', details: newGuest };
-            const inviteDocRef = doc(db!, 'invites', newGuest.email);
-            batch.set(inviteDocRef, invite);
+            if (db) {
+                const inviteDocRef = doc(db, 'invites', newGuest.email);
+                batch.set(inviteDocRef, invite);
+            }
 
             if (isFirebaseConfigured() && auth) {
                 const actionCodeSettings = { url: `${window.location.origin}/login/verify`, handleCodeInApp: true };
@@ -119,7 +124,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
         // Send welcome notification to tenant
         let tenantNotificationResult = { whatsAppStatus: 'skipped' as 'sent' | 'failed' | 'skipped' };
         if (newGuest.userId) {
-             tenantNotificationResult = await createAndSendNotification({
+            tenantNotificationResult = await createAndSendNotification({
                 ownerId: user.currentUser.id,
                 notification: {
                     type: 'new-guest',
@@ -130,7 +135,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG, exist
                 }
             });
         }
-        
+
         return { newGuest, updatedPg, existingUser: existingUser || undefined, whatsAppStatus: tenantNotificationResult.whatsAppStatus };
     }
 );
@@ -160,16 +165,16 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
                 status: 'pending'
             });
         }
-        
+
         let kycUpdate: Partial<Guest> = { kycStatus: 'pending', documents: uploadedDocuments };
-        
+
         const updatedGuest = { ...guestToUpdate, ...kycUpdate };
-        
+
         if (isFirebaseConfigured()) {
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestToUpdate.id);
             await setDoc(guestDocRef, { kycStatus: 'pending', documents: uploadedDocuments }, { merge: true });
         }
-        
+
         // Notify owner
         await createAndSendNotification({
             ownerId: ownerId,
@@ -211,20 +216,20 @@ export const updateGuestKycFromOwner = createAsyncThunk<Guest, {
                 status: 'pending'
             });
         }
-        
+
         let kycUpdate: Partial<Guest> = { kycStatus: 'pending', documents: uploadedDocuments };
-        
+
         const updatedGuest = { ...guestToUpdate, ...kycUpdate };
 
         if (isFirebaseConfigured()) {
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', updatedGuest.id);
-            await setDoc(guestDocRef, { 
-                kycStatus: 'pending', 
+            await setDoc(guestDocRef, {
+                kycStatus: 'pending',
                 documents: uploadedDocuments
             }, { merge: true });
         }
-        
-        if(updatedGuest.userId) {
+
+        if (updatedGuest.userId) {
             await createAndSendNotification({
                 ownerId: ownerId,
                 notification: {
@@ -291,11 +296,11 @@ export const resetGuestKyc = createAsyncThunk<string, string, { state: RootState
         if (!user.currentUser || !guestToUpdate || !ownerId) {
             return rejectWithValue('User or guest not found');
         }
-        
+
         // Don't need to do anything with Cloudinary files for now, they can be orphaned.
 
         if (isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const docRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await updateDoc(docRef, {
@@ -316,9 +321,9 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
         if (!user.currentUser) return rejectWithValue('No user');
         const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
         if (!ownerId) return rejectWithValue('Owner ID not found');
-        
+
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const batch = writeBatch(selectedDb);
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', updatedGuest.id);
@@ -328,9 +333,9 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
                 const pgDocRef = doc(selectedDb, 'users_data', ownerId, 'pgs', updatedPg.id);
                 batch.set(pgDocRef, updatedPg);
             }
-             await batch.commit();
+            await batch.commit();
         }
-        
+
         return { updatedGuest, updatedPg };
     }
 );
@@ -380,7 +385,7 @@ export const reconcileGuestPayment = createAsyncThunk<{ guest: Guest; whatsAppSt
         }
 
         await createAndSendNotification({ ownerId, notification: { type: 'rent-paid', title: 'Rent Collected!', message: `Received ₹${paymentAmount} from ${guest.name}.`, link: `/dashboard/tenant-management/${guest.id}`, targetId: ownerId } });
-        
+
         const tenantNotificationResult = { whatsAppStatus: 'skipped' as 'sent' | 'failed' | 'skipped' };
         if (guest.userId) {
             const result = await createAndSendNotification({ ownerId, notification: { type: 'rent-receipt', title: 'Payment Confirmation', message: `Your payment of ₹${paymentAmount} has been successfully recorded.`, link: '/tenants/my-pg', targetId: guest.userId } });
@@ -400,20 +405,20 @@ export const addAdditionalCharge = createAsyncThunk<Guest, { guestId: string, ch
         const guest = guests.guests.find(g => g.id === guestId);
 
         if (!ownerId || !guest) return rejectWithValue('User or guest not found');
-        
+
         const newCharge: LedgerEntry = { ...charge, id: `charge-${Date.now()}`, date: new Date().toISOString(), type: 'debit' };
-        
+
         if (isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await updateDoc(guestDocRef, {
                 ledger: arrayUnion(newCharge)
             });
         }
-        
+
         return produce(guest, draft => {
-             if (!draft.ledger) draft.ledger = [];
-             draft.ledger.push(newCharge);
+            if (!draft.ledger) draft.ledger = [];
+            draft.ledger.push(newCharge);
         });
     }
 );
@@ -426,18 +431,18 @@ export const removeAdditionalCharge = createAsyncThunk<Guest, { guestId: string,
         const guest = guests.guests.find(g => g.id === guestId);
 
         if (!ownerId || !guest) return rejectWithValue('User or guest not found');
-        
+
         const chargeToRemove = (guest.ledger || []).find(c => c.id === chargeId);
         if (!chargeToRemove) return rejectWithValue('Charge not found');
-        
+
         if (isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await updateDoc(guestDocRef, {
                 ledger: arrayRemove(chargeToRemove)
             });
         }
-        
+
         return produce(guest, draft => {
             draft.ledger = (draft.ledger || []).filter(c => c.id !== chargeId);
         });
@@ -466,7 +471,7 @@ export const addSharedChargeToRoom = createAsyncThunk<Guest[], { roomId: string,
         const updatedGuests: Guest[] = [];
 
         const batch = isFirebaseConfigured() ? writeBatch(selectedDb) : null;
-        
+
         for (const guest of guestsInRoom) {
             const newCharge: LedgerEntry = {
                 id: `charge-${Date.now()}-${guest.id}`,
@@ -475,7 +480,7 @@ export const addSharedChargeToRoom = createAsyncThunk<Guest[], { roomId: string,
                 description: description,
                 amount: chargePerGuest,
             };
-            
+
             const updatedGuest = produce(guest, draft => {
                 if (!draft.ledger) {
                     draft.ledger = [];
@@ -491,11 +496,11 @@ export const addSharedChargeToRoom = createAsyncThunk<Guest[], { roomId: string,
                 });
             }
         }
-        
+
         if (batch) {
             await batch.commit();
         }
-        
+
         return updatedGuests;
     }
 );
@@ -509,20 +514,20 @@ export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootSt
         const ownerId = user.currentUser?.id;
 
         if (!user.currentUser || !guest || !ownerId) return rejectWithValue('User or guest not found');
-        
+
         const exitDate = new Date();
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays);
         const updatedGuest: Guest = { ...guest, exitDate: exitDate.toISOString() };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const guestDocRef = doc(selectedDb, 'users_data', ownerId, 'guests', guestId);
             await setDoc(guestDocRef, updatedGuest, { merge: true });
         }
-        
+
         if (guest.userId) {
-            await createAndSendNotification({ ownerId, notification: { type: 'guest-exit', title: 'Notice Period Started', message: `Your notice period has been initiated and will end on ${format(exitDate, 'do MMM, yyyy')}.`, link: '/tenants/my-pg', targetId: guest.userId }});
+            await createAndSendNotification({ ownerId, notification: { type: 'guest-exit', title: 'Notice Period Started', message: `Your notice period has been initiated and will end on ${format(exitDate, 'do MMM, yyyy')}.`, link: '/tenants/my-pg', targetId: guest.userId } });
         }
 
         return updatedGuest;
@@ -551,11 +556,11 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
                 }
             }
         });
-        
+
         const updatedGuest = { ...guest, exitDate: new Date().toISOString(), isVacated: true };
 
         if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-           const selectedDb = selectOwnerDataDb(user.currentUser);
+            const selectedDb = selectOwnerDataDb(user.currentUser);
 
             const batch = writeBatch(selectedDb);
             const guestDocRef = doc(selectedDb, 'users_data', user.currentUser.id, 'guests', guestId);
@@ -591,11 +596,11 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
 
         const now = app.mockDate ? parseISO(app.mockDate) : new Date();
         const { guest: reconciledGuest, cyclesProcessed } = runReconciliationLogic(guest, now);
-        
+
         if (cyclesProcessed === 0) {
             // Even if no new cycle, there might be a status update (e.g. balance became 0)
             if (JSON.stringify(guest) !== JSON.stringify(reconciledGuest)) {
-                 if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+                if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
                     const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
                     if (ownerId) {
                         const selectedDb = selectOwnerDataDb(user.currentUser);
@@ -616,7 +621,7 @@ export const reconcileRentCycle = createAsyncThunk<Guest, string, { state: RootS
                 await setDoc(guestDocRef, reconciledGuest, { merge: true });
             }
         }
-        
+
         return reconciledGuest;
     }
 );
@@ -644,7 +649,7 @@ const guestsSlice = createSlice({
                     state.guests[0] = action.payload.updatedGuest;
                 }
             })
-             .addCase(reconcileGuestPayment.fulfilled, (state, action) => {
+            .addCase(reconcileGuestPayment.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.guest.id);
                 if (index !== -1) {
                     state.guests[index] = action.payload.guest;
@@ -677,7 +682,7 @@ const guestsSlice = createSlice({
                 }
             })
             .addCase(initiateGuestExit.fulfilled, (state, action) => {
-                 const index = state.guests.findIndex(g => g.id === action.payload.id);
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
                     state.guests[index] = action.payload;
                 }
@@ -689,12 +694,12 @@ const guestsSlice = createSlice({
                 }
             })
             .addCase(reconcileRentCycle.fulfilled, (state, action) => {
-                 const index = state.guests.findIndex(g => g.id === action.payload.id);
+                const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
                     state.guests[index] = action.payload;
                 }
             })
-             .addCase(addAdditionalCharge.fulfilled, (state, action) => {
+            .addCase(addAdditionalCharge.fulfilled, (state, action) => {
                 const index = state.guests.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
                     state.guests[index] = action.payload;
@@ -706,7 +711,7 @@ const guestsSlice = createSlice({
                     state.guests[index] = action.payload;
                 }
             })
-             .addCase(addSharedChargeToRoom.fulfilled, (state, action) => {
+            .addCase(addSharedChargeToRoom.fulfilled, (state, action) => {
                 action.payload.forEach(updatedGuest => {
                     const index = state.guests.findIndex(g => g.id === updatedGuest.id);
                     if (index !== -1) {
