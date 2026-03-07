@@ -32,9 +32,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, error: 'Invalid OTP.' }, { status: 400 });
         }
 
-        // Verification successful, update the main phone number and clean up OTP fields
+        // Verification successful, update the main phone number (normalized) and clean up OTP fields
+        const normalizedPhone = userData.pendingVerificationPhone.replace(/\D/g, '');
+        const phoneToUpdate = normalizedPhone.length > 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+
         await userRef.update({
-            phone: userData.pendingVerificationPhone,
+            phone: phoneToUpdate,
             whatsappOtp: FieldValue.delete(),
             whatsappOtpExpires: FieldValue.delete(),
             pendingVerificationPhone: FieldValue.delete(),

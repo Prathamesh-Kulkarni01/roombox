@@ -273,23 +273,27 @@ async function lookupOwnerByPhone(from: string): Promise<{ id: string; name: str
 
         // Format phone — WhatsApp sends with country code e.g. 919876543210
         const allDigits = from.replace(/\D/g, '');
-        const withoutCC = allDigits.startsWith('91') && allDigits.length === 12
+        const withoutCC = (allDigits.startsWith('91') && allDigits.length === 12)
             ? allDigits.substring(2)
             : allDigits;
 
+        // Try both owner and manager roles (managers often handle PG operations)
+        const roles = ['owner', 'manager'];
+
         const queries = [
-            // Try with country code
+            // Try matching numeric strings in DB
             adminDb.collection('users')
-                .where('role', '==', 'owner')
+                .where('role', 'in', roles)
                 .where('phone', '==', allDigits)
                 .limit(1)
                 .get(),
-            // Try without country code
             adminDb.collection('users')
-                .where('role', '==', 'owner')
+                .where('role', 'in', roles)
                 .where('phone', '==', withoutCC)
                 .limit(1)
                 .get(),
+            // Failover: Match if DB has standard formatting like +91 XXXXX XXXXX or spaces
+            // This is harder in Firestore without fetch-all, so we rely on normalization at save time
         ];
 
         const results = await Promise.all(queries);
@@ -301,7 +305,7 @@ async function lookupOwnerByPhone(from: string): Promise<{ id: string; name: str
             }
         }
 
-        console.log(`[Auth] No owner found for phone: ${from} (tried ${allDigits} and ${withoutCC})`);
+        console.log(`[Auth] No authorized owner/manager found for phone: ${from} (tried ${allDigits} and ${withoutCC})`);
         return null;
 
     } catch (err) {

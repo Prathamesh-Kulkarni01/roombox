@@ -15,6 +15,10 @@ export async function POST(req: Request) {
         const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
         const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes from now
 
+        // Normalize phone: digits only, keep 10 digits if possible
+        const normalizedPhone = phone.replace(/\D/g, '');
+        const phoneToStore = normalizedPhone.length > 10 ? normalizedPhone.slice(-10) : normalizedPhone;
+
         const adminDb = await getAdminDb();
         const userRef = adminDb.collection('users').doc(ownerId);
 
@@ -27,11 +31,11 @@ export async function POST(req: Request) {
         await userRef.update({
             whatsappOtp: otpCode,
             whatsappOtpExpires: expiresAt,
-            pendingVerificationPhone: phone,
+            pendingVerificationPhone: phoneToStore,
         });
 
-        // Format phone for WhatsApp
-        let formattedPhone = phone.replace(/\D/g, '');
+        // Format phone for WhatsApp - ensure 91 prefix for delivery
+        let formattedPhone = phoneToStore;
         if (formattedPhone.length === 10) {
             formattedPhone = '91' + formattedPhone;
         }
