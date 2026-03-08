@@ -28,6 +28,7 @@ const WORKFLOW_SWITCH_MAP: Record<string, { workflowId: string; step: string }> 
     '__switchMonthlySummary': { workflowId: 'mainMenu', step: 'monthlySummary' },
     '__switchPendingRents': { workflowId: 'mainMenu', step: 'pendingRents' },
     '__goMainMenu': { workflowId: 'mainMenu', step: 'showMenu' },
+    '__goTenantPortal': { workflowId: 'tenantPortal', step: 'tenantMenu' },
 };
 
 // ─── Session helpers ──────────────────────────────────────────────────────────
@@ -73,6 +74,20 @@ export async function handleIncomingMessage(data: {
             await clearSession(from);
             await handleAuth(from, 'hi', { state: 'IDLE', data: {}, lastUpdated: Date.now() });
             return;
+        }
+
+        // LAZY ONBOARDING CHECK: If tenant has never completed self-onboarding, intercept
+        const isAlreadyOnboarding = session.data?.workflowId === 'tenantLazyOnboarding';
+        if (!isAlreadyOnboarding) {
+            const isOnboarded = await checkTenantIsOnboarded(
+                session.data.ownerId ?? '',
+                session.data.guestId ?? ''
+            );
+            if (!isOnboarded) {
+                console.log(`[Router] Tenant ${from} (guestId=${session.data.guestId}) is not onboarded. Starting lazy onboarding flow.`);
+                await switchToWorkflow(from, session, 'tenantLazyOnboarding', 'welcomeAndName');
+                return;
+            }
         }
 
         await handleWithWorkflow(from, text, session, 'tenantPortal', 'tenantMenu');
@@ -498,6 +513,33 @@ async function lookupTenantsByPhone(from: string): Promise<any[]> {
         }
     }
     return matches;
+}
+
+// ─── Lazy Onboarding Helper ───────────────────────────────────────────────────
+
+/**
+ * Returns true if the tenant has completed self-onboarding via WhatsApp.
+ * Defaults to `true` on errors so existing tenants are never accidentally locked out.
+ */
+async function checkTenantIsOnboarded(ownerId: string, guestId: string): Promise<boolean> {
+    if (!ownerId || !guestId) return true; // Safe default
+    try {
+        const adminDb = await getAdminDb();
+        const guestSnap = await adminDb
+            .collection('users_data')
+            .doc(ownerId)
+            .collection('guests')
+            .doc(guestId)
+            .get();
+
+        if (!guestSnap.exists) return true; // Doc missing — safe default
+        const data = guestSnap.data();
+        // If `isOnboarded` field is absent (old records), treat as already onboarded
+        return data?.isOnboarded !== false;
+    } catch (e) {
+        console.error('[Router] checkTenantIsOnboarded error:', e);
+        return true; // Safe default — don't block tenant on DB error
+    }
 }
 
 export default handleIncomingMessage;

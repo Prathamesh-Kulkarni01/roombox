@@ -113,6 +113,7 @@ export class TenantService {
                 createdAt: Date.now(),
                 noticePeriodDays: 30,
                 schemaVersion: CURRENT_SCHEMA_VERSION,
+                isOnboarded: false, // Tenant self-onboarding via WhatsApp not yet complete
             } as unknown as Guest;
 
             // Save guest

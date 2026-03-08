@@ -1306,6 +1306,138 @@ export const ownerRegistrationWorkflow: WorkflowDefinition = {
     }
 };
 
+
+// ─────────────────────────────────────────────────────────────
+// TENANT LAZY ONBOARDING WORKFLOW
+// Triggered the first time a newly-added tenant messages the bot.
+// Collects missing profile data (email, KYC) before showing the portal.
+// ─────────────────────────────────────────────────────────────
+export const tenantLazyOnboardingWorkflow: WorkflowDefinition = {
+    id: 'tenantLazyOnboarding',
+    name: 'Tenant Self-Onboarding',
+    description: 'Collects missing tenant profile info on first bot interaction',
+    entryPoint: 'welcomeAndName',
+
+    steps: {
+        welcomeAndName: {
+            id: 'welcomeAndName',
+            type: 'input',
+            label: 'Confirm Name',
+            messageBuilder: (ctx) =>
+                `👋 *Welcome to RoomBox!*\n\n` +
+                `Hi *${ctx.tenantName || 'there'}*! Your PG owner has added you to the system.\n\n` +
+                `Let's complete your profile quickly — it'll only take a minute.\n\n` +
+                `First, what is your *full name*?\n(Reply with your name or type *skip* to keep existing name)`,
+            nextStepsFn: async (input, ctx) => {
+                if (input.trim().toLowerCase() !== 'skip') {
+                    ctx.data.lazy_name = input.trim();
+                } else {
+                    ctx.data.lazy_name = ctx.tenantName || '';
+                }
+                return 'askEmail';
+            },
+        },
+
+        askEmail: {
+            id: 'askEmail',
+            type: 'input',
+            label: 'Email Address',
+            messageTemplate: '📧 What is your *email address*?\n(Reply *skip* to leave blank)',
+            nextStepsFn: async (input, ctx) => {
+                ctx.data.lazy_email = input.trim().toLowerCase() === 'skip' ? '' : input.trim();
+                return 'askKycPhoto';
+            },
+        },
+
+        askKycPhoto: {
+            id: 'askKycPhoto',
+            type: 'input',
+            label: 'Selfie / Photo',
+            messageTemplate: '📸 Please send a clear *selfie photo* of yourself for your profile.\n\nThis is used for KYC verification.\n(Reply *skip* to do this later)',
+            nextStepsFn: async (input, ctx) => {
+                // For image messages the router passes the media ID as `text`
+                if (input.trim().toLowerCase() === 'skip') {
+                    ctx.data.lazy_photoId = null;
+                } else {
+                    ctx.data.lazy_photoId = input.trim();
+                }
+                return 'askKycAadhaar';
+            },
+        },
+
+        askKycAadhaar: {
+            id: 'askKycAadhaar',
+            type: 'input',
+            label: 'Aadhaar Card',
+            messageTemplate: '🪪 Now send a photo of your *Aadhaar Card* (front side).\n\n(Reply *skip* to do this later)',
+            nextStepsFn: async (input, ctx) => {
+                if (input.trim().toLowerCase() === 'skip') {
+                    ctx.data.lazy_aadhaarId = null;
+                } else {
+                    ctx.data.lazy_aadhaarId = input.trim();
+                }
+                return 'finishOnboarding';
+            },
+        },
+
+        finishOnboarding: {
+            id: 'finishOnboarding',
+            type: 'display',
+            label: 'Profile Complete',
+            messageBuilder: (ctx) =>
+                ctx.data._error
+                    ? `❌ There was an issue: ${ctx.data._error}\n\nPlease contact your owner for help.`
+                    : `✅ *Profile Complete!*\n\nWelcome to *${ctx.data.pgName || 'your PG'}*, ${ctx.data.lazy_name || ctx.tenantName}!\n\nYou can now access your tenant portal.\n\nReply *Menu* to see your rent details, make payments, and more.`,
+            onEnter: async (ctx) => {
+                if (!ctx.ownerId || !ctx.guestId) {
+                    ctx.data._error = 'Session mismatch. Please contact your owner.';
+                    return;
+                }
+                try {
+                    const { selectOwnerDataAdminDb } = await import('@/lib/firebaseAdmin');
+                    const db = await selectOwnerDataAdminDb(ctx.ownerId);
+                    const guestRef = db.collection('users_data').doc(ctx.ownerId).collection('guests').doc(ctx.guestId);
+
+                    const updates: Record<string, any> = {
+                        isOnboarded: true,
+                        kycStatus: 'not-started',
+                        schemaVersion: 2,
+                    };
+
+                    if (ctx.data.lazy_name) updates.name = ctx.data.lazy_name;
+                    if (ctx.data.lazy_email) updates.email = ctx.data.lazy_email;
+
+                    // Store KYC media IDs if provided (to be resolved to URLs later)
+                    const kycDocs: any[] = [];
+                    if (ctx.data.lazy_photoId) {
+                        kycDocs.push({ configId: 'photo', label: 'Tenant Photo', mediaId: ctx.data.lazy_photoId, status: 'pending' });
+                        updates.kycStatus = 'pending';
+                    }
+                    if (ctx.data.lazy_aadhaarId) {
+                        kycDocs.push({ configId: 'aadhaar', label: 'Aadhaar Card', mediaId: ctx.data.lazy_aadhaarId, status: 'pending' });
+                        updates.kycStatus = 'pending';
+                    }
+                    if (kycDocs.length > 0) {
+                        updates.documents = kycDocs;
+                    }
+
+                    await guestRef.update(updates);
+
+                    // Update local context for portal display
+                    const guestSnap = await guestRef.get();
+                    const guestData = guestSnap.data();
+                    ctx.data.pgName = guestData?.pgName || '';
+                    if (ctx.data.lazy_name) ctx.tenantName = ctx.data.lazy_name;
+                } catch (e: any) {
+                    console.error('[LazyOnboarding] Failed to save profile:', e);
+                    ctx.data._error = e.message;
+                }
+            },
+            defaultNext: '__goTenantPortal',
+        },
+    },
+};
+
 // Export all for registration
 export const allWorkflows = [
     mainMenuWorkflow,
@@ -1313,5 +1445,6 @@ export const allWorkflows = [
     tenantManagementWorkflow,
     addTenantWorkflow,
     tenantPortalWorkflow,
+    tenantLazyOnboardingWorkflow,
     ownerRegistrationWorkflow,
 ];
