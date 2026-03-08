@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { handleIncomingMessage } from '@/lib/whatsapp/smart-router';
 import { getEnv } from '@/lib/env';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 const WHATSAPP_VERIFY_TOKEN = getEnv('WHATSAPP_VERIFY_TOKEN', 'roombox_whatsapp_dev_token');
+const WHATSAPP_APP_SECRET = process.env.WHATSAPP_APP_SECRET;
 
 // ── GET: Webhook verification by Meta ────────────────────────────────────────
 export async function GET(req: Request) {
@@ -21,18 +23,46 @@ export async function GET(req: Request) {
 
 // ── POST: Receive messages from Meta ─────────────────────────────────────────
 export async function POST(req: Request) {
-    try {
-        /**
-         * 🛡️ SECURITY WARNING: Missing Signature Verification
-         * 
-         * Production environments MUST verify the X-Hub-Signature-256 header
-         * using the WHATSAPP_APP_SECRET and the raw request body.
-         * Failure to do so allows ANYONE to spoof messages as any user.
-         * 
-         * TODO: Implement signature verification once APP_SECRET is configured.
-         */
+    // ── 1. Read raw body (must happen BEFORE req.json()) ─────────────────────
+    const rawBody = await req.arrayBuffer();
+    const rawBodyBuffer = Buffer.from(rawBody);
 
-        const body = await req.json();
+    // ── 2. Signature Verification ─────────────────────────────────────────────
+    // When WHATSAPP_APP_SECRET is set, enforce verification strictly.
+    // In local dev without the secret, skip verification with a warning.
+    if (WHATSAPP_APP_SECRET) {
+        const signatureHeader = req.headers.get('x-hub-signature-256');
+
+        if (!signatureHeader) {
+            console.error('[Webhook] SECURITY: Missing x-hub-signature-256 header. Rejecting request.');
+            return new NextResponse('Unauthorized', { status: 401 });
+        }
+
+        // Compute expected signature: sha256=<hex-digest>
+        const expectedSignature = 'sha256=' + createHmac('sha256', WHATSAPP_APP_SECRET)
+            .update(rawBodyBuffer)
+            .digest('hex');
+
+        // Use timingSafeEqual to prevent timing attacks
+        try {
+            const sigBuffer = Buffer.from(signatureHeader, 'utf8');
+            const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+
+            if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) {
+                console.error('[Webhook] SECURITY: Signature mismatch. Possible spoofed request.');
+                return new NextResponse('Unauthorized', { status: 401 });
+            }
+        } catch {
+            console.error('[Webhook] SECURITY: Signature comparison failed. Rejecting request.');
+            return new NextResponse('Unauthorized', { status: 401 });
+        }
+    } else {
+        console.warn('[Webhook] WHATSAPP_APP_SECRET not set — skipping signature verification (dev mode only).');
+    }
+
+    // ── 3. Parse and process ──────────────────────────────────────────────────
+    try {
+        const body = JSON.parse(rawBodyBuffer.toString('utf8'));
 
         if (!body.object) {
             return NextResponse.json({ status: 'received' }, { status: 200 });
@@ -50,9 +80,6 @@ export async function POST(req: Request) {
 
         console.log(`[Webhook] ${messageType} from ${from}: "${msgBody || '[media]'}"`);
 
-        // IMPORTANT: We must AWAIT handleIncomingMessage in serverless environments.
-        // If we don't, the function might terminate before the message is processed,
-        // session is saved to Redis, or a reply is sent via the WhatsApp API.
         await handleIncomingMessage({ from, msgBody, messageType, rawData: message });
 
     } catch (error) {
@@ -62,3 +89,4 @@ export async function POST(req: Request) {
     // Always respond 200 — Meta requires acknowledgment
     return NextResponse.json({ status: 'received' }, { status: 200 });
 }
+

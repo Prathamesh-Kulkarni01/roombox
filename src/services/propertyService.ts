@@ -133,4 +133,85 @@ export class PropertyService {
             throw error;
         }
     }
+
+    /**
+     * Adds floors, rooms, and beds to an EXISTING PG in bulk.
+     * Uses an atomic update so the document is never left in a partial state.
+     *
+     * @param db       Owner-scoped Firestore instance
+     * @param ownerId  Owner UID
+     * @param pgId     ID of the target PG document
+     * @param opts     Bulk setup configuration
+     */
+    static async bulkSetupFloors(
+        db: Firestore,
+        ownerId: string,
+        pgId: string,
+        opts: {
+            floors: number;
+            roomsPerFloor: number;
+            bedsPerRoom: number;
+            startFloorNumber?: number; // Default 1 — allows appending to existing floors
+        }
+    ): Promise<{ floorsCreated: number; roomsCreated: number; bedsCreated: number }> {
+        const { floors, roomsPerFloor, bedsPerRoom, startFloorNumber = 1 } = opts;
+
+        const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
+        const pgSnap = await pgRef.get();
+        if (!pgSnap.exists) throw new Error(`PG ${pgId} not found`);
+
+        const pgData = pgSnap.data()!;
+        const existingFloors: any[] = pgData.floors || [];
+
+        const newFloors: any[] = [];
+        const ts = Date.now();
+
+        for (let f = 0; f < floors; f++) {
+            const floorNumber = startFloorNumber + f;
+            const floorId = `floor-${ts}-${floorNumber}`;
+            const rooms: any[] = [];
+
+            for (let r = 1; r <= roomsPerFloor; r++) {
+                const roomId = `room-${ts}-${floorNumber}-${r}`;
+                const roomNum = (floorNumber * 100) + r;
+                const beds: any[] = [];
+
+                for (let b = 1; b <= bedsPerRoom; b++) {
+                    beds.push({ id: `bed-${roomId}-${b}`, name: `${b}`, guestId: null });
+                }
+
+                rooms.push({
+                    id: roomId,
+                    name: `${roomNum}`,
+                    pgId,
+                    floorId,
+                    beds,
+                    rent: 0,
+                    deposit: 0,
+                    available: true,
+                    amenities: [],
+                });
+            }
+
+            newFloors.push({ id: floorId, name: `Floor ${floorNumber}`, pgId, rooms });
+        }
+
+        const allFloors = [...existingFloors, ...newFloors];
+        const totalBeds = allFloors.reduce(
+            (acc, fl) => acc + fl.rooms.reduce((ra: number, rm: any) => ra + rm.beds.length, 0), 0
+        );
+        const totalRooms = allFloors.reduce((acc, fl) => acc + fl.rooms.length, 0);
+
+        await pgRef.update({
+            floors: allFloors,
+            totalRooms,
+            totalBeds,
+        });
+
+        return {
+            floorsCreated: newFloors.length,
+            roomsCreated: newFloors.reduce((a, f) => a + f.rooms.length, 0),
+            bedsCreated: newFloors.reduce((a, f) => a + f.rooms.reduce((ra: number, rm: any) => ra + rm.beds.length, 0), 0),
+        };
+    }
 }

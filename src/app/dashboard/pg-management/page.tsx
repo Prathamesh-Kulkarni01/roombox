@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin, Pencil, Building, Trash2 } from "lucide-react"
+import { PlusCircle, MoreHorizontal, IndianRupee, Users, MapPin, Pencil, Building, Trash2, Zap } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -35,6 +35,7 @@ import AddPgSheet from '@/components/add-pg-sheet'
 import type { PG } from '@/lib/types'
 import Access from '@/components/ui/PermissionWrapper';
 import { useGetPropertiesQuery, useGetGuestsQuery, useDeletePropertyMutation } from '@/lib/api/apiSlice'
+import BulkSetupModal from '@/components/bulk-setup-modal'
 
 const genderBadgeColor = {
     male: 'bg-blue-100 text-blue-800',
@@ -51,6 +52,7 @@ export default function PgManagementPage() {
     const { toast } = useToast()
     const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false)
     const [pgToDelete, setPgToDelete] = useState<PG | null>(null);
+    const [pgForBulkSetup, setPgForBulkSetup] = useState<PG | null>(null);
 
     // RTK Query hooks
     const { data: pgsData, isLoading: isLoadingPgs, refetch: refetchPgs } = useGetPropertiesQuery(undefined, {
@@ -248,6 +250,9 @@ export default function PgManagementPage() {
                                                             <DropdownMenuItem onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}>
                                                                 <Pencil className="mr-2 h-4 w-4" /> Configure
                                                             </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => setPgForBulkSetup(pg)}>
+                                                                <Zap className="mr-2 h-4 w-4" /> Bulk Setup Rooms
+                                                            </DropdownMenuItem>
                                                             <DropdownMenuItem>View Guests</DropdownMenuItem>
                                                             <Access feature="properties" action="delete">
                                                                 <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
@@ -286,6 +291,9 @@ export default function PgManagementPage() {
                                                     <DropdownMenuItem onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}>
                                                         <Pencil className="mr-2 h-4 w-4" /> Configure
                                                     </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setPgForBulkSetup(pg)}>
+                                                        <Zap className="mr-2 h-4 w-4" /> Bulk Setup Rooms
+                                                    </DropdownMenuItem>
                                                     <DropdownMenuItem>View Guests</DropdownMenuItem>
                                                     <Access feature="properties" action="delete">
                                                         <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
@@ -317,6 +325,15 @@ export default function PgManagementPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {pgForBulkSetup && (
+                <BulkSetupModal
+                    pg={pgForBulkSetup}
+                    open={!!pgForBulkSetup}
+                    onOpenChange={(open) => !open && setPgForBulkSetup(null)}
+                    onSuccess={() => refetchPgs()}
+                />
+            )}
 
             <AlertDialog open={!!pgToDelete} onOpenChange={(open) => !open && setPgToDelete(null)}>
                 <AlertDialogContent>

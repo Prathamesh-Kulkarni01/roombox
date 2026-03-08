@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, MoreHorizontal, IndianRupee, User, ShieldCheck, Building, History, Pencil } from "lucide-react"
+import { PlusCircle, MoreHorizontal, IndianRupee, User, ShieldCheck, Building, History, Pencil, Upload } from "lucide-react"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { useAppSelector } from "@/lib/hooks"
@@ -26,19 +26,20 @@ import type { Guest } from '@/lib/types'
 import { format } from 'date-fns'
 import Access from '@/components/ui/PermissionWrapper';
 import KycManagementTab from '@/components/dashboard/KycManagementTab';
+import TenantCsvUploader from '@/components/tenant-csv-uploader';
 
 
 const rentStatusColors: Record<Guest['rentStatus'], string> = {
-  paid: 'bg-green-100 text-green-800',
-  unpaid: 'bg-red-100 text-red-800',
-  partial: 'bg-orange-100 text-orange-800',
+    paid: 'bg-green-100 text-green-800',
+    unpaid: 'bg-red-100 text-red-800',
+    partial: 'bg-orange-100 text-orange-800',
 };
 
 const kycStatusColors: Record<Guest['kycStatus'], string> = {
-  verified: 'bg-blue-100 text-blue-800',
-  pending: 'bg-yellow-100 text-yellow-800',
-  rejected: 'bg-orange-100 text-orange-800',
-  'not-started': 'bg-gray-100 text-gray-800',
+    verified: 'bg-blue-100 text-blue-800',
+    pending: 'bg-yellow-100 text-yellow-800',
+    rejected: 'bg-orange-100 text-orange-800',
+    'not-started': 'bg-gray-100 text-gray-800',
 };
 
 interface GuestListProps {
@@ -108,11 +109,11 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                                                     <User className="mr-2 h-4 w-4" /> View Profile
                                                 </Link>
                                             </DropdownMenuItem>
-                                             {canEdit && (
+                                            {canEdit && (
                                                 <DropdownMenuItem onClick={() => onEdit(guest)}>
                                                     <Pencil className="mr-2 h-4 w-4" /> Edit Guest
                                                 </DropdownMenuItem>
-                                             )}
+                                            )}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -124,22 +125,22 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
             {/* Mobile Card View */}
             <div className="md:hidden grid gap-4">
                 {guests.map((guest) => (
-                <div key={guest.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                            <Avatar>
-                                <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} />
-                                <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <p className="font-bold">
-                                  <Link href={`/dashboard/tenant-management/${guest.id}`} className="hover:underline text-primary">
-                                      {guest.name}
-                                  </Link>
-                                </p>
-                                <p className="text-sm text-muted-foreground">{guest.pgName}</p>
+                    <div key={guest.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
+                        <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-3">
+                                <Avatar>
+                                    <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} />
+                                    <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-bold">
+                                        <Link href={`/dashboard/tenant-management/${guest.id}`} className="hover:underline text-primary">
+                                            {guest.name}
+                                        </Link>
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">{guest.pgName}</p>
+                                </div>
                             </div>
-                        </div>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button aria-haspopup="true" size="icon" variant="ghost" className="-mr-2 -mt-2">
@@ -155,28 +156,28 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                                         </Link>
                                     </DropdownMenuItem>
                                     {canEdit && (
-                                     <DropdownMenuItem onClick={() => onEdit(guest)}>
-                                        <Pencil className="mr-2 h-4 w-4" /> Edit Guest
-                                    </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => onEdit(guest)}>
+                                            <Pencil className="mr-2 h-4 w-4" /> Edit Guest
+                                        </DropdownMenuItem>
                                     )}
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                    </div>
-                    <div className="flex justify-between items-end text-sm">
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                                <IndianRupee className="w-4 h-4 text-muted-foreground" />
-                                <span>{guest.isVacated ? `Exited on ${format(new Date(guest.exitDate!), 'do MMM')}` : `Rent Due: ${format(new Date(guest.dueDate), 'do MMM')}`}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <ShieldCheck className="w-4 h-4 text-muted-foreground"/>
-                                <span>KYC: <span className={cn("capitalize font-medium", kycStatusColors[guest.kycStatus]?.replace('bg-','text-'))}>{guest.kycStatus.replace('-',' ')}</span></span>
-                            </div>
                         </div>
-                        <Badge className={cn("capitalize border-transparent", guest.isVacated ? 'bg-destructive' : rentStatusColors[guest.rentStatus])}>
-                            {guest.isVacated ? 'Vacated' : guest.rentStatus}
-                        </Badge>
-                    </div>
+                        <div className="flex justify-between items-end text-sm">
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                    <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                                    <span>{guest.isVacated ? `Exited on ${format(new Date(guest.exitDate!), 'do MMM')}` : `Rent Due: ${format(new Date(guest.dueDate), 'do MMM')}`}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                                    <span>KYC: <span className={cn("capitalize font-medium", kycStatusColors[guest.kycStatus]?.replace('bg-', 'text-'))}>{guest.kycStatus.replace('-', ' ')}</span></span>
+                                </div>
+                            </div>
+                            <Badge className={cn("capitalize border-transparent", guest.isVacated ? 'bg-destructive' : rentStatusColors[guest.rentStatus])}>
+                                {guest.isVacated ? 'Vacated' : guest.rentStatus}
+                            </Badge>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -190,7 +191,8 @@ export default function GuestManagementPage() {
     const { isLoading, selectedPgId } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
     const { featurePermissions } = usePermissionsStore();
-    
+    const [isCsvUploaderOpen, setIsCsvUploaderOpen] = useState(false);
+
     const [activeGuests, exitedGuests] = useMemo(() => {
         const active: Guest[] = [];
         const exited: Guest[] = [];
@@ -203,7 +205,7 @@ export default function GuestManagementPage() {
                 active.push(guest);
             }
         });
-        
+
         return [active, exited];
     }, [guests, selectedPgId]);
 
@@ -217,43 +219,43 @@ export default function GuestManagementPage() {
             <div className="flex flex-col gap-8">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                       <div className="space-y-2">
-                         <Skeleton className="h-7 w-32" />
-                         <Skeleton className="h-5 w-48" />
-                       </div>
+                        <div className="space-y-2">
+                            <Skeleton className="h-7 w-32" />
+                            <Skeleton className="h-5 w-48" />
+                        </div>
                         <Skeleton className="h-10 w-36" />
                     </CardHeader>
                     <CardContent>
                         {/* Mobile skeleton */}
                         <div className="md:hidden space-y-4">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                             <div key={i} className="p-4 border rounded-lg space-y-3">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-3">
-                                        <Skeleton className="h-10 w-10 rounded-full" />
-                                        <div className="space-y-1">
-                                            <Skeleton className="h-5 w-24" />
-                                            <Skeleton className="h-4 w-16" />
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <div key={i} className="p-4 border rounded-lg space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="h-10 w-10 rounded-full" />
+                                            <div className="space-y-1">
+                                                <Skeleton className="h-5 w-24" />
+                                                <Skeleton className="h-4 w-16" />
+                                            </div>
                                         </div>
+                                        <Skeleton className="h-6 w-6" />
                                     </div>
-                                    <Skeleton className="h-6 w-6" />
-                                </div>
-                                <div className="flex justify-between items-end">
-                                    <div className="space-y-2">
-                                        <Skeleton className="h-4 w-32" />
-                                        <Skeleton className="h-4 w-24" />
+                                    <div className="flex justify-between items-end">
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-4 w-32" />
+                                            <Skeleton className="h-4 w-24" />
+                                        </div>
+                                        <Skeleton className="h-6 w-16 rounded-full" />
                                     </div>
-                                    <Skeleton className="h-6 w-16 rounded-full" />
                                 </div>
-                            </div>
-                        ))}
+                            ))}
                         </div>
                         {/* Desktop skeleton */}
                         <div className="hidden md:block space-y-2">
                             <Skeleton className="h-12 w-full rounded-md" />
-                           {Array.from({ length: 4 }).map((_, i) => (
-                             <Skeleton key={i} className="h-12 w-full" />
-                           ))}
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <Skeleton key={i} className="h-12 w-full" />
+                            ))}
                         </div>
                     </CardContent>
                 </Card>
@@ -263,51 +265,62 @@ export default function GuestManagementPage() {
 
     if (pgs.length === 0) {
         return (
-          <div className="flex items-center justify-center h-full min-h-[calc(100vh-250px)]">
-              <div className="text-center p-8 bg-card rounded-lg border">
-                  <Building className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h2 className="mt-4 text-xl font-semibold">Add a Property First</h2>
-                  <p className="mt-2 text-muted-foreground max-w-sm">You need to add a property before you can manage guests.</p>
-                  <Button asChild className="mt-4">
-                    <Link href="/dashboard/pg-management">Add Property</Link>
-                  </Button>
-              </div>
-          </div>
+            <div className="flex items-center justify-center h-full min-h-[calc(100vh-250px)]">
+                <div className="text-center p-8 bg-card rounded-lg border">
+                    <Building className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h2 className="mt-4 text-xl font-semibold">Add a Property First</h2>
+                    <p className="mt-2 text-muted-foreground max-w-sm">You need to add a property before you can manage guests.</p>
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/pg-management">Add Property</Link>
+                    </Button>
+                </div>
+            </div>
         )
     }
 
     return (
-      <Access feature="guests" action="view">
-        <div className="flex flex-col gap-8">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Guest Management</CardTitle>
-                        <CardDescription>You are managing {guests.length} total guests.</CardDescription>
-                    </div>
-                    <Access feature="guests" action="add">
-                        <Button disabled>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add New Guest
-                        </Button>
-                         <p className="text-xs text-muted-foreground text-right mt-1">Add guests from the main dashboard.</p>
-                    </Access>
-                </CardHeader>
-                <CardContent>
-                     <Tabs defaultValue="active-guests" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="active-guests">Active Guests</TabsTrigger>
-                            <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="active-guests" className="mt-4">
-                            <GuestList guests={activeGuests} onEdit={() => {}} canEdit={canEditGuests}/>
-                        </TabsContent>
-                        <TabsContent value="exited-guests" className="mt-4">
-                            <GuestList guests={exitedGuests} onEdit={() => {}} canEdit={canEditGuests}/>
-                        </TabsContent>
-                    </Tabs>
-                </CardContent>
-            </Card>
-        </div>
-      </Access>
+        <Access feature="guests" action="view">
+            <div className="flex flex-col gap-8">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>Guest Management</CardTitle>
+                            <CardDescription>You are managing {guests.length} total guests.</CardDescription>
+                        </div>
+                        <Access feature="guests" action="add">
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" onClick={() => setIsCsvUploaderOpen(true)}>
+                                    <Upload className="mr-2 h-4 w-4" /> Import CSV
+                                </Button>
+                                <Button disabled>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Guest
+                                </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground text-right mt-1">Add guests from the main dashboard.</p>
+                        </Access>
+                    </CardHeader>
+                    <CardContent>
+                        <Tabs defaultValue="active-guests" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="active-guests">Active Guests</TabsTrigger>
+                                <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="active-guests" className="mt-4">
+                                <GuestList guests={activeGuests} onEdit={() => { }} canEdit={canEditGuests} />
+                            </TabsContent>
+                            <TabsContent value="exited-guests" className="mt-4">
+                                <GuestList guests={exitedGuests} onEdit={() => { }} canEdit={canEditGuests} />
+                            </TabsContent>
+                        </Tabs>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <TenantCsvUploader
+                open={isCsvUploaderOpen}
+                onOpenChange={setIsCsvUploaderOpen}
+                onSuccess={() => window.location.reload()}
+            />
+        </Access>
     )
 }
