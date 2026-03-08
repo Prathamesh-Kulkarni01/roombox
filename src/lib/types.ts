@@ -221,6 +221,7 @@ export interface Guest {
   rentPaidAmount?: number; // Also deprecated
   additionalCharges?: AdditionalCharge[]; // Also deprecated
   schemaVersion?: number;
+  finalSettlementAmount?: number;
 }
 
 export interface AdditionalCharge { // Also deprecated

@@ -7,7 +7,7 @@
  */
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import { runReconciliationLogic } from '@/lib/reconciliation';
-import type { Guest, PG, LedgerEntry, SubmittedKycDocument } from '@/lib/types';
+import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument } from '@/lib/types';
 
 export interface Tenant {
     id: string;
@@ -78,7 +78,13 @@ export class TenantService {
             isVacated: false,
             kycStatus: 'not_submitted',
             documents: [],
-            ledger: [],
+            ledger: Number(deposit) > 0 ? [{
+                id: `charge-deposit-${Date.now()}`,
+                date: now,
+                type: 'debit',
+                description: 'Security Deposit',
+                amount: Number(deposit)
+            }] : [],
             paymentHistory: [],
             dueDate: dueDate || now,
             joinDate: joinDate || now,
@@ -87,6 +93,7 @@ export class TenantService {
             rentCycleValue: rentCycleValue || 1,
             createdAt: Date.now(),
             noticePeriodDays: 30,
+            schemaVersion: CURRENT_SCHEMA_VERSION,
         } as unknown as Guest;
 
         const batch = db.batch();
@@ -269,6 +276,27 @@ export class TenantService {
         const pgData = pgSnap.data()!;
         const vacatedAt = new Date().toISOString();
 
+        // Perform Deposit Reconciliation
+        const totalDebits = (guest.ledger || []).filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+        const totalCredits = (guest.ledger || []).filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+        const currentBalance = totalDebits - totalCredits;
+
+        let finalSettlementAmount = currentBalance;
+        const ledgerUpdates: any[] = [];
+
+        // Reverse the deposit charge by crediting the account. 
+        // A negative finalSettlementAmount means the PG owner owes the tenant a refund.
+        if (guest.deposit && guest.deposit > 0) {
+            ledgerUpdates.push({
+                id: `credit-deposit-refund-${Date.now()}`,
+                date: vacatedAt,
+                type: 'credit',
+                description: 'Security Deposit Refund / Adjustment',
+                amount: guest.deposit
+            });
+            finalSettlementAmount -= guest.deposit;
+        }
+
         // Free the bed in floors data
         const updatedFloors = pgData.floors
             ? (pgData.floors as any[]).map((floor: any) => ({
@@ -283,7 +311,18 @@ export class TenantService {
             : undefined;
 
         const batch = db.batch();
-        batch.update(guestRef, { isVacated: true, exitDate: vacatedAt });
+
+        const guestUpdates: any = {
+            isVacated: true,
+            exitDate: vacatedAt,
+            finalSettlementAmount
+        };
+
+        if (ledgerUpdates.length > 0) {
+            guestUpdates.ledger = FieldValue.arrayUnion(...ledgerUpdates);
+        }
+
+        batch.update(guestRef, guestUpdates);
         batch.update(pgRef, {
             occupancy: Math.max(0, (pgData.occupancy || 0) - 1),
             ...(updatedFloors ? { floors: updatedFloors } : {}),
