@@ -363,6 +363,8 @@ export class TenantService {
 
     /**
      * Record payment and run reconciliation.
+     * Wrapped in a Firestore transaction to prevent race conditions
+     * (e.g., owner updating rent while tenant pays simultaneously).
      */
     static async recordPayment(db: Firestore, input: {
         ownerId: string,
@@ -372,18 +374,13 @@ export class TenantService {
         paymentMode?: string,
         notes?: string
     }): Promise<{ guest: Guest, ledgerEntry: LedgerEntry, newBalance: number, newStatus: string }> {
-        const { ownerId, guestId, amount, paymentMode = 'cash', notes = '' } = input;
-        let guest = input.guest;
+        const { ownerId, amount, paymentMode = 'cash', notes = '' } = input;
+        const resolvedGuestId = input.guestId || input.guest?.id;
 
-        if (!guest && guestId) {
-            const snap = await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
-            if (!snap.exists) throw new Error('Guest not found');
-            guest = snap.data() as Guest;
-        }
+        if (!resolvedGuestId) throw new Error('Guest or guestId required');
+        if (!amount || Number(amount) <= 0) throw new Error('Payment amount must be greater than 0');
 
-        if (!guest) throw new Error('Guest or guestId required');
-
-        console.log(`[TenantService.recordPayment] Recording payment for ${guest.name}`);
+        const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(resolvedGuestId);
         const now = new Date();
 
         const creditEntry: LedgerEntry = {
@@ -394,37 +391,48 @@ export class TenantService {
             amount: Number(amount),
         };
 
-        const guestWithPayment = {
-            ...guest,
-            ledger: [...(guest.ledger || []), creditEntry],
-            paymentHistory: [
-                ...(guest.paymentHistory || []),
-                {
-                    id: `pay-${Date.now()}`,
-                    date: now.toISOString(),
-                    amount: Number(amount),
-                    method: paymentMode,
-                    forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-                },
-            ],
-        };
+        console.log(`[TenantService.recordPayment] Recording payment (transactional) for ${resolvedGuestId}`);
 
-        const { guest: reconciledGuest } = runReconciliationLogic(guestWithPayment as Guest, now);
+        const result = await db.runTransaction(async (txn) => {
+            const snap = await txn.get(guestRef);
+            if (!snap.exists) throw new Error('Guest not found');
+            const guest = snap.data() as Guest;
 
-        // Calculate balance
-        const totalDebits = reconciledGuest.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-        const totalCredits = reconciledGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-        const newBalance = totalDebits - totalCredits;
+            if (guest.isVacated) throw new Error('Cannot record payment for a vacated tenant');
 
-        await db.collection('users_data').doc(ownerId).collection('guests').doc(guest.id).set(reconciledGuest, { merge: true });
+            const guestWithPayment = {
+                ...guest,
+                ledger: [...(guest.ledger || []), creditEntry],
+                paymentHistory: [
+                    ...(guest.paymentHistory || []),
+                    {
+                        id: `pay-${Date.now()}`,
+                        date: now.toISOString(),
+                        amount: Number(amount),
+                        method: paymentMode,
+                        forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+                    },
+                ],
+            };
 
-        console.log(`[TenantService.recordPayment] Payment recorded. New Balance: ${newBalance}`);
-        return {
-            guest: reconciledGuest,
-            ledgerEntry: creditEntry,
-            newBalance,
-            newStatus: reconciledGuest.rentStatus
-        };
+            const { guest: reconciledGuest } = runReconciliationLogic(guestWithPayment as Guest, now);
+
+            const totalDebits = reconciledGuest.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+            const totalCredits = reconciledGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+            const newBalance = totalDebits - totalCredits;
+
+            txn.set(guestRef, reconciledGuest, { merge: true });
+
+            return {
+                guest: reconciledGuest,
+                ledgerEntry: creditEntry,
+                newBalance,
+                newStatus: reconciledGuest.rentStatus,
+            };
+        });
+
+        console.log(`[TenantService.recordPayment] Payment recorded. New Balance: ${result.newBalance}`);
+        return result;
     }
 
     /**

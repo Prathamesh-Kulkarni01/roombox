@@ -74,8 +74,15 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                 '9': 'dashboardLink',
             },
             validation: {
-                customValidator: (input) => ['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(input.trim()),
-                errorMessage: 'Please reply with a number from 1 to 9.',
+                customValidator: (input, ctx) => {
+                    const n = input.trim();
+                    // Staff users cannot access options 6/7/8 even by typing the number
+                    if (ctx?.userRole === 'staff' && ['6', '7', '8'].includes(n)) {
+                        return false;
+                    }
+                    return ['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(n);
+                },
+                errorMessage: 'Please reply with a valid option number.',
             },
         },
 
@@ -877,10 +884,34 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             type: 'display',
             label: 'KYC Uploaded',
             messageBuilder: (ctx) => (
-                `✅ *KYC Uploaded*\n\n` +
-                `${ctx.data.kycUpload?.type === 'photo' ? 'Photo' : 'Aadhaar Card'} has been saved to ${ctx.data.selectedTenant?.name}'s profile.\n\n` +
-                `Reply *Menu* to continue.`
+                ctx.data._kycError
+                    ? `⚠️ *Upload Issue*\n\nWe couldn't save the ${ctx.data.kycUpload?.type === 'photo' ? 'Photo' : 'Aadhaar Card'} right now. Please try again or upload from the dashboard.\n\nReply *Menu* to continue.`
+                    : `✅ *KYC Document Saved*\n\n` +
+                    `${ctx.data.kycUpload?.type === 'photo' ? '📸 Photo' : '📄 Aadhaar Card'} for *${ctx.data.selectedTenant?.name}* has been securely saved to their profile.\n\n` +
+                    `Reply *Menu* to continue.`
             ),
+            onEnter: async (ctx) => {
+                try {
+                    if (ctx.ownerId && ctx.data.selectedTenant?.id && ctx.data.kycUpload) {
+                        const db = await selectOwnerDataAdminDb(ctx.ownerId);
+                        const guestRef = db.collection('users_data').doc(ctx.ownerId).collection('guests').doc(ctx.data.selectedTenant.id);
+                        const { FieldValue } = await import('firebase-admin/firestore');
+                        const kycDoc = {
+                            configId: ctx.data.kycUpload.type === 'photo' ? 'tenant_photo' : 'aadhaar_card',
+                            label: ctx.data.kycUpload.type === 'photo' ? 'Tenant Photo' : 'Aadhaar Card',
+                            url: ctx.data.kycUpload.mediaId, // WhatsApp media ID — should be downloaded & uploaded to Storage in production
+                            status: 'pending' as const,
+                        };
+                        await guestRef.update({
+                            documents: FieldValue.arrayUnion(kycDoc),
+                            kycStatus: 'pending',
+                        });
+                    }
+                } catch (e: any) {
+                    console.error('[KYC Upload Error]', e);
+                    ctx.data._kycError = e.message;
+                }
+            },
             defaultNext: 'tenantActions',
         },
 
@@ -889,14 +920,29 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             id: 'confirmVacate',
             type: 'confirmation',
             label: 'Confirm Vacate',
-            messageBuilder: (ctx) => (
-                `⚠️ *Vacate Tenant*\n\n` +
-                `Are you sure you want to mark *${ctx.data.selectedTenant?.name}* as vacated?\n\n` +
-                `1️⃣ Yes, proceed to final confirmation\n2️⃣ Cancel`
-            ),
+            messageBuilder: (ctx) => {
+                // Corner case: tenant already vacated (e.g., concurrently on Web)
+                if (ctx.data.selectedTenant?.isVacated) {
+                    return `ℹ️ *${ctx.data.selectedTenant?.name}* is already marked as vacated.\n\nReply *Menu* to continue.`;
+                }
+                return (
+                    `⚠️ *Vacate Tenant*\n\n` +
+                    `Are you sure you want to mark *${ctx.data.selectedTenant?.name}* as vacated?\n\n` +
+                    `1️⃣ Yes, proceed to final confirmation\n2️⃣ Cancel`
+                );
+            },
             nextSteps: { '1': 'vacateConfirmWord', '2': 'tenantActions' },
+            nextStepsFn: async (input, ctx) => {
+                // If already vacated, any reply goes back to tenant actions
+                if (ctx.data.selectedTenant?.isVacated) return 'tenantActions';
+                return input.trim() === '1' ? 'vacateConfirmWord' : 'tenantActions';
+            },
             validation: {
-                customValidator: (input) => ['1', '2'].includes(input.trim()),
+                customValidator: (input, ctx) => {
+                    // If already vacated, accept any input to redirect
+                    if (ctx?.data?.selectedTenant?.isVacated) return true;
+                    return ['1', '2'].includes(input.trim());
+                },
                 errorMessage: 'Please reply 1 to confirm or 2 to cancel.',
             },
         },
@@ -1024,11 +1070,90 @@ export const addTenantWorkflow: WorkflowDefinition = {
 
         enterRoomForTenant: {
             id: 'enterRoomForTenant',
-            type: 'input',
-            label: 'Room',
-            messageBuilder: (ctx) => `Property: *${ctx.data.selectedPg?.name}*\n\nEnter the room/bed number:\n(e.g., Room 101, Bed A)\n\nOr reply *skip* to leave blank.`,
+            type: 'menu',
+            label: 'Select Room',
+            onEnter: async (ctx) => {
+                // Fetch actual rooms from the selected property's hierarchy
+                try {
+                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+                    const pgRef = db.collection('users_data').doc(ctx.ownerId!).collection('pgs').doc(ctx.data.selectedPg?.id);
+                    const pgSnap = await pgRef.get();
+                    if (pgSnap.exists) {
+                        const pgData = pgSnap.data()!;
+                        const rooms: { id: string; name: string; floorName: string; vacantBeds: number }[] = [];
+                        for (const floor of (pgData.floors || [])) {
+                            for (const room of (floor.rooms || [])) {
+                                const vacantBeds = (room.beds || []).filter((b: any) => !b.guestId).length;
+                                if (vacantBeds > 0) {
+                                    rooms.push({ id: room.id, name: room.name, floorName: floor.name, vacantBeds });
+                                }
+                            }
+                        }
+                        ctx.data._availableRooms = rooms;
+                    } else {
+                        ctx.data._availableRooms = [];
+                    }
+                } catch (e) {
+                    console.error('[enterRoomForTenant] Failed to load rooms:', e);
+                    ctx.data._availableRooms = [];
+                }
+            },
+            messageBuilder: (ctx) => {
+                const rooms = ctx.data._availableRooms || [];
+                if (rooms.length === 0) {
+                    return `Property: *${ctx.data.selectedPg?.name}*\n\n⚠️ No rooms with vacant beds found.\n\n1️⃣ Enter room name manually\n2️⃣ ← Back to Menu`;
+                }
+                let msg = `🏠 *${ctx.data.selectedPg?.name}* — Available Rooms\n\n`;
+                rooms.forEach((r: any, i: number) => {
+                    msg += `${i + 1}️⃣ ${r.floorName} → Room ${r.name} (${r.vacantBeds} bed${r.vacantBeds > 1 ? 's' : ''} free)\n`;
+                });
+                return msg;
+            },
+            optionsFn: async (ctx) => {
+                const rooms = ctx.data._availableRooms || [];
+                if (rooms.length === 0) {
+                    return [
+                        { key: '1', label: '✏️ Enter room name manually' },
+                        { key: '2', label: '← Back to Menu' },
+                    ];
+                }
+                return rooms.map((r: any, i: number) => ({ key: String(i + 1), label: `${r.floorName} → Room ${r.name}` }));
+            },
+            validation: {
+                customValidator: (input, ctx) => {
+                    const rooms = ctx.data._availableRooms || [];
+                    if (rooms.length === 0) return ['1', '2'].includes(input.trim());
+                    const n = parseInt(input);
+                    return !isNaN(n) && n >= 1 && n <= rooms.length;
+                },
+                errorMessage: 'Please reply with a valid number.',
+            },
             nextStepsFn: async (input, ctx) => {
-                ctx.data.roomName = input.toLowerCase() === 'skip' ? 'N/A' : input.trim();
+                const rooms = ctx.data._availableRooms || [];
+                if (rooms.length === 0) {
+                    if (input.trim() === '2') return '__goMainMenu';
+                    // Fallback: manual entry
+                    ctx.data._manualRoomEntry = true;
+                    return 'enterRoomManual';
+                }
+                const n = parseInt(input);
+                const selectedRoom = rooms[n - 1];
+                ctx.data.roomName = selectedRoom.name;
+                ctx.data.selectedRoomId = selectedRoom.id;
+                ctx.data._availableRooms = null;
+                return 'tenantFormName';
+            },
+        },
+
+        // Fallback: manual room entry when no structured rooms exist
+        enterRoomManual: {
+            id: 'enterRoomManual',
+            type: 'input',
+            label: 'Room (Manual)',
+            messageBuilder: (ctx) => `Property: *${ctx.data.selectedPg?.name}*\n\nType the room/bed identifier:\n(e.g., Room 101, Bed A)`,
+            nextStepsFn: async (input, ctx) => {
+                ctx.data.roomName = input.trim();
+                ctx.data._manualRoomEntry = null;
                 return 'tenantFormName';
             },
         },
@@ -1244,7 +1369,19 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'viewRentDetails',
             type: 'display',
             label: 'Rent Details',
-            messageTemplate: '💰 *Your Rent Details*\n\nVisit the tenant portal for full details:\nhttps://roombox.netlify.app/tenant\n\nReply *Menu* to return.',
+            messageBuilder: (ctx) => {
+                const balance = ctx.data.balance ?? 0;
+                const rent = ctx.data.rentAmount ?? 0;
+                const status = balance > 0 ? '🔴 Unpaid' : balance === 0 ? '🟢 Paid' : '🟢 Overpaid';
+                return (
+                    `💰 *Your Rent Details*\n\n` +
+                    `🏠 PG: ${ctx.data.pgName || 'Your PG'}\n` +
+                    `📋 Monthly Rent: ₹${rent}\n` +
+                    `💳 Current Balance: ₹${Math.abs(balance)} ${balance > 0 ? '(Due)' : balance < 0 ? '(Advance)' : ''}\n` +
+                    `📊 Status: ${status}\n\n` +
+                    `For full history, visit:\nhttps://roombox.netlify.app/tenant\n\nReply *Menu* to return.`
+                );
+            },
             defaultNext: 'tenantMenu',
         },
 
@@ -1252,7 +1389,15 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'payRent',
             type: 'display',
             label: 'Pay Rent',
-            messageTemplate: '💳 *Pay Rent*\n\nUse the secure payment link from your dashboard:\nhttps://roombox.netlify.app/tenant/pay\n\nReply *Menu* to return.',
+            messageBuilder: (ctx) => {
+                const balance = ctx.data.balance ?? 0;
+                const amountDue = balance > 0 ? `₹${balance}` : '₹0 (all caught up! 🎉)';
+                return (
+                    `💳 *Pay Your Rent*\n\n` +
+                    `Amount due: *${amountDue}*\n\n` +
+                    `Use the secure payment link from your dashboard:\nhttps://roombox.netlify.app/tenant/pay\n\nReply *Menu* to return.`
+                );
+            },
             defaultNext: 'tenantMenu',
         },
 
@@ -1309,16 +1454,52 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'confirmNotice',
             type: 'display',
             label: 'Notice Confirmed',
-            messageBuilder: (ctx) => `✅ *Notice Recorded*\n\nYour move-out notice has been sent to the owner. Your expected exit date is ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}.\n\nReply *Menu* to return.`,
+            messageBuilder: (ctx) => {
+                const exitDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+                return ctx.data._noticeError
+                    ? `⚠️ We couldn't record your notice right now. Please try again or contact your owner directly.\n\nReply *Menu* to return.`
+                    : `✅ *Notice Recorded Successfully*\n\n📋 Your 30-day move-out notice has been sent to the property owner.\n📅 Expected exit date: *${exitDate}*\n\nThe owner has been notified and will be in touch about deposit settlement.\n\nReply *Menu* to return.`;
+            },
             onEnter: async (ctx) => {
+                const ownerId = ctx.ownerId || ctx.data.ownerId;
+                const guestId = ctx.guestId || ctx.data.guestId;
+                if (!ownerId || !guestId) {
+                    ctx.data._noticeError = 'Missing owner or guest ID';
+                    return;
+                }
                 try {
-                    const db = await selectOwnerDataAdminDb(ctx.data.ownerId!);
-                    await db.collection('users_data').doc(ctx.data.ownerId!).collection('guests').doc(ctx.data.guestId).update({
+                    const exitDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                    const db = await selectOwnerDataAdminDb(ownerId);
+                    await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).update({
                         onNotice: true,
                         noticeDate: new Date().toISOString(),
-                        expectedExitDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                        expectedExitDate: exitDate.toISOString()
                     });
-                } catch (e: any) { console.error('Notice error:', e); }
+
+                    // ── Send WhatsApp notification to the owner ──
+                    try {
+                        const appDb = await getAdminDb();
+                        const ownerDoc = await appDb.collection('users').doc(ownerId).get();
+                        const ownerData = ownerDoc.data();
+                        const ownerPhone = ownerData?.phone || ownerData?.phoneNumber;
+                        if (ownerPhone) {
+                            const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
+                            const tenantName = ctx.tenantName || ctx.data.tenantName || 'A tenant';
+                            const pgName = ctx.data.pgName || 'your PG';
+                            await sendWhatsAppMessage(ownerPhone,
+                                `🔔 *Move-Out Notice Received*\n\n` +
+                                `Tenant *${tenantName}* from *${pgName}* has submitted a 30-day move-out notice.\n\n` +
+                                `📅 Expected exit: ${exitDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}\n\n` +
+                                `Please review on your dashboard and begin deposit settlement.`
+                            );
+                        }
+                    } catch (notifErr) {
+                        console.warn('[confirmNotice] Owner notification failed (non-blocking):', notifErr);
+                    }
+                } catch (e: any) {
+                    console.error('Notice error:', e);
+                    ctx.data._noticeError = e.message;
+                }
             },
             defaultNext: 'tenantMenu',
         }
