@@ -222,6 +222,8 @@ export interface Guest {
   additionalCharges?: AdditionalCharge[]; // Also deprecated
   schemaVersion?: number;
   finalSettlementAmount?: number;
+  lastReminderSentAt?: string;
+  lastReminderType?: 'T-3' | 'T-1' | 'T0' | 'T+2';
 }
 
 export interface AdditionalCharge { // Also deprecated

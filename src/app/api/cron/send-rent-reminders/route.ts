@@ -49,15 +49,33 @@ export async function GET(request: NextRequest) {
 
             // Filter for guests with a userId OR a phone number (for WhatsApp bots)
             const guestsWithAccountsOrPhones = guestsSnapshot.docs
-                .map(doc => doc.data() as Guest)
-                .filter(guest => !!guest.userId || !!guest.phone);
+                .map(doc => ({ ref: doc.ref, data: doc.data() as Guest }))
+                .filter(item => !!item.data.userId || !!item.data.phone);
 
-            for (const guest of guestsWithAccountsOrPhones) {
+            // BATCHING: Process 10 guests at a time to prevent timeout and respect rate limits
+            const CHUNK_SIZE = 10;
+            const nowString = now.toISOString();
 
-                // Use the centralized reminder logic
-                const reminderInfo = getReminderForGuest(guest, now);
+            for (let i = 0; i < guestsWithAccountsOrPhones.length; i += CHUNK_SIZE) {
+                const chunk = guestsWithAccountsOrPhones.slice(i, i + CHUNK_SIZE);
 
-                if (reminderInfo.shouldSend) {
+                const batchPromises = chunk.map(async ({ ref, data: guest }) => {
+                    // Use the centralized reminder logic
+                    const reminderInfo = getReminderForGuest(guest, now);
+
+                    if (!reminderInfo.shouldSend || !reminderInfo.type) return false;
+
+                    // IDEMPOTENCY: Check if we already sent this exact reminder type very recently (within 15 days for a monthly cycle)
+                    if (guest.lastReminderType === reminderInfo.type && guest.lastReminderSentAt) {
+                        const diffMs = now.getTime() - new Date(guest.lastReminderSentAt).getTime();
+                        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+                        if (diffDays < 15) {
+                            console.log(`[Idempotency] Skipping duplicate ${reminderInfo.type} reminder for guest: ${guest.id}`);
+                            return false;
+                        }
+                    }
+
+                    let messageSent = false;
 
                     // 1. Send In-App Notification if they have a web account
                     if (guest.userId) {
@@ -72,31 +90,56 @@ export async function GET(request: NextRequest) {
                                     targetId: guest.userId,
                                 }
                             });
+                            messageSent = true;
                         } catch (e) {
                             console.error(`Failed to send in-app notification to ${guest.userId}`);
                         }
                     }
 
-                    // 2. Send WhatsApp Notification if they have a phone number (RentSutra Automation Pillar)
+                    // 2. Send WhatsApp Notification if they have a phone number
                     if (guest.phone) {
                         try {
-                            // Ensure phone is formatted correctly (e.g., removing +, adding country code if needed)
-                            let formattedPhone = guest.phone.replace(/\\D/g, '');
+                            let formattedPhone = guest.phone.replace(/\D/g, '');
                             if (formattedPhone.length === 10) {
-                                formattedPhone = '91' + formattedPhone; // Assuming India for RentSutra
+                                formattedPhone = '91' + formattedPhone;
                             }
-                            await sendWhatsAppMessage(formattedPhone, reminderInfo.body);
+                            const waResult = await sendWhatsAppMessage(formattedPhone, reminderInfo.body);
+                            if (waResult?.success) {
+                                messageSent = true;
+                            }
                         } catch (e) {
                             console.error(`Failed to send WhatsApp message to ${guest.phone}`);
                         }
                     }
 
-                    totalRemindersSent++;
+                    // Update Guest Document for Idempotency
+                    if (messageSent) {
+                        try {
+                            await ref.update({
+                                lastReminderSentAt: nowString,
+                                lastReminderType: reminderInfo.type
+                            });
+                            return true;
+                        } catch (err) {
+                            console.error(`Failed to update idempotency keys for guest ${guest.id}:`, err);
+                        }
+                    }
+
+                    return false;
+                });
+
+                // Wait for the chunk to process
+                const results = await Promise.all(batchPromises);
+                totalRemindersSent += results.filter(sent => sent).length;
+
+                // Rate limiting delay between chunks
+                if (i + CHUNK_SIZE < guestsWithAccountsOrPhones.length) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
         }
 
-        const message = `Reconciliation complete. Sent ${totalRemindersSent} rent reminders.`;
+        const message = `Reconciliation complete. Successfully sent ${totalRemindersSent} unique rent reminders.`;
         console.log(message);
         return NextResponse.json({ success: true, message });
 

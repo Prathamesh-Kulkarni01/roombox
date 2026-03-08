@@ -103,13 +103,7 @@ export class TenantService {
                 isVacated: false,
                 kycStatus: 'not_submitted',
                 documents: [],
-                ledger: Number(deposit) > 0 ? [{
-                    id: `charge-deposit-${Date.now()}`,
-                    date: now,
-                    type: 'debit',
-                    description: 'Security Deposit',
-                    amount: Number(deposit)
-                }] : [],
+                ledger: [],
                 paymentHistory: [],
                 dueDate: dueDate || now,
                 joinDate: joinDate || now,
@@ -306,21 +300,20 @@ export class TenantService {
         const totalCredits = (guest.ledger || []).filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
         const currentBalance = totalDebits - totalCredits;
 
-        let finalSettlementAmount = currentBalance;
-        const ledgerUpdates: any[] = [];
+        // As per the Escrow Model: Deposit is handled entirely separately from operating rent.
+        // It is NOT injected into the ledger as a credit/debit until final settlement logic.
+        let finalSettlementAmount = 0;
 
-        // Reverse the deposit charge by crediting the account. 
-        // A negative finalSettlementAmount means the PG owner owes the tenant a refund.
         if (guest.depositAmount && guest.depositAmount > 0) {
-            ledgerUpdates.push({
-                id: `credit-deposit-refund-${Date.now()}`,
-                date: vacatedAt,
-                type: 'credit',
-                description: 'Security Deposit Refund / Adjustment',
-                amount: guest.depositAmount
-            });
-            finalSettlementAmount -= guest.depositAmount;
+            finalSettlementAmount = guest.depositAmount - currentBalance;
+        } else {
+            finalSettlementAmount = -currentBalance;
         }
+
+        // Positive finalSettlementAmount means the PG owner physically refunds the tenant.
+        // Negative finalSettlementAmount means the tenant must still pay the remaining debt.
+
+        const ledgerUpdates: any[] = [];
 
         // Free the bed in floors data
         const updatedFloors = pgData.floors

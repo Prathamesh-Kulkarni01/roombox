@@ -84,27 +84,45 @@ export async function sendWhatsAppImageMessage(to: string, imageLink: string) {
     return makeWhatsAppApiCall(payload);
 }
 
-async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload) {
-    try {
-        const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        });
+async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries = 3) {
+    let lastError: any = null;
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('WhatsApp API Error:', errorData);
-            return { success: false, error: errorData };
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error(`WhatsApp API Error (Attempt ${attempt}/${maxRetries}):`, errorData);
+                lastError = errorData;
+
+                // If it's a 4xx error (e.g., bad request, invalid number), don't retry
+                if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+                    return { success: false, error: errorData };
+                }
+            } else {
+                const data = await response.json();
+                return { success: true, data };
+            }
+        } catch (error) {
+            console.error(`Error calling WhatsApp API (Attempt ${attempt}/${maxRetries}):`, error);
+            lastError = error;
         }
 
-        const data = await response.json();
-        return { success: true, data };
-    } catch (error) {
-        console.error('Error calling WhatsApp API:', error);
-        return { success: false, error };
+        // Exponential backoff for retries: 1s, 2s, 4s...
+        if (attempt < maxRetries) {
+            const delay = Math.pow(2, attempt - 1) * 1000;
+            console.log(`Waiting ${delay}ms before retrying WhatsApp message...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
     }
+
+    return { success: false, error: lastError };
 }
