@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
+import { TenantService } from '@/services/tenantService';
 
 // GET /api/complaints?[pgId=xxx][&status=open]
 export async function GET(req: NextRequest) {
@@ -48,6 +49,12 @@ export async function PATCH(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
         const ref = db.collection('users_data').doc(ownerId).collection('complaints').doc(complaintId);
         await ref.set(updates, { merge: true });
+
+        // Trigger WhatsApp notification if status changed
+        if (updates.status) {
+            await TenantService.notifyComplaintStatusChange(db, ownerId, complaintId, updates.status)
+                .catch(err => console.error('Failed to notify tenant of complaint update:', err));
+        }
 
         const updated = await ref.get();
         return NextResponse.json({ success: true, complaint: { id: updated.id, ...updated.data() } });

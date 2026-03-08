@@ -395,6 +395,8 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                 await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Owner)`);
                 await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
             } else {
+                const isOnboarded = await checkTenantIsOnboarded(acc.ownerId, acc.id);
+
                 await updateSession(from, 'IDLE', {
                     isAuthenticatedTenant: true,
                     tenantName: acc.name,
@@ -402,14 +404,45 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     ownerId: acc.ownerId,
                     pgId: acc.pgId,
                 });
-                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Tenant in ${acc.pgName || 'PG'})`);
-                await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+
+                if (!isOnboarded) {
+                    await switchToWorkflow(from, await getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
+                } else {
+                    await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Tenant in ${acc.pgName || 'PG'})`);
+                    await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+                }
             }
             return;
         }
 
         // 2. Multiple Accounts Found -> Selection Menu
         if (allAccounts.length > 1) {
+            // Auto-resolve duplicate tenant accounts (Zero owners, multiple tenants)
+            const tenants = allAccounts.filter(a => a.type === 'tenant');
+            const owners = allAccounts.filter(a => a.type === 'owner');
+
+            if (owners.length === 0 && tenants.length > 1) {
+                // Default to the first found active tenant record
+                const acc = tenants[0];
+                const isOnboarded = await checkTenantIsOnboarded(acc.ownerId, acc.id);
+
+                await updateSession(from, 'IDLE', {
+                    isAuthenticatedTenant: true,
+                    tenantName: acc.name,
+                    guestId: acc.id,
+                    ownerId: acc.ownerId,
+                    pgId: acc.pgId,
+                });
+
+                if (!isOnboarded) {
+                    await switchToWorkflow(from, await getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
+                } else {
+                    await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`);
+                    await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+                }
+                return;
+            }
+
             await updateSession(from, 'AWAITING_ACCOUNT_SELECTION', { identifiedAccounts: allAccounts });
             let menu = `Hi ${allAccounts[0].name}! We found multiple accounts for this number.\n\nPlease select which one to log in to:\n\n`;
             allAccounts.forEach((acc, i) => {
@@ -420,15 +453,15 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
             return;
         }
 
-        // 3. No Account Found -> Role Selection / New Signup
-        await updateSession(from, 'AWAITING_USER_ROLE', {});
+        // 3. No Account Found -> Dead End / Support / App Link
+        await updateSession(from, 'IDLE');
         await sendWhatsAppMessage(
             from,
-            `Welcome to RoomBox 🏠\n\n` +
-            `We don't recognize your number. Are you a new owner or an existing tenant?\n\n` +
-            `1️⃣ I am a Property Owner (Register)\n` +
-            `2️⃣ I am a Tenant (Login)\n` +
-            `3️⃣ Support`
+            `👋 *Welcome to RoomBox!*\n\n` +
+            `It looks like this number isn't registered with us.\n\n` +
+            `• *Are you a Tenant?* Ask your PG Owner to add your number to their dashboard.\n` +
+            `• *Are you an Owner?* Visit https://roombox.netlify.app to sign up and manage your PG.\n\n` +
+            `Need help? Email us at support@roombox.app`
         );
         return;
     }

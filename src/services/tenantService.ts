@@ -569,4 +569,45 @@ export class TenantService {
         }
         return { guest: reconciledGuest, cyclesProcessed };
     }
+
+    /**
+     * Notifies a tenant about a complaint status change via WhatsApp.
+     */
+    static async notifyComplaintStatusChange(db: Firestore, ownerId: string, complaintId: string, status: string): Promise<void> {
+        console.log(`[TenantService.notifyComplaintStatusChange] Root call for ${complaintId} -> ${status}`);
+        const complaintRef = db.collection('users_data').doc(ownerId).collection('complaints').doc(complaintId);
+        const compSnap = await complaintRef.get();
+        if (!compSnap.exists) return;
+
+        const compData = compSnap.data() as any;
+        const guestId = compData.guestId;
+        if (!guestId) return;
+
+        const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+        const guestSnap = await guestRef.get();
+        if (!guestSnap.exists) return;
+
+        const guestData = guestSnap.data() as Guest;
+        const phone = guestData.phone;
+        if (!phone) return;
+
+        const statusLabel = status === 'resolved' ? '✅ *Resolved*' :
+            status === 'in-progress' ? '⏳ *In Progress*' : status;
+
+        const message = `🔧 *Update on your Maintenance Request*\n\n` +
+            `Issue: ${compData.description || compData.category}\n` +
+            `New Status: ${statusLabel}\n\n` +
+            (status === 'resolved' ? `If this isn't fixed yet, please contact your landlord.` : `We are working on it!`);
+
+        try {
+            let formattedPhone = phone.replace(/\D/g, '');
+            if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
+
+            const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
+            await sendWhatsAppMessage(formattedPhone, message);
+            console.log(`[TenantService.notifyComplaintStatusChange] WhatsApp notification sent to ${formattedPhone}`);
+        } catch (err) {
+            console.warn(`[TenantService.notifyComplaintStatusChange] Failed to send WhatsApp:`, err);
+        }
+    }
 }

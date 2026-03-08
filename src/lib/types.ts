@@ -224,6 +224,7 @@ export interface Guest {
   finalSettlementAmount?: number;
   lastReminderSentAt?: string;
   lastReminderType?: 'T-3' | 'T-1' | 'T0' | 'T+2';
+  balance: number;
   isOnboarded?: boolean;
 }
 

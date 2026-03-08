@@ -44,7 +44,12 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
   };
 
   try {
-    if (fbPrivateKey && fbClientEmail && fbProjectId) {
+    const isEmulator = process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST;
+
+    if (isEmulator) {
+      // Use dummy credentials for local emulator
+      appOptions.projectId = fbProjectId || 'roombox-test';
+    } else if (fbPrivateKey && fbClientEmail && fbProjectId) {
       // Use individual environment variables (Netlify 4KB limit workaround)
       appOptions.credential = cert({
         projectId: fbProjectId,

@@ -1372,7 +1372,10 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             messageBuilder: (ctx) => {
                 const balance = ctx.data.balance ?? 0;
                 const rent = ctx.data.rentAmount ?? 0;
-                const status = balance > 0 ? '🔴 Unpaid' : balance === 0 ? '🟢 Paid' : '🟢 Overpaid';
+                let status = balance > 0 ? '🔴 Unpaid' : balance === 0 ? '🟢 Paid' : '🟢 Overpaid';
+                if (balance > 0 && balance < rent) {
+                    status = '🟡 Partially Paid';
+                }
                 return (
                     `💰 *Your Rent Details*\n\n` +
                     `🏠 PG: ${ctx.data.pgName || 'Your PG'}\n` +
@@ -1444,10 +1447,14 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
         // ---------- Give Notice ----------
         giveNotice: {
             id: 'giveNotice',
-            type: 'confirmation',
+            type: 'menu',
             label: 'Give Notice',
-            messageTemplate: '⚠️ *Give Move-out Notice*\n\nAre you sure you want to give a 30-day notice to vacate?\n\n1️⃣ Yes, Give Notice\n2️⃣ Cancel',
-            nextSteps: { '1': 'confirmNotice', '2': 'tenantMenu' },
+            messageTemplate: '⚠️ *Give Move-out Notice*\n\nAre you sure you want to give a 30-day notice to vacate?\n\n1️⃣ Yes, Give Notice\n2️⃣ Talk to Owner\n3️⃣ Cancel',
+            nextSteps: { '1': 'confirmNotice', '2': 'contactOwner', '3': 'tenantMenu' },
+            validation: {
+                customValidator: (input) => ['1', '2', '3'].includes(input.trim()),
+                errorMessage: 'Please reply with 1, 2, or 3.',
+            },
         },
 
         confirmNotice: {
@@ -1589,9 +1596,8 @@ export const tenantLazyOnboardingWorkflow: WorkflowDefinition = {
             label: 'Confirm Name',
             messageBuilder: (ctx) =>
                 `👋 *Welcome to RoomBox!*\n\n` +
-                `Hi *${ctx.tenantName || 'there'}*! Your PG owner has added you to the system.\n\n` +
-                `Let's complete your profile quickly — it'll only take a minute.\n\n` +
-                `First, what is your *full name*?\n(Reply with your name or type *skip* to keep existing name)`,
+                `Hi *${ctx.tenantName || 'there'}*! Let's quickly setup your profile.\n\n` +
+                `*What is your full name?*\n(Reply with name or *skip*)`,
             nextStepsFn: async (input, ctx) => {
                 if (input.trim().toLowerCase() !== 'skip') {
                     ctx.data.lazy_name = input.trim();
@@ -1606,7 +1612,7 @@ export const tenantLazyOnboardingWorkflow: WorkflowDefinition = {
             id: 'askEmail',
             type: 'input',
             label: 'Email Address',
-            messageTemplate: '📧 What is your *email address*?\n(Reply *skip* to leave blank)',
+            messageTemplate: '📧 *What is your email address?*\n(Reply with email or *skip*)',
             nextStepsFn: async (input, ctx) => {
                 ctx.data.lazy_email = input.trim().toLowerCase() === 'skip' ? '' : input.trim();
                 return 'askKycPhoto';
@@ -1617,7 +1623,7 @@ export const tenantLazyOnboardingWorkflow: WorkflowDefinition = {
             id: 'askKycPhoto',
             type: 'input',
             label: 'Selfie / Photo',
-            messageTemplate: '📸 Please send a clear *selfie photo* of yourself for your profile.\n\nThis is used for KYC verification.\n(Reply *skip* to do this later)',
+            messageTemplate: '📸 *Please send a selfie photo for your profile.*\n(Send photo or reply *skip*)',
             nextStepsFn: async (input, ctx) => {
                 // For image messages the router passes the media ID as `text`
                 if (input.trim().toLowerCase() === 'skip') {
@@ -1633,7 +1639,7 @@ export const tenantLazyOnboardingWorkflow: WorkflowDefinition = {
             id: 'askKycAadhaar',
             type: 'input',
             label: 'Aadhaar Card',
-            messageTemplate: '🪪 Now send a photo of your *Aadhaar Card* (front side).\n\n(Reply *skip* to do this later)',
+            messageTemplate: '🪪 *Please send a photo of your Aadhaar Card (front side).*\n(Send photo or reply *skip*)',
             nextStepsFn: async (input, ctx) => {
                 if (input.trim().toLowerCase() === 'skip') {
                     ctx.data.lazy_aadhaarId = null;

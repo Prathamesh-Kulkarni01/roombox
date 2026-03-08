@@ -16,10 +16,10 @@ export function runReconciliationLogic(
     // Even if not overdue, let's ensure the status is correct based on the current balance.
     const currentBalance = (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
     if (guest.rentStatus !== 'paid' && currentBalance <= 0) {
-        const correctedGuest = produce(guest, draft => {
-            draft.rentStatus = 'paid';
-        });
-        return { guest: correctedGuest, cyclesProcessed: 0 };
+      const correctedGuest = produce(guest, draft => {
+        draft.rentStatus = 'paid';
+      });
+      return { guest: correctedGuest, cyclesProcessed: 0 };
     }
     return { guest, cyclesProcessed: 0 };
   }
@@ -32,9 +32,9 @@ export function runReconciliationLogic(
   let nextDueDate = dueDate;
 
   // Iteratively count how many cycles have passed.
-  while(isAfter(now, nextDueDate)) {
-      cyclesToProcess++;
-      nextDueDate = calculateFirstDueDate(nextDueDate, cycleUnit, cycleValue, billingAnchorDay);
+  while (isAfter(now, nextDueDate)) {
+    cyclesToProcess++;
+    nextDueDate = calculateFirstDueDate(nextDueDate, cycleUnit, cycleValue, billingAnchorDay);
   }
 
   if (cyclesToProcess <= 0) return { guest, cyclesProcessed: 0 };
@@ -54,7 +54,7 @@ export function runReconciliationLogic(
         amount: draft.rentAmount,
       };
       draft.ledger.push(rentEntry);
-      
+
       currentDueDate = calculateFirstDueDate(currentDueDate, cycleUnit, cycleValue, billingAnchorDay);
     }
 
@@ -64,12 +64,15 @@ export function runReconciliationLogic(
     const totalCredits = draft.ledger.filter((e) => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
     const balance = totalDebits - totalCredits;
 
+    draft.balance = balance;
+
     // Corrected Logic: If a new cycle has been added, the balance will be > 0.
     // The status should become 'unpaid' because this is a new, unpaid charge.
     // The 'partial' status should only be set when a *payment* is made that doesn't clear the balance.
     // The reconciliation logic's job is to add debits, thus making it 'unpaid'.
     if (balance > 0) {
-      draft.rentStatus = 'unpaid';
+      const hasCredits = draft.ledger.some((e) => e.type === 'credit');
+      draft.rentStatus = hasCredits ? 'partial' : 'unpaid';
     } else {
       draft.rentStatus = 'paid';
     }
@@ -81,4 +84,3 @@ export function runReconciliationLogic(
   };
 }
 
-    
