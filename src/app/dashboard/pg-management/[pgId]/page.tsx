@@ -52,7 +52,7 @@ export default function RoomManagementPage() {
   const { toast } = useToast()
 
   // Migrate guests from Redux to RTK Query
-  const { data: guestsData } = useGetGuestsQuery({ ownerId: currentUser?.role === 'owner' ? currentUser.id : currentUser?.ownerId || '', pgId }, { skip: !currentUser });
+  const { data: guestsData } = useGetGuestsQuery({ pgId }, { skip: !currentUser });
   const guests = guestsData?.guests || [];
 
   const [isEditMode, setIsEditMode] = useState(false)

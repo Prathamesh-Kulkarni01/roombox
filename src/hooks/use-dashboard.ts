@@ -247,7 +247,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
     try {
       const result = await addGuest({
-        ownerId,
         name: values.name,
         phone: values.phone,
         email: values.email || '',
@@ -278,7 +277,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
     try {
       await updateGuest({
-        ownerId,
         guestId: guestToEdit.id,
         updates: values,
       }).unwrap();
@@ -296,7 +294,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
     try {
       await recordPayment({
-        ownerId,
         guest: selectedGuestForPayment,
         amount: values.amountPaid,
         method: values.paymentMethod,
@@ -329,7 +326,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
     try {
       await addSharedCharge({
-        ownerId,
         roomId: roomForSharedCharge.room.id,
         description,
         amount: finalAmount,
@@ -350,7 +346,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
     try {
       await initiateExit({
-        ownerId,
         guestId: guestToInitiateExit.id,
       }).unwrap();
       setGuestToInitiateExit(null);
@@ -367,7 +362,6 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
 
     try {
       await vacateGuest({
-        ownerId,
         guestId: guestToExitImmediately.id,
       }).unwrap();
       setGuestToExitImmediately(null);
@@ -391,10 +385,14 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     const totalDue = (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
 
     try {
+      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
       const response = await fetch('/api/generate-payment-link', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guestId: guest.id, ownerId: currentUser.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ guestId: guest.id }),
       });
 
       const result = await response.json();
@@ -440,7 +438,6 @@ Thank you!`;
     });
     if (currentUser) {
       updateProperty({
-        ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
         pgId: pg.id,
         updates: nextState
       });
@@ -492,7 +489,6 @@ Thank you!`;
       });
       if (currentUser) {
         await updateProperty({
-          ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
           pgId,
           updates: nextState
         }).unwrap();
@@ -523,7 +519,6 @@ Thank you!`;
     });
     if (currentUser) {
       updateProperty({
-        ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
         pgId: pg.id,
         updates: nextState
       });
@@ -570,7 +565,6 @@ Thank you!`;
 
     if (currentUser) {
       await updateProperty({
-        ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
         pgId: pg.id,
         updates: nextState
       }).unwrap();
@@ -604,7 +598,6 @@ Thank you!`;
 
     if (currentUser) {
       await updateProperty({
-        ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
         pgId: pg.id,
         updates: nextState
       }).unwrap();
@@ -670,7 +663,6 @@ Thank you!`;
     if (JSON.stringify(pg) !== JSON.stringify(nextState)) {
       if (currentUser) {
         updateProperty({
-          ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
           pgId: pg.id,
           updates: nextState
         });

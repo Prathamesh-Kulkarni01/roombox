@@ -12,7 +12,8 @@ import { getEnv } from '../env';
 // the WorkflowContext stored in session.data.workflowContext
 export type BotState =
     | 'IDLE'
-    | 'AWAITING_USER_ROLE';
+    | 'AWAITING_USER_ROLE'
+    | 'AWAITING_ACCOUNT_SELECTION';
 
 export interface UserSession {
     state: BotState;

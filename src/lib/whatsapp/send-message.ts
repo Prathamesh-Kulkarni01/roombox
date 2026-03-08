@@ -26,10 +26,8 @@ export async function sendWhatsAppMessage(to: string, messageBody: string) {
         return { success: true, mock: true };
     }
 
-    try {
-        const fs = require('fs');
-        fs.appendFileSync('wa-logs.txt', `\\n💬 [BOT SAYS TO ${to}]: ${messageBody}\\n`);
-    } catch (e) { }
+    // 🛡️ SECURITY: Basic sanitization of dangerous characters
+    const sanitizedMsg = messageBody.replace(/[<>\\"]/g, '');
 
     const payload: WhatsAppMessagePayload = {
         messaging_product: "whatsapp",
@@ -38,7 +36,7 @@ export async function sendWhatsAppMessage(to: string, messageBody: string) {
         type: "text",
         text: {
             preview_url: false,
-            body: messageBody
+            body: sanitizedMsg
         }
     };
 

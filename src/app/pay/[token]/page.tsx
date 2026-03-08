@@ -44,18 +44,17 @@ export default function PublicPaymentPage() {
                 .finally(() => setLoading(false));
         }
     }, [token]);
-    
+
     const handlePayNow = () => {
         if (!details || details.guest.totalDue <= 0) return;
 
         startPaymentTransition(async () => {
-             try {
+            try {
                 const res = await fetch('/api/razorpay/create-rent-order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        guestId: details.guest.id,
-                        ownerId: details.ownerId,
+                        token,
                         amount: details.guest.totalDue,
                     }),
                 });
@@ -64,7 +63,7 @@ export default function PublicPaymentPage() {
                 if (!success || !order) {
                     throw new Error(error || 'Failed to create payment order.');
                 }
-                
+
                 const options = {
                     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
                     amount: order.amount,
@@ -95,11 +94,11 @@ export default function PublicPaymentPage() {
                 rzp.open();
 
             } catch (error: any) {
-                 toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not initiate payment.' });
+                toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not initiate payment.' });
             }
         })
     }
-    
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-muted/40">
@@ -117,10 +116,10 @@ export default function PublicPaymentPage() {
 
     if (error) {
         return (
-             <div className="flex items-center justify-center min-h-screen bg-muted/40 text-center p-4">
+            <div className="flex items-center justify-center min-h-screen bg-muted/40 text-center p-4">
                 <Card className="w-full max-w-md">
                     <CardHeader>
-                        <ShieldX className="w-12 h-12 mx-auto text-destructive"/>
+                        <ShieldX className="w-12 h-12 mx-auto text-destructive" />
                         <CardTitle className="mt-4">Oops! Something went wrong.</CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -130,7 +129,7 @@ export default function PublicPaymentPage() {
             </div>
         )
     }
-    
+
     if (!details) return null;
 
     const { guest } = details;
@@ -139,33 +138,33 @@ export default function PublicPaymentPage() {
         <div className="flex items-center justify-center min-h-screen bg-muted/40 p-4">
             <Card className="w-full max-w-md">
                 <CardHeader className="text-center">
-                    <Building className="w-10 h-10 mx-auto text-primary mb-2"/>
+                    <Building className="w-10 h-10 mx-auto text-primary mb-2" />
                     <CardTitle className="text-2xl">Rent Payment for {guest.pgName}</CardTitle>
                     <CardDescription>Hi {guest.name}, here is your rent summary.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="flex justify-between items-center text-sm p-3 rounded-lg border bg-muted">
-                        <span className="text-muted-foreground flex items-center gap-2"><Calendar className="w-4 h-4"/>Due Date</span>
+                        <span className="text-muted-foreground flex items-center gap-2"><Calendar className="w-4 h-4" />Due Date</span>
                         <span className="font-semibold">{format(parseISO(guest.dueDate), 'do MMMM, yyyy')}</span>
                     </div>
 
                     <div className="space-y-2 pt-4 border-t">
                         <p className="font-semibold text-base">Dues Breakdown:</p>
                         {guest.dueItems && guest.dueItems.length > 0 ? (
-                           guest.dueItems.map(item => (
+                            guest.dueItems.map(item => (
                                 <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
                                     <span>{item.description}</span>
                                     <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
                                 </div>
                             ))
                         ) : (
-                           <div className="flex justify-between text-sm text-muted-foreground"><span>Current Rent</span><span>₹{guest.rentAmount.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between text-sm text-muted-foreground"><span>Current Rent</span><span>₹{guest.rentAmount.toLocaleString('en-IN')}</span></div>
                         )}
                     </div>
 
                     <div className="flex justify-between items-center pt-4 border-t">
                         <span className="font-bold text-lg">Total Due</span>
-                        <span className="font-extrabold text-2xl text-primary flex items-center"><IndianRupee className="w-6 h-6"/>{guest.totalDue.toLocaleString('en-IN')}</span>
+                        <span className="font-extrabold text-2xl text-primary flex items-center"><IndianRupee className="w-6 h-6" />{guest.totalDue.toLocaleString('en-IN')}</span>
                     </div>
                 </CardContent>
                 <div className="p-6 pt-2">

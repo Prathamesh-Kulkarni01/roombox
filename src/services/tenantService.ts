@@ -1,4 +1,13 @@
-import { Firestore } from 'firebase-admin/firestore';
+/**
+ * tenantService.ts — Unified Tenant & Guest service logic
+ *
+ * This is the SINGLE SOURCE OF TRUTH for all tenant operations,
+ * shared between the Web UI (via API routes) and the WhatsApp bot.
+ * It combines the old GuestService and TenantService logic.
+ */
+import { Firestore, FieldValue } from 'firebase-admin/firestore';
+import { runReconciliationLogic } from '@/lib/reconciliation';
+import type { Guest, PG, LedgerEntry, SubmittedKycDocument } from '@/lib/types';
 
 export interface Tenant {
     id: string;
@@ -17,65 +26,481 @@ export interface RentSummary {
 
 export class TenantService {
     /**
-     * Fetches the current month's rent summary for an owner.
+     * Onboards a new tenant with centralized logic.
+     * Handles Firestore updates, bed assignment, user linking/invites, and welcome notifications.
      */
-    static async getMonthlyRentSummary(db: Firestore, ownerId: string): Promise<RentSummary> {
-        try {
-            const guestsSnap = await db.collection('users_data').doc(ownerId).collection('guests')
-                .where('isVacated', '==', false)
-                .get();
+    static async onboardTenant(db: Firestore, appDb: Firestore, input: any): Promise<Guest> {
+        console.log('🌟 [TenantService.onboardTenant] CALLED with phone:', input.phone);
+        const {
+            ownerId, name, email, phone, pgId, pgName,
+            bedId, roomId, roomName, rentAmount, deposit,
+            dueDate, joinDate, rentCycleUnit, rentCycleValue
+        } = input;
 
-            let expected = 0;
-            let collected = 0;
+        console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
 
-            guestsSnap.forEach(docSnap => {
-                const guestData = docSnap.data();
-                expected += (guestData.rentAmount || 0);
-                collected += (guestData.paidAmount || 0); // Simplified for now
-            });
-
-            return {
-                expected,
-                collected,
-                pending: expected - collected,
-            };
-        } catch (error) {
-            console.error('Error fetching monthly rent summary:', error);
-            throw error;
+        // Verify the PG exists
+        const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
+        const pgDoc = await pgRef.get();
+        if (!pgDoc.exists) {
+            console.error(`[TenantService.onboardTenant] Property not found: ${pgId}`);
+            throw new Error('Property not found');
         }
+        const pgData = pgDoc.data()!;
+
+        const guestId = `g-${Date.now()}`;
+        const now = new Date().toISOString();
+
+        const rawPhone = phone || '';
+        const cleanPhoneStr = rawPhone.replace(/\D/g, '');
+        // For standard 10 digit Indian numbers, prefix with +91 if not present.
+        // Otherwise just use the digits (prefixed with + if they had country code)
+        const standardizedPhone = cleanPhoneStr.length === 10 ? `+91${cleanPhoneStr}` :
+            (cleanPhoneStr ? `+${cleanPhoneStr}` : '');
+
+        const newGuest: Guest = {
+            id: guestId,
+            ownerId,
+            name,
+            email: email || '',
+            phone: standardizedPhone,
+            pgId,
+            pgName: pgName || pgData.name,
+            bedId: bedId || '',
+            roomId: roomId || '',
+            roomName: roomName || '',
+            rentAmount: Number(rentAmount),
+            deposit: Number(deposit || 0),
+            balance: 0,
+            paidAmount: 0,
+            rentStatus: 'pending',
+            paymentStatus: 'pending',
+            isVacated: false,
+            kycStatus: 'not_submitted',
+            documents: [],
+            ledger: [],
+            paymentHistory: [],
+            dueDate: dueDate || now,
+            joinDate: joinDate || now,
+            moveInDate: joinDate || now,
+            rentCycleUnit: rentCycleUnit || 'months',
+            rentCycleValue: rentCycleValue || 1,
+            createdAt: Date.now(),
+            noticePeriodDays: 30,
+        } as unknown as Guest;
+
+        const batch = db.batch();
+
+        // Save guest
+        const guestDocRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+        batch.set(guestDocRef, newGuest);
+
+        // Update PG occupancy & Bed assignment
+        const pgUpdates: any = { occupancy: (pgData.occupancy || 0) + 1 };
+        if (bedId && pgData.floors) {
+            console.log(`[TenantService.onboardTenant] Marking bed ${bedId} as occupied`);
+            pgUpdates.floors = (pgData.floors as any[]).map((floor: any) => ({
+                ...floor,
+                rooms: floor.rooms.map((room: any) => ({
+                    ...room,
+                    beds: room.beds.map((bed: any) =>
+                        bed.id === bedId ? { ...bed, guestId } : bed
+                    ),
+                })),
+            }));
+        }
+
+        batch.update(pgRef, pgUpdates);
+
+        await batch.commit();
+        console.log(`[TenantService.onboardTenant] Successfully committed tenant document: ${guestId}`);
+
+        // 1. Link/Invite User & Magic Link Generation
+        let magicLink: string | null = null;
+        if (appDb) {
+            try {
+                // Find user by email or phone to link and notify via FCM
+                let userDoc: any = null;
+                if (email) {
+                    const snap = await appDb.collection('users').where('email', '==', email).limit(1).get();
+                    if (!snap.empty) userDoc = snap.docs[0];
+                }
+                if (!userDoc && phone) {
+                    const cleanPhone = phone.replace(/\D/g, '');
+                    const variations = [cleanPhone];
+                    if (cleanPhone.length === 10) {
+                        variations.push('91' + cleanPhone);
+                        variations.push('+91' + cleanPhone);
+                    } else if (cleanPhone.length === 12 && cleanPhone.startsWith('91')) {
+                        variations.push(cleanPhone.substring(2));
+                        variations.push('+91' + cleanPhone);
+                    }
+
+                    for (const v of variations) {
+                        const snap = await appDb.collection('users').where('phone', '==', v).limit(1).get();
+                        if (!snap.empty) {
+                            userDoc = snap.docs[0];
+                            break;
+                        }
+                    }
+                }
+
+                if (userDoc) {
+                    const userData = userDoc.data();
+                    console.log(`[TenantService.onboardTenant] Found existing user ${userDoc.id}. Linking...`);
+                    await appDb.doc(`users/${userDoc.id}`).update({ guestId, pgId, ownerId, phone: standardizedPhone }); // Ensure phone is synced
+
+                    if (userData.fcmToken) {
+                        try {
+                            const { getAdminMessaging } = await import('@/lib/firebaseAdmin');
+                            const messaging = await getAdminMessaging();
+                            console.log(`[TenantService.onboardTenant] Sending FCM to token: ${userData.fcmToken.substring(0, 10)}...`);
+                            await messaging.send({
+                                token: userData.fcmToken,
+                                notification: {
+                                    title: '🏠 Welcome to RoomBox!',
+                                    body: `You have been added as a tenant in ${pgName || pgData.name}.`
+                                },
+                                webpush: { fcmOptions: { link: '/' } }
+                            });
+                            console.log(`[TenantService.onboardTenant] FCM sent successfully.`);
+                        } catch (fcmErr) { console.warn(`[TenantService.onboardTenant] FCM Notify Failed:`, fcmErr); }
+                    }
+                } else {
+                    // AUTO-VERIFICATION: If no user doc exists, create a skeleton one with the phone number
+                    // so the WhatsApp bot (Smart Router) recognizes them immediately.
+                    if (phone) {
+                        console.log(`[TenantService.onboardTenant] Creating skeleton user for phone: ${standardizedPhone}`);
+                        const userPlaceholder = {
+                            phone: standardizedPhone,
+                            role: 'tenant',
+                            guestId,
+                            pgId,
+                            ownerId,
+                            name,
+                            createdAt: Date.now(),
+                        };
+                        // Use a phone-based ID if no email exists to avoid collisions
+                        const idPrefix = email ? email : `phone-${standardizedPhone.replace(/\D/g, '')}`;
+                        await appDb.collection('users').doc(idPrefix).set(userPlaceholder, { merge: true });
+                    }
+
+                    if (email) {
+                        console.log(`[TenantService.onboardTenant] No user found for ${email}. Creating invite and magic link...`);
+                        await appDb.doc(`invites/${email}`).set({ email, ownerId, role: 'tenant', details: newGuest, createdAt: Date.now() });
+
+                        try {
+                            const { getAdminAuth } = await import('@/lib/firebaseAdmin');
+                            const auth = await getAdminAuth();
+                            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.netlify.app';
+                            magicLink = await auth.generateSignInWithEmailLink(email, {
+                                url: `${baseUrl}/login/verify`,
+                                handleCodeInApp: true,
+                            });
+                            console.log(`[TenantService.onboardTenant] Magic link generated successfully.`);
+                        } catch (mErr) {
+                            console.warn(`[TenantService.onboardTenant] Magic link generation failed:`, mErr);
+                        }
+                    }
+                }
+            } catch (userLinkErr) {
+                console.warn(`[TenantService.onboardTenant] User link/FCM failed:`, userLinkErr);
+            }
+        }
+
+        // 2. WhatsApp Welcome
+        if (phone) {
+            try {
+                let formattedPhone = phone.replace(/\D/g, '');
+                if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
+
+                console.log(`[TenantService.onboardTenant] Sending WhatsApp welcome to ${formattedPhone}`);
+                const welcomeMsg = `🏠 *Welcome to ${pgName || pgData.name}!*\n\n` +
+                    `Hi ${name}, you have been added as a tenant.\n\n` +
+                    (magicLink ? `🔐 *Login to your dashboard:* ${magicLink}\n\n` : '') +
+                    `Reply *Hi* to see your rent details and pay online.`;
+
+                const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
+                await sendWhatsAppMessage(formattedPhone, welcomeMsg);
+                console.log(`[TenantService.onboardTenant] WhatsApp sent successfully.`);
+            } catch (waErr) {
+                console.warn(`[TenantService.onboardTenant] WA Notify Failed:`, waErr);
+            }
+        }
+
+        console.log(`[TenantService.onboardTenant] Onboarding complete for ${guestId}`);
+        return newGuest;
     }
 
     /**
-     * Retrieves a list of active tenants with optional filtering by payment status.
+     * Update a tenant record atomically.
      */
-    static async getActiveTenants(db: Firestore, ownerId: string, limit: number = 10, paymentStatus?: string): Promise<Tenant[]> {
-        try {
-            let query = db.collection('users_data').doc(ownerId).collection('guests')
-                .where('isVacated', '==', false);
+    static async updateTenant(db: Firestore, ownerId: string, guestId: string, updates: Partial<Guest>): Promise<void> {
+        console.log(`[TenantService.updateTenant] Updating ${guestId}`);
+        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).update(updates);
+    }
 
-            if (paymentStatus) {
-                query = query.where('paymentStatus', '==', paymentStatus);
+    /**
+     * Initiate exit process.
+     */
+    static async initiateTenantExit(db: Firestore, ownerId: string, guestId: string, noticePeriodDays: number = 30): Promise<Partial<Guest>> {
+        console.log(`[TenantService.initiateTenantExit] Initiating exit for ${guestId}`);
+        const exitDate = new Date();
+        exitDate.setDate(exitDate.getDate() + noticePeriodDays);
+        const exitDateStr = exitDate.toISOString();
+        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({ exitDate: exitDateStr }, { merge: true });
+        return { id: guestId, exitDate: exitDateStr };
+    }
+
+    /**
+     * Vacate a tenant: mark vacated, free bed, decrement occupancy.
+     */
+    static async vacateTenant(db: Firestore, ownerId: string, guestId: string, appDb?: Firestore): Promise<{ guestId: string; pgId: string }> {
+        console.log(`[TenantService.vacateTenant] Vacating ${guestId}`);
+        const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+        const snap = await guestRef.get();
+        if (!snap.exists) throw new Error(`Guest not found: ${guestId}`);
+
+        const guest = snap.data() as Guest;
+        const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(guest.pgId);
+        const pgSnap = await pgRef.get();
+        if (!pgSnap.exists) throw new Error(`PG not found: ${guest.pgId}`);
+
+        const pgData = pgSnap.data()!;
+        const vacatedAt = new Date().toISOString();
+
+        // Free the bed in floors data
+        const updatedFloors = pgData.floors
+            ? (pgData.floors as any[]).map((floor: any) => ({
+                ...floor,
+                rooms: floor.rooms.map((room: any) => ({
+                    ...room,
+                    beds: room.beds.map((bed: any) =>
+                        bed.guestId === guestId ? { ...bed, guestId: null } : bed
+                    ),
+                })),
+            }))
+            : undefined;
+
+        const batch = db.batch();
+        batch.update(guestRef, { isVacated: true, exitDate: vacatedAt });
+        batch.update(pgRef, {
+            occupancy: Math.max(0, (pgData.occupancy || 0) - 1),
+            ...(updatedFloors ? { floors: updatedFloors } : {}),
+        });
+        await batch.commit();
+
+        // Clear user's active guestId (best-effort)
+        if (guest.userId && appDb) {
+            try {
+                await appDb.doc(`users/${guest.userId}`).set({ guestId: null, pgId: null }, { merge: true });
+            } catch (e) {
+                console.warn('[TenantService.vacateTenant] Could not clear user guestId:', e);
             }
-
-            const guestsSnap = await query.limit(limit).get();
-
-            const tenants: Tenant[] = [];
-            guestsSnap.forEach(docSnap => {
-                const data = docSnap.data();
-                tenants.push({
-                    id: docSnap.id,
-                    name: data.name || 'Unnamed Tenant',
-                    pgName: data.pgName,
-                    rentAmount: data.rentAmount || 0,
-                    balance: data.balance || 0,
-                    paymentStatus: data.paymentStatus || 'pending',
-                });
-            });
-
-            return tenants;
-        } catch (error) {
-            console.error('Error fetching active tenants:', error);
-            throw error;
         }
+
+        console.log(`[TenantService.vacateTenant] ${guestId} vacated successfully.`);
+        return { guestId, pgId: guest.pgId };
+    }
+
+    /**
+     * Record payment and run reconciliation.
+     */
+    static async recordPayment(db: Firestore, input: {
+        ownerId: string,
+        guestId?: string,
+        guest?: Guest,
+        amount: number,
+        paymentMode?: string,
+        notes?: string
+    }): Promise<{ guest: Guest, ledgerEntry: LedgerEntry, newBalance: number, newStatus: string }> {
+        const { ownerId, guestId, amount, paymentMode = 'cash', notes = '' } = input;
+        let guest = input.guest;
+
+        if (!guest && guestId) {
+            const snap = await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
+            if (!snap.exists) throw new Error('Guest not found');
+            guest = snap.data() as Guest;
+        }
+
+        if (!guest) throw new Error('Guest or guestId required');
+
+        console.log(`[TenantService.recordPayment] Recording payment for ${guest.name}`);
+        const now = new Date();
+
+        const creditEntry: LedgerEntry = {
+            id: `credit-${Date.now()}`,
+            date: now.toISOString(),
+            type: 'credit',
+            description: `${notes || 'Rent Payment'} (${paymentMode})`,
+            amount: Number(amount),
+        };
+
+        const guestWithPayment = {
+            ...guest,
+            ledger: [...(guest.ledger || []), creditEntry],
+            paymentHistory: [
+                ...(guest.paymentHistory || []),
+                {
+                    id: `pay-${Date.now()}`,
+                    date: now.toISOString(),
+                    amount: Number(amount),
+                    method: paymentMode,
+                    forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+                },
+            ],
+        };
+
+        const { guest: reconciledGuest } = runReconciliationLogic(guestWithPayment as Guest, now);
+
+        // Calculate balance
+        const totalDebits = reconciledGuest.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+        const totalCredits = reconciledGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+        const newBalance = totalDebits - totalCredits;
+
+        await db.collection('users_data').doc(ownerId).collection('guests').doc(guest.id).set(reconciledGuest, { merge: true });
+
+        console.log(`[TenantService.recordPayment] Payment recorded. New Balance: ${newBalance}`);
+        return {
+            guest: reconciledGuest,
+            ledgerEntry: creditEntry,
+            newBalance,
+            newStatus: reconciledGuest.rentStatus
+        };
+    }
+
+    /**
+     * KYC status update.
+     */
+    static async updateKycStatus(db: Firestore, ownerId: string, guestId: string, status: 'verified' | 'rejected', reason?: string): Promise<void> {
+        console.log(`[TenantService.updateKycStatus] Setting ${guestId} to ${status}`);
+        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({
+            kycStatus: status,
+            kycRejectReason: reason || null,
+        }, { merge: true });
+    }
+
+    /**
+     * Submit KYC documents.
+     */
+    static async submitKycDocuments(db: Firestore, ownerId: string, guestId: string, documents: SubmittedKycDocument[]): Promise<void> {
+        console.log(`[TenantService.submitKycDocuments] ${guestId} submitted ${documents.length} docs`);
+        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({
+            kycStatus: 'pending',
+            documents,
+        }, { merge: true });
+    }
+
+    /**
+     * Reset KYC.
+     */
+    static async resetKyc(db: Firestore, ownerId: string, guestId: string): Promise<void> {
+        console.log(`[TenantService.resetKyc] Resetting KYC for ${guestId}`);
+        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({
+            kycStatus: 'not-started',
+            kycRejectReason: null,
+            documents: [],
+        }, { merge: true });
+    }
+
+    /**
+     * Add charge.
+     */
+    static async addCharge(db: Firestore, ownerId: string, guestId: string, charge: { description: string, amount: number }): Promise<LedgerEntry> {
+        console.log(`[TenantService.addCharge] Adding charge to ${guestId}: ${charge.description}`);
+        const newCharge: LedgerEntry = {
+            id: `charge-${Date.now()}`,
+            date: new Date().toISOString(),
+            type: 'debit',
+            description: charge.description,
+            amount: charge.amount,
+        };
+        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).update({
+            ledger: FieldValue.arrayUnion(newCharge),
+        });
+        return newCharge;
+    }
+
+    /**
+     * Remove charge.
+     */
+    static async removeCharge(db: Firestore, ownerId: string, guestId: string, chargeId: string): Promise<void> {
+        console.log(`[TenantService.removeCharge] Removing ${chargeId} from ${guestId}`);
+        const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+        const snap = await guestRef.get();
+        if (!snap.exists) throw new Error('Guest not found');
+        const guest = snap.data() as Guest;
+        const charge = (guest.ledger || []).find(c => c.id === chargeId);
+        if (!charge) throw new Error('Charge not found');
+        await guestRef.update({ ledger: FieldValue.arrayRemove(charge) });
+    }
+
+    /**
+     * Shared room charge.
+     */
+    static async addSharedRoomCharge(db: Firestore, ownerId: string, roomId: string, charge: { description: string, amount: number }): Promise<{ updatedCount: number }> {
+        console.log(`[TenantService.addSharedRoomCharge] Adding ${charge.amount} shared charge to room ${roomId}`);
+        const guestsSnap = await db.collection('users_data').doc(ownerId).collection('guests')
+            .where('roomId', '==', roomId)
+            .where('isVacated', '==', false)
+            .get();
+
+        if (guestsSnap.empty) throw new Error('No active guests in this room');
+
+        const chargePerGuest = charge.amount / guestsSnap.docs.length;
+        const batch = db.batch();
+        guestsSnap.docs.forEach(doc => {
+            const newCharge: LedgerEntry = {
+                id: `charge-${Date.now()}-${doc.id}`,
+                date: new Date().toISOString(),
+                type: 'debit',
+                description: charge.description,
+                amount: chargePerGuest,
+            };
+            batch.update(doc.ref, { ledger: FieldValue.arrayUnion(newCharge) });
+        });
+        await batch.commit();
+        return { updatedCount: guestsSnap.docs.length };
+    }
+
+    /**
+     * Fetches monthly summary.
+     */
+    static async getMonthlyRentSummary(db: Firestore, ownerId: string): Promise<RentSummary> {
+        const guestsSnap = await db.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
+        let expected = 0;
+        let collected = 0;
+        guestsSnap.forEach(doc => {
+            const d = doc.data();
+            expected += (d.rentAmount || 0);
+            collected += (d.paidAmount || 0);
+        });
+        return { expected, collected, pending: expected - collected };
+    }
+
+    /**
+     * Fetches tenants.
+     */
+    static async getActiveTenants(db: Firestore, ownerId: string, limit: number = 200, status?: string): Promise<any[]> {
+        let query = db.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false);
+        if (status) query = query.where('paymentStatus', '==', status);
+        const snap = await query.limit(limit).get();
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    /**
+     * Advance billing cycles.
+     */
+    static async reconcileRentCycle(db: Firestore, ownerId: string, guestId: string, mockDate?: string): Promise<{ guest: Guest, cyclesProcessed: number }> {
+        const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+        const snap = await guestRef.get();
+        if (!snap.exists) throw new Error('Guest not found');
+        const guest = snap.data() as Guest;
+        const now = mockDate ? new Date(mockDate) : new Date();
+        const { guest: reconciledGuest, cyclesProcessed } = runReconciliationLogic(guest, now);
+        if (cyclesProcessed > 0 || JSON.stringify(guest) !== JSON.stringify(reconciledGuest)) {
+            await guestRef.set(reconciledGuest, { merge: true });
+        }
+        return { guest: reconciledGuest, cyclesProcessed };
     }
 }

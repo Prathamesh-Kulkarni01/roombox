@@ -16,9 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { LedgerEntry } from "@/lib/types"
 
 const rentStatusColors: Record<string, string> = {
-  paid: 'bg-green-100 text-green-800 border-green-300',
-  unpaid: 'bg-red-100 text-red-800 border-red-300',
-  partial: 'bg-orange-100 text-orange-800 border-orange-300',
+    paid: 'bg-green-100 text-green-800 border-green-300',
+    unpaid: 'bg-red-100 text-red-800 border-red-300',
+    partial: 'bg-orange-100 text-orange-800 border-orange-300',
 };
 
 const kycStatusColors: Record<string, string> = {
@@ -58,12 +58,12 @@ export default function MyPgPage() {
         if (!room) return { roomName: 'N/A', bedName: 'N/A' };
         const bed = room.beds.find(b => b.id === currentGuest.bedId);
         if (!bed) return { roomName: 'N/A', bedName: 'N/A' };
-        return { roomName: room.name, bedName: bed.name };  
+        return { roomName: room.name, bedName: bed.name };
     }, [currentPg, currentGuest, pgs]);
 
-     const { totalDue, dueItems } = useMemo(() => {
+    const { totalDue, dueItems } = useMemo(() => {
         if (!currentGuest?.ledger) return { totalDue: 0, dueItems: [] };
-        
+
         let balance = 0;
         const unpaidDebits: LedgerEntry[] = [];
         const allCredits = currentGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
@@ -82,13 +82,13 @@ export default function MyPgPage() {
                 creditsToApply = 0;
             }
         }
-        
+
         balance = unpaidDebits.reduce((sum, item) => sum + item.amount, 0);
-        
+
         return { totalDue: balance, dueItems: unpaidDebits };
     }, [currentGuest]);
-    
-     useEffect(() => {
+
+    useEffect(() => {
         if (!currentGuest?.dueDate) return;
 
         const interval = setInterval(() => {
@@ -101,7 +101,7 @@ export default function MyPgPage() {
                 const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
                 const minutes = Math.floor((totalSeconds % 3600) / 60);
                 const seconds = totalSeconds % 60;
-                
+
                 setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
             } else {
                 setTimeLeft('Due');
@@ -116,15 +116,18 @@ export default function MyPgPage() {
 
     const handlePayNow = () => {
         if (!currentGuest || !currentUser || !currentUser.ownerId || totalDue <= 0) return;
-        
+
         startPaymentTransition(async () => {
-             try {
+            try {
+                const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
                 const res = await fetch('/api/razorpay/create-rent-order', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({
                         guestId: currentGuest.id,
-                        ownerId: currentUser.ownerId,
                         amount: totalDue,
                     }),
                 });
@@ -133,7 +136,7 @@ export default function MyPgPage() {
                 if (!success || !order) {
                     throw new Error(error || 'Failed to create payment order.');
                 }
-                
+
                 const options = {
                     key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
                     amount: order.amount,
@@ -166,7 +169,7 @@ export default function MyPgPage() {
                 rzp.open();
 
             } catch (error: any) {
-                 toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not initiate payment.' });
+                toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not initiate payment.' });
             }
         });
     };
@@ -189,7 +192,7 @@ export default function MyPgPage() {
                     </Card>
                 </div>
                 <div className="lg:col-span-1 space-y-6">
-                     <Card>
+                    <Card>
                         <CardHeader><Skeleton className="h-7 w-1/2" /></CardHeader>
                         <CardContent className="space-y-4">
                             <Skeleton className="h-6 w-full" />
@@ -198,7 +201,7 @@ export default function MyPgPage() {
                             <Skeleton className="h-6 w-full" />
                         </CardContent>
                         <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
-                     </Card>
+                    </Card>
                 </div>
             </div>
         )
@@ -215,7 +218,7 @@ export default function MyPgPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-2xl">
-                           <Building/> Welcome to {currentGuest.pgName}!
+                            <Building /> Welcome to {currentGuest.pgName}!
                         </CardTitle>
                         <CardDescription>Here are the details about your stay.</CardDescription>
                     </CardHeader>
@@ -226,8 +229,8 @@ export default function MyPgPage() {
                         <div className="flex items-center gap-3"><FileText className="w-5 h-5 text-primary" /><p>Notice Period: <span className="font-medium">{currentGuest.noticePeriodDays} days</span></p></div>
                     </CardContent>
                     {exitDate && isValid(exitDate) && !currentGuest.isVacated && (
-                         <CardFooter>
-                             <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200 w-full">
+                        <CardFooter>
+                            <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200 w-full">
                                 <AlertCircle className="text-blue-600 dark:text-blue-400" />
                                 <AlertTitle className="font-semibold">Notice Period Active</AlertTitle>
                                 <AlertDescription>Your final day to vacate is <span className="font-bold">{format(exitDate, "do MMMM, yyyy")}</span>.</AlertDescription>
@@ -242,7 +245,7 @@ export default function MyPgPage() {
                         <CardTitle className="text-xl">Rent Details</CardTitle>
                         <CardDescription>Due on {dueDate && isValid(dueDate) ? format(dueDate, "do MMMM, yyyy") : 'N/A'}</CardDescription>
                     </CardHeader>
-                     <CardContent className="space-y-4">
+                    <CardContent className="space-y-4">
                         {currentGuest.rentStatus !== 'paid' && timeLeft && (
                             <div className="text-center p-3 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800">
                                 <p className="text-sm text-yellow-800 dark:text-yellow-300 font-semibold">Time Left to Pay</p>
@@ -253,10 +256,10 @@ export default function MyPgPage() {
                             <span>Status:</span>
                             <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[currentGuest.rentStatus])}>{currentGuest.rentStatus}</Badge>
                         </div>
-                        
-                         <div className="space-y-2 pt-4 border-t">
-                             <p className="font-semibold text-base">Dues Breakdown</p>
-                             {dueItems.length > 0 ? dueItems.map(item => (
+
+                        <div className="space-y-2 pt-4 border-t">
+                            <p className="font-semibold text-base">Dues Breakdown</p>
+                            {dueItems.length > 0 ? dueItems.map(item => (
                                 <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
                                     <span>{item.description}</span>
                                     <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
@@ -267,12 +270,12 @@ export default function MyPgPage() {
 
                         <div className="flex justify-between items-center text-base pt-4 border-t">
                             <span className="font-bold">Total Amount Due:</span>
-                            <span className="font-bold text-lg text-primary flex items-center"><IndianRupee className="w-5 h-5"/>{totalDue.toLocaleString('en-IN')}</span>
+                            <span className="font-bold text-lg text-primary flex items-center"><IndianRupee className="w-5 h-5" />{totalDue.toLocaleString('en-IN')}</span>
                         </div>
                     </CardContent>
                     <CardFooter>
                         <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={handlePayNow} disabled={totalDue <= 0 || isPaying}>
-                            {isPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            {isPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Pay Now
                         </Button>
                     </CardFooter>

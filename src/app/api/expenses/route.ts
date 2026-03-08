@@ -4,19 +4,17 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 
-function badRequest(msg: string) {
-    return NextResponse.json({ error: msg }, { status: 400 });
-}
-
-// GET /api/expenses?ownerId=xxx[&pgId=xxx][&category=maintenance]
+// GET /api/expenses?[pgId=xxx][&category=maintenance]
 export async function GET(req: NextRequest) {
-    const ownerId = req.nextUrl.searchParams.get('ownerId');
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     const pgId = req.nextUrl.searchParams.get('pgId') || undefined;
     const category = req.nextUrl.searchParams.get('category') || undefined;
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '100', 10);
-
-    if (!ownerId) return badRequest('ownerId is required');
 
     try {
         const db = await selectOwnerDataAdminDb(ownerId);
@@ -32,17 +30,19 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ success: true, expenses });
     } catch (error: any) {
-        console.error('GET /api/expenses error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to fetch expenses' }, { status: 500 });
+        return serverError(error, 'GET /api/expenses');
     }
 }
 
 // POST /api/expenses — create an expense
 export async function POST(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
-        const { ownerId, expense } = body;
-        if (!ownerId || !expense) return badRequest('ownerId and expense are required');
+        const { expense } = body;
+        if (!expense) return badRequest('expense data is required');
 
         const { description, amount, category, pgId, date } = expense;
         if (!description || !amount || !category) {
@@ -66,24 +66,25 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ success: true, expense: newExpense }, { status: 201 });
     } catch (error: any) {
-        console.error('POST /api/expenses error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to create expense' }, { status: 500 });
+        return serverError(error, 'POST /api/expenses');
     }
 }
 
 // DELETE /api/expenses — delete an expense
 export async function DELETE(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
-        const { ownerId, expenseId } = body;
-        if (!ownerId || !expenseId) return badRequest('ownerId and expenseId are required');
+        const { expenseId } = body;
+        if (!expenseId) return badRequest('expenseId is required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
         await db.collection('users_data').doc(ownerId).collection('expenses').doc(expenseId).delete();
 
         return NextResponse.json({ success: true, expenseId });
     } catch (error: any) {
-        console.error('DELETE /api/expenses error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to delete expense' }, { status: 500 });
+        return serverError(error, 'DELETE /api/expenses');
     }
 }

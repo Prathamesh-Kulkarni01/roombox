@@ -227,10 +227,14 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
         if (!currentUser || !phoneNumber) return;
         setIsVerifying(true);
         try {
+            const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
             const res = await fetch('/api/whatsapp/send-verification-otp', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ownerId: currentUser.id, phone: phoneNumber })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ phone: phoneNumber })
             });
             const data = await res.json();
             if (data.success) {
@@ -250,10 +254,14 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
         if (!currentUser || !otp) return;
         setIsVerifying(true);
         try {
+            const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
             const res = await fetch('/api/whatsapp/verify-phone-otp', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ownerId: currentUser.id, otp })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ otp })
             });
             const data = await res.json();
             if (data.success) {

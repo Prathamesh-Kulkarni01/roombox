@@ -30,13 +30,13 @@ export default function DashboardPage() {
   const { toast } = useToast();
 
   // RTK Query hooks
-  const { data: pgsData, isLoading: isLoadingPgs } = useGetPropertiesQuery(currentUser?.id || '', {
+  const { data: pgsData, isLoading: isLoadingPgs } = useGetPropertiesQuery(undefined, {
     skip: !currentUser?.id
   });
-  const { data: guestsData, isLoading: isLoadingGuests } = useGetGuestsQuery({ ownerId: currentUser?.id || '' }, {
+  const { data: guestsData, isLoading: isLoadingGuests } = useGetGuestsQuery(undefined, {
     skip: !currentUser?.id
   });
-  const { data: complaintsData, isLoading: isLoadingComplaints } = useGetComplaintsQuery({ ownerId: currentUser?.id || '' }, {
+  const { data: complaintsData, isLoading: isLoadingComplaints } = useGetComplaintsQuery(undefined, {
     skip: !currentUser?.id
   });
 

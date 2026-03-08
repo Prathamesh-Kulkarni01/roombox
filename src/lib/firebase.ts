@@ -5,13 +5,13 @@ import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Function to check if the Firebase config keys have been set
@@ -23,7 +23,7 @@ export const isFirebaseConfigured = () => {
 const app = isFirebaseConfigured() && !getApps().length ? initializeApp(firebaseConfig) : (getApps().length > 0 ? getApp() : null);
 
 // Initialize default firestore instance
-const db = app ? getFirestore(app) : null;
+const db = app ? initializeFirestore(app, { experimentalAutoDetectLongPolling: true }) : null;
 const auth = app ? getAuth(app) : null;
 
 const dynamicDbInstances: { [key: string]: any } = {};
@@ -92,7 +92,7 @@ export function getOwnerClientDb(config: OwnerClientConfig, databaseId?: string)
 export function selectOwnerDataDb(currentUser: any) {
     const enterprise = currentUser?.subscription?.enterpriseProject;
     if (enterprise?.clientConfig) {
-        return getOwnerClientDb(enterprise.clientConfig as OwnerClientConfig, enterprise.databaseId) 
+        return getOwnerClientDb(enterprise.clientConfig as OwnerClientConfig, enterprise.databaseId)
             || (enterprise?.databaseId ? getDynamicDb(enterprise.databaseId) : db);
     }
     if (enterprise?.databaseId) {

@@ -88,6 +88,11 @@ export interface WorkflowContext {
     isAuthenticatedTenant: boolean;
     ownerId?: string;
     ownerName?: string;
+    tenantName?: string;
+    guestId?: string;
+    pgId?: string;
+    identifiedAccounts?: any[]; // Array of owner/tenant matches
+    selectedAccountId?: string; // Index or ID of selected account
 
     // User identity
     userId: string;

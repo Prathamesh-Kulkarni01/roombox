@@ -5,19 +5,17 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 
-function badRequest(msg: string) {
-    return NextResponse.json({ error: msg }, { status: 400 });
-}
-
-// GET /api/complaints?ownerId=xxx[&pgId=xxx][&status=open]
+// GET /api/complaints?[pgId=xxx][&status=open]
 export async function GET(req: NextRequest) {
-    const ownerId = req.nextUrl.searchParams.get('ownerId');
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     const pgId = req.nextUrl.searchParams.get('pgId') || undefined;
     const status = req.nextUrl.searchParams.get('status') || undefined;
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '100', 10);
-
-    if (!ownerId) return badRequest('ownerId is required');
 
     try {
         const db = await selectOwnerDataAdminDb(ownerId);
@@ -33,17 +31,19 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ success: true, complaints });
     } catch (error: any) {
-        console.error('GET /api/complaints error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to fetch complaints' }, { status: 500 });
+        return serverError(error, 'GET /api/complaints');
     }
 }
 
 // PATCH /api/complaints — update complaint status
 export async function PATCH(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
-        const { ownerId, complaintId, updates } = body;
-        if (!ownerId || !complaintId || !updates) return badRequest('ownerId, complaintId, and updates are required');
+        const { complaintId, updates } = body;
+        if (!complaintId || !updates) return badRequest('complaintId and updates are required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
         const ref = db.collection('users_data').doc(ownerId).collection('complaints').doc(complaintId);
@@ -52,17 +52,19 @@ export async function PATCH(req: NextRequest) {
         const updated = await ref.get();
         return NextResponse.json({ success: true, complaint: { id: updated.id, ...updated.data() } });
     } catch (error: any) {
-        console.error('PATCH /api/complaints error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to update complaint' }, { status: 500 });
+        return serverError(error, 'PATCH /api/complaints');
     }
 }
 
-// POST /api/complaints — create a complaint (used by WhatsApp bot)
+// POST /api/complaints — create a complaint
 export async function POST(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
-        const { ownerId, complaint } = body;
-        if (!ownerId || !complaint) return badRequest('ownerId and complaint are required');
+        const { complaint } = body;
+        if (!complaint) return badRequest('complaint is required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
         const id = `cmp-${Date.now()}`;
@@ -76,7 +78,6 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ success: true, complaint: newComplaint }, { status: 201 });
     } catch (error: any) {
-        console.error('POST /api/complaints error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to create complaint' }, { status: 500 });
+        return serverError(error, 'POST /api/complaints');
     }
 }

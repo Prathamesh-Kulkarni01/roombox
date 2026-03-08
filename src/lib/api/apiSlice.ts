@@ -62,26 +62,39 @@ export interface StaffResponse {
     error?: string;
 }
 
+
+import { auth as clientAuth } from '@/lib/firebase';
+
 // ─── API Slice ─────────────────────────────────────────────────────────────────
 
 export const api = createApi({
     reducerPath: 'api',
-    baseQuery: fetchBaseQuery({ baseUrl: '/' }),
+    baseQuery: fetchBaseQuery({
+        baseUrl: '/',
+        prepareHeaders: async (headers) => {
+            if (clientAuth) {
+                const token = await clientAuth.currentUser?.getIdToken();
+                if (token) {
+                    headers.set('Authorization', `Bearer ${token}`);
+                }
+            }
+            return headers;
+        },
+    }),
     tagTypes: ['Properties', 'Tenants', 'Rent', 'Guests', 'Complaints', 'Expenses', 'Staff'],
     endpoints: (builder) => ({
 
         // ─── Properties ────────────────────────────────────────────────
-        getProperties: builder.query<PropertyResponse, string>({
-            query: (ownerId) => `api/properties?ownerId=${ownerId}`,
+        getProperties: builder.query<PropertyResponse, void>({
+            query: () => `api/properties`,
             providesTags: ['Properties'],
         }),
 
         createProperty: builder.mutation<{ success: boolean; pg: PG }, {
-            ownerId: string;
             name: string;
             location: string;
             city: string;
-            gender: 'male' | 'female' | 'co-living';
+            gender: 'boys' | 'girls' | 'unisex';
             autoSetup?: boolean;
             floorCount?: number;
             roomsPerFloor?: number;
@@ -90,16 +103,15 @@ export const api = createApi({
             invalidatesTags: ['Properties'],
         }),
 
-        deleteProperty: builder.mutation<{ success: boolean }, { ownerId: string; pgId: string }>({
-            query: ({ ownerId, pgId }) => ({
-                url: `api/properties?ownerId=${ownerId}&pgId=${pgId}`,
+        deleteProperty: builder.mutation<{ success: boolean }, { pgId: string }>({
+            query: ({ pgId }) => ({
+                url: `api/properties?pgId=${pgId}`,
                 method: 'DELETE',
             }),
             invalidatesTags: ['Properties'],
         }),
 
         updateProperty: builder.mutation<{ success: boolean; pg: PG }, {
-            ownerId: string;
             pgId: string;
             updates: Partial<PG>;
         }>({
@@ -108,23 +120,22 @@ export const api = createApi({
         }),
 
         // ─── Tenants (via /api/tenants) ─────────────────────────────────
-        getTenants: builder.query<TenantResponse, { ownerId: string; status?: string; limit?: number }>({
-            query: ({ ownerId, status, limit }) => {
-                let url = `api/tenants?ownerId=${ownerId}`;
-                if (status) url += `&status=${status}`;
-                if (limit) url += `&limit=${limit}`;
+        getTenants: builder.query<TenantResponse, { status?: string; limit?: number } | void>({
+            query: (params) => {
+                let url = `api/tenants`;
+                if (params?.status) url += `?status=${params.status}`;
+                if (params?.limit) url += (params.status ? '&' : '?') + `limit=${params.limit}`;
                 return url;
             },
             providesTags: ['Tenants'],
         }),
 
-        getRentSummary: builder.query<TenantResponse, string>({
-            query: (ownerId) => `api/tenants?ownerId=${ownerId}&summary=true`,
+        getRentSummary: builder.query<TenantResponse, void>({
+            query: () => `api/tenants?summary=true`,
             providesTags: ['Rent'],
         }),
 
         createTenant: builder.mutation<{ success: boolean; guest: Guest }, {
-            ownerId: string;
             guestData: Partial<Guest>;
         }>({
             query: (body) => ({ url: 'api/tenants', method: 'POST', body }),
@@ -132,18 +143,17 @@ export const api = createApi({
         }),
 
         // ─── Guests (via /api/guests — full client-side data) ───────────
-        getGuests: builder.query<GuestsResponse, { ownerId: string; pgId?: string; vacated?: boolean }>({
-            query: ({ ownerId, pgId, vacated }) => {
-                let url = `api/guests?ownerId=${ownerId}`;
-                if (pgId) url += `&pgId=${pgId}`;
-                if (vacated !== undefined) url += `&vacated=${vacated}`;
+        getGuests: builder.query<GuestsResponse, { pgId?: string; vacated?: boolean } | void>({
+            query: (params) => {
+                let url = `api/guests`;
+                if (params?.pgId) url += `${url.includes('?') ? '&' : '?'}pgId=${params.pgId}`;
+                if (params?.vacated !== undefined) url += `${url.includes('?') ? '&' : '?'}vacated=${params.vacated}`;
                 return url;
             },
             providesTags: ['Guests'],
         }),
 
         updateGuest: builder.mutation<{ success: boolean; guest: Guest }, {
-            ownerId: string;
             guestId: string;
             updates: Partial<Guest>;
         }>({
@@ -157,7 +167,6 @@ export const api = createApi({
         }),
 
         initiateGuestExit: builder.mutation<{ success: boolean; exitDate: string }, {
-            ownerId: string;
             guestId: string;
             noticePeriodDays?: number;
         }>({
@@ -166,7 +175,6 @@ export const api = createApi({
         }),
 
         vacateGuest: builder.mutation<{ success: boolean; guestId: string; pgId: string }, {
-            ownerId: string;
             guestId: string;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'vacate' } }),
@@ -174,7 +182,6 @@ export const api = createApi({
         }),
 
         updateKycStatus: builder.mutation<{ success: boolean; kycStatus: string }, {
-            ownerId: string;
             guestId: string;
             status: 'verified' | 'rejected';
             reason?: string;
@@ -184,7 +191,6 @@ export const api = createApi({
         }),
 
         submitKycDocuments: builder.mutation<{ success: boolean; kycStatus: string }, {
-            ownerId: string;
             guestId: string;
             documents: any[];
         }>({
@@ -193,7 +199,6 @@ export const api = createApi({
         }),
 
         resetKyc: builder.mutation<{ success: boolean; kycStatus: string }, {
-            ownerId: string;
             guestId: string;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'kyc-reset' } }),
@@ -201,7 +206,6 @@ export const api = createApi({
         }),
 
         addGuestCharge: builder.mutation<{ success: boolean; charge: any }, {
-            ownerId: string;
             guestId: string;
             description: string;
             amount: number;
@@ -211,7 +215,6 @@ export const api = createApi({
         }),
 
         removeGuestCharge: builder.mutation<{ success: boolean; guestId: string; chargeId: string }, {
-            ownerId: string;
             guestId: string;
             chargeId: string;
         }>({
@@ -220,7 +223,6 @@ export const api = createApi({
         }),
 
         addSharedRoomCharge: builder.mutation<{ success: boolean; updatedCount: number }, {
-            ownerId: string;
             roomId: string;
             description: string;
             amount: number;
@@ -230,7 +232,6 @@ export const api = createApi({
         }),
 
         recordGuestPayment: builder.mutation<{ success: boolean; guest: Guest }, {
-            ownerId: string;
             guest: Guest;
             amount: number;
             method: 'cash' | 'upi' | 'in-app';
@@ -240,18 +241,17 @@ export const api = createApi({
         }),
 
         // ─── Rent & Payments ─────────────────────────────────────────────
-        getRentDetails: builder.query<RentSummaryResponse, string>({
-            query: (ownerId) => `api/rent?ownerId=${ownerId}`,
+        getRentDetails: builder.query<RentSummaryResponse, void>({
+            query: () => `api/rent`,
             providesTags: ['Rent'],
         }),
 
-        getTenantRent: builder.query<{ success: boolean; guest: Guest; ledger: any[] }, { ownerId: string; guestId: string }>({
-            query: ({ ownerId, guestId }) => `api/rent?ownerId=${ownerId}&guestId=${guestId}`,
+        getTenantRent: builder.query<{ success: boolean; guest: Guest; ledger: any[] }, { guestId: string }>({
+            query: ({ guestId }) => `api/rent?guestId=${guestId}`,
             providesTags: ['Rent'],
         }),
 
         recordPayment: builder.mutation<PaymentResponse, {
-            ownerId: string;
             guestId: string;
             amount: number;
             paymentMode?: string;
@@ -262,18 +262,17 @@ export const api = createApi({
         }),
 
         // ─── Complaints ──────────────────────────────────────────────────
-        getComplaints: builder.query<ComplaintsResponse, { ownerId: string; pgId?: string; status?: string }>({
-            query: ({ ownerId, pgId, status }) => {
-                let url = `api/complaints?ownerId=${ownerId}`;
-                if (pgId) url += `&pgId=${pgId}`;
-                if (status) url += `&status=${status}`;
+        getComplaints: builder.query<ComplaintsResponse, { pgId?: string; status?: string } | void>({
+            query: (params) => {
+                let url = `api/complaints`;
+                if (params?.pgId) url += `${url.includes('?') ? '&' : '?'}pgId=${params.pgId}`;
+                if (params?.status) url += `${url.includes('?') ? '&' : '?'}status=${params.status}`;
                 return url;
             },
             providesTags: ['Complaints'],
         }),
 
         updateComplaint: builder.mutation<{ success: boolean; complaint: Complaint }, {
-            ownerId: string;
             complaintId: string;
             updates: Partial<Complaint>;
         }>({
@@ -282,18 +281,17 @@ export const api = createApi({
         }),
 
         // ─── Expenses ────────────────────────────────────────────────────
-        getExpenses: builder.query<ExpensesResponse, { ownerId: string; pgId?: string; category?: string }>({
-            query: ({ ownerId, pgId, category }) => {
-                let url = `api/expenses?ownerId=${ownerId}`;
-                if (pgId) url += `&pgId=${pgId}`;
-                if (category) url += `&category=${category}`;
+        getExpenses: builder.query<ExpensesResponse, { pgId?: string; category?: string } | void>({
+            query: (params) => {
+                let url = `api/expenses`;
+                if (params?.pgId) url += `${url.includes('?') ? '&' : '?'}pgId=${params.pgId}`;
+                if (params?.category) url += `${url.includes('?') ? '&' : '?'}category=${params.category}`;
                 return url;
             },
             providesTags: ['Expenses'],
         }),
 
         addExpenseApi: builder.mutation<{ success: boolean; expense: Expense }, {
-            ownerId: string;
             expense: Partial<Expense>;
         }>({
             query: (body) => ({ url: 'api/expenses', method: 'POST', body }),
@@ -301,7 +299,6 @@ export const api = createApi({
         }),
 
         deleteExpense: builder.mutation<{ success: boolean; expenseId: string }, {
-            ownerId: string;
             expenseId: string;
         }>({
             query: (body) => ({ url: 'api/expenses', method: 'DELETE', body }),
@@ -309,18 +306,17 @@ export const api = createApi({
         }),
 
         // ─── Staff ───────────────────────────────────────────────────────
-        getStaff: builder.query<StaffResponse, { ownerId: string; pgId?: string; role?: string }>({
-            query: ({ ownerId, pgId, role }) => {
-                let url = `api/staff?ownerId=${ownerId}`;
-                if (pgId) url += `&pgId=${pgId}`;
-                if (role) url += `&role=${role}`;
+        getStaff: builder.query<StaffResponse, { pgId?: string; role?: string } | void>({
+            query: (params) => {
+                let url = `api/staff`;
+                if (params?.pgId) url += `${url.includes('?') ? '&' : '?'}pgId=${params.pgId}`;
+                if (params?.role) url += `${url.includes('?') ? '&' : '?'}role=${params.role}`;
                 return url;
             },
             providesTags: ['Staff'],
         }),
 
         updateStaffApi: builder.mutation<{ success: boolean; staff: Staff }, {
-            ownerId: string;
             staffId: string;
             updates: Partial<Staff>;
         }>({
@@ -329,7 +325,6 @@ export const api = createApi({
         }),
 
         deleteStaffApi: builder.mutation<{ success: boolean; staffId: string }, {
-            ownerId: string;
             staffId: string;
         }>({
             query: (body) => ({ url: 'api/staff', method: 'DELETE', body }),

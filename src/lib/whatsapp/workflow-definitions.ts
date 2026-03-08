@@ -8,7 +8,9 @@
 import { WorkflowDefinition } from './workflow-types';
 import { PropertyService } from '../../services/propertyService';
 import { TenantService } from '../../services/tenantService';
-import { selectOwnerDataAdminDb } from '../firebaseAdmin';
+import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
+import { getReminderForGuest } from '../reminder-logic';
+import type { Guest } from '../types';
 
 // ─────────────────────────────────────────────────────────────
 // MAIN MENU WORKFLOW
@@ -74,7 +76,54 @@ export const mainMenuWorkflow: WorkflowDefinition = {
             id: 'sendReminders',
             type: 'display',
             label: 'Send Reminders',
-            messageTemplate: '📢 *Rent Reminders*\n\nSending WhatsApp reminders to all tenants with pending rent. Visit the dashboard for full control.\n\nReply *Menu* to return.',
+            messageBuilder: (ctx) => {
+                const count = ctx.data.remindersSentCount || 0;
+                if (count === 0) return `📢 *Rent Reminders*\n\nNo pending tenants found who match the reminder schedule today.\n\nReply *Menu* to return.`;
+                return `✅ *Success*\n\nSent ${count} WhatsApp reminders to pending tenants.\n\nReply *Menu* to return.`;
+            },
+            onEnter: async (ctx) => {
+                try {
+                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+                    // First reconcile to get latest status
+                    const { reconcileSingleGuest } = await import('@/lib/actions/reconciliationActions');
+
+                    const guestsSnap = await db.collection('users_data').doc(ctx.ownerId!).collection('guests')
+                        .where('isVacated', '==', false)
+                        .where('paymentStatus', '==', 'pending')
+                        .get();
+
+                    let sentCount = 0;
+                    const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
+                    const now = new Date();
+
+                    for (const doc of guestsSnap.docs) {
+                        try {
+                            const guest = doc.data() as Guest;
+                            // 1. Reconcile
+                            await reconcileSingleGuest({ ownerId: ctx.ownerId!, guestId: guest.id });
+
+                            // 2. Fetch fresh guest data
+                            const freshGuestDoc = await doc.ref.get();
+                            const freshGuest = freshGuestDoc.data() as Guest;
+
+                            // 3. Get reminder
+                            const reminder = getReminderForGuest(freshGuest, now);
+                            if (reminder.shouldSend && freshGuest.phone) {
+                                let formattedPhone = freshGuest.phone.replace(/\D/g, '');
+                                if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
+                                await sendWhatsAppMessage(formattedPhone, reminder.body);
+                                sentCount++;
+                            }
+                        } catch (e) {
+                            console.error(`Failed to send reminder to guest ${doc.id}:`, e);
+                        }
+                    }
+                    ctx.data.remindersSentCount = sentCount;
+                } catch (e) {
+                    console.error('Error in sendReminders:', e);
+                    ctx.data.remindersSentCount = 0;
+                }
+            },
             defaultNext: 'showMenu',
         },
 
@@ -250,7 +299,7 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             },
             nextSteps: {
                 '1': 'selectPropertyTenant',
-                '2': 'recordPropertyPaymentAmount',
+                '2': 'selectPropertyTenantForPayment',
                 '3': '__switchAddTenant',
                 '4': 'selectProperty',
             },
@@ -270,7 +319,7 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
                 return [
                     ...tenants.map((t: any, i: number) => ({
                         key: i + 1,
-                        label: `${t.name} — Room ${t.roomNumber || 'N/A'}`,
+                        label: `${t.name} (Room ${t.roomName || t.roomNumber || 'N/A'})`,
                     })),
                     { key: tenants.length + 1, label: '← Back' },
                 ];
@@ -288,6 +337,37 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
                 if (n === tenants.length + 1) return 'viewPropertyDetails';
                 ctx.data.selectedTenant = tenants[n - 1];
                 return 'viewTenantProfile';
+            },
+        },
+
+        selectPropertyTenantForPayment: {
+            id: 'selectPropertyTenantForPayment',
+            type: 'menu',
+            label: 'Select Tenant',
+            messageTemplate: '💰 *Record Rent Payment*\n\nSelect the tenant who paid:',
+            optionsFn: async (ctx) => {
+                const tenants = ctx.data.propertyTenants || [];
+                return [
+                    ...tenants.map((t: any, i: number) => ({
+                        key: i + 1,
+                        label: `${t.name} (Room ${t.roomName || t.roomNumber || 'N/A'})`,
+                    })),
+                    { key: tenants.length + 1, label: '← Back' },
+                ];
+            },
+            validation: {
+                customValidator: (input, ctx) => {
+                    const n = parseInt(input);
+                    return !isNaN(n) && n >= 1 && n <= (ctx.data.propertyTenants?.length || 0) + 1;
+                },
+                errorMessage: 'Please reply with a valid number.',
+            },
+            nextStepsFn: async (input, ctx) => {
+                const n = parseInt(input);
+                const tenants = ctx.data.propertyTenants || [];
+                if (n === tenants.length + 1) return 'viewPropertyDetails';
+                ctx.data.selectedTenant = tenants[n - 1];
+                return 'recordPropertyPaymentAmount';
             },
         },
 
@@ -313,41 +393,18 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             messageBuilder: (ctx) => {
                 return (
                     `✅ *Confirm Payment*\n\n` +
-                    `Property: ${ctx.data.selectedProperty?.name}\n` +
+                    `Tenant: ${ctx.data.selectedTenant?.name}\n` +
                     `Amount: ₹${ctx.data.paymentAmount}\n\n` +
                     `1️⃣ Confirm\n2️⃣ Cancel`
                 );
             },
-            nextSteps: { '1': 'savePropertyPayment', '2': 'viewPropertyDetails' },
+            nextSteps: { '1': 'saveTenantPayment', '2': 'viewPropertyDetails' },
             validation: {
                 customValidator: (input) => ['1', '2'].includes(input.trim()),
                 errorMessage: 'Please reply 1 to confirm or 2 to cancel.',
             },
         },
 
-        savePropertyPayment: {
-            id: 'savePropertyPayment',
-            type: 'display',
-            label: 'Payment Saved',
-            messageBuilder: (ctx) => `✅ Payment of ₹${ctx.data.paymentAmount} recorded for *${ctx.data.selectedProperty?.name}*.\n\nReply *Menu* to continue.`,
-            onEnter: async (ctx) => {
-                try {
-                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    await db.collection('users_data').doc(ctx.ownerId!).collection('ledger').add({
-                        amount: ctx.data.paymentAmount,
-                        date: new Date().toISOString(),
-                        type: 'rent_collection',
-                        property: ctx.data.selectedProperty?.name,
-                        propertyId: ctx.data.selectedProperty?.id,
-                        status: 'completed',
-                        recordedVia: 'whatsapp',
-                    });
-                } catch (e: any) {
-                    ctx.data._error = e.message;
-                }
-            },
-            defaultNext: 'selectProperty',
-        },
 
         // ---------- Add Property Revamped Flow ----------
         addPropertyName: {
@@ -368,6 +425,34 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             messageTemplate: 'Step 2/3: Where is it located?\n(e.g., "Sector 62, Noida" or "Kothrud, Pune")',
             nextStepsFn: async (input, ctx) => {
                 ctx.data.newPropLocation = input.trim();
+                return 'addPropertyCity';
+            },
+        },
+
+        addPropertyCity: {
+            id: 'addPropertyCity',
+            type: 'input',
+            label: 'City',
+            messageTemplate: 'Step 3/5: Which *City* is this in?\n(e.g., "Pune", "Mumbai", "Noida")',
+            nextStepsFn: async (input, ctx) => {
+                ctx.data.newPropCity = input.trim();
+                return 'addPropertyGender';
+            },
+        },
+
+        addPropertyGender: {
+            id: 'addPropertyGender',
+            type: 'menu',
+            label: 'Gender Type',
+            messageTemplate: 'Step 4/5: What type of PG is it?\n\n1️⃣ Boys\n2️⃣ Girls\n3️⃣ Unisex',
+            options: [
+                { key: '1', label: 'Boys' },
+                { key: '2', label: 'Girls' },
+                { key: '3', label: 'Unisex' }
+            ],
+            nextStepsFn: async (input, ctx) => {
+                const map: any = { '1': 'boys', '2': 'girls', '3': 'unisex' };
+                ctx.data.newPropGender = map[input.trim()] || 'unisex';
                 return 'addPropertySetupChoice';
             },
         },
@@ -376,7 +461,7 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             id: 'addPropertySetupChoice',
             type: 'menu',
             label: 'Setup Floors',
-            messageTemplate: 'Step 3/3: Would you like to setup Floors & Rooms now?\n\n1️⃣ YES (Fast Bulk Setup)\n2️⃣ NO (Just Create Building)',
+            messageTemplate: 'Step 5/5: Would you like to setup Floors & Rooms now?\n\n1️⃣ YES (Fast Bulk Setup)\n2️⃣ NO (Just Create Building)',
             nextSteps: {
                 '1': 'addPropertyFloorsCount',
                 '2': 'confirmAddProperty'
@@ -431,6 +516,8 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
                     `📋 *Confirm New Property*\n\n` +
                     `Building: *${ctx.data.newPropName}*\n` +
                     `Location: ${ctx.data.newPropLocation}\n` +
+                    `City: ${ctx.data.newPropCity}\n` +
+                    `Type: ${ctx.data.newPropGender}\n` +
                     detailMsg +
                     `\n1️⃣ SAVE\n2️⃣ CANCEL`
                 );
@@ -454,48 +541,27 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             onEnter: async (ctx) => {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    const newPgId = `pg-${Date.now()}`;
-
-                    const floorsList = [];
-                    const floorsCount = ctx.data.newPropFloors || 0;
-                    const roomsPerFloor = ctx.data.newPropRoomsPerFloor || 0;
-
-                    for (let i = 1; i <= floorsCount; i++) {
-                        const rooms = [];
-                        const floorId = `floor-${Date.now()}-${i}`;
-                        for (let j = 1; j <= roomsPerFloor; j++) {
-                            const roomNum = (i * 100) + j;
-                            const roomId = `room-${Date.now()}-${i}-${j}`;
-                            rooms.push({
-                                id: roomId,
-                                name: `${roomNum}`,
-                                pgId: newPgId,
-                                floorId: floorId,
-                                beds: [{ id: `bed-${roomId}-1`, name: '1', guestId: null }],
-                                rent: 0,
-                                deposit: 0,
-                                available: true
-                            });
-                        }
-                        floorsList.push({
-                            id: floorId,
-                            name: `Floor ${i}`,
-                            pgId: newPgId,
-                            rooms: rooms
-                        });
-                    }
-
-                    await db.collection('users_data').doc(ctx.ownerId!).collection('pgs').doc(newPgId).set({
-                        id: newPgId,
-                        ownerId: ctx.ownerId,
+                    await PropertyService.createProperty(db, {
+                        ownerId: ctx.ownerId!,
                         name: ctx.data.newPropName,
                         location: ctx.data.newPropLocation,
-                        floors: floorsList,
-                        totalBeds: floorsCount * roomsPerFloor,
-                        occupancy: 0,
-                        isActive: true,
-                        createdDate: new Date().toISOString(),
+                        city: ctx.data.newPropCity,
+                        gender: ctx.data.newPropGender,
+                        autoSetup: !!ctx.data.newPropFloors,
+                        floorCount: ctx.data.newPropFloors,
+                        roomsPerFloor: ctx.data.newPropRoomsPerFloor
                     });
+
+                    // Update owner summary in main app DB
+                    try {
+                        const appDb = await getAdminDb();
+                        const pgsSnap = await db.collection('users_data').doc(ctx.ownerId!).collection('pgs').get();
+                        await appDb.doc(`users/${ctx.ownerId!}`).update({
+                            'pgSummary.totalProperties': pgsSnap.size,
+                        });
+                    } catch (summaryErr) {
+                        console.warn('Could not update owner summary via bot:', summaryErr);
+                    }
                 } catch (e: any) {
                     ctx.data._error = e.message;
                 }
@@ -666,12 +732,8 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             onEnter: async (ctx) => {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    const tenantId = ctx.data.selectedTenant?.id;
-                    await db.collection('users_data')
-                        .doc(ctx.ownerId!)
-                        .collection('guests')
-                        .doc(tenantId)
-                        .update({ [ctx.data.editField]: ctx.data.editValue });
+                    await TenantService.updateTenant(db, ctx.ownerId!, ctx.data.selectedTenant?.id, { [ctx.data.editField]: ctx.data.editValue });
+
                     // Update local copy too
                     ctx.data.selectedTenant = { ...ctx.data.selectedTenant, [ctx.data.editField]: ctx.data.editValue };
                 } catch (e: any) { ctx.data._error = e.message; }
@@ -720,20 +782,14 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             ),
             onEnter: async (ctx) => {
                 try {
-                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
-                    const res = await fetch(`${baseUrl}/api/rent`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            ownerId: ctx.ownerId,
-                            guestId: ctx.data.selectedTenant?.id,
-                            amount: ctx.data.paymentAmount,
-                            paymentMode: 'cash',
-                            notes: 'Recorded via WhatsApp',
-                        }),
+                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+                    const result = await TenantService.recordPayment(db, {
+                        ownerId: ctx.ownerId!,
+                        guestId: ctx.data.selectedTenant?.id,
+                        amount: ctx.data.paymentAmount,
+                        paymentMode: 'cash',
+                        notes: 'Recorded via WhatsApp',
                     });
-                    const result = await res.json();
-                    if (!result.success) throw new Error(result.error || 'Payment failed');
                     ctx.data.newBalance = result.newBalance;
                     ctx.data.newStatus = result.newStatus;
                 } catch (e: any) { ctx.data._error = e.message; }
@@ -839,11 +895,8 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             onEnter: async (ctx) => {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    await db.collection('users_data')
-                        .doc(ctx.ownerId!)
-                        .collection('guests')
-                        .doc(ctx.data.selectedTenant?.id)
-                        .update({ isVacated: true, exitDate: new Date().toISOString() });
+                    const appDb = await getAdminDb();
+                    await TenantService.vacateTenant(db, ctx.ownerId!, ctx.data.selectedTenant?.id, appDb);
                 } catch (e: any) { ctx.data._error = e.message; }
             },
             defaultNext: 'selectTenantToManage',
@@ -956,6 +1009,33 @@ export const addTenantWorkflow: WorkflowDefinition = {
             },
             nextStepsFn: async (input, ctx) => {
                 ctx.data.tf_deposit = input.toLowerCase() === 'skip' ? 0 : parseInt(input);
+                return 'tenantFormJoinDate';
+            },
+        },
+
+        tenantFormJoinDate: {
+            id: 'tenantFormJoinDate',
+            type: 'input',
+            label: 'Join Date',
+            messageTemplate: '📅 Entrance/Join Date?\n(DD/MM/YYYY or reply *today*)',
+            nextStepsFn: async (input, ctx) => {
+                if (input.toLowerCase() === 'today') {
+                    ctx.data.tf_joinDate = new Date().toISOString();
+                } else {
+                    ctx.data.tf_joinDate = input.trim(); // Simplified, standard would parse but let's keep it fluid
+                }
+                return 'tenantFormDueDate';
+            },
+        },
+
+        tenantFormDueDate: {
+            id: 'tenantFormDueDate',
+            type: 'input',
+            label: 'Rent Due Date',
+            messageTemplate: '📅 Every month, rent is due on which day?\n(e.g., 5 or 10)',
+            validation: { regex: /^\d+$/, errorMessage: 'Please enter a day number (1-31).' },
+            nextStepsFn: async (input, ctx) => {
+                ctx.data.tf_dueDate = input.trim();
                 return 'confirmAddTenant';
             },
         },
@@ -971,7 +1051,9 @@ export const addTenantWorkflow: WorkflowDefinition = {
                 `Property: ${ctx.data.selectedPg?.name}\n` +
                 `Room: ${ctx.data.roomName}\n` +
                 `Rent: ₹${ctx.data.tf_rent}\n` +
-                `Deposit: ₹${ctx.data.tf_deposit}\n\n` +
+                `Deposit: ₹${ctx.data.tf_deposit}\n` +
+                `Join Date: ${ctx.data.tf_joinDate?.includes('T') ? ctx.data.tf_joinDate.split('T')[0] : ctx.data.tf_joinDate}\n` +
+                `Due Day: ${ctx.data.tf_dueDate}\n\n` +
                 `1️⃣ Save\n2️⃣ Cancel`
             ),
             nextSteps: { '1': 'saveTenant', '2': 'selectPgForTenant' },
@@ -992,29 +1074,26 @@ export const addTenantWorkflow: WorkflowDefinition = {
             ),
             onEnter: async (ctx) => {
                 try {
-                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
-                    const res = await fetch(`${baseUrl}/api/tenants`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            ownerId: ctx.ownerId,
-                            guestData: {
-                                name: ctx.data.tf_name,
-                                phone: ctx.data.tf_phone,
-                                email: ctx.data.tf_email || '',
-                                pgId: ctx.data.selectedPg?.id,
-                                pgName: ctx.data.selectedPg?.name,
-                                roomId: ctx.data.roomName,
-                                roomName: ctx.data.roomName,
-                                bedId: 'N/A',
-                                rentAmount: ctx.data.tf_rent,
-                                deposit: ctx.data.tf_deposit,
-                                joinDate: new Date().toISOString(),
-                            },
-                        }),
+                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+                    const appDb = await getAdminDb();
+                    await TenantService.onboardTenant(db, appDb, {
+                        ...ctx.data.selectedTenant, // Some data might be here?
+                        name: ctx.data.tf_name,
+                        phone: ctx.data.tf_phone,
+                        email: ctx.data.tf_email || '',
+                        pgId: ctx.data.selectedPg?.id,
+                        pgName: ctx.data.selectedPg?.name,
+                        roomId: ctx.data.roomName,
+                        roomName: ctx.data.roomName,
+                        bedId: 'N/A',
+                        rentAmount: ctx.data.tf_rent,
+                        deposit: ctx.data.tf_deposit,
+                        joinDate: ctx.data.tf_joinDate,
+                        dueDate: ctx.data.tf_dueDate,
+                        rentCycleUnit: 'months',
+                        rentCycleValue: 1,
+                        ownerId: ctx.ownerId!
                     });
-                    const result = await res.json();
-                    if (!result.success) throw new Error(result.error || 'Failed to save tenant');
                 } catch (e: any) { ctx.data._error = e.message; }
             },
             defaultNext: '__goMainMenu',
@@ -1036,13 +1115,33 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'tenantMenu',
             type: 'menu',
             label: 'Tenant Menu',
-            messageTemplate: (
-                `🏠 *Welcome to RoomBox Tenant Portal*\n\n` +
+            onEnter: async (ctx) => {
+                // Fetch latest balance and data
+                if (ctx.ownerId && ctx.guestId) {
+                    try {
+                        const { selectOwnerDataAdminDb } = await import('@/lib/firebaseAdmin');
+                        const db = await selectOwnerDataAdminDb(ctx.ownerId);
+                        const guestSnap = await db.collection('users_data').doc(ctx.ownerId).collection('guests').doc(ctx.guestId).get();
+                        if (guestSnap.exists) {
+                            const data = guestSnap.data();
+                            ctx.data.balance = data?.balance ?? 0;
+                            ctx.data.rentAmount = data?.rentAmount ?? 0;
+                            ctx.data.pgName = data?.pgName || 'your PG';
+                        }
+                    } catch (e) { console.error('Tenant data fetch error:', e); }
+                }
+            },
+            messageBuilder: (ctx) => (
+                `🏠 *${ctx.data.pgName || 'RoomBox Portal'}*\n\n` +
+                `👤 *Tenant:* ${ctx.tenantName || 'User'}\n` +
+                `💰 *Current Balance:* ₹${ctx.data.balance || 0}\n\n` +
+                `What would you like to do?\n\n` +
                 `1️⃣ View Rent Details\n` +
                 `2️⃣ Pay Rent\n` +
                 `3️⃣ Payment History\n` +
                 `4️⃣ Maintenance Request\n` +
-                `5️⃣ Contact Owner`
+                `5️⃣ Contact Owner\n` +
+                `6️⃣ Give Notice (Vacate)`
             ),
             nextSteps: {
                 '1': 'viewRentDetails',
@@ -1050,10 +1149,11 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                 '3': 'paymentHistory',
                 '4': 'maintenanceRequest',
                 '5': 'contactOwner',
+                '6': 'giveNotice',
             },
             validation: {
-                customValidator: (input) => ['1', '2', '3', '4', '5'].includes(input.trim()),
-                errorMessage: 'Please reply with a number from 1 to 5.',
+                customValidator: (input) => ['1', '2', '3', '4', '5', '6'].includes(input.trim()),
+                errorMessage: 'Please reply with a number from 1 to 6.',
             },
         },
 
@@ -1112,7 +1212,98 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             messageTemplate: '📞 *Contact Your Owner*\n\nYour owner has been messaged. They will reach out to you shortly.\n\nReply *Menu* to return.',
             defaultNext: 'tenantMenu',
         },
+
+        // ---------- Give Notice ----------
+        giveNotice: {
+            id: 'giveNotice',
+            type: 'confirmation',
+            label: 'Give Notice',
+            messageTemplate: '⚠️ *Give Move-out Notice*\n\nAre you sure you want to give a 30-day notice to vacate?\n\n1️⃣ Yes, Give Notice\n2️⃣ Cancel',
+            nextSteps: { '1': 'confirmNotice', '2': 'tenantMenu' },
+        },
+
+        confirmNotice: {
+            id: 'confirmNotice',
+            type: 'display',
+            label: 'Notice Confirmed',
+            messageBuilder: (ctx) => `✅ *Notice Recorded*\n\nYour move-out notice has been sent to the owner. Your expected exit date is ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}.\n\nReply *Menu* to return.`,
+            onEnter: async (ctx) => {
+                try {
+                    const db = await selectOwnerDataAdminDb(ctx.data.ownerId!);
+                    await db.collection('users_data').doc(ctx.data.ownerId!).collection('guests').doc(ctx.data.guestId).update({
+                        onNotice: true,
+                        noticeDate: new Date().toISOString(),
+                        expectedExitDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                    });
+                } catch (e: any) { console.error('Notice error:', e); }
+            },
+            defaultNext: 'tenantMenu',
+        }
     },
+};
+
+// ─────────────────────────────────────────────────────────────
+// OWNER REGISTRATION WORKFLOW
+// ─────────────────────────────────────────────────────────────
+export const ownerRegistrationWorkflow: WorkflowDefinition = {
+    id: 'ownerRegistration',
+    name: 'Owner Registration',
+    description: 'Signup as a new property owner',
+    entryPoint: 'askOwnerName',
+
+    steps: {
+        askOwnerName: {
+            id: 'askOwnerName',
+            type: 'input',
+            label: 'Your Name',
+            messageTemplate: '👋 *Welcome to RoomBox!*\n\nLet\'s get your account set up. What is your full name?',
+            nextStepsFn: async (input, ctx) => {
+                ctx.data.reg_name = input.trim();
+                return 'confirmReg';
+            }
+        },
+
+        confirmReg: {
+            id: 'confirmReg',
+            type: 'confirmation',
+            label: 'Confirm Registration',
+            messageBuilder: (ctx) => `📋 *Confirm Details*\n\nName: ${ctx.data.reg_name}\nPhone: ${ctx.userPhone}\n\n1️⃣ Register Now\n2️⃣ Start Over`,
+            nextSteps: { '1': 'executeReg', '2': 'askOwnerName' }
+        },
+
+        executeReg: {
+            id: 'executeReg',
+            type: 'display',
+            label: 'Registration Complete',
+            messageBuilder: (ctx) => (
+                ctx.data._error
+                    ? `❌ Registration failed: ${ctx.data._error}`
+                    : `🎉 *Registration Successful!*\n\nWelcome, ${ctx.data.reg_name}. You can now start adding your properties.\n\nReply *Menu* to open your dashboard.`
+            ),
+            onEnter: async (ctx) => {
+                try {
+                    const adminDb = await selectOwnerDataAdminDb('SYSTEM'); // Use admin db
+                    const { getAdminDb } = await import('@/lib/firebaseAdmin');
+                    const db = await getAdminDb();
+
+                    const userId = `u-${Date.now()}`;
+                    await db.collection('users').doc(userId).set({
+                        name: ctx.data.reg_name,
+                        phone: ctx.userPhone.replace(/\D/g, '').replace(/^91/, ''), // Store without CC for logic
+                        role: 'owner',
+                        createdAt: new Date().toISOString(),
+                        status: 'active'
+                    });
+
+                    // Update context so they are immediately authenticated
+                    ctx.isAuthenticatedOwner = true;
+                    ctx.ownerId = userId;
+                    ctx.ownerName = ctx.data.reg_name;
+                } catch (e: any) { ctx.data._error = e.message; }
+            },
+            defaultNext: '__goMainMenu'
+        }
+    }
 };
 
 // Export all for registration
@@ -1122,4 +1313,5 @@ export const allWorkflows = [
     tenantManagementWorkflow,
     addTenantWorkflow,
     tenantPortalWorkflow,
+    ownerRegistrationWorkflow,
 ];

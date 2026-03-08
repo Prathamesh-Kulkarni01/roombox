@@ -32,9 +32,15 @@ export function serverError(error: unknown, context?: string): NextResponse<ApiE
     return NextResponse.json({ success: false, error: message }, { status: 500 });
 }
 
+
 /** Return a structured 403 Forbidden */
 export function forbidden(message: string = 'Forbidden'): NextResponse<ApiErrorResponse> {
     return NextResponse.json({ success: false, error: message }, { status: 403 });
+}
+
+/** Return a structured 401 Unauthorized */
+export function unauthorized(message?: string | null): NextResponse<ApiErrorResponse> {
+    return NextResponse.json({ success: false, error: message || 'Unauthorized' }, { status: 401 });
 }
 
 /** Wraps an async API route handler with automatic error catching */

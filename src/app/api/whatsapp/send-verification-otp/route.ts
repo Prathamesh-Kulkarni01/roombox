@@ -1,14 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { sendWhatsAppMessage } from '@/lib/whatsapp/send-message';
 import * as crypto from 'crypto';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+    const { ownerId, error: authError } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(authError);
+
     try {
-        const { ownerId, phone } = await req.json();
+        const { phone } = await req.json();
 
-        if (!ownerId || !phone) {
-            return NextResponse.json({ success: false, error: 'Missing ownerId or phone.' }, { status: 400 });
+        if (!phone) {
+            return badRequest('Missing phone.');
         }
 
         // Generate a 4-digit OTP
@@ -24,7 +29,7 @@ export async function POST(req: Request) {
 
         const userDoc = await userRef.get();
         if (!userDoc.exists) {
-            return NextResponse.json({ success: false, error: 'User not found.' }, { status: 404 });
+            return badRequest('User not found.');
         }
 
         // Store OTP temporarily in the user doc

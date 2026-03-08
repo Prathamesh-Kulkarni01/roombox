@@ -1,13 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+    const { ownerId, error: authError } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(authError);
+
     try {
-        const { ownerId, otp } = await req.json();
+        const { otp } = await req.json();
 
-        if (!ownerId || !otp) {
-            return NextResponse.json({ success: false, error: 'Missing ownerId or OTP.' }, { status: 400 });
+        if (!otp) {
+            return badRequest('Missing OTP.');
         }
 
         const adminDb = await getAdminDb();
@@ -15,21 +20,21 @@ export async function POST(req: Request) {
 
         const userDoc = await userRef.get();
         if (!userDoc.exists) {
-            return NextResponse.json({ success: false, error: 'User not found.' }, { status: 404 });
+            return badRequest('User not found.');
         }
 
         const userData = userDoc.data();
 
         if (!userData?.whatsappOtp || !userData?.whatsappOtpExpires || !userData?.pendingVerificationPhone) {
-            return NextResponse.json({ success: false, error: 'No pending verification found. Please request a new OTP.' }, { status: 400 });
+            return badRequest('No pending verification found. Please request a new OTP.');
         }
 
         if (Date.now() > userData.whatsappOtpExpires) {
-            return NextResponse.json({ success: false, error: 'OTP has expired. Please request a new one.' }, { status: 400 });
+            return badRequest('OTP has expired. Please request a new one.');
         }
 
         if (userData.whatsappOtp !== otp) {
-            return NextResponse.json({ success: false, error: 'Invalid OTP.' }, { status: 400 });
+            return badRequest('Invalid OTP.');
         }
 
         // Verification successful, update the main phone number (normalized) and clean up OTP fields
@@ -45,7 +50,6 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true, message: 'Phone number verified successfully.' });
     } catch (error: any) {
-        console.error('Error verifying OTP:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return serverError(error, 'POST /api/whatsapp/verify-phone-otp');
     }
 }

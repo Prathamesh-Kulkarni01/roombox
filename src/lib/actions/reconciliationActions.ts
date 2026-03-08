@@ -6,7 +6,7 @@ import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import type { Guest } from '@/lib/types';
 import { runReconciliationLogic } from '@/lib/reconciliation';
 
-async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: string, guestId: string }): Promise<{ success: boolean; cyclesProcessed: number }> {
+export async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: string, guestId: string }): Promise<{ success: boolean; cyclesProcessed: number }> {
     const dataDb = await selectOwnerDataAdminDb(ownerId);
     const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
 
@@ -19,9 +19,9 @@ async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: string, gue
             }
 
             const guest = guestDoc.data() as Guest;
-            
+
             const result = runReconciliationLogic(guest, new Date());
-            
+
             if (result.cyclesProcessed === 0) {
                 return 0;
             }
@@ -29,11 +29,11 @@ async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: string, gue
             transaction.update(guestDocRef, result.guest);
             return result.cyclesProcessed;
         });
-        
-        if(cyclesProcessed > 0) {
+
+        if (cyclesProcessed > 0) {
             const guestDoc = await guestDocRef.get();
             const finalGuest = guestDoc.data() as Guest;
-             console.log(`[Reconcile] Processed ${cyclesProcessed} cycle(s) for guest ${finalGuest.name}. New Due Date: ${finalGuest.dueDate}`);
+            console.log(`[Reconcile] Processed ${cyclesProcessed} cycle(s) for guest ${finalGuest.name}. New Due Date: ${finalGuest.dueDate}`);
         }
 
 
@@ -59,9 +59,9 @@ export async function reconcileAllGuests(limit?: number): Promise<{ success: boo
             const guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
 
             for (const guestDoc of guestsSnapshot.docs) {
-                 if (limit && processedGuestCount >= limit) {
+                if (limit && processedGuestCount >= limit) {
                     console.log(`[Reconcile All] Reached processing limit of ${limit}.`);
-                    break; 
+                    break;
                 }
 
                 try {
@@ -76,7 +76,7 @@ export async function reconcileAllGuests(limit?: number): Promise<{ success: boo
                     totalErrors++;
                 }
             }
-             if (limit && processedGuestCount >= limit) {
+            if (limit && processedGuestCount >= limit) {
                 break;
             }
         }

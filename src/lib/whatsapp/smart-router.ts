@@ -66,30 +66,50 @@ export async function handleIncomingMessage(data: {
 
     // ── 2. Tenant authenticated ───────────────────────────────────────
     if (session.data?.isAuthenticatedTenant) {
+        // SECURITY CHECK: Verify they haven't been vacated since their last login
+        const activeTenants = await lookupTenantsByPhone(from);
+        if (activeTenants.length === 0) {
+            console.log(`[Router] Previously authenticated tenant ${from} is no longer active (vacated). Clearing session...`);
+            await clearSession(from);
+            await handleAuth(from, 'hi', { state: 'IDLE', data: {}, lastUpdated: Date.now() });
+            return;
+        }
+
         await handleWithWorkflow(from, text, session, 'tenantPortal', 'tenantMenu');
         return;
     }
 
     // ── 3. Owner authenticated ────────────────────────────────────────
-    const lowerText = text.toLowerCase();
+    if (session.data?.isAuthenticatedOwner) {
+        // SECURITY CHECK: Verify they still exist and are an owner
+        const activeOwners = await lookupOwnersByPhone(from);
+        if (activeOwners.length === 0) {
+            console.log(`[Router] Previously authenticated owner ${from} is no longer active/registered. Clearing session...`);
+            await clearSession(from);
+            await handleAuth(from, 'hi', { state: 'IDLE', data: {}, lastUpdated: Date.now() });
+            return;
+        }
 
-    // Global reset commands
-    if (lowerText === 'menu' || lowerText === 'hi' || lowerText === 'hello') {
-        await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
+        const lowerText = text.toLowerCase();
+        // Global reset commands
+        if (lowerText === 'menu' || lowerText === 'hi' || lowerText === 'hello') {
+            await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
+            return;
+        }
+
+        if (lowerText === 'cancel') {
+            await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
+            await sendWhatsAppMessage(from, '❌ Cancelled. Returning to main menu.');
+            return;
+        }
+
+        // Continue active workflow
+        await handleWithWorkflow(from, text, session,
+            session.data?.workflowId || 'mainMenu',
+            session.data?.currentStep || 'showMenu'
+        );
         return;
     }
-
-    if (lowerText === 'cancel') {
-        await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
-        await sendWhatsAppMessage(from, '❌ Cancelled. Returning to main menu.');
-        return;
-    }
-
-    // Continue active workflow
-    await handleWithWorkflow(from, text, session,
-        session.data?.workflowId || 'mainMenu',
-        session.data?.currentStep || 'showMenu'
-    );
 }
 
 // ─── Workflow Dispatcher ──────────────────────────────────────────────────────
@@ -111,6 +131,9 @@ async function handleWithWorkflow(
             isAuthenticatedTenant: session.data?.isAuthenticatedTenant || false,
             ownerId: session.data?.ownerId,
             ownerName: session.data?.ownerName,
+            tenantName: session.data?.tenantName,
+            guestId: session.data?.guestId,
+            pgId: session.data?.pgId,
         });
         ctx.workflowId = workflowId;
         ctx.currentStep = currentStep;
@@ -166,6 +189,9 @@ async function switchToWorkflow(
         isAuthenticatedTenant: session.data?.isAuthenticatedTenant || false,
         ownerId: session.data?.ownerId,
         ownerName: session.data?.ownerName,
+        tenantName: session.data?.tenantName,
+        guestId: session.data?.guestId,
+        pgId: session.data?.pgId,
         // Preserve cross-workflow data if needed
         data: prevCtx?.data ? { pgsList: prevCtx.data.pgsList } : {},
     });
@@ -195,66 +221,142 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
     const lowerText = text.toLowerCase();
     const state = session.state;
 
-    // ── Entry greeting ────────────────────────────────────────────────
+    // ── IDLE State (Entry greeting & Auto-login) ─────────────────────
     if (state === 'IDLE') {
-        if (!['hi', 'hello', 'menu', 'start'].includes(lowerText)) {
+        if (!['hi', 'hello', 'menu', 'start', 'test'].includes(lowerText)) {
             await sendWhatsAppMessage(from, `Welcome to RoomBox 🏠\n\nReply *Hi* to get started.`);
             return;
         }
 
-        // Attempt owner auto-login by phone number
-        const matchedOwner = await lookupOwnerByPhone(from);
+        console.log(`[Auth] Identifying accounts for ${from}...`);
 
-        if (matchedOwner) {
-            // ✅ Auto-login success
-            await updateSession(from, 'IDLE', {
-                isAuthenticatedOwner: true,
-                ownerName: matchedOwner.name || 'Owner',
-                ownerId: matchedOwner.id,
-            });
-            await sendWhatsAppMessage(from, `✅ *Welcome back, ${matchedOwner.name || 'Owner'}!*`);
+        // Parallel lookups for all account associations
+        const [owners, tenants] = await Promise.all([
+            lookupOwnersByPhone(from),
+            lookupTenantsByPhone(from)
+        ]);
 
-            // Switch directly to main menu
-            const updatedSession = await getSession(from);
-            await switchToWorkflow(from, updatedSession, 'mainMenu', 'showMenu');
+        const allAccounts = [
+            ...owners.map(o => ({ type: 'owner', ...o })),
+            ...tenants.map(t => ({ type: 'tenant', ...t }))
+        ];
+
+        // 1. Single Account Found -> Auto-login
+        if (allAccounts.length === 1) {
+            const acc = allAccounts[0];
+            if (acc.type === 'owner') {
+                await updateSession(from, 'IDLE', {
+                    isAuthenticatedOwner: true,
+                    ownerName: acc.name,
+                    ownerId: acc.id,
+                });
+                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Owner)`);
+                await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
+            } else {
+                await updateSession(from, 'IDLE', {
+                    isAuthenticatedTenant: true,
+                    tenantName: acc.name,
+                    guestId: acc.id,
+                    ownerId: acc.ownerId,
+                    pgId: acc.pgId,
+                });
+                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Tenant in ${acc.pgName || 'PG'})`);
+                await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+            }
             return;
         }
 
-        // Not an owner — show role selection
+        // 2. Multiple Accounts Found -> Selection Menu
+        if (allAccounts.length > 1) {
+            await updateSession(from, 'AWAITING_ACCOUNT_SELECTION', { identifiedAccounts: allAccounts });
+            let menu = `Hi ${allAccounts[0].name}! We found multiple accounts for this number.\n\nPlease select which one to log in to:\n\n`;
+            allAccounts.forEach((acc, i) => {
+                const label = acc.type === 'owner' ? `Owner Dashboard` : `Tenant (${acc.pgName || 'PG'})`;
+                menu += `${i + 1}️⃣ ${label}\n`;
+            });
+            await sendWhatsAppMessage(from, menu);
+            return;
+        }
+
+        // 3. No Account Found -> Role Selection / New Signup
         await updateSession(from, 'AWAITING_USER_ROLE', {});
         await sendWhatsAppMessage(
             from,
             `Welcome to RoomBox 🏠\n\n` +
-            `Who are you?\n\n` +
-            `1️⃣ Property Owner / PG Owner\n` +
-            `2️⃣ Tenant\n` +
+            `We don't recognize your number. Are you a new owner or an existing tenant?\n\n` +
+            `1️⃣ I am a Property Owner (Register)\n` +
+            `2️⃣ I am a Tenant (Login)\n` +
             `3️⃣ Support`
         );
         return;
     }
 
-    // ── Role selection ────────────────────────────────────────────────
+    // ── Account Selection State (Multiple matches) ───────────────────
+    if (state === 'AWAITING_ACCOUNT_SELECTION') {
+        const accounts = session.data?.identifiedAccounts || [];
+        const index = parseInt(text) - 1;
+
+        if (index >= 0 && index < accounts.length) {
+            const acc = accounts[index];
+            if (acc.type === 'owner') {
+                await updateSession(from, 'IDLE', {
+                    isAuthenticatedOwner: true,
+                    ownerName: acc.name,
+                    ownerId: acc.id,
+                });
+                await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
+            } else {
+                await updateSession(from, 'IDLE', {
+                    isAuthenticatedTenant: true,
+                    tenantName: acc.name,
+                    guestId: acc.id,
+                    ownerId: acc.ownerId,
+                    pgId: acc.pgId,
+                });
+                await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+            }
+        } else {
+            await sendWhatsAppMessage(from, `⚠️ Please reply with a valid option (1-${accounts.length}).`);
+        }
+        return;
+    }
+
+    // ── Role Selection state (Guest/Unknown) ─────────────────────────
     if (state === 'AWAITING_USER_ROLE') {
         if (text === '1') {
-            await clearSession(from);
-            await sendWhatsAppMessage(
-                from,
-                `❌ *Not Registered*\n\n` +
-                `Your WhatsApp number isn't verified in our system.\n\n` +
-                `*To get access:*\n` +
-                `1️⃣ Visit: https://roombox.netlify.app/dashboard/settings\n` +
-                `2️⃣ Go to *Settings → WhatsApp*\n` +
-                `3️⃣ Add & verify your phone number\n` +
-                `4️⃣ Reply *Hi* here to login automatically 🪄\n\n` +
-                `Need help? Reply *Support*.`
-            );
+            await updateSession(from, 'IDLE', { isAuthenticatedOwner: false });
+            await switchToWorkflow(from, await getSession(from), 'ownerRegistration', 'askOwnerName');
         } else if (text === '2') {
-            await updateSession(from, 'IDLE', { isAuthenticatedTenant: true });
-            await sendWhatsAppMessage(from, `✅ *Tenant Portal*\n\nWelcome to RoomBox Tenant Portal!`);
-            const updatedSession = await getSession(from);
-            await switchToWorkflow(from, updatedSession, 'tenantPortal', 'tenantMenu');
+            // Re-check if they are a tenant now (maybe they were just added)
+            const matchedTenants = await lookupTenantsByPhone(from);
+            if (matchedTenants.length > 0) {
+                // If miraculously multiple found now, re-route to selection
+                if (matchedTenants.length > 1) {
+                    await updateSession(from, 'AWAITING_ACCOUNT_SELECTION', { identifiedAccounts: matchedTenants.map(t => ({ type: 'tenant', ...t })) });
+                    await handleIncomingMessage({ from, msgBody: 'hi', messageType: 'text' });
+                } else {
+                    const acc = matchedTenants[0];
+                    await updateSession(from, 'IDLE', {
+                        isAuthenticatedTenant: true,
+                        tenantName: acc.name,
+                        guestId: acc.id,
+                        ownerId: acc.ownerId,
+                        pgId: acc.pgId,
+                    });
+                    await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+                }
+            } else {
+                await sendWhatsAppMessage(
+                    from,
+                    `❌ *Access Denied*\n\n` +
+                    `We couldn't find a tenant record for your number (*${from.replace(/\D/g, '')}*).\n\n` +
+                    `Please ask your PG owner to add your phone number accurately in the RoomBox portal.`
+                );
+                await updateSession(from, 'IDLE');
+            }
         } else if (text === '3') {
             await sendWhatsAppMessage(from, `🆘 *Support*\n\nFor help, email us at: support@roombox.app\n\nOr visit: https://roombox.netlify.app/support\n\nReply *Hi* to go back.`);
+            await updateSession(from, 'IDLE');
         } else {
             await sendWhatsAppMessage(from, `Please reply *1* for Owner, *2* for Tenant, or *3* for Support.`);
         }
@@ -267,51 +369,135 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
 
 // ─── Owner Lookup ─────────────────────────────────────────────────────────────
 
-async function lookupOwnerByPhone(from: string): Promise<{ id: string; name: string; phone: string } | null> {
-    try {
-        const adminDb = await getAdminDb();
+/**
+ * Looks up owners associated with a phone number.
+ * Returns multiple if found.
+ */
+async function lookupOwnersByPhone(from: string): Promise<any[]> {
+    const adminDb = await getAdminDb();
+    const allDigits = from.replace(/\D/g, '');
+    const withoutCC = (allDigits.startsWith('91') && allDigits.length === 12) ? allDigits.substring(2) : allDigits;
+    const withCCInput = (allDigits.length === 10) ? '91' + allDigits : allDigits;
 
-        // Format phone — WhatsApp sends with country code e.g. 919876543210
-        const allDigits = from.replace(/\D/g, '');
-        const withoutCC = (allDigits.startsWith('91') && allDigits.length === 12)
-            ? allDigits.substring(2)
-            : allDigits;
+    const roles = ['owner', 'manager'];
+    // Variations: 91987..., 987..., 91987..., +91987...
+    const phoneVariations = [...new Set([allDigits, withoutCC, withCCInput, '+' + withCCInput])];
 
-        // Try both owner and manager roles (managers often handle PG operations)
-        const roles = ['owner', 'manager'];
+    console.log(`[Auth] Looking up owners for variations: ${phoneVariations.join(', ')}`);
+    const matches: any[] = [];
 
-        const queries = [
-            // Try matching numeric strings in DB
-            adminDb.collection('users')
+    for (const phone of phoneVariations) {
+        try {
+            const snap = await adminDb.collection('users')
                 .where('role', 'in', roles)
-                .where('phone', '==', allDigits)
-                .limit(1)
-                .get(),
-            adminDb.collection('users')
-                .where('role', 'in', roles)
-                .where('phone', '==', withoutCC)
-                .limit(1)
-                .get(),
-            // Failover: Match if DB has standard formatting like +91 XXXXX XXXXX or spaces
-            // This is harder in Firestore without fetch-all, so we rely on normalization at save time
-        ];
+                .where('phone', '==', phone)
+                .get();
 
-        const results = await Promise.all(queries);
+            snap.docs.forEach(doc => {
+                if (!matches.find(m => m.id === doc.id)) {
+                    matches.push({ id: doc.id, ...doc.data() as any });
+                }
+            });
+        } catch (err) {
+            console.error(`[Auth] Owner lookup failed for ${phone}:`, err);
+        }
+    }
+    return matches;
+}
 
-        for (const snap of results) {
-            if (!snap.empty) {
-                const doc = snap.docs[0];
-                return { id: doc.id, ...doc.data() as any };
+// ─── Tenant Lookup ────────────────────────────────────────────────────────────
+
+/**
+ * Looks up tenants associated with a phone number across all owners.
+ */
+async function lookupTenantsByPhone(from: string): Promise<any[]> {
+    const adminDb = await getAdminDb();
+    const allDigits = from.replace(/\D/g, '');
+    const withoutCC = (allDigits.startsWith('91') && allDigits.length === 12) ? allDigits.substring(2) : allDigits;
+    const withCCInput = (allDigits.length === 10) ? '91' + allDigits : allDigits;
+
+    // Variations: 91987..., 987..., 91987..., +91987...
+    const phoneVariations = [...new Set([allDigits, withoutCC, withCCInput, '+' + withCCInput])];
+
+    console.log(`[Auth] Looking up tenants for variations: ${phoneVariations.join(', ')}`);
+    const matches: any[] = [];
+
+    // STAGE 1: Standard User Lookup (Guaranteed Index)
+    // Most tenants are linked to a User document in the root collection
+    for (const phone of phoneVariations) {
+        try {
+            const userSnap = await adminDb.collection('users')
+                .where('phone', '==', phone)
+                .get();
+
+            for (const uDoc of userSnap.docs) {
+                const uData = uDoc.data();
+                if (uData.guestId && uData.ownerId) {
+                    // Try to fetch the full guest data for context
+                    const gSnap = await adminDb.collection('users_data').doc(uData.ownerId).collection('guests').doc(uData.guestId).get();
+                    if (gSnap.exists) {
+                        const gData = gSnap.data();
+                        if (gData?.isVacated === false) {
+                            matches.push({
+                                id: gSnap.id,
+                                name: gData?.name || uData.name,
+                                ownerId: uData.ownerId,
+                                pgId: uData.pgId || gData?.pgId,
+                                pgName: gData?.pgName || 'PG'
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (e) { console.warn(`[Auth] Users collection fallback failed:`, e); }
+    }
+
+    // STAGE 2: Collection Group (Best Effort / Memory Fallback)
+    for (const phone of phoneVariations) {
+        let snap;
+        try {
+            // Priority: Optimized query
+            snap = await adminDb.collectionGroup('guests')
+                .where('phone', '==', phone)
+                .where('isVacated', '==', false)
+                .get();
+        } catch (err: any) {
+            if (err?.code === 9) {
+                console.warn(`[Index Missing] collectionGroup('guests') missing index for ${phone}. Falling back to memory filter.`);
+                // Fallback: Query by phone ONLY (single-field index usually exists) then filter isVacated
+                try {
+                    snap = await adminDb.collectionGroup('guests')
+                        .where('phone', '==', phone)
+                        .get();
+                } catch (innerErr) {
+                    console.error(`[Auth] Deep fallback failed for ${phone}:`, innerErr);
+                    continue;
+                }
+            } else {
+                console.error(`[Auth] STAGE 2 lookup error:`, err);
+                continue;
             }
         }
 
-        console.log(`[Auth] No authorized owner/manager found for phone: ${from} (tried ${allDigits} and ${withoutCC})`);
-        return null;
+        if (snap) {
+            snap.docs.forEach(doc => {
+                const data = doc.data();
+                // Crucial: Manual filter for isVacated during index-less fallback
+                if (data.isVacated === true) return;
 
-    } catch (err) {
-        console.error('[Auth] Owner lookup error:', err);
-        return null;
+                if (!matches.find(m => m.id === doc.id)) {
+                    matches.push({
+                        id: doc.id,
+                        name: data.name,
+                        ownerId: data.ownerId,
+                        pgId: data.pgId,
+                        pgName: data.pgName
+                    });
+                }
+            });
+        }
     }
+    return matches;
 }
 
 export default handleIncomingMessage;

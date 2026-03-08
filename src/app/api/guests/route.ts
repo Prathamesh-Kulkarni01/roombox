@@ -11,14 +11,15 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { GuestService } from '@/services/guestService';
+import { TenantService } from '@/services/tenantService';
 import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
-import { badRequest, notFound, serverError } from '@/lib/api/apiError';
+import { badRequest, notFound, serverError, unauthorized } from '@/lib/api/apiError';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
 
 const AddGuestSchema = z.object({
-    ownerId: z.string().min(1, 'ownerId is required'),
+    ownerId: z.string().optional(),
     name: z.string().min(1, 'name is required'),
     email: z.string().email().optional().or(z.literal('')),
     phone: z.string().optional(),
@@ -37,38 +38,38 @@ const AddGuestSchema = z.object({
 
 const PatchSchema = z.discriminatedUnion('action', [
     // General field update
-    z.object({ action: z.literal('update'), ownerId: z.string(), guestId: z.string(), updates: z.record(z.unknown()) }),
+    z.object({ action: z.literal('update'), ownerId: z.string().optional(), guestId: z.string(), updates: z.record(z.unknown()) }),
     // Initiate exit
-    z.object({ action: z.literal('initiate-exit'), ownerId: z.string(), guestId: z.string(), noticePeriodDays: z.number().optional() }),
+    z.object({ action: z.literal('initiate-exit'), ownerId: z.string().optional(), guestId: z.string(), noticePeriodDays: z.number().optional() }),
     // Vacate
-    z.object({ action: z.literal('vacate'), ownerId: z.string(), guestId: z.string() }),
+    z.object({ action: z.literal('vacate'), ownerId: z.string().optional(), guestId: z.string() }),
     // KYC status update
-    z.object({ action: z.literal('kyc-status'), ownerId: z.string(), guestId: z.string(), status: z.enum(['verified', 'rejected']), reason: z.string().optional() }),
+    z.object({ action: z.literal('kyc-status'), ownerId: z.string().optional(), guestId: z.string(), status: z.enum(['verified', 'rejected']), reason: z.string().optional() }),
     // KYC documents submit
-    z.object({ action: z.literal('kyc-submit'), ownerId: z.string(), guestId: z.string(), documents: z.array(z.record(z.unknown())) }),
+    z.object({ action: z.literal('kyc-submit'), ownerId: z.string().optional(), guestId: z.string(), documents: z.array(z.record(z.unknown())) }),
     // Reset KYC
-    z.object({ action: z.literal('kyc-reset'), ownerId: z.string(), guestId: z.string() }),
+    z.object({ action: z.literal('kyc-reset'), ownerId: z.string().optional(), guestId: z.string() }),
     // Add charge
-    z.object({ action: z.literal('add-charge'), ownerId: z.string(), guestId: z.string(), description: z.string(), amount: z.coerce.number().positive() }),
+    z.object({ action: z.literal('add-charge'), ownerId: z.string().optional(), guestId: z.string(), description: z.string(), amount: z.coerce.number().positive() }),
     // Remove charge
-    z.object({ action: z.literal('remove-charge'), ownerId: z.string(), guestId: z.string(), chargeId: z.string() }),
+    z.object({ action: z.literal('remove-charge'), ownerId: z.string().optional(), guestId: z.string(), chargeId: z.string() }),
     // Shared room charge
-    z.object({ action: z.literal('shared-charge'), ownerId: z.string(), roomId: z.string(), description: z.string(), amount: z.coerce.number().positive() }),
+    z.object({ action: z.literal('shared-charge'), ownerId: z.string().optional(), roomId: z.string(), description: z.string(), amount: z.coerce.number().positive() }),
     // Record payment + reconcile
-    z.object({ action: z.literal('record-payment'), ownerId: z.string(), guest: z.record(z.unknown()), amount: z.coerce.number().positive(), method: z.enum(['cash', 'upi', 'in-app']) }),
+    z.object({ action: z.literal('record-payment'), ownerId: z.string().optional(), guest: z.record(z.unknown()), amount: z.coerce.number().positive(), method: z.enum(['cash', 'upi', 'in-app']) }),
 ]);
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
 
-// GET /api/guests?ownerId=xxx[&pgId=xxx][&vacated=false][&limit=200]
+// GET /api/guests?[pgId=xxx][&vacated=false][&limit=200]
 export async function GET(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
-        const ownerId = req.nextUrl.searchParams.get('ownerId');
         const pgId = req.nextUrl.searchParams.get('pgId') || undefined;
         const vacated = req.nextUrl.searchParams.get('vacated');
         const limit = parseInt(req.nextUrl.searchParams.get('limit') || '200', 10);
-
-        if (!ownerId) return badRequest('ownerId is required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
         let query = db.collection('users_data').doc(ownerId).collection('guests')
@@ -88,6 +89,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/guests — add a new guest
 export async function POST(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
         const parsed = AddGuestSchema.safeParse(body);
@@ -95,11 +99,11 @@ export async function POST(req: NextRequest) {
             return badRequest(parsed.error.issues.map(i => i.message).join('; '));
         }
 
-        const { ownerId, ...guestInput } = parsed.data;
+        const { ownerId: _unused, ...guestInput } = parsed.data;
         const db = await selectOwnerDataAdminDb(ownerId);
         const appDb = await getAdminDb(); // for user/invite linking
 
-        const newGuest = await GuestService.addGuest(db, ownerId, { ...guestInput, ownerId }, appDb || undefined);
+        const newGuest = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId });
 
         return NextResponse.json({ success: true, guest: newGuest }, { status: 201 });
     } catch (error) {
@@ -109,6 +113,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/guests — action-based mutations
 export async function PATCH(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
         const parsed = PatchSchema.safeParse(body);
@@ -117,44 +124,44 @@ export async function PATCH(req: NextRequest) {
         }
 
         const data = parsed.data;
-        const db = await selectOwnerDataAdminDb(data.ownerId);
+        const db = await selectOwnerDataAdminDb(ownerId);
 
         switch (data.action) {
             case 'update': {
-                const ref = db.collection('users_data').doc(data.ownerId).collection('guests').doc(data.guestId);
-                await ref.set(data.updates, { merge: true });
+                await TenantService.updateTenant(db, ownerId, data.guestId, data.updates as any);
+                const ref = db.collection('users_data').doc(ownerId).collection('guests').doc(data.guestId);
                 const updated = await ref.get();
                 return NextResponse.json({ success: true, guest: { id: updated.id, ...updated.data() } });
             }
 
             case 'initiate-exit': {
-                const result = await GuestService.initiateGuestExit(db, data.ownerId, data.guestId, data.noticePeriodDays);
+                const result = await TenantService.initiateTenantExit(db, ownerId, data.guestId, data.noticePeriodDays);
                 return NextResponse.json({ success: true, ...result });
             }
 
             case 'vacate': {
                 const appDb = await getAdminDb();
-                const result = await GuestService.vacateGuest(db, data.ownerId, data.guestId, appDb || undefined);
+                const result = await TenantService.vacateTenant(db, ownerId, data.guestId, appDb || undefined);
                 return NextResponse.json({ success: true, ...result });
             }
 
             case 'kyc-status': {
-                await GuestService.updateKycStatus(db, data.ownerId, data.guestId, data.status, data.reason);
+                await TenantService.updateKycStatus(db, ownerId, data.guestId, data.status, data.reason);
                 return NextResponse.json({ success: true, guestId: data.guestId, kycStatus: data.status });
             }
 
             case 'kyc-submit': {
-                await GuestService.submitKycDocuments(db, data.ownerId, data.guestId, data.documents as any);
+                await TenantService.submitKycDocuments(db, ownerId, data.guestId, data.documents as any);
                 return NextResponse.json({ success: true, guestId: data.guestId, kycStatus: 'pending' });
             }
 
             case 'kyc-reset': {
-                await GuestService.resetKyc(db, data.ownerId, data.guestId);
+                await TenantService.resetKyc(db, ownerId, data.guestId);
                 return NextResponse.json({ success: true, guestId: data.guestId, kycStatus: 'not-started' });
             }
 
             case 'add-charge': {
-                const charge = await GuestService.addCharge(db, data.ownerId, data.guestId, {
+                const charge = await TenantService.addCharge(db, ownerId, data.guestId, {
                     description: data.description,
                     amount: data.amount,
                 });
@@ -162,12 +169,12 @@ export async function PATCH(req: NextRequest) {
             }
 
             case 'remove-charge': {
-                await GuestService.removeCharge(db, data.ownerId, data.guestId, data.chargeId);
+                await TenantService.removeCharge(db, ownerId, data.guestId, data.chargeId);
                 return NextResponse.json({ success: true, guestId: data.guestId, chargeId: data.chargeId });
             }
 
             case 'shared-charge': {
-                const result = await GuestService.addSharedRoomCharge(db, data.ownerId, data.roomId, {
+                const result = await TenantService.addSharedRoomCharge(db, ownerId, data.roomId, {
                     description: data.description,
                     amount: data.amount,
                 });
@@ -175,12 +182,13 @@ export async function PATCH(req: NextRequest) {
             }
 
             case 'record-payment': {
-                const reconciledGuest = await GuestService.recordPayment(db, data.ownerId, {
+                const { guest } = await TenantService.recordPayment(db, {
+                    ownerId,
                     guest: data.guest as any,
                     amount: data.amount,
-                    method: data.method,
+                    paymentMode: data.method,
                 });
-                return NextResponse.json({ success: true, guest: reconciledGuest });
+                return NextResponse.json({ success: true, guest });
             }
 
             default:
@@ -191,12 +199,15 @@ export async function PATCH(req: NextRequest) {
     }
 }
 
-// DELETE /api/guests — permanent delete (not vacate — use PATCH action=vacate instead)
+// DELETE /api/guests — permanent delete
 export async function DELETE(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
-        const { ownerId, guestId } = body;
-        if (!ownerId || !guestId) return badRequest('ownerId and guestId are required');
+        const { guestId } = body;
+        if (!guestId) return badRequest('guestId is required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
         await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).delete();

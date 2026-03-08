@@ -1,24 +1,13 @@
-/**
- * /api/properties - Shared API for property management
- * Used by both the Web App UI (via fetch) and the WhatsApp Bot
- * Supports BYODB via selectOwnerDataAdminDb
- */
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { PropertyService } from '@/services/propertyService';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 
-function unauthorized() {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-}
-
-function badRequest(msg: string) {
-    return NextResponse.json({ error: msg }, { status: 400 });
-}
-
-// GET /api/properties?ownerId=xxx  — list all properties
+// GET /api/properties  — list all properties for authenticated owner
 export async function GET(req: NextRequest) {
-    const ownerId = req.nextUrl.searchParams.get('ownerId');
-    if (!ownerId) return badRequest('ownerId is required');
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
 
     try {
         const db = await selectOwnerDataAdminDb(ownerId);
@@ -26,100 +15,64 @@ export async function GET(req: NextRequest) {
         const stats = await PropertyService.getBriefingStats(db, ownerId);
         return NextResponse.json({ success: true, buildings, stats });
     } catch (error: any) {
-        console.error('GET /api/properties error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to fetch properties' }, { status: 500 });
+        return serverError(error, 'GET /api/properties');
     }
 }
 
-// POST /api/properties — create a new property
+// POST /api/properties — create a new property for authenticated owner
 export async function POST(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
-        const { ownerId, name, location, city, gender, autoSetup, floorCount = 1, roomsPerFloor = 4 } = body;
+        const { ...propertyData } = body;
 
-        if (!ownerId || !name || !location || !city || !gender) {
-            return badRequest('ownerId, name, location, city, and gender are required');
+        if (!propertyData.name || !propertyData.location) {
+            return badRequest('name and location are required');
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
-
-        // Generate floors/rooms if autoSetup requested
-        const initialFloors: any[] = [];
-        if (autoSetup) {
-            for (let f = 1; f <= floorCount; f++) {
-                const floorId = `floor-${Date.now()}-${f}`;
-                const rooms: any[] = [];
-                for (let r = 1; r <= roomsPerFloor; r++) {
-                    rooms.push({
-                        id: `room-${Date.now()}-${f}-${r}`,
-                        name: `${f}0${r}`,
-                        floorId,
-                        beds: [],
-                        rent: 0,
-                        deposit: 0,
-                        amenities: [],
-                    });
-                }
-                initialFloors.push({ id: floorId, name: `Floor ${f}`, rooms });
-            }
-        }
-
-        const newPgId = `pg-${Date.now()}`;
-        // Fix the pgId in generated floors/rooms
-        initialFloors.forEach(f => {
-            f.pgId = newPgId;
-            f.rooms.forEach((r: any) => r.pgId = newPgId);
-        });
-
-        const newPg = {
-            id: newPgId,
+        const newPg = await PropertyService.createProperty(db, {
             ownerId,
-            name,
-            location,
-            city,
-            gender,
-            images: [],
-            rating: 0,
-            occupancy: 0,
-            totalBeds: 0,
-            totalRooms: initialFloors.reduce((acc, f) => acc + f.rooms.length, 0),
-            rules: [],
-            contact: '',
-            priceRange: { min: 0, max: 0 },
-            amenities: ['wifi'],
-            floors: initialFloors,
-            status: 'active',
-            createdAt: Date.now(),
-        };
-
-        await db.collection('users_data').doc(ownerId).collection('pgs').doc(newPgId).set(newPg);
+            name: propertyData.name,
+            location: propertyData.location,
+            city: propertyData.city || 'N/A',
+            gender: propertyData.gender || 'unisex',
+            autoSetup: propertyData.autoSetup,
+            floorCount: propertyData.floorCount,
+            roomsPerFloor: propertyData.roomsPerFloor
+        });
 
         // Update owner summary in main app DB
         try {
             const appDb = await getAdminDb();
             const pgsSnap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
-            await appDb.doc(`users/${ownerId}`).update({
-                'pgSummary.totalProperties': pgsSnap.size,
-            });
+            await appDb.doc(`users/${ownerId}`).set({
+                pgSummary: {
+                    totalProperties: pgsSnap.size,
+                    lastPropertyAdded: new Date().toISOString()
+                }
+            }, { merge: true });
         } catch (summaryErr) {
             console.warn('Could not update owner summary:', summaryErr);
         }
 
         return NextResponse.json({ success: true, pg: newPg }, { status: 201 });
     } catch (error: any) {
-        console.error('POST /api/properties error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to create property' }, { status: 500 });
+        return serverError(error, 'POST /api/properties');
     }
 }
 
-// DELETE /api/properties?ownerId=xxx&pgId=yyy — delete a property
+// DELETE /api/properties?pgId=yyy — delete a property for authenticated owner
 export async function DELETE(req: NextRequest) {
-    const ownerId = req.nextUrl.searchParams.get('ownerId');
-    const pgId = req.nextUrl.searchParams.get('pgId');
-
-    if (!ownerId || !pgId) return badRequest('ownerId and pgId are required');
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
 
     try {
+        const pgId = req.nextUrl.searchParams.get('pgId');
+        if (!pgId) return badRequest('pgId is required');
+
         const db = await selectOwnerDataAdminDb(ownerId);
 
         // Check for active guests
@@ -137,28 +90,45 @@ export async function DELETE(req: NextRequest) {
         batch.delete(db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId));
 
         // Delete related sub-collection documents
-        for (const subCol of ['guests', 'complaints', 'expenses']) {
+        for (const subCol of ['complaints', 'expenses']) {
             const snap = await db.collection('users_data').doc(ownerId).collection(subCol)
                 .where('pgId', '==', pgId).get();
             snap.docs.forEach(d => batch.delete(d.ref));
         }
 
         await batch.commit();
-        return NextResponse.json({ success: true });
+
+        // Update owner summary
+        try {
+            const appDb = await getAdminDb();
+            const pgsSnap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
+            await appDb.doc(`users/${ownerId}`).set({
+                pgSummary: {
+                    totalProperties: pgsSnap.size,
+                    lastUpdated: new Date().toISOString()
+                }
+            }, { merge: true });
+        } catch (summaryErr) {
+            console.warn('Could not update owner summary after delete:', summaryErr);
+        }
+
+        return NextResponse.json({ success: true, message: 'Property deleted successfully' });
     } catch (error: any) {
-        console.error('DELETE /api/properties error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to delete property' }, { status: 500 });
+        return serverError(error, 'DELETE /api/properties');
     }
 }
 
 // PATCH /api/properties — update a property
 export async function PATCH(req: NextRequest) {
+    const { ownerId, error } = await getVerifiedOwnerId(req);
+    if (!ownerId) return unauthorized(error);
+
     try {
         const body = await req.json();
-        const { ownerId, pgId, updates } = body;
+        const { pgId, updates } = body;
 
-        if (!ownerId || !pgId || !updates) {
-            return badRequest('ownerId, pgId, and updates are required');
+        if (!pgId || !updates) {
+            return badRequest('pgId and updates are required');
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
@@ -174,7 +144,6 @@ export async function PATCH(req: NextRequest) {
 
         return NextResponse.json({ success: true, pg: updatedPg });
     } catch (error: any) {
-        console.error('PATCH /api/properties error:', error);
-        return NextResponse.json({ error: error.message || 'Failed to update property' }, { status: 500 });
+        return serverError(error, 'PATCH /api/properties');
     }
 }

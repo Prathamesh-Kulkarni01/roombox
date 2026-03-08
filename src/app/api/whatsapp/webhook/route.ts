@@ -22,6 +22,16 @@ export async function GET(req: Request) {
 // ── POST: Receive messages from Meta ─────────────────────────────────────────
 export async function POST(req: Request) {
     try {
+        /**
+         * 🛡️ SECURITY WARNING: Missing Signature Verification
+         * 
+         * Production environments MUST verify the X-Hub-Signature-256 header
+         * using the WHATSAPP_APP_SECRET and the raw request body.
+         * Failure to do so allows ANYONE to spoof messages as any user.
+         * 
+         * TODO: Implement signature verification once APP_SECRET is configured.
+         */
+
         const body = await req.json();
 
         if (!body.object) {

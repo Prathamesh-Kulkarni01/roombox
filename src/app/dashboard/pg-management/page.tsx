@@ -53,10 +53,10 @@ export default function PgManagementPage() {
     const [pgToDelete, setPgToDelete] = useState<PG | null>(null);
 
     // RTK Query hooks
-    const { data: pgsData, isLoading: isLoadingPgs, refetch: refetchPgs } = useGetPropertiesQuery(currentUser?.id || '', {
+    const { data: pgsData, isLoading: isLoadingPgs, refetch: refetchPgs } = useGetPropertiesQuery(undefined, {
         skip: !currentUser?.id
     });
-    const { data: guestsData, isLoading: isLoadingGuests } = useGetGuestsQuery({ ownerId: currentUser?.id || '' }, {
+    const { data: guestsData, isLoading: isLoadingGuests } = useGetGuestsQuery(undefined, {
         skip: !currentUser?.id
     });
     const [deleteProperty] = useDeletePropertyMutation();
@@ -94,7 +94,7 @@ export default function PgManagementPage() {
         }
 
         try {
-            await deleteProperty({ ownerId: currentUser.id, pgId }).unwrap();
+            await deleteProperty({ pgId }).unwrap();
             toast({
                 title: "Property Deleted",
                 description: `"${pgName}" has been successfully removed.`,
