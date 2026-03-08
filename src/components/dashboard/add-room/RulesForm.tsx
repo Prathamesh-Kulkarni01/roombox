@@ -5,11 +5,11 @@ import { useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import MultiSelect from './MultiSelect';
-import { RoomFormValues } from '@/app/dashboard/add-room/page';
+import { RoomFormValues } from '@/lib/actions/roomActions';
 
 export const rulesSchema = z.object({
-  rules: z.array(z.string()),
-  preferredTenants: z.array(z.string()),
+    rules: z.array(z.string()),
+    preferredTenants: z.array(z.string()),
 });
 
 const allRules = [
@@ -34,44 +34,44 @@ interface RulesFormProps {
 }
 
 export function RulesForm({ form }: RulesFormProps) {
-  return (
-    <div className="space-y-6 pt-6">
-        <FormField
-            control={form.control}
-            name="rules"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>PG Rules</FormLabel>
-                    <FormControl>
-                       <MultiSelect
-                            options={allRules}
-                            selected={field.value}
-                            onChange={field.onChange}
-                            placeholder="Select applicable rules..."
-                       />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
-        <FormField
-            control={form.control}
-            name="preferredTenants"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Preferred Tenants</FormLabel>
-                    <FormControl>
-                       <MultiSelect
-                            options={allTenantTypes}
-                            selected={field.value}
-                            onChange={field.onChange}
-                            placeholder="Select preferred tenant types..."
-                       />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
-    </div>
-  );
+    return (
+        <div className="space-y-6 pt-6">
+            <FormField
+                control={form.control}
+                name="rules"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>PG Rules (Optional)</FormLabel>
+                        <FormControl>
+                            <MultiSelect
+                                options={allRules}
+                                selected={field.value}
+                                onChange={field.onChange}
+                                placeholder="Select applicable rules..."
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+            <FormField
+                control={form.control}
+                name="preferredTenants"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Preferred Tenants (Optional)</FormLabel>
+                        <FormControl>
+                            <MultiSelect
+                                options={allTenantTypes}
+                                selected={field.value}
+                                onChange={field.onChange}
+                                placeholder="Select preferred tenant types..."
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </div>
+    );
 }

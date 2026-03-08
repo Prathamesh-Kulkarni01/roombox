@@ -7,7 +7,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescripti
 import { Input } from '@/components/ui/input';
 import { DatePicker } from './DatePicker';
 import { Switch } from '@/components/ui/switch';
-import { RoomFormValues } from '@/app/dashboard/add-room/page';
+import { RoomFormValues } from '@/lib/actions/roomActions';
 
 export const mediaSchema = z.object({
   images: z.array(z.string()).optional(),
@@ -17,7 +17,7 @@ export const mediaSchema = z.object({
 });
 
 interface MediaFormProps {
-    form: ReturnType<typeof useFormContext<RoomFormValues>>;
+  form: ReturnType<typeof useFormContext<RoomFormValues>>;
 }
 
 export function MediaForm({ form }: MediaFormProps) {
@@ -25,7 +25,7 @@ export function MediaForm({ form }: MediaFormProps) {
     <div className="space-y-6 pt-6">
       <FormField control={form.control} name="images" render={({ field }) => (
         <FormItem>
-          <FormLabel>Upload Room Images</FormLabel>
+          <FormLabel>Upload Room Images (Optional)</FormLabel>
           <FormControl>
             <Input type="file" multiple accept="image/*" />
           </FormControl>
@@ -42,25 +42,25 @@ export function MediaForm({ form }: MediaFormProps) {
           <FormMessage />
         </FormItem>
       )} />
-       <FormField control={form.control} name="available" render={({ field }) => (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                    <FormLabel>Is the room currently available?</FormLabel>
-                </div>
-                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-            </FormItem>
-        )} />
+      <FormField control={form.control} name="available" render={({ field }) => (
+        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+          <div className="space-y-0.5">
+            <FormLabel>Room Availability (Optional)</FormLabel>
+          </div>
+          <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+        </FormItem>
+      )} />
       <FormField
-          control={form.control}
-          name="availableFrom"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel>Available From</FormLabel>
-              <DatePicker field={field} />
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        control={form.control}
+        name="availableFrom"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Available From (Optional)</FormLabel>
+            <DatePicker field={field} />
+            <FormMessage />
+          </FormItem>
+        )}
+      />
     </div>
   );
 }

@@ -216,6 +216,23 @@ export default function RoomManagementPage() {
           </div>
         </div>
 
+        {(!pg.floors || pg.floors.length === 0) && (
+          <div className="flex flex-col items-center justify-center p-12 bg-muted/20 border-2 border-dashed rounded-3xl text-center space-y-6">
+            <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center">
+              <Building className="w-10 h-10" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold tracking-tight">No Floors Found</h2>
+              <p className="text-muted-foreground max-w-sm mx-auto">
+                Properties are organized by floors. Add your first floor to start adding rooms and guests.
+              </p>
+            </div>
+            <Button onClick={openAddFloor} size="lg" className="rounded-2xl px-8 font-bold shadow-lg shadow-primary/20">
+              <PlusCircle className="mr-2 h-5 w-5" /> Add Floor
+            </Button>
+          </div>
+        )}
+
         {floorsToRender?.map(floor => (
           <div key={floor.id} className="space-y-6 mb-8">
             {activeTab === 'all' && <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{floor.name}</h3>}

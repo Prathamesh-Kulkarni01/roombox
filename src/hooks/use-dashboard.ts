@@ -145,6 +145,9 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       availableFrom: new Date(),
       monthlyRent: 0,
       securityDeposit: 0,
+      roomType: 'double',
+      gender: 'unisex',
+      category: 'standard',
       lockInMonths: 0,
       acCharge: { included: false, charge: 0 },
       maintenanceCharges: 0,
@@ -500,7 +503,7 @@ Thank you!`;
     }
 
     setIsBedDialogOpen(false);
-    showConfetti({ particleCount: 30, spread: 50, startVelocity: 10, decay: 0.9 });
+    showConfetti({ particleCount: 30, spread: 50, startVelocity: 10 });
   };
 
   const handleDelete = (type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string }) => {
