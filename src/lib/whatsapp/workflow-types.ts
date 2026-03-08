@@ -97,6 +97,7 @@ export interface WorkflowContext {
     // User identity
     userId: string;
     userPhone: string;
+    userRole?: 'owner' | 'manager' | 'staff'; // Role-based access control
 
     // Metadata
     createdAt: Date;

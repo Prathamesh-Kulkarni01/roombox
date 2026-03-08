@@ -10,6 +10,7 @@ import { PropertyService } from '../../services/propertyService';
 import { TenantService } from '../../services/tenantService';
 import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
 import { getReminderForGuest } from '../reminder-logic';
+import { checkHierarchy } from './hierarchy-guard';
 import type { Guest } from '../types';
 
 // ─────────────────────────────────────────────────────────────
@@ -33,6 +34,14 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                 const statsLine = stats.totalBuildings !== undefined
                     ? `📊 ${stats.totalBuildings} Properties | ${stats.totalTenants} Tenants\n\n`
                     : '';
+
+                // Role-based option filtering: staff cannot see tenant mgmt or financial ops
+                const isStaff = ctx.userRole === 'staff';
+                const ownerOnlyOptions = isStaff ? '' :
+                    `6️⃣ Onboard New Tenant\n` +
+                    `7️⃣ Manage Tenants\n` +
+                    `8️⃣ Reports & Analytics\n`;
+
                 return (
                     `🏠 *RoomBox Dashboard*\nHi ${ownerName}!\n\n` +
                     statsLine +
@@ -41,9 +50,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                     `3️⃣ Monthly Summary\n` +
                     `4️⃣ Pending Rents\n` +
                     `5️⃣ Send Reminders\n` +
-                    `6️⃣ Onboard New Tenant\n` +
-                    `7️⃣ Manage Tenants\n` +
-                    `8️⃣ Reports & Analytics\n` +
+                    ownerOnlyOptions +
                     `9️⃣ Dashboard Link`
                 );
             },
@@ -617,6 +624,9 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             label: 'Tenant Actions',
             messageBuilder: (ctx) => {
                 const t = ctx.data.selectedTenant || {};
+                const canVacate = ctx.userRole !== 'staff';
+                const vacateOption = canVacate ? `4️⃣ Vacate Tenant\n` : '';
+                const backNum = canVacate ? '5' : '4';
                 return (
                     `👤 *${t.name}*\n\n` +
                     `PG: ${t.pgName || 'N/A'}\n` +
@@ -626,20 +636,28 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
                     `1️⃣ Edit Details\n` +
                     `2️⃣ Record Payment\n` +
                     `3️⃣ View/Upload KYC\n` +
-                    `4️⃣ Vacate Tenant\n` +
-                    `5️⃣ ← Back`
+                    vacateOption +
+                    `${backNum}️⃣ ← Back`
                 );
             },
-            nextSteps: {
-                '1': 'editTenantSelect',
-                '2': 'recordTenantPaymentAmount',
-                '3': 'kycMenu',
-                '4': 'confirmVacate',
-                '5': 'selectTenantToManage',
+            nextStepsFn: async (input, ctx) => {
+                const canVacate = ctx.userRole !== 'staff';
+                if (input === '1') return 'editTenantSelect';
+                if (input === '2') return 'recordTenantPaymentAmount';
+                if (input === '3') return 'kycMenu';
+                if (input === '4' && canVacate) return 'confirmVacate';
+                if (input === '4' && !canVacate) return 'selectTenantToManage'; // staff back
+                if (input === '5') return 'selectTenantToManage';
+                return 'tenantActions';
             },
             validation: {
-                customValidator: (input) => ['1', '2', '3', '4', '5'].includes(input.trim()),
-                errorMessage: 'Please reply with a number from 1 to 5.',
+                customValidator: (input, ctx) => {
+                    const canVacate = ctx.userRole !== 'staff';
+                    const maxOpt = canVacate ? 5 : 4;
+                    const n = parseInt(input.trim());
+                    return !isNaN(n) && n >= 1 && n <= maxOpt;
+                },
+                errorMessage: 'Please reply with a valid option number.',
             },
         },
 
@@ -874,13 +892,41 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             messageBuilder: (ctx) => (
                 `⚠️ *Vacate Tenant*\n\n` +
                 `Are you sure you want to mark *${ctx.data.selectedTenant?.name}* as vacated?\n\n` +
-                `1️⃣ Yes, Vacate\n2️⃣ Cancel`
+                `1️⃣ Yes, proceed to final confirmation\n2️⃣ Cancel`
             ),
-            nextSteps: { '1': 'vacateTenant', '2': 'tenantActions' },
+            nextSteps: { '1': 'vacateConfirmWord', '2': 'tenantActions' },
             validation: {
                 customValidator: (input) => ['1', '2'].includes(input.trim()),
                 errorMessage: 'Please reply 1 to confirm or 2 to cancel.',
             },
+        },
+
+        // Safety gate: owner must type CONFIRM before the irreversible vacate executes
+        vacateConfirmWord: {
+            id: 'vacateConfirmWord',
+            type: 'input',
+            label: 'Type CONFIRM',
+            messageBuilder: (ctx) => (
+                `🔒 *Final Confirmation Required*\n\n` +
+                `Vacating *${ctx.data.selectedTenant?.name}* cannot be undone.\n\n` +
+                `Type *CONFIRM* to permanently vacate this tenant,\n` +
+                `or type anything else to cancel.`
+            ),
+            nextStepsFn: async (input, ctx) => {
+                if (input.trim().toUpperCase() === 'CONFIRM') {
+                    return 'vacateTenant';
+                }
+                ctx.data._vacateCancelled = true;
+                return 'vacateCancelledMsg';
+            },
+        },
+
+        vacateCancelledMsg: {
+            id: 'vacateCancelledMsg',
+            type: 'display',
+            label: 'Vacate Cancelled',
+            messageTemplate: `✅ Vacate cancelled. No changes were made.\n\nReply *Menu* to continue.`,
+            defaultNext: 'tenantActions',
         },
 
         vacateTenant: {
@@ -888,16 +934,21 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             type: 'display',
             label: 'Tenant Vacated',
             messageBuilder: (ctx) => (
-                ctx.data._error
-                    ? `❌ Could not vacate tenant: ${ctx.data._error}`
-                    : `✅ *${ctx.data.selectedTenant?.name}* has been marked as vacated.\n\nReply *Menu* to continue.`
+                ctx.data._dbError
+                    ? `⚠️ *Temporary Issue*\n\nSomething went wrong on our end. The vacate action for *${ctx.data.selectedTenant?.name}* was not completed. Please try again in 1 minute.`
+                    : ctx.data._error
+                        ? `❌ Could not vacate tenant: ${ctx.data._error}`
+                        : `✅ *${ctx.data.selectedTenant?.name}* has been marked as vacated.\n\nReply *Menu* to continue.`
             ),
             onEnter: async (ctx) => {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
                     const appDb = await getAdminDb();
                     await TenantService.vacateTenant(db, ctx.ownerId!, ctx.data.selectedTenant?.id, appDb);
-                } catch (e: any) { ctx.data._error = e.message; }
+                } catch (e: any) {
+                    const isTransient = e?.code === 'unavailable' || e?.code === 14 || /timeout|unavailable|deadline/i.test(e?.message || '');
+                    if (isTransient) { ctx.data._dbError = true; } else { ctx.data._error = e.message; }
+                }
             },
             defaultNext: 'selectTenantToManage',
         },
@@ -919,24 +970,51 @@ export const addTenantWorkflow: WorkflowDefinition = {
             id: 'selectPgForTenant',
             type: 'menu',
             label: 'Select Property',
-            messageTemplate: '🏠 *Onboard New Tenant*\n\nSelect the property:',
             onEnter: async (ctx) => {
                 const db = await selectOwnerDataAdminDb(ctx.ownerId!);
                 ctx.data.pgsList = await PropertyService.getBuildings(db, ctx.ownerId!);
+
+                // ── Hierarchy Guard: Property must exist before adding tenant ──
+                const block = await checkHierarchy(ctx.ownerId!, 'property');
+                if (block) {
+                    ctx.data._hierarchyBlock = block;
+                } else {
+                    ctx.data._hierarchyBlock = null;
+                }
+            },
+            messageBuilder: (ctx) => {
+                if (ctx.data._hierarchyBlock) {
+                    return ctx.data._hierarchyBlock.message;
+                }
+                return '🏠 *Onboard New Tenant*\n\nSelect the property:';
             },
             optionsFn: async (ctx) => {
+                if (ctx.data._hierarchyBlock) {
+                    return [
+                        { key: '1', label: '🏗️ Set Up My First Property' },
+                        { key: '2', label: '← Back to Menu' },
+                    ];
+                }
                 const props = ctx.data.pgsList || [];
-                if (props.length === 0) return [{ key: 1, label: '❌ No properties yet — add one first' }];
                 return props.map((p: any, i: number) => ({ key: i + 1, label: p.name }));
             },
             validation: {
                 customValidator: (input, ctx) => {
+                    if (ctx.data._hierarchyBlock) {
+                        return ['1', '2'].includes(input.trim());
+                    }
                     const n = parseInt(input);
                     return !isNaN(n) && n >= 1 && n <= (ctx.data.pgsList?.length || 0);
                 },
                 errorMessage: 'Please reply with a valid number.',
             },
             nextStepsFn: async (input, ctx) => {
+                // Handle hierarchy block redirect
+                if (ctx.data._hierarchyBlock) {
+                    ctx.data._hierarchyBlock = null;
+                    if (input.trim() === '1') return '__switchPropertyManagement';
+                    return '__goMainMenu';
+                }
                 if (!ctx.data.pgsList?.length) return '__goMainMenu';
                 const n = parseInt(input);
                 ctx.data.selectedPg = ctx.data.pgsList[n - 1];
@@ -1068,9 +1146,11 @@ export const addTenantWorkflow: WorkflowDefinition = {
             type: 'display',
             label: 'Tenant Saved',
             messageBuilder: (ctx) => (
-                ctx.data._error
-                    ? `❌ Could not save tenant: ${ctx.data._error}\n\nPlease add from the dashboard.`
-                    : `✅ *Tenant Onboarded!*\n\nName: ${ctx.data.tf_name}\nProperty: ${ctx.data.selectedPg?.name}\nRent: ₹${ctx.data.tf_rent}\n\nReply *Menu* to continue.`
+                ctx.data._dbError
+                    ? `⚠️ *Temporary Issue*\n\nSomething went wrong on our end. Your progress for *${ctx.data.tf_name || 'the new tenant'}* is saved — please try again in 1 minute.\n\nReply *Menu* to return.`
+                    : ctx.data._error
+                        ? `❌ Could not save tenant: ${ctx.data._error}\n\nPlease add from the dashboard.`
+                        : `✅ *Tenant Onboarded!*\n\nName: ${ctx.data.tf_name}\nProperty: ${ctx.data.selectedPg?.name}\nRent: ₹${ctx.data.tf_rent}\n\nReply *Menu* to continue.`
             ),
             onEnter: async (ctx) => {
                 try {
@@ -1094,7 +1174,10 @@ export const addTenantWorkflow: WorkflowDefinition = {
                         rentCycleValue: 1,
                         ownerId: ctx.ownerId!
                     });
-                } catch (e: any) { ctx.data._error = e.message; }
+                } catch (e: any) {
+                    const isTransient = e?.code === 'unavailable' || e?.code === 14 || /timeout|unavailable|deadline/i.test(e?.message || '');
+                    if (isTransient) { ctx.data._dbError = true; } else { ctx.data._error = e.message; }
+                }
             },
             defaultNext: '__goMainMenu',
         },

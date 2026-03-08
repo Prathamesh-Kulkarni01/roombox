@@ -31,11 +31,33 @@ const WORKFLOW_SWITCH_MAP: Record<string, { workflowId: string; step: string }> 
     '__goTenantPortal': { workflowId: 'tenantPortal', step: 'tenantMenu' },
 };
 
+// ─── Data-collecting workflows that can be safely resumed after timeout ────────
+const RESUMABLE_WORKFLOWS = new Set([
+    'addTenant',
+    'ownerRegistration',
+    'propertyManagement', // only when in addProperty steps
+]);
+
+// Workflow steps that are part of data entry (not navigation pages)
+const DATA_ENTRY_STEP_PREFIXES = [
+    'addProperty', 'tenantForm', 'editTenant', 'tenantLazy', 'askOwner', 'addFloor', 'addRoom', 'addBed'
+];
+
+function isDataEntryStep(stepId: string): boolean {
+    return DATA_ENTRY_STEP_PREFIXES.some(prefix => stepId.startsWith(prefix));
+}
+
 // ─── Session helpers ──────────────────────────────────────────────────────────
 
 function isContextExpired(ctx: WorkflowContext): boolean {
     const updated = new Date(ctx.updatedAt).getTime();
     return Date.now() - updated > 15 * 60 * 1000; // 15 min idle timeout
+}
+
+/** Returns true if the given input is a global navigation command */
+function isNavCommand(text: string): boolean {
+    const lower = text.toLowerCase();
+    return ['menu', 'hi', 'hello', 'cancel', 'start'].includes(lower);
 }
 
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
@@ -106,7 +128,65 @@ export async function handleIncomingMessage(data: {
         }
 
         const lowerText = text.toLowerCase();
-        // Global reset commands
+        const activeWorkflowId: string = session.data?.workflowId || 'mainMenu';
+        const activeStep: string = session.data?.currentStep || 'showMenu';
+
+        // ── Mid-Flow Switch Interception ─────────────────────────────────────
+        // If user sends a nav command while in the middle of a data-entry flow,
+        // ask them to save or switch — don't silently discard their progress.
+        if (isNavCommand(text) && RESUMABLE_WORKFLOWS.has(activeWorkflowId) && isDataEntryStep(activeStep)) {
+            const ctx: WorkflowContext | undefined = session.data?.workflowContext;
+            const hasPartialData = ctx && Object.keys(ctx.data || {}).some(k =>
+                k.startsWith('tf_') || k.startsWith('newProp') || k.startsWith('reg_') || k.startsWith('lazy_')
+            );
+
+            if (hasPartialData) {
+                // Store pending switch intent so next message resolves it
+                const workflowLabel = activeWorkflowId === 'addTenant' ? 'adding a tenant'
+                    : activeWorkflowId === 'propertyManagement' ? 'setting up a property'
+                        : 'your current task';
+
+                await updateSession(from, 'IDLE', {
+                    ...session.data,
+                    _midFlowSwitchPending: true,
+                    _midFlowLabel: workflowLabel,
+                });
+                await sendWhatsAppMessage(
+                    from,
+                    `🔀 *You're in the middle of ${workflowLabel}.*\n\n` +
+                    `Your progress is saved for a few minutes.\n\n` +
+                    `1️⃣ Save & go to Menu\n` +
+                    `2️⃣ Continue current task`
+                );
+                return;
+            }
+        }
+
+        // ── Resolve Pending Mid-Flow Switch ──────────────────────────────────
+        if (session.data?._midFlowSwitchPending) {
+            await updateSession(from, 'IDLE', {
+                ...session.data,
+                _midFlowSwitchPending: false,
+            });
+            if (text.trim() === '1') {
+                // Discard and go to menu
+                await updateSession(from, 'IDLE', {
+                    ...session.data,
+                    _midFlowSwitchPending: false,
+                    workflowContext: undefined,
+                    workflowId: 'mainMenu',
+                    currentStep: 'showMenu',
+                });
+                await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
+                return;
+            } else {
+                // Continue — re-present the current step
+                await handleWithWorkflow(from, '', session, activeWorkflowId, activeStep);
+                return;
+            }
+        }
+
+        // Global reset commands (only when NOT in mid-flow)
         if (lowerText === 'menu' || lowerText === 'hi' || lowerText === 'hello') {
             await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
             return;
@@ -119,10 +199,7 @@ export async function handleIncomingMessage(data: {
         }
 
         // Continue active workflow
-        await handleWithWorkflow(from, text, session,
-            session.data?.workflowId || 'mainMenu',
-            session.data?.currentStep || 'showMenu'
-        );
+        await handleWithWorkflow(from, text, session, activeWorkflowId, activeStep);
         return;
     }
 }
@@ -140,6 +217,50 @@ async function handleWithWorkflow(
     let ctx: WorkflowContext = session.data?.workflowContext;
 
     if (!ctx || isContextExpired(ctx)) {
+        // Check if this is a resumable workflow with partial data
+        if (ctx && isContextExpired(ctx) && RESUMABLE_WORKFLOWS.has(workflowId) && isDataEntryStep(currentStep)) {
+            const hasPartialData = Object.keys(ctx.data || {}).some(k =>
+                k.startsWith('tf_') || k.startsWith('newProp') || k.startsWith('reg_') || k.startsWith('lazy_')
+            );
+
+            if (hasPartialData) {
+                // Check if they've already responded to the resume prompt
+                if (!session.data?._resumePending) {
+                    // First time expiring — prompt user
+                    const tenantName = ctx.data?.tf_name;
+                    const label = tenantName ? `adding *${tenantName}*` : 'your previous work';
+                    await updateSession(from, 'IDLE', {
+                        ...session.data,
+                        _resumePending: true,
+                        _resumeWorkflowId: workflowId,
+                        _resumeStep: currentStep,
+                        _resumeCtx: ctx,
+                    });
+                    await sendWhatsAppMessage(
+                        from,
+                        `⏸️ *Welcome back!*\n\n` +
+                        `Would you like to continue ${label} or start over?\n\n` +
+                        `1️⃣ Continue\n` +
+                        `2️⃣ Start Over`
+                    );
+                    return;
+                }
+
+                // They are responding to the resume prompt
+                await updateSession(from, 'IDLE', { ...session.data, _resumePending: false });
+                if (text.trim() === '1' && session.data._resumeCtx) {
+                    // Restore and re-present
+                    ctx = session.data._resumeCtx as WorkflowContext;
+                    ctx.updatedAt = new Date(); // Reset timer
+                    const message = await workflowEngine.presentStep(ctx);
+                    await sendWhatsAppMessage(from, message);
+                    await persistWorkflowContext(from, session, ctx);
+                    return;
+                }
+                // '2' or anything else → fall through to fresh context below
+            }
+        }
+
         // Fresh context — present the current step
         ctx = workflowEngine.initializeContext(workflowId, from, from, {
             isAuthenticatedOwner: session.data?.isAuthenticatedOwner || false,
@@ -149,9 +270,11 @@ async function handleWithWorkflow(
             tenantName: session.data?.tenantName,
             guestId: session.data?.guestId,
             pgId: session.data?.pgId,
+            userRole: session.data?.userRole,
         });
         ctx.workflowId = workflowId;
         ctx.currentStep = currentStep;
+        if (session.data?.userRole) ctx.userRole = session.data.userRole;
 
         // Present the step (with onEnter)
         const message = await workflowEngine.presentStep(ctx);
@@ -164,6 +287,7 @@ async function handleWithWorkflow(
     ctx.isAuthenticatedOwner = session.data?.isAuthenticatedOwner || false;
     ctx.ownerId = session.data?.ownerId;
     ctx.ownerName = session.data?.ownerName;
+    if (session.data?.userRole) ctx.userRole = session.data.userRole;
 
     // Process input through engine
     const result = await workflowEngine.processInput(text, ctx);
@@ -207,11 +331,13 @@ async function switchToWorkflow(
         tenantName: session.data?.tenantName,
         guestId: session.data?.guestId,
         pgId: session.data?.pgId,
+        userRole: session.data?.userRole,
         // Preserve cross-workflow data if needed
         data: prevCtx?.data ? { pgsList: prevCtx.data.pgsList } : {},
     });
     ctx.workflowId = workflowId;
     ctx.currentStep = stepId;
+    if (session.data?.userRole) ctx.userRole = session.data.userRole;
 
     // Run onEnter and present the step
     const message = await workflowEngine.presentStep(ctx);
@@ -264,6 +390,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     isAuthenticatedOwner: true,
                     ownerName: acc.name,
                     ownerId: acc.id,
+                    userRole: (acc.role as string) || 'owner', // Propagate role for access control
                 });
                 await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Owner)`);
                 await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
@@ -318,6 +445,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     isAuthenticatedOwner: true,
                     ownerName: acc.name,
                     ownerId: acc.id,
+                    userRole: (acc.role as string) || 'owner',
                 });
                 await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
             } else {
