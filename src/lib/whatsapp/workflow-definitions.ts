@@ -235,7 +235,7 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
                     });
                     msg += '\n';
                 }
-                msg += `1️⃣ View Tenants\n2️⃣ Record Payment\n3️⃣ ← Back to Properties`;
+                msg += `1️⃣ View Tenants\n2️⃣ Record Payment\n3️⃣ Onboard New Tenant\n4️⃣ ← Back to Properties`;
                 return msg;
             },
             onEnter: async (ctx) => {
@@ -251,11 +251,12 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             nextSteps: {
                 '1': 'selectPropertyTenant',
                 '2': 'recordPropertyPaymentAmount',
-                '3': 'selectProperty',
+                '3': '__switchAddTenant',
+                '4': 'selectProperty',
             },
             validation: {
-                customValidator: (input) => ['1', '2', '3'].includes(input.trim()),
-                errorMessage: 'Please reply with 1, 2, or 3.',
+                customValidator: (input) => ['1', '2', '3', '4'].includes(input.trim()),
+                errorMessage: 'Please reply with 1, 2, 3, or 4.',
             },
         },
 
@@ -348,26 +349,14 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             defaultNext: 'selectProperty',
         },
 
-        // ---------- Add Property Form ----------
+        // ---------- Add Property Revamped Flow ----------
         addPropertyName: {
             id: 'addPropertyName',
             type: 'input',
             label: 'Property Name',
-            messageTemplate: '🏠 *Add New Property*\n\nWhat is the property name?\n(e.g., "Sharma PG", "Downtown Hostel")',
+            messageTemplate: '🏠 *New Property Setup*\n\nStep 1/3: What is the *Building Name*?\n(e.g., "Gokul PG", "Sai Residency")',
             nextStepsFn: async (input, ctx) => {
                 ctx.data.newPropName = input.trim();
-                return 'addPropertyBeds';
-            },
-        },
-
-        addPropertyBeds: {
-            id: 'addPropertyBeds',
-            type: 'input',
-            label: 'Total Beds',
-            messageTemplate: 'How many beds/rooms does it have?\n(e.g., 10)',
-            validation: { regex: /^\d+$/, errorMessage: 'Please enter a valid number (e.g., 10).' },
-            nextStepsFn: async (input, ctx) => {
-                ctx.data.newPropBeds = parseInt(input);
                 return 'addPropertyLocation';
             },
         },
@@ -376,33 +365,48 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             id: 'addPropertyLocation',
             type: 'input',
             label: 'Location',
-            messageTemplate: 'What is the location/address?\n(e.g., "Block D, Sector 45, Pune")',
+            messageTemplate: 'Step 2/3: Where is it located?\n(e.g., "Sector 62, Noida" or "Kothrud, Pune")',
             nextStepsFn: async (input, ctx) => {
                 ctx.data.newPropLocation = input.trim();
-                return 'addPropertyRent';
+                return 'addPropertySetupChoice';
             },
         },
 
-        addPropertyRent: {
-            id: 'addPropertyRent',
+        addPropertySetupChoice: {
+            id: 'addPropertySetupChoice',
+            type: 'menu',
+            label: 'Setup Floors',
+            messageTemplate: 'Step 3/3: Would you like to setup Floors & Rooms now?\n\n1️⃣ YES (Fast Bulk Setup)\n2️⃣ NO (Just Create Building)',
+            nextSteps: {
+                '1': 'addPropertyFloorsCount',
+                '2': 'confirmAddProperty'
+            },
+            validation: {
+                customValidator: (input) => ['1', '2'].includes(input.trim()),
+                errorMessage: 'Please reply 1 for Yes or 2 for No.'
+            }
+        },
+
+        addPropertyFloorsCount: {
+            id: 'addPropertyFloorsCount',
             type: 'input',
-            label: 'Base Rent',
-            messageTemplate: 'What is the base rent amount?\n(e.g., 5000)',
-            validation: { regex: /^\d+$/, errorMessage: 'Please enter a valid amount (e.g., 5000).' },
+            label: 'Floors Count',
+            messageTemplate: '🏢 *Bulk Setup*\n\nHow many *Floors* does this building have?\n(e.g., 3)',
+            validation: { regex: /^\d+$/, errorMessage: 'Please enter a number (e.g., 3).' },
             nextStepsFn: async (input, ctx) => {
-                ctx.data.newPropRent = parseInt(input);
-                return 'addPropertyDeposit';
+                ctx.data.newPropFloors = parseInt(input);
+                return 'addPropertyRoomsPerFloor';
             },
         },
 
-        addPropertyDeposit: {
-            id: 'addPropertyDeposit',
+        addPropertyRoomsPerFloor: {
+            id: 'addPropertyRoomsPerFloor',
             type: 'input',
-            label: 'Security Deposit %',
-            messageTemplate: 'Security deposit %?\n(e.g., 30 for 30% of rent)',
-            validation: { regex: /^\d+$/, errorMessage: 'Please enter a valid percentage (e.g., 30).' },
+            label: 'Rooms Per Floor',
+            messageTemplate: '🛏️ How many *Rooms* on *each floor* average?\n(e.g., 4)',
+            validation: { regex: /^\d+$/, errorMessage: 'Please enter a number (e.g., 4).' },
             nextStepsFn: async (input, ctx) => {
-                ctx.data.newPropDeposit = parseInt(input);
+                ctx.data.newPropRoomsPerFloor = parseInt(input);
                 return 'confirmAddProperty';
             },
         },
@@ -411,19 +415,30 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             id: 'confirmAddProperty',
             type: 'confirmation',
             label: 'Confirm New Property',
-            messageBuilder: (ctx) => (
-                `📋 *Confirm New Property*\n\n` +
-                `Name: ${ctx.data.newPropName}\n` +
-                `Beds: ${ctx.data.newPropBeds}\n` +
-                `Location: ${ctx.data.newPropLocation}\n` +
-                `Base Rent: ₹${ctx.data.newPropRent}\n` +
-                `Deposit: ${ctx.data.newPropDeposit}%\n\n` +
-                `1️⃣ Save\n2️⃣ Cancel`
-            ),
+            messageBuilder: (ctx) => {
+                const floors = ctx.data.newPropFloors || 0;
+                const roomsPerFloor = ctx.data.newPropRoomsPerFloor || 0;
+                const totalRooms = floors * roomsPerFloor;
+
+                let detailMsg = '';
+                if (floors > 0) {
+                    detailMsg = `Floors: ${floors}\nRooms: ${totalRooms} (${roomsPerFloor} per floor)\n`;
+                } else {
+                    detailMsg = `Setup: Basic (No floors/rooms yet)\n`;
+                }
+
+                return (
+                    `📋 *Confirm New Property*\n\n` +
+                    `Building: *${ctx.data.newPropName}*\n` +
+                    `Location: ${ctx.data.newPropLocation}\n` +
+                    detailMsg +
+                    `\n1️⃣ SAVE\n2️⃣ CANCEL`
+                );
+            },
             nextSteps: { '1': 'saveProperty', '2': 'selectProperty' },
             validation: {
                 customValidator: (input) => ['1', '2'].includes(input.trim()),
-                errorMessage: 'Please reply 1 to save or 2 to cancel.',
+                errorMessage: 'Please reply 1 to SAVE or 2 to CANCEL.',
             },
         },
 
@@ -433,21 +448,50 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             label: 'Property Saved',
             messageBuilder: (ctx) => (
                 ctx.data._error
-                    ? `❌ Could not save property: ${ctx.data._error}\n\nPlease try from the dashboard.`
-                    : `✅ *Property Created!*\n\nName: ${ctx.data.newPropName}\nBeds: ${ctx.data.newPropBeds}\nLocation: ${ctx.data.newPropLocation}\n\nReply *Menu* to continue.`
+                    ? `❌ Oops! Could not save: ${ctx.data._error}\n\nPlease try again later.`
+                    : `✅ *Building Created Successfully!*\n\n${ctx.data.newPropName} is ready.\n\nReply *Menu* to manage properties.`
             ),
             onEnter: async (ctx) => {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
                     const newPgId = `pg-${Date.now()}`;
+
+                    const floorsList = [];
+                    const floorsCount = ctx.data.newPropFloors || 0;
+                    const roomsPerFloor = ctx.data.newPropRoomsPerFloor || 0;
+
+                    for (let i = 1; i <= floorsCount; i++) {
+                        const rooms = [];
+                        const floorId = `floor-${Date.now()}-${i}`;
+                        for (let j = 1; j <= roomsPerFloor; j++) {
+                            const roomNum = (i * 100) + j;
+                            const roomId = `room-${Date.now()}-${i}-${j}`;
+                            rooms.push({
+                                id: roomId,
+                                name: `${roomNum}`,
+                                pgId: newPgId,
+                                floorId: floorId,
+                                beds: [{ id: `bed-${roomId}-1`, name: '1', guestId: null }],
+                                rent: 0,
+                                deposit: 0,
+                                available: true
+                            });
+                        }
+                        floorsList.push({
+                            id: floorId,
+                            name: `Floor ${i}`,
+                            pgId: newPgId,
+                            rooms: rooms
+                        });
+                    }
+
                     await db.collection('users_data').doc(ctx.ownerId!).collection('pgs').doc(newPgId).set({
                         id: newPgId,
                         ownerId: ctx.ownerId,
                         name: ctx.data.newPropName,
-                        totalBeds: ctx.data.newPropBeds,
                         location: ctx.data.newPropLocation,
-                        baseRent: ctx.data.newPropRent,
-                        securityDepositPercent: ctx.data.newPropDeposit,
+                        floors: floorsList,
+                        totalBeds: floorsCount * roomsPerFloor,
                         occupancy: 0,
                         isActive: true,
                         createdDate: new Date().toISOString(),
@@ -890,18 +934,30 @@ export const addTenantWorkflow: WorkflowDefinition = {
             id: 'tenantFormRent',
             type: 'input',
             label: 'Monthly Rent',
-            messageTemplate: '💰 Monthly rent amount?\n(e.g., 8000)',
-            validation: { regex: /^\d+$/, errorMessage: 'Please enter a valid number (e.g., 8000).' },
-            nextStepsFn: async (input, ctx) => { ctx.data.tf_rent = parseInt(input); return 'tenantFormDeposit'; },
+            messageTemplate: '💰 Monthly rent amount?\n(e.g., 8000)\n\nReply *skip* for ₹0.',
+            validation: {
+                customValidator: (input) => input.toLowerCase() === 'skip' || /^\d+$/.test(input.trim()),
+                errorMessage: 'Please enter a valid number or reply skip.'
+            },
+            nextStepsFn: async (input, ctx) => {
+                ctx.data.tf_rent = input.toLowerCase() === 'skip' ? 0 : parseInt(input);
+                return 'tenantFormDeposit';
+            },
         },
 
         tenantFormDeposit: {
             id: 'tenantFormDeposit',
             type: 'input',
             label: 'Security Deposit',
-            messageTemplate: '🔒 Security deposit amount?\n(e.g., 8000)',
-            validation: { regex: /^\d+$/, errorMessage: 'Please enter a valid number.' },
-            nextStepsFn: async (input, ctx) => { ctx.data.tf_deposit = parseInt(input); return 'confirmAddTenant'; },
+            messageTemplate: '🔒 Security deposit amount?\n(e.g., 8000)\n\nReply *skip* for ₹0.',
+            validation: {
+                customValidator: (input) => input.toLowerCase() === 'skip' || /^\d+$/.test(input.trim()),
+                errorMessage: 'Please enter a valid number or reply skip.'
+            },
+            nextStepsFn: async (input, ctx) => {
+                ctx.data.tf_deposit = input.toLowerCase() === 'skip' ? 0 : parseInt(input);
+                return 'confirmAddTenant';
+            },
         },
 
         confirmAddTenant: {

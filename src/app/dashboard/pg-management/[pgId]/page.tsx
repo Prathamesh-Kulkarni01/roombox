@@ -21,6 +21,7 @@ import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
+import BulkAddDialog from '@/components/dashboard/dialogs/BulkAddDialog'
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import GuestPopoverContent from "@/components/dashboard/GuestPopoverContent"
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
@@ -75,8 +76,11 @@ export default function RoomManagementPage() {
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
     handleOpenRoomDialog, handleOpenFloorDialog, handleOpenBedDialog,
     handleOpenAddGuestDialog, handleOpenPaymentDialog,
+    handleOpenBulkAddDialog,
     handleDelete,
-    isSavingRoom
+    isSavingRoom,
+    isBulkAddDialogOpen, setIsBulkAddDialogOpen, bulkAddType,
+    bulkRoomForm, bulkBedForm, handleBulkRoomSubmit, handleBulkBedSubmit
   } = useDashboard({ pgs, guests })
 
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
@@ -209,6 +213,7 @@ export default function RoomManagementPage() {
                   <DropdownMenuItem onClick={() => router.push('/dashboard/tenant-management')}><UserPlus className="mr-2 h-4 w-4" /> Add Guest</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => handleOpenRoomDialog(null, floorsToRender?.[0]?.id || '', pg.id)}><BedDouble className="mr-2 h-4 w-4" /> Add Room</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleOpenBulkAddDialog('rooms', floorsToRender?.[0]?.id)}><PlusCircle className="mr-2 h-4 w-4" /> Bulk Add Rooms</DropdownMenuItem>
                   <DropdownMenuItem onClick={openAddFloor} disabled={!canAddFloor}><Building className="mr-2 h-4 w-4" /> Add Floor</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -287,6 +292,7 @@ export default function RoomManagementPage() {
                       <div className="flex items-center gap-1">
                         {canEdit && <Button variant="secondary" size="sm" onClick={() => handleOpenRoomDialog(room)} className="h-8 rounded-full px-3 text-xs font-semibold"><Pencil className="w-3 h-3 justify-center" /> Edit</Button>}
                         {canAdd && <Button variant="secondary" size="sm" onClick={() => handleOpenBedDialog(null, room.id, floor.id)} className="h-8 rounded-full px-3 text-xs font-semibold"><Plus className="w-3 h-3 justify-center" /> Bed</Button>}
+                        {canAdd && <Button variant="secondary" size="sm" onClick={() => handleOpenBulkAddDialog('beds', floor.id, room.id)} className="h-8 rounded-full px-3 text-xs font-semibold"><PlusCircle className="w-3 h-3 justify-center" /> Bulk Beds</Button>}
                       </div>
                     ) : null}
                   </div>
@@ -580,6 +586,17 @@ export default function RoomManagementPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BulkAddDialog
+        isOpen={isBulkAddDialogOpen}
+        onOpenChange={setIsBulkAddDialogOpen}
+        type={bulkAddType}
+        pg={pg}
+        bulkRoomForm={bulkRoomForm}
+        bulkBedForm={bulkBedForm}
+        handleBulkRoomSubmit={handleBulkRoomSubmit}
+        handleBulkBedSubmit={handleBulkBedSubmit}
+      />
 
     </div>
   )

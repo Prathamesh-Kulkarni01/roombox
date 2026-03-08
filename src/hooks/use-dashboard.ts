@@ -31,7 +31,7 @@ import { sanitizeObjectForFirebase } from "@/lib/utils"
 const addGuestSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
-  email: z.string().email("Please enter a valid email address."),
+  email: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
   rentAmount: z.coerce.number().min(1, "Rent amount is required."),
   depositAmount: z.coerce.number().min(0, "Deposit amount must be 0 or more."),
   moveInDate: z.date({ required_error: "A move-in date is required." }),
@@ -43,7 +43,7 @@ const addGuestSchema = z.object({
 const editGuestSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
-  email: z.string().email("Please enter a valid email address."),
+  email: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
   rentCycleUnit: z.enum(['minutes', 'hours', 'days', 'weeks', 'months']),
   rentCycleValue: z.coerce.number().min(1, 'Cycle value must be at least 1.'),
 });
@@ -62,6 +62,22 @@ const sharedChargeSchema = z.object({
   totalAmount: z.coerce.number().min(1, "Total amount must be greater than 0.").optional(),
   unitCost: z.coerce.number().optional(),
   units: z.coerce.number().optional(),
+});
+
+const bulkRoomSchema = z.object({
+  floorId: z.string().min(1, "Please select a floor"),
+  startNumber: z.coerce.number().min(1, "Start number is required"),
+  endNumber: z.coerce.number().min(1, "End number is required"),
+  bedsPerRoom: z.coerce.number().min(1, "At least 1 bed per room").max(10),
+  roomPrefix: z.string().optional().default(""),
+  rent: z.coerce.number().min(0).optional().default(0),
+  deposit: z.coerce.number().min(0).optional().default(0),
+});
+
+const bulkBedSchema = z.object({
+  roomId: z.string().min(1, "Please select a room"),
+  count: z.coerce.number().min(1, "At least 1 bed").max(20),
+  bedPrefix: z.string().optional().default("B"),
 });
 
 interface UseDashboardProps {
@@ -102,6 +118,9 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
   const [selectedPgForFloorAdd, setSelectedPgForFloorAdd] = useState<PG | null>(null);
   const [selectedLocationForRoomAdd, setSelectedLocationForRoomAdd] = useState<{ floorId: string; pgId: string; } | null>(null);
   const [selectedRoomForBedAdd, setSelectedRoomForBedAdd] = useState<{ floorId: string; roomId: string; } | null>(null);
+
+  const [isBulkAddDialogOpen, setIsBulkAddDialogOpen] = useState(false);
+  const [bulkAddType, setBulkAddType] = useState<'rooms' | 'beds'>('rooms');
 
   const [itemToDelete, setItemToDelete] = useState<{ type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string } } | null>(null)
 
@@ -154,6 +173,14 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
       foodIncluded: false,
       laundryServices: false,
     }
+  });
+  const bulkRoomForm = useForm<z.infer<typeof bulkRoomSchema>>({
+    resolver: zodResolver(bulkRoomSchema),
+    defaultValues: { bedsPerRoom: 2, roomPrefix: '', rent: 0, deposit: 0 }
+  });
+  const bulkBedForm = useForm<z.infer<typeof bulkBedSchema>>({
+    resolver: zodResolver(bulkBedSchema),
+    defaultValues: { count: 1, bedPrefix: 'B' }
   });
   const sharedChargeForm = useForm<z.infer<typeof sharedChargeSchema>>({ resolver: zodResolver(sharedChargeSchema) });
 
@@ -223,7 +250,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
         ownerId,
         name: values.name,
         phone: values.phone,
-        email: values.email,
+        email: values.email || '',
         pgId: pg.id,
         pgName: pg.name,
         bedId: bed.id,
@@ -506,6 +533,88 @@ Thank you!`;
     showConfetti({ particleCount: 30, spread: 50, startVelocity: 10 });
   };
 
+  const handleBulkRoomSubmit = async (values: z.infer<typeof bulkRoomSchema>, pgId: string) => {
+    const pg = getPgById(pgId);
+    if (!pg) return;
+
+    const { startNumber, endNumber, floorId, bedsPerRoom, roomPrefix, rent, deposit } = values;
+    if (startNumber > endNumber) {
+      toast({ variant: 'destructive', title: 'Invalid Range', description: 'Start number cannot be greater than end number.' });
+      return;
+    }
+
+    const nextState = produce(pg, draft => {
+      const floor = draft.floors?.find(f => f.id === floorId);
+      if (!floor) return;
+
+      for (let i = startNumber; i <= endNumber; i++) {
+        const roomId = `room-${Date.now()}-${i}`;
+        const beds: Bed[] = [];
+        for (let j = 1; j <= bedsPerRoom; j++) {
+          beds.push({ id: `bed-${roomId}-${j}`, name: `${j}`, guestId: null });
+        }
+
+        floor.rooms.push({
+          id: roomId,
+          name: `${roomPrefix}${i}`,
+          beds,
+          rent: rent || 0,
+          deposit: deposit || 0,
+          floorId,
+          pgId: pg.id,
+          amenities: [],
+        });
+        draft.totalBeds = (draft.totalBeds || 0) + bedsPerRoom;
+      }
+    });
+
+    if (currentUser) {
+      await updateProperty({
+        ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
+        pgId: pg.id,
+        updates: nextState
+      }).unwrap();
+    }
+
+    setIsBulkAddDialogOpen(false);
+    toast({ title: 'Success', description: `Successfully added ${endNumber - startNumber + 1} rooms.` });
+    showConfetti({ particleCount: 100, spread: 70 });
+  };
+
+  const handleBulkBedSubmit = async (values: z.infer<typeof bulkBedSchema>, pgId: string, floorId: string) => {
+    const pg = getPgById(pgId);
+    if (!pg) return;
+
+    const { roomId, count, bedPrefix } = values;
+
+    const nextState = produce(pg, draft => {
+      const room = draft.floors?.find(f => f.id === floorId)?.rooms.find(r => r.id === roomId);
+      if (!room) return;
+
+      const currentCount = room.beds.length;
+      for (let i = 1; i <= count; i++) {
+        room.beds.push({
+          id: `bed-${room.id}-${Date.now()}-${i}`,
+          name: `${bedPrefix}${currentCount + i}`,
+          guestId: null
+        });
+      }
+      draft.totalBeds = (draft.totalBeds || 0) + count;
+    });
+
+    if (currentUser) {
+      await updateProperty({
+        ownerId: currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId!,
+        pgId: pg.id,
+        updates: nextState
+      }).unwrap();
+    }
+
+    setIsBulkAddDialogOpen(false);
+    toast({ title: 'Success', description: `Successfully added ${count} beds.` });
+    showConfetti({ particleCount: 50, spread: 60 });
+  };
+
   const handleDelete = (type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string }) => {
     const pg = getPgById(ids.pgId);
     if (!pg) return;
@@ -600,6 +709,16 @@ Thank you!`;
     setIsBedDialogOpen(true);
   };
 
+  const handleOpenBulkAddDialog = (type: 'rooms' | 'beds', floorId?: string, roomId?: string) => {
+    setBulkAddType(type);
+    if (type === 'rooms' && floorId) {
+      bulkRoomForm.reset({ floorId, bedsPerRoom: 2, startNumber: 101, endNumber: 110 });
+    } else if (type === 'beds' && roomId) {
+      bulkBedForm.reset({ roomId, count: 1, bedPrefix: 'B' });
+    }
+    setIsBulkAddDialogOpen(true);
+  };
+
   return {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen,
     isEditGuestDialogOpen, setIsEditGuestDialogOpen,
@@ -609,6 +728,8 @@ Thank you!`;
     isPaymentDialogOpen, setIsPaymentDialogOpen,
     isReminderDialogOpen, setIsReminderDialogOpen,
     isSharedChargeDialogOpen, setIsSharedChargeDialogOpen,
+    isBulkAddDialogOpen, setIsBulkAddDialogOpen,
+    bulkAddType,
     selectedBedForGuestAdd,
     floorToEdit, bedToEdit, roomToEdit, guestToEdit,
     selectedGuestForPayment, selectedGuestForReminder,
@@ -628,11 +749,15 @@ Thank you!`;
     handleOpenSharedChargeDialog, handleSharedChargeSubmit,
     handleOpenReminderDialog,
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
+    handleBulkRoomSubmit, handleBulkBedSubmit,
     handleOpenRoomDialog, openAddFloorDialog, openEditFloorDialog, handleOpenBedDialog,
+    handleOpenBulkAddDialog,
     handleDelete,
     handleOpenFloorDialog,
     isSavingRoom,
     setReminderMessage,
+    bulkRoomForm,
+    bulkBedForm,
   }
 }
 
