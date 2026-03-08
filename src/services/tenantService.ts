@@ -39,14 +39,7 @@ export class TenantService {
 
         console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
 
-        // Verify the PG exists
         const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
-        const pgDoc = await pgRef.get();
-        if (!pgDoc.exists) {
-            console.error(`[TenantService.onboardTenant] Property not found: ${pgId}`);
-            throw new Error('Property not found');
-        }
-        const pgData = pgDoc.data()!;
 
         const guestId = `g-${Date.now()}`;
         const now = new Date().toISOString();
@@ -58,68 +51,100 @@ export class TenantService {
         const standardizedPhone = cleanPhoneStr.length === 10 ? `+91${cleanPhoneStr}` :
             (cleanPhoneStr ? `+${cleanPhoneStr}` : '');
 
-        const newGuest: Guest = {
-            id: guestId,
-            ownerId,
-            name,
-            email: email || '',
-            phone: standardizedPhone,
-            pgId,
-            pgName: pgName || pgData.name,
-            bedId: bedId || '',
-            roomId: roomId || '',
-            roomName: roomName || '',
-            rentAmount: Number(rentAmount),
-            deposit: Number(deposit || 0),
-            balance: 0,
-            paidAmount: 0,
-            rentStatus: 'pending',
-            paymentStatus: 'pending',
-            isVacated: false,
-            kycStatus: 'not_submitted',
-            documents: [],
-            ledger: Number(deposit) > 0 ? [{
-                id: `charge-deposit-${Date.now()}`,
-                date: now,
-                type: 'debit',
-                description: 'Security Deposit',
-                amount: Number(deposit)
-            }] : [],
-            paymentHistory: [],
-            dueDate: dueDate || now,
-            joinDate: joinDate || now,
-            moveInDate: joinDate || now,
-            rentCycleUnit: rentCycleUnit || 'months',
-            rentCycleValue: rentCycleValue || 1,
-            createdAt: Date.now(),
-            noticePeriodDays: 30,
-            schemaVersion: CURRENT_SCHEMA_VERSION,
-        } as unknown as Guest;
+        const newGuest = await db.runTransaction(async (transaction) => {
+            const pgDoc = await transaction.get(pgRef);
+            if (!pgDoc.exists) {
+                console.error(`[TenantService.onboardTenant] Property not found: ${pgId}`);
+                throw new Error('Property not found');
+            }
+            const pgData = pgDoc.data()!;
 
-        const batch = db.batch();
+            // Verify bed availability if bedId is provided
+            if (bedId && pgData.floors) {
+                let targetBed: any = null;
+                for (const floor of pgData.floors as any[]) {
+                    for (const room of floor.rooms as any[]) {
+                        if (room.beds) {
+                            const bed = (room.beds as any[]).find((b: any) => b && b.id === bedId);
+                            if (bed) {
+                                targetBed = bed;
+                                break;
+                            }
+                        }
+                    }
+                    if (targetBed) break;
+                }
 
-        // Save guest
-        const guestDocRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
-        batch.set(guestDocRef, newGuest);
+                if (!targetBed) {
+                    throw new Error('Bed not found in the property.');
+                }
+                if (targetBed.guestId) {
+                    throw new Error('Bed is already occupied.');
+                }
+            }
 
-        // Update PG occupancy & Bed assignment
-        const pgUpdates: any = { occupancy: (pgData.occupancy || 0) + 1 };
-        if (bedId && pgData.floors) {
-            console.log(`[TenantService.onboardTenant] Marking bed ${bedId} as occupied`);
-            pgUpdates.floors = (pgData.floors as any[]).map((floor: any) => ({
-                ...floor,
-                rooms: floor.rooms.map((room: any) => ({
-                    ...room,
-                    beds: room.beds.map((bed: any) =>
-                        bed.id === bedId ? { ...bed, guestId } : bed
-                    ),
-                })),
-            }));
-        }
+            const guestToCreate: Guest = {
+                id: guestId,
+                ownerId,
+                name,
+                email: email || '',
+                phone: standardizedPhone,
+                pgId,
+                pgName: pgName || pgData.name,
+                bedId: bedId || '',
+                roomId: roomId || '',
+                roomName: roomName || '',
+                rentAmount: Number(rentAmount),
+                depositAmount: Number(deposit || 0),
+                balance: 0,
+                paidAmount: 0,
+                rentStatus: 'pending',
+                paymentStatus: 'pending',
+                isVacated: false,
+                kycStatus: 'not_submitted',
+                documents: [],
+                ledger: Number(deposit) > 0 ? [{
+                    id: `charge-deposit-${Date.now()}`,
+                    date: now,
+                    type: 'debit',
+                    description: 'Security Deposit',
+                    amount: Number(deposit)
+                }] : [],
+                paymentHistory: [],
+                dueDate: dueDate || now,
+                joinDate: joinDate || now,
+                moveInDate: joinDate || now,
+                rentCycleUnit: rentCycleUnit || 'months',
+                rentCycleValue: rentCycleValue || 1,
+                createdAt: Date.now(),
+                noticePeriodDays: 30,
+                schemaVersion: CURRENT_SCHEMA_VERSION,
+            } as unknown as Guest;
 
-        batch.update(pgRef, pgUpdates);
+            // Save guest
+            const guestDocRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+            transaction.set(guestDocRef, guestToCreate);
 
-        await batch.commit();
+            // Update PG occupancy & Bed assignment
+            const pgUpdates: any = { occupancy: FieldValue.increment(1) };
+            if (bedId && pgData.floors) {
+                console.log(`[TenantService.onboardTenant] Marking bed ${bedId} as occupied`);
+                pgUpdates.floors = (pgData.floors as any[]).map((floor: any) => ({
+                    ...floor,
+                    rooms: floor.rooms.map((room: any) => ({
+                        ...room,
+                        beds: room.beds.map((bed: any) =>
+                            bed.id === bedId ? { ...bed, guestId } : bed
+                        ),
+                    })),
+                }));
+            }
+
+            transaction.update(pgRef, pgUpdates);
+
+            return guestToCreate;
+        });
+
         console.log(`[TenantService.onboardTenant] Successfully committed tenant document: ${guestId}`);
 
         // 1. Link/Invite User & Magic Link Generation
@@ -166,7 +191,7 @@ export class TenantService {
                                 token: userData.fcmToken,
                                 notification: {
                                     title: '🏠 Welcome to RoomBox!',
-                                    body: `You have been added as a tenant in ${pgName || pgData.name}.`
+                                    body: `You have been added as a tenant in ${pgName || newGuest.pgName}.`
                                 },
                                 webpush: { fcmOptions: { link: '/' } }
                             });
@@ -222,7 +247,7 @@ export class TenantService {
                 if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
 
                 console.log(`[TenantService.onboardTenant] Sending WhatsApp welcome to ${formattedPhone}`);
-                const welcomeMsg = `🏠 *Welcome to ${pgName || pgData.name}!*\n\n` +
+                const welcomeMsg = `🏠 *Welcome to ${pgName || newGuest.pgName}!*\n\n` +
                     `Hi ${name}, you have been added as a tenant.\n\n` +
                     (magicLink ? `🔐 *Login to your dashboard:* ${magicLink}\n\n` : '') +
                     `Reply *Hi* to see your rent details and pay online.`;
@@ -286,15 +311,15 @@ export class TenantService {
 
         // Reverse the deposit charge by crediting the account. 
         // A negative finalSettlementAmount means the PG owner owes the tenant a refund.
-        if (guest.deposit && guest.deposit > 0) {
+        if (guest.depositAmount && guest.depositAmount > 0) {
             ledgerUpdates.push({
                 id: `credit-deposit-refund-${Date.now()}`,
                 date: vacatedAt,
                 type: 'credit',
                 description: 'Security Deposit Refund / Adjustment',
-                amount: guest.deposit
+                amount: guest.depositAmount
             });
-            finalSettlementAmount -= guest.deposit;
+            finalSettlementAmount -= guest.depositAmount;
         }
 
         // Free the bed in floors data
