@@ -1,3 +1,4 @@
+export const CURRENT_SCHEMA_VERSION = 1;
 
 export interface PWAConfig {
   name: string;
@@ -108,6 +109,7 @@ export interface PG {
   menuTemplates?: MenuTemplate[];
   ownerId: string;
   status: 'active' | 'pending_approval' | 'rejected' | 'suspended';
+  schemaVersion?: number;
 }
 
 export interface Payment {
@@ -121,6 +123,7 @@ export interface Payment {
   payoutStatus?: 'pending' | 'processed' | 'failed';
   payoutTo?: string;
   payoutFailureReason?: string;
+  schemaVersion?: number;
 }
 
 export interface LedgerEntry {
@@ -217,6 +220,7 @@ export interface Guest {
   balanceBroughtForward?: number; // Also deprecated, calculated from ledger
   rentPaidAmount?: number; // Also deprecated
   additionalCharges?: AdditionalCharge[]; // Also deprecated
+  schemaVersion?: number;
 }
 
 export interface AdditionalCharge { // Also deprecated
@@ -243,6 +247,7 @@ export interface Complaint {
   upvotes?: number;
   isPublic: boolean;
   imageUrls?: string[];
+  schemaVersion?: number;
 }
 
 export interface Expense {
