@@ -34,10 +34,10 @@ export default function DashboardBottomNav() {
   if (!currentUser || !currentPlan) return null;
 
   const mainNavItems = [
-    { href: '/dashboard', label: 'nav_dashboard', icon: Home, feature: 'properties' },
-    { href: `/dashboard/pg-management/${pgs[0]?.id || 'all'}`, label: 'manage_rooms', icon: Building, feature: 'properties' },
-    { href: '/dashboard/rent-passbook', label: 'nav_rentbook', icon: BookUser, feature: 'finances' },
-    { href: '/dashboard/complaints', label: 'nav_complaints', icon: MessageSquareWarning, feature: 'complaints', badge: unreadComplaints > 0 ? unreadComplaints : undefined },
+    { href: '/dashboard', label: 'nav_dashboard_short', icon: Home, feature: 'properties' },
+    { href: `/dashboard/pg-management/${pgs[0]?.id || 'all'}`, label: 'manage_rooms_short', icon: Building, feature: 'properties' },
+    { href: '/dashboard/rent-passbook', label: 'nav_rentbook_short', icon: BookUser, feature: 'finances' },
+    { href: '/dashboard/complaints', label: 'nav_complaints_short', icon: MessageSquareWarning, feature: 'complaints', badge: unreadComplaints > 0 ? unreadComplaints : undefined },
   ];
 
   const accessibleMoreNavGroups = allNavItems

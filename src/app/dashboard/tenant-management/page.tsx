@@ -205,6 +205,9 @@ export default function GuestManagementPage() {
     } = dashboard;
 
     const [isCsvUploaderOpen, setIsCsvUploaderOpen] = useState(false);
+    const PAGE_SIZE = 20;
+    const [visibleActiveCount, setVisibleActiveCount] = useState(PAGE_SIZE);
+    const [visibleExitedCount, setVisibleExitedCount] = useState(PAGE_SIZE);
 
     const [activeGuests, exitedGuests] = useMemo(() => {
         const active: Guest[] = [];
@@ -317,11 +320,25 @@ export default function GuestManagementPage() {
                                 <TabsTrigger value="active-guests">Active Guests</TabsTrigger>
                                 <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
                             </TabsList>
-                            <TabsContent value="active-guests" className="mt-4">
-                                <GuestList guests={activeGuests} onEdit={handleOpenEditGuestDialog} canEdit={canEditGuests} />
+                            <TabsContent value="active-guests" className="mt-4 space-y-4">
+                                <GuestList guests={activeGuests.slice(0, visibleActiveCount)} onEdit={handleOpenEditGuestDialog} canEdit={canEditGuests} />
+                                {activeGuests.length > visibleActiveCount && (
+                                    <div className="flex justify-center pt-4">
+                                        <Button variant="outline" onClick={() => setVisibleActiveCount(prev => prev + PAGE_SIZE)}>
+                                            Load More ({activeGuests.length - visibleActiveCount} remaining)
+                                        </Button>
+                                    </div>
+                                )}
                             </TabsContent>
-                            <TabsContent value="exited-guests" className="mt-4">
-                                <GuestList guests={exitedGuests} onEdit={handleOpenEditGuestDialog} canEdit={canEditGuests} />
+                            <TabsContent value="exited-guests" className="mt-4 space-y-4">
+                                <GuestList guests={exitedGuests.slice(0, visibleExitedCount)} onEdit={handleOpenEditGuestDialog} canEdit={canEditGuests} />
+                                {exitedGuests.length > visibleExitedCount && (
+                                    <div className="flex justify-center pt-4">
+                                        <Button variant="outline" onClick={() => setVisibleExitedCount(prev => prev + PAGE_SIZE)}>
+                                            Load More ({exitedGuests.length - visibleExitedCount} remaining)
+                                        </Button>
+                                    </div>
+                                )}
                             </TabsContent>
                         </Tabs>
                     </CardContent>

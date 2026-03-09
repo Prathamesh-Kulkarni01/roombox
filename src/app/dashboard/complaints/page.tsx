@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { addOwnerComplaint, updateComplaint } from '@/lib/slices/complaintsSlice'
+import { addNotice, fetchNotices } from '@/lib/slices/noticesSlice'
 import { canAccess } from '@/lib/permissions'
 import Access from '@/components/ui/PermissionWrapper'
 import { useToast } from '@/hooks/use-toast'
@@ -207,6 +208,8 @@ const NoticeBoardView = () => {
         }
 
         try {
+            const selectedPg = selectedPgId ? pgs.find(p => p.id === selectedPgId) : null;
+
             await Promise.all(activeGuests.map(guest =>
                 createAndSendNotification({
                     ownerId: currentUser.id,
@@ -219,6 +222,21 @@ const NoticeBoardView = () => {
                     }
                 })
             ));
+
+            // Save to history
+            const newNotice = {
+                id: `ntc-${Date.now()}`,
+                ownerId: currentUser.id,
+                pgId: selectedPgId || 'all',
+                pgName: selectedPg?.name || 'All Properties',
+                title: data.title,
+                message: data.message,
+                date: new Date().toISOString(),
+                targetCount: activeGuests.length,
+            };
+
+            await dispatch(addNotice(newNotice)).unwrap();
+
             toast({ title: "Notice Sent!", description: `Your notice has been sent to ${activeGuests.length} guest(s).` });
             setIsNoticeDialogOpen(false);
             form.reset();
@@ -228,47 +246,97 @@ const NoticeBoardView = () => {
         }
     }
 
+    const dispatch = useAppDispatch();
+    const { notices, isLoading: isNoticesLoading } = useAppSelector(state => state.notices);
+
+    useEffect(() => {
+        dispatch(fetchNotices());
+    }, [dispatch]);
+
     return (
-        <Dialog open={isNoticeDialogOpen} onOpenChange={setIsNoticeDialogOpen}>
+        <div className="space-y-6">
+            <Dialog open={isNoticeDialogOpen} onOpenChange={setIsNoticeDialogOpen}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Notice Board</CardTitle>
+                        <CardDescription>
+                            Send announcements and important information to all active guests.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-center">
+                        <DialogTrigger asChild>
+                            <Button>
+                                <Send className="mr-2 h-4 w-4" /> Create a New Notice
+                            </Button>
+                        </DialogTrigger>
+                    </CardContent>
+                </Card>
+
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Send New Notice</DialogTitle>
+                        <DialogDescription>
+                            This will send a push notification to all active guests in the selected property.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleSendNotice)} id="notice-form" className="space-y-4 pt-4">
+                            <FormField control={form.control} name="title" render={({ field }) => (
+                                <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g., Important Water Update" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="message" render={({ field }) => (
+                                <FormItem><FormLabel>Message</FormLabel><FormControl><Textarea rows={5} placeholder="e.g., Please note that there will be no water supply tomorrow from 10 AM to 2 PM." {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </form>
+                    </Form>
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                        <Button type="submit" form="notice-form">Send Notice</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Card>
                 <CardHeader>
-                    <CardTitle>Notice Board</CardTitle>
-                    <CardDescription>
-                        Send announcements and important information to all active guests.
-                    </CardDescription>
+                    <CardTitle>Notice History</CardTitle>
+                    <CardDescription>View previously sent announcements.</CardDescription>
                 </CardHeader>
-                <CardContent className="text-center">
-                    <DialogTrigger asChild>
-                        <Button>
-                            <Send className="mr-2 h-4 w-4" /> Create a New Notice
-                        </Button>
-                    </DialogTrigger>
+                <CardContent>
+                    {isNoticesLoading ? (
+                        <div className="space-y-2">
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                    ) : notices.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-6">No notice history found.</p>
+                    ) : (
+                        <div className="border rounded-md">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Property</TableHead>
+                                        <TableHead>Title</TableHead>
+                                        <TableHead>Targets</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {notices.map((notice) => (
+                                        <TableRow key={notice.id}>
+                                            <TableCell className="whitespace-nowrap">{new Date(notice.date).toLocaleDateString()}</TableCell>
+                                            <TableCell>{notice.pgName}</TableCell>
+                                            <TableCell className="font-medium">{notice.title}</TableCell>
+                                            <TableCell>{notice.targetCount}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
-
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Send New Notice</DialogTitle>
-                    <DialogDescription>
-                        This will send a push notification to all active guests in the selected property.
-                    </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSendNotice)} id="notice-form" className="space-y-4 pt-4">
-                        <FormField control={form.control} name="title" render={({ field }) => (
-                            <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="e.g., Important Water Update" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="message" render={({ field }) => (
-                            <FormItem><FormLabel>Message</FormLabel><FormControl><Textarea rows={5} placeholder="e.g., Please note that there will be no water supply tomorrow from 10 AM to 2 PM." {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    </form>
-                </Form>
-                <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                    <Button type="submit" form="notice-form">Send Notice</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        </div>
     )
 }
 

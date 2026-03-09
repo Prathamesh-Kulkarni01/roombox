@@ -8,6 +8,7 @@ import complaintsReducer from './slices/complaintsSlice';
 import expensesReducer from './slices/expensesSlice';
 import staffReducer from './slices/staffSlice';
 import notificationsReducer from './slices/notificationsSlice';
+import noticesReducer from './slices/noticesSlice';
 import { api } from './api/apiSlice';
 
 /**
@@ -45,6 +46,7 @@ export const makeStore = () => {
       expenses: expensesReducer,
       staff: staffReducer,
       notifications: notificationsReducer,
+      notices: noticesReducer,
       // RTK Query API — handles server data fetching with auto-cache & invalidation
       [api.reducerPath]: api.reducer,
     },

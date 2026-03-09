@@ -84,6 +84,7 @@ const translations = {
 
     nav_group_core: "Daily Tasks",
     nav_dashboard: "Dashboard",
+    nav_dashboard_short: "Home",
     nav_dashboard_desc: "Your central hub for everything.",
     nav_properties: "Properties",
     nav_properties_desc: "Manage property layouts.",
@@ -96,6 +97,7 @@ const translations = {
 
     nav_group_financial: "Money",
     nav_rentbook: "Rent Tracker",
+    nav_rentbook_short: "Rent",
     nav_rentbook_desc: "Track rent and dues.",
     nav_expenses: "Expenses",
     nav_expenses_desc: "Log property expenses.",
@@ -105,10 +107,13 @@ const translations = {
     nav_group_operations: "Operations",
     nav_complaints: "Issue Reports",
     nav_complaints_desc: "Handle guest issues.",
+    nav_complaints_short: "Issues",
     nav_food: "Food Menu",
     nav_food_desc: "Plan weekly meals.",
 
     nav_group_growth: "Growth & Settings",
+    manage_rooms: "Manage Rooms",
+    manage_rooms_short: "Rooms",
     nav_app_website: "App & Website",
     nav_app_website_desc: "Manage your public brand.",
     nav_whatsapp: "WhatsApp",
@@ -142,9 +147,23 @@ const translations = {
     guided_step_6_title: "Log Your First Expense",
     guided_step_6_desc: "Start tracking your property expenses to manage finances.",
     guided_step_6_action: "Go to Expenses",
-    dashboard_title: "Dashboard",
     dashboard_welcome: "Welcome back to your property overview.",
     add_property: "Add Property",
+
+    // Tenant App
+    nav_tenant_home: "My Property",
+    nav_tenant_home_short: "Home",
+    nav_tenant_complaints: "Complaints",
+    nav_tenant_complaints_short: "Issues",
+    nav_tenant_ledger: "Ledger",
+    nav_tenant_ledger_short: "Rent",
+    nav_tenant_food: "Menu",
+    nav_tenant_food_short: "Food",
+    nav_tenant_chatbot: "AI Helper",
+    nav_tenant_chatbot_short: "Help",
+    nav_tenant_kyc: "KYC Verification",
+    nav_tenant_profile: "Profile",
+    nav_tenant_portal: "Guest Portal",
   },
   hi: {
     hero_badge: "आधुनिक किराये की संपत्तियों के लिए ऑपरेटिंग सिस्टम",
@@ -231,6 +250,7 @@ const translations = {
 
     nav_group_core: "मुख्य प्रबंधन",
     nav_dashboard: "डैशबोर्ड",
+    nav_dashboard_short: "मुख्य",
     nav_dashboard_desc: "हर चीज के लिए आपका केंद्रीय केंद्र।",
     nav_properties: "गुण",
     nav_properties_desc: "संपत्ति लेआउट प्रबंधित करें।",
@@ -243,6 +263,7 @@ const translations = {
 
     nav_group_financial: "वित्तीय",
     nav_rentbook: "रेंटबुक",
+    nav_rentbook_short: "किराया",
     nav_rentbook_desc: "किराया और बकाया ट्रैक करें।",
     nav_expenses: "खर्च",
     nav_expenses_desc: "संपत्ति के खर्चों को लॉग करें।",
@@ -252,10 +273,13 @@ const translations = {
     nav_group_operations: "संचालन",
     nav_complaints: "शिकायतें",
     nav_complaints_desc: "किरायेदार के मुद्दों को संभालें।",
+    nav_complaints_short: "शिकायतें",
     nav_food: "भोजन मेनू",
     nav_food_desc: "साप्ताहिक भोजन की योजना बनाएं।",
 
     nav_group_growth: "विकास और सेटिंग्स",
+    manage_rooms: "कमरे",
+    manage_rooms_short: "कमरे",
     nav_app_website: "ऐप और वेबसाइट",
     nav_app_website_desc: "अपने सार्वजनिक ब्रांड का प्रबंधन करें।",
     nav_whatsapp: "WhatsApp",
@@ -292,6 +316,21 @@ const translations = {
     dashboard_title: "डैशबोर्ड",
     dashboard_welcome: "अपने प्रॉपर्टी ओवरव्यू में वापस स्वागत है।",
     add_property: "संपत्ति जोड़ें",
+
+    // Tenant App
+    nav_tenant_home: "मेरी संपत्ति",
+    nav_tenant_home_short: "मुख्य",
+    nav_tenant_complaints: "शिकायतें",
+    nav_tenant_complaints_short: "शिकायतें",
+    nav_tenant_ledger: "रेंटबुक",
+    nav_tenant_ledger_short: "किराया",
+    nav_tenant_food: "भोजन मेनू",
+    nav_tenant_food_short: "भोजन",
+    nav_tenant_chatbot: "AI सहायता",
+    nav_tenant_chatbot_short: "सहायता",
+    nav_tenant_kyc: "केवाईसी सत्यापन",
+    nav_tenant_profile: "प्रोफ़ाइल",
+    nav_tenant_portal: "अतिथि पोर्टल",
   },
 };
 

@@ -3,24 +3,25 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, ShieldCheck, History } from 'lucide-react';
+import { Home, MessageSquareWarning, UtensilsCrossed, Bot, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores';
-import { canViewFeature } from '@/lib/permissions';
+import { useTranslation } from '@/context/language-context';
 
 const navItems = [
-  { href: '/tenants/my-pg', label: 'My Property', icon: Home },
-  { href: '/tenants/complaints', label: 'Complaints', icon: MessageSquareWarning },
-  { href: '/tenants/ledger', label: 'Ledger', icon: History },
-  { href: '/tenants/food', label: 'Menu', icon: UtensilsCrossed },
-  { href: '/tenants/chatbot', label: 'AI Helper', icon: Bot },
+  { href: '/tenants/my-pg', label: 'nav_tenant_home_short', icon: Home },
+  { href: '/tenants/complaints', label: 'nav_tenant_complaints_short', icon: MessageSquareWarning },
+  { href: '/tenants/ledger', label: 'nav_tenant_ledger_short', icon: History },
+  { href: '/tenants/food', label: 'nav_tenant_food_short', icon: UtensilsCrossed },
+  { href: '/tenants/chatbot', label: 'nav_tenant_chatbot_short', icon: Bot },
 ];
 
 export default function TenantBottomNav() {
   const pathname = usePathname();
   const { currentUser } = useAppSelector((state) => state.user);
   const { featurePermissions } = usePermissionsStore();
+  const { t } = useTranslation();
 
   if (!currentUser) return null;
 
@@ -33,13 +34,13 @@ export default function TenantBottomNav() {
             href={item.href}
             className={cn(
               'flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors h-full',
-              (pathname === item.href || (item.href !== '/tenants/my-pg' && pathname.startsWith(item.href))) 
-                ? 'text-primary bg-primary/10' 
+              (pathname === item.href || (item.href !== '/tenants/my-pg' && pathname.startsWith(item.href)))
+                ? 'text-primary bg-primary/10'
                 : 'hover:text-primary'
             )}
           >
             <item.icon className="h-5 w-5" />
-            <span className="text-xs font-medium">{item.label}</span>
+            <span className="text-xs font-medium">{t(item.label as any)}</span>
           </Link>
         ))}
       </nav>

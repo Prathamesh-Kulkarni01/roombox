@@ -437,6 +437,17 @@ export interface Notification {
   targetId?: string;
 }
 
+export interface Notice {
+  id: string;
+  ownerId: string;
+  pgId: string | 'all';
+  pgName: string | 'All Properties';
+  title: string;
+  message: string;
+  date: string; // ISO string
+  targetCount: number;
+}
+
 export interface Staff {
   id: string;
   name: string;

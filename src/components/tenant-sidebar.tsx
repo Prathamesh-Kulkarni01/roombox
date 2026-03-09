@@ -13,15 +13,16 @@ import { Skeleton } from './ui/skeleton';
 import { useMemo } from 'react';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { canViewFeature } from '@/lib/permissions';
+import { useTranslation } from '@/context/language-context';
 
 const navItems = [
-  { href: '/tenants/my-pg', label: 'My Property', icon: Home },
-  { href: '/tenants/complaints', label: 'Complaints', icon: MessageSquareWarning },
-  { href: '/tenants/ledger', label: 'Ledger', icon: History },
-  { href: '/tenants/food', label: 'Food Menu', icon: UtensilsCrossed },
-  { href: '/tenants/kyc', label: 'KYC Verification', icon: ShieldCheck },
-  { href: '/tenants/chatbot', label: 'AI Helper', icon: Bot },
-  { href: '/tenants/profile', label: 'Profile', icon: User },
+  { href: '/tenants/my-pg', label: 'nav_tenant_home', icon: Home },
+  { href: '/tenants/complaints', label: 'nav_tenant_complaints', icon: MessageSquareWarning },
+  { href: '/tenants/ledger', label: 'nav_tenant_ledger', icon: History },
+  { href: '/tenants/food', label: 'nav_tenant_food', icon: UtensilsCrossed },
+  { href: '/tenants/kyc', label: 'nav_tenant_kyc', icon: ShieldCheck },
+  { href: '/tenants/chatbot', label: 'nav_tenant_chatbot', icon: Bot },
+  { href: '/tenants/profile', label: 'nav_tenant_profile', icon: User },
 ];
 
 export default function TenantSidebar() {
@@ -30,6 +31,7 @@ export default function TenantSidebar() {
   const { currentUser } = useAppSelector((state) => state.user);
   const { guests } = useAppSelector((state) => state.guests);
   const { featurePermissions } = usePermissionsStore();
+  const { t } = useTranslation();
 
   const currentGuest = useMemo(() => {
     if (!currentUser || !currentUser.guestId) return null;
@@ -39,16 +41,16 @@ export default function TenantSidebar() {
 
   if (!currentUser || !currentGuest) {
     return (
-        <aside className="w-64 flex-col border-r bg-card hidden md:flex">
-            <div className="flex-1 p-4">
-                <Skeleton className="h-8 w-3/4 mb-6" />
-                <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                </div>
-            </div>
-        </aside>
+      <aside className="w-64 flex-col border-r bg-card hidden md:flex">
+        <div className="flex-1 p-4">
+          <Skeleton className="h-8 w-3/4 mb-6" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      </aside>
     );
   }
 
@@ -56,7 +58,7 @@ export default function TenantSidebar() {
     <aside className="w-64 flex-col border-r bg-card hidden md:flex">
       <div className="flex-1 flex flex-col">
         <div className="p-4 border-b">
-            <h2 className="text-xl font-bold text-primary font-headline">Guest Portal</h2>
+          <h2 className="text-xl font-bold text-primary font-headline">{t('nav_tenant_portal')}</h2>
         </div>
         <nav className="flex flex-col gap-1 p-4">
           {navItems.map((item) => (
@@ -69,25 +71,25 @@ export default function TenantSidebar() {
               )}
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              {t(item.label as any)}
             </Link>
           ))}
         </nav>
       </div>
       <div className="p-4 mt-auto border-t">
         <div className="flex items-center gap-3 mb-4">
-            <Avatar className="h-10 w-10">
-                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                <AvatarFallback>{currentUser.name.slice(0,2).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <div>
-                <p className="font-semibold text-sm truncate">{currentUser.name}</p>
-                <p className="text-xs text-muted-foreground">{currentGuest.pgName}</p>
-            </div>
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+            <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="font-semibold text-sm truncate">{currentUser.name}</p>
+            <p className="text-xs text-muted-foreground">{currentGuest.pgName}</p>
+          </div>
         </div>
         <Button variant="outline" className="w-full" onClick={() => dispatch(logoutUser())}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
+          <LogOut className="mr-2 h-4 w-4" />
+          {t('logout')}
         </Button>
       </div>
     </aside>
