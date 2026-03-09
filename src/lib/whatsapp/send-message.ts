@@ -125,6 +125,7 @@ async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries =
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
+            console.log(`[WhatsApp API] Sending payload to ${WHATSAPP_PHONE_ID}:`, JSON.stringify(payload, null, 2));
             const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
                 method: 'POST',
                 headers: {
@@ -136,7 +137,7 @@ async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries =
 
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error(`WhatsApp API Error (Attempt ${attempt}/${maxRetries}):`, errorData);
+                console.error(`WhatsApp API Error (Attempt ${attempt}/${maxRetries}):`, JSON.stringify(errorData, null, 2));
                 lastError = errorData;
 
                 // If it's a 4xx error (e.g., bad request, invalid number), don't retry

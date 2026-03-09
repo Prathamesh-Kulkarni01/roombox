@@ -328,7 +328,21 @@ export class TenantService {
 
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
 
-                await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility', 'en_US', [
+                // Use a verified, reachable logo URL for the header
+                const logoUrl = `${appUrl}/logo.png`;
+
+                const components = [
+                    {
+                        type: 'header',
+                        parameters: [
+                            {
+                                type: 'image',
+                                image: {
+                                    link: logoUrl
+                                }
+                            }
+                        ]
+                    },
                     {
                         type: 'body',
                         parameters: [
@@ -340,9 +354,17 @@ export class TenantService {
                             { type: 'text', text: dashboardUrl } // {{6}} (Full URL in Body)
                         ]
                     }
-                ]);
+                ];
 
-                console.log(`[onboardTenant] WhatsApp template welcome sent successfully to ${formattedPhone}`);
+                const result = await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility', 'en_US', components);
+
+                if (!result.success) {
+                    console.warn(`[onboardTenant] Template failed, sending fallback text message...`);
+                    const fallbackMsg = `👋 *Welcome to ${pgName || newGuest.pgName}!*\n\nHi ${name}, your host has added you to the portal.\n\nRoom: ${roomName || 'Assigned Room'}\nRent: ₹${newGuest.rentAmount}\n\nAccess your Dashboard here: ${dashboardUrl}`;
+                    await import('@/lib/whatsapp/send-message').then(m => m.sendWhatsAppMessage(formattedPhone, fallbackMsg));
+                } else {
+                    console.log(`[onboardTenant] WhatsApp template welcome sent successfully to ${formattedPhone}`);
+                }
             } catch (waErr) {
                 console.warn(`[TenantService.onboardTenant] WA Notify Failed:`, waErr);
             }
