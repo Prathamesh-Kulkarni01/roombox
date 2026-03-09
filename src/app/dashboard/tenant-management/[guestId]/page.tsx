@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -34,7 +35,7 @@ import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { useInitiateGuestExitMutation, useAddGuestChargeMutation, useRemoveGuestChargeMutation, useUpdateKycStatusMutation, useSubmitKycDocumentsMutation, useResetKycMutation } from '@/lib/api/apiSlice'
+import { useInitiateGuestExitMutation, useVacateGuestMutation, useAddGuestChargeMutation, useRemoveGuestChargeMutation, useUpdateKycStatusMutation, useSubmitKycDocumentsMutation, useResetKycMutation } from '@/lib/api/apiSlice'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
@@ -81,6 +82,7 @@ export default function GuestProfilePage() {
     const guestId = params.guestId as string
 
     const [initiateExit] = useInitiateGuestExitMutation()
+    const [vacateGuest] = useVacateGuestMutation()
     const [addGuestCharge] = useAddGuestChargeMutation()
     const [removeGuestCharge] = useRemoveGuestChargeMutation()
     const [updateKycStatus] = useUpdateKycStatusMutation()
@@ -94,6 +96,8 @@ export default function GuestProfilePage() {
     const { kycConfigs: kycConfigMap } = useKycConfigStore();
 
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const [isVacateDialogOpen, setIsVacateDialogOpen] = useState(false);
+    const [sendWhatsAppOnExit, setSendWhatsAppOnExit] = useState(true);
 
     const guest = useMemo(() => guestsState.guests.find(g => g.id === guestId), [guestsState.guests, guestId])
     const pg = useMemo(() => guest ? pgs.pgs.find(p => p.id === guest.pgId) : null, [guest, pgs])
@@ -174,6 +178,22 @@ export default function GuestProfilePage() {
         resolver: zodResolver(chargeSchema),
         defaultValues: { description: '', amount: undefined }
     });
+
+    const handleConfirmImmediateExit = async () => {
+        if (!guest || !currentUser) return;
+
+        try {
+            await vacateGuest({
+                guestId: guest.id,
+                sendWhatsApp: sendWhatsAppOnExit
+            }).unwrap();
+            setIsVacateDialogOpen(false);
+            toast({ title: 'Guest Vacated' });
+            router.push('/dashboard');
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to vacate guest.' });
+        }
+    };
 
     const handleInitiateExit = async () => {
         if (!guest || guest.exitDate) return
@@ -532,11 +552,17 @@ export default function GuestProfilePage() {
                                             <Badge variant="secondary">Active</Badge>
                                         )}
                                     </div>
-                                    <div className="pt-4">
-                                        <Button variant="outline" onClick={handleInitiateExit} disabled={!!guest.exitDate}>
+                                    <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                                        <Button variant="outline" className="flex-1" onClick={handleInitiateExit} disabled={!!guest.exitDate || guest.isVacated}>
                                             <LogOut className="mr-2 h-4 w-4" />
                                             {guest.exitDate ? 'Exit Already Initiated' : 'Initiate Exit'}
                                         </Button>
+                                        <Access feature="guests" action="delete">
+                                            <Button variant="destructive" className="flex-1" onClick={() => setIsVacateDialogOpen(true)} disabled={guest.isVacated}>
+                                                <XCircle className="mr-2 h-4 w-4" />
+                                                Vacate Immediately
+                                            </Button>
+                                        </Access>
                                     </div>
                                 </div>
                             </TabsContent>
@@ -672,6 +698,70 @@ export default function GuestProfilePage() {
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={handleConfirmResetKyc}>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isVacateDialogOpen} onOpenChange={setIsVacateDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Vacate {guest.name} Immediately?</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p>
+                                    This will immediately vacate the guest from their bed. This action cannot be undone.
+                                </p>
+                                {(() => {
+                                    const depositAmount = guest.depositAmount || 0;
+                                    const currentBalance = (guest.ledger || []).reduce((acc, entry) =>
+                                        acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0
+                                    );
+                                    const finalSettlementAmount = depositAmount - currentBalance;
+
+                                    return (
+                                        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-md border text-sm text-foreground">
+                                            <div className="flex justify-between py-1 text-muted-foreground">
+                                                <span>Security Deposit:</span>
+                                                <span className="font-medium text-foreground">₹{depositAmount.toLocaleString('en-IN')}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1 text-muted-foreground">
+                                                <span>Unpaid Balance (Dues):</span>
+                                                <span className="font-medium text-foreground">₹{currentBalance.toLocaleString('en-IN')}</span>
+                                            </div>
+                                            <div className="h-px bg-border my-2" />
+                                            <div className="flex justify-between py-1 font-semibold">
+                                                <span>Final Settlement:</span>
+                                                <span className={cn(finalSettlementAmount > 0 ? "text-green-600" : finalSettlementAmount < 0 ? "text-red-600" : "")}>
+                                                    {finalSettlementAmount > 0
+                                                        ? `Refund ₹${finalSettlementAmount.toLocaleString('en-IN')}`
+                                                        : finalSettlementAmount < 0
+                                                            ? `Owes ₹${Math.abs(finalSettlementAmount).toLocaleString('en-IN')}`
+                                                            : `₹0`
+                                                    }
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                <div className="flex items-center space-x-2 pt-2">
+                                    <Checkbox
+                                        id="sendWhatsAppGuest"
+                                        checked={sendWhatsAppOnExit}
+                                        onCheckedChange={(checked) => setSendWhatsAppOnExit(!!checked)}
+                                    />
+                                    <Label htmlFor="sendWhatsAppGuest" className="text-sm cursor-pointer text-foreground">
+                                        Send Settlement details via WhatsApp
+                                    </Label>
+                                </div>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleConfirmImmediateExit}>
+                            Confirm Vacate
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

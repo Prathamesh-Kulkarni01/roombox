@@ -169,7 +169,7 @@ export default function DashboardPage() {
     }).filter((pg): pg is NonNullable<typeof pg> => pg !== null);
   }, [pgs, selectedPgId, searchTerm, activeFilters, guests, isEditMode]);
 
-  const stats = useMemo(() => {
+  const stats = useMemo<DashboardStats>(() => {
     const relevantPgs = selectedPgId ? pgs.filter(p => p.id === selectedPgId) : pgs;
     const relevantGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
     const relevantComplaints = selectedPgId ? complaints.filter(c => c.pgId === selectedPgId) : complaints;
@@ -183,7 +183,7 @@ export default function DashboardPage() {
 
     const openComplaintsCount = relevantComplaints.filter(c => c.status === 'open').length;
 
-    const pendingDues = relevantGuests
+    const pendingDuesAmount = relevantGuests
       .filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'))
       .reduce((sum, g) => {
         const balanceBf = g.balanceBroughtForward || 0;
@@ -194,12 +194,12 @@ export default function DashboardPage() {
         return sum + (totalOwed - totalPaid);
       }, 0);
 
-    return [
-      { title: "Occupancy", value: `${totalOccupancy}/${totalBeds}`, icon: Users, feature: "properties", action: "view" },
-      { title: "Collected Rent", value: `₹${monthlyRevenue.toLocaleString('en-IN')}`, icon: IndianRupee, feature: "finances", action: "view" },
-      { title: "Pending Dues", value: `₹${pendingDues.toLocaleString('en-IN')}`, icon: FileWarning, feature: "finances", action: "view" },
-      { title: "Open Complaints", value: openComplaintsCount, icon: MessageSquareWarning, feature: "complaints", action: "view" },
-    ];
+    return {
+      occupancy: { total: totalBeds, occupied: totalOccupancy, newThisMonth: 0 },
+      complaints: { active: openComplaintsCount, severity: 'Normal' },
+      revenue: { collected: monthlyRevenue, expected: totalBeds * 5000, collectedToday: 0 }, // Expected is a placeholder
+      pendingDues: { amount: pendingDuesAmount }
+    };
   }, [pgs, guests, complaints, selectedPgId]);
 
   const handleFilterChange = (status: BedStatus, checked: boolean) => {
@@ -225,7 +225,9 @@ export default function DashboardPage() {
     toast({ title: 'Sending Reminders...', description: `Sending reminders to ${pendingGuests.length} guests.` });
 
     try {
-      const token = await auth?.currentUser?.getIdToken();
+      const user = auth?.currentUser;
+      if (!user) throw new Error("User not authenticated");
+      const token = await user.getIdToken();
       const response = await fetch('/api/reminders/send-manual', {
         method: 'POST',
         headers: {
@@ -263,7 +265,7 @@ export default function DashboardPage() {
 
   const handleToggleEditMode = () => {
     if (isEditMode) {
-      showConfetti({ particleCount: 100, spread: 120, startVelocity: 25, scalar: 0.9, ticks: 150 });
+      showConfetti({ particleCount: 100, spread: 120, startVelocity: 25, scalar: 0.9 });
     }
     setIsEditMode(!isEditMode);
   }
@@ -314,7 +316,8 @@ export default function DashboardPage() {
           onAddProperty={() => setIsAddPgSheetOpen(true)}
           onSetupLayout={() => { pgs.length > 0 && router.push(`/dashboard/pg-management/${pgs[0].id}?setup=true`) }}
           onAddGuest={() => {
-            const firstAvailableBed = pgs.flatMap(pg => pg.floors?.flatMap(f => f.rooms.flatMap(r => r.beds.map(b => ({ pg, room: r, bed: b }))))).find(b => !b.bed.guestId);
+            const firstAvailableBed = pgs.flatMap(pg => (pg.floors || []).flatMap(f => (f.rooms || []).flatMap(r => (r.beds || []).map(b => ({ pg, room: r, bed: b })))))
+              .find(b => !b.bed.guestId);
             if (firstAvailableBed) {
               handleOpenAddGuestDialog(firstAvailableBed.bed, firstAvailableBed.room, firstAvailableBed.pg);
             } else {
@@ -322,7 +325,7 @@ export default function DashboardPage() {
             }
           }}
         />
-        <StatsCards stats={stats} />
+        <StatsCards stats={stats} onSendReminders={handleSendMassReminder} />
 
         {pgs.length > 0 && (
           <>
