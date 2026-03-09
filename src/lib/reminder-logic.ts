@@ -19,11 +19,23 @@ export function getReminderForGuest(guest: Guest, now: Date = new Date()): Remin
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 
-  // For days, we want calendar days ideally, but Math.floor covers roughly 24h chunks
-  // Offset by timezone safely by just using the absolute difference in days
-  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dueMidnight = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
-  const diffDays = Math.round((dueMidnight.getTime() - nowMidnight.getTime()) / (1000 * 60 * 60 * 24));
+  // For days, we want calendar days based on the tenant's local perception.
+  // If timezone is present (e.g. Asia/Kolkata), a UTC midnight might be "tomorrow" for them.
+  function getMidnightInTZ(date: Date, tzOffsetMinutes: number = 0): number {
+    // Basic timezone shift: add the minutes, then floor to midnight UTC
+    const shifted = new Date(date.getTime() + tzOffsetMinutes * 60000);
+    return new Date(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()).getTime();
+  }
+
+  // We'll estimate the offset if timezone strings aren't parsed by a library yet.
+  // Standard Roombox behavior: Default to owner's/property's assumed timezone (IST is +330).
+  let tzOffset = 0;
+  if (guest.timezone === 'Asia/Kolkata') tzOffset = 330;
+  else if (guest.timezone === 'Europe/London') tzOffset = 60; // Approximate BST/GMT
+
+  const nowMidnight = getMidnightInTZ(now, tzOffset);
+  const dueMidnight = getMidnightInTZ(dueDate, tzOffset);
+  const diffDays = Math.round((dueMidnight - nowMidnight) / (1000 * 60 * 60 * 24));
 
   let checkValue = diffDays;
   let unitString = 'day(s)';

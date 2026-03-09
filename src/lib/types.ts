@@ -212,6 +212,7 @@ export interface Guest {
   rentCycleValue: number; // e.g., 1
   billingAnchorDay: number; // Day of the month to bill on (e.g., 15)
   exitDate?: string;
+  timezone?: string;
   userId?: string | null; // Link to the user account
   isVacated: boolean; // True if the guest has permanently left the PG
   ledger: LedgerEntry[];
