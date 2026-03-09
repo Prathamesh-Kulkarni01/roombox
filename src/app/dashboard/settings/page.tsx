@@ -35,6 +35,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { auth } from "@/lib/firebase"
 
 
 const chargeTemplateSchema = z.object({
@@ -227,7 +228,7 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
         if (!currentUser || !phoneNumber) return;
         setIsVerifying(true);
         try {
-            const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+            const token = await auth?.currentUser?.getIdToken();
             const res = await fetch('/api/whatsapp/send-verification-otp', {
                 method: 'POST',
                 headers: {
@@ -254,7 +255,7 @@ Tenants: ${details.billableTenantCount} x ₹${details.pricingConfig.perTenant} 
         if (!currentUser || !otp) return;
         setIsVerifying(true);
         try {
-            const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+            const token = await auth?.currentUser?.getIdToken();
             const res = await fetch('/api/whatsapp/verify-phone-otp', {
                 method: 'POST',
                 headers: {

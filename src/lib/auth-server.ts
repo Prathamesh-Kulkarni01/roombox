@@ -12,6 +12,22 @@ export async function getUserIdFromRequest(req: NextRequest): Promise<string | n
         }
 
         const token = authHeader.split('Bearer ')[1];
+
+        // --- PREVENT NOISY FIREBASE ADMIN SDK ERRORS ---
+
+        // 1. Check if it's the CRON_SECRET (used by internal scripts)
+        if (process.env.CRON_SECRET && token === process.env.CRON_SECRET) {
+            // Internal cron jobs handle their own secret verification in their routes.
+            // We return null here to avoid passing a non-JWT secret to verifyIdToken().
+            return null;
+        }
+
+        // 2. Basic JWT format validation (Firebase ID tokens are JWTs: header.payload.signature)
+        if (token.split('.').length !== 3) {
+            // Not a valid JWT, skip verifyIdToken to avoid "Decoding Firebase ID token failed" error
+            return null;
+        }
+
         const decodedToken = await auth.verifyIdToken(token);
         return decodedToken.uid;
     } catch (error) {
