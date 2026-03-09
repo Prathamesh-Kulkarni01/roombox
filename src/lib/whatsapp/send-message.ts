@@ -84,6 +84,42 @@ export async function sendWhatsAppImageMessage(to: string, imageLink: string) {
     return makeWhatsAppApiCall(payload);
 }
 
+/**
+ * Sends a WhatsApp Template message. 
+ * Templates must be pre-approved in the Meta Business Suite.
+ * @param to recipient phone number
+ * @param templateName name of the approved template
+ * @param languageCode language (e.g., 'en_US', 'hi')
+ * @param components template components (body parameters, buttons, etc.)
+ */
+export async function sendWhatsAppTemplate(
+    to: string,
+    templateName: string,
+    languageCode: string = 'en_US',
+    components: any[] = []
+) {
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
+        console.warn('WhatsApp credentials not configured. Mocking template send:', { to, templateName });
+        return { success: true, mock: true };
+    }
+
+    const payload: WhatsAppMessagePayload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "template",
+        template: {
+            name: templateName,
+            language: {
+                code: languageCode
+            },
+            components: components
+        }
+    };
+
+    return makeWhatsAppApiCall(payload);
+}
+
 async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries = 3) {
     let lastError: any = null;
 

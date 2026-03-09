@@ -113,19 +113,39 @@ export async function GET(request: NextRequest) {
                         }
                     }
 
-                    // 2. Send WhatsApp Notification if they have a phone number
+                    // 2. Send WhatsApp Notification Template if they have a phone number
                     if (guest.phone) {
                         try {
                             let formattedPhone = guest.phone.replace(/\D/g, '');
                             if (formattedPhone.length === 10) {
                                 formattedPhone = '91' + formattedPhone;
                             }
-                            const waResult = await sendWhatsAppMessage(formattedPhone, reminderInfo.body);
-                            if (waResult?.success) {
-                                messageSent = true;
-                            }
+
+                            const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
+
+                            const appUrl = (process.env.APP_URL || 'https://roombox.in');
+                            const payUrl = `${appUrl}/pay/${guest.id}`;
+                            const dueDateObj = new Date(guest.dueDate);
+                            const monthLabel = dueDateObj.toLocaleDateString('en-IN', { month: 'long' });
+                            const dateLabel = dueDateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+                            await sendWhatsAppTemplate(formattedPhone, 'rent_due_reminder', 'en_US', [
+                                {
+                                    type: 'body',
+                                    parameters: [
+                                        { type: 'text', text: guest.name }, // {{1}}
+                                        { type: 'text', text: monthLabel }, // {{2}}
+                                        { type: 'text', text: dateLabel }, // {{3}}
+                                        { type: 'text', text: String(guest.rentAmount) }, // {{4}}
+                                        { type: 'text', text: guest.pgName || 'Our Property' }, // {{5}}
+                                        { type: 'text', text: payUrl }, // {{6}} - Payment Link in Body
+                                        { type: 'text', text: String(guest.balance || guest.rentAmount) } // {{7}} - Balance in Body
+                                    ]
+                                }
+                            ]);
+                            messageSent = true;
                         } catch (e) {
-                            console.error(`Failed to send WhatsApp message to ${guest.phone}`);
+                            console.error(`Failed to send WhatsApp template to ${guest.phone}`, e);
                         }
                     }
 

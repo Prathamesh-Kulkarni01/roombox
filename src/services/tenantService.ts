@@ -300,19 +300,37 @@ export class TenantService {
                 let formattedPhone = phone.replace(/\D/g, '');
                 if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
 
-                const welcomeMsg = `👋 *Hi ${name}! Welcome to ${pgName || newGuest.pgName}*\n\n` +
-                    `I am your automated PG assistant. You can use me to pay rent, raise complaints, or check your balance.\n\n` +
-                    (magicLink ? `📱 *Your Personal Dashboard:* ${magicLink}\n\n` : '') +
-                    `👉 *Reply "Hi"* at any time to see your menu and pay your first month's rent/deposit.`;
+                const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
-                const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
-                console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp welcome to ${formattedPhone}`);
-                const waResult = await sendWhatsAppMessage(formattedPhone, welcomeMsg);
-                if (waResult.success) {
-                    console.log(`[onboardTenant] WhatsApp welcome sent successfully to ${formattedPhone}`);
-                } else {
-                    console.error(`[onboardTenant] WhatsApp welcome FAILED for ${formattedPhone}:`, (waResult as any).error);
+                // Fetch Owner Phone for "Message Owner" button
+                const ownerSnap = await db.collection('users_data').doc(ownerId).get();
+                let ownerPhone = '';
+                if (ownerSnap.exists) {
+                    ownerPhone = (ownerSnap.data() as any).phone || '';
+                    ownerPhone = ownerPhone.replace(/\D/g, '');
+                    if (ownerPhone.length === 10) ownerPhone = '91' + ownerPhone;
                 }
+
+                const appUrl = (process.env.APP_URL || 'https://roombox.in');
+                const dashboardUrl = `${appUrl}/tenant?id=${guestId}`;
+
+                console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
+
+                await sendWhatsAppTemplate(formattedPhone, 'guest_welcome_utility', 'en_US', [
+                    {
+                        type: 'body',
+                        parameters: [
+                            { type: 'text', text: name }, // {{1}}
+                            { type: 'text', text: pgName || newGuest.pgName || 'Our Property' }, // {{2}}
+                            { type: 'text', text: roomName || 'Assigned Room' }, // {{3}}
+                            { type: 'text', text: String(newGuest.rentAmount || 0) }, // {{4}}
+                            { type: 'text', text: ownerPhone || 'Host' }, // {{5}}
+                            { type: 'text', text: dashboardUrl } // {{6}} (Full URL in Body)
+                        ]
+                    }
+                ]);
+
+                console.log(`[onboardTenant] WhatsApp template welcome sent successfully to ${formattedPhone}`);
             } catch (waErr) {
                 console.warn(`[TenantService.onboardTenant] WA Notify Failed:`, waErr);
             }
@@ -530,6 +548,39 @@ export class TenantService {
             };
 
             txn.set(guestRef, finalGuest, { merge: true });
+
+            // Send WhatsApp Receipt Template (Non-blocking)
+            (async () => {
+                try {
+                    const phone = finalGuest.phone;
+                    if (!phone) return;
+
+                    let formattedPhone = phone.replace(/\D/g, '');
+                    if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
+
+                    const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
+
+                    const appUrl = (process.env.APP_URL || 'https://roombox.in');
+                    const receiptUrl = `${appUrl}/ledger/${creditEntry.id}`;
+
+                    await sendWhatsAppTemplate(formattedPhone, 'payment_success_receipt', 'en_US', [
+                        {
+                            type: 'body',
+                            parameters: [
+                                { type: 'text', text: finalGuest.name },
+                                { type: 'text', text: String(amount) },
+                                { type: 'text', text: creditEntry.description },
+                                { type: 'text', text: String(newBalance) },
+                                { type: 'text', text: creditEntry.id },
+                                { type: 'text', text: receiptUrl } // {{6}}
+                            ]
+                        }
+                    ]);
+                    console.log(`[recordPayment] WhatsApp receipt sent to ${formattedPhone}`);
+                } catch (receiptErr) {
+                    console.warn(`[recordPayment] Failed to send WhatsApp receipt:`, receiptErr);
+                }
+            })();
 
             return {
                 guest: finalGuest,
@@ -757,9 +808,27 @@ export class TenantService {
             let formattedPhone = phone.replace(/\D/g, '');
             if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
 
-            const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
-            await sendWhatsAppMessage(formattedPhone, message);
-            console.log(`[TenantService.notifyComplaintStatusChange] WhatsApp notification sent to ${formattedPhone}`);
+            const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
+            const appUrl = (process.env.APP_URL || 'https://roombox.in');
+            const statusUrl = `${appUrl}/complaints/${complaintId}`;
+            const title = compData.description || compData.category;
+            const updateMessage = status === 'resolved' ? 'Fixed! Contact landlord if issue persists.' : 'We are working on it!';
+
+            await sendWhatsAppTemplate(formattedPhone, 'maintenance_ticket_update', 'en_US', [
+                {
+                    type: 'body',
+                    parameters: [
+                        { type: 'text', text: guestData.pgName || 'Property' }, // {{1}}
+                        { type: 'text', text: guestData.name }, // {{2}}
+                        { type: 'text', text: title }, // {{3}}
+                        { type: 'text', text: status.toUpperCase() }, // {{4}}
+                        { type: 'text', text: updateMessage }, // {{5}}
+                        { type: 'text', text: statusUrl } // {{6}}
+                    ]
+                }
+            ]);
+
+            console.log(`[TenantService.notifyComplaintStatusChange] WhatsApp template notification sent to ${formattedPhone}`);
         } catch (err) {
             console.warn(`[TenantService.notifyComplaintStatusChange] Failed to send WhatsApp:`, err);
         }

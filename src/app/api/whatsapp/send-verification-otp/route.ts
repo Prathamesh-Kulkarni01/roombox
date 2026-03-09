@@ -45,12 +45,31 @@ export async function POST(req: NextRequest) {
             formattedPhone = '91' + formattedPhone;
         }
 
-        // Send OTP via WhatsApp
-        const msg = `*RentSutra Security*\n\nYour OTP for verifying your WhatsApp number is: *${otpCode}*\n\n_Do not share this code with anyone. It expires in 10 minutes._`;
-        const sendResult = await sendWhatsAppMessage(formattedPhone, msg) as any;
+        // Send OTP via WhatsApp Template
+        const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
-        if (!sendResult.success && !sendResult.mock) {
-            throw new Error('Failed to send WhatsApp message.');
+        try {
+            await sendWhatsAppTemplate(formattedPhone, 'auth_otp_secure', 'en_US', [
+                {
+                    type: 'body',
+                    parameters: [
+                        { type: 'text', text: otpCode } // {{1}}
+                    ]
+                },
+                {
+                    type: 'button',
+                    sub_type: 'url',
+                    index: '0', // Copy Code (Actually index 0 of buttons)
+                    parameters: [{ type: 'text', text: otpCode }] // Meta uses this for copy-code too
+                }
+            ]);
+        } catch (templateErr) {
+            console.warn('[send-verification-otp] Template failed, falling back to message:', templateErr);
+            const msg = `*RentSutra Security*\n\nYour OTP for verifying your WhatsApp number is: *${otpCode}*\n\n_Do not share this code with anyone. It expires in 10 minutes._`;
+            const sendResult = await sendWhatsAppMessage(formattedPhone, msg) as any;
+            if (!sendResult.success && !sendResult.mock) {
+                throw new Error('Failed to send WhatsApp message.');
+            }
         }
 
         return NextResponse.json({ success: true, message: 'OTP sent successfully.' });
