@@ -13,7 +13,7 @@ import { z } from 'zod'
 import jsPDF from 'jspdf';
 
 
-import { useAppDispatch, useAppSelector } from "@/lib/hooks"
+import { useAppSelector } from "@/lib/hooks"
 import { usePermissionsStore, useKycConfigStore } from '@/lib/stores/configStores'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,7 @@ import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { updateGuest as updateGuestAction, addAdditionalCharge as addChargeAction, removeAdditionalCharge as removeChargeAction, reconcileRentCycle, updateGuestKycFromOwner, updateGuestKycStatus, resetGuestKyc } from "@/lib/slices/guestsSlice"
+import { useInitiateGuestExitMutation, useAddGuestChargeMutation, useRemoveGuestChargeMutation, useUpdateKycStatusMutation, useSubmitKycDocumentsMutation, useResetKycMutation } from '@/lib/api/apiSlice'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
@@ -77,21 +77,27 @@ const isImageUrl = (url: string) => /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
 export default function GuestProfilePage() {
     const params = useParams()
     const router = useRouter()
-    const dispatch = useAppDispatch()
     const { toast } = useToast()
     const guestId = params.guestId as string
+
+    const [initiateExit] = useInitiateGuestExitMutation()
+    const [addGuestCharge] = useAddGuestChargeMutation()
+    const [removeGuestCharge] = useRemoveGuestChargeMutation()
+    const [updateKycStatus] = useUpdateKycStatusMutation()
+    const [submitKycDocuments] = useSubmitKycDocumentsMutation()
+    const [resetKyc] = useResetKycMutation()
 
     const { guests: guestsState, pgs, complaints } = useAppSelector(state => state)
     const { isLoading } = useAppSelector(state => state.app)
     const { currentUser, currentPlan } = useAppSelector(state => state.user)
     const { featurePermissions } = usePermissionsStore();
     const { kycConfigs: kycConfigMap } = useKycConfigStore();
-    const kycConfigs = (guest && kycConfigMap[guest.pgId]) || [];
 
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
     const guest = useMemo(() => guestsState.guests.find(g => g.id === guestId), [guestsState.guests, guestId])
     const pg = useMemo(() => guest ? pgs.pgs.find(p => p.id === guest.pgId) : null, [guest, pgs])
+    const kycConfigs = (guest && kycConfigMap[guest.pgId]) || [];
 
     const {
         isEditGuestDialogOpen,
@@ -125,11 +131,7 @@ export default function GuestProfilePage() {
 
     const guestComplaints = useMemo(() => complaints.complaints.filter(c => c.guestId === guestId), [complaints.complaints, guestId])
 
-    useEffect(() => {
-        if (guest && guest.dueDate && isAfter(new Date(), parseISO(guest.dueDate))) {
-            dispatch(reconcileRentCycle(guest.id));
-        }
-    }, [guest, dispatch]);
+    // Rent cycle reconciliation is now handled server-side on fetch
 
     useEffect(() => {
         if (guest?.documents) {
@@ -173,24 +175,35 @@ export default function GuestProfilePage() {
         defaultValues: { description: '', amount: undefined }
     });
 
-    const handleInitiateExit = () => {
+    const handleInitiateExit = async () => {
         if (!guest || guest.exitDate) return
-        const exitDate = new Date()
-        exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays)
-        const updatedGuest = { ...guest, exitDate: exitDate.toISOString() }
-        dispatch(updateGuestAction({ updatedGuest }))
+        try {
+            await initiateExit({ guestId: guest.id, noticePeriodDays: guest.noticePeriodDays }).unwrap()
+            toast({ title: 'Exit Initiated', description: `${guest.name}'s exit notice has been set.` })
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Failed', description: err.message || 'Could not initiate exit.' })
+        }
     }
 
-    const handleAddChargeSubmit = (values: z.infer<typeof chargeSchema>) => {
+    const handleAddChargeSubmit = async (values: z.infer<typeof chargeSchema>) => {
         if (!guest) return;
-        dispatch(addChargeAction({ guestId: guest.id, charge: values }));
-        setIsChargeDialogOpen(false);
-        chargeForm.reset();
+        try {
+            await addGuestCharge({ guestId: guest.id, description: values.description, amount: values.amount }).unwrap()
+            toast({ title: 'Charge Added', description: `₹${values.amount} charge added to ${guest.name}'s bill.` })
+            setIsChargeDialogOpen(false);
+            chargeForm.reset();
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Failed', description: err.message || 'Could not add charge.' })
+        }
     };
 
-    const handleRemoveCharge = (chargeId: string) => {
+    const handleRemoveCharge = async (chargeId: string) => {
         if (!guest) return;
-        dispatch(removeChargeAction({ guestId: guest.id, chargeId }));
+        try {
+            await removeGuestCharge({ guestId: guest.id, chargeId }).unwrap()
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Failed', description: err.message || 'Could not remove charge.' })
+        }
     };
 
     const handleKycFileChange = (e: React.ChangeEvent<HTMLInputElement>, configId: string) => {
@@ -229,7 +242,7 @@ export default function GuestProfilePage() {
 
         setIsSubmittingKyc(true);
         try {
-            await dispatch(updateGuestKycFromOwner({ guestId: guest.id, documents: documentsToSubmit })).unwrap();
+            await submitKycDocuments({ guestId: guest.id, documents: documentsToSubmit }).unwrap();
             toast({ title: 'KYC Submitted', description: 'The documents have been sent for review.' });
             setIsKycDialogOpen(false);
             setDocumentUris({});
@@ -248,17 +261,21 @@ export default function GuestProfilePage() {
             reason = prompt('Please provide a reason for rejecting the KYC documents.') || 'Documents were not clear or valid.';
         }
         try {
-            await dispatch(updateGuestKycStatus({ guestId: guest.id, status: action, reason })).unwrap();
+            await updateKycStatus({ guestId: guest.id, status: action, reason }).unwrap();
             toast({ title: 'KYC Status Updated', description: `Guest has been marked as ${action}.` })
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Update Failed', description: error.message || 'Could not update KYC status.' });
         }
     }
 
-    const handleConfirmResetKyc = () => {
+    const handleConfirmResetKyc = async () => {
         if (!guest) return;
-        dispatch(resetGuestKyc(guest.id));
-        toast({ title: "KYC Reset", description: "The guest can now re-submit their documents." });
+        try {
+            await resetKyc({ guestId: guest.id }).unwrap();
+            toast({ title: "KYC Reset", description: "The guest can now re-submit their documents." });
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Failed', description: err.message || 'Could not reset KYC.' })
+        }
         setIsResetKycDialogOpen(false);
     }
 
