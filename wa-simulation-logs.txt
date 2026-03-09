@@ -1,0 +1,12 @@
+[WA to 9100000001] Hello Tenant A (Hour),
+This is a reminder that your rent for your PG is coming up in 3 minute(s).
+Due Date: 4/1/2026
+Please keep the amount ready.
+[WA to 9100000002] Hello Tenant B (Day),
+This is a reminder that your rent for your PG is coming up in 3 hour(s).
+Due Date: 4/2/2026
+Please keep the amount ready.
+[WA to 9100000003] Hello Tenant C (Month),
+This is a reminder that your rent for your PG is coming up in 3 day(s).
+Due Date: 5/1/2026
+Please keep the amount ready.

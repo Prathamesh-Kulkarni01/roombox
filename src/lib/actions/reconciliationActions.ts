@@ -6,7 +6,7 @@ import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import type { Guest } from '@/lib/types';
 import { runReconciliationLogic } from '@/lib/reconciliation';
 
-export async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: string, guestId: string }): Promise<{ success: boolean; cyclesProcessed: number }> {
+export async function reconcileSingleGuest({ ownerId, guestId, now }: { ownerId: string, guestId: string, now?: Date }): Promise<{ success: boolean; cyclesProcessed: number }> {
     const dataDb = await selectOwnerDataAdminDb(ownerId);
     const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
 
@@ -20,13 +20,13 @@ export async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: stri
 
             const guest = guestDoc.data() as Guest;
 
-            const result = runReconciliationLogic(guest, new Date());
+            const result = runReconciliationLogic(guest, now || new Date());
 
             if (result.cyclesProcessed === 0) {
                 return 0;
             }
 
-            transaction.update(guestDocRef, result.guest);
+            transaction.update(guestDocRef, result.guest as any);
             return result.cyclesProcessed;
         });
 
@@ -45,7 +45,7 @@ export async function reconcileSingleGuest({ ownerId, guestId }: { ownerId: stri
 }
 
 
-export async function reconcileAllGuests(limit?: number): Promise<{ success: boolean; reconciledCount: number; errorCount: number; }> {
+export async function reconcileAllGuests(limit?: number, now?: Date): Promise<{ success: boolean; reconciledCount: number; errorCount: number; }> {
     const adminDb = await getAdminDb();
     let processedGuestCount = 0;
     let totalErrors = 0;
@@ -56,7 +56,25 @@ export async function reconcileAllGuests(limit?: number): Promise<{ success: boo
         for (const ownerDoc of ownersSnapshot.docs) {
             const ownerId = ownerDoc.id;
             const dataDb = await selectOwnerDataAdminDb(ownerId);
-            const guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
+            let guestsSnapshot;
+
+            try {
+                // Try optimized query (requires composite index: isVacated, dueDate)
+                guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
+                    .where('isVacated', '==', false)
+                    .where('dueDate', '<=', (now || new Date()).toISOString())
+                    .get();
+            } catch (error: any) {
+                if (error.code === 9 || error.message?.includes('FAILED_PRECONDITION')) {
+                    console.warn(`[Reconcile All] Index missing for optimized query. Falling back to full sweep for owner ${ownerId}. Please create the required index.`);
+                    // Fallback to full sweep (already has index or is primary)
+                    guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
+                        .where('isVacated', '==', false)
+                        .get();
+                } else {
+                    throw error;
+                }
+            }
 
             for (const guestDoc of guestsSnapshot.docs) {
                 if (limit && processedGuestCount >= limit) {
@@ -65,7 +83,7 @@ export async function reconcileAllGuests(limit?: number): Promise<{ success: boo
                 }
 
                 try {
-                    const result = await reconcileSingleGuest({ ownerId, guestId: guestDoc.id });
+                    const result = await reconcileSingleGuest({ ownerId, guestId: guestDoc.id, now });
                     if (result.success && result.cyclesProcessed > 0) {
                         processedGuestCount++;
                     } else if (!result.success) {

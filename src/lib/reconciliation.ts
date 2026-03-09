@@ -11,6 +11,11 @@ export function runReconciliationLogic(
 ): { guest: Guest; cyclesProcessed: number } {
   if (guest.isVacated || guest.exitDate) return { guest, cyclesProcessed: 0 };
 
+  if (!guest.dueDate) {
+    console.error(`[Reconcile] Guest ${guest.id} is missing dueDate. Skipping.`);
+    return { guest, cyclesProcessed: 0 };
+  }
+
   const dueDate = parseISO(guest.dueDate);
   if (!isAfter(now, dueDate)) {
     // Even if not overdue, let's ensure the status is correct based on the current balance.
@@ -26,7 +31,13 @@ export function runReconciliationLogic(
 
   const cycleUnit: RentCycleUnit = guest.rentCycleUnit || 'months';
   const cycleValue: number = guest.rentCycleValue || 1;
-  const billingAnchorDay = guest.billingAnchorDay || parseISO(guest.moveInDate).getDate();
+
+  let moveInDate = guest.moveInDate || guest.dueDate;
+  if (!moveInDate) {
+    console.error(`[Reconcile] Guest ${guest.id} is missing moveInDate/joinDate. Skipping.`);
+    return { guest, cyclesProcessed: 0 };
+  }
+  const billingAnchorDay = guest.billingAnchorDay || parseISO(moveInDate).getDate();
 
   let cyclesToProcess = 0;
   let nextDueDate = dueDate;

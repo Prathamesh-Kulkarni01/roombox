@@ -28,13 +28,17 @@ export function getReminderForGuest(guest: Guest, now: Date = new Date()): Remin
   let checkValue = diffDays;
   let unitString = 'day(s)';
 
-  // Support for testing shorter periods
-  if (guest.rentCycleUnit === 'minutes') {
+  // Support for accelerated testing cycles
+  if (guest.rentCycleUnit === 'hours') {
+    checkValue = diffMinutes; // Hourly cycle -> Minute-based reminders
+    unitString = 'minute(s)';
+  } else if (guest.rentCycleUnit === 'days') {
+    checkValue = diffHours; // Daily cycle -> Hour-based reminders
+    unitString = 'hour(s)';
+  } else if (guest.rentCycleUnit === 'minutes') {
+    // This is for extreme acceleration if ever needed
     checkValue = diffMinutes;
     unitString = 'minute(s)';
-  } else if (guest.rentCycleUnit === 'hours') {
-    checkValue = diffHours;
-    unitString = 'hour(s)';
   }
 
   // Exact Match Logic for RentSutra Automations: T-3, T-1, T0, T+2

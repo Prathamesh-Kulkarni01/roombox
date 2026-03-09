@@ -323,6 +323,15 @@ export class TenantService {
      */
     static async updateTenant(db: Firestore, ownerId: string, guestId: string, updates: Partial<Guest>): Promise<void> {
         console.log(`[TenantService.updateTenant] Updating ${guestId}`);
+
+        // Safety check for mandatory fields
+        if (updates.hasOwnProperty('dueDate') && (updates.dueDate === undefined || updates.dueDate === null)) {
+            throw new Error('dueDate cannot be null or undefined');
+        }
+        if (updates.hasOwnProperty('moveInDate') && (updates.moveInDate === undefined || updates.moveInDate === null)) {
+            throw new Error('moveInDate cannot be null or undefined');
+        }
+
         await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).update(updates);
     }
 

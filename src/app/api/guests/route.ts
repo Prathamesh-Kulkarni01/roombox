@@ -38,7 +38,16 @@ const AddGuestSchema = z.object({
 
 const PatchSchema = z.discriminatedUnion('action', [
     // General field update
-    z.object({ action: z.literal('update'), ownerId: z.string().optional(), guestId: z.string(), updates: z.record(z.unknown()) }),
+    z.object({
+        action: z.literal('update'),
+        ownerId: z.string().optional(),
+        guestId: z.string(),
+        updates: z.record(z.unknown()).refine(
+            (u) => !('dueDate' in u && (u.dueDate === null || u.dueDate === undefined)) &&
+                !('moveInDate' in u && (u.moveInDate === null || u.moveInDate === undefined)),
+            { message: 'dueDate and moveInDate cannot be null or undefined' }
+        )
+    }),
     // Initiate exit
     z.object({ action: z.literal('initiate-exit'), ownerId: z.string().optional(), guestId: z.string(), noticePeriodDays: z.number().optional() }),
     // Vacate

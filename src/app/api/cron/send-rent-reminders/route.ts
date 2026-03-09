@@ -38,10 +38,27 @@ export async function GET(request: NextRequest) {
             const enterpriseProjectId = (userDoc.data()?.subscription?.enterpriseProject?.projectId) as string | undefined;
             const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
 
-            // Fetch all non-vacated guests for the owner
-            const guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
-                .where('isVacated', '==', false)
-                .get();
+            // Optimization: Only fetch guests whose rent is due within the next 3 days (max lead time for reminders)
+            const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+            let guestsSnapshot;
+
+            try {
+                // Fetch non-vacated guests who might need a reminder soon (requires composite index)
+                guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
+                    .where('isVacated', '==', false)
+                    .where('dueDate', '<=', threeDaysLater.toISOString())
+                    .get();
+            } catch (error: any) {
+                if (error.code === 9 || error.message?.includes('FAILED_PRECONDITION')) {
+                    console.warn(`[Reminders] Index missing for optimized query. Falling back to full sweep for owner ${ownerId}.`);
+                    // Fallback to full sweep
+                    guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
+                        .where('isVacated', '==', false)
+                        .get();
+                } else {
+                    throw error;
+                }
+            }
 
             if (guestsSnapshot.empty) {
                 continue;
