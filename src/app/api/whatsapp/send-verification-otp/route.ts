@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
                 {
                     type: 'button',
                     sub_type: 'url',
-                    index: '0', // Copy Code (Actually index 0 of buttons)
+                    index: 0, // Copy Code (Actually index 0 of buttons)
                     parameters: [{ type: 'text', text: otpCode }] // Meta uses this for copy-code too
                 }
             ]);
