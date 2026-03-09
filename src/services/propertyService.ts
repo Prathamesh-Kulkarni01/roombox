@@ -14,6 +14,8 @@ export interface Building {
     name: string;
     occupancy: number;
     totalBeds: number;
+    totalRooms?: number;
+    floors?: any[];
 }
 
 export interface CreatePropertyInput {
@@ -199,6 +201,8 @@ export class PropertyService {
                     name: data.name || 'Unnamed Property',
                     occupancy: data.occupancy || 0,
                     totalBeds: data.totalBeds || 0,
+                    totalRooms: data.totalRooms || 0,
+                    floors: data.floors || [],
                 });
             });
 
