@@ -15,6 +15,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWhatsAppLogs } from '@/lib/actions/whatsappActions';
+import { format } from 'date-fns';
 
 const notificationEvents = [
     {
@@ -50,19 +52,23 @@ export default function WhatsAppPage() {
     const [isRecharging, setIsRecharging] = useState(false);
     const { toast } = useToast();
 
-    const [notificationSettings, setNotificationSettings] = useState(() => {
-        const initialState: Record<string, { tenant: boolean; owner: boolean }> = {};
-        notificationEvents.flatMap(g => g.events).forEach(event => {
-            initialState[event.id] = { tenant: event.tenant, owner: event.owner };
-        });
-        return initialState;
-    });
+    const [logs, setLogs] = useState<any[]>([]);
+    const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
-    const handleToggle = (eventId: string, type: 'tenant' | 'owner') => {
-        setNotificationSettings(prev => ({
-            ...prev,
-            [eventId]: { ...prev[eventId], [type]: !prev[eventId][type] }
-        }));
+    React.useEffect(() => {
+        if (currentUser) {
+            loadLogs();
+        }
+    }, [currentUser]);
+
+    const loadLogs = async () => {
+        if (!currentUser) return;
+        setIsLoadingLogs(true);
+        const res = await fetchWhatsAppLogs(currentUser.id);
+        if (res.success) {
+            setLogs(res.logs);
+        }
+        setIsLoadingLogs(false);
     };
 
     const handleRecharge = async (amount: number) => {
@@ -91,7 +97,7 @@ export default function WhatsAppPage() {
                 prefill: { name: currentUser.name, email: currentUser.email, contact: currentUser.phone },
                 theme: { color: '#2563EB' }
             };
-            
+
             const rzp = new (window as any).Razorpay(options);
             rzp.on('payment.failed', (response: any) => {
                 toast({ variant: 'destructive', title: 'Payment Failed', description: response.error.description || 'Something went wrong.' });
@@ -107,7 +113,7 @@ export default function WhatsAppPage() {
 
     if (currentPlan && !currentPlan.hasAutomatedWhatsapp) {
         return (
-             <>
+            <>
                 <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
                 <Card>
                     <CardHeader>
@@ -122,12 +128,11 @@ export default function WhatsAppPage() {
                         </div>
                     </CardContent>
                 </Card>
-             </>
+            </>
         )
     }
 
     const availableCredits = currentUser?.subscription?.whatsappCredits || 0;
-    const messagesRemaining = Math.floor(availableCredits / 1.5);
 
     return (
         <div className="space-y-6">
@@ -135,21 +140,23 @@ export default function WhatsAppPage() {
                 <h1 className="text-3xl font-bold flex items-center gap-2"><MessageCircle /> WhatsApp Automation Center</h1>
                 <p className="text-muted-foreground">Manage your automated notifications and credits here.</p>
             </div>
-            
+
             <Alert>
                 <Info className="h-4 w-4" />
                 <AlertTitle>How It Works</AlertTitle>
                 <AlertDescription>
-                    Each WhatsApp message sent costs ₹1.50 from your credit wallet. Toggle which notifications you and your tenants receive.
+                    WhatsApp messages are billed based on type.
+                    <b> Templates: ₹1.50</b>, <b>Auth (OTP): ₹2.50</b>, <b>Session: ₹0.50</b>.
+                    <i>Messages within a 24h session window are FREE.</i>
                 </AlertDescription>
             </Alert>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="lg:col-span-2">
-                     <Tabs defaultValue="settings" className="w-full">
+                    <Tabs defaultValue="settings" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2"/>Settings</TabsTrigger>
-                            <TabsTrigger value="usage"><History className="w-4 h-4 mr-2"/>Usage History</TabsTrigger>
+                            <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2" />Settings</TabsTrigger>
+                            <TabsTrigger value="usage"><History className="w-4 h-4 mr-2" />Usage History</TabsTrigger>
                         </TabsList>
                         <Card className="mt-4">
                             <TabsContent value="settings" className="m-0">
@@ -158,60 +165,110 @@ export default function WhatsAppPage() {
                                     <CardDescription>Enable or disable automated WhatsApp notifications for specific events.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[50%]">Event</TableHead>
-                                            <TableHead>Send to Tenant</TableHead>
-                                            <TableHead>Send to Owner</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {notificationEvents.map(group => (
-                                            <React.Fragment key={group.category}>
-                                                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                                    <TableCell colSpan={3} className="font-semibold text-foreground">{group.category}</TableCell>
-                                                </TableRow>
-                                                {group.events.map(event => (
-                                                    <TableRow key={event.id}>
-                                                        <TableCell>
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="p-2 bg-muted rounded-full">
-                                                                    <event.icon className="w-4 h-4 text-primary" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-medium">{event.title}</p>
-                                                                    <p className="text-xs text-muted-foreground">{event.desc}</p>
-                                                                </div>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Switch id={`${event.id}-tenant`} disabled={!event.tenant} checked={event.tenant && notificationSettings[event.id].tenant} onCheckedChange={() => handleToggle(event.id, 'tenant')} />
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Switch id={`${event.id}-owner`} disabled={!event.owner} checked={event.owner && notificationSettings[event.id].owner} onCheckedChange={() => handleToggle(event.id, 'owner')} />
-                                                        </TableCell>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[50%]">Event</TableHead>
+                                                <TableHead>Send to Tenant</TableHead>
+                                                <TableHead>Send to Owner</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {notificationEvents.map(group => (
+                                                <React.Fragment key={group.category}>
+                                                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                                        <TableCell colSpan={3} className="font-semibold text-foreground">{group.category}</TableCell>
                                                     </TableRow>
-                                                ))}
-                                            </React.Fragment>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                                    {group.events.map(event => (
+                                                        <TableRow key={event.id}>
+                                                            <TableCell>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="p-2 bg-muted rounded-full">
+                                                                        <event.icon className="w-4 h-4 text-primary" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="font-medium">{event.title}</p>
+                                                                        <p className="text-xs text-muted-foreground">{event.desc}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Switch id={`${event.id}-tenant`} disabled={!event.tenant} checked={event.tenant && notificationSettings[event.id].tenant} onCheckedChange={() => handleToggle(event.id, 'tenant')} />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Switch id={`${event.id}-owner`} disabled={!event.owner} checked={event.owner && notificationSettings[event.id].owner} onCheckedChange={() => handleToggle(event.id, 'owner')} />
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </React.Fragment>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 </CardContent>
                                 <CardFooter className="sticky bottom-0 bg-background/95 border-t py-4">
                                     <Button>Save Settings</Button>
                                 </CardFooter>
                             </TabsContent>
                             <TabsContent value="usage" className="m-0">
-                                <CardHeader><CardTitle>Usage History</CardTitle><CardDescription>This feature is coming soon.</CardDescription></CardHeader>
-                                <CardContent><p className="text-center text-sm text-muted-foreground py-10">(A log of all automated messages sent from your account will be shown here)</p></CardContent>
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle>Usage History</CardTitle>
+                                            <CardDescription>A log of your WhatsApp message credits and interactions.</CardDescription>
+                                        </div>
+                                        <Button variant="ghost" size="sm" onClick={loadLogs} disabled={isLoadingLogs}>
+                                            <Plus className={`w-4 h-4 mr-2 ${isLoadingLogs ? 'animate-spin' : ''}`} /> Refresh
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Date</TableHead>
+                                                <TableHead>Recipient</TableHead>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead>Cost</TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {logs.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                                                        {isLoadingLogs ? 'Loading history...' : 'No usage history found.'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                logs.map((log: any) => (
+                                                    <TableRow key={log.id}>
+                                                        <TableCell className="text-xs">
+                                                            {log.timestamp ? format(new Date(log.timestamp), 'MMM dd, HH:mm') : 'N/A'}
+                                                        </TableCell>
+                                                        <TableCell className="font-mono text-xs">{log.phone}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className="capitalize text-[10px]">{log.type}</Badge>
+                                                            {log.direction === 'inbound' && <Badge className="ml-1 bg-blue-100 text-blue-700 text-[10px]">IN</Badge>}
+                                                        </TableCell>
+                                                        <TableCell className="font-semibold text-primary">₹{log.cost.toFixed(2)}</TableCell>
+                                                        <TableCell>
+                                                            <Badge variant={log.status === 'success' ? 'default' : 'destructive'} className="text-[10px]">
+                                                                {log.status === 'success' ? 'Success' : 'Failed'}
+                                                            </Badge>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
                             </TabsContent>
                         </Card>
-                     </Tabs>
+                    </Tabs>
                 </div>
-                
+
                 <div className="lg:col-span-1 space-y-6 lg:sticky top-20">
-                     <Card>
+                    <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><Wallet /> Credit Wallet</CardTitle>
                         </CardHeader>
@@ -219,13 +276,13 @@ export default function WhatsAppPage() {
                             <div className="text-center p-4 border rounded-lg bg-muted/40">
                                 <p className="text-sm text-muted-foreground">Available Balance</p>
                                 <p className="text-4xl font-bold flex items-center justify-center">
-                                  <IndianRupee className="w-8 h-8"/>{availableCredits.toFixed(2)}
+                                    <IndianRupee className="w-8 h-8" />{availableCredits.toFixed(2)}
                                 </p>
                             </div>
                             <div className="grid grid-cols-2 gap-4 text-center">
                                 <div>
-                                    <p className="text-sm text-muted-foreground">Messages Remaining</p>
-                                    <p className="font-bold text-lg">~{messagesRemaining}</p>
+                                    <p className="text-sm text-muted-foreground">Est. Templates Left</p>
+                                    <p className="font-bold text-lg">~{Math.floor(availableCredits / 1.5)}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Credits Valid Until</p>
@@ -234,18 +291,18 @@ export default function WhatsAppPage() {
                             </div>
                         </CardContent>
                         <CardFooter className="flex-col gap-2">
-                             <div className="flex gap-2 w-full">
+                            <div className="flex gap-2 w-full">
                                 <Button className="flex-1" onClick={() => handleRecharge(200)} disabled={isRecharging}>
-                                    {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
+                                    {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                     Add ₹200
                                 </Button>
                                 <Button className="flex-1" onClick={() => handleRecharge(500)} disabled={isRecharging}>
-                                     {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
+                                    {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                     Add ₹500
                                 </Button>
                             </div>
-                             <Button className="w-full" variant="outline" onClick={() => handleRecharge(1000)} disabled={isRecharging}>
-                                {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin"/>}
+                            <Button className="w-full" variant="outline" onClick={() => handleRecharge(1000)} disabled={isRecharging}>
+                                {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                 Add ₹1000 or More
                             </Button>
                         </CardFooter>

@@ -1,7 +1,18 @@
 import { getEnv } from '../env';
+import { getAdminDb } from '../firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
+import { WhatsAppLogsService } from './logs-service';
 
 const WHATSAPP_ACCESS_TOKEN = getEnv('WHATSAPP_ACCESS_TOKEN');
 const WHATSAPP_PHONE_ID = getEnv('WHATSAPP_PHONE_NUMBER_ID');
+
+const PRICING = {
+    TEMPLATE: 1.5,
+    SESSION: 0.5,
+    AUTH: 2.5
+};
+
+const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 interface WhatsAppMessagePayload {
     messaging_product: "whatsapp";
@@ -20,7 +31,116 @@ interface WhatsAppMessagePayload {
     template?: any;
 }
 
-export async function sendWhatsAppMessage(to: string, messageBody: string) {
+/**
+ * Enhanced sender that handles billing and logging.
+ */
+async function sendWhatsAppWithBilling(
+    to: string,
+    payload: WhatsAppMessagePayload,
+    ownerId?: string,
+    targetId?: string
+) {
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
+        console.warn('WhatsApp credentials not configured. Mocking send:', { to, payload });
+        return { success: true, mock: true };
+    }
+
+    // 1. Determine Cost & Session Window
+    let cost = 0;
+    if (ownerId) {
+        try {
+            // Check session window in Redis
+            const { getSession } = await import('./session-state');
+            const session = await getSession(to);
+            const isWithinSessionWindow = (Date.now() - session.lastUpdated) < SESSION_WINDOW_MS;
+
+            if (isWithinSessionWindow && payload.type !== 'template') {
+                cost = 0; // Free session message
+                console.log(`[WhatsApp Billing] Free session message for ${to}`);
+            } else {
+                // Determine cost based on type
+                if (payload.type === 'template' && payload.template) {
+                    // Special case for OTP templates
+                    cost = (payload.template.name.includes('verification') || payload.template.name.includes('otp'))
+                        ? PRICING.AUTH : PRICING.TEMPLATE;
+                } else {
+                    cost = PRICING.SESSION;
+                }
+            }
+
+            if (cost > 0) {
+                const adminDb = await getAdminDb();
+                const ownerRef = adminDb.collection('users').doc(ownerId);
+
+                const creditResult = await adminDb.runTransaction(async (transaction) => {
+                    const ownerDoc = await transaction.get(ownerRef);
+                    if (!ownerDoc.exists) {
+                        return { success: false, error: 'Owner not found' };
+                    }
+
+                    const currentCredits = ownerDoc.data()?.subscription?.whatsappCredits || 0;
+                    if (currentCredits < cost) {
+                        return { success: false, error: 'Insufficient credits' };
+                    }
+
+                    transaction.update(ownerRef, {
+                        'subscription.whatsappCredits': FieldValue.increment(-cost)
+                    });
+                    return { success: true };
+                });
+
+                if (!creditResult.success) {
+                    return creditResult;
+                }
+                console.log(`[WhatsApp Billing] Deducted ${cost} units from owner ${ownerId} via transaction`);
+            }
+        } catch (e: any) {
+            console.error('[WhatsApp Billing] Failed:', e.message);
+            // Default to allowing if billing service is down but log it? 
+            // Better to fail safe for the business:
+            return { success: false, error: 'Billing service error' };
+        }
+    }
+
+    // 2. Make the actual API call
+    const result = await makeWhatsAppApiCall(payload);
+
+    // 3. Refund if failed & cost was > 0
+    if (!result.success && cost > 0 && ownerId) {
+        try {
+            const adminDb = await getAdminDb();
+            await adminDb.collection('users').doc(ownerId).update({
+                'subscription.whatsappCredits': FieldValue.increment(cost)
+            });
+            console.log(`[WhatsApp Billing] Refunded ${cost} units to owner ${ownerId} due to failure`);
+        } catch (re: any) {
+            console.error('[WhatsApp Billing] Refund failed:', re.message);
+        }
+    }
+
+    // 4. Log the attempt
+    if (ownerId) {
+        const content = payload.type === 'text' ? payload.text?.body :
+            payload.type === 'template' ? `Template: ${payload.template.name}` :
+                `Type: ${payload.type}`;
+
+        await WhatsAppLogsService.logMessage({
+            ownerId,
+            targetId,
+            phone: to,
+            direction: 'outbound',
+            type: payload.type,
+            content: content || '',
+            cost: result.success ? cost : 0, // Log zero cost if failure (since refunded)
+            status: result.success ? 'success' : 'failed',
+            error: result.error ? JSON.stringify(result.error) : undefined
+        });
+    }
+
+    return result;
+}
+
+export async function sendWhatsAppMessage(to: string, messageBody: string, ownerId?: string, targetId?: string) {
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
         console.warn('WhatsApp credentials not configured. Mocking send:', { to, messageBody });
         return { success: true, mock: true };
@@ -40,10 +160,10 @@ export async function sendWhatsAppMessage(to: string, messageBody: string) {
         }
     };
 
-    return makeWhatsAppApiCall(payload);
+    return sendWhatsAppWithBilling(to, payload, ownerId, targetId);
 }
 
-export async function sendWhatsAppInteractiveMessage(to: string, interactiveData: any) {
+export async function sendWhatsAppInteractiveMessage(to: string, interactiveData: any, ownerId?: string, targetId?: string) {
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
         console.warn('WhatsApp credentials not configured. Mocking interactive send:', { to, interactiveData });
         return { success: true, mock: true };
@@ -62,10 +182,10 @@ export async function sendWhatsAppInteractiveMessage(to: string, interactiveData
         interactive: interactiveData
     };
 
-    return makeWhatsAppApiCall(payload);
+    return sendWhatsAppWithBilling(to, payload, ownerId, targetId);
 }
 
-export async function sendWhatsAppImageMessage(to: string, imageLink: string) {
+export async function sendWhatsAppImageMessage(to: string, imageLink: string, ownerId?: string, targetId?: string) {
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
         console.warn('WhatsApp credentials not configured. Mocking image send:', { to, imageLink });
         return { success: true, mock: true };
@@ -81,7 +201,7 @@ export async function sendWhatsAppImageMessage(to: string, imageLink: string) {
         }
     };
 
-    return makeWhatsAppApiCall(payload);
+    return sendWhatsAppWithBilling(to, payload, ownerId, targetId);
 }
 
 /**
@@ -96,7 +216,9 @@ export async function sendWhatsAppTemplate(
     to: string,
     templateName: string,
     languageCode: string = 'en_US',
-    components: any[] = []
+    components: any[] = [],
+    ownerId?: string,
+    targetId?: string
 ) {
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
         console.warn('WhatsApp credentials not configured. Mocking template send:', { to, templateName });
@@ -117,7 +239,7 @@ export async function sendWhatsAppTemplate(
         }
     };
 
-    return makeWhatsAppApiCall(payload);
+    return sendWhatsAppWithBilling(to, payload, ownerId, targetId);
 }
 
 async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries = 3) {

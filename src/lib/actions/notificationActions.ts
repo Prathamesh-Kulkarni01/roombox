@@ -4,6 +4,7 @@
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import type { Notification, User, Guest } from '@/lib/types';
 import { sendPushToUser } from '../notifications';
+import { sendWhatsAppMessage as sendWA } from '../whatsapp/send-message';
 import { doc, getDoc, updateDoc, increment, collection, writeBatch } from 'firebase/firestore';
 import axios from 'axios';
 
@@ -14,65 +15,28 @@ interface CreateAndSendNotificationParams {
 
 type WhatsAppStatus = 'sent' | 'failed' | 'skipped';
 
-const WHATSAPP_MESSAGE_COST = 1.5;
-
-/**
- * Sends a WhatsApp message using the Facebook Graph API.
- * @param to The 10-digit phone number of the recipient.
- * @param message The text message to send.
- */
-async function sendWhatsAppMessage(to: string, message: string) {
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-
-    if (!phoneNumberId || !accessToken) {
-        console.error("WhatsApp credentials (Phone Number ID or Access Token) are missing.");
-        throw new Error("WhatsApp credentials not configured.");
-    }
-
-    const url = `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`;
-
-    const payload = {
-        messaging_product: "whatsapp",
-        to: `91${to}`, // Prepending country code for India
-        type: "text",
-        text: {
-            body: message
-        }
-    };
-
-    try {
-        await axios.post(url, payload, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-            },
-        });
-        console.log(`WhatsApp message sent to 91${to}`);
-    } catch (error: any) {
-        console.error("Error sending WhatsApp message via Facebook Graph API:", error.response?.data || error.message);
-        throw new Error(error.response?.data?.error?.message || 'Failed to send WhatsApp message.');
-    }
-}
 
 export async function createAndSendNotification({ ownerId, notification }: CreateAndSendNotificationParams): Promise<{ whatsAppStatus: WhatsAppStatus }> {
     if (!ownerId || !notification || !notification.targetId) {
         console.error('createAndSendNotification: ownerId, notification, and targetId are required.');
         return { whatsAppStatus: 'skipped' };
     }
-    
+
+    // @ts-ignore
+    const targetId: string = notification.targetId;
+
     const adminDb = await getAdminDb();
     const ownerDocRef = adminDb.collection('users').doc(ownerId);
-    
+
     let targetPhoneNumber: string | undefined;
     let targetFcmToken: string | undefined;
     let whatsAppStatus: WhatsAppStatus = 'skipped';
-    
+
     const [ownerDoc, targetUserDoc] = await Promise.all([
         ownerDocRef.get(),
         adminDb.collection('users').doc(notification.targetId).get()
     ]);
-    
+
     if (!ownerDoc.exists) {
         console.error('Owner not found.');
         return { whatsAppStatus: 'skipped' };
@@ -81,8 +45,8 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
 
     if (targetUserDoc.exists) {
         const targetUser = targetUserDoc.data() as User;
-        targetPhoneNumber = targetUser.phone;
-        targetFcmToken = targetUser.fcmToken;
+        targetPhoneNumber = targetUser.phone ?? undefined;
+        targetFcmToken = targetUser.fcmToken ?? undefined;
     } else {
         const dataDb = await selectOwnerDataAdminDb(ownerId);
         const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(notification.targetId);
@@ -92,25 +56,32 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
         }
     }
 
-    // Send WhatsApp if enabled, credits are available, and we have a phone number.
+    // Send WhatsApp if enabled and we have a phone number.
     if (owner.subscription?.premiumFeatures?.whatsapp?.enabled && targetPhoneNumber) {
-        if ((owner.subscription.whatsappCredits || 0) >= WHATSAPP_MESSAGE_COST) {
-            try {
-                await sendWhatsAppMessage(targetPhoneNumber, `${notification.title}\n\n${notification.message}`);
-                await ownerDocRef.update({
-                    'subscription.whatsappCredits': increment(-WHATSAPP_MESSAGE_COST)
-                });
+        try {
+            // Centralized billing & logging handled here
+            const fullPhone = targetPhoneNumber.startsWith('91') ? targetPhoneNumber : `91${targetPhoneNumber}`;
+            const result = await sendWA(
+                fullPhone,
+                `${notification.title}\n\n${notification.message}`,
+                ownerId,
+                targetId
+            );
+
+            if (result.success) {
                 whatsAppStatus = 'sent';
-            } catch (e: any) {
-                console.error(`Failed to send WhatsApp to ${targetPhoneNumber}:`, e.message);
-                whatsAppStatus = 'failed';
+            } else {
+                // @ts-ignore
+                console.error(`WhatsApp send failed:`, result.error);
+                // @ts-ignore
+                whatsAppStatus = result.error === 'Insufficient credits' ? 'skipped' : 'failed';
             }
-        } else {
-            console.warn(`WhatsApp notification for ${owner.name} skipped due to insufficient credits.`);
-            whatsAppStatus = 'skipped';
+        } catch (e: any) {
+            console.error(`Failed to send WhatsApp to ${targetPhoneNumber}:`, e.message);
+            whatsAppStatus = 'failed';
         }
     }
-    
+
     // Always send Push Notification if FCM token exists.
     if (targetFcmToken) {
         try {
@@ -132,7 +103,7 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
         date: new Date().toISOString(),
         isRead: false,
     };
-    
+
     const ownerDataDb = await selectOwnerDataAdminDb(ownerId);
     const notificationDocRef = ownerDataDb.collection('users_data').doc(ownerId).collection('notifications').doc(newNotification.id);
     await notificationDocRef.set(newNotification);

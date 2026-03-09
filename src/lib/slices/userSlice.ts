@@ -224,7 +224,8 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                         website: { enabled: true },
                         kyc: { enabled: true },
                         whatsapp: { enabled: true }
-                    }
+                    },
+                    whatsappCredits: 150 // Initial 100 free template messages
                 }
             };
 
@@ -283,7 +284,8 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
                     website: { enabled: true },
                     kyc: { enabled: true },
                     whatsapp: { enabled: true }
-                }
+                },
+                whatsappCredits: 150 // Initial 100 free template messages
             }
         };
 

@@ -17,6 +17,7 @@ import { getSession, updateSession, clearSession } from './session-state';
 import { workflowEngine } from './workflow-engine';
 import { WorkflowContext } from './workflow-types';
 import { getAdminDb } from '../firebaseAdmin';
+import { WhatsAppLogsService } from './logs-service';
 
 // ─── Special navigation tokens produced by nextStepsFn ───────────────────────
 // These tell the router to switch workflows rather than advance within one.
@@ -79,7 +80,25 @@ export async function handleIncomingMessage(data: {
     console.log(`[Router] From: ${from} | Type: ${messageType} | Msg: "${text}"`);
 
     // Load persisted session
-    const session = await getSession(from);
+    let session = await getSession(from);
+
+    // Refresh lastUpdated on every inbound message to accurately track the 24h session window
+    await updateSession(from, session.state, session.data);
+    session = await getSession(from); // Re-load with fresh timestamp
+
+    // 0. Log incoming message
+    if (session.data?.ownerId) {
+        await WhatsAppLogsService.logMessage({
+            ownerId: session.data.ownerId,
+            targetId: session.data.guestId || session.data.isAuthenticatedTenant ? session.data.guestId : undefined,
+            phone: from,
+            direction: 'inbound',
+            type: messageType as any || 'text',
+            content: text,
+            cost: 0, // Inbound is free
+            status: 'success'
+        });
+    }
 
     // ── 1. Not authenticated → run auth ──────────────────────────────
     if (!session.data?.isAuthenticatedOwner && !session.data?.isAuthenticatedTenant) {
@@ -156,7 +175,8 @@ export async function handleIncomingMessage(data: {
                     `🔀 *You're in the middle of ${workflowLabel}.*\n\n` +
                     `Your progress is saved for a few minutes.\n\n` +
                     `1️⃣ Save & go to Menu\n` +
-                    `2️⃣ Continue current task`
+                    `2️⃣ Continue current task`,
+                    session.data.ownerId
                 );
                 return;
             }
@@ -194,7 +214,7 @@ export async function handleIncomingMessage(data: {
 
         if (lowerText === 'cancel') {
             await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
-            await sendWhatsAppMessage(from, '❌ Cancelled. Returning to main menu.');
+            await sendWhatsAppMessage(from, '❌ Cancelled. Returning to main menu.', session.data.ownerId);
             return;
         }
 
@@ -241,7 +261,8 @@ async function handleWithWorkflow(
                         `⏸️ *Welcome back!*\n\n` +
                         `Would you like to continue ${label} or start over?\n\n` +
                         `1️⃣ Continue\n` +
-                        `2️⃣ Start Over`
+                        `2️⃣ Start Over`,
+                        session.data.ownerId
                     );
                     return;
                 }
@@ -253,7 +274,7 @@ async function handleWithWorkflow(
                     ctx = session.data._resumeCtx as WorkflowContext;
                     ctx.updatedAt = new Date(); // Reset timer
                     const message = await workflowEngine.presentStep(ctx);
-                    await sendWhatsAppMessage(from, message);
+                    await sendWhatsAppMessage(from, message, session.data.ownerId);
                     await persistWorkflowContext(from, session, ctx);
                     return;
                 }
@@ -278,7 +299,7 @@ async function handleWithWorkflow(
 
         // Present the step (with onEnter)
         const message = await workflowEngine.presentStep(ctx);
-        await sendWhatsAppMessage(from, message);
+        await sendWhatsAppMessage(from, message, session.data.ownerId);
         await persistWorkflowContext(from, session, ctx);
         return;
     }
@@ -294,7 +315,7 @@ async function handleWithWorkflow(
 
     if (!result.success) {
         // Validation error — repeat current step message
-        await sendWhatsAppMessage(from, result.message || '⚠️ Invalid input. Try again.');
+        await sendWhatsAppMessage(from, result.message || '⚠️ Invalid input. Try again.', session.data.ownerId);
         return;
     }
 
@@ -307,7 +328,7 @@ async function handleWithWorkflow(
 
     // Send the response message
     if (result.message) {
-        await sendWhatsAppMessage(from, result.message);
+        await sendWhatsAppMessage(from, result.message, session.data.ownerId);
     }
 
     // Persist updated context
@@ -341,7 +362,7 @@ async function switchToWorkflow(
 
     // Run onEnter and present the step
     const message = await workflowEngine.presentStep(ctx);
-    await sendWhatsAppMessage(from, message);
+    await sendWhatsAppMessage(from, message, session.data.ownerId);
     await persistWorkflowContext(from, session, ctx);
 }
 
@@ -390,9 +411,9 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     isAuthenticatedOwner: true,
                     ownerName: acc.name,
                     ownerId: acc.id,
-                    userRole: (acc.role as string) || 'owner', // Propagate role for access control
+                    userRole: (acc.role as string) || 'owner',
                 });
-                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Owner)`);
+                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Owner)`, acc.id);
                 await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
             } else {
                 const isOnboarded = await checkTenantIsOnboarded(acc.ownerId, acc.id);
@@ -408,7 +429,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                 if (!isOnboarded) {
                     await switchToWorkflow(from, await getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
                 } else {
-                    await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Tenant in ${acc.pgName || 'PG'})`);
+                    await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Tenant in ${acc.pgName || 'PG'})`, acc.ownerId, acc.id);
                     await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
                 }
             }
@@ -437,7 +458,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                 if (!isOnboarded) {
                     await switchToWorkflow(from, await getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
                 } else {
-                    await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`);
+                    await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.ownerId, acc.id);
                     await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
                 }
                 return;
@@ -480,6 +501,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     ownerId: acc.id,
                     userRole: (acc.role as string) || 'owner',
                 });
+                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.id);
                 await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
             } else {
                 await updateSession(from, 'IDLE', {
@@ -489,6 +511,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     ownerId: acc.ownerId,
                     pgId: acc.pgId,
                 });
+                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.ownerId, acc.id);
                 await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
             }
         } else {
