@@ -176,6 +176,7 @@ export const api = createApi({
 
         vacateGuest: builder.mutation<{ success: boolean; guestId: string; pgId: string }, {
             guestId: string;
+            sendWhatsApp?: boolean;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'vacate' } }),
             invalidatesTags: ['Guests', 'Tenants', 'Properties'],

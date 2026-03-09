@@ -355,7 +355,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     }
   };
 
-  const handleConfirmImmediateExit = async () => {
+  const handleConfirmImmediateExit = async (sendWhatsApp: boolean = false) => {
     if (!guestToExitImmediately || !currentUser) return;
     const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
     if (!ownerId) return;
@@ -363,6 +363,7 @@ export function useDashboard({ pgs, guests }: UseDashboardProps) {
     try {
       await vacateGuest({
         guestId: guestToExitImmediately.id,
+        sendWhatsApp
       }).unwrap();
       setGuestToExitImmediately(null);
       toast({ title: 'Guest Vacated' });

@@ -32,6 +32,8 @@ import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from '@/lib/permissions'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Access from '@/components/ui/PermissionWrapper'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 
 export default function RoomManagementPage() {
   const router = useRouter()
@@ -610,15 +612,72 @@ export default function RoomManagementPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Exit {guestToExitImmediately?.name} Immediately?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will immediately vacate the bed without a notice period. This cannot be undone.
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  This will immediately vacate the bed without a notice period. This cannot be undone.
+                </p>
+                {guestToExitImmediately && (() => {
+                  const depositAmount = guestToExitImmediately.depositAmount || 0;
+                  const currentBalance = (guestToExitImmediately.ledger || []).reduce((acc, entry) =>
+                    acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0
+                  );
+                  const finalSettlementAmount = depositAmount - currentBalance;
+
+                  return (
+                    <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-md border text-sm text-foreground">
+                      <div className="flex justify-between py-1">
+                        <span className="text-muted-foreground">Security Deposit:</span>
+                        <span className="font-medium">₹{depositAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="flex justify-between py-1">
+                        <span className="text-muted-foreground">Unpaid Balance (Dues):</span>
+                        <span className="font-medium">₹{currentBalance.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="h-px bg-border my-2" />
+                      <div className="flex justify-between py-1 font-semibold">
+                        <span>Final Settlement:</span>
+                        <span className={cn(finalSettlementAmount > 0 ? "text-green-600" : finalSettlementAmount < 0 ? "text-red-600" : "")}>
+                          {finalSettlementAmount > 0
+                            ? `Refund ₹${finalSettlementAmount.toLocaleString('en-IN')}`
+                            : finalSettlementAmount < 0
+                              ? `Owes ₹${Math.abs(finalSettlementAmount).toLocaleString('en-IN')}`
+                              : `₹0`
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox
+                    id="sendWhatsAppPg"
+                    defaultChecked={true}
+                    onCheckedChange={(checked) => {
+                      if (typeof window !== "undefined") {
+                        (window as any).__sendWhatsAppOnExit = checked;
+                      }
+                    }}
+                  />
+                  <Label htmlFor="sendWhatsAppPg" className="text-sm cursor-pointer">
+                    Send Settlement details via WhatsApp
+                  </Label>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <Access feature="guests" action="delete">
-              <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleConfirmImmediateExit}>
-                Exit Now
+              <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={() => {
+                  const sendWA = typeof window !== 'undefined' ? ((window as any).__sendWhatsAppOnExit !== false) : true;
+                  handleConfirmImmediateExit(sendWA);
+                }}
+              >
+                Confirm Vacate
               </AlertDialogAction>
             </Access>
           </AlertDialogFooter>

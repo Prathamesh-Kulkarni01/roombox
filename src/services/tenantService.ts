@@ -341,7 +341,7 @@ export class TenantService {
     /**
      * Vacate a tenant: mark vacated, free bed, decrement occupancy.
      */
-    static async vacateTenant(db: Firestore, ownerId: string, guestId: string, appDb?: Firestore): Promise<{ guestId: string; pgId: string }> {
+    static async vacateTenant(db: Firestore, ownerId: string, guestId: string, appDb?: Firestore, sendWhatsApp: boolean = false): Promise<{ guestId: string; pgId: string }> {
         console.log(`[TenantService.vacateTenant] Vacating ${guestId}`);
         const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
         const snap = await guestRef.get();
@@ -413,6 +413,35 @@ export class TenantService {
                 await appDb.doc(`users/${guest.userId}`).set({ guestId: null, pgId: null }, { merge: true });
             } catch (e) {
                 console.warn('[TenantService.vacateTenant] Could not clear user guestId:', e);
+            }
+        }
+
+        // WhatsApp Settlement Notification
+        if (sendWhatsApp && guest.phone) {
+            try {
+                let formattedPhone = guest.phone.replace(/\D/g, '');
+                if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
+
+                const { format } = require('date-fns');
+                const exitDateStr = format(new Date(), 'do MMM yyyy');
+                const settlementText = finalSettlementAmount > 0
+                    ? `You will receive a refund of ₹${finalSettlementAmount.toLocaleString('en-IN')}`
+                    : finalSettlementAmount < 0
+                        ? `You have a pending due of ₹${Math.abs(finalSettlementAmount).toLocaleString('en-IN')}`
+                        : `Your account is fully settled (₹0 balance).`;
+
+                const msg = `👋 *Hi ${guest.name}, your checkout from ${guest.pgName} is confirmed.*\n\n` +
+                    `*Checkout Date:* ${exitDateStr}\n` +
+                    `*Security Deposit:* ₹${(guest.depositAmount || 0).toLocaleString('en-IN')}\n` +
+                    `*Unpaid Dues:* ₹${currentBalance.toLocaleString('en-IN')}\n\n` +
+                    `*Final Settlement:* ${settlementText}\n\n` +
+                    `Thank you for staying with us!`;
+
+                const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
+                await sendWhatsAppMessage(formattedPhone, msg);
+                console.log(`[TenantService.vacateTenant] WhatsApp settlement sent to ${formattedPhone}`);
+            } catch (err) {
+                console.warn(`[TenantService.vacateTenant] WA Notify Failed:`, err);
             }
         }
 

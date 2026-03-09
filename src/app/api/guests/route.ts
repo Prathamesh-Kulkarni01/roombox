@@ -42,7 +42,7 @@ const PatchSchema = z.discriminatedUnion('action', [
     // Initiate exit
     z.object({ action: z.literal('initiate-exit'), ownerId: z.string().optional(), guestId: z.string(), noticePeriodDays: z.number().optional() }),
     // Vacate
-    z.object({ action: z.literal('vacate'), ownerId: z.string().optional(), guestId: z.string() }),
+    z.object({ action: z.literal('vacate'), ownerId: z.string().optional(), guestId: z.string(), sendWhatsApp: z.boolean().optional() }),
     // KYC status update
     z.object({ action: z.literal('kyc-status'), ownerId: z.string().optional(), guestId: z.string(), status: z.enum(['verified', 'rejected']), reason: z.string().optional() }),
     // KYC documents submit
@@ -142,7 +142,7 @@ export async function PATCH(req: NextRequest) {
 
             case 'vacate': {
                 const appDb = await getAdminDb();
-                const result = await TenantService.vacateTenant(db, ownerId, data.guestId, appDb || undefined);
+                const result = await TenantService.vacateTenant(db, ownerId, data.guestId, appDb || undefined, data.sendWhatsApp);
                 return NextResponse.json({ success: true, ...result });
             }
 
