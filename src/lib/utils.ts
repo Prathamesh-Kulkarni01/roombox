@@ -44,24 +44,24 @@ export function sanitizeObjectForFirebase(obj: any): any {
  * @returns The new calculated due date.
  */
 export function calculateFirstDueDate(startDate: Date, unit: RentCycleUnit, value: number, anchorDay: number): Date {
-    const addFn = {
-        minutes: addMinutes,
-        hours: addHours,
-        days: addDays,
-        weeks: addWeeks,
-        months: addMonths,
-    }[unit];
+  const addFn = {
+    minutes: addMinutes,
+    hours: addHours,
+    days: addDays,
+    weeks: addWeeks,
+    months: addMonths,
+  }[unit];
 
-    if (unit === 'months') {
-        const nextMonthBase = addMonths(startDate, value);
-        const lastDayNextMonth = lastDayOfMonth(nextMonthBase).getDate();
-        // If the original anchor day was something like the 31st, and the next month only has 30 days, use the 30th.
-        const newDay = Math.min(anchorDay, lastDayNextMonth);
-        return setDate(nextMonthBase, newDay);
-    }
-    
-    // For all other units, simply add the value. This preserves the time component.
-    return addFn(startDate, value);
+  if (unit === 'months') {
+    const nextMonthBase = addMonths(startDate, value);
+    const lastDayNextMonth = lastDayOfMonth(nextMonthBase).getDate();
+    // If the original anchor day was something like the 31st, and the next month only has 30 days, use the 30th.
+    const newDay = Math.min(anchorDay, lastDayNextMonth);
+    return setDate(nextMonthBase, newDay);
+  }
+
+  // For all other units, simply add the value. This preserves the time component.
+  return addFn(startDate, value);
 };
 
 
@@ -71,14 +71,41 @@ export function calculateFirstDueDate(startDate: Date, unit: RentCycleUnit, valu
  * @returns A suggestion string or an empty string if no simple solution is obvious.
  */
 export function getComplaintSuggestion(category: 'maintenance' | 'cleanliness' | 'wifi' | 'food' | 'other'): string {
-    switch (category) {
-        case 'wifi':
-            return "Have you tried restarting the Wi-Fi router? Unplugging it for 30 seconds and plugging it back in often solves the issue.";
-        case 'maintenance':
-            return "For urgent issues like a major leak, please contact the manager directly. For minor issues like a flickering bulb, ensure it's tightly screwed in.";
-        case 'cleanliness':
-            return "Please let the cleaning staff know during their next scheduled round. For urgent spills, please inform the front desk.";
-        default:
-            return "";
-    }
+  switch (category) {
+    case 'wifi':
+      return "Have you tried restarting the Wi-Fi router? Unplugging it for 30 seconds and plugging it back in often solves the issue.";
+    case 'maintenance':
+      return "For urgent issues like a major leak, please contact the manager directly. For minor issues like a flickering bulb, ensure it's tightly screwed in.";
+    case 'cleanliness':
+      return "Please let the cleaning staff know during their next scheduled round. For urgent spills, please inform the front desk.";
+    default:
+      return "";
+  }
+}
+/**
+ * Parses a date string in DD/MM/YYYY format or "today" into a Date object.
+ * Returns null if the format is invalid or the date is non-existent.
+ */
+export function parseDateString(input: string): Date | null {
+  if (!input) return null;
+  const clean = input.trim().toLowerCase();
+
+  if (clean === 'today') return new Date();
+
+  // Match DD/MM/YYYY or D/M/YYYY
+  const match = clean.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (!match) return null;
+
+  const day = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1; // 0-indexed months
+  const year = parseInt(match[3], 10);
+
+  const date = new Date(year, month, day);
+
+  // Validate if the date is real (e.g., prevent 31/02/2026)
+  if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
+    return date;
+  }
+
+  return null;
 }

@@ -9,6 +9,7 @@ import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import { runReconciliationLogic } from '@/lib/reconciliation';
 import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument } from '@/lib/types';
 import { getPlanLimit } from '@/lib/permissions';
+import { parseDateString } from '@/lib/utils';
 
 export interface Tenant {
     id: string;
@@ -109,8 +110,19 @@ export class TenantService {
             const { calculateFirstDueDate } = require('@/lib/utils');
             const { format } = require('date-fns');
 
-            const startOfCycle = new Date(joinDate || now);
-            const anchorDay = startOfCycle.getDate();
+            // Robust parsing of joinDate
+            const startOfCycle = (joinDate && typeof joinDate === 'string')
+                ? (parseDateString(joinDate) || new Date(joinDate))
+                : new Date(joinDate || now);
+
+            if (isNaN(startOfCycle.getTime())) {
+                console.error(`[TenantService.onboardTenant] Invalid joinDate received: ${joinDate}`);
+                throw new Error('Invalid joining date format.');
+            }
+
+            // If a specific due date (day of month) is provided, use it as the anchor.
+            // Otherwise, anchor to the join date.
+            const anchorDay = Number(dueDate) || startOfCycle.getDate();
             const numericRent = Number(rentAmount) || 0;
             const numericDeposit = Number(deposit || 0);
 

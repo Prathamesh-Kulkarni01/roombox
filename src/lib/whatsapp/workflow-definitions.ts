@@ -11,7 +11,8 @@ import { TenantService } from '../../services/tenantService';
 import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
 import { getReminderForGuest } from '../reminder-logic';
 import { checkHierarchy } from './hierarchy-guard';
-import type { Guest } from '../types';
+import { Guest } from '../types';
+import { parseDateString } from '../utils';
 
 // ─────────────────────────────────────────────────────────────
 // MAIN MENU WORKFLOW
@@ -1283,12 +1284,13 @@ export const addTenantWorkflow: WorkflowDefinition = {
             type: 'input',
             label: 'Join Date',
             messageTemplate: '📅 Entrance/Join Date?\n(DD/MM/YYYY or reply *today*)',
+            validation: {
+                customValidator: (input) => parseDateString(input) !== null,
+                errorMessage: '📅 Invalid date. Please use DD/MM/YYYY format (e.g., 31/03/2026) or reply *today*.'
+            },
             nextStepsFn: async (input, ctx) => {
-                if (input.toLowerCase() === 'today') {
-                    ctx.data.tf_joinDate = new Date().toISOString();
-                } else {
-                    ctx.data.tf_joinDate = input.trim(); // Simplified, standard would parse but let's keep it fluid
-                }
+                const date = parseDateString(input);
+                ctx.data.tf_joinDate = date!.toISOString();
                 return 'tenantFormDueDate';
             },
         },
