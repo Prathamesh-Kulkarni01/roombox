@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useForm } from 'react-hook-form'
@@ -26,7 +25,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2 } from "lucide-react"
 import { addPg as addPgAction } from '@/lib/slices/pgsSlice'
 
 const pgSchema = z.object({
@@ -65,11 +65,13 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
       const newPgId = resultAction.payload.id;
       form.reset()
       onOpenChange(false)
-      if(onPgAdded) {
-          onPgAdded(newPgId)
+      if (onPgAdded) {
+        onPgAdded(newPgId)
       }
     }
   }
+
+  const isLoading = form.formState.isSubmitting;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -146,10 +148,11 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
           </form>
         </Form>
         <SheetFooter>
-          <SheetClose asChild>
-            <Button type="button" variant="secondary">Cancel</Button>
-          </SheetClose>
-          <Button type="submit" form="add-pg-form" disabled={!canAccess(featurePermissions, currentUser?.role, 'properties', 'add')}>Add Property</Button>
+          <SheetClose asChild><Button type="button" variant="outline" disabled={isLoading}>Cancel</Button></SheetClose>
+          <Button type="submit" form="add-pg-form" disabled={isLoading || !canAccess(featurePermissions, currentUser?.role, 'properties', 'add')}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Add Property
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

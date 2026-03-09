@@ -10,6 +10,7 @@ import { produce } from 'immer'
 
 import { useAppDispatch, useAppSelector } from "@/lib/hooks"
 import { useChargeTemplatesStore } from "@/lib/stores/configStores"
+import { usePermissionsStore } from "@/lib/stores/configStores"
 import { useToast } from '@/hooks/use-toast'
 import { useConfetti } from "@/context/confetti-provider"
 
@@ -17,6 +18,7 @@ import type { Guest, Bed, Room, PG, Floor, AdditionalCharge, Payment, RentCycleU
 import { format, addMonths, addDays, addHours, addMinutes, addWeeks } from "date-fns"
 import {
   useGetGuestsQuery,
+  useGetPropertiesQuery,
   useUpdateGuestMutation,
   useAddGuestMutation,
   useInitiateGuestExitMutation,
@@ -80,27 +82,27 @@ const bulkBedSchema = z.object({
   bedPrefix: z.string().optional().default("B"),
 });
 
-interface UseDashboardProps {
-  pgs: PG[];
-  guests: Guest[];
-}
-
-export function useDashboard({ pgs, guests }: UseDashboardProps) {
+export function useDashboard(pgId?: string) {
   const dispatch = useAppDispatch();
   const { toast } = useToast()
-  const { templates: chargeTemplates } = useChargeTemplatesStore();
+
+  const { pgs } = useAppSelector((state) => state.pgs);
+  const { featurePermissions } = usePermissionsStore();
   const { currentPlan, currentUser } = useAppSelector(state => state.user)
-  const [isSavingRoom, startRoomTransition] = useTransition();
+  const [isTransitioningRoom, startRoomTransition] = useTransition();
   const { showConfetti } = useConfetti();
+  const { isLoading: isLoadingGuests } = useGetGuestsQuery(undefined);
+  const { guests } = useAppSelector(state => state.guests);
 
   // RTK Query Mutations
-  const [addGuest] = useAddGuestMutation();
-  const [updateGuest] = useUpdateGuestMutation();
-  const [initiateExit] = useInitiateGuestExitMutation();
-  const [vacateGuest] = useVacateGuestMutation();
-  const [addSharedCharge] = useAddSharedRoomChargeMutation();
-  const [recordPayment] = useRecordGuestPaymentMutation();
-  const [updateProperty] = useUpdatePropertyMutation();
+  const [addGuest, { isLoading: isAddingGuest }] = useAddGuestMutation();
+  const [updateGuest, { isLoading: isUpdatingGuest }] = useUpdateGuestMutation();
+  const [initiateExit, { isLoading: isInitiatingExit }] = useInitiateGuestExitMutation();
+  const [vacateGuest, { isLoading: isVacatingGuest }] = useVacateGuestMutation();
+  const [addSharedCharge, { isLoading: isAddingSharedCharge }] = useAddSharedRoomChargeMutation();
+  const [recordPayment, { isLoading: isRecordingPayment }] = useRecordGuestPaymentMutation();
+  const [updateProperty, { isLoading: isUpdatingProperty }] = useUpdatePropertyMutation();
+  const [saveRoom, { isLoading: isSavingRoom }] = useUpdatePropertyMutation();
 
 
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
@@ -751,6 +753,15 @@ Thank you!`;
     setReminderMessage,
     bulkRoomForm,
     bulkBedForm,
+    isAddingGuest,
+    isUpdatingGuest,
+    isInitiatingExit,
+    isVacatingGuest,
+    isAddingSharedCharge,
+    isRecordingPayment,
+    isUpdatingProperty,
+    isLoadingGuests,
+    isSavingRoom,
   }
 }
 

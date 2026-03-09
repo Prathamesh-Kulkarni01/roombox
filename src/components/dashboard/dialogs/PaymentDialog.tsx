@@ -11,11 +11,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import type { Guest, LedgerEntry } from "@/lib/types"
 import { produce } from "immer";
+import { Loader2 } from "lucide-react"
 
-type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setIsPaymentDialogOpen' | 'selectedGuestForPayment' | 'paymentForm' | 'handlePaymentSubmit'>
+type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setIsPaymentDialogOpen' | 'selectedGuestForPayment' | 'paymentForm' | 'handlePaymentSubmit' | 'isRecordingPayment'>
 
-export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit }: PaymentDialogProps) {
-  
+export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit, isRecordingPayment }: PaymentDialogProps) {
+
   const { totalDue, dueItems } = useMemo(() => {
     if (!selectedGuestForPayment?.ledger) return { totalDue: 0, dueItems: [] };
 
@@ -27,22 +28,22 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
     const allDebits = selectedGuestForPayment.ledger.filter(e => e.type === 'debit');
 
     for (const debit of allDebits) {
-        if (creditsToApply >= debit.amount) {
-            creditsToApply -= debit.amount;
-        } else {
-            unpaidDebits.push({
-                ...debit,
-                amount: debit.amount - creditsToApply,
-            });
-            creditsToApply = 0;
-        }
+      if (creditsToApply >= debit.amount) {
+        creditsToApply -= debit.amount;
+      } else {
+        unpaidDebits.push({
+          ...debit,
+          amount: debit.amount - creditsToApply,
+        });
+        creditsToApply = 0;
+      }
     }
-    
+
     balance = unpaidDebits.reduce((sum, item) => sum + item.amount, 0);
-    
-    return { 
-        totalDue: balance,
-        dueItems: unpaidDebits
+
+    return {
+      totalDue: balance,
+      dueItems: unpaidDebits
     };
   }, [selectedGuestForPayment]);
 
@@ -59,16 +60,16 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
               <div className="space-y-2 py-2 border-y my-2">
                 <p className="font-semibold">Dues Breakdown:</p>
                 <div className="text-sm text-muted-foreground max-h-32 overflow-y-auto pr-2">
-                    {dueItems.length > 0 ? dueItems.map(item => (
-                        <div key={item.id} className="flex justify-between">
-                            <span>{item.description}</span>
-                            <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
-                        </div>
-                    )) : <p>No outstanding charges.</p>}
+                  {dueItems.length > 0 ? dueItems.map(item => (
+                    <div key={item.id} className="flex justify-between">
+                      <span>{item.description}</span>
+                      <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )) : <p>No outstanding charges.</p>}
                 </div>
-                 <div className="flex justify-between items-center text-base pt-2 border-t">
-                    <span className="font-bold">Total Amount Due:</span>
-                    <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
+                <div className="flex justify-between items-center text-base pt-2 border-t">
+                  <span className="font-bold">Total Amount Due:</span>
+                  <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
                 </div>
               </div>
               <FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (
@@ -89,8 +90,11 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
           </Form>
         )}
         <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-          <Button type="submit" form="payment-form">Confirm Payment</Button>
+          <DialogClose asChild><Button type="button" variant="secondary" disabled={isRecordingPayment}>Cancel</Button></DialogClose>
+          <Button type="submit" form="payment-form" disabled={isRecordingPayment}>
+            {isRecordingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirm Payment
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

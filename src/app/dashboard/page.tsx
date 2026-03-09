@@ -50,6 +50,8 @@ export default function DashboardPage() {
     isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit,
     handleOpenAddGuestDialog,
     handleOpenPaymentDialog,
+    isAddingGuest,
+    isRecordingPayment,
   } = useDashboard({ pgs, guests });
 
   const stats: DashboardStats = useMemo(() => {
@@ -222,6 +224,7 @@ export default function DashboardPage() {
           selectedBedForGuestAdd={selectedBedForGuestAdd}
           addGuestForm={addGuestForm}
           handleAddGuestSubmit={handleAddGuestSubmit}
+          isAddingGuest={isAddingGuest}
         />
       </Access>
       <Access feature="finances" action="add">
@@ -231,6 +234,7 @@ export default function DashboardPage() {
           selectedGuestForPayment={selectedGuestForPayment}
           paymentForm={paymentForm}
           handlePaymentSubmit={handlePaymentSubmit}
+          isRecordingPayment={isRecordingPayment}
         />
       </Access>
     </>

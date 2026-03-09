@@ -116,6 +116,21 @@ export const api = createApi({
             updates: Partial<PG>;
         }>({
             query: (body) => ({ url: 'api/properties', method: 'PATCH', body }),
+            async onQueryStarted({ pgId, updates }, { dispatch, queryFulfilled }) {
+                const patchResult = dispatch(
+                    api.util.updateQueryData('getProperties', undefined, (draft) => {
+                        const pg = draft.buildings?.find((p) => p.id === pgId);
+                        if (pg) {
+                            Object.assign(pg, updates);
+                        }
+                    })
+                );
+                try {
+                    await queryFulfilled;
+                } catch {
+                    patchResult.undo();
+                }
+            },
             invalidatesTags: ['Properties'],
         }),
 
@@ -158,6 +173,21 @@ export const api = createApi({
             updates: Partial<Guest>;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'update' } }),
+            async onQueryStarted({ guestId, updates }, { dispatch, queryFulfilled }) {
+                const patchResult = dispatch(
+                    api.util.updateQueryData('getGuests', undefined, (draft) => {
+                        const guest = draft.guests?.find((g) => g.id === guestId);
+                        if (guest) {
+                            Object.assign(guest, updates);
+                        }
+                    })
+                );
+                try {
+                    await queryFulfilled;
+                } catch {
+                    patchResult.undo();
+                }
+            },
             invalidatesTags: ['Guests', 'Tenants'],
         }),
 

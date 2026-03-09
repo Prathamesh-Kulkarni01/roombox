@@ -11,8 +11,9 @@ import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canAccess } from '@/lib/permissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RentCycleUnit } from "@/lib/types"
+import { Loader2 } from "lucide-react"
 
-type AddGuestDialogProps = Pick<UseDashboardReturn, 'isAddGuestDialogOpen' | 'setIsAddGuestDialogOpen' | 'selectedBedForGuestAdd' | 'addGuestForm' | 'handleAddGuestSubmit'>
+type AddGuestDialogProps = Pick<UseDashboardReturn, 'isAddGuestDialogOpen' | 'setIsAddGuestDialogOpen' | 'selectedBedForGuestAdd' | 'addGuestForm' | 'handleAddGuestSubmit' | 'isAddingGuest'>
 
 const rentCycleOptions: { value: RentCycleUnit, label: string }[] = [
   { value: 'minutes', label: 'Minutes (for testing)' },
@@ -22,7 +23,7 @@ const rentCycleOptions: { value: RentCycleUnit, label: string }[] = [
   { value: 'months', label: 'Months' },
 ];
 
-export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit }: AddGuestDialogProps) {
+export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit, isAddingGuest }: AddGuestDialogProps) {
   const { currentUser } = useAppSelector((state) => state.user);
   const { featurePermissions } = usePermissionsStore();
   const canAddGuest = canAccess(featurePermissions, currentUser?.role, 'guests', 'add');
@@ -98,8 +99,11 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
           </Form>
         </div>
         <DialogFooter className="pt-4">
-          <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-          <Button type="submit" form="add-guest-form" disabled={!canAddGuest}>Add Guest</Button>
+          <DialogClose asChild><Button type="button" variant="secondary" disabled={isAddingGuest}>Cancel</Button></DialogClose>
+          <Button type="submit" form="add-guest-form" disabled={!canAddGuest || isAddingGuest}>
+            {isAddingGuest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Add Guest
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

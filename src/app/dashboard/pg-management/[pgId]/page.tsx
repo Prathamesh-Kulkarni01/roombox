@@ -74,10 +74,15 @@ export default function RoomManagementPage() {
     handleOpenAddGuestDialog, handleOpenPaymentDialog,
     handleOpenBulkAddDialog,
     handleDelete,
-    isSavingRoom,
+    isUpdatingProperty,
     isBulkAddDialogOpen, setIsBulkAddDialogOpen, bulkAddType,
-    bulkRoomForm, bulkBedForm, handleBulkRoomSubmit, handleBulkBedSubmit
-  } = useDashboard({ pgs, guests })
+    bulkRoomForm, bulkBedForm, handleBulkRoomSubmit, handleBulkBedSubmit,
+    isLoadingGuests,
+    isRecordingPayment,
+    isSavingRoom,
+    isAddingGuest,
+    isUpdatingGuest,
+  } = useDashboard(pgId)
 
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
   const canAdd = canAccess(featurePermissions, currentUser?.role, 'properties', 'add')
@@ -557,6 +562,7 @@ export default function RoomManagementPage() {
           selectedBedForGuestAdd={selectedBedForGuestAdd}
           addGuestForm={addGuestForm}
           handleAddGuestSubmit={handleAddGuestSubmit}
+          isAddingGuest={isAddingGuest}
         />
       </Access>
 
@@ -567,6 +573,7 @@ export default function RoomManagementPage() {
           guestToEdit={guestToEdit}
           editGuestForm={editGuestForm}
           handleEditGuestSubmit={handleEditGuestSubmit}
+          isUpdatingGuest={isUpdatingGuest}
         />
       </Access>
 
@@ -577,6 +584,7 @@ export default function RoomManagementPage() {
           selectedGuestForPayment={selectedGuestForPayment}
           paymentForm={paymentForm}
           handlePaymentSubmit={handlePaymentSubmit}
+          isRecordingPayment={isRecordingPayment}
         />
       </Access>
 

@@ -7,18 +7,19 @@ import { Button } from "@/components/ui/button"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RentCycleUnit } from "@/lib/types"
+import { Loader2 } from "lucide-react"
 
 const rentCycleOptions: { value: RentCycleUnit, label: string }[] = [
-    { value: 'minutes', label: 'Minutes (for testing)' },
-    { value: 'hours', label: 'Hours (for testing)' },
-    { value: 'days', label: 'Days' },
-    { value: 'weeks', label: 'Weeks' },
-    { value: 'months', label: 'Months' },
+  { value: 'minutes', label: 'Minutes (for testing)' },
+  { value: 'hours', label: 'Hours (for testing)' },
+  { value: 'days', label: 'Days' },
+  { value: 'weeks', label: 'Weeks' },
+  { value: 'months', label: 'Months' },
 ];
 
-type EditGuestDialogProps = Pick<UseDashboardReturn, 'isEditGuestDialogOpen' | 'setIsEditGuestDialogOpen' | 'guestToEdit' | 'editGuestForm' | 'handleEditGuestSubmit'>
+type EditGuestDialogProps = Pick<UseDashboardReturn, 'isEditGuestDialogOpen' | 'setIsEditGuestDialogOpen' | 'guestToEdit' | 'editGuestForm' | 'handleEditGuestSubmit' | 'isUpdatingGuest'>
 
-export default function EditGuestDialog({ isEditGuestDialogOpen, setIsEditGuestDialogOpen, guestToEdit, editGuestForm, handleEditGuestSubmit }: EditGuestDialogProps) {
+export default function EditGuestDialog({ isEditGuestDialogOpen, setIsEditGuestDialogOpen, guestToEdit, editGuestForm, handleEditGuestSubmit, isUpdatingGuest }: EditGuestDialogProps) {
   return (
     <Dialog open={isEditGuestDialogOpen} onOpenChange={setIsEditGuestDialogOpen}>
       <DialogContent className="sm:max-w-lg">
@@ -43,31 +44,34 @@ export default function EditGuestDialog({ isEditGuestDialogOpen, setIsEditGuestD
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <FormField control={editGuestForm.control} name="rentCycleUnit" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Rent Cycle Unit</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                {rentCycleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
+                  <FormItem>
+                    <FormLabel>Rent Cycle Unit</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {rentCycleOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={editGuestForm.control} name="rentCycleValue" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Cycle Duration</FormLabel>
-                        <FormControl><Input type="number" {...field} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
+                  <FormItem>
+                    <FormLabel>Cycle Duration</FormLabel>
+                    <FormControl><Input type="number" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
               </div>
             </form>
           </Form>
         </div>
         <DialogFooter className="pt-4">
-          <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-          <Button type="submit" form="edit-guest-form">Save Changes</Button>
+          <DialogClose asChild><Button type="button" variant="secondary" disabled={isUpdatingGuest}>Cancel</Button></DialogClose>
+          <Button type="submit" form="edit-guest-form" disabled={isUpdatingGuest}>
+            {isUpdatingGuest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Changes
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
