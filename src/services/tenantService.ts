@@ -80,9 +80,9 @@ export class TenantService {
             }
             const pgData = pgDoc.data()!;
 
-            // Verify bed availability if bedId is provided
-            if (bedId && pgData.floors) {
-                let targetBed: any = null;
+            // Verify room and bed exist
+            let targetBed: any = null;
+            if (pgData.floors && bedId && bedId !== 'N/A') {
                 for (const floor of pgData.floors as any[]) {
                     for (const room of floor.rooms as any[]) {
                         if (room.beds) {
@@ -97,7 +97,7 @@ export class TenantService {
                 }
 
                 if (!targetBed) {
-                    throw new Error('Bed not found in the property.');
+                    throw new Error(`Bed not found in property hierarchy: ${bedId}`);
                 }
                 if (targetBed.guestId) {
                     throw new Error('Bed is already occupied.');
@@ -181,7 +181,7 @@ export class TenantService {
 
             // Update PG occupancy & Bed assignment
             const pgUpdates: any = { occupancy: FieldValue.increment(1) };
-            if (bedId && pgData.floors) {
+            if (bedId && bedId !== 'N/A' && pgData.floors) {
                 console.log(`[TenantService.onboardTenant] Marking bed ${bedId} as occupied`);
                 pgUpdates.floors = (pgData.floors as any[]).map((floor: any) => ({
                     ...floor,
@@ -300,15 +300,19 @@ export class TenantService {
                 let formattedPhone = phone.replace(/\D/g, '');
                 if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
 
-                console.log(`[TenantService.onboardTenant] Sending WhatsApp welcome to ${formattedPhone}`);
                 const welcomeMsg = `👋 *Hi ${name}! Welcome to ${pgName || newGuest.pgName}*\n\n` +
                     `I am your automated PG assistant. You can use me to pay rent, raise complaints, or check your balance.\n\n` +
                     (magicLink ? `📱 *Your Personal Dashboard:* ${magicLink}\n\n` : '') +
                     `👉 *Reply "Hi"* at any time to see your menu and pay your first month's rent/deposit.`;
 
                 const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
-                await sendWhatsAppMessage(formattedPhone, welcomeMsg);
-                console.log(`[TenantService.onboardTenant] WhatsApp sent successfully.`);
+                console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp welcome to ${formattedPhone}`);
+                const waResult = await sendWhatsAppMessage(formattedPhone, welcomeMsg);
+                if (waResult.success) {
+                    console.log(`[onboardTenant] WhatsApp welcome sent successfully to ${formattedPhone}`);
+                } else {
+                    console.error(`[onboardTenant] WhatsApp welcome FAILED for ${formattedPhone}:`, (waResult as any).error);
+                }
             } catch (waErr) {
                 console.warn(`[TenantService.onboardTenant] WA Notify Failed:`, waErr);
             }

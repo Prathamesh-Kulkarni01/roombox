@@ -1141,6 +1141,68 @@ export const addTenantWorkflow: WorkflowDefinition = {
                 ctx.data.roomName = selectedRoom.name;
                 ctx.data.selectedRoomId = selectedRoom.id;
                 ctx.data._availableRooms = null;
+
+                // --- NEW: Fetch available beds for the selected room ---
+                try {
+                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+                    const pgRef = db.collection('users_data').doc(ctx.ownerId!).collection('pgs').doc(ctx.data.selectedPg?.id);
+                    const pgSnap = await pgRef.get();
+                    if (pgSnap.exists) {
+                        const pgData = pgSnap.data()!;
+                        let selectedRoomData = null;
+                        for (const floor of (pgData.floors || [])) {
+                            const found = (floor.rooms || []).find((r: any) => r.id === selectedRoom.id);
+                            if (found) {
+                                selectedRoomData = found;
+                                break;
+                            }
+                        }
+                        if (selectedRoomData && selectedRoomData.beds) {
+                            ctx.data._availableBeds = selectedRoomData.beds.filter((b: any) => !b.guestId);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[enterRoomForTenant] Bed fetch failed:', e);
+                }
+
+                if (ctx.data._availableBeds && ctx.data._availableBeds.length > 0) {
+                    return 'selectBedForTenant';
+                }
+
+                return 'tenantFormName';
+            },
+        },
+
+        selectBedForTenant: {
+            id: 'selectBedForTenant',
+            type: 'menu',
+            label: 'Select Bed',
+            messageBuilder: (ctx) => {
+                const beds = ctx.data._availableBeds || [];
+                let msg = `🛏️ *Room ${ctx.data.roomName}* — Available Beds\n\n`;
+                beds.forEach((b: any, i: number) => {
+                    msg += `${i + 1}️⃣ Bed ${b.name}\n`;
+                });
+                return msg;
+            },
+            optionsFn: async (ctx) => {
+                const beds = ctx.data._availableBeds || [];
+                return beds.map((b: any, i: number) => ({ key: String(i + 1), label: `Bed ${b.name}` }));
+            },
+            validation: {
+                customValidator: (input, ctx) => {
+                    const beds = ctx.data._availableBeds || [];
+                    const n = parseInt(input);
+                    return !isNaN(n) && n >= 1 && n <= beds.length;
+                },
+                errorMessage: 'Please reply with a valid bed number.',
+            },
+            nextStepsFn: async (input, ctx) => {
+                const n = parseInt(input);
+                const selectedBed = ctx.data._availableBeds[n - 1];
+                ctx.data.selectedBedId = selectedBed.id;
+                ctx.data.selectedBedName = selectedBed.name;
+                ctx.data._availableBeds = null;
                 return 'tenantFormName';
             },
         },
@@ -1288,9 +1350,9 @@ export const addTenantWorkflow: WorkflowDefinition = {
                         email: ctx.data.tf_email || '',
                         pgId: ctx.data.selectedPg?.id,
                         pgName: ctx.data.selectedPg?.name,
-                        roomId: ctx.data.roomName,
+                        roomId: ctx.data.selectedRoomId || ctx.data.roomName,
                         roomName: ctx.data.roomName,
-                        bedId: 'N/A',
+                        bedId: ctx.data.selectedBedId || 'N/A',
                         rentAmount: ctx.data.tf_rent,
                         deposit: ctx.data.tf_deposit,
                         joinDate: ctx.data.tf_joinDate,
