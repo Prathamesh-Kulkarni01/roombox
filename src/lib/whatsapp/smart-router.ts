@@ -460,7 +460,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
             `👋 *Welcome to RentSutra!*\n\n` +
             `It looks like this number isn't registered with us.\n\n` +
             `• *Are you a Tenant?* Ask your PG Owner to add your number to their dashboard.\n` +
-            `• *Are you an Owner?* Visit https://rentsutra-1.netlify.app to sign up and manage your PG.\n\n` +
+            `• *Are you an Owner?* Visit ${process.env.NEXT_PUBLIC_APP_URL} to sign up and manage your PG.\n\n` +
             `Need help? Email us at support@rentsutra.app`
         );
         return;
@@ -531,7 +531,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                 await updateSession(from, 'IDLE');
             }
         } else if (text === '3') {
-            await sendWhatsAppMessage(from, `🆘 *Support*\n\nFor help, email us at: support@rentsutra.app\n\nOr visit: https://rentsutra-1.netlify.app/support\n\nReply *Hi* to go back.`);
+            await sendWhatsAppMessage(from, `🆘 *Support*\n\nFor help, email us at: support@rentsutra.app\n\nOr visit: ${process.env.NEXT_PUBLIC_APP_URL}/support\n\nReply *Hi* to go back.`);
             await updateSession(from, 'IDLE');
         } else {
             await sendWhatsAppMessage(from, `Please reply *1* for Owner, *2* for Tenant, or *3* for Support.`);

@@ -278,7 +278,7 @@ export class TenantService {
                         try {
                             const { getAdminAuth } = await import('@/lib/firebaseAdmin');
                             const auth = await getAdminAuth();
-                            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra-1.netlify.app';
+                            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra-v1.netlify.app';
                             magicLink = await auth.generateSignInWithEmailLink(email, {
                                 url: `${baseUrl}/login/verify`,
                                 handleCodeInApp: true,

@@ -145,95 +145,95 @@ export const mainMenuWorkflow: WorkflowDefinition = {
             id: 'reports',
             type: 'display',
             label: 'Reports',
-            messageTemplate: '📈 *Reports & Analytics*\n\nVisit your dashboard to view detailed financial reports and occupancy analytics.\n\nhttps://rentsutra-1.netlify.app/dashboard/analytics\n\nReply *Menu* to return.',
-            defaultNext: 'showMenu',
+            messageTemplate: `📈 *Reports & Analytics *\n\nVisit your dashboard to view detailed financial reports and occupancy analytics.\n\n${process.env.NEXT_PUBLIC_APP_URL}/dashboard/analytics\n\nReply * Menu * to return.',
+defaultNext: 'showMenu',
         },
 
-        dashboardLink: {
-            id: 'dashboardLink',
-            type: 'display',
+dashboardLink: {
+    id: 'dashboardLink',
+        type: 'display',
             label: 'Dashboard Link',
-            messageTemplate: '🔗 *Your Secure Dashboard*\n\nManage everything from here:\nhttps://rentsutra-1.netlify.app/dashboard\n\nReply *Menu* to return.',
-            defaultNext: 'showMenu',
+                messageTemplate: '🔗 *Your Secure Dashboard*\n\nManage everything from here:\n${process.env.NEXT_PUBLIC_APP_URL}/dashboard\n\nReply *Menu* to return.',
+                    defaultNext: 'showMenu',
         },
 
-        todayPayments: {
-            id: 'todayPayments',
-            type: 'display',
+todayPayments: {
+    id: 'todayPayments',
+        type: 'display',
             label: "Today's Payments",
-            messageBuilder: (ctx) => {
-                const payments = ctx.data.todayPayments || [];
-                if (payments.length === 0) {
-                    return `💰 *Today's Payments*\n\nNo payments recorded today.\n\nReply *Menu* to return.`;
-                }
-                let msg = `💰 *Today's Payments*\n\n`;
-                payments.forEach((p: any, i: number) => {
-                    msg += `${i + 1}. ${p.tenantName} — ₹${p.amount} (${p.mode || 'Cash'})\n`;
-                });
-                return msg + `\nReply *Menu* to return.`;
-            },
-            onEnter: async (ctx) => {
-                try {
-                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const snap = await db.collection('users_data')
-                        .doc(ctx.ownerId!)
-                        .collection('ledger')
-                        .where('date', '>=', today.toISOString())
-                        .orderBy('date', 'desc')
-                        .get();
-                    ctx.data.todayPayments = snap.docs.map((d: any) => d.data());
-                } catch { ctx.data.todayPayments = []; }
-            },
-            defaultNext: 'showMenu',
+                messageBuilder: (ctx) => {
+                    const payments = ctx.data.todayPayments || [];
+                    if (payments.length === 0) {
+                        return `💰 *Today's Payments*\n\nNo payments recorded today.\n\nReply *Menu* to return.`;
+                    }
+                    let msg = `💰 *Today's Payments*\n\n`;
+        payments.forEach((p: any, i: number) => {
+            msg += `${i + 1}. ${p.tenantName} — ₹${p.amount} (${p.mode || 'Cash'})\n`;
+        });
+        return msg + `\nReply *Menu* to return.`;
+    },
+    onEnter: async (ctx) => {
+        try {
+            const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const snap = await db.collection('users_data')
+                .doc(ctx.ownerId!)
+                .collection('ledger')
+                .where('date', '>=', today.toISOString())
+                .orderBy('date', 'desc')
+                .get();
+            ctx.data.todayPayments = snap.docs.map((d: any) => d.data());
+        } catch { ctx.data.todayPayments = []; }
+    },
+    defaultNext: 'showMenu',
+},
+
+    monthlySummary: {
+        id: 'monthlySummary',
+        type: 'display',
+        label: 'Monthly Summary',
+        messageBuilder: (ctx) => {
+                    const s = ctx.data.summary || {};
+return (
+    `📅 *This Month's Rent Summary*\n\n` +
+    `Expected:  ₹${s.expected || 0}\n` +
+    `Collected: ₹${s.collected || 0}\n` +
+    `Pending:   ₹${s.pending || 0}\n\n` +
+    `Reply *Menu* to return.`
+);
+                },
+onEnter: async (ctx) => {
+    try {
+        const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+        ctx.data.summary = await TenantService.getMonthlyRentSummary(db, ctx.ownerId!);
+    } catch { ctx.data.summary = {}; }
+},
+    defaultNext: 'showMenu',
         },
 
-        monthlySummary: {
-            id: 'monthlySummary',
-            type: 'display',
-            label: 'Monthly Summary',
-            messageBuilder: (ctx) => {
-                const s = ctx.data.summary || {};
-                return (
-                    `📅 *This Month's Rent Summary*\n\n` +
-                    `Expected:  ₹${s.expected || 0}\n` +
-                    `Collected: ₹${s.collected || 0}\n` +
-                    `Pending:   ₹${s.pending || 0}\n\n` +
-                    `Reply *Menu* to return.`
-                );
-            },
-            onEnter: async (ctx) => {
-                try {
-                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    ctx.data.summary = await TenantService.getMonthlyRentSummary(db, ctx.ownerId!);
-                } catch { ctx.data.summary = {}; }
-            },
-            defaultNext: 'showMenu',
-        },
-
-        pendingRents: {
-            id: 'pendingRents',
-            type: 'display',
+pendingRents: {
+    id: 'pendingRents',
+        type: 'display',
             label: 'Pending Rents',
-            messageBuilder: (ctx) => {
-                const tenants = ctx.data.pendingTenants || [];
-                if (tenants.length === 0) {
-                    return `✅ All tenants have paid! No pending rents.\n\nReply *Menu* to return.`;
-                }
-                let msg = `⚠️ *Pending Rents*\n\n`;
-                tenants.forEach((t: any, i: number) => {
-                    msg += `${i + 1}. ${t.name} — ₹${t.balance || 0}\n`;
-                });
-                return msg + `\nReply *Menu* to return.`;
-            },
-            onEnter: async (ctx) => {
-                try {
-                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    ctx.data.pendingTenants = await TenantService.getActiveTenants(db, ctx.ownerId!, 20, 'pending');
-                } catch { ctx.data.pendingTenants = []; }
-            },
-            defaultNext: 'showMenu',
+                messageBuilder: (ctx) => {
+                    const tenants = ctx.data.pendingTenants || [];
+                    if (tenants.length === 0) {
+                        return `✅ All tenants have paid! No pending rents.\n\nReply *Menu* to return.`;
+                    }
+                    let msg = `⚠️ *Pending Rents*\n\n`;
+                    tenants.forEach((t: any, i: number) => {
+                        msg += `${i + 1}. ${t.name} — ₹${t.balance || 0}\n`;
+                    });
+                    return msg + `\nReply *Menu* to return.`;
+                },
+                    onEnter: async (ctx) => {
+                        try {
+                            const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+                            ctx.data.pendingTenants = await TenantService.getActiveTenants(db, ctx.ownerId!, 20, 'pending');
+                        } catch { ctx.data.pendingTenants = []; }
+                    },
+                        defaultNext: 'showMenu',
         },
     },
 };
@@ -1393,7 +1393,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                     `📋 Monthly Rent: ₹${rent}\n` +
                     `💳 Current Balance: ₹${Math.abs(balance)} ${balance > 0 ? '(Due)' : balance < 0 ? '(Advance)' : ''}\n` +
                     `📊 Status: ${status}\n\n` +
-                    `For full history, visit:\nhttps://rentsutra-1.netlify.app/tenant\n\nReply *Menu* to return.`
+                    `For full history, visit:\n${process.env.NEXT_PUBLIC_APP_URL}/tenant\n\nReply *Menu* to return.`
                 );
             },
             defaultNext: 'tenantMenu',
@@ -1409,7 +1409,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                 return (
                     `💳 *Pay Your Rent*\n\n` +
                     `Amount due: *${amountDue}*\n\n` +
-                    `Use the secure payment link from your dashboard:\nhttps://rentsutra-1.netlify.app/tenant/pay\n\nReply *Menu* to return.`
+                    `Use the secure payment link from your dashboard:\n${process.env.NEXT_PUBLIC_APP_URL}/tenant/pay\n\nReply *Menu* to return.`
                 );
             },
             defaultNext: 'tenantMenu',
@@ -1419,7 +1419,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'paymentHistory',
             type: 'display',
             label: 'Payment History',
-            messageTemplate: '📜 *Payment History*\n\nView your full payment history at:\nhttps://rentsutra-1.netlify.app/tenant/payments\n\nReply *Menu* to return.',
+            messageTemplate: `📜 *Payment History*\n\nView your full payment history at:\n${process.env.NEXT_PUBLIC_APP_URL}/tenant/payments\n\nReply *Menu* to return.`,
             defaultNext: 'tenantMenu',
         },
 
@@ -1443,7 +1443,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'maintenanceConfirmed',
             type: 'display',
             label: 'Maintenance Submitted',
-            messageBuilder: (ctx) => `✅ *Maintenance Request Submitted*\n\nIssue: ${ctx.data.maintenanceIssue}\n\nYour landlord has been notified. Reply *Menu* to return.`,
+            messageBuilder: (ctx) => `✅ *Maintenance Request Submitted*\n\nIssue: ${ctx.data.maintenanceIssue}\n\nYour landlord has been notified.Reply * Menu * to return.`,
             defaultNext: 'tenantMenu',
         },
 
