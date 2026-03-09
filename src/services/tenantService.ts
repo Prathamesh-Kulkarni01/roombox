@@ -104,6 +104,43 @@ export class TenantService {
                 }
             }
 
+            // Pre-calculate the anchor day and next due date so we fast-forward the first cycle
+            // since we are manually billing it right now.
+            const { calculateFirstDueDate } = require('@/lib/utils');
+            const { format } = require('date-fns');
+
+            const startOfCycle = new Date(joinDate || now);
+            const anchorDay = startOfCycle.getDate();
+            const numericRent = Number(rentAmount) || 0;
+            const numericDeposit = Number(deposit || 0);
+
+            const initialLedger: LedgerEntry[] = [];
+            let initialBalance = 0;
+
+            if (numericRent > 0) {
+                initialLedger.push({
+                    id: `rent-${Date.now()}-initial`,
+                    date: startOfCycle.toISOString(),
+                    type: 'debit',
+                    description: `Rent for Cycle Starting ${format(startOfCycle, 'do MMM')}`,
+                    amount: numericRent,
+                });
+                initialBalance += numericRent;
+            }
+
+            if (numericDeposit > 0) {
+                initialLedger.push({
+                    id: `deposit-${Date.now()}-initial`,
+                    date: startOfCycle.toISOString(),
+                    type: 'debit',
+                    description: `Security Deposit`,
+                    amount: numericDeposit,
+                });
+                initialBalance += numericDeposit;
+            }
+
+            const nextDueDate = calculateFirstDueDate(startOfCycle, rentCycleUnit || 'months', rentCycleValue || 1, anchorDay);
+
             const guestToCreate: Guest = {
                 id: guestId,
                 ownerId,
@@ -115,22 +152,23 @@ export class TenantService {
                 bedId: bedId || '',
                 roomId: roomId || '',
                 roomName: roomName || '',
-                rentAmount: Number(rentAmount),
-                depositAmount: Number(deposit || 0),
-                balance: 0,
+                rentAmount: numericRent,
+                depositAmount: numericDeposit,
+                balance: initialBalance,
                 paidAmount: 0,
-                rentStatus: 'pending',
-                paymentStatus: 'pending',
+                rentStatus: initialBalance > 0 ? 'unpaid' : 'paid',
+                paymentStatus: initialBalance > 0 ? 'pending' : 'paid',
                 isVacated: false,
                 kycStatus: 'not_submitted',
                 documents: [],
-                ledger: [],
+                ledger: initialLedger,
                 paymentHistory: [],
-                dueDate: dueDate || now,
-                joinDate: joinDate || now,
-                moveInDate: joinDate || now,
+                dueDate: (dueDate ? new Date(dueDate) : nextDueDate).toISOString(),
+                joinDate: startOfCycle.toISOString(),
+                moveInDate: startOfCycle.toISOString(),
                 rentCycleUnit: rentCycleUnit || 'months',
                 rentCycleValue: rentCycleValue || 1,
+                billingAnchorDay: anchorDay,
                 createdAt: Date.now(),
                 noticePeriodDays: 30,
                 schemaVersion: CURRENT_SCHEMA_VERSION,
