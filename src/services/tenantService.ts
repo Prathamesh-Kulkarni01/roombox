@@ -318,6 +318,17 @@ export class TenantService {
 
                 await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility', 'en_US', [
                     {
+                        type: 'header',
+                        parameters: [
+                            {
+                                type: 'image',
+                                image: {
+                                    link: `${appUrl}/logo.png`
+                                }
+                            }
+                        ]
+                    },
+                    {
                         type: 'body',
                         parameters: [
                             { type: 'text', text: name }, // {{1}}
