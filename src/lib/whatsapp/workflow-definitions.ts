@@ -43,7 +43,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                     `8️⃣ Reports & Analytics\n`;
 
                 return (
-                    `🏠 *RoomBox Dashboard*\nHi ${ownerName}!\n\n` +
+                    `🏠 *RentSutra Dashboard*\nHi ${ownerName}!\n\n` +
                     statsLine +
                     `1️⃣ View Properties\n` +
                     `2️⃣ Today's Payments\n` +
@@ -145,7 +145,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
             id: 'reports',
             type: 'display',
             label: 'Reports',
-            messageTemplate: '📈 *Reports & Analytics*\n\nVisit your dashboard to view detailed financial reports and occupancy analytics.\n\nhttps://roombox.netlify.app/dashboard/analytics\n\nReply *Menu* to return.',
+            messageTemplate: '📈 *Reports & Analytics*\n\nVisit your dashboard to view detailed financial reports and occupancy analytics.\n\nhttps://rentsutra-1.netlify.app/dashboard/analytics\n\nReply *Menu* to return.',
             defaultNext: 'showMenu',
         },
 
@@ -153,7 +153,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
             id: 'dashboardLink',
             type: 'display',
             label: 'Dashboard Link',
-            messageTemplate: '🔗 *Your Secure Dashboard*\n\nManage everything from here:\nhttps://roombox.netlify.app/dashboard\n\nReply *Menu* to return.',
+            messageTemplate: '🔗 *Your Secure Dashboard*\n\nManage everything from here:\nhttps://rentsutra-1.netlify.app/dashboard\n\nReply *Menu* to return.',
             defaultNext: 'showMenu',
         },
 
@@ -1350,7 +1350,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                 const payOption = balance > 0 ? `2️⃣ *Pay Rent Now* 💳` : `2️⃣ Pay Rent`;
 
                 return (
-                    `🏠 *${ctx.data.pgName || 'RoomBox Portal'}*\n\n` +
+                    `🏠 *${ctx.data.pgName || 'RentSutra Portal'}*\n\n` +
                     `👤 *Tenant:* ${ctx.tenantName || 'User'}\n` +
                     balanceLine +
                     `What would you like to do?\n\n` +
@@ -1393,7 +1393,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                     `📋 Monthly Rent: ₹${rent}\n` +
                     `💳 Current Balance: ₹${Math.abs(balance)} ${balance > 0 ? '(Due)' : balance < 0 ? '(Advance)' : ''}\n` +
                     `📊 Status: ${status}\n\n` +
-                    `For full history, visit:\nhttps://roombox.netlify.app/tenant\n\nReply *Menu* to return.`
+                    `For full history, visit:\nhttps://rentsutra-1.netlify.app/tenant\n\nReply *Menu* to return.`
                 );
             },
             defaultNext: 'tenantMenu',
@@ -1409,7 +1409,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                 return (
                     `💳 *Pay Your Rent*\n\n` +
                     `Amount due: *${amountDue}*\n\n` +
-                    `Use the secure payment link from your dashboard:\nhttps://roombox.netlify.app/tenant/pay\n\nReply *Menu* to return.`
+                    `Use the secure payment link from your dashboard:\nhttps://rentsutra-1.netlify.app/tenant/pay\n\nReply *Menu* to return.`
                 );
             },
             defaultNext: 'tenantMenu',
@@ -1419,7 +1419,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'paymentHistory',
             type: 'display',
             label: 'Payment History',
-            messageTemplate: '📜 *Payment History*\n\nView your full payment history at:\nhttps://roombox.netlify.app/tenant/payments\n\nReply *Menu* to return.',
+            messageTemplate: '📜 *Payment History*\n\nView your full payment history at:\nhttps://rentsutra-1.netlify.app/tenant/payments\n\nReply *Menu* to return.',
             defaultNext: 'tenantMenu',
         },
 
@@ -1538,7 +1538,7 @@ export const ownerRegistrationWorkflow: WorkflowDefinition = {
             id: 'askOwnerName',
             type: 'input',
             label: 'Your Name',
-            messageTemplate: '👋 *Welcome to RoomBox!*\n\nLet\'s get your account set up. What is your full name?',
+            messageTemplate: '👋 *Welcome to RentSutra!*\n\nLet\'s get your account set up. What is your full name?',
             nextStepsFn: async (input, ctx) => {
                 ctx.data.reg_name = input.trim();
                 return 'confirmReg';
@@ -1606,7 +1606,7 @@ export const tenantLazyOnboardingWorkflow: WorkflowDefinition = {
             type: 'input',
             label: 'Confirm Name',
             messageBuilder: (ctx) =>
-                `👋 *Welcome to RoomBox!*\n\n` +
+                `👋 *Welcome to RentSutra!*\n\n` +
                 `Hi *${ctx.tenantName || 'there'}*! Let's quickly setup your profile.\n\n` +
                 `*What is your full name?*\n(Reply with name or *skip*)`,
             nextStepsFn: async (input, ctx) => {

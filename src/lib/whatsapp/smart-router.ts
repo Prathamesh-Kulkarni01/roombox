@@ -365,7 +365,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
     // ── IDLE State (Entry greeting & Auto-login) ─────────────────────
     if (state === 'IDLE') {
         if (!['hi', 'hello', 'menu', 'start', 'test'].includes(lowerText)) {
-            await sendWhatsAppMessage(from, `Welcome to RoomBox 🏠\n\nReply *Hi* to get started.`);
+            await sendWhatsAppMessage(from, `Welcome to RentSutra 🏠\n\nReply *Hi* to get started.`);
             return;
         }
 
@@ -457,11 +457,11 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
         await updateSession(from, 'IDLE');
         await sendWhatsAppMessage(
             from,
-            `👋 *Welcome to RoomBox!*\n\n` +
+            `👋 *Welcome to RentSutra!*\n\n` +
             `It looks like this number isn't registered with us.\n\n` +
             `• *Are you a Tenant?* Ask your PG Owner to add your number to their dashboard.\n` +
-            `• *Are you an Owner?* Visit https://roombox.netlify.app to sign up and manage your PG.\n\n` +
-            `Need help? Email us at support@roombox.app`
+            `• *Are you an Owner?* Visit https://rentsutra-1.netlify.app to sign up and manage your PG.\n\n` +
+            `Need help? Email us at support@rentsutra.app`
         );
         return;
     }
@@ -526,12 +526,12 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     from,
                     `❌ *Access Denied*\n\n` +
                     `We couldn't find a tenant record for your number (*${from.replace(/\D/g, '')}*).\n\n` +
-                    `Please ask your PG owner to add your phone number accurately in the RoomBox portal.`
+                    `Please ask your PG owner to add your phone number accurately in the RentSutra portal.`
                 );
                 await updateSession(from, 'IDLE');
             }
         } else if (text === '3') {
-            await sendWhatsAppMessage(from, `🆘 *Support*\n\nFor help, email us at: support@roombox.app\n\nOr visit: https://roombox.netlify.app/support\n\nReply *Hi* to go back.`);
+            await sendWhatsAppMessage(from, `🆘 *Support*\n\nFor help, email us at: support@rentsutra.app\n\nOr visit: https://rentsutra-1.netlify.app/support\n\nReply *Hi* to go back.`);
             await updateSession(from, 'IDLE');
         } else {
             await sendWhatsAppMessage(from, `Please reply *1* for Owner, *2* for Tenant, or *3* for Support.`);

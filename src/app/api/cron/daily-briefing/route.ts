@@ -21,7 +21,7 @@ export async function GET(request: Request) {
                 `✅ *Rent Collected Yesterday:* ₹15,000\n` +
                 `⚠️ *Pending Dues:* 3 Tenants (₹24,000)\n` +
                 `🔧 *Active Complaints:* 1 (Room 102)\n\n` +
-                `Check full details here: [Roombox Dashboard Link]`;
+                `Check full details here: [RentSutra Dashboard Link]`;
 
             await sendWhatsAppMessage(owner.phone, message);
         }
