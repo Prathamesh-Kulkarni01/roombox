@@ -242,10 +242,10 @@ export class TenantService {
                 if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
 
                 console.log(`[TenantService.onboardTenant] Sending WhatsApp welcome to ${formattedPhone}`);
-                const welcomeMsg = `🏠 *Welcome to ${pgName || newGuest.pgName}!*\n\n` +
-                    `Hi ${name}, you have been added as a tenant.\n\n` +
-                    (magicLink ? `🔐 *Login to your dashboard:* ${magicLink}\n\n` : '') +
-                    `Reply *Hi* to see your rent details and pay online.`;
+                const welcomeMsg = `👋 *Hi ${name}! Welcome to ${pgName || newGuest.pgName}*\n\n` +
+                    `I am your automated PG assistant. You can use me to pay rent, raise complaints, or check your balance.\n\n` +
+                    (magicLink ? `📱 *Your Personal Dashboard:* ${magicLink}\n\n` : '') +
+                    `👉 *Reply "Hi"* at any time to see your menu and pay your first month's rent/deposit.`;
 
                 const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
                 await sendWhatsAppMessage(formattedPhone, welcomeMsg);
@@ -441,6 +441,52 @@ export class TenantService {
         console.log(`[TenantService.recordPayment] Payment recorded. New Balance: ${result.newBalance}`);
         return result;
     }
+
+    /**
+     * Voids a previously recorded payment by removing its ledger entry and recalculating balance.
+     */
+    static async voidPayment(db: Firestore, ownerId: string, guestId: string, ledgerEntryId: string): Promise<{ newBalance: number; newStatus: string }> {
+        console.log(`[TenantService.voidPayment] Voiding entry ${ledgerEntryId} for guest ${guestId}`);
+        const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+
+        const result = await db.runTransaction(async (txn) => {
+            const snap = await txn.get(guestRef);
+            if (!snap.exists) throw new Error('Guest not found');
+            const guest = snap.data() as Guest;
+
+            const entryToVoid = (guest.ledger || []).find(e => e.id === ledgerEntryId);
+            if (!entryToVoid) throw new Error('Ledger entry not found');
+            if (entryToVoid.type !== 'credit') throw new Error('Only credit (payment) entries can be voided');
+
+            const updatedLedger = (guest.ledger || []).filter(e => e.id !== ledgerEntryId);
+
+            // Re-calculate balance from scratch for safety
+            const totalDebits = updatedLedger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+            const totalCredits = updatedLedger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+            const newBalance = totalDebits - totalCredits;
+
+            const hasCredits = updatedLedger.some(e => e.type === 'credit');
+            const newStatus = (newBalance > 0 ? (hasCredits ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial';
+
+            const finalGuest = {
+                ...guest,
+                ledger: updatedLedger,
+                balance: newBalance,
+                rentStatus: newStatus
+            };
+
+            txn.set(guestRef, finalGuest, { merge: true });
+
+            return {
+                newBalance,
+                newStatus
+            };
+        });
+
+        console.log(`[TenantService.voidPayment] Success. New Balance: ${result.newBalance}`);
+        return result;
+    }
+
 
     /**
      * KYC status update.

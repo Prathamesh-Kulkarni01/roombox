@@ -1339,18 +1339,29 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                     } catch (e) { console.error('Tenant data fetch error:', e); }
                 }
             },
-            messageBuilder: (ctx) => (
-                `🏠 *${ctx.data.pgName || 'RoomBox Portal'}*\n\n` +
-                `👤 *Tenant:* ${ctx.tenantName || 'User'}\n` +
-                `💰 *Current Balance:* ₹${ctx.data.balance || 0}\n\n` +
-                `What would you like to do?\n\n` +
-                `1️⃣ View Rent Details\n` +
-                `2️⃣ Pay Rent\n` +
-                `3️⃣ Payment History\n` +
-                `4️⃣ Maintenance Request\n` +
-                `5️⃣ Contact Owner\n` +
-                `6️⃣ Give Notice (Vacate)`
-            ),
+            messageBuilder: (ctx) => {
+                const balance = ctx.data.balance || 0;
+                const balanceLine = balance > 0
+                    ? `💰 *Balance Due:* ₹${balance} 🔴\n\n`
+                    : balance < 0
+                        ? `💰 *Advance Balance:* ₹${Math.abs(balance)} 🟢\n\n`
+                        : `💰 *Balance:* ₹${balance} 🟢\n\n`;
+
+                const payOption = balance > 0 ? `2️⃣ *Pay Rent Now* 💳` : `2️⃣ Pay Rent`;
+
+                return (
+                    `🏠 *${ctx.data.pgName || 'RoomBox Portal'}*\n\n` +
+                    `👤 *Tenant:* ${ctx.tenantName || 'User'}\n` +
+                    balanceLine +
+                    `What would you like to do?\n\n` +
+                    `1️⃣ View Rent Details\n` +
+                    `${payOption}\n` +
+                    `3️⃣ Payment History\n` +
+                    `4️⃣ Maintenance Request\n` +
+                    `5️⃣ Contact Owner\n` +
+                    `6️⃣ Give Notice (Vacate)`
+                );
+            },
             nextSteps: {
                 '1': 'viewRentDetails',
                 '2': 'payRent',

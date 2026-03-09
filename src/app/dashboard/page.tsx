@@ -84,10 +84,19 @@ export default function DashboardPage() {
       return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
     }).length;
 
+    const rentCollectedToday = relevantGuests.reduce((sum, g: Guest) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayPayments = (g.ledger || [])
+        .filter(e => e.type === 'credit' && new Date(e.date) >= today)
+        .reduce((s, e) => s + (e.amount || 0), 0);
+      return sum + todayPayments;
+    }, 0);
+
     return {
       occupancy: { total: totalBeds, occupied: totalOccupancy, newThisMonth },
       complaints: { active: openComplaintsCount, severity: openComplaintsCount > 0 ? 'High' : 'Normal' },
-      revenue: { collected: monthlyRevenue, expected: monthlyRevenue + pendingDues },
+      revenue: { collected: monthlyRevenue, expected: monthlyRevenue + pendingDues, collectedToday: rentCollectedToday },
       pendingDues: { amount: pendingDues },
     };
   }, [pgs, guests, complaints, selectedPgId]);

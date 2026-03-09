@@ -8,7 +8,7 @@ import { BedDouble, ShieldAlert, Wallet, Clock, IndianRupee } from "lucide-react
 export interface DashboardStats {
   occupancy: { total: number, occupied: number, newThisMonth: number };
   complaints: { active: number, severity: 'High' | 'Normal' };
-  revenue: { collected: number, expected: number };
+  revenue: { collected: number, expected: number, collectedToday: number };
   pendingDues: { amount: number };
 }
 
@@ -62,24 +62,43 @@ export default function StatsCards({ stats, onSendReminders }: StatsCardsProps) 
       </div>
 
       {/* Middle Row: Revenue */}
-      <Access feature="finances" action="view">
-        <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group">
-          <CardHeader className="p-4 pb-2">
-            <div className="w-10 h-10 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center mb-2">
-              <IndianRupee className="w-5 h-5" />
-            </div>
-            <p className="text-sm font-semibold text-muted-foreground">Rent Collected</p>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="flex flex-wrap lg:flex-nowrap items-baseline gap-1.5 mb-3">
-              <h2 className="text-3xl font-extrabold text-foreground">{(stats.revenue.collected / 100000).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 1 }).replace('₹', '₹ ')}L</h2>
-              <span className="text-muted-foreground font-semibold">/ {(stats.revenue.expected / 100000).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 1 }).replace('₹', '₹ ')}L</span>
-              <span className="ml-auto text-primary font-bold">{revPercentage}%</span>
-            </div>
-            <Progress value={revPercentage} className="h-2 rounded-full" />
-          </CardContent>
-        </Card>
-      </Access>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Access feature="finances" action="view">
+          <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group">
+            <CardHeader className="p-4 pb-2">
+              <div className="w-10 h-10 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center mb-2">
+                <IndianRupee className="w-5 h-5" />
+              </div>
+              <p className="text-sm font-semibold text-muted-foreground">Rent Collected (Monthly)</p>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="flex flex-wrap lg:flex-nowrap items-baseline gap-1.5 mb-3">
+                <h2 className="text-3xl font-extrabold text-foreground">{(stats.revenue.collected / 100000).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 1 }).replace('₹', '₹ ')}L</h2>
+                <span className="text-muted-foreground font-semibold">/ {(stats.revenue.expected / 100000).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 1 }).replace('₹', '₹ ')}L</span>
+                <span className="ml-auto text-primary font-bold">{revPercentage}%</span>
+              </div>
+              <Progress value={revPercentage} className="h-2 rounded-full" />
+            </CardContent>
+          </Card>
+        </Access>
+
+        <Access feature="finances" action="view">
+          <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group bg-green-50/30 dark:bg-green-500/5">
+            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">Today's Collection</p>
+                <h2 className="text-3xl font-black text-green-600 dark:text-green-400 mt-1">₹{stats.revenue.collectedToday.toLocaleString('en-IN')}</h2>
+              </div>
+              <div className="p-3 bg-green-500/20 text-green-600 rounded-2xl">
+                <Wallet className="w-6 h-6" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <p className="text-[10px] text-muted-foreground font-medium uppercase mt-2 italic">Refreshed just now</p>
+            </CardContent>
+          </Card>
+        </Access>
+      </div>
 
       {/* Bottom Row: Pending Dues */}
       <Access feature="finances" action="view">

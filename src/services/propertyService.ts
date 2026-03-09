@@ -3,6 +3,10 @@ import { Firestore } from 'firebase-admin/firestore';
 export interface BuildingStats {
     totalBuildings: number;
     totalTenants: number;
+    totalBeds: number;
+    totalPendingRent: number;
+    totalComplaintsPending: number;
+    rentCollectedToday: number;
 }
 
 export interface Building {
@@ -99,9 +103,45 @@ export class PropertyService {
                 .where('isVacated', '==', false)
                 .get();
 
+            const complaintsSnap = await db.collection('users_data').doc(ownerId).collection('complaints')
+                .where('status', 'in', ['open', 'in-progress'])
+                .get();
+
+            let totalBeds = 0;
+            pgsSnap.forEach(doc => {
+                const data = doc.data();
+                totalBeds += data.totalBeds || 0;
+            });
+
+            let totalPendingRent = 0;
+            let rentCollectedToday = 0;
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+
+            guestsSnap.forEach(doc => {
+                const guest = doc.data() as any;
+                const balance = guest.balance || 0;
+                if (balance > 0) totalPendingRent += balance;
+
+                // Sum credits (payments) recorded today in the ledger
+                const ledger = guest.ledger || [];
+                ledger.forEach((entry: any) => {
+                    if (entry.type === 'credit' && entry.date) {
+                        const entryDate = new Date(entry.date);
+                        if (entryDate >= startOfToday) {
+                            rentCollectedToday += entry.amount || 0;
+                        }
+                    }
+                });
+            });
+
             return {
                 totalBuildings: pgsSnap.size,
                 totalTenants: guestsSnap.size,
+                totalBeds,
+                totalPendingRent,
+                totalComplaintsPending: complaintsSnap.size,
+                rentCollectedToday
             };
         } catch (error) {
             console.error('Error fetching briefing stats:', error);
