@@ -8,6 +8,7 @@
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import { runReconciliationLogic } from '@/lib/reconciliation';
 import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument } from '@/lib/types';
+import { getPlanLimit } from '@/lib/permissions';
 
 export interface Tenant {
     id: string;
@@ -26,6 +27,22 @@ export interface RentSummary {
 
 export class TenantService {
     /**
+     * Checks if the owner has reached their guest limit.
+     */
+    static async checkGuestLimit(db: Firestore, ownerId: string, planId: string, batchSize: number = 1): Promise<void> {
+        const limit = getPlanLimit(planId, 'guests');
+        if (limit === 'unlimited') return;
+
+        const snap = await db.collection('users_data').doc(ownerId).collection('guests')
+            .where('isVacated', '==', false)
+            .get();
+
+        if (snap.size + batchSize > limit) {
+            throw new Error(`Guest limit reached (${limit}). Please upgrade your plan.`);
+        }
+    }
+
+    /**
      * Onboards a new tenant with centralized logic.
      * Handles Firestore updates, bed assignment, user linking/invites, and welcome notifications.
      */
@@ -34,8 +51,12 @@ export class TenantService {
         const {
             ownerId, name, email, phone, pgId, pgName,
             bedId, roomId, roomName, rentAmount, deposit,
-            dueDate, joinDate, rentCycleUnit, rentCycleValue
+            dueDate, joinDate, rentCycleUnit, rentCycleValue,
+            planId = 'free'
         } = input;
+
+        // 1. Check Guest Limit
+        await this.checkGuestLimit(db, ownerId, planId);
 
         console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
 

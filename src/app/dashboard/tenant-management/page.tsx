@@ -27,6 +27,9 @@ import { format } from 'date-fns'
 import Access from '@/components/ui/PermissionWrapper';
 import KycManagementTab from '@/components/dashboard/KycManagementTab';
 import TenantCsvUploader from '@/components/tenant-csv-uploader';
+import { useDashboard } from '@/hooks/use-dashboard'
+import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
+import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
 
 const rentStatusColors: Record<Guest['rentStatus'], string> = {
@@ -191,6 +194,16 @@ export default function GuestManagementPage() {
     const { isLoading, selectedPgId } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
     const { featurePermissions } = usePermissionsStore();
+
+    const dashboard = useDashboard({ pgs, guests });
+    const {
+        isAddGuestDialogOpen, setIsAddGuestDialogOpen,
+        isEditGuestDialogOpen, setIsEditGuestDialogOpen,
+        guestToEdit, editGuestForm, handleEditGuestSubmit,
+        addGuestForm, handleAddGuestSubmit,
+        handleOpenEditGuestDialog
+    } = dashboard;
+
     const [isCsvUploaderOpen, setIsCsvUploaderOpen] = useState(false);
 
     const [activeGuests, exitedGuests] = useMemo(() => {
@@ -292,11 +305,10 @@ export default function GuestManagementPage() {
                                 <Button variant="outline" onClick={() => setIsCsvUploaderOpen(true)}>
                                     <Upload className="mr-2 h-4 w-4" /> Import CSV
                                 </Button>
-                                <Button disabled>
+                                <Button onClick={() => setIsAddGuestDialogOpen(true)}>
                                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Guest
                                 </Button>
                             </div>
-                            <p className="text-xs text-muted-foreground text-right mt-1">Add guests from the main dashboard.</p>
                         </Access>
                     </CardHeader>
                     <CardContent>
@@ -306,10 +318,10 @@ export default function GuestManagementPage() {
                                 <TabsTrigger value="exited-guests">Guest History</TabsTrigger>
                             </TabsList>
                             <TabsContent value="active-guests" className="mt-4">
-                                <GuestList guests={activeGuests} onEdit={() => { }} canEdit={canEditGuests} />
+                                <GuestList guests={activeGuests} onEdit={handleOpenEditGuestDialog} canEdit={canEditGuests} />
                             </TabsContent>
                             <TabsContent value="exited-guests" className="mt-4">
-                                <GuestList guests={exitedGuests} onEdit={() => { }} canEdit={canEditGuests} />
+                                <GuestList guests={exitedGuests} onEdit={handleOpenEditGuestDialog} canEdit={canEditGuests} />
                             </TabsContent>
                         </Tabs>
                     </CardContent>
@@ -320,6 +332,14 @@ export default function GuestManagementPage() {
                 open={isCsvUploaderOpen}
                 onOpenChange={setIsCsvUploaderOpen}
                 onSuccess={() => window.location.reload()}
+            />
+
+            <AddGuestDialog
+                {...dashboard}
+            />
+
+            <EditGuestDialog
+                {...dashboard}
             />
         </Access>
     )

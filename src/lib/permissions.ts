@@ -84,9 +84,9 @@ export const featurePermissionConfig = {
   kyc: {
     label: 'KYC Verification',
     actions: {
-        view: 'View KYC Status & Docs',
-        edit: 'Approve/Reject KYC',
-        add: 'Request KYC from Tenant',
+      view: 'View KYC Status & Docs',
+      edit: 'Approve/Reject KYC',
+      add: 'Request KYC from Tenant',
     },
   },
 };
@@ -173,15 +173,15 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
 /**
  * Plan limits (e.g., max number of PGs per plan)
  */
-export const planLimitsConfig: Record<string, { pgs: number | 'unlimited', floors: number | 'unlimited' }> = {
-  free: { pgs: 1, floors: 2 },
-  pro: { pgs: 'unlimited', floors: 'unlimited' },
+export const planLimitsConfig: Record<string, { pgs: number | 'unlimited', floors: number | 'unlimited', guests: number | 'unlimited' }> = {
+  free: { pgs: 1, floors: 2, guests: 10 },
+  pro: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
 };
 
 /**
  * Get a plan's limit for a given key
  */
-export function getPlanLimit(planId: string | undefined, key: 'pgs' | 'floors'): number | 'unlimited' {
+export function getPlanLimit(planId: string | undefined, key: 'pgs' | 'floors' | 'guests'): number | 'unlimited' {
   if (!planId) return 0;
   const plan = planLimitsConfig[planId];
   if (!plan) return 0;

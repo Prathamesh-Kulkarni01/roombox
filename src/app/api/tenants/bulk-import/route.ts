@@ -19,7 +19,8 @@ import { unauthorized, serverError } from '@/lib/api/apiError';
  *   { success: true, created: N, failed: [ { row, error } ] }
  */
 export async function POST(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
+    const ownerResult = await getVerifiedOwnerId(req);
+    const { ownerId, error } = ownerResult;
     if (!ownerId) return unauthorized(error);
 
     try {
@@ -42,6 +43,9 @@ export async function POST(req: NextRequest) {
 
         const db = await selectOwnerDataAdminDb(ownerId);
         const appDb = await getAdminDb();
+
+        // 1. Check Guest Limit for the whole batch
+        await TenantService.checkGuestLimit(db, ownerId, ownerResult.plan?.id || 'free', rows.length);
 
         let created = 0;
         const failed: { row: number; name: string; error: string }[] = [];
@@ -71,6 +75,7 @@ export async function POST(req: NextRequest) {
                     deposit: Number(row.deposit || 0),
                     joinDate: row.joindate?.trim() || new Date().toISOString().split('T')[0],
                     dueDate: row.duedate?.trim() || '',
+                    planId: ownerResult.plan?.id
                 });
                 created++;
             } catch (err: any) {

@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/properties — create a new property for authenticated owner
 export async function POST(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
+    const ownerResult = await getVerifiedOwnerId(req);
+    const { ownerId, error } = ownerResult;
     if (!ownerId) return unauthorized(error);
 
     try {
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest) {
             gender: propertyData.gender || 'unisex',
             autoSetup: propertyData.autoSetup,
             floorCount: propertyData.floorCount,
-            roomsPerFloor: propertyData.roomsPerFloor
+            roomsPerFloor: propertyData.roomsPerFloor,
+            planId: ownerResult.plan?.id
         });
 
         // Update owner summary in main app DB

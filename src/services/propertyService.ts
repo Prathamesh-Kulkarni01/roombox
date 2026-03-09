@@ -27,13 +27,48 @@ export interface CreatePropertyInput {
     roomsPerFloor?: number;
 }
 
+import { getPlanLimit } from '@/lib/permissions';
+
 export class PropertyService {
+    /**
+     * Checks if the owner has reached their property limit.
+     */
+    static async checkPgLimit(db: Firestore, ownerId: string, planId: string): Promise<void> {
+        const limit = getPlanLimit(planId, 'pgs');
+        if (limit === 'unlimited') return;
+
+        const snap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
+        if (snap.size >= limit) {
+            throw new Error(`Property limit reached (${limit}). Please upgrade your plan.`);
+        }
+    }
+
+    /**
+     * Checks if the owner has reached their floor limit for a property.
+     */
+    static checkFloorLimit(currentFloors: number, newFloors: number, planId: string): void {
+        const limit = getPlanLimit(planId, 'floors');
+        if (limit === 'unlimited') return;
+
+        if (currentFloors + newFloors > limit) {
+            throw new Error(`Floor limit reached (${limit}). Please upgrade your plan.`);
+        }
+    }
+
     /**
      * Creates a new property with standardized logic.
      * Handles floor/room generation if requested.
      */
-    static async createProperty(db: Firestore, input: CreatePropertyInput): Promise<any> {
-        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0 } = input;
+    static async createProperty(db: Firestore, input: CreatePropertyInput & { planId?: string }): Promise<any> {
+        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, planId = 'free' } = input;
+
+        // 1. Check PG Limit
+        await this.checkPgLimit(db, ownerId, planId);
+
+        // 2. Check Floor Limit if auto-setup is requested
+        if (autoSetup || floorCount > 0) {
+            this.checkFloorLimit(0, floorCount, planId);
+        }
 
         const newPgId = `pg-${Date.now()}`;
         const initialFloors: any[] = [];
@@ -192,9 +227,10 @@ export class PropertyService {
             roomsPerFloor: number;
             bedsPerRoom: number;
             startFloorNumber?: number; // Default 1 — allows appending to existing floors
+            planId?: string;
         }
     ): Promise<{ floorsCreated: number; roomsCreated: number; bedsCreated: number }> {
-        const { floors, roomsPerFloor, bedsPerRoom, startFloorNumber = 1 } = opts;
+        const { floors, roomsPerFloor, bedsPerRoom, startFloorNumber = 1, planId = 'free' } = opts;
 
         const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
         const pgSnap = await pgRef.get();
@@ -202,6 +238,9 @@ export class PropertyService {
 
         const pgData = pgSnap.data()!;
         const existingFloors: any[] = pgData.floors || [];
+
+        // 1. Check Floor Limit
+        this.checkFloorLimit(existingFloors.length, floors, planId);
 
         const newFloors: any[] = [];
         const ts = Date.now();

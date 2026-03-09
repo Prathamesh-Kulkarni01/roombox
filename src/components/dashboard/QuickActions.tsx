@@ -226,8 +226,8 @@ export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, ha
 
     return (
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80" onClick={() => setIsAddGuestOpen(true)}>
-                <UserPlus className="w-6 h-6 text-primary" strokeWidth={1.5} />
+            <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80 group" onClick={() => setIsAddGuestOpen(true)}>
+                <UserPlus className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" strokeWidth={1.5} />
                 <span className="text-sm font-semibold text-foreground">Add Guest</span>
             </Button>
 

@@ -89,7 +89,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/guests — add a new guest
 export async function POST(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
+    const ownerResult = await getVerifiedOwnerId(req);
+    const { ownerId, error } = ownerResult;
     if (!ownerId) return unauthorized(error);
 
     try {
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
         const appDb = await getAdminDb(); // for user/invite linking
 
-        const newGuest = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId });
+        const newGuest = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId, planId: ownerResult.plan?.id });
 
         return NextResponse.json({ success: true, guest: newGuest }, { status: 201 });
     } catch (error) {

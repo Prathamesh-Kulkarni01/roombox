@@ -17,7 +17,8 @@ import { PropertyService } from '@/services/propertyService';
  */
 export async function POST(req: Request) {
     try {
-        const { ownerId, error } = await getVerifiedOwnerId(req as any);
+        const ownerResult = await getVerifiedOwnerId(req as any);
+        const { ownerId, error } = ownerResult;
         if (error || !ownerId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
             roomsPerFloor: roomsCount,
             bedsPerRoom: bedsCount,
             startFloorNumber: startFloorNumber ? Number(startFloorNumber) : 1,
+            planId: ownerResult.plan?.id
         });
 
         return NextResponse.json({

@@ -38,6 +38,15 @@ const appSlice = createSlice({
         },
         setMockDate: (state, action: PayloadAction<string | null>) => {
             state.mockDate = action.payload;
+        },
+        validateSelectedPg: (state, action: PayloadAction<string[]>) => {
+            const validIds = action.payload;
+            if (state.selectedPgId && !validIds.includes(state.selectedPgId)) {
+                state.selectedPgId = null;
+                if (typeof window !== 'undefined') {
+                    localStorage.removeItem('selectedPgId');
+                }
+            }
         }
     },
     extraReducers: (builder) => {
@@ -54,12 +63,12 @@ const appSlice = createSlice({
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.isLoading = false;
                 state.selectedPgId = null;
-                 if (typeof window !== 'undefined') {
+                if (typeof window !== 'undefined') {
                     localStorage.removeItem('selectedPgId');
                 }
             });
     }
 });
 
-export const { setLoading, setSelectedPgId, setMockDate } = appSlice.actions;
+export const { setLoading, setSelectedPgId, setMockDate, validateSelectedPg } = appSlice.actions;
 export default appSlice.reducer;

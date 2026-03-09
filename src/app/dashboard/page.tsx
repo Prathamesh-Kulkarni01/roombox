@@ -144,13 +144,13 @@ export default function DashboardPage() {
           onSendReminders={handleSendMassReminder}
         />
 
-        {pgs.length > 0 && (
+        {pgs.length > 0 ? (
           <>
             <div className="space-y-4 pt-2">
               <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-1">Quick Actions</h3>
               <QuickActions
-                pgs={pgs}
-                guests={guests}
+                pgs={selectedPgId && selectedPgId !== 'all' ? pgs.filter(p => p.id === selectedPgId) : pgs}
+                guests={selectedPgId && selectedPgId !== 'all' ? guests.filter(g => g.pgId === selectedPgId) : guests}
                 handleOpenAddGuestDialog={handleOpenAddGuestDialog}
                 handleOpenPaymentDialog={handleOpenPaymentDialog}
                 onSendAnnouncement={handleSendAnnouncement}
@@ -198,6 +198,19 @@ export default function DashboardPage() {
               </Button>
             </div>
           </>
+        ) : (
+          <div className="flex flex-col items-center justify-center p-12 text-center bg-card border rounded-3xl shadow-sm gap-4">
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+              <ArrowRight className="w-10 h-10 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Get Started</h3>
+              <p className="text-muted-foreground max-w-xs mt-2 text-sm leading-relaxed">Add your first property to start managing floors, rooms, and guests efficiently.</p>
+            </div>
+            <Button asChild className="w-full max-w-xs py-6 rounded-xl font-bold text-lg shadow-native mt-2">
+              <Link href="/dashboard/pg-management">Add Property Now</Link>
+            </Button>
+          </div>
         )}
 
       </div>

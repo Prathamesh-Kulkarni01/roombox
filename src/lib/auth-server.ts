@@ -1,6 +1,7 @@
 
 import { NextRequest } from 'next/server';
 import { auth } from './firebaseAdmin';
+import { PlanName, SubscriptionStatus } from './types';
 
 export async function getUserIdFromRequest(req: NextRequest): Promise<string | null> {
     try {
@@ -32,6 +33,7 @@ export async function getVerifiedOwnerId(req: NextRequest): Promise<{
     userId?: string,
     role?: string,
     guestId?: string,
+    plan?: { id: PlanName; status: SubscriptionStatus },
     error: string | null
 }> {
     const userId = await getUserIdFromRequest(req);
@@ -54,11 +56,32 @@ export async function getVerifiedOwnerId(req: NextRequest): Promise<{
         };
 
         // If user is owner, the effective ownerId is their own ID
-        if (userData.role === 'owner') return { ...result, ownerId: userId };
+        if (userData.role === 'owner') {
+            return {
+                ...result,
+                ownerId: userId,
+                plan: userData.subscription?.planId ? {
+                    id: userData.subscription.planId,
+                    status: userData.subscription.status
+                } : { id: 'free', status: 'active' } // Default to free if no subscription info
+            };
+        }
 
         // If user is staff or tenant, use their assigned ownerId
         if (userData.role === 'staff' || userData.role === 'tenant') {
-            if (userData.ownerId) return { ...result, ownerId: userData.ownerId };
+            if (userData.ownerId) {
+                // For staff/tenants, we need to fetch the owner's plan too for enforcement
+                const ownerDoc = await db.collection('users').doc(userData.ownerId).get();
+                const ownerData = ownerDoc.data();
+                return {
+                    ...result,
+                    ownerId: userData.ownerId,
+                    plan: ownerData?.subscription?.planId ? {
+                        id: ownerData.subscription.planId,
+                        status: ownerData.subscription.status
+                    } : { id: 'free', status: 'active' }
+                };
+            }
         }
 
         return { ownerId: null, error: 'Forbidden: No owner context associated with this user' };

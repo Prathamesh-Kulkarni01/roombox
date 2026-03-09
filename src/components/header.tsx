@@ -49,6 +49,15 @@ export default function Header() {
 
   const handleValueChange = (pgId: string) => {
     dispatch(setSelectedPgId(pgId === 'all' ? null : pgId));
+
+    // If we're on a property management page, update the URL to match the selection
+    if (pathname.includes('/dashboard/pg-management/')) {
+      if (pgId === 'all') {
+        router.push('/dashboard');
+      } else {
+        router.push(`/dashboard/pg-management/${pgId}`);
+      }
+    }
   }
 
   const handleLogout = () => {

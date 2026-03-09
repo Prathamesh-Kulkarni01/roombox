@@ -20,7 +20,7 @@ import { setNotifications } from '@/lib/slices/notificationsSlice'
 import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
 import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense, User, UserRole } from '@/lib/types'
-import { setLoading } from '@/lib/slices/appSlice'
+import { setLoading, validateSelectedPg } from '@/lib/slices/appSlice'
 import { useChargeTemplatesStore, usePermissionsStore, useKycConfigStore } from '@/lib/stores/configStores'
 import { initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications'
 import { useRouter, usePathname } from 'next/navigation'
@@ -214,9 +214,14 @@ function AuthHandler({ children }: { children: ReactNode }) {
           if (collectionName === 'pgs' && currentUser.role !== 'owner' && currentUser.pgIds) {
             data = data.filter(pg => currentUser.pgIds?.includes((pg as PG).id));
           }
+          if (collectionName === 'pgs') {
+            const validPgIds = (data as PG[]).map(pg => pg.id);
+            dispatch(validateSelectedPg(validPgIds));
+          }
           if (['complaints', 'expenses'].includes(collectionName)) {
             data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
           }
+
           dispatch(setDataAction(data as any));
 
           if (loadedCount < collectionNames.length) {
