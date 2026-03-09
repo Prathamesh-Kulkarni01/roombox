@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
         try {
-            await sendWhatsAppTemplate(formattedPhone, 'auth_otp_secure', 'en_US', [
+            await sendWhatsAppTemplate(formattedPhone, 'new_auth_otp_secure', 'en_US', [
                 {
                     type: 'body',
                     parameters: [

@@ -316,7 +316,7 @@ export class TenantService {
 
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
 
-                await sendWhatsAppTemplate(formattedPhone, 'guest_welcome_utility', 'en_US', [
+                await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility', 'en_US', [
                     {
                         type: 'body',
                         parameters: [
@@ -563,7 +563,7 @@ export class TenantService {
                     const appUrl = (process.env.APP_URL || 'https://roombox.in');
                     const receiptUrl = `${appUrl}/ledger/${creditEntry.id}`;
 
-                    await sendWhatsAppTemplate(formattedPhone, 'payment_success_receipt', 'en_US', [
+                    await sendWhatsAppTemplate(formattedPhone, 'new_payment_success_receipt', 'en_US', [
                         {
                             type: 'body',
                             parameters: [
@@ -814,7 +814,7 @@ export class TenantService {
             const title = compData.description || compData.category;
             const updateMessage = status === 'resolved' ? 'Fixed! Contact landlord if issue persists.' : 'We are working on it!';
 
-            await sendWhatsAppTemplate(formattedPhone, 'maintenance_ticket_update', 'en_US', [
+            await sendWhatsAppTemplate(formattedPhone, 'new_maintenance_ticket_update', 'en_US', [
                 {
                     type: 'body',
                     parameters: [

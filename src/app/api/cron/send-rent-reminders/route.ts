@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
                             const monthLabel = dueDateObj.toLocaleDateString('en-IN', { month: 'long' });
                             const dateLabel = dueDateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
-                            await sendWhatsAppTemplate(formattedPhone, 'rent_due_reminder', 'en_US', [
+                            await sendWhatsAppTemplate(formattedPhone, 'new_rent_due_reminder', 'en_US', [
                                 {
                                     type: 'body',
                                     parameters: [
