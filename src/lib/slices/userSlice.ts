@@ -40,170 +40,140 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 dispatch(setLoading(false));
                 return rejectWithValue('Firebase not configured');
             }
-
+            console.log(`[initializeUser] Resolving user: ${firebaseUser.uid}`);
             const userDocRef = doc(db!, 'users', firebaseUser.uid);
-            // Force server-side fetch initially to avoid stale cached roles from previous visits
-            let userDoc = await getDoc(userDocRef).catch(() => getDoc(userDocRef));
 
-            // If the role is unassigned, try one more time from server to be absolutely sure 
-            // of the latest role from the API that just set it up.
+            // Force server-side fetch initially to avoid stale cached roles
+            let userDoc = await getDoc(userDocRef).catch((e) => {
+                console.warn(`[initializeUser] Initial getDoc failed for ${firebaseUser.uid}:`, e);
+                return getDoc(userDocRef);
+            });
+
+            // If still unassigned, wait briefly for propagation if a server-side update just happened
             if (userDoc.exists() && (userDoc.data() as User).role === 'unassigned') {
-                console.log(`[initializeUser] Role is unassigned. Retrying from server...`);
-                // Note: JS SDK doesn't have an easy "getDocFromServer" but we can wait briefly 
-                // and re-fetch to allow propagation if it was just changed in API.
-                await new Promise(r => setTimeout(r, 500));
+                console.log(`[initializeUser] Role is unassigned. Waiting for propagation...`);
+                await new Promise(r => setTimeout(r, 800));
                 userDoc = await getDoc(userDocRef);
             }
 
             const getPlanForUser = (user: User): Plan => {
-                if (!user.subscription || user.subscription.status === 'inactive') {
-                    return plans.free;
-                }
-
-                const isActive = user.subscription.status === 'active';
-                const isTrialing = user.subscription.status === 'trialing' && user.subscription.trialEndDate && isAfter(new Date(user.subscription.trialEndDate), new Date());
-
-                if (isActive || isTrialing) {
-                    return { ...plans.pro };
-                }
-
-                return plans.free;
+                const sub = user.subscription;
+                if (!sub || sub.status === 'inactive') return plans.free;
+                const isActive = sub.status === 'active';
+                const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
+                return (isActive || isTrialing) ? { ...plans.pro } : plans.free;
             };
 
             if (!userDoc.exists()) {
-                // --- This is a brand new user ---
-                // Create their document immediately with an 'unassigned' role.
-                const baseUser = {
+                console.log(`[initializeUser] Creating new skeleton user doc for ${firebaseUser.uid}`);
+                const baseUser: User = {
                     id: firebaseUser.uid,
                     name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'New User',
                     role: 'unassigned',
                     status: 'pending_approval',
                     avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=${((firebaseUser.displayName || 'NU') || 'NU').slice(0, 2).toUpperCase()}`,
-                    guestId: null as null,
+                    guestId: null as any,
                     createdAt: new Date().toISOString(),
-                } as Partial<User>;
-
-                if (firebaseUser.email) {
-                    baseUser.email = firebaseUser.email;
-                }
-                if (firebaseUser.phoneNumber) {
-                    baseUser.phone = firebaseUser.phoneNumber;
-                }
-
-                const newUser = baseUser as User;
-
-                await setDoc(userDocRef, newUser);
-                userDoc = await getDoc(userDocRef); // Re-fetch the newly created doc to ensure consistency.
+                };
+                if (firebaseUser.email) baseUser.email = firebaseUser.email;
+                if (firebaseUser.phoneNumber) baseUser.phone = firebaseUser.phoneNumber;
+                await setDoc(userDocRef, baseUser);
+                userDoc = await getDoc(userDocRef);
             }
 
-            let userData = userDoc.data() as User;
+            let userData = { ...userDoc.data(), id: userDoc.id } as User;
+            console.log(`[initializeUser] Firestore role: ${userData.role}, Id: ${userData.id}`);
 
-            // --- Robust Role Resolution (Check Auth Claims vs Firestore) ---
-            // If the firestore doc exists but the role is unassigned, check the auth token claims
-            // which are set by the magic-login or set-password APIs. This bypasses firestore propagation lag.
-            if (userData.role === 'unassigned') {
-                const tokenResult = await firebaseUser.getIdTokenResult(true); // force refresh token to get latest claims
-                const roleFromClaim = tokenResult.claims.role as UserRole;
+            // --- Robust Role Resolution: Check Auth Claims vs Firestore ---
+            // Force refresh token to get latest claims set by magic-login/set-password APIs
+            const tokenResult = await firebaseUser.getIdTokenResult(true).catch(e => {
+                console.warn('[initializeUser] Claims refresh failed, using cached:', e);
+                return firebaseUser.getIdTokenResult();
+            });
+            const roleFromClaim = tokenResult.claims.role as UserRole;
 
-                if (roleFromClaim && roleFromClaim !== 'unassigned') {
-                    console.log(`[initializeUser] Firestore stale (unassigned). Using role from Auth Claim: ${roleFromClaim}`);
-                    userData.role = roleFromClaim;
-                    // Also attempt to get ownerId/guestId from claims if they were set
-                    if (tokenResult.claims.ownerId) userData.ownerId = tokenResult.claims.ownerId as string;
-                    if (tokenResult.claims.guestId) userData.guestId = tokenResult.claims.guestId as string;
-                }
+            if (roleFromClaim && roleFromClaim !== 'unassigned' && userData.role !== roleFromClaim) {
+                console.log(`[initializeUser] Overriding Firestore role (${userData.role}) with Auth Claim: ${roleFromClaim}`);
+                userData.role = roleFromClaim;
+                if (tokenResult.claims.ownerId) userData.ownerId = tokenResult.claims.ownerId as string;
+                if (tokenResult.claims.guestId) userData.guestId = tokenResult.claims.guestId as string;
             }
 
-            // --- Handle Invites for New or Existing Users ---
-            // --- Handle Invites for New or Existing Users ---
+            // --- Handle Invites (only if still unassigned) ---
             if (userData.role === 'unassigned' && userData.email) {
                 try {
+                    console.log(`[initializeUser] Checking global invites for ${userData.email}`);
                     const inviteDocRef = doc(db!, 'invites', userData.email);
                     const inviteDoc = await getDoc(inviteDocRef);
 
                     if (inviteDoc.exists()) {
                         const inviteData = inviteDoc.data() as Invite;
                         const batch = writeBatch(db!);
-                        // Determine owner's data DB for guest/staff linkage
-                        let ownerDataDb = db!;
+                        console.log(`[initializeUser] Found invite for role: ${inviteData.role}`);
+
+                        // Optional Mapping logic for Enterprise/Staff
                         try {
-                            const ownerDoc = await getDoc(doc(db!, 'users', inviteData.ownerId));
-                            const enterprise = ownerDoc.data()?.subscription?.enterpriseProject;
-                            if (enterprise?.projectId || enterprise?.databaseId) {
-                                // IMPROVED: Use client-side dynamic DB if available, otherwise this should be a server action
-                                // Note: Admin SDK was incorrectly used here previously.
-                                const enterpriseDb = enterprise.databaseId ? getDynamicDb(enterprise.databaseId) : db!;
-                                if (enterpriseDb) {
-                                    const targetDocRef = inviteData.role === 'tenant'
-                                        ? doc(enterpriseDb, 'users_data', inviteData.ownerId, 'guests', (inviteData.details as Guest).id)
-                                        : doc(enterpriseDb, 'users_data', inviteData.ownerId, 'staff', (inviteData.details as Staff).id);
-                                    await setDoc(targetDocRef, { userId: firebaseUser.uid }, { merge: true });
+                            const ownerDocRef = doc(db!, 'users', inviteData.ownerId);
+                            const ownerDoc = await getDoc(ownerDocRef).catch(() => null);
+                            if (ownerDoc && ownerDoc.exists()) {
+                                const enterprise = ownerDoc.data()?.subscription?.enterpriseProject;
+                                if (enterprise?.projectId || enterprise?.databaseId) {
+                                    const enterpriseDb = enterprise.databaseId ? getDynamicDb(enterprise.databaseId) : db!;
+                                    if (enterpriseDb) {
+                                        const targetDocRef = inviteData.role === 'tenant'
+                                            ? doc(enterpriseDb, 'users_data', inviteData.ownerId, 'guests', (inviteData.details as Guest).id)
+                                            : doc(enterpriseDb, 'users_data', inviteData.ownerId, 'staff', (inviteData.details as Staff).id);
+                                        await setDoc(targetDocRef, { userId: firebaseUser.uid }, { merge: true }).catch(e => console.warn('[initializeUser] Enterprise mapping failed:', e));
+                                    }
                                 }
-                            } else {
-                                ownerDataDb = db!; // default app DB
                             }
-                        } catch (err) {
-                            console.error('[initializeUser] Error updating enterprise DB:', err);
-                        }
+                        } catch (err) { /* Expected for non-owners */ }
 
-                        let roleUpdate: Partial<User> = {
-                            role: inviteData.role,
-                            ownerId: inviteData.ownerId,
-                        };
-
+                        const roleUpdate: Partial<User> = { role: inviteData.role, ownerId: inviteData.ownerId };
                         if (inviteData.role === 'tenant') {
                             const guestDetails = inviteData.details as Guest;
                             roleUpdate.guestId = guestDetails.id;
                             roleUpdate.pgId = guestDetails.pgId;
-                            // Also update App DB mapping if using App DB
-                            if (ownerDataDb === db) {
-                                const guestDocRef = doc(db!, 'users_data', inviteData.ownerId, 'guests', guestDetails.id);
-                                batch.update(guestDocRef, { userId: firebaseUser.uid });
-                            }
-                        } else { // Staff roles
-                            const staffDetails = inviteData.details as Staff;
-                            roleUpdate.pgIds = [staffDetails.pgId];
-                            if (ownerDataDb === db) {
-                                const staffDocRef = doc(db!, 'users_data', inviteData.ownerId, 'staff', staffDetails.id);
-                                batch.update(staffDocRef, { userId: firebaseUser.uid });
-                            }
                         }
 
                         batch.update(userDocRef, roleUpdate);
                         batch.delete(inviteDocRef);
-                        await batch.commit();
+                        await batch.commit().catch(e => console.warn('[initializeUser] Batch commit failed:', e));
 
-                        // Re-fetch user data to get the new role
-                        userDoc = await getDoc(userDocRef);
-                        userData = userDoc.data() as User;
+                        // Local update of userData
+                        userData = { ...userData, ...roleUpdate };
                     }
                 } catch (inviteError) {
-                    console.warn('[initializeUser] Could not read invite. User likely has no pending invites or firestore rules blocked it:', inviteError);
+                    console.warn('[initializeUser] Invite resolution forbidden/failed:', inviteError);
                 }
             }
 
-            // --- Fetch correct plan and permissions based on final role ---
+            // --- Fetch owner subscription for non-owners ---
             let ownerIdForPermissions = userData.role === 'owner' ? userData.id : userData.ownerId;
             let finalUserData = userData;
 
             if (userData.role !== 'owner' && userData.role !== 'admin' && ownerIdForPermissions) {
-                const ownerDocRef = doc(db!, 'users', ownerIdForPermissions);
-                const ownerDoc = await getDoc(ownerDocRef);
-                if (ownerDoc.exists()) {
-                    finalUserData.subscription = ownerDoc.data().subscription;
+                try {
+                    const ownerDocRef = doc(db!, 'users', ownerIdForPermissions);
+                    const ownerDoc = await getDoc(ownerDocRef);
+                    if (ownerDoc.exists()) {
+                        finalUserData.subscription = ownerDoc.data().subscription;
+                    }
+                } catch (subErr) {
+                    console.warn('[initializeUser] Could not fetch owner subscription (forbidden):', subErr);
                 }
             }
 
             const userPlan = getPlanForUser(finalUserData);
-
             if (ownerIdForPermissions) {
+                console.log(`[initializeUser] Fetching permissions for role: ${finalUserData.role} under owner: ${ownerIdForPermissions}`);
                 dispatch(fetchPermissions({ ownerId: ownerIdForPermissions, plan: userPlan }));
             }
 
             return finalUserData;
         } catch (error: any) {
-            console.error('[initializeUser] failed:', error);
-            return rejectWithValue(error?.message || 'initializeUser failed with unknown error');
+            console.error('[initializeUser] CRITICAL FAILURE:', error);
+            return rejectWithValue(error?.message || 'initializeUser failed');
         }
     }
 );

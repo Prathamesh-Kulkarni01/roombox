@@ -171,11 +171,13 @@ function AuthHandler({ children }: { children: ReactNode }) {
       const collectionNames = Object.keys(collectionsToSync);
       let loadedCount = 0;
 
-      const ownerNotifQuery = query(collection(dbInstance, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
-      unsubs.push(onSnapshot(ownerNotifQuery, snapshot => {
-        const data = snapshot.docs.map(doc => doc.data() as Notification);
-        dispatch(setNotifications(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-      }));
+      if (ownerIdForFetching && ownerIdForFetching !== 'undefined') {
+        const ownerNotifQuery = query(collection(dbInstance, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
+        unsubs.push(onSnapshot(ownerNotifQuery, snapshot => {
+          const data = snapshot.docs.map(doc => doc.data() as Notification);
+          dispatch(setNotifications(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+        }));
+      }
 
       collectionNames.forEach(collectionName => {
         const setDataAction = collectionsToSync[collectionName];
@@ -204,15 +206,20 @@ function AuthHandler({ children }: { children: ReactNode }) {
       const { ownerId, pgId, guestId, id: userId } = currentUser;
       unsubs.push(onSnapshot(doc(dbInstance, 'users_data', ownerId, 'pgs', pgId), snap => dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []))));
       unsubs.push(onSnapshot(doc(dbInstance, 'users_data', ownerId, 'guests', guestId), snap => dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : []))));
-      unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId)), snap => {
-        dispatch(setComplaints(snap.docs.map(d => d.data() as Complaint).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-      }));
-      unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId)), snap => {
-        dispatch(setStaff(snap.docs.map(d => d.data() as Staff)));
-      }));
-      unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId, userId])), snap => {
-        dispatch(setNotifications(snap.docs.map(d => d.data() as Notification).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-      }));
+      if (pgId && pgId !== 'undefined') {
+        unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId)), snap => {
+          dispatch(setComplaints(snap.docs.map(d => d.data() as Complaint).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+        }));
+        unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId)), snap => {
+          dispatch(setStaff(snap.docs.map(d => d.data() as Staff)));
+        }));
+      }
+      const notificationTargets = [guestId, pgId, userId].filter(t => t && t !== 'undefined');
+      if (notificationTargets.length > 0) {
+        unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'notifications'), where('targetId', 'in', notificationTargets)), snap => {
+          dispatch(setNotifications(snap.docs.map(d => d.data() as Notification).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+        }));
+      }
       dispatch(setLoading(false));
     } else {
       dispatch(setLoading(false));

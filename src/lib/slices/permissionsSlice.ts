@@ -27,7 +27,7 @@ const getDefaultPermissions = (plan: Plan): RolePermissions => {
                 perms[feature][action] = false;
             }
         }
-        
+
         // Sensible defaults for a manager on a paying plan
         if (role === 'manager' && plan.hasStaffManagement) {
             perms.properties = { view: true, add: true, edit: true, delete: false, sharedCharge: true };
@@ -38,7 +38,7 @@ const getDefaultPermissions = (plan: Plan): RolePermissions => {
             perms.staff = { view: true, add: false, edit: false, delete: false };
             perms.kyc = { view: true, edit: true, add: true };
         }
-        
+
         // Defaults for a cook
         if (role === 'cook') {
             perms.food = { view: true, edit: true };
@@ -70,27 +70,35 @@ const initialState: PermissionsState = {
 export const fetchPermissions = createAsyncThunk<RolePermissions, { ownerId: string, plan: Plan }, { state: RootState }>(
     'permissions/fetchPermissions',
     async ({ ownerId, plan }, { getState, rejectWithValue }) => {
-        const { user } = getState();
+        const { user } = getState() as RootState;
         if (!isFirebaseConfigured()) return rejectWithValue('Firebase not configured');
+
+        // Non-staff roles (tenants, unassigned) don't need to fetch staff role permissions
+        if (user.currentUser?.role === 'tenant' || user.currentUser?.role === 'unassigned') {
+            return getDefaultPermissions(plan);
+        }
+
         const selectedDb = selectOwnerDataDb(user.currentUser);
         const docRef = doc(selectedDb!, 'users_data', ownerId, 'permissions', 'staff_roles_v2');
-        const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
-            return docSnap.data() as RolePermissions;
-        } else {
-            // No custom permissions found, create and set defaults
-            const defaultPermissions = getDefaultPermissions(plan);
-            // Only save to DB if it's a paying customer to avoid writing on every free user's first load.
-            // Owner on free plan will just use these defaults in-memory.
-            if(plan.id !== 'free') {
-                try {
-                    await setDoc(docRef, defaultPermissions);
-                } catch (error) {
-                    console.error("Failed to set default permissions in Firestore:", error)
+        try {
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                return docSnap.data() as RolePermissions;
+            } else {
+                // No custom permissions found, create and set defaults
+                const defaultPermissions = getDefaultPermissions(plan);
+                // Only save to DB if it's a paying customer to avoid writing on every free user's first load.
+                // Owner on free plan will just use these defaults in-memory.
+                if (plan.id !== 'free' && user.currentUser?.role === 'owner') {
+                    await setDoc(docRef, defaultPermissions).catch(e => console.warn('[fetchPermissions] Set defaults failed:', e));
                 }
+                return defaultPermissions;
             }
-            return defaultPermissions;
+        } catch (error) {
+            console.error("[fetchPermissions] Missing permission to read staff roles (expected for non-owners):", error);
+            return getDefaultPermissions(plan);
         }
     }
 );
@@ -121,7 +129,7 @@ const permissionsSlice = createSlice({
             .addCase(fetchPermissions.fulfilled, (state, action) => {
                 state.featurePermissions = action.payload;
             })
-             .addCase(fetchPermissions.rejected, (state, action) => {
+            .addCase(fetchPermissions.rejected, (state, action) => {
                 console.error("Failed to fetch permissions:", action.payload);
                 state.featurePermissions = null;
             })

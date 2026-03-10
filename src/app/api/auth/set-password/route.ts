@@ -101,7 +101,11 @@ export async function POST(req: NextRequest) {
 
 
         // Generate Custom Token to sign them in immediately
-        const customToken = await auth.createCustomToken(uid);
+        const customToken = await auth.createCustomToken(uid, {
+            role: 'tenant',
+            guestId: magicLinkData?.guestId || userDoc.data().guestId,
+            ownerId: magicLinkData?.ownerId || userDoc.data().ownerId
+        });
 
         // Delete magic token now that it is consumed
         await magicLinkRef.delete();
