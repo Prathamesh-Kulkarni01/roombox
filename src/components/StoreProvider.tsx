@@ -103,25 +103,20 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin'];
 
-    // Don't redirect if we're already on a public page or login
+    // List of pages that are accessible without authentication
     const publicPages = ['/', '/login', '/signup', '/privacy-policy', '/terms-of-service', '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog'];
-    if (publicPages.some(p => pathname.startsWith(p) && p !== '/')) {
-      if (pathname === '/' && currentUser) {
-        // User is logged in and on the homepage, redirect them
-      } else {
-        return;
-      }
-    }
+    const isPublicPage = publicPages.some(p => pathname === p || (p !== '/' && pathname.startsWith(p)));
 
     if (currentUser) {
+      // If logged in, we decide where they should be
       if (currentUser.role === 'tenant' && !pathname.startsWith('/tenants')) {
         router.replace('/tenants/my-pg');
       } else if (allowedDashboardRoles.includes(currentUser.role) && !pathname.startsWith('/dashboard') && !pathname.startsWith('/admin')) {
         router.replace('/dashboard');
-      } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile') {
+      } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile' && !isPublicPage) {
         router.replace('/complete-profile');
       }
-    } else if (!publicPages.some(p => pathname.startsWith(p))) {
+    } else if (!isPublicPage) {
       // If not logged in and not on a public page, go to login
       router.replace('/login');
     }

@@ -61,8 +61,8 @@ export async function POST(req: NextRequest) {
         const auth = await getAdminAuth();
 
         // We use the ID stored in magic_link or derived from phone
-        const uid = magicLinkData.guestId || `phone-${magicLinkData.phone.replace(/\D/g, '')}`;
-
+        const cleanPhoneDigits = magicLinkData.phone.replace(/\D/g, '');
+        const uid = magicLinkData.guestId || `phone-${cleanPhoneDigits.slice(-10)}`;
         // Mark as used immediately to prevent race conditions
         await magicLinkRef.update({
             used: true,

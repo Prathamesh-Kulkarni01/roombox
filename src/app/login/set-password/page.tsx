@@ -70,7 +70,7 @@ function SetPasswordContent() {
                 description: "Your password has been saved. Redirecting to your dashboard...",
             });
 
-            router.push("/tenants");
+            router.push("/tenants/my-pg");
         } catch (err: any) {
             console.error("Set Password Error:", err);
             setError(err.message || "Failed to set password. The link may be invalid or expired.");

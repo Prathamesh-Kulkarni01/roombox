@@ -55,21 +55,33 @@ export async function POST(req: NextRequest) {
 
         const uid = userDoc.id;
         const auth = await getAdminAuth();
+        const internalEmail = `${cleanPhone.slice(-10)}@roombox.app`;
 
         // Update or Create the user in Firebase Auth
         try {
             await auth.updateUser(uid, {
+                email: internalEmail,
                 password: password,
                 disabled: false
             });
         } catch (error: any) {
-            if (error.code === 'auth/user-not-found') {
-                // If the Auth record doesn't exist yet, create it
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/email-already-exists') {
+                // If user not found, create it. 
+                // If email already exists but on a different UID, this is a conflict we should handle
+                // However, usually we expect the internal email to be unique to this phone.
                 await auth.createUser({
                     uid: uid,
+                    email: internalEmail,
                     phoneNumber: phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone),
                     password: password,
                     displayName: userDoc.data().name || 'Tenant'
+                }).catch(async (e) => {
+                    // Final fallback: if uid exists but email mismatch
+                    if (e.code === 'auth/uid-already-exists') {
+                        await auth.updateUser(uid, { email: internalEmail, password: password });
+                    } else {
+                        throw e;
+                    }
                 });
             } else {
                 throw error;

@@ -32,6 +32,8 @@ const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
   </svg>
 );
 
+const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin', 'other'];
+
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -46,8 +48,6 @@ export default function LoginPage() {
 
   const loading = appLoading || isSigningIn;
 
-  const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin'];
-
   useEffect(() => {
     if (!appLoading && currentUser) {
       if (currentUser.role === 'tenant') {
@@ -58,7 +58,7 @@ export default function LoginPage() {
         router.replace('/complete-profile');
       }
     }
-  }, [appLoading, currentUser, router, allowedDashboardRoles]);
+  }, [appLoading, currentUser, router]);
 
   if (appLoading || currentUser) {
     return (

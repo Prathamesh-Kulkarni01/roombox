@@ -317,7 +317,7 @@ export class TenantService {
                         try {
                             const { getAdminAuth } = await import('@/lib/firebaseAdmin');
                             const auth = await getAdminAuth();
-                            const internalEmail = `${standardizedPhone.replace(/\D/g, '')}@roombox.app`;
+                            const internalEmail = `${standardizedPhone.replace(/\D/g, '').slice(-10)}@roombox.app`;
 
                             try {
                                 await auth.updateUser(userDoc.id, {
@@ -361,8 +361,9 @@ export class TenantService {
                         console.log(`[TenantService.onboardTenant] Creating skeleton user & Firebase Auth for phone: ${standardizedPhone}`);
 
                         // Use a phone-based ID if no email exists to avoid collisions
-                        const uid = `phone-${standardizedPhone.replace(/\D/g, '')}`;
-                        const internalEmail = `${standardizedPhone.replace(/\D/g, '')}@roombox.app`;
+                        const cleanPhoneDigits = standardizedPhone.replace(/\D/g, '');
+                        const uid = `phone-${cleanPhoneDigits.slice(-10)}`;
+                        const internalEmail = `${cleanPhoneDigits.slice(-10)}@roombox.app`;
 
                         const userPlaceholder: any = {
                             phone: standardizedPhone,
