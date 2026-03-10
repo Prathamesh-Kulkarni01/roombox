@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, getAdminAuth } from "@/lib/firebaseAdmin";
-import { hashPassword } from "@/lib/password-utils";
+import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
     try {
@@ -35,33 +35,63 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Invalid link data (missing phone)." }, { status: 500 });
         }
 
-        // Find existing user in Firestore
+        // Find existing user in Firestore to get the UID (which is doc id)
         const cleanPhone = phone.replace(/\D/g, '');
         const variations = [phone, cleanPhone, `+${cleanPhone}`];
         if (cleanPhone.length === 10) variations.push(`+91${cleanPhone}`);
 
-        let userDocRef = null;
+        let userDoc = null;
         for (const v of variations) {
             const snap = await adminDb.collection('users').where('phone', '==', v).limit(1).get();
             if (!snap.empty) {
-                userDocRef = snap.docs[0].ref;
+                userDoc = snap.docs[0];
                 break;
             }
         }
 
-        if (!userDocRef) {
+        if (!userDoc) {
             return NextResponse.json({ error: "No user found for this phone number." }, { status: 404 });
         }
 
-        // Hash and save password
-        const hashedPassword = hashPassword(password);
-        await userDocRef.update({ password: hashedPassword });
+        const uid = userDoc.id;
+        const auth = await getAdminAuth();
+
+        // Update or Create the user in Firebase Auth
+        try {
+            await auth.updateUser(uid, {
+                password: password,
+                disabled: false
+            });
+        } catch (error: any) {
+            if (error.code === 'auth/user-not-found') {
+                // If the Auth record doesn't exist yet, create it
+                await auth.createUser({
+                    uid: uid,
+                    phoneNumber: phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone),
+                    password: password,
+                    displayName: userDoc.data().name || 'Tenant'
+                });
+            } else {
+                throw error;
+            }
+        }
+
+        // Clear legacy password from Firestore if it exists
+        await userDoc.ref.update({
+            password: adminDb.terminate ? adminDb.terminate : null, // Using a workaround if deleteField isn't available directly
+            // Better: just set it to a special value or ignore it in the app
+            updatedAt: new Date(),
+            schemaVersion: 2 // Mark as versioned
+        });
+
+        // Specific cleanup for password field
+        await userDoc.ref.update({
+            password: FieldValue.delete()
+        });
+
 
         // Generate Custom Token to sign them in immediately
-        // By using the Firestore document ID directly as the UID, we bypass Firebase Auth's strict E.164 
-        // phone number validation rules. Firebase will automatically provision an Auth record if it doesn't exist.
-        const auth = await getAdminAuth();
-        const customToken = await auth.createCustomToken(userDocRef.id);
+        const customToken = await auth.createCustomToken(uid);
 
         // Delete magic token now that it is consumed
         await magicLinkRef.delete();
