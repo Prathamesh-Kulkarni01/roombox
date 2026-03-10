@@ -7,77 +7,91 @@ interface ReminderResult {
   body: string;
 }
 
-export function getReminderForGuest(guest: Guest, now: Date = new Date()): ReminderResult {
-  const dueDate = new Date(guest.dueDate);
+function getOldestUnpaidDate(guest: Guest): Date | null {
+  if (!guest.balance || guest.balance <= 0) return null;
+  const debits = (guest.ledger || []).filter(e => e.type === 'debit').sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const credits = (guest.ledger || []).filter(e => e.type === 'credit');
+  let totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
 
-  // Skip reminders for paid or vacated tenants
-  if (guest.rentStatus === 'paid' || guest.isVacated) {
+  for (const debit of debits) {
+    if (totalCredits >= debit.amount) {
+      totalCredits -= debit.amount;
+    } else {
+      return new Date(debit.date);
+    }
+  }
+  return null;
+}
+
+export function getReminderForGuest(guest: Guest, now: Date = new Date()): ReminderResult {
+  if (guest.isVacated) {
     return { shouldSend: false, title: '', body: '' };
   }
 
-  const diffMs = dueDate.getTime() - now.getTime(); // positive = upcoming, negative = overdue
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-
-  // For days, we want calendar days based on the tenant's local perception.
-  // If timezone is present (e.g. Asia/Kolkata), a UTC midnight might be "tomorrow" for them.
+  // Helper to determine calendar day difference respecting timezone
   function getMidnightInTZ(date: Date, tzOffsetMinutes: number = 0): number {
-    // Basic timezone shift: add the minutes, then floor to midnight UTC
     const shifted = new Date(date.getTime() + tzOffsetMinutes * 60000);
     return new Date(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()).getTime();
   }
 
-  // We'll estimate the offset if timezone strings aren't parsed by a library yet.
-  // Standard Roombox behavior: Default to owner's/property's assumed timezone (IST is +330).
   let tzOffset = 0;
   if (guest.timezone === 'Asia/Kolkata') tzOffset = 330;
-  else if (guest.timezone === 'Europe/London') tzOffset = 60; // Approximate BST/GMT
+  else if (guest.timezone === 'Europe/London') tzOffset = 60;
 
   const nowMidnight = getMidnightInTZ(now, tzOffset);
-  const dueMidnight = getMidnightInTZ(dueDate, tzOffset);
-  const diffDays = Math.round((dueMidnight - nowMidnight) / (1000 * 60 * 60 * 24));
 
-  let checkValue = diffDays;
-  let unitString = 'day(s)';
+  // Helper to get check value
+  function getCheckValue(targetDate: Date, unit: string): { checkValue: number, unitString: string } {
+    const diffMs = targetDate.getTime() - now.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const targetMidnight = getMidnightInTZ(targetDate, tzOffset);
+    const diffDays = Math.round((targetMidnight - nowMidnight) / (1000 * 60 * 60 * 24));
 
-  // Determine unit and checkValue based on cycle unit
-  if (guest.rentCycleUnit === 'months' || guest.rentCycleUnit === 'weeks') {
-    checkValue = diffDays;
-    unitString = 'day(s)';
-  } else if (guest.rentCycleUnit === 'days') {
-    checkValue = diffHours; // Daily cycle -> Hour-based reminders (e.g., T-3 hours)
-    unitString = 'hour(s)';
-  } else if (guest.rentCycleUnit === 'hours') {
-    checkValue = diffHours; // Hourly cycle -> Hour-based reminders
-    unitString = 'hour(s)';
-  } else if (guest.rentCycleUnit === 'minutes') {
-    // This is for extreme acceleration if ever needed
-    checkValue = diffMinutes;
-    unitString = 'minute(s)';
+    if (unit === 'months' || unit === 'weeks') {
+      return { checkValue: diffDays, unitString: 'day(s)' };
+    } else if (unit === 'days') {
+      return { checkValue: diffHours, unitString: 'hour(s)' };
+    } else if (unit === 'hours') {
+      return { checkValue: diffHours, unitString: 'hour(s)' };
+    } else if (unit === 'minutes') {
+      return { checkValue: diffMinutes, unitString: 'minute(s)' };
+    }
+    return { checkValue: diffDays, unitString: 'day(s)' };
   }
 
-  // Exact Match Logic for RentSutra Automations: T-3, T-1, T0, T+2
-  // Note: diffMs is positive for upcoming, negative for overdue.
-  // So T-3 means checkValue === 3 (upcoming in 3 units)
-  // T-1 means checkValue === 1
-  // T0 means checkValue === 0
-  // T+2 means checkValue === -2 (overdue by 2 units)
+  const nextDueDate = new Date(guest.dueDate);
+  const nextDueCheck = getCheckValue(nextDueDate, guest.rentCycleUnit || 'months');
 
   let type: 'T-3' | 'T-1' | 'T0' | 'T+2' | undefined = undefined;
   let body = '';
+  let unitString = nextDueCheck.unitString;
 
-  if (checkValue === 3) {
+  // 1. Check Upcoming Reminders (T-3, T-1, T0) based on nextDueDate
+  if (nextDueCheck.checkValue === 3) {
     type = 'T-3';
-    body = `Hello ${guest.name},\nThis is a reminder that your rent for ${guest.pgName || 'your PG'} is coming up in 3 ${unitString}.\nDue Date: ${dueDate.toLocaleDateString()}\nPlease keep the amount ready.`;
-  } else if (checkValue === 1) {
+    body = `Hello ${guest.name},\nThis is a reminder that your rent for ${guest.pgName || 'your PG'} is coming up in 3 ${unitString}.\nDue Date: ${nextDueDate.toLocaleDateString()}\nPlease keep the amount ready.`;
+  } else if (nextDueCheck.checkValue === 1) {
     type = 'T-1';
-    body = `Hello ${guest.name},\nYour rent of ₹${guest.rentAmount} for ${guest.pgName || 'your PG'} is due *Tomorrow*.\nPlease pay on time to avoid late fees.`;
-  } else if (checkValue === 0) {
+    const dueStr = unitString === 'day(s)' ? '*Tomorrow*' : `in 1 ${unitString}`;
+    body = `Hello ${guest.name},\nYour rent of ₹${guest.rentAmount} for ${guest.pgName || 'your PG'} is due ${dueStr}.\nPlease pay on time to avoid late fees.`;
+  } else if (nextDueCheck.checkValue === 0) {
     type = 'T0';
-    body = `Hello ${guest.name},\nThis is a gentle reminder that your rent of ₹${guest.rentAmount} for ${guest.pgName || 'your PG'} is due *TODAY*.\nPlease pay using the link below.`;
-  } else if (checkValue === -2) {
-    type = 'T+2';
-    body = `⚠️ Hello ${guest.name},\nYour rent payment is *2 ${unitString} overdue*.\nDue Date was: ${dueDate.toLocaleDateString()}.\nPlease clear your dues immediately.`;
+    const todayStr = unitString === 'day(s)' ? '*TODAY*' : '*NOW*';
+    body = `Hello ${guest.name},\nThis is a gentle reminder that your rent of ₹${guest.rentAmount} for ${guest.pgName || 'your PG'} is due ${todayStr}.\nPlease pay using the link below.`;
+  }
+
+  // 2. Check Overdue Reminders (T+2) based on Oldest Unpaid Date
+  if (!type && guest.balance > 0) {
+    const oldestUnpaidDate = getOldestUnpaidDate(guest);
+    if (oldestUnpaidDate) {
+      const overdueCheck = getCheckValue(oldestUnpaidDate, guest.rentCycleUnit || 'months');
+      if (overdueCheck.checkValue === -2) {
+        type = 'T+2';
+        unitString = overdueCheck.unitString;
+        body = `⚠️ Hello ${guest.name},\nYour rent payment is *2 ${unitString} overdue*.\nDue Date was: ${oldestUnpaidDate.toLocaleDateString()}.\nPlease clear your dues immediately.`;
+      }
+    }
   }
 
   if (type) {

@@ -32,7 +32,7 @@ const AddGuestSchema = z.object({
     deposit: z.coerce.number().nonnegative().optional(),
     joinDate: z.string().datetime({ offset: true }).optional().or(z.string().optional()),
     dueDate: z.string().optional(),
-    rentCycleUnit: z.enum(['days', 'weeks', 'months']).optional(),
+    rentCycleUnit: z.enum(['minutes', 'hours', 'days', 'weeks', 'months']).optional(),
     rentCycleValue: z.coerce.number().positive().optional(),
 });
 
