@@ -705,7 +705,7 @@ export class TenantService {
                     const appUrl = (process.env.APP_URL || 'https://roombox.in');
                     const receiptUrl = `${appUrl}/ledger/${creditEntry.id}`;
 
-                    await sendWhatsAppTemplate(formattedPhone, 'new_payment_success_receipt', 'en_US', [
+                    await sendWhatsAppTemplate(formattedPhone, 'new_payment_success_receipt_utility', 'en_US', [
                         {
                             type: 'body',
                             parameters: [
