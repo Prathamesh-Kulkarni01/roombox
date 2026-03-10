@@ -44,12 +44,12 @@ export async function POST(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
         const appDb = await getAdminDb();
 
-        const newGuest = await TenantService.onboardTenant(db, appDb, {
+        const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, {
             ...guestData,
             ownerId
         });
 
-        return NextResponse.json({ success: true, guest: newGuest }, { status: 201 });
+        return NextResponse.json({ success: true, guest: newGuest, magicLink }, { status: 201 });
     } catch (error: any) {
         return serverError(error, 'POST /api/tenants');
     }

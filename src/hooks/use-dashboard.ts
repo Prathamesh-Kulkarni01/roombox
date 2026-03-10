@@ -263,7 +263,14 @@ export function useDashboard(pgId?: string) {
       }).unwrap();
 
       if (result.success) {
-        toast({ title: 'Success!', description: `${values.name} has been successfully added.` });
+        let successDescription = `${values.name} has been successfully added.`;
+
+        // Show the generated default password to the owner if present
+        if (result.guest && (result.guest as any)._defaultPassword) {
+          successDescription += `\nDefault Password: ${(result.guest as any)._defaultPassword}`;
+        }
+
+        toast({ title: 'Success!', description: successDescription });
         setIsAddGuestDialogOpen(false);
         showConfetti({ particleCount: 150, spread: 80 });
       }

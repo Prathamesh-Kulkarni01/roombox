@@ -6,6 +6,7 @@
  * It combines the old GuestService and TenantService logic.
  */
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
+import * as crypto from 'crypto';
 import { runReconciliationLogic } from '@/lib/reconciliation';
 import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument } from '@/lib/types';
 import { getPlanLimit } from '@/lib/permissions';
@@ -44,19 +45,53 @@ export class TenantService {
     }
 
     /**
+     * Generates a single-use magic link token for a tenant.
+     * Use this whenever the tenant needs to log in without a password.
+     */
+    static async generateMagicLink(appDb: Firestore, guestId: string, phone: string, ownerId: string, pgName?: string): Promise<string> {
+        const token = crypto.randomBytes(32).toString('hex');
+
+        await appDb.collection('magic_links').doc(token).set({
+            token,
+            guestId,
+            phone,
+            ownerId,
+            pgName: pgName || 'RentSutra',
+            createdAt: Date.now(),
+            expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours expiry
+            used: false
+        });
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app';
+        return `${appUrl}/invite/${token}`;
+    }
+
+    /**
      * Onboards a new tenant with centralized logic.
      * Handles Firestore updates, bed assignment, user linking/invites, and welcome notifications.
      */
-    static async onboardTenant(db: Firestore, appDb: Firestore, input: any): Promise<Guest> {
-        console.log('🌟 [TenantService.onboardTenant] CALLED with phone:', input.phone);
+    static async onboardTenant(db: Firestore, appDb: Firestore, input: any): Promise<{ guest: Guest, magicLink?: string }> {
         const {
-            ownerId, name, email, phone, pgId, pgName,
-            bedId, roomId, roomName, rentAmount, deposit,
-            dueDate, joinDate, rentCycleUnit, rentCycleValue,
-            planId = 'free'
+            ownerId,
+            name,
+            phone,
+            email,
+            pgId,
+            pgName,
+            bedId,
+            roomId,
+            roomName,
+            rentAmount,
+            deposit,
+            joinDate,
+            dueDate,
+            rentCycleUnit = 'months',
+            rentCycleValue = 1,
+            planId
         } = input;
 
-        // 1. Check Guest Limit
+        console.log(`[TenantService.onboardTenant] Starting for ${name} (${phone})`);
+        let magicLinkResult: string | undefined;
         await this.checkGuestLimit(db, ownerId, planId);
 
         console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
@@ -208,6 +243,35 @@ export class TenantService {
 
             transaction.update(pgRef, pgUpdates);
 
+            // Generate Default Password
+            let rawDefaultPassword = null;
+            if (phone) {
+                // Generate a random 6-character alphanumeric password
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let randomPassword = '';
+                try {
+                    const crypto = require('crypto');
+                    const randomBytes = crypto.randomBytes(6);
+                    for (let i = 0; i < 6; i++) {
+                        randomPassword += chars[randomBytes[i] % chars.length];
+                    }
+                } catch {
+                    // Fallback if crypto isn't available
+                    for (let i = 0; i < 6; i++) {
+                        randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+                    }
+                }
+
+                rawDefaultPassword = randomPassword;
+            }
+
+            // We enhance the returned guest object with the raw default password so the UI can display it
+            if (rawDefaultPassword) {
+                (guestToCreate as any)._defaultPassword = rawDefaultPassword;
+            }
+
+            transaction.update(pgRef, pgUpdates);
+
             return guestToCreate;
         });
 
@@ -248,6 +312,32 @@ export class TenantService {
                     console.log(`[TenantService.onboardTenant] Found existing user ${userDoc.id}. Linking...`);
                     await appDb.doc(`users/${userDoc.id}`).update({ guestId, pgId, ownerId, phone: standardizedPhone }); // Ensure phone is synced
 
+                    // Also ensure Firebase Auth user exists/is updated if we have a password
+                    if (phone && (newGuest as any)._defaultPassword) {
+                        try {
+                            const { getAdminAuth } = await import('@/lib/firebaseAdmin');
+                            const auth = await getAdminAuth();
+                            const internalEmail = `${standardizedPhone.replace(/\D/g, '')}@roombox.app`;
+
+                            try {
+                                await auth.updateUser(userDoc.id, {
+                                    password: (newGuest as any)._defaultPassword
+                                });
+                            } catch (e: any) {
+                                if (e.code === 'auth/user-not-found') {
+                                    await auth.createUser({
+                                        uid: userDoc.id,
+                                        email: internalEmail,
+                                        password: (newGuest as any)._defaultPassword,
+                                        phoneNumber: standardizedPhone
+                                    });
+                                }
+                            }
+                        } catch (authErr) {
+                            console.warn('[TenantService.onboardTenant] Firebase Auth update failed:', authErr);
+                        }
+                    }
+
                     if (userData.fcmToken) {
                         try {
                             const { getAdminMessaging } = await import('@/lib/firebaseAdmin');
@@ -266,10 +356,15 @@ export class TenantService {
                     }
                 } else {
                     // AUTO-VERIFICATION: If no user doc exists, create a skeleton one with the phone number
-                    // so the WhatsApp bot (Smart Router) recognizes them immediately.
+                    // and create a Firebase Auth user
                     if (phone) {
-                        console.log(`[TenantService.onboardTenant] Creating skeleton user for phone: ${standardizedPhone}`);
-                        const userPlaceholder = {
+                        console.log(`[TenantService.onboardTenant] Creating skeleton user & Firebase Auth for phone: ${standardizedPhone}`);
+
+                        // Use a phone-based ID if no email exists to avoid collisions
+                        const uid = `phone-${standardizedPhone.replace(/\D/g, '')}`;
+                        const internalEmail = `${standardizedPhone.replace(/\D/g, '')}@roombox.app`;
+
+                        const userPlaceholder: any = {
                             phone: standardizedPhone,
                             role: 'tenant',
                             guestId,
@@ -278,27 +373,30 @@ export class TenantService {
                             name,
                             createdAt: Date.now(),
                         };
-                        // Use a phone-based ID if no email exists to avoid collisions
-                        const idPrefix = email ? email : `phone-${standardizedPhone.replace(/\D/g, '')}`;
-                        await appDb.collection('users').doc(idPrefix).set(userPlaceholder, { merge: true });
+
+                        // Create Firebase Auth User
+                        if ((newGuest as any)._defaultPassword) {
+                            try {
+                                const { getAdminAuth } = await import('@/lib/firebaseAdmin');
+                                const auth = await getAdminAuth();
+                                await auth.createUser({
+                                    uid,
+                                    email: internalEmail,
+                                    password: (newGuest as any)._defaultPassword,
+                                    phoneNumber: standardizedPhone
+                                });
+                                console.log(`[TenantService.onboardTenant] Firebase Auth user created: ${uid}`);
+                            } catch (authErr) {
+                                console.warn('[TenantService.onboardTenant] Firebase Auth creation failed:', authErr);
+                            }
+                        }
+
+                        await appDb.collection('users').doc(uid).set(userPlaceholder, { merge: true });
                     }
 
                     if (email) {
                         console.log(`[TenantService.onboardTenant] No user found for ${email}. Creating invite and magic link...`);
                         await appDb.doc(`invites/${email}`).set({ email, ownerId, role: 'tenant', details: newGuest, createdAt: Date.now() });
-
-                        try {
-                            const { getAdminAuth } = await import('@/lib/firebaseAdmin');
-                            const auth = await getAdminAuth();
-                            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra-v1.netlify.app';
-                            magicLink = await auth.generateSignInWithEmailLink(email, {
-                                url: `${baseUrl}/login/verify`,
-                                handleCodeInApp: true,
-                            });
-                            console.log(`[TenantService.onboardTenant] Magic link generated successfully.`);
-                        } catch (mErr) {
-                            console.warn(`[TenantService.onboardTenant] Magic link generation failed:`, mErr);
-                        }
                     }
                 }
             } catch (userLinkErr) {
@@ -324,7 +422,8 @@ export class TenantService {
                 }
 
                 const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://rentsutra-v1.netlify.app');
-                const dashboardUrl = `${appUrl}/tenant?id=${guestId}`;
+                const dashboardUrl = await TenantService.generateMagicLink(appDb, guestId, standardizedPhone, ownerId, pgName || newGuest.pgName || 'RentSutra');
+                magicLinkResult = dashboardUrl;
 
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
 
@@ -372,7 +471,7 @@ export class TenantService {
         }
 
         console.log(`[TenantService.onboardTenant] Onboarding complete for ${guestId}`);
-        return newGuest;
+        return { guest: newGuest, magicLink: magicLinkResult };
     }
 
     /**

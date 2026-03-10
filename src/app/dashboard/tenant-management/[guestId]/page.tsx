@@ -31,7 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
 import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment, LedgerEntry } from "@/lib/types"
-import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw } from "lucide-react"
+import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw, Link as LinkIcon, Key } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -132,6 +132,12 @@ export default function GuestProfilePage() {
     const [documentUris, setDocumentUris] = useState<Record<string, string>>({});
     const [selectedDoc, setSelectedDoc] = useState<SubmittedKycDocument | null>(null);
 
+    const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+    const [generatedPassword, setGeneratedPassword] = useState('');
+    const [isMagicLinkDialogOpen, setIsMagicLinkDialogOpen] = useState(false);
+    const [generatedMagicLink, setGeneratedMagicLink] = useState('');
+    const [isGeneratingMagicLink, setIsGeneratingMagicLink] = useState(false);
+    const [isGeneratingPassword, setIsGeneratingPassword] = useState(false);
 
     const guestComplaints = useMemo(() => complaints.complaints.filter(c => c.guestId === guestId), [complaints.complaints, guestId])
 
@@ -188,7 +194,7 @@ export default function GuestProfilePage() {
                 sendWhatsApp: sendWhatsAppOnExit
             }).unwrap();
             setIsVacateDialogOpen(false);
-            toast({ title: 'Guest Vacated' });
+            toast({ title: 'Guest Vacated', description: `${guest.name} has been successfully vacated.` });
             router.push('/dashboard');
         } catch (err: any) {
             toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to vacate guest.' });
@@ -299,6 +305,56 @@ export default function GuestProfilePage() {
         setIsResetKycDialogOpen(false);
     }
 
+    const handleGeneratePassword = async () => {
+        if (!guest || !currentUser) return;
+        setIsGeneratingPassword(true);
+        try {
+            const response = await fetch('/api/owners/tenants/generate-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ownerId: currentUser.uid,
+                    tenantId: guest.id,
+                    phone: guest.phone
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setGeneratedPassword(data.newPassword);
+                setIsPasswordDialogOpen(true);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to generate password.' });
+            }
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Network error generating password.' });
+        } finally {
+            setIsGeneratingPassword(false);
+        }
+    };
+
+    const handleGenerateMagicLink = async () => {
+        if (!guest || !currentUser) return;
+        setIsGeneratingMagicLink(true);
+        try {
+            const response = await fetch('/api/owners/tenants/magic-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ guestId: guest.id, phone: guest.phone })
+            });
+            const data = await response.json();
+            if (data.success) {
+                setGeneratedMagicLink(data.magicLink);
+                setIsMagicLinkDialogOpen(true);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to generate link', });
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate link', });
+        } finally {
+            setIsGeneratingMagicLink(false);
+        }
+    };
+
 
     if (isLoading) {
         return (
@@ -356,6 +412,17 @@ export default function GuestProfilePage() {
                                     <span className="text-sm font-medium">KYC Status:</span>
                                     <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                                 </div>
+                                <Access feature="guests" action="edit">
+                                    <Button
+                                        variant="outline"
+                                        className="w-full mt-4"
+                                        disabled={isGeneratingPassword}
+                                        onClick={handleGeneratePassword}
+                                    >
+                                        {isGeneratingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                                        Generate New Password
+                                    </Button>
+                                </Access>
                             </CardContent>
                         </Card>
                     </div>
@@ -630,6 +697,30 @@ export default function GuestProfilePage() {
 
                 <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
                     <DialogContent><DialogHeader><DialogTitle>Send Rent Reminder</DialogTitle><DialogDescription>A reminder message has been generated for {guest.name}. You can copy it or send it directly via WhatsApp.</DialogDescription></DialogHeader><div className="py-4">{isGeneratingReminder ? (<div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>) : (<Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />)}</div><DialogFooter className="gap-2 sm:justify-end"><Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}><Copy className="mr-2 h-4 w-4" /> Copy</Button><a href={`https://wa.me/${guest.phone}?text=${encodeURIComponent(reminderMessage)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto"><Button className="w-full bg-green-500 hover:bg-green-600 text-white"><MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp</Button></a></DialogFooter></DialogContent>
+                </Dialog>
+
+                <Dialog open={!!generatedPassword} onOpenChange={(open) => !open && setGeneratedPassword(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>New Password Generated</DialogTitle>
+                            <DialogDescription>
+                                A new password has been generated for {guest.name}. Please share this with them securely.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex items-center justify-center p-6 bg-muted rounded-md relative group">
+                            <span className="text-3xl font-mono tracking-widest font-bold">{generatedPassword}</span>
+                        </div>
+                        <DialogFooter className="flex-col sm:flex-row items-center gap-2 mt-4">
+                            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => { navigator.clipboard.writeText(generatedPassword || ''); toast({ title: "Copied!", description: "Password copied to clipboard." }) }}>
+                                <Copy className="mr-2 h-4 w-4" /> Copy Password
+                            </Button>
+                            <a className="w-full sm:w-auto flex-1" href={`https://wa.me/${guest.phone}?text=${encodeURIComponent(`Hi ${guest.name}, your new login password for RoomBox is: *${generatedPassword}*\n\nPlease login at ${typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL}/login`)}`} target="_blank" rel="noopener noreferrer">
+                                <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
+                                    <MessageCircle className="mr-2 h-4 w-4" /> Share via WhatsApp
+                                </Button>
+                            </a>
+                        </DialogFooter>
+                    </DialogContent>
                 </Dialog>
 
                 <Dialog open={isChargeDialogOpen} onOpenChange={setIsChargeDialogOpen}>

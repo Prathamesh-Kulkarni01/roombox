@@ -113,9 +113,9 @@ export async function POST(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
         const appDb = await getAdminDb(); // for user/invite linking
 
-        const newGuest = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId, planId: ownerResult.plan?.id });
+        const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId, planId: ownerResult.plan?.id });
 
-        return NextResponse.json({ success: true, guest: newGuest }, { status: 201 });
+        return NextResponse.json({ success: true, guest: newGuest, magicLink }, { status: 201 });
     } catch (error) {
         return serverError(error, 'POST /api/guests');
     }

@@ -1457,7 +1457,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                     `📋 Monthly Rent: ₹${rent}\n` +
                     `💳 Current Balance: ₹${Math.abs(balance)} ${balance > 0 ? '(Due)' : balance < 0 ? '(Advance)' : ''}\n` +
                     `📊 Status: ${status}\n\n` +
-                    `For full history, visit:\n${process.env.NEXT_PUBLIC_APP_URL}/tenant\n\nReply *Menu* to return.`
+                    `For full history, visit:\n${process.env.NEXT_PUBLIC_APP_URL}/login\n\nReply *Menu* to return.`
                 );
             },
             defaultNext: 'tenantMenu',
@@ -1473,7 +1473,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                 return (
                     `💳 *Pay Your Rent*\n\n` +
                     `Amount due: *${amountDue}*\n\n` +
-                    `Use the secure payment link from your dashboard:\n${process.env.NEXT_PUBLIC_APP_URL}/tenant/pay\n\nReply *Menu* to return.`
+                    `Use the secure payment link from your dashboard:\n${process.env.NEXT_PUBLIC_APP_URL}/login\n\nReply *Menu* to return.`
                 );
             },
             defaultNext: 'tenantMenu',
@@ -1483,7 +1483,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'paymentHistory',
             type: 'display',
             label: 'Payment History',
-            messageTemplate: `📜 *Payment History*\n\nView your full payment history at:\n${process.env.NEXT_PUBLIC_APP_URL}/tenant/payments\n\nReply *Menu* to return.`,
+            messageTemplate: `📜 *Payment History*\n\nView your full payment history securely at:\n${process.env.NEXT_PUBLIC_APP_URL}/login\n\nReply *Menu* to return.`,
             defaultNext: 'tenantMenu',
         },
 

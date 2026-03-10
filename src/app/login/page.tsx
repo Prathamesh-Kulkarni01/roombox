@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, signInWithEmailAndPassword } from "firebase/auth"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, signInWithEmailAndPassword, signInWithCustomToken } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { Loader2 } from 'lucide-react'
 import { useAppSelector } from '@/lib/hooks'
@@ -40,6 +41,8 @@ export default function LoginPage() {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [phone, setPhone] = useState('')
+  const [tenantPassword, setTenantPassword] = useState('')
 
   const loading = appLoading || isSigningIn;
 
@@ -127,6 +130,42 @@ export default function LoginPage() {
     }
   };
 
+  const handlePhoneSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
+    if (!phone || !tenantPassword) {
+      toast({ variant: "destructive", title: "Error", description: "Phone and password required." });
+      return;
+    }
+
+    setIsSigningIn(true);
+    try {
+      const res = await fetch('/api/auth/phone-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password: tenantPassword })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to authenticate');
+      }
+
+      await signInWithCustomToken(auth, data.customToken);
+      toast({ title: 'Welcome Back!', description: "You've been signed in successfully." });
+      // Redirect handled by useEffect above for 'tenant' role
+    } catch (error: any) {
+      console.error("Phone Sign-In Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Log In Failed",
+        description: error.message || "Invalid phone number or password.",
+      });
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
       <Card className="w-full max-w-sm">
@@ -137,32 +176,65 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <form onSubmit={handleEmailSignIn} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
-            </div>
+          <Tabs defaultValue="owner" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="owner">Owner / Staff</TabsTrigger>
+              <TabsTrigger value="tenant">Tenant</TabsTrigger>
+            </TabsList>
 
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="Your password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
-            </div>
+            <TabsContent value="owner" className="grid gap-4">
+              <form onSubmit={handleEmailSignIn} className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
+                </div>
 
-            <Button type="submit" className="w-full" disabled={loading || !email || !password}>
-              {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Log In
-            </Button>
-          </form>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input id="password" type="password" placeholder="Your password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
+                </div>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">OR</span></div>
-          </div>
+                <Button type="submit" className="w-full" disabled={loading || !email || !password}>
+                  {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Log In
+                </Button>
+              </form>
 
-          <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
-            {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
-            Log in with Google
-          </Button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">OR</span></div>
+              </div>
+
+              <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
+                {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
+                Log in with Google
+              </Button>
+            </TabsContent>
+
+            <TabsContent value="tenant" className="grid gap-4">
+              <form onSubmit={handlePhoneSignIn} className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" type="tel" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
+                </div>
+
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="tenantPassword">Password</Label>
+                    <Link href="/login/forgot-password" className="text-sm font-medium text-muted-foreground hover:text-primary">
+                      Forgot Password?
+                    </Link>
+                  </div>
+                  <Input id="tenantPassword" type="password" placeholder="Your password" required value={tenantPassword} onChange={(e) => setTenantPassword(e.target.value)} disabled={loading} />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading || !phone || !tenantPassword}>
+                  {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Log In as Tenant
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
 
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{" "}
