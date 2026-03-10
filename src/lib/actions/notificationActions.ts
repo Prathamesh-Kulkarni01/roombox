@@ -80,7 +80,9 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
                 whatsAppStatus = 'skipped';
             } else {
                 // Centralized billing & logging handled here
-                const fullPhone = targetPhoneNumber.startsWith('91') ? targetPhoneNumber : `91${targetPhoneNumber}`;
+                // Ensure digits only for WhatsApp
+                let fullPhone = targetPhoneNumber.replace(/\D/g, '');
+                if (fullPhone.length === 10) fullPhone = '91' + fullPhone;
                 const result = await sendWA(
                     fullPhone,
                     `${notification.title}\n\n${notification.message}`,

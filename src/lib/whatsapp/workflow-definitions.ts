@@ -126,7 +126,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                             if (reminder.shouldSend && freshGuest.phone) {
                                 let formattedPhone = freshGuest.phone.replace(/\D/g, '');
                                 if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
-                                await sendWhatsAppMessage(formattedPhone, reminder.body);
+                                await sendWhatsAppMessage(formattedPhone, reminder.body, ctx.ownerId, freshGuest.id);
                                 sentCount++;
                             }
                         } catch (e) {
@@ -1572,7 +1572,9 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                                 `🔔 *Move-Out Notice Received*\n\n` +
                                 `Tenant *${tenantName}* from *${pgName}* has submitted a 30-day move-out notice.\n\n` +
                                 `📅 Expected exit: ${exitDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}\n\n` +
-                                `Please review on your dashboard and begin deposit settlement.`
+                                `Please review on your dashboard and begin deposit settlement.`,
+                                ownerId,
+                                guestId
                             );
                         }
                     } catch (notifErr) {

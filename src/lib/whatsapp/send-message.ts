@@ -40,19 +40,16 @@ async function sendWhatsAppWithBilling(
     ownerId?: string,
     targetId?: string
 ) {
-    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.warn('WhatsApp credentials not configured. Mocking send:', { to, payload });
-        return { success: true, mock: true };
-    }
+    let cost = 0;
+    let result: { success: boolean; data?: any; error?: any; mock?: boolean } = { success: false };
 
     // 1. Determine Cost & Session Window
-    let cost = 0;
     if (ownerId) {
         try {
-            // Check session window in Redis
+            // Check session window in Redis for messaging window (24h)
             const { getSession } = await import('./session-state');
             const session = await getSession(to);
-            const isWithinSessionWindow = (Date.now() - session.lastUpdated) < SESSION_WINDOW_MS;
+            const isWithinSessionWindow = (Date.now() - (session?.lastUpdated || 0)) < SESSION_WINDOW_MS;
 
             if (isWithinSessionWindow && payload.type !== 'template') {
                 cost = 0; // Free session message
@@ -78,51 +75,73 @@ async function sendWhatsAppWithBilling(
                         return { success: false, error: 'Owner not found' };
                     }
 
-                    const currentCredits = ownerDoc.data()?.subscription?.whatsappCredits || 0;
+                    const subData = ownerDoc.data()?.subscription;
+                    const currentCredits = subData?.whatsappCredits || 0;
+
                     if (currentCredits < cost) {
                         return { success: false, error: 'Insufficient credits' };
                     }
 
+                    // For transactions, we set the absolute value derived from the state we just read
+                    // to avoid any ambiguity, though increment() is also valid inside transactions in newer Admin SDKs.
                     transaction.update(ownerRef, {
-                        'subscription.whatsappCredits': FieldValue.increment(-cost)
+                        'subscription.whatsappCredits': Number((currentCredits - cost).toFixed(2))
                     });
                     return { success: true };
                 });
 
                 if (!creditResult.success) {
+                    // Log the failure attempt if it's due to credits
+                    await WhatsAppLogsService.logMessage({
+                        ownerId,
+                        targetId,
+                        phone: to,
+                        direction: 'outbound',
+                        type: payload.type,
+                        content: `FAILED: Insufficient Credits (${cost} required)`,
+                        cost: 0,
+                        status: 'failed',
+                        error: 'Insufficient credits'
+                    });
                     return creditResult;
                 }
-                console.log(`[WhatsApp Billing] Deducted ${cost} units from owner ${ownerId} via transaction`);
+                console.log(`[WhatsApp Billing] Successfully reserved ${cost} units from owner ${ownerId}`);
             }
         } catch (e: any) {
-            console.error('[WhatsApp Billing] Failed:', e.message);
-            // Default to allowing if billing service is down but log it? 
-            // Better to fail safe for the business:
+            console.error('[WhatsApp Billing] Error during deduction:', e.message);
+            // In case of billing error, we might still want to try sending if it's critical, 
+            // but for now we follow the fail-safe business rule.
             return { success: false, error: 'Billing service error' };
         }
     }
 
-    // 2. Make the actual API call
-    const result = await makeWhatsAppApiCall(payload);
+    // 2. Make the actual API call (or mock if no credentials)
+    if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
+        console.warn('WhatsApp credentials not configured. Mocking API call for:', { to, payload });
+        result = { success: true, mock: true };
+    } else {
+        result = await makeWhatsAppApiCall(payload);
+    }
 
     // 3. Refund if failed & cost was > 0
     if (!result.success && cost > 0 && ownerId) {
         try {
             const adminDb = await getAdminDb();
+            // Refund the credits
             await adminDb.collection('users').doc(ownerId).update({
                 'subscription.whatsappCredits': FieldValue.increment(cost)
             });
-            console.log(`[WhatsApp Billing] Refunded ${cost} units to owner ${ownerId} due to failure`);
+            console.log(`[WhatsApp Billing] Refunded ${cost} units to owner ${ownerId} due to API failure`);
         } catch (re: any) {
             console.error('[WhatsApp Billing] Refund failed:', re.message);
         }
     }
 
-    // 4. Log the attempt
+    // 4. Log the result
     if (ownerId) {
         const content = payload.type === 'text' ? payload.text?.body :
             payload.type === 'template' ? `Template: ${payload.template.name}` :
-                `Type: ${payload.type}`;
+                `Type: ${payload.type}${result.mock ? ' (MOCK)' : ''}`;
 
         await WhatsAppLogsService.logMessage({
             ownerId,
@@ -130,8 +149,8 @@ async function sendWhatsAppWithBilling(
             phone: to,
             direction: 'outbound',
             type: payload.type,
-            content: content || '',
-            cost: result.success ? cost : 0, // Log zero cost if failure (since refunded)
+            content: (content || '') + (result.mock ? ' [DEV MOCK]' : ''),
+            cost: result.success ? cost : 0,
             status: result.success ? 'success' : 'failed',
             error: result.error ? JSON.stringify(result.error) : undefined
         });

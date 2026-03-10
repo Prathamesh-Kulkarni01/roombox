@@ -464,12 +464,12 @@ export class TenantService {
                     }
                 ];
 
-                const result = await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility_2', 'en_US', components);
+                const result = await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility_2', 'en_US', components, ownerId, guestId);
 
                 if (!result.success) {
                     console.warn(`[onboardTenant] Template failed, sending fallback text message...`);
                     const fallbackMsg = `👋 *Welcome to ${pgName || newGuest.pgName}!*\n\nHi ${name}, your host has added you to the portal.\n\nRoom: ${roomName || 'Assigned Room'}\nRent: ₹${newGuest.rentAmount}\n\nAccess your Dashboard here: ${dashboardUrl}`;
-                    await import('@/lib/whatsapp/send-message').then(m => m.sendWhatsAppMessage(formattedPhone, fallbackMsg));
+                    await import('@/lib/whatsapp/send-message').then(m => m.sendWhatsAppMessage(formattedPhone, fallbackMsg, ownerId, guestId));
                 } else {
                     console.log(`[onboardTenant] WhatsApp template welcome sent successfully to ${formattedPhone}`);
                 }
@@ -611,7 +611,7 @@ export class TenantService {
                     `Thank you for staying with us!`;
 
                 const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
-                await sendWhatsAppMessage(formattedPhone, msg);
+                await sendWhatsAppMessage(formattedPhone, msg, ownerId, guestId);
                 console.log(`[TenantService.vacateTenant] WhatsApp settlement sent to ${formattedPhone}`);
             } catch (err) {
                 console.warn(`[TenantService.vacateTenant] WA Notify Failed:`, err);
@@ -717,7 +717,7 @@ export class TenantService {
                                 { type: 'text', text: receiptUrl } // {{6}}
                             ]
                         }
-                    ]);
+                    ], ownerId, resolvedGuestId);
                     console.log(`[recordPayment] WhatsApp receipt sent to ${formattedPhone}`);
                 } catch (receiptErr) {
                     console.warn(`[recordPayment] Failed to send WhatsApp receipt:`, receiptErr);
@@ -968,7 +968,7 @@ export class TenantService {
                         { type: 'text', text: statusUrl } // {{6}}
                     ]
                 }
-            ]);
+            ], ownerId, guestId);
 
             console.log(`[TenantService.notifyComplaintStatusChange] WhatsApp template notification sent to ${formattedPhone}`);
         } catch (err) {

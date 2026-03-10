@@ -53,16 +53,31 @@ export class WhatsAppLogsService {
     static async getOwnerLogs(ownerId: string, limit: number = 50) {
         try {
             const adminDb = await getAdminDb();
-            const snapshot = await adminDb.collection(this.COLLECTION)
-                .where('ownerId', '==', ownerId)
-                .orderBy('timestamp', 'desc')
-                .limit(limit)
-                .get();
+            let query = adminDb.collection(this.COLLECTION)
+                .where('ownerId', '==', ownerId);
 
-            return snapshot.docs.map(doc => ({
-                ...doc.data(),
-                timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString()
-            }));
+            try {
+                // Try sorted query first (requires index)
+                const snapshot = await query.orderBy('timestamp', 'desc')
+                    .limit(limit)
+                    .get();
+
+                return snapshot.docs.map(doc => ({
+                    ...doc.data(),
+                    timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString()
+                }));
+            } catch (sortError: any) {
+                // If index is missing, fallback to unsorted (will still work, just not desc)
+                if (sortError.message?.includes('index')) {
+                    console.warn('[WhatsAppLogsService] Missing index for sorted logs, falling back to unsorted');
+                    const snapshot = await query.limit(limit).get();
+                    return snapshot.docs.map(doc => ({
+                        ...doc.data(),
+                        timestamp: doc.data().timestamp?.toDate().toISOString() || new Date().toISOString()
+                    })).sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                }
+                throw sortError;
+            }
         } catch (error) {
             console.error('[WhatsAppLogsService] Failed to fetch logs:', error);
             return [];

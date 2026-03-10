@@ -62,11 +62,11 @@ export async function POST(req: NextRequest) {
                     index: 0, // Copy Code (Actually index 0 of buttons)
                     parameters: [{ type: 'text', text: otpCode }] // Meta uses this for copy-code too
                 }
-            ]);
+            ], ownerId, ownerId);
         } catch (templateErr) {
             console.warn('[send-verification-otp] Template failed, falling back to message:', templateErr);
             const msg = `*RentSutra Security*\n\nYour OTP for verifying your WhatsApp number is: *${otpCode}*\n\n_Do not share this code with anyone. It expires in 10 minutes._`;
-            const sendResult = await sendWhatsAppMessage(formattedPhone, msg) as any;
+            const sendResult = await sendWhatsAppMessage(formattedPhone, msg, ownerId, ownerId) as any;
             if (!sendResult.success && !sendResult.mock) {
                 throw new Error('Failed to send WhatsApp message.');
             }

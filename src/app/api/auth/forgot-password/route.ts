@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         // 3. Send WhatsApp Message
         const messageText = `🔑 *Password Reset Request*\n\nHi ${userData.name},\nWe received a request to access your account.\n\nClick the link below to securely log in and reset your password:\n${magicLink}\n\nIf you didn't request this, please ignore this message.`;
 
-        const waResult = await sendWhatsAppMessage(formattedPhone, messageText);
+        const waResult = await sendWhatsAppMessage(formattedPhone, messageText, userData.ownerId, userData.guestId);
 
         if (!waResult.success) {
             throw new Error("Failed to send WhatsApp message.");

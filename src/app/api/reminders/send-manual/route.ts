@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
                 { type: 'text', text: String(guest.balance || guest.rentAmount) } // {{7}} - Balance
               ]
             }
-          ]);
+          ], ownerId, guest.id);
         } catch (waErr) {
           console.warn(`[manual-reminder] WA failure for ${guest.phone}`, waErr);
         }

@@ -23,7 +23,7 @@ export async function GET(request: Request) {
                 `🔧 *Active Complaints:* 1 (Room 102)\n\n` +
                 `Check full details here: [RentSutra Dashboard Link]`;
 
-            await sendWhatsAppMessage(owner.phone, message);
+            await sendWhatsAppMessage(owner.phone, message, owner.id);
         }
 
         return NextResponse.json({ success: true, message: 'Briefings sent successfully' });

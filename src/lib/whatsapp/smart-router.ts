@@ -86,11 +86,11 @@ export async function handleIncomingMessage(data: {
     await updateSession(from, session.state, session.data);
     session = await getSession(from); // Re-load with fresh timestamp
 
-    // 0. Log incoming message
+    // 0. Log incoming message immediately if we know the owner
     if (session.data?.ownerId) {
         await WhatsAppLogsService.logMessage({
             ownerId: session.data.ownerId,
-            targetId: session.data.guestId || session.data.isAuthenticatedTenant ? session.data.guestId : undefined,
+            targetId: session.data.guestId,
             phone: from,
             direction: 'inbound',
             type: messageType as any || 'text',
@@ -103,6 +103,21 @@ export async function handleIncomingMessage(data: {
     // ── 1. Not authenticated → run auth ──────────────────────────────
     if (!session.data?.isAuthenticatedOwner && !session.data?.isAuthenticatedTenant) {
         await handleAuth(from, text, session);
+
+        // After auth, if we now have an ownerId, log the initial message that triggered it
+        const postAuthSession = await getSession(from);
+        if (postAuthSession.data?.ownerId) {
+            await WhatsAppLogsService.logMessage({
+                ownerId: postAuthSession.data.ownerId,
+                targetId: postAuthSession.data.guestId,
+                phone: from,
+                direction: 'inbound',
+                type: messageType as any || 'text',
+                content: text,
+                cost: 0,
+                status: 'success'
+            });
+        }
         return;
     }
 
@@ -176,7 +191,8 @@ export async function handleIncomingMessage(data: {
                     `Your progress is saved for a few minutes.\n\n` +
                     `1️⃣ Save & go to Menu\n` +
                     `2️⃣ Continue current task`,
-                    session.data.ownerId
+                    session.data.ownerId,
+                    session.data.guestId
                 );
                 return;
             }
@@ -262,7 +278,8 @@ async function handleWithWorkflow(
                         `Would you like to continue ${label} or start over?\n\n` +
                         `1️⃣ Continue\n` +
                         `2️⃣ Start Over`,
-                        session.data.ownerId
+                        session.data.ownerId,
+                        session.data.guestId
                     );
                     return;
                 }
@@ -274,7 +291,7 @@ async function handleWithWorkflow(
                     ctx = session.data._resumeCtx as WorkflowContext;
                     ctx.updatedAt = new Date(); // Reset timer
                     const message = await workflowEngine.presentStep(ctx);
-                    await sendWhatsAppMessage(from, message, session.data.ownerId);
+                    await sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
                     await persistWorkflowContext(from, session, ctx);
                     return;
                 }
@@ -299,7 +316,7 @@ async function handleWithWorkflow(
 
         // Present the step (with onEnter)
         const message = await workflowEngine.presentStep(ctx);
-        await sendWhatsAppMessage(from, message, session.data.ownerId);
+        await sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
         await persistWorkflowContext(from, session, ctx);
         return;
     }
@@ -315,7 +332,7 @@ async function handleWithWorkflow(
 
     if (!result.success) {
         // Validation error — repeat current step message
-        await sendWhatsAppMessage(from, result.message || '⚠️ Invalid input. Try again.', session.data.ownerId);
+        await sendWhatsAppMessage(from, result.message || '⚠️ Invalid input. Try again.', session.data.ownerId, session.data.guestId);
         return;
     }
 
@@ -328,7 +345,7 @@ async function handleWithWorkflow(
 
     // Send the response message
     if (result.message) {
-        await sendWhatsAppMessage(from, result.message, session.data.ownerId);
+        await sendWhatsAppMessage(from, result.message, session.data.ownerId, session.data.guestId);
     }
 
     // Persist updated context
@@ -362,7 +379,7 @@ async function switchToWorkflow(
 
     // Run onEnter and present the step
     const message = await workflowEngine.presentStep(ctx);
-    await sendWhatsAppMessage(from, message, session.data.ownerId);
+    await sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
     await persistWorkflowContext(from, session, ctx);
 }
 

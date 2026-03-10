@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
                                         { type: 'text', text: String(guest.balance || guest.rentAmount) } // {{7}} - Balance in Body
                                     ]
                                 }
-                            ]);
+                            ], ownerId, guest.id);
                             messageSent = true;
                         } catch (e) {
                             console.error(`Failed to send WhatsApp template to ${guest.phone}`, e);
