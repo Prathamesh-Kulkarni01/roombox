@@ -101,15 +101,15 @@ function AuthHandler({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!authReady) return; // Don't redirect until auth state is confirmed
 
-    const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin'];
+    const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin', 'other'];
 
     // List of pages that are accessible without authentication
-    const publicPages = ['/', '/login', '/signup', '/privacy-policy', '/terms-of-service', '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog'];
+    const publicPages = ['/', '/login', '/signup', '/privacy-policy', '/terms-of-service', '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog', '/invite', '/ledger'];
     const isPublicPage = publicPages.some(p => pathname === p || (p !== '/' && pathname.startsWith(p)));
 
     if (currentUser) {
       // If logged in, we decide where they should be
-      if (currentUser.role === 'tenant' && !pathname.startsWith('/tenants')) {
+      if (currentUser.role === 'tenant' && !pathname.startsWith('/tenants') && !pathname.startsWith('/invite') && !pathname.startsWith('/login/set-password')) {
         router.replace('/tenants/my-pg');
       } else if (allowedDashboardRoles.includes(currentUser.role) && !pathname.startsWith('/dashboard') && !pathname.startsWith('/admin')) {
         router.replace('/dashboard');
