@@ -82,12 +82,25 @@ export async function GET(request: NextRequest) {
 
                     if (!reminderInfo.shouldSend || !reminderInfo.type) return false;
 
-                    // IDEMPOTENCY: Check if we already sent this exact reminder type very recently (within 15 days for a monthly cycle)
+                    // IDEMPOTENCY: Check if we already sent this exact reminder type very recently.
+                    // The threshold depends on the rent cycle unit to support short cycles (e.g., hourly).
                     if (guest.lastReminderType === reminderInfo.type && guest.lastReminderSentAt) {
                         const diffMs = now.getTime() - new Date(guest.lastReminderSentAt).getTime();
-                        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-                        if (diffDays < 15) {
-                            console.log(`[Idempotency] Skipping duplicate ${reminderInfo.type} reminder for guest: ${guest.id}`);
+                        const diffHours = diffMs / (1000 * 60 * 60);
+
+                        // Define threshold in hours for each cycle unit
+                        const thresholdHours: Record<string, number> = {
+                            'minutes': 0.008, // ~30 seconds
+                            'hours': 0.5,    // 30 minutes
+                            'days': 6,       // 6 hours
+                            'weeks': 48,     // 2 days
+                            'months': 360    // 15 days
+                        };
+
+                        const currentThreshold = thresholdHours[guest.rentCycleUnit] || 360;
+
+                        if (diffHours < currentThreshold) {
+                            console.log(`[Idempotency] Skipping duplicate ${reminderInfo.type} reminder for guest: ${guest.id} (sent ${Math.round(diffHours * 10) / 10}h ago, threshold ${currentThreshold}h)`);
                             return false;
                         }
                     }

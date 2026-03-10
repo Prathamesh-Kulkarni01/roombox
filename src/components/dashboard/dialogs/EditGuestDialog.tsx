@@ -11,7 +11,7 @@ import { Loader2 } from "lucide-react"
 
 const rentCycleOptions: { value: RentCycleUnit, label: string }[] = [
   { value: 'minutes', label: 'Minutes (for testing)' },
-  { value: 'hours', label: 'Hours (for testing)' },
+  { value: 'hours', label: 'Hours' },
   { value: 'days', label: 'Days' },
   { value: 'weeks', label: 'Weeks' },
   { value: 'months', label: 'Months' },

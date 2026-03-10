@@ -40,12 +40,15 @@ export function getReminderForGuest(guest: Guest, now: Date = new Date()): Remin
   let checkValue = diffDays;
   let unitString = 'day(s)';
 
-  // Support for accelerated testing cycles
-  if (guest.rentCycleUnit === 'hours') {
-    checkValue = diffMinutes; // Hourly cycle -> Minute-based reminders
-    unitString = 'minute(s)';
+  // Determine unit and checkValue based on cycle unit
+  if (guest.rentCycleUnit === 'months' || guest.rentCycleUnit === 'weeks') {
+    checkValue = diffDays;
+    unitString = 'day(s)';
   } else if (guest.rentCycleUnit === 'days') {
-    checkValue = diffHours; // Daily cycle -> Hour-based reminders
+    checkValue = diffHours; // Daily cycle -> Hour-based reminders (e.g., T-3 hours)
+    unitString = 'hour(s)';
+  } else if (guest.rentCycleUnit === 'hours') {
+    checkValue = diffHours; // Hourly cycle -> Hour-based reminders
     unitString = 'hour(s)';
   } else if (guest.rentCycleUnit === 'minutes') {
     // This is for extreme acceleration if ever needed
