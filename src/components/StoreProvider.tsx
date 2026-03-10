@@ -104,20 +104,43 @@ function AuthHandler({ children }: { children: ReactNode }) {
     const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin', 'other'];
 
     // List of pages that are accessible without authentication
-    const publicPages = ['/', '/login', '/signup', '/privacy-policy', '/terms-of-service', '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog', '/invite', '/ledger'];
-    const isPublicPage = publicPages.some(p => pathname === p || (p !== '/' && pathname.startsWith(p)));
+    const publicPages = [
+      '/',
+      '/login',
+      '/login/set-password',
+      '/signup',
+      '/privacy-policy',
+      '/terms-of-service',
+      '/contact',
+      '/about',
+      '/refund-policy',
+      '/pay',
+      '/site',
+      '/blog',
+      '/invite',
+      '/ledger'
+    ];
+
+    // Improved matching: Exact match OR starts with the path followed by a slash (to avoid false positives like /login-extra)
+    const isPublicPage = publicPages.some(p => {
+      if (p === '/') return pathname === '/';
+      return pathname === p || pathname.startsWith(`${p}/`);
+    });
 
     if (currentUser) {
       // If logged in, we decide where they should be
-      if (currentUser.role === 'tenant' && !pathname.startsWith('/tenants') && !pathname.startsWith('/invite') && !pathname.startsWith('/login/set-password')) {
+      const isInviteOrSetPassword = pathname.startsWith('/invite') || pathname.startsWith('/login/set-password');
+
+      if (currentUser.role === 'tenant' && !pathname.startsWith('/tenants') && !isInviteOrSetPassword) {
         router.replace('/tenants/my-pg');
-      } else if (allowedDashboardRoles.includes(currentUser.role) && !pathname.startsWith('/dashboard') && !pathname.startsWith('/admin')) {
+      } else if (allowedDashboardRoles.includes(currentUser.role) && !pathname.startsWith('/dashboard') && !pathname.startsWith('/admin') && !isInviteOrSetPassword) {
         router.replace('/dashboard');
       } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile' && !isPublicPage) {
         router.replace('/complete-profile');
       }
     } else if (!isPublicPage) {
       // If not logged in and not on a public page, go to login
+      console.log(`[AuthHandler] Restricted page detected: ${pathname}. Redirecting to /login`);
       router.replace('/login');
     }
   }, [authReady, currentUser, pathname, router]);

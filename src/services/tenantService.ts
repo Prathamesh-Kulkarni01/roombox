@@ -310,7 +310,14 @@ export class TenantService {
                 if (userDoc) {
                     const userData = userDoc.data();
                     console.log(`[TenantService.onboardTenant] Found existing user ${userDoc.id}. Linking...`);
-                    await appDb.doc(`users/${userDoc.id}`).update({ guestId, pgId, ownerId, phone: standardizedPhone }); // Ensure phone is synced
+                    await appDb.doc(`users/${userDoc.id}`).update({
+                        guestId,
+                        pgId,
+                        ownerId,
+                        phone: standardizedPhone,
+                        role: 'tenant', // Explicitly upgrade/restore role to tenant
+                        status: 'active'
+                    }); // Ensure phone and role are synced
 
                     // Also ensure Firebase Auth user exists/is updated if we have a password
                     if (phone && (newGuest as any)._defaultPassword) {

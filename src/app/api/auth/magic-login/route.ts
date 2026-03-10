@@ -59,10 +59,23 @@ export async function POST(req: NextRequest) {
 
         // 3. Find/Provision User & Generate Custom Token
         const auth = await getAdminAuth();
+        const phone = magicLinkData.phone;
+        const cleanPhoneDigits = phone.replace(/\D/g, '');
 
-        // We use the ID stored in magic_link or derived from phone
-        const cleanPhoneDigits = magicLinkData.phone.replace(/\D/g, '');
-        const uid = magicLinkData.guestId || `phone-${cleanPhoneDigits.slice(-10)}`;
+        // Match existing user by phone variations (centralized logic)
+        const variations = [phone, cleanPhoneDigits, `+${cleanPhoneDigits}`];
+        if (cleanPhoneDigits.length === 10) variations.push(`+91${cleanPhoneDigits}`);
+
+        let uid = magicLinkData.guestId || `phone-${cleanPhoneDigits.slice(-10)}`;
+
+        for (const v of variations) {
+            const snap = await adminDb.collection('users').where('phone', '==', v).limit(1).get();
+            if (!snap.empty) {
+                uid = snap.docs[0].id;
+                break;
+            }
+        }
+
         // Mark as used immediately to prevent race conditions
         await magicLinkRef.update({
             used: true,
@@ -74,6 +87,19 @@ export async function POST(req: NextRequest) {
             guestId: magicLinkData.guestId,
             ownerId: magicLinkData.ownerId
         });
+
+        // Ensure the User doc is updated with current info if it exists
+        const userRef = adminDb.collection('users').doc(uid);
+        const userDoc = await userRef.get();
+        if (userDoc.exists) {
+            await userRef.update({
+                guestId: magicLinkData.guestId,
+                ownerId: magicLinkData.ownerId,
+                role: 'tenant',
+                status: 'active',
+                updatedAt: new Date()
+            });
+        }
 
         return NextResponse.json({
             success: true,

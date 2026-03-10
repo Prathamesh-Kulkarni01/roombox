@@ -91,6 +91,10 @@ export async function POST(req: NextRequest) {
         // Clear legacy password from Firestore if it exists and update metadata
         await userDoc.ref.update({
             password: FieldValue.delete(),
+            guestId: magicLinkData?.guestId || userDoc.data().guestId,
+            ownerId: magicLinkData?.ownerId || userDoc.data().ownerId,
+            role: 'tenant',
+            status: 'active',
             updatedAt: new Date(),
             schemaVersion: 2 // Mark as versioned
         });

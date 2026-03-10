@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useMemo, useState, useTransition, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { LedgerEntry } from "@/lib/types"
@@ -30,6 +31,7 @@ const kycStatusColors: Record<string, string> = {
 
 
 export default function MyPgPage() {
+    const router = useRouter();
     const { currentUser } = useAppSelector(state => state.user)
     const { guests } = useAppSelector(state => state.guests)
     const { pgs } = useAppSelector(state => state.pgs)
@@ -174,7 +176,7 @@ export default function MyPgPage() {
         });
     };
 
-    if (isLoading || !currentGuest || !currentPg) {
+    if (isLoading) {
         return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="lg:col-span-2 space-y-6">
@@ -202,6 +204,25 @@ export default function MyPgPage() {
                         </CardContent>
                         <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
                     </Card>
+                </div>
+            </div>
+        )
+    }
+
+    if (!currentGuest || !currentPg) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+                <div className="bg-muted w-20 h-20 rounded-full flex items-center justify-center mb-6">
+                    <Building className="w-10 h-10 text-muted-foreground" />
+                </div>
+                <h2 className="text-2xl font-bold mb-2">No Active Property</h2>
+                <p className="text-muted-foreground max-w-sm mb-8">
+                    You are not currently linked to an active PG or your stay has been vacated.
+                    If you have recently joined a new property, please wait for your host to send you an invite link.
+                </p>
+                <div className="flex gap-4">
+                    <Button variant="outline" onClick={() => router.refresh()}>Refresh State</Button>
+                    <Button variant="default" onClick={() => window.location.href = '/'}>Go Home</Button>
                 </div>
             </div>
         )
