@@ -76,17 +76,11 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Clear legacy password from Firestore if it exists
+        // Clear legacy password from Firestore if it exists and update metadata
         await userDoc.ref.update({
-            password: adminDb.terminate ? adminDb.terminate : null, // Using a workaround if deleteField isn't available directly
-            // Better: just set it to a special value or ignore it in the app
+            password: FieldValue.delete(),
             updatedAt: new Date(),
             schemaVersion: 2 // Mark as versioned
-        });
-
-        // Specific cleanup for password field
-        await userDoc.ref.update({
-            password: FieldValue.delete()
         });
 
 
