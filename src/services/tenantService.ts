@@ -356,7 +356,7 @@ export class TenantService {
                     }
                 ];
 
-                const result = await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility', 'en_US', components);
+                const result = await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility_2', 'en_US', components);
 
                 if (!result.success) {
                     console.warn(`[onboardTenant] Template failed, sending fallback text message...`);

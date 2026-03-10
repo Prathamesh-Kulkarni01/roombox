@@ -760,8 +760,7 @@ Thank you!`;
     isAddingSharedCharge,
     isRecordingPayment,
     isUpdatingProperty,
-    isLoadingGuests,
-    isSavingRoom,
+    isLoadingGuests
   }
 }
 
