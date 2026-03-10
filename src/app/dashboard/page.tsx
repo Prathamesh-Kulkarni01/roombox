@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from "react"
+import React, { useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from 'next/link'
 import { useAppSelector } from "@/lib/hooks"
@@ -63,20 +63,25 @@ export default function DashboardPage() {
     const totalBeds = relevantPgs.reduce((sum: number, pg: PG) => sum + (pg.totalBeds || 0), 0);
 
     const monthlyRevenue = relevantGuests
-      .filter((g: Guest) => g.rentStatus === 'paid' && !g.isVacated)
-      .reduce((sum: number, g: Guest) => sum + (g.rentAmount || 0), 0);
+      .filter((g: Guest) => !g.isVacated)
+      .reduce((sum: number, g: Guest) => {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const collectedThisMonth = (g.ledger || [])
+          .filter(e => e.type === 'credit' && new Date(e.date) >= startOfMonth)
+          .reduce((s, e) => s + (e.amount || 0), 0);
+        return sum + collectedThisMonth;
+      }, 0);
 
     const openComplaintsCount = relevantComplaints.filter((c: Complaint) => c.status === 'open').length;
 
     const pendingDues = relevantGuests
-      .filter((g: Guest) => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'))
+      .filter((g: Guest) => !g.isVacated)
       .reduce((sum: number, g: Guest) => {
-        const balanceBf = g.balanceBroughtForward || 0;
-        const currentMonthRent = g.rentAmount || 0;
-        const chargesDue = (g.additionalCharges || []).reduce((s: number, charge: any) => s + (charge.amount || 0), 0);
-        const totalOwed = balanceBf + currentMonthRent + chargesDue;
-        const totalPaid = g.rentPaidAmount || 0;
-        return sum + (totalOwed - totalPaid);
+        const totalDebits = (g.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
+        const totalCredits = (g.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
+        const balance = totalDebits - totalCredits;
+        return sum + (balance > 0 ? balance : 0);
       }, 0);
 
     const newThisMonth = relevantGuests.filter((g: Guest) => {
@@ -180,11 +185,21 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        {guest.rentStatus === 'paid' ? (
-                          <span className="text-green-600 font-bold text-sm">₹{guest.rentPaidAmount?.toLocaleString('en-IN') || guest.rentAmount.toLocaleString('en-IN')}</span>
-                        ) : (
-                          <span className="text-red-500 font-bold text-sm">DUE</span>
-                        )}
+                        {(() => {
+                          const totalDebits = (guest.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
+                          const totalCredits = (guest.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
+                          const balance = totalDebits - totalCredits;
+
+                          if (balance <= 0) {
+                            return <span className="text-green-600 font-bold text-sm">₹{guest.rentAmount.toLocaleString('en-IN')}</span>;
+                          } else {
+                            return (
+                              <div className="flex flex-col items-end">
+                                <span className="text-red-500 font-bold text-sm">₹{balance.toLocaleString('en-IN')} DUE</span>
+                              </div>
+                            );
+                          }
+                        })()}
                       </div>
                     </li>
                   )) : (

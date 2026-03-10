@@ -458,7 +458,7 @@ export default function GuestProfilePage() {
                                     <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
-                                    <span>Security Deposit Paid:</span>
+                                    <span>Security Deposit:</span>
                                     <span className="font-medium">₹{(guest.depositAmount || 0).toLocaleString('en-IN')}</span>
                                 </div>
                             </CardContent>
@@ -699,7 +699,7 @@ export default function GuestProfilePage() {
                     <DialogContent><DialogHeader><DialogTitle>Send Rent Reminder</DialogTitle><DialogDescription>A reminder message has been generated for {guest.name}. You can copy it or send it directly via WhatsApp.</DialogDescription></DialogHeader><div className="py-4">{isGeneratingReminder ? (<div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>) : (<Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />)}</div><DialogFooter className="gap-2 sm:justify-end"><Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}><Copy className="mr-2 h-4 w-4" /> Copy</Button><a href={`https://wa.me/${guest.phone}?text=${encodeURIComponent(reminderMessage)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto"><Button className="w-full bg-green-500 hover:bg-green-600 text-white"><MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp</Button></a></DialogFooter></DialogContent>
                 </Dialog>
 
-                <Dialog open={!!generatedPassword} onOpenChange={(open) => !open && setGeneratedPassword(null)}>
+                <Dialog open={!!generatedPassword} onOpenChange={(open) => !open && setGeneratedPassword('')}>
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>New Password Generated</DialogTitle>
