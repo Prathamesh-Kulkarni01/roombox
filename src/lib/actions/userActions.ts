@@ -15,7 +15,7 @@ interface ToggleFeatureParams {
 // The Redux thunk in userSlice will handle the business logic and state updates.
 export async function togglePremiumFeature({ userId, feature, enabled }: ToggleFeatureParams) {
     try {
-        if(!db) throw new Error("Database not connected");
+        if (!db) throw new Error("Database not connected");
 
         const userDocRef = doc(db, 'users', userId);
         const userDoc = await getDoc(userDocRef);
@@ -25,12 +25,12 @@ export async function togglePremiumFeature({ userId, feature, enabled }: ToggleF
         }
 
         const subscription = userDoc.data()?.subscription || {};
-        
+
         // Cannot enable features if not subscribed (and not in trial)
         if (enabled && subscription.status !== 'active' && subscription.status !== 'trialing') {
             throw new Error("You must have an active subscription to enable premium features.");
         }
-        
+
         await updateDoc(userDocRef, {
             [`subscription.premiumFeatures.${feature}.enabled`]: enabled
         });
@@ -42,5 +42,18 @@ export async function togglePremiumFeature({ userId, feature, enabled }: ToggleF
     } catch (error: any) {
         console.error("Error toggling premium feature:", error);
         throw error;
+    }
+}
+
+export async function fetchUserData(userId: string) {
+    try {
+        if (!db) throw new Error("Database not connected");
+        const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
+        if (!userDoc.exists()) throw new Error("User not found");
+        return { success: true, user: userDoc.data() };
+    } catch (error: any) {
+        console.error("Error fetching user data:", error);
+        return { success: false, error: error.message };
     }
 }

@@ -15,8 +15,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { fetchWhatsAppLogs } from '@/lib/actions/whatsappActions';
+import { fetchWhatsAppLogs, updateWhatsAppSettings } from '@/lib/actions/whatsappActions';
 import { format } from 'date-fns';
+import { setCurrentUser } from '@/lib/slices/userSlice';
+import { useDispatch } from 'react-redux';
+import { fetchUserData } from '@/lib/actions/userActions';
 
 const notificationEvents = [
     {
@@ -48,12 +51,66 @@ const notificationEvents = [
 
 export default function WhatsAppPage() {
     const { currentUser, currentPlan } = useAppSelector(state => state.user);
+    const dispatch = useDispatch();
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
     const [isRecharging, setIsRecharging] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
+    const [notificationSettings, setNotificationSettings] = useState<Record<string, { tenant: boolean, owner: boolean }>>({});
     const [logs, setLogs] = useState<any[]>([]);
     const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+    // Initialize/Load settings
+    React.useEffect(() => {
+        if (currentUser) {
+            if (currentUser.subscription?.whatsappSettings) {
+                setNotificationSettings(currentUser.subscription.whatsappSettings);
+            } else {
+                const settings: any = {};
+                notificationEvents.forEach(group => {
+                    group.events.forEach(event => {
+                        settings[event.id] = {
+                            tenant: event.tenant,
+                            owner: event.owner
+                        };
+                    });
+                });
+                setNotificationSettings(settings);
+            }
+        }
+    }, [currentUser]);
+
+    const handleToggle = (eventId: string, type: 'tenant' | 'owner') => {
+        setNotificationSettings(prev => ({
+            ...prev,
+            [eventId]: {
+                ...prev[eventId],
+                [type]: !prev[eventId][type]
+            }
+        }));
+    };
+
+    const handleSaveSettings = async () => {
+        if (!currentUser) return;
+        setIsSaving(true);
+        const res = await updateWhatsAppSettings(currentUser.id, notificationSettings);
+        if (res.success) {
+            toast({ title: 'Settings Saved', description: 'Your notification preferences have been updated.' });
+            // Update redux state to keep in sync
+            const updatedUser = {
+                ...currentUser,
+                subscription: {
+                    ...currentUser.subscription!,
+                    whatsappSettings: notificationSettings
+                }
+            };
+            dispatch(setCurrentUser(updatedUser));
+        } else {
+            toast({ variant: 'destructive', title: 'Save Failed', description: res.error || 'Failed to update settings.' });
+        }
+        setIsSaving(false);
+    };
 
     React.useEffect(() => {
         if (currentUser) {
@@ -64,6 +121,13 @@ export default function WhatsAppPage() {
     const loadLogs = async () => {
         if (!currentUser) return;
         setIsLoadingLogs(true);
+
+        // Refresh user data to get latest credits
+        const userRes = await fetchUserData(currentUser.id);
+        if (userRes.success && userRes.user) {
+            dispatch(setCurrentUser(userRes.user as any));
+        }
+
         const res = await fetchWhatsAppLogs(currentUser.id);
         if (res.success) {
             setLogs(res.logs);
@@ -141,6 +205,58 @@ export default function WhatsAppPage() {
                 <p className="text-muted-foreground">Manage your automated notifications and credits here.</p>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="md:col-span-2">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2"><Wallet className="w-5 h-5" /> Credit Wallet</CardTitle>
+                        <CardDescription>Your current balance and message estimates.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col md:flex-row gap-6 items-center">
+                            <div className="flex-1 text-center md:text-left p-4 border rounded-lg bg-muted/40 w-full">
+                                <p className="text-sm text-muted-foreground">Available Balance</p>
+                                <p className="text-4xl font-bold flex items-center justify-center md:justify-start">
+                                    <IndianRupee className="w-8 h-8" />{availableCredits.toFixed(2)}
+                                </p>
+                            </div>
+                            <div className="flex-1 grid grid-cols-2 gap-4 text-center w-full">
+                                <div className="p-3 border rounded-lg bg-background">
+                                    <p className="text-xs text-muted-foreground">Est. Templates Left</p>
+                                    <p className="font-bold text-lg">~{Math.floor(availableCredits / 1.5)}</p>
+                                </div>
+                                <div className="p-3 border rounded-lg bg-background">
+                                    <p className="text-xs text-muted-foreground">Credits Valid Until</p>
+                                    <p className="font-bold text-lg">Dec 2025</p>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-lg">Recharge Credits</CardTitle>
+                        <CardDescription>Top up your wallet instantly.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <div className="flex gap-2">
+                            <Button className="flex-1" size="sm" onClick={() => handleRecharge(200)} disabled={isRecharging}>
+                                {isRecharging && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                                ₹200
+                            </Button>
+                            <Button className="flex-1" size="sm" onClick={() => handleRecharge(500)} disabled={isRecharging}>
+                                {isRecharging && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                                ₹500
+                            </Button>
+                        </div>
+                        <Button className="w-full" variant="outline" size="sm" onClick={() => handleRecharge(1000)} disabled={isRecharging}>
+                            {isRecharging && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                            ₹1000 or More
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+
             <Alert>
                 <Info className="h-4 w-4" />
                 <AlertTitle>How It Works</AlertTitle>
@@ -151,8 +267,8 @@ export default function WhatsAppPage() {
                 </AlertDescription>
             </Alert>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                <div className="lg:col-span-2">
+            <div className="w-full">
+                <div className="w-full">
                     <Tabs defaultValue="settings" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2" />Settings</TabsTrigger>
@@ -193,10 +309,10 @@ export default function WhatsAppPage() {
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Switch id={`${event.id}-tenant`} disabled={!event.tenant} checked={event.tenant && notificationSettings[event.id].tenant} onCheckedChange={() => handleToggle(event.id, 'tenant')} />
+                                                                <Switch id={`${event.id}-tenant`} disabled={!event.tenant} checked={event.tenant && !!notificationSettings[event.id]?.tenant} onCheckedChange={() => handleToggle(event.id, 'tenant')} />
                                                             </TableCell>
                                                             <TableCell>
-                                                                <Switch id={`${event.id}-owner`} disabled={!event.owner} checked={event.owner && notificationSettings[event.id].owner} onCheckedChange={() => handleToggle(event.id, 'owner')} />
+                                                                <Switch id={`${event.id}-owner`} disabled={!event.owner} checked={event.owner && !!notificationSettings[event.id]?.owner} onCheckedChange={() => handleToggle(event.id, 'owner')} />
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
@@ -206,7 +322,10 @@ export default function WhatsAppPage() {
                                     </Table>
                                 </CardContent>
                                 <CardFooter className="sticky bottom-0 bg-background/95 border-t py-4">
-                                    <Button>Save Settings</Button>
+                                    <Button onClick={handleSaveSettings} disabled={isSaving}>
+                                        {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                        Save Settings
+                                    </Button>
                                 </CardFooter>
                             </TabsContent>
                             <TabsContent value="usage" className="m-0">
@@ -265,48 +384,6 @@ export default function WhatsAppPage() {
                             </TabsContent>
                         </Card>
                     </Tabs>
-                </div>
-
-                <div className="lg:col-span-1 space-y-6 lg:sticky top-20">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Wallet /> Credit Wallet</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="text-center p-4 border rounded-lg bg-muted/40">
-                                <p className="text-sm text-muted-foreground">Available Balance</p>
-                                <p className="text-4xl font-bold flex items-center justify-center">
-                                    <IndianRupee className="w-8 h-8" />{availableCredits.toFixed(2)}
-                                </p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 text-center">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Est. Templates Left</p>
-                                    <p className="font-bold text-lg">~{Math.floor(availableCredits / 1.5)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-muted-foreground">Credits Valid Until</p>
-                                    <p className="font-bold text-lg">Dec 2025</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                        <CardFooter className="flex-col gap-2">
-                            <div className="flex gap-2 w-full">
-                                <Button className="flex-1" onClick={() => handleRecharge(200)} disabled={isRecharging}>
-                                    {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                    Add ₹200
-                                </Button>
-                                <Button className="flex-1" onClick={() => handleRecharge(500)} disabled={isRecharging}>
-                                    {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                    Add ₹500
-                                </Button>
-                            </div>
-                            <Button className="w-full" variant="outline" onClick={() => handleRecharge(1000)} disabled={isRecharging}>
-                                {isRecharging && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                Add ₹1000 or More
-                            </Button>
-                        </CardFooter>
-                    </Card>
                 </div>
             </div>
         </div>

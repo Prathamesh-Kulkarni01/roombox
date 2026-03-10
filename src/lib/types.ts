@@ -348,6 +348,7 @@ export interface User {
     paymentHistory?: UserSubscriptionPayment[];
     kycDetails?: BusinessKycDetails;
     whatsappCredits?: number;
+    whatsappSettings?: Record<string, { tenant: boolean, owner: boolean }>;
     enterpriseProject?: {
       projectId: string;
       databaseId: string;

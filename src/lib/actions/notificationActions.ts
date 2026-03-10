@@ -13,6 +13,13 @@ interface CreateAndSendNotificationParams {
     notification: Omit<Notification, 'id' | 'date' | 'isRead'>;
 }
 
+const SETTINGS_MAP: Record<string, string> = {
+    'rent-paid': 'payment-confirmation-owner',
+    'rent-receipt': 'payment-confirmation-tenant',
+    'new-complaint-confirmation': 'complaint-update', // Confirmation is effectively a status update log
+    // Add other aliases here as needed
+};
+
 type WhatsAppStatus = 'sent' | 'failed' | 'skipped';
 
 
@@ -59,22 +66,36 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     // Send WhatsApp if enabled and we have a phone number.
     if (owner.subscription?.premiumFeatures?.whatsapp?.enabled && targetPhoneNumber) {
         try {
-            // Centralized billing & logging handled here
-            const fullPhone = targetPhoneNumber.startsWith('91') ? targetPhoneNumber : `91${targetPhoneNumber}`;
-            const result = await sendWA(
-                fullPhone,
-                `${notification.title}\n\n${notification.message}`,
-                ownerId,
-                targetId
-            );
+            // Check if user has enabled this specific notification
+            const settingsKey = SETTINGS_MAP[notification.type] || notification.type;
+            const settings = owner.subscription?.whatsappSettings?.[settingsKey];
 
-            if (result.success) {
-                whatsAppStatus = 'sent';
+            // Determine if target is tenant or owner
+            const isOwner = notification.targetId === ownerId;
+            const isEnabled = isOwner ? settings?.owner : settings?.tenant;
+
+            // If settings exist, follow them. If they don't exist, default to true for backward compat
+            if (settings && isEnabled === false) {
+                console.log(`[createAndSendNotification] WhatsApp skipped: ${settingsKey} disabled for ${isOwner ? 'owner' : 'tenant'}`);
+                whatsAppStatus = 'skipped';
             } else {
-                // @ts-ignore
-                console.error(`WhatsApp send failed:`, result.error);
-                // @ts-ignore
-                whatsAppStatus = result.error === 'Insufficient credits' ? 'skipped' : 'failed';
+                // Centralized billing & logging handled here
+                const fullPhone = targetPhoneNumber.startsWith('91') ? targetPhoneNumber : `91${targetPhoneNumber}`;
+                const result = await sendWA(
+                    fullPhone,
+                    `${notification.title}\n\n${notification.message}`,
+                    ownerId,
+                    targetId
+                );
+
+                if (result.success) {
+                    whatsAppStatus = 'sent';
+                } else {
+                    // @ts-ignore
+                    console.error(`WhatsApp send failed:`, result.error);
+                    // @ts-ignore
+                    whatsAppStatus = result.error === 'Insufficient credits' ? 'skipped' : 'failed';
+                }
             }
         } catch (e: any) {
             console.error(`Failed to send WhatsApp to ${targetPhoneNumber}:`, e.message);
