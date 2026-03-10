@@ -323,13 +323,14 @@ export class TenantService {
                     if (ownerPhone.length === 10) ownerPhone = '91' + ownerPhone;
                 }
 
-                const appUrl = (process.env.APP_URL || 'https://roombox.in');
+                const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://rentsutra-v1.netlify.app');
                 const dashboardUrl = `${appUrl}/tenant?id=${guestId}`;
 
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
 
                 // Use a verified, reachable logo URL for the header
-                const logoUrl = `${appUrl}/logo.png`;
+                // Fallback to the Netlify app since local roombox.in might not be resolvable to Meta servers.
+                const logoUrl = `${appUrl}/icons/icon-512x512.png`;
 
                 const components = [
                     {

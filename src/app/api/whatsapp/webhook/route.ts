@@ -69,6 +69,18 @@ export async function POST(req: Request) {
         }
 
         const changes = body.entry?.[0]?.changes?.[0];
+
+        // LOG STATUSES FOR DEBUGGING DELIVERY ISSUES
+        const statuses = changes?.value?.statuses;
+        if (statuses && statuses.length > 0) {
+            for (const status of statuses) {
+                console.log(`[Webhook Status] ID: ${status.id}, Status: ${status.status}, Recipient: ${status.recipient_id}`);
+                if (status.errors) {
+                    console.error(`[Webhook Status ERROR]`, JSON.stringify(status.errors, null, 2));
+                }
+            }
+        }
+
         if (!changes?.value?.messages?.[0]) {
             return NextResponse.json({ status: 'received' }, { status: 200 });
         }
