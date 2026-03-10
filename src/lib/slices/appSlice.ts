@@ -54,12 +54,6 @@ const appSlice = createSlice({
             .addCase('user/initializeUser/pending', (state) => {
                 state.isLoading = true;
             })
-            .addCase('user/initializeUser/fulfilled', (state) => {
-                state.isLoading = false;
-            })
-            .addCase('user/initializeUser/rejected', (state) => {
-                state.isLoading = false;
-            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.isLoading = false;
                 state.selectedPgId = null;

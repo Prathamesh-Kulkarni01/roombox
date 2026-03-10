@@ -37,7 +37,6 @@ function AuthHandler({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  // Zustand config store setters
   const { setTemplates: setChargeTemplatesZustand } = useChargeTemplatesStore();
 
   useEffect(() => {
@@ -52,22 +51,13 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handleOnline = () => {
-      toast({
-        title: "You're back online!",
-        description: "Your data will be synced automatically.",
-      });
+      toast({ title: "You're back online!", description: "Your data will be synced automatically." });
     };
-
     const handleOffline = () => {
-      toast({
-        title: "You've gone offline",
-        description: "Your changes will be saved and synced when you reconnect.",
-      });
+      toast({ title: "You've gone offline", description: "Your changes will be saved and synced when you reconnect." });
     };
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -77,16 +67,19 @@ function AuthHandler({ children }: { children: ReactNode }) {
   // Auth state listener
   useEffect(() => {
     if (!isFirebaseConfigured() || authListenerStarted.current || !auth) {
-      setAuthReady(true); // Mark auth as ready if firebase isn't configured
+      setAuthReady(true);
       return;
     };
 
     authListenerStarted.current = true;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      console.log(`[StoreProvider] Auth change detected. User: ${firebaseUser?.uid || 'logged out'}`);
+      setAuthReady(false);
       if (firebaseUser) {
         await dispatch(initializeUser(firebaseUser));
       } else {
         dispatch(logoutUser());
+        dispatch(setLoading(false));
       }
       setAuthReady(true);
     });
@@ -99,65 +92,48 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
   // Centralized redirection logic
   useEffect(() => {
-    if (!authReady) return; // Don't redirect until auth state is confirmed
+    if (!authReady) return;
 
     const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin', 'other'];
-
-    // List of pages that are accessible without authentication
     const publicPages = [
-      '/',
-      '/login',
-      '/login/set-password',
-      '/signup',
-      '/privacy-policy',
-      '/terms-of-service',
-      '/contact',
-      '/about',
-      '/refund-policy',
-      '/pay',
-      '/site',
-      '/blog',
-      '/invite',
-      '/ledger'
+      '/', '/login', '/login/set-password', '/signup', '/privacy-policy', '/terms-of-service',
+      '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog', '/invite', '/ledger'
     ];
 
-    // Improved matching: Exact match OR starts with the path followed by a slash (to avoid false positives like /login-extra)
     const isPublicPage = publicPages.some(p => {
       if (p === '/') return pathname === '/';
       return pathname === p || pathname.startsWith(`${p}/`);
     });
 
     if (currentUser) {
-      // If logged in, we decide where they should be
       const isInviteOrSetPassword = pathname.startsWith('/invite') || pathname.startsWith('/login/set-password');
+      const isLoginPage = pathname === '/login' || pathname === '/signup';
 
-      if (currentUser.role === 'tenant' && !pathname.startsWith('/tenants') && !isInviteOrSetPassword) {
+      if (currentUser.role === 'tenant' && (!pathname.startsWith('/tenants') || isLoginPage || isInviteOrSetPassword)) {
+        console.log(`[StoreProvider] Redirecting tenant to portal... (Path: ${pathname})`);
         router.replace('/tenants/my-pg');
-      } else if (allowedDashboardRoles.includes(currentUser.role) && !pathname.startsWith('/dashboard') && !pathname.startsWith('/admin') && !isInviteOrSetPassword) {
+      } else if (allowedDashboardRoles.includes(currentUser.role) && (!pathname.startsWith('/dashboard') || isLoginPage || isInviteOrSetPassword) && !pathname.startsWith('/admin')) {
+        console.log(`[StoreProvider] Redirecting ${currentUser.role} to dashboard... (Path: ${pathname})`);
         router.replace('/dashboard');
       } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile' && !isPublicPage) {
         router.replace('/complete-profile');
       }
     } else if (!isPublicPage) {
-      // If not logged in and not on a public page, go to login
       console.log(`[AuthHandler] Restricted page detected: ${pathname}. Redirecting to /login`);
       router.replace('/login');
     }
   }, [authReady, currentUser, pathname, router]);
 
-  // Data fetching logic based on user role
+  // Data fetching logic
   useEffect(() => {
-    // Clear previous listeners
     dataListeners.forEach(unsub => unsub());
     setDataListeners([]);
 
     if (!currentUser || !currentPlan) {
-      // If there's no user after the auth check, we are done loading.
-      dispatch(setLoading(false));
+      if (authReady) dispatch(setLoading(false));
       return;
     }
 
-    // Determine the correct ID for fetching data
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
     const enterpriseDbId = currentUser.subscription?.enterpriseProject?.databaseId;
     const clientConfig = currentUser.subscription?.enterpriseProject?.clientConfig;
@@ -166,136 +142,85 @@ function AuthHandler({ children }: { children: ReactNode }) {
       ? getOwnerClientDb(clientConfig, enterpriseDbId)
       : (enterpriseDbId ? getDynamicDb(enterpriseDbId) : db);
 
-    if (!dbInstance) {
-      console.error("Database instance could not be determined. This can happen if Firebase is not configured or the user is not properly authenticated.");
+    if (!dbInstance || !ownerIdForFetching) {
       dispatch(setLoading(false));
       return;
     }
 
-    if (!ownerIdForFetching) {
-      // This case is for new, unassigned users who haven't selected a role yet.
-      // They don't have an ownerId, so we can't fetch owner-specific data.
-      // We can consider them "loaded" for now.
-      dispatch(setLoading(false));
-      return;
-    }
-
-    // Initialize Firebase Messaging and push notifications
+    // FCM and topics
     initializeFirebaseMessaging(currentUser.id);
     (async () => {
       try {
         const res = await initPushAndSaveToken(currentUser.id);
         if (res.token) {
-          const baseTopics: string[] = ['app', `role-${currentUser.role}`];
-          const ownerTopics: string[] = currentUser.role === 'owner' ? ['tenants-all'] : [];
-          const pgTopics: string[] = selectedPgId ? [`pg-${selectedPgId}-tenants`] : [];
+          const baseTopics = ['app', `role-${currentUser.role}`];
+          const ownerTopics = currentUser.role === 'owner' ? ['tenants-all'] : [];
+          const pgTopics = selectedPgId ? [`pg-${selectedPgId}-tenants`] : [];
           await subscribeToTopic({ token: res.token, topics: [...baseTopics, ...ownerTopics, ...pgTopics], userId: currentUser.id })
         }
-      } catch (e) {
-        console.error('[Push] Auto init failed:', e);
-      }
+      } catch (e) { console.error('[Push] Init failed:', e); }
     })();
 
     let unsubs: Unsubscribe[] = [];
-
     const isDashboardUser = ['owner', 'manager', 'cook', 'cleaner', 'security'].includes(currentUser.role);
 
-    // Config stores (permissions, kycConfig) are Zustand-persisted — load from Firestore if cloud sync is enabled
-    // chargeTemplates are also Zustand, synced from Firestore below
     if (isDashboardUser) {
-      const collectionsToSync: { [key: string]: (data: any) => { type: string; payload: any } } = {
-        pgs: setPgs,
-        guests: setGuests,
-        complaints: setComplaints,
-        expenses: setExpenses,
-        staff: setStaff,
+      const collectionsToSync: { [key: string]: any } = {
+        pgs: setPgs, guests: setGuests, complaints: setComplaints, expenses: setExpenses, staff: setStaff,
       };
-
       const collectionNames = Object.keys(collectionsToSync);
       let loadedCount = 0;
 
-      const ownerNotificationQuery = query(collection(dbInstance, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
-      unsubs.push(onSnapshot(ownerNotificationQuery, (snapshot) => {
+      const ownerNotifQuery = query(collection(dbInstance, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
+      unsubs.push(onSnapshot(ownerNotifQuery, snapshot => {
         const data = snapshot.docs.map(doc => doc.data() as Notification);
         dispatch(setNotifications(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
       }));
 
-
-      // Setup real-time listeners for other collections
-      const otherCollections = collectionNames.map((collectionName) => {
+      collectionNames.forEach(collectionName => {
         const setDataAction = collectionsToSync[collectionName];
         const collRef = collection(dbInstance, 'users_data', ownerIdForFetching, collectionName);
-
-        return onSnapshot(collRef, (snapshot) => {
+        unsubs.push(onSnapshot(collRef, snapshot => {
           let data = snapshot.docs.map(doc => doc.data());
-
           if (collectionName === 'pgs' && currentUser.role !== 'owner' && currentUser.pgIds) {
             data = data.filter(pg => currentUser.pgIds?.includes((pg as PG).id));
           }
-          if (collectionName === 'pgs') {
-            const validPgIds = (data as PG[]).map(pg => pg.id);
-            dispatch(validateSelectedPg(validPgIds));
-          }
+          if (collectionName === 'pgs') dispatch(validateSelectedPg(data.map(pg => (pg as PG).id)));
           if (['complaints', 'expenses'].includes(collectionName)) {
             data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
           }
-
-          dispatch(setDataAction(data as any));
-
+          dispatch(setDataAction(data));
           if (loadedCount < collectionNames.length) {
             loadedCount++;
-            if (loadedCount === collectionNames.length) {
-              dispatch(setLoading(false));
-            }
+            if (loadedCount === collectionNames.length) dispatch(setLoading(false));
           }
-
-        }, (error) => {
-          console.error(`Error listening to ${collectionName}:`, error);
+        }, err => {
+          console.error(`Error listening to ${collectionName}:`, err);
           loadedCount++;
-          if (loadedCount === collectionNames.length) {
-            dispatch(setLoading(false));
-          }
-        });
+          if (loadedCount === collectionNames.length) dispatch(setLoading(false));
+        }));
       });
-      unsubs.push(...otherCollections);
-
     } else if (currentUser.role === 'tenant' && currentUser.ownerId && currentUser.pgId && currentUser.guestId) {
       const { ownerId, pgId, guestId, id: userId } = currentUser;
-
-      const pgDocRef = doc(dbInstance, 'users_data', ownerId, 'pgs', pgId);
-      unsubs.push(onSnapshot(pgDocRef, (snap) => dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []))));
-
-      const guestDocRef = doc(dbInstance, 'users_data', ownerId, 'guests', guestId);
-      unsubs.push(onSnapshot(guestDocRef, (snap) => dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : []))));
-
-      const complaintsQuery = query(collection(dbInstance, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId));
-      unsubs.push(onSnapshot(complaintsQuery, (snapshot) => {
-        const complaintsData = snapshot.docs.map(d => d.data() as Complaint);
-        dispatch(setComplaints(complaintsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+      unsubs.push(onSnapshot(doc(dbInstance, 'users_data', ownerId, 'pgs', pgId), snap => dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []))));
+      unsubs.push(onSnapshot(doc(dbInstance, 'users_data', ownerId, 'guests', guestId), snap => dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : []))));
+      unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId)), snap => {
+        dispatch(setComplaints(snap.docs.map(d => d.data() as Complaint).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
       }));
-
-      const staffQuery = query(collection(dbInstance, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId));
-      unsubs.push(onSnapshot(staffQuery, (snapshot) => {
-        dispatch(setStaff(snapshot.docs.map(d => d.data() as Staff)));
+      unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId)), snap => {
+        dispatch(setStaff(snap.docs.map(d => d.data() as Staff)));
       }));
-
-      const notificationsQuery = query(collection(dbInstance, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId, userId]));
-      unsubs.push(onSnapshot(notificationsQuery, (snapshot) => {
-        const notificationsData = snapshot.docs.map(d => d.data() as Notification);
-        dispatch(setNotifications(notificationsData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+      unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'notifications'), where('targetId', 'in', [guestId, pgId, userId])), snap => {
+        dispatch(setNotifications(snap.docs.map(d => d.data() as Notification).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
       }));
-
       dispatch(setLoading(false));
     } else {
       dispatch(setLoading(false));
     }
 
     setDataListeners(unsubs);
-
-    return () => {
-      unsubs.forEach(unsub => unsub());
-    };
-  }, [currentUser, currentPlan, dispatch]);
+    return () => unsubs.forEach(unsub => unsub());
+  }, [currentUser, currentPlan, dispatch, authReady]);
 
   if (!authReady) {
     return (

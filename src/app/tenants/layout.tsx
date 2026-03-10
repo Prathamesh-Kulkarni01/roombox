@@ -21,47 +21,49 @@ export default function TenantDashboardLayout({
     if (isLoading) return;
 
     if (!currentUser) {
-        router.replace('/login');
-        return;
+      console.log(`[TenantLayout] No user found. Redirecting to login.`);
+      router.replace('/login');
+      return;
     }
 
     if (currentUser.role === 'unassigned') {
-        router.replace('/complete-profile');
+      console.log(`[TenantLayout] User is unassigned. Redirecting to profile completion.`);
+      router.replace('/complete-profile');
     } else if (currentUser.role !== 'tenant') {
-        router.replace('/dashboard');
+      console.log(`[TenantLayout] User is not a tenant (Role: ${currentUser.role}). Redirecting to dashboard.`);
+      router.replace('/dashboard');
     }
   }, [isLoading, currentUser, router]);
 
   if (isLoading || !currentUser || currentUser.role !== 'tenant') {
     return (
       <div className="flex min-h-[calc(100vh-56px)]">
-         <div className="w-64 flex-col border-r bg-muted hidden md:flex p-4">
-            <Skeleton className="h-8 w-3/4 mb-6" />
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-         </div>
+        <div className="w-64 flex-col border-r bg-muted hidden md:flex p-4">
+          <Skeleton className="h-8 w-3/4 mb-6" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
         <main className="flex-1 p-4 bg-muted/40">
-           <Skeleton className="h-full w-full" />
+          <Skeleton className="h-full w-full" />
         </main>
       </div>
     );
   }
 
   return (
-      <div className="flex min-h-[calc(100vh-56px)]">
-        <TenantSidebar />
-        <div className="flex flex-1 flex-col overflow-auto">
-            <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 pb-20 md:pb-4">
-                {children}
-            </main>
-        </div>
-        <TenantBottomNav />
+    <div className="flex min-h-[calc(100vh-56px)]">
+      <TenantSidebar />
+      <div className="flex flex-1 flex-col overflow-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 bg-muted/40 pb-20 md:pb-4">
+          {children}
+        </main>
       </div>
+      <TenantBottomNav />
+    </div>
   )
 }
 
-    

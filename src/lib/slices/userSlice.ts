@@ -42,7 +42,18 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             }
 
             const userDocRef = doc(db!, 'users', firebaseUser.uid);
-            let userDoc = await getDoc(userDocRef);
+            // Force server-side fetch initially to avoid stale cached roles from previous visits
+            let userDoc = await getDoc(userDocRef).catch(() => getDoc(userDocRef));
+
+            // If the role is unassigned, try one more time from server to be absolutely sure 
+            // of the latest role from the API that just set it up.
+            if (userDoc.exists() && (userDoc.data() as User).role === 'unassigned') {
+                console.log(`[initializeUser] Role is unassigned. Retrying from server...`);
+                // Note: JS SDK doesn't have an easy "getDocFromServer" but we can wait briefly 
+                // and re-fetch to allow propagation if it was just changed in API.
+                await new Promise(r => setTimeout(r, 500));
+                userDoc = await getDoc(userDocRef);
+            }
 
             const getPlanForUser = (user: User): Plan => {
                 if (!user.subscription || user.subscription.status === 'inactive') {
@@ -86,6 +97,22 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             }
 
             let userData = userDoc.data() as User;
+
+            // --- Robust Role Resolution (Check Auth Claims vs Firestore) ---
+            // If the firestore doc exists but the role is unassigned, check the auth token claims
+            // which are set by the magic-login or set-password APIs. This bypasses firestore propagation lag.
+            if (userData.role === 'unassigned') {
+                const tokenResult = await firebaseUser.getIdTokenResult(true); // force refresh token to get latest claims
+                const roleFromClaim = tokenResult.claims.role as UserRole;
+
+                if (roleFromClaim && roleFromClaim !== 'unassigned') {
+                    console.log(`[initializeUser] Firestore stale (unassigned). Using role from Auth Claim: ${roleFromClaim}`);
+                    userData.role = roleFromClaim;
+                    // Also attempt to get ownerId/guestId from claims if they were set
+                    if (tokenResult.claims.ownerId) userData.ownerId = tokenResult.claims.ownerId as string;
+                    if (tokenResult.claims.guestId) userData.guestId = tokenResult.claims.guestId as string;
+                }
+            }
 
             // --- Handle Invites for New or Existing Users ---
             // --- Handle Invites for New or Existing Users ---
