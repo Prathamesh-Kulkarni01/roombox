@@ -37,7 +37,7 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
             Add a new guest to Bed {selectedBedForGuestAdd?.bed.name} in Room {selectedBedForGuestAdd?.room.name} at {selectedBedForGuestAdd?.pg.name}.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto -mr-6 pr-6">
+        <div className="flex-1 overflow-y-auto -mr-6 pr-6 p-2">
           <Form {...addGuestForm}>
             <form onSubmit={addGuestForm.handleSubmit(handleAddGuestSubmit)} className="space-y-4" id="add-guest-form">
               <FormField control={addGuestForm.control} name="name" render={({ field }) => (
