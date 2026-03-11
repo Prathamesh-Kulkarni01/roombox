@@ -6,12 +6,18 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { usePermissionsStore } from '@/lib/stores/configStores'
+import { usePermissionsStore, type RolePermissions } from '@/lib/stores/configStores'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { produce } from "immer"
+import { featurePermissionConfig } from '@/lib/permissions';
+import type { UserRole } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -24,14 +30,16 @@ import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteSta
 import Link from 'next/link'
 import { canAccess } from '@/lib/permissions';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
+import { useToast } from "@/hooks/use-toast"
+
 
 const staffSchema = z.object({
-  pgId: z.string().min(1, "Please select a property"),
-  name: z.string().min(2, "Name must be at least 2 characters."),
-  email: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
-  role: z.enum(['manager', 'cleaner', 'cook', 'security', 'other']),
-  phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
-  salary: z.coerce.number().min(1, "Salary is required."),
+    pgId: z.string().min(1, "Please select a property"),
+    name: z.string().min(2, "Name must be at least 2 characters."),
+    email: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
+    role: z.enum(['manager', 'cleaner', 'cook', 'security', 'other']),
+    phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
+    salary: z.coerce.number().min(1, "Salary is required."),
 })
 
 type StaffFormValues = z.infer<typeof staffSchema>
@@ -49,9 +57,9 @@ const StaffForm = ({ form, onSubmit }: { form: any, onSubmit: (data: StaffFormVa
     const { currentUser } = useAppSelector(state => state.user);
     const { featurePermissions } = usePermissionsStore();
     const staffToEdit = form.getValues(); // Not ideal, but works for this context
-    
+
     return (
-         <Form {...form}>
+        <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="staff-form">
                 <FormField control={form.control} name="pgId" render={({ field }) => (
                     <FormItem><FormLabel>Property</FormLabel>
@@ -64,13 +72,13 @@ const StaffForm = ({ form, onSubmit }: { form: any, onSubmit: (data: StaffFormVa
                 <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g., Suresh Kumar" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
-                    <FormField control={form.control} name="email" render={({ field }) => (
+                <FormField control={form.control} name="email" render={({ field }) => (
                     <FormItem><FormLabel>Email (Optional)</FormLabel><FormControl><Input type="email" placeholder="e.g., suresh@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="phone" render={({ field }) => (
                     <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="e.g., 9876543210" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
-                    <FormField control={form.control} name="role" render={({ field }) => (
+                <FormField control={form.control} name="role" render={({ field }) => (
                     <FormItem><FormLabel>Role</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
@@ -78,7 +86,7 @@ const StaffForm = ({ form, onSubmit }: { form: any, onSubmit: (data: StaffFormVa
                         </Select><FormMessage />
                     </FormItem>
                 )} />
-                    <FormField control={form.control} name="salary" render={({ field }) => (
+                <FormField control={form.control} name="salary" render={({ field }) => (
                     <FormItem><FormLabel>Salary</FormLabel><FormControl><Input type="number" placeholder="e.g., 15000" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <DialogFooter>
@@ -97,10 +105,17 @@ export default function StaffPage() {
     const { isLoading, selectedPgId } = useAppSelector(state => state.app)
     const { currentPlan } = useAppSelector(state => state.user)
     const { currentUser } = useAppSelector(state => state.user);
-    const { featurePermissions } = usePermissionsStore();
+    const { featurePermissions, updatePermissions: savePermissions } = usePermissionsStore();
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null)
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false)
+
+    // Permissions State
+    const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
+    const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
+    const [selectedPermissions, setSelectedPermissions] = useState<RolePermissions>({});
+    const { toast } = useToast();
+
 
     const form = useForm<StaffFormValues>({
         resolver: zodResolver(staffSchema),
@@ -138,12 +153,45 @@ export default function StaffPage() {
         setStaffToEdit(staffMember);
         setIsDialogOpen(true);
     }
-    
+
     const handleDelete = (staffId: string) => {
-        if(confirm('Are you sure you want to delete this staff member?')) {
+        if (confirm('Are you sure you want to delete this staff member?')) {
             dispatch(deleteStaffAction(staffId));
         }
     }
+
+    const handleOpenPermissionsDialog = (role: UserRole) => {
+        setRoleToEdit(role);
+        setSelectedPermissions(featurePermissions || {});
+        setIsPermissionsDialogOpen(true);
+    }
+
+    const handlePermissionChange = (feature: string, action: string, checked: boolean) => {
+        if (!roleToEdit) return;
+
+        const nextState = produce(selectedPermissions, (draft: any) => {
+            if (!draft[roleToEdit]) {
+                draft[roleToEdit] = {};
+            }
+            if (!draft[roleToEdit]![feature]) {
+                draft[roleToEdit]![feature] = {};
+            }
+            draft[roleToEdit]![feature][action] = checked;
+        });
+        setSelectedPermissions(nextState);
+    }
+
+    const handleSavePermissions = () => {
+        if (!roleToEdit) return;
+        const updatedPermissions = { ...(featurePermissions ?? {}), [roleToEdit]: selectedPermissions[roleToEdit]! } as import('@/lib/permissions').RolePermissions;
+        savePermissions(updatedPermissions);
+        toast({ title: "Permissions Updated", description: `Permissions for ${roleToEdit} have been saved.` });
+        setIsPermissionsDialogOpen(false);
+    }
+
+    const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
+    const currentRolePermissions = roleToEdit ? selectedPermissions?.[roleToEdit] : {};
+
 
     const filteredStaff = useMemo(() => {
         if (!selectedPgId) return staff;
@@ -154,32 +202,32 @@ export default function StaffPage() {
         return (
             <div className="flex flex-col gap-8">
                 <div>
-                   <Skeleton className="h-9 w-64 mb-2" />
-                   <Skeleton className="h-5 w-80" />
-               </div>
-               <Card>
-                   <CardHeader className="flex flex-row items-center justify-between">
-                      <div className="space-y-2">
-                        <Skeleton className="h-7 w-24" />
-                        <Skeleton className="h-5 w-32" />
-                      </div>
-                       <Skeleton className="h-10 w-32" />
-                   </CardHeader>
-                   <CardContent>
-                       <div className="hidden md:block space-y-2">
-                           {Array.from({ length: 3 }).map((_, i) => (
-                               <Skeleton key={i} className="h-12 w-full" />
-                           ))}
-                       </div>
-                   </CardContent>
-               </Card>
-           </div>
+                    <Skeleton className="h-9 w-64 mb-2" />
+                    <Skeleton className="h-5 w-80" />
+                </div>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div className="space-y-2">
+                            <Skeleton className="h-7 w-24" />
+                            <Skeleton className="h-5 w-32" />
+                        </div>
+                        <Skeleton className="h-10 w-32" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="hidden md:block space-y-2">
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <Skeleton key={i} className="h-12 w-full" />
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         )
     }
 
     if (!currentPlan?.hasStaffManagement) {
-         return (
-             <>
+        return (
+            <>
                 <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
                 <Card>
                     <CardHeader>
@@ -194,100 +242,163 @@ export default function StaffPage() {
                         </div>
                     </CardContent>
                 </Card>
-             </>
+            </>
         )
     }
 
     if (pgs.length === 0) {
         return (
-          <div className="flex items-center justify-center h-full min-h-[calc(100vh-250px)]">
-              <div className="text-center p-8 bg-card rounded-lg border">
-                  <Building className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h2 className="mt-4 text-xl font-semibold">No Properties Found</h2>
-                  <p className="mt-2 text-muted-foreground">Please add a property to start managing staff.</p>
-                  <Button asChild className="mt-4">
-                    <Link href="/dashboard/pg-management">Add Property</Link>
-                  </Button>
-              </div>
-          </div>
+            <div className="flex items-center justify-center h-full min-h-[calc(100vh-250px)]">
+                <div className="text-center p-8 bg-card rounded-lg border">
+                    <Building className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h2 className="mt-4 text-xl font-semibold">No Properties Found</h2>
+                    <p className="mt-2 text-muted-foreground">Please add a property to start managing staff.</p>
+                    <Button asChild className="mt-4">
+                        <Link href="/dashboard/pg-management">Add Property</Link>
+                    </Button>
+                </div>
+            </div>
         )
     }
 
     return (
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <div className="flex flex-col gap-8">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle>Staff List</CardTitle>
-                            <CardDescription>
-                                A list of all staff members {selectedPgId ? `at ${pgs.find(p => p.id === selectedPgId)?.name}` : 'across all properties'}.
-                            </CardDescription>
-                        </div>
-                        <Button onClick={() => openDialog()} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'add')}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Staff
-                        </Button>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Property</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Phone</TableHead>
-                                    <TableHead className="text-right">Salary</TableHead>
-                                    <TableHead><span className="sr-only">Actions</span></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredStaff.map((member) => (
-                                    <TableRow key={member.id}>
-                                        <TableCell className="font-medium">{member.name}</TableCell>
-                                        <TableCell>{member.pgName}</TableCell>
-                                        <TableCell>
-                                            <Badge className={cn("capitalize border-transparent", roleColors[member.role])}>{member.role}</Badge>
-                                        </TableCell>
-                                        <TableCell>{member.phone}</TableCell>
-                                        <TableCell className="text-right font-medium flex items-center justify-end gap-1">
-                                            <IndianRupee className="h-4 w-4" />
-                                            {member.salary.toLocaleString('en-IN')}
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button aria-haspopup="true" size="icon" variant="ghost">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                        <span className="sr-only">Toggle menu</span>
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => openDialog(member)} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'edit')}>
-                                                        <Pencil className="mr-2 h-4 w-4" /> Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(member.id)} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'delete')}>
-                                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                         {filteredStaff.length === 0 && (
-                            <div className="text-center py-10 text-muted-foreground">No staff members found.</div>
-                         )}
-                    </CardContent>
-                </Card>
-            </div>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{staffToEdit ? 'Edit Staff Member' : 'Add New Staff Member'}</DialogTitle>
-                    <DialogDescription>Fill in the details for the staff member.</DialogDescription>
-                </DialogHeader>
-                <StaffForm form={form} onSubmit={onSubmit} />
-            </DialogContent>
-        </Dialog>
+        <div className="flex flex-col gap-6">
+            <h1 className="text-3xl font-bold flex items-center gap-2"><Users /> Staff & Operations</h1>
+            <Tabs defaultValue="staff" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                    <TabsTrigger value="staff">Staff Members</TabsTrigger>
+                    <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="staff" className="mt-4">
+                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle>Staff List</CardTitle>
+                                    <CardDescription>
+                                        A list of all staff members {selectedPgId ? `at ${pgs.find(p => p.id === selectedPgId)?.name}` : 'across all properties'}.
+                                    </CardDescription>
+                                </div>
+                                <Button onClick={() => openDialog()} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'add')}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Staff
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>Property</TableHead>
+                                            <TableHead>Role</TableHead>
+                                            <TableHead>Phone</TableHead>
+                                            <TableHead className="text-right">Salary</TableHead>
+                                            <TableHead><span className="sr-only">Actions</span></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredStaff.map((member) => (
+                                            <TableRow key={member.id}>
+                                                <TableCell className="font-medium">{member.name}</TableCell>
+                                                <TableCell>{member.pgName}</TableCell>
+                                                <TableCell>
+                                                    <Badge className={cn("capitalize border-transparent", roleColors[member.role])}>{member.role}</Badge>
+                                                </TableCell>
+                                                <TableCell>{member.phone}</TableCell>
+                                                <TableCell className="text-right font-medium flex items-center justify-end gap-1">
+                                                    <IndianRupee className="h-4 w-4" />
+                                                    {member.salary.toLocaleString('en-IN')}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                                <span className="sr-only">Toggle menu</span>
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => openDialog(member)} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'edit')}>
+                                                                <Pencil className="mr-2 h-4 w-4" /> Edit
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(member.id)} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'delete')}>
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                {filteredStaff.length === 0 && (
+                                    <div className="text-center py-10 text-muted-foreground">No staff members found.</div>
+                                )}
+                            </CardContent>
+                        </Card>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>{staffToEdit ? 'Edit Staff Member' : 'Add New Staff Member'}</DialogTitle>
+                                <DialogDescription>Fill in the details for the staff member.</DialogDescription>
+                            </DialogHeader>
+                            <StaffForm form={form} onSubmit={onSubmit} />
+                        </DialogContent>
+                    </Dialog>
+                </TabsContent>
+
+                <TabsContent value="permissions" className="mt-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><ShieldAlert className="w-5 h-5" /> Role Permissions</CardTitle>
+                            <CardDescription>Define what each staff role can see and do on the dashboard.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {staffRoles.map(role => (
+                                <div key={role} className="flex items-center justify-between p-3 border rounded-lg">
+                                    <p className="font-semibold capitalize">{role}</p>
+                                    <Button variant="outline" size="sm" onClick={() => handleOpenPermissionsDialog(role)}>
+                                        <Pencil className="w-3 h-3 mr-2" />
+                                        Edit Permissions
+                                    </Button>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+
+            <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Edit Permissions for <span className="capitalize">{roleToEdit}</span></DialogTitle>
+                        <DialogDescription>Select the actions this role can perform on the dashboard.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto pr-2">
+                        {Object.entries(featurePermissionConfig).map(([featureKey, config]) => (
+                            <div key={featureKey}>
+                                <h4 className="font-semibold text-lg mb-2">{config.label}</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l">
+                                    {Object.entries(config.actions).map(([actionKey, actionLabel]) => (
+                                        <div key={actionKey} className="flex items-center space-x-2">
+                                            <Switch
+                                                id={`${roleToEdit}-${featureKey}-${actionKey}`}
+                                                checked={currentRolePermissions?.[featureKey]?.[actionKey] || false}
+                                                onCheckedChange={(checked) => handlePermissionChange(featureKey, actionKey, checked)}
+                                            />
+                                            <Label htmlFor={`${roleToEdit}-${featureKey}-${actionKey}`} className="font-normal">{actionLabel}</Label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
+                        <Button onClick={handleSavePermissions}>Save Permissions</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
     )
+
 }

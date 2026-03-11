@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut, AlertCircle, BarChart, Plus, Loader2 } from 'lucide-react';
+import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut, AlertCircle, BarChart, Plus, Loader2, Smartphone, Check } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import { useAppSelector } from '@/lib/hooks';
@@ -20,6 +20,8 @@ import { format } from 'date-fns';
 import { setCurrentUser } from '@/lib/slices/userSlice';
 import { useDispatch } from 'react-redux';
 import { fetchUserData } from '@/lib/actions/userActions';
+import { Input } from '@/components/ui/input';
+import { auth } from "@/lib/firebase";
 
 const notificationEvents = [
     {
@@ -60,6 +62,11 @@ export default function WhatsAppPage() {
     const [notificationSettings, setNotificationSettings] = useState<Record<string, { tenant: boolean, owner: boolean }>>({});
     const [logs, setLogs] = useState<any[]>([]);
     const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
+    const [phoneNumber, setPhoneNumber] = useState(currentUser?.phone || '');
+    const [isOtpSent, setIsOtpSent] = useState(false);
+    const [otp, setOtp] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
 
     // Initialize/Load settings
     React.useEffect(() => {
@@ -110,6 +117,61 @@ export default function WhatsAppPage() {
             toast({ variant: 'destructive', title: 'Save Failed', description: res.error || 'Failed to update settings.' });
         }
         setIsSaving(false);
+    };
+
+    const handleSendVerificationOtp = async () => {
+        if (!currentUser || !phoneNumber) return;
+        setIsVerifying(true);
+        try {
+            const token = await auth?.currentUser?.getIdToken();
+            const res = await fetch('/api/whatsapp/send-verification-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ phone: phoneNumber })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setIsOtpSent(true);
+                toast({ title: 'OTP Sent', description: 'Please check your WhatsApp for the verification code.' });
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Error', description: err.message || 'Could not send OTP.' });
+        } finally {
+            setIsVerifying(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!currentUser || !otp) return;
+        setIsVerifying(true);
+        try {
+            const token = await auth?.currentUser?.getIdToken();
+            const res = await fetch('/api/whatsapp/verify-phone-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ otp })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast({ title: 'Verified!', description: 'Your WhatsApp number has been verified. You can now use Magic Login.' });
+                setIsOtpSent(false);
+                setOtp('');
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Verification Failed', description: err.message || 'Invalid OTP.' });
+        } finally {
+            setIsVerifying(false);
+        }
     };
 
     React.useEffect(() => {
@@ -233,28 +295,78 @@ export default function WhatsAppPage() {
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-lg">Recharge Credits</CardTitle>
-                        <CardDescription>Top up your wallet instantly.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="flex gap-2">
-                            <Button className="flex-1" size="sm" onClick={() => handleRecharge(200)} disabled={isRecharging}>
+                <div className="space-y-6">
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg">Recharge Credits</CardTitle>
+                            <CardDescription>Top up your wallet instantly.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="flex gap-2">
+                                <Button className="flex-1" size="sm" onClick={() => handleRecharge(200)} disabled={isRecharging}>
+                                    {isRecharging && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                                    ₹200
+                                </Button>
+                                <Button className="flex-1" size="sm" onClick={() => handleRecharge(500)} disabled={isRecharging}>
+                                    {isRecharging && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                                    ₹500
+                                </Button>
+                            </div>
+                            <Button className="w-full" variant="outline" size="sm" onClick={() => handleRecharge(1000)} disabled={isRecharging}>
                                 {isRecharging && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
-                                ₹200
+                                ₹1000 or More
                             </Button>
-                            <Button className="flex-1" size="sm" onClick={() => handleRecharge(500)} disabled={isRecharging}>
-                                {isRecharging && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
-                                ₹500
-                            </Button>
-                        </div>
-                        <Button className="w-full" variant="outline" size="sm" onClick={() => handleRecharge(1000)} disabled={isRecharging}>
-                            {isRecharging && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
-                            ₹1000 or More
-                        </Button>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg flex items-center gap-2 text-sm"><Smartphone className="w-4 h-4" /> WhatsApp Link</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <div className="space-y-2">
+                                <Label htmlFor="whatsapp-phone" className="text-xs">Phone Number</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="whatsapp-phone"
+                                        size={1}
+                                        className="h-8 text-sm px-2"
+                                        value={phoneNumber}
+                                        onChange={(e) => {
+                                            setPhoneNumber(e.target.value);
+                                            setIsOtpSent(false);
+                                        }}
+                                        placeholder="Phone"
+                                        disabled={isOtpSent || isVerifying}
+                                    />
+                                    {!isOtpSent ? (
+                                        <Button size="sm" className="h-8" onClick={handleSendVerificationOtp} disabled={isVerifying || !phoneNumber || phoneNumber.length < 10}>
+                                            {isVerifying ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Link'}
+                                        </Button>
+                                    ) : (
+                                        <Button size="sm" variant="outline" className="h-8" onClick={() => setIsOtpSent(false)} disabled={isVerifying}>Edit</Button>
+                                    )}
+                                </div>
+                                {isOtpSent && (
+                                    <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-1">
+                                        <Input
+                                            id="whatsapp-otp"
+                                            className="h-8 text-sm"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value)}
+                                            placeholder="4-digit OTP"
+                                            maxLength={4}
+                                        />
+                                        <Button size="sm" className="w-full h-8 bg-green-600 hover:bg-green-700 font-bold" onClick={handleVerifyOtp} disabled={isVerifying || otp.length < 4}>
+                                            {isVerifying ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="w-3 h-3 mr-1" />}
+                                            Verify
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
 
             <Alert>
