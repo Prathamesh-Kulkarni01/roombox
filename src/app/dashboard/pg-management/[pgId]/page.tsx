@@ -34,6 +34,46 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import Access from '@/components/ui/PermissionWrapper'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+
+// Constant for bed status colors and labels
+const STATUS_STYLES = {
+  EMPTY: {
+    bg: "bg-slate-900/40 backdrop-blur-sm",
+    border: "border-slate-800/60",
+    text: "text-slate-500",
+    icon: "text-slate-600",
+    badge: "bg-slate-800/50 text-slate-400"
+  },
+  DUE: {
+    bg: "bg-rose-950/40 backdrop-blur-sm",
+    border: "border-rose-500/50 shadow-[0_0_20px_-10px_theme(colors.rose.500)]",
+    text: "text-rose-200",
+    icon: "text-rose-500",
+    badge: "bg-rose-600 text-white shadow-lg shadow-rose-900/40"
+  },
+  PARTIAL: {
+    bg: "bg-amber-950/40 backdrop-blur-sm",
+    border: "border-amber-500/50 shadow-[0_0_20px_-10px_theme(colors.amber.500)]",
+    text: "text-amber-200",
+    icon: "text-amber-500",
+    badge: "bg-amber-600 text-white"
+  },
+  PAID: {
+    bg: "bg-emerald-950/40 backdrop-blur-sm",
+    border: "border-emerald-500/50 shadow-[0_0_20px_-10px_theme(colors.emerald.500)]",
+    text: "text-emerald-200",
+    icon: "text-emerald-500",
+    badge: "bg-emerald-600 text-white"
+  },
+  NOTICE: {
+    bg: "bg-indigo-950/40 backdrop-blur-sm",
+    border: "border-indigo-500/50 shadow-[0_0_20px_-10px_theme(colors.indigo.500)]",
+    text: "text-indigo-200",
+    icon: "text-indigo-500",
+    badge: "bg-indigo-600 text-white"
+  }
+};
 
 export default function RoomManagementPage() {
   const router = useRouter()
@@ -90,6 +130,32 @@ export default function RoomManagementPage() {
   } = useDashboard(pgId)
 
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
+
+  // Optimize guest access via a map
+  const guestMap = useMemo(() => {
+    const map: Record<string, Guest> = {}
+    guests.forEach(g => {
+      if (!g.isVacated && g.bedId) {
+        map[g.bedId] = g
+      }
+    })
+    return map
+  }, [guests])
+
+  // Map for dues calculation
+  const duesMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    guests.forEach(g => {
+      if (!g.isVacated) {
+        const totalDue = (g.ledger || []).reduce((acc, entry) =>
+          acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0
+        )
+        map[g.id] = totalDue
+      }
+    })
+    return map
+  }, [guests])
+
   const canAdd = canAccess(featurePermissions, currentUser?.role, 'properties', 'add')
   const canEdit = canAccess(featurePermissions, currentUser?.role, 'properties', 'edit')
   const canDelete = canAccess(featurePermissions, currentUser?.role, 'properties', 'delete')
@@ -128,8 +194,12 @@ export default function RoomManagementPage() {
   }
 
   const getBedStatusBadge = (bed: any) => {
-    const guest = guests.find(g => g.id === bed.guestId && !g.isVacated)
-    if (!guest || guest.isVacated) return <Badge variant="outline" className="text-secondary bg-secondary/10 border-transparent text-[10px]">EMPTY</Badge>
+    const guest = guestMap[bed.id]
+
+    // If we have a bed.guestId but no guest data yet, show loading OR assume occupied
+    if (bed.guestId && !guest && isLoadingGuests) return <Badge variant="outline" className="text-[10px] animate-pulse">LOADING...</Badge>
+
+    if (!guest) return <Badge variant="outline" className="text-secondary bg-secondary/10 border-transparent text-[10px]">EMPTY</Badge>
     if (guest.exitDate) return <Badge variant="outline" className="text-blue-500 bg-blue-500/10 border-transparent text-[10px]">NOTICE</Badge>
     if (guest.rentStatus === 'unpaid') return <Badge variant="outline" className="text-red-500 bg-red-500/10 border-transparent text-[10px]">DUE</Badge>
     if (guest.rentStatus === 'partial') return <Badge variant="outline" className="text-orange-500 bg-orange-500/10 border-transparent text-[10px]">PARTIAL</Badge>
@@ -260,19 +330,20 @@ export default function RoomManagementPage() {
               {floor.rooms.filter(room => {
                 let roomMatches = true
                 if (searchQuery) {
-                  if (room.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+                  const lowerQuery = searchQuery.toLowerCase();
+                  if (room.name.toLowerCase().includes(lowerQuery)) {
                     // matches
                   } else {
                     const hasGuest = room.beds.some(b => {
-                      const g = guests.find(g => g.id === b.guestId && !g.isVacated)
-                      return g && g.name.toLowerCase().includes(searchQuery.toLowerCase())
+                      const g = guestMap[b.id]
+                      return g && g.name.toLowerCase().includes(lowerQuery)
                     })
                     if (!hasGuest) roomMatches = false
                   }
                 }
                 if (roomMatches && filterStatus !== 'all') {
                   const hasMatchingBed = room.beds.some(b => {
-                    const g = guests.find(g => g.id === b.guestId && !g.isVacated)
+                    const g = guestMap[b.id]
                     if (filterStatus === 'available' && !g) return true
                     if (filterStatus === 'due' && g && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial')) return true
                     if (filterStatus === 'paid' && g && g.rentStatus !== 'unpaid' && g.rentStatus !== 'partial') return true
@@ -282,7 +353,8 @@ export default function RoomManagementPage() {
                 }
                 return roomMatches
               }).map(room => {
-                const emptyBeds = room.beds.filter(b => !guests.some(g => g.id === b.guestId && !g.isVacated)).length
+                const occupiedBedsCount = room.beds.filter(b => !!guestMap[b.id] || (b.guestId && isLoadingGuests)).length
+                const emptyBeds = room.beds.length - occupiedBedsCount
                 const isRoomEmpty = emptyBeds === room.beds.length && room.beds.length > 0
                 const forceDetailedView = filterStatus !== 'all' || searchQuery
 
@@ -323,7 +395,7 @@ export default function RoomManagementPage() {
                       <Card className="border-border/40 shadow-sm rounded-2xl overflow-hidden">
                         <ul className="divide-y divide-border/20">
                           {room.beds.filter(b => {
-                            const g = guests.find(g => g.id === b.guestId && !g.isVacated)
+                            const g = guestMap[b.id]
                             if (searchQuery && g && !g.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
                             if (searchQuery && !g) return false
                             if (filterStatus !== 'all') {
@@ -333,36 +405,53 @@ export default function RoomManagementPage() {
                             }
                             return true
                           }).map(bed => {
-                            const guest = guests.find(g => g.id === bed.guestId && !g.isVacated)
+                            const guest = guestMap[bed.id]
+                            const isInitiallyOccupied = bed.guestId && !guest && isLoadingGuests
+                            const totalDue = guest ? (duesMap[guest.id] || 0) : 0
+
+                            let status: keyof typeof STATUS_STYLES = 'EMPTY';
+                            if (guest) {
+                              if (guest.exitDate) status = 'NOTICE';
+                              else if (guest.rentStatus === 'unpaid') status = 'DUE';
+                              else if (guest.rentStatus === 'partial') status = 'PARTIAL';
+                              else status = 'PAID';
+                            }
+                            const style = STATUS_STYLES[status];
 
                             return (
                               <li
                                 key={bed.id}
                                 className={cn(
-                                  "flex items-center justify-between p-4 transition-colors",
-                                  guest && !isEditMode ? "active:bg-muted/20 cursor-pointer" : ""
+                                  "flex items-center justify-between p-4 transition-all duration-200",
+                                  (guest || isInitiallyOccupied) && !isEditMode ? "active:bg-muted/30 cursor-pointer hover:bg-muted/10" : ""
                                 )}
                                 onClick={(!isEditMode && guest) ? () => setBedSheetGuestId(guest.id) : undefined}
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border shadow-sm",
-                                    !guest ? "bg-secondary/10 text-secondary border-secondary/20" :
-                                      guest.rentStatus === 'unpaid' ? "bg-red-500/10 text-red-600 border-red-500/20" :
-                                        guest.rentStatus === 'partial' ? "bg-orange-500/10 text-orange-600 border-orange-500/20" :
-                                          "bg-green-500/10 text-green-600 border-green-500/20"
+                                  <div className={cn(
+                                    "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all shadow-sm",
+                                    style.bg, style.border, style.icon
                                   )}>
                                     <BedDouble className="w-5 h-5" />
                                   </div>
-                                  <div>
+                                  <div className="min-w-0">
                                     {guest ? (
                                       <>
-                                        <p className="font-bold text-sm leading-tight">{guest.name}</p>
-                                        <p className="text-xs text-muted-foreground mt-0.5">Bed {bed.name} {guest.exitDate ? '• 🗓️ On notice' : ''}</p>
+                                        <div className="flex items-baseline gap-2">
+                                          <p className={cn("font-bold text-sm leading-tight", style.text)}>{guest.name}</p>
+                                          {totalDue > 0 && <span className="text-[10px] font-bold text-red-500">₹{Math.round(totalDue)} Due</span>}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">Bed {bed.name} {guest.exitDate ? '• 🗓️ On notice' : ''}</p>
                                       </>
+                                    ) : isInitiallyOccupied ? (
+                                      <div className="space-y-1.5 w-24">
+                                        <Skeleton className="h-4 w-full rounded" />
+                                        <Skeleton className="h-3 w-16 rounded" />
+                                      </div>
                                     ) : (
                                       <>
-                                        <p className="font-semibold text-sm text-secondary">Empty Bed</p>
-                                        <p className="text-xs text-muted-foreground">Bed {bed.name}</p>
+                                        <p className="font-semibold text-sm text-secondary-foreground/60">Empty Bed</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium">Bed {bed.name}</p>
                                       </>
                                     )}
                                   </div>
@@ -407,9 +496,9 @@ export default function RoomManagementPage() {
                       </Card>
                     ) : (
                       /* GRID VIEW */
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
                         {room.beds.filter(b => {
-                          const g = guests.find(g => g.id === b.guestId && !g.isVacated)
+                          const g = guestMap[b.id]
                           if (searchQuery && g && !g.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
                           if (searchQuery && !g) return false
                           if (filterStatus !== 'all') {
@@ -419,54 +508,69 @@ export default function RoomManagementPage() {
                           }
                           return true
                         }).map(bed => {
-                          const guest = guests.find(g => g.id === bed.guestId && !g.isVacated)
+                          const guest = guestMap[bed.id]
+                          const isInitiallyOccupied = bed.guestId && !guest && isLoadingGuests
+                          const totalDue = guest ? (duesMap[guest.id] || 0) : 0
+
+                          let status: keyof typeof STATUS_STYLES = 'EMPTY';
+                          if (guest) {
+                            if (guest.exitDate) status = 'NOTICE';
+                            else if (guest.rentStatus === 'unpaid') status = 'DUE';
+                            else if (guest.rentStatus === 'partial') status = 'PARTIAL';
+                            else status = 'PAID';
+                          }
+                          const style = STATUS_STYLES[status];
 
                           return (
                             <Card
                               key={bed.id}
                               onClick={(!isEditMode && guest) ? () => setBedSheetGuestId(guest.id) : undefined}
                               className={cn(
-                                "p-4 border shadow-sm rounded-2xl flex flex-col justify-between transition-all",
-                                guest ? "active:scale-[0.97] cursor-pointer hover:shadow-md" : "",
-                                !guest ? 'border-border/60 bg-muted/10' :
-                                  guest.rentStatus === 'unpaid' ? 'border-red-500/30 bg-red-500/5' :
-                                    guest.rentStatus === 'partial' ? 'border-orange-500/30 bg-orange-500/5' :
-                                      'border-green-500/30 bg-green-500/5'
+                                "p-3 border shadow-sm rounded-2xl flex flex-col justify-between transition-all group",
+                                (guest || isInitiallyOccupied) ? "active:scale-[0.97] cursor-pointer hover:shadow-md" : "hover:border-primary/20",
+                                style.bg, style.border
                               )}
                             >
                               <div className="flex items-start justify-between mb-3">
                                 {guest ? (
-                                  <Avatar className="h-10 w-10 border">
-                                    <AvatarFallback className={cn("font-bold text-sm",
-                                      guest.rentStatus === 'unpaid' ? 'bg-red-100 text-red-700' :
-                                        guest.rentStatus === 'partial' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
-                                    )}>
+                                  <Avatar className="h-10 w-10 border-2 border-white dark:border-slate-800 shadow-sm">
+                                    <AvatarFallback className={cn("font-bold text-sm", style.bg, style.text)}>
                                       {guest.name.charAt(0).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
+                                ) : isInitiallyOccupied ? (
+                                  <Skeleton className="h-10 w-10 rounded-full" />
                                 ) : (
                                   <div className="w-10 h-10 rounded-xl bg-secondary/15 text-secondary flex items-center justify-center">
-                                    <BedDouble className="w-5 h-5" />
+                                    <BedDouble className="w-5 h-5 opacity-40" />
                                   </div>
                                 )}
                                 {!isEditMode && getBedStatusBadge(bed)}
                                 {isEditMode && (
-                                  <div className="flex gap-1">
+                                  <div className="flex gap-0.5">
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}><Pencil className="w-3 h-3" /></Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}><Trash2 className="w-3 h-3" /></Button>
                                   </div>
                                 )}
                               </div>
-                              <div>
-                                <p className="text-[10px] font-semibold text-muted-foreground mb-0.5">Bed {bed.name}</p>
+                              <div className="min-h-[46px]">
+                                <p className="text-[10px] font-bold text-muted-foreground/60 mb-0.5 uppercase tracking-tight">Bed {bed.name}</p>
                                 {guest ? (
-                                  <p className="font-bold text-sm leading-tight line-clamp-1">{guest.name}</p>
+                                  <>
+                                    <p className={cn("font-bold text-sm leading-tight line-clamp-1", style.text)} title={guest.name}>{guest.name}</p>
+                                    {totalDue > 0 && <p className="text-[10px] font-bold text-red-600 mt-1">₹{Math.round(totalDue)} Due</p>}
+                                  </>
+                                ) : isInitiallyOccupied ? (
+                                  <div className="space-y-1.5 mt-1">
+                                    <Skeleton className="h-3 w-16 rounded" />
+                                    <Skeleton className="h-2 w-10 rounded" />
+                                  </div>
                                 ) : (
-                                  <p className="font-bold text-sm text-secondary">Empty</p>
+                                  <p className="font-bold text-sm text-secondary-foreground/40 italic">Empty</p>
                                 )}
                               </div>
-                              {!isEditMode && !guest && (
-                                <Button size="sm" className="w-full mt-3 h-8 text-xs font-bold rounded-xl" variant="secondary"
+                              {!isEditMode && !guest && !isInitiallyOccupied && (
+                                <Button size="sm" className="w-full mt-3 h-8 text-[11px] font-bold rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" variant="secondary"
                                   onClick={() => handleOpenAddGuestDialog(bed, room, pg)}
                                 >
                                   + Assign

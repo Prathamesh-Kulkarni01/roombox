@@ -193,6 +193,31 @@ export const api = createApi({
 
         addGuest: builder.mutation<{ success: boolean; guest: Guest }, any>({
             query: (body) => ({ url: 'api/guests', method: 'POST', body }),
+            async onQueryStarted({ bedId, pgId, name }, { dispatch, queryFulfilled }) {
+                // Optimistic update for Properties (mark bed as occupied with a temporary guest state)
+                if (bedId && pgId) {
+                    const propertyPatch = dispatch(
+                        api.util.updateQueryData('getProperties', undefined, (draft) => {
+                            const pg = draft.buildings?.find(p => p.id === pgId);
+                            if (pg) {
+                                pg.floors?.forEach(floor => {
+                                    floor.rooms.forEach(room => {
+                                        const bed = room.beds.find(b => b.id === bedId);
+                                        if (bed) {
+                                            bed.guestId = 'temp-id-while-loading';
+                                        }
+                                    });
+                                });
+                            }
+                        })
+                    );
+                    try {
+                        await queryFulfilled;
+                    } catch {
+                        propertyPatch.undo();
+                    }
+                }
+            },
             invalidatesTags: ['Guests', 'Tenants', 'Properties'],
         }),
 
@@ -209,6 +234,41 @@ export const api = createApi({
             sendWhatsApp?: boolean;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'vacate' } }),
+            async onQueryStarted({ guestId }, { dispatch, queryFulfilled }) {
+                // Optimistic update for Guests list
+                const guestPatch = dispatch(
+                    api.util.updateQueryData('getGuests', undefined, (draft) => {
+                        const guest = draft.guests?.find((g) => g.id === guestId);
+                        if (guest) {
+                            guest.isVacated = true;
+                        }
+                    })
+                );
+
+                // Optimistic update for Properties (clear bed)
+                const propertyPatch = dispatch(
+                    api.util.updateQueryData('getProperties', undefined, (draft) => {
+                        draft.buildings?.forEach(pg => {
+                            pg.floors?.forEach(floor => {
+                                floor.rooms.forEach(room => {
+                                    const bed = room.beds.find(b => b.guestId === guestId);
+                                    if (bed) {
+                                        bed.guestId = null;
+                                        pg.totalBeds = (pg.totalBeds || 0); // Keep count as is or adjust
+                                    }
+                                });
+                            });
+                        });
+                    })
+                );
+
+                try {
+                    await queryFulfilled;
+                } catch {
+                    guestPatch.undo();
+                    propertyPatch.undo();
+                }
+            },
             invalidatesTags: ['Guests', 'Tenants', 'Properties'],
         }),
 
