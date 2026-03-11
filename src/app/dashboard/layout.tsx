@@ -8,13 +8,14 @@ import DashboardBottomNav from "@/components/dashboard-bottom-nav";
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAppSelector } from '@/lib/hooks';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { navPermissions } from '@/lib/permissions';
 import { isAfter, parseISO, differenceInDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { plans } from '@/lib/mock-data';
 import type { PlanName, UserRole } from '@/lib/types';
 import Link from 'next/link';
 import { ShieldAlert, Star } from 'lucide-react';
+import InstallForceOverlay from '@/components/InstallForceOverlay';
+
 
 
 const SubscriptionGate = () => (
@@ -113,7 +114,9 @@ export default function DashboardLayout({
         </div>
         <DashboardBottomNav />
       </div>
+      <InstallForceOverlay />
     </>
+
   )
 }
 

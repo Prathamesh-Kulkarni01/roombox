@@ -12,6 +12,7 @@ import { Skeleton } from './ui/skeleton';
 import NotificationsPopover from './notifications-popover';
 import InstallPWA from './install-pwa';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
+import { UserRole } from '@/lib/types';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { setSelectedPgId } from '@/lib/slices/appSlice';
 import { ThemeToggle } from './theme-toggle';
@@ -27,11 +28,19 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 
-const navLinks = [
+type NavLink = {
+  href: string;
+  label: string;
+  roles: (UserRole | 'all')[];
+};
+
+const navLinks: NavLink[] = [
   { href: '/', label: 'Home', roles: ['all'] },
   { href: '/dashboard', label: 'Owner Dashboard', roles: ['owner', 'manager', 'cook', 'cleaner', 'security'] },
   { href: '/tenants/my-pg', label: 'My Dashboard', roles: ['tenant'] },
+  { href: '/download', label: 'Download App', roles: ['all'] },
 ];
+
 
 export default function Header() {
   const pathname = usePathname();
@@ -75,7 +84,7 @@ export default function Header() {
         <div className="flex items-center gap-2 md:gap-4 flex-1 md:flex-none">
           <Link href="/" className="flex items-center gap-2 mr-1 md:mr-2 shrink-0">
             <div className="w-8 h-8 md:w-9 md:h-9 bg-gradient-to-tr from-primary to-primary/80 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center transition-transform active:scale-95">
-              <Building2 className="h-4 w-4 md:h-5 md:h-5 text-white" />
+              <Building2 className="h-4 w-4 md:h-5 text-white" />
             </div>
             <span className="font-bold text-base md:text-lg font-headline tracking-tighter hidden xs:inline-block">RentSutra</span>
           </Link>
@@ -106,8 +115,11 @@ export default function Header() {
 
         <nav className="hidden md:flex items-center gap-6 text-sm absolute left-1/2 -translate-x-1/2">
           {navLinks.map((link) => {
-            if (!currentUser && (link.roles.includes('tenant') || link.roles.includes('owner'))) return null;
-            if (currentUser && !link.roles.includes('all') && !link.roles.includes(currentUser.role)) return null;
+            const hasRole = currentUser && (link.roles.includes('all') || (currentUser.role && link.roles.includes(currentUser.role)));
+            const isPublicLink = link.roles.includes('all');
+
+            if (!currentUser && !isPublicLink) return null;
+            if (currentUser && !hasRole) return null;
 
             return (
               <Link
@@ -199,6 +211,31 @@ export default function Header() {
                     </div>
                     <span className="font-bold text-lg font-headline">RentSutra</span>
                   </Link>
+
+                  <Separator className="my-4" />
+
+                  <div className="flex flex-col gap-1 px-4 mb-4">
+                    {navLinks.map((link) => {
+                      const hasRole = currentUser && (link.roles.includes('all') || (currentUser.role && link.roles.includes(currentUser.role)));
+                      const isPublicLink = link.roles.includes('all');
+
+                      if (!currentUser && !isPublicLink) return null;
+                      if (currentUser && !hasRole) return null;
+
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className={cn(
+                            'flex items-center gap-3 p-3 rounded-lg hover:bg-muted font-medium transition-colors',
+                            (pathname.startsWith(link.href) && link.href !== '/' || pathname === '/' && link.href === '/') ? 'bg-primary/10 text-primary' : 'text-foreground'
+                          )}
+                        >
+                          <span className="text-sm">{link.label}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
 
                   <Separator className="my-4" />
 
