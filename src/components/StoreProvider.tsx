@@ -97,7 +97,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
     const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin', 'other'];
     const publicPages = [
       '/', '/login', '/login/set-password', '/signup', '/privacy-policy', '/terms-of-service',
-      '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog', '/invite', '/ledger'
+      '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog', '/invite', '/ledger', '/download'
     ];
 
     const isPublicPage = publicPages.some(p => {
