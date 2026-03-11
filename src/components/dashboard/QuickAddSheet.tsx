@@ -97,8 +97,8 @@ export default function QuickAddSheet({
                     {canAdd && (
                         <ActionItem
                             icon={<BedDouble className="w-7 h-7 text-blue-600" />}
-                            title={`Add a Room${floorName ? ` on ${floorName}` : ''}`}
-                            description="Add one room with beds to this floor"
+                            title="Add a Room"
+                            description="Create a new room and assign it to a floor"
                             color="bg-blue-500/8 hover:bg-blue-500/12"
                             iconBg="bg-blue-500/15 text-blue-600"
                             onClick={() => handleAction(onAddRoom)}

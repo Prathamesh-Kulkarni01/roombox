@@ -147,15 +147,15 @@ export type PlanPermissions = { [feature: string]: PlanFeatureActions };
  */
 export const planPermissionConfig: Record<string, PlanPermissions> = {
   free: {
-    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: false },
+    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
     complaints: { view: true, edit: true, add: true },
     food: { view: true, edit: true },
-    staff: { view: false, add: false, edit: false, delete: false },
-    website: { view: false, edit: false },
+    staff: { view: true, add: true, edit: true, delete: true },
+    website: { view: true, edit: true },
     seo: { use: false },
-    kyc: { view: false, edit: false, add: false },
+    kyc: { view: true, edit: true, add: true },
   },
   pro: { // 'pro' now represents any active subscription
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
@@ -174,7 +174,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
  * Plan limits (e.g., max number of PGs per plan)
  */
 export const planLimitsConfig: Record<string, { pgs: number | 'unlimited', floors: number | 'unlimited', guests: number | 'unlimited' }> = {
-  free: { pgs: 1, floors: 2, guests: 10 },
+  free: { pgs: 10, floors: 15, guests: 100 },
   pro: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
 };
 

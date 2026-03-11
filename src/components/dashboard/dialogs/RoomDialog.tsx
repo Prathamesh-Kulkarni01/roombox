@@ -17,7 +17,7 @@ import { MediaForm } from '@/components/dashboard/add-room/MediaForm';
 import type { UseDashboardReturn } from '@/hooks/use-dashboard';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { RoomFormValues } from '@/lib/actions/roomActions';
-import type { Room } from '@/lib/types';
+import type { Room, PG } from '@/lib/types';
 import { parseISO } from 'date-fns';
 
 const tabs = [
@@ -29,16 +29,28 @@ const tabs = [
   { value: 'media', label: 'Media (Optional)' },
 ];
 
-type RoomDialogProps = Pick<UseDashboardReturn,
+interface RoomDialogProps extends Pick<UseDashboardReturn,
   'isRoomDialogOpen' |
   'setIsRoomDialogOpen' |
   'roomToEdit' |
   'roomForm' |
   'handleRoomSubmit' |
   'isSavingRoom'
->;
+> {
+  pg: PG;
+  onOpenFloorDialog: () => void;
+}
 
-export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom }: RoomDialogProps) {
+export default function RoomDialog({
+  isRoomDialogOpen,
+  setIsRoomDialogOpen,
+  roomToEdit,
+  roomForm,
+  handleRoomSubmit,
+  isSavingRoom,
+  pg,
+  onOpenFloorDialog
+}: RoomDialogProps) {
   const [activeTab, setActiveTab] = React.useState(tabs[0].value);
 
   React.useEffect(() => {
@@ -126,7 +138,7 @@ export default function RoomDialog({ isRoomDialogOpen, setIsRoomDialogOpen, room
               <div className="flex-1 overflow-y-auto">
                 <ScrollArea className="h-full">
                   <div className="p-6">
-                    <TabsContent value="basics" forceMount={true} hidden={activeTab !== 'basics'}><RoomBasicsForm form={roomForm} /></TabsContent>
+                    <TabsContent value="basics" forceMount={true} hidden={activeTab !== 'basics'}><RoomBasicsForm form={roomForm} pg={pg} onOpenFloorDialog={onOpenFloorDialog} /></TabsContent>
                     <TabsContent value="pricing" forceMount={true} hidden={activeTab !== 'pricing'}><PricingForm form={roomForm} /></TabsContent>
                     <TabsContent value="amenities" forceMount={true} hidden={activeTab !== 'amenities'}><AmenitiesForm form={roomForm} /></TabsContent>
                     <TabsContent value="rules" forceMount={true} hidden={activeTab !== 'rules'}><RulesForm form={roomForm} /></TabsContent>

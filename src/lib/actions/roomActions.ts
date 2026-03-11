@@ -23,8 +23,9 @@ export const roomSchema = z.object({
   gender: z.enum(['male', 'female', 'unisex', 'couples']).optional().default('unisex'),
   category: z.enum(['standard', 'premium', 'deluxe']).optional().default('standard'),
   floor: z.coerce.number().optional().default(0),
+  floorId: z.string().optional(),
   block: z.string().optional().default(''),
-  
+
   // PricingForm
   monthlyRent: z.coerce.number().min(0, "Monthly rent must be a positive number.").optional().default(0),
   securityDeposit: z.coerce.number().min(0, "Security deposit must be a positive number.").optional().default(0),
@@ -43,14 +44,14 @@ export const roomSchema = z.object({
   // RulesForm
   rules: z.array(z.string()).optional().default([]),
   preferredTenants: z.array(z.string()).optional().default([]),
-  
+
   // FoodServicesForm
   foodIncluded: z.boolean().optional().default(false),
   meals: z.array(z.string()).optional().default([]),
   vegNonVeg: z.enum(['veg', 'non-veg', 'both']).optional().default('veg'),
   housekeepingFrequency: z.enum(['daily', 'alternate', 'weekly']).optional().default('daily'),
   laundryServices: z.boolean().optional().default(false),
-  
+
   // MediaForm
   images: z.array(z.string()).optional().default([]),
   available: z.boolean().optional().default(true),

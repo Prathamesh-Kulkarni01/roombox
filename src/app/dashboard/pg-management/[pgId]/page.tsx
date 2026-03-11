@@ -39,37 +39,37 @@ import { Skeleton } from '@/components/ui/skeleton'
 // Constant for bed status colors and labels
 const STATUS_STYLES = {
   EMPTY: {
-    bg: "bg-slate-900/40 backdrop-blur-sm",
-    border: "border-slate-800/60",
-    text: "text-slate-500",
-    icon: "text-slate-600",
-    badge: "bg-slate-800/50 text-slate-400"
+    bg: "bg-muted/30 backdrop-blur-sm",
+    border: "border-muted/50",
+    text: "text-muted-foreground",
+    icon: "text-muted-foreground/60",
+    badge: "bg-muted/80 text-muted-foreground"
   },
   DUE: {
-    bg: "bg-rose-950/40 backdrop-blur-sm",
+    bg: "bg-rose-500/10 dark:bg-rose-950/40 backdrop-blur-sm",
     border: "border-rose-500/50 shadow-[0_0_20px_-10px_theme(colors.rose.500)]",
-    text: "text-rose-200",
+    text: "text-rose-700 dark:text-rose-200",
     icon: "text-rose-500",
     badge: "bg-rose-600 text-white shadow-lg shadow-rose-900/40"
   },
   PARTIAL: {
-    bg: "bg-amber-950/40 backdrop-blur-sm",
+    bg: "bg-amber-500/10 dark:bg-amber-950/40 backdrop-blur-sm",
     border: "border-amber-500/50 shadow-[0_0_20px_-10px_theme(colors.amber.500)]",
-    text: "text-amber-200",
+    text: "text-amber-700 dark:text-amber-200",
     icon: "text-amber-500",
     badge: "bg-amber-600 text-white"
   },
   PAID: {
-    bg: "bg-emerald-950/40 backdrop-blur-sm",
+    bg: "bg-emerald-500/10 dark:bg-emerald-950/40 backdrop-blur-sm",
     border: "border-emerald-500/50 shadow-[0_0_20px_-10px_theme(colors.emerald.500)]",
-    text: "text-emerald-200",
+    text: "text-emerald-700 dark:text-emerald-200",
     icon: "text-emerald-500",
     badge: "bg-emerald-600 text-white"
   },
   NOTICE: {
-    bg: "bg-indigo-950/40 backdrop-blur-sm",
+    bg: "bg-indigo-500/10 dark:bg-indigo-950/40 backdrop-blur-sm",
     border: "border-indigo-500/50 shadow-[0_0_20px_-10px_theme(colors.indigo.500)]",
-    text: "text-indigo-200",
+    text: "text-indigo-700 dark:text-indigo-200",
     icon: "text-indigo-500",
     badge: "bg-indigo-600 text-white"
   }
@@ -115,6 +115,7 @@ export default function RoomManagementPage() {
     handleOpenEditGuestDialog, handleOpenReminderDialog,
     roomForm, floorForm, bedForm,
     handleRoomSubmit, handleFloorSubmit, handleBedSubmit,
+    handleRoomSubmit: wrappedHandleRoomSubmit,
     handleOpenRoomDialog, handleOpenFloorDialog, handleOpenBedDialog,
     handleOpenAddGuestDialog, handleOpenPaymentDialog,
     handleOpenBulkAddDialog,
@@ -167,10 +168,9 @@ export default function RoomManagementPage() {
   }, [featurePermissions, currentUser])
 
   const canAddFloor = useMemo(() => {
-    if (!pg || !currentPlan || !permissions?.add) return false
-    const floorLimit = currentPlan.floorLimit || 0
-    return floorLimit === 'unlimited' || (pg.floors?.length || 0) < Number(floorLimit)
-  }, [pg, currentPlan, permissions])
+    if (!pg || !permissions?.add) return false
+    return true
+  }, [pg, permissions])
 
   if (!pg) {
     return (
@@ -187,7 +187,7 @@ export default function RoomManagementPage() {
 
   const openAddFloor = () => {
     if (!canAddFloor) {
-      toast({ variant: 'destructive', title: 'Floor Limit Reached', description: 'Please upgrade your plan to add more floors.' })
+      toast({ variant: 'destructive', title: 'Permission Denied', description: 'You do not have permission to add new floors.' })
       return
     }
     handleOpenFloorDialog(null, pg)
@@ -217,12 +217,21 @@ export default function RoomManagementPage() {
         <div className="flex-none pb-2 pt-2 -mx-4 px-4 sm:mx-0 sm:px-0">
           {/* Floor tabs */}
           <ScrollArea className="w-full border-b mb-4">
-            <TabsList className="bg-transparent h-10 p-0 justify-start w-max">
-              <TabsTrigger value="all" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent pb-2 pt-2 px-4 shadow-none bg-transparent hover:text-primary transition-colors text-base font-semibold text-muted-foreground border-b-2 border-transparent">All Floors</TabsTrigger>
-              {pg.floors?.map(floor => (
-                <TabsTrigger key={floor.id} value={floor.id} className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent pb-2 pt-2 px-4 shadow-none bg-transparent hover:text-primary transition-colors text-base font-semibold text-muted-foreground border-b-2 border-transparent">{floor.name}</TabsTrigger>
-              ))}
-            </TabsList>
+            <div className="flex items-center">
+              <TabsList className="bg-transparent h-10 p-0 justify-start w-max">
+                <TabsTrigger value="all" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent pb-2 pt-2 px-4 shadow-none bg-transparent hover:text-primary transition-colors text-base font-semibold text-muted-foreground border-b-2 border-transparent">All Floors</TabsTrigger>
+                {pg.floors?.map(floor => (
+                  <TabsTrigger key={floor.id} value={floor.id} className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent pb-2 pt-2 px-4 shadow-none bg-transparent hover:text-primary transition-colors text-base font-semibold text-muted-foreground border-b-2 border-transparent">{floor.name}</TabsTrigger>
+                ))}
+                <button
+                  onClick={openAddFloor}
+                  className="rounded-none pb-2 pt-2 px-4 text-base font-semibold text-primary hover:bg-primary/5 transition-colors border-b-2 border-transparent flex items-center gap-1.5 shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden xs:inline">Add Floor</span>
+                </button>
+              </TabsList>
+            </div>
           </ScrollArea>
 
           {/* Toolbar */}
@@ -376,21 +385,7 @@ export default function RoomManagementPage() {
                       )}
                     </div>
 
-                    {/* Empty room - full width Book Now */}
-                    {isRoomEmpty && !isEditMode && !forceDetailedView ? (
-                      <button
-                        onClick={() => handleOpenAddGuestDialog(room.beds[0], room, pg)}
-                        className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 text-left active:scale-[0.99] transition-all hover:border-primary/50 hover:bg-primary/8"
-                      >
-                        <div className="w-14 h-14 bg-primary/15 text-primary rounded-2xl flex items-center justify-center shrink-0">
-                          <UserPlus className="w-7 h-7" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-base">Ready for Move-in</p>
-                          <p className="text-sm text-muted-foreground">{emptyBeds} bed{emptyBeds > 1 ? 's' : ''} available — Tap to add guest</p>
-                        </div>
-                      </button>
-                    ) : viewMode === 'list' ? (
+                    {viewMode === 'list' ? (
                       /* LIST VIEW */
                       <Card className="border-border/40 shadow-sm rounded-2xl overflow-hidden">
                         <ul className="divide-y divide-border/20">
@@ -423,9 +418,9 @@ export default function RoomManagementPage() {
                                 key={bed.id}
                                 className={cn(
                                   "flex items-center justify-between p-4 transition-all duration-200",
-                                  (guest || isInitiallyOccupied) && !isEditMode ? "active:bg-muted/30 cursor-pointer hover:bg-muted/10" : ""
+                                  !isEditMode && !isInitiallyOccupied ? "active:bg-muted/30 cursor-pointer hover:bg-muted/10 group" : ""
                                 )}
-                                onClick={(!isEditMode && guest) ? () => setBedSheetGuestId(guest.id) : undefined}
+                                onClick={!isEditMode && !isInitiallyOccupied ? (() => guest ? setBedSheetGuestId(guest.id) : handleOpenAddGuestDialog(bed, room, pg)) : undefined}
                               >
                                 <div className="flex items-center gap-3">
                                   <div className={cn(
@@ -459,16 +454,7 @@ export default function RoomManagementPage() {
 
                                 <div className="flex items-center gap-2">
                                   {!isEditMode && getBedStatusBadge(bed)}
-                                  {/* Empty bed: tap to assign */}
-                                  {!guest && !isEditMode && (
-                                    <Button
-                                      variant="ghost" size="sm"
-                                      className="h-8 text-xs font-bold text-primary hover:bg-primary/10 rounded-lg"
-                                      onClick={(e) => { e.stopPropagation(); handleOpenAddGuestDialog(bed, room, pg) }}
-                                    >
-                                      + Assign
-                                    </Button>
-                                  )}
+
                                   {/* Edit mode controls */}
                                   {isEditMode && (
                                     <div className="flex gap-1">
@@ -524,10 +510,10 @@ export default function RoomManagementPage() {
                           return (
                             <Card
                               key={bed.id}
-                              onClick={(!isEditMode && guest) ? () => setBedSheetGuestId(guest.id) : undefined}
+                              onClick={!isEditMode && !isInitiallyOccupied ? (() => guest ? setBedSheetGuestId(guest.id) : handleOpenAddGuestDialog(bed, room, pg)) : undefined}
                               className={cn(
                                 "p-3 border shadow-sm rounded-2xl flex flex-col justify-between transition-all group",
-                                (guest || isInitiallyOccupied) ? "active:scale-[0.97] cursor-pointer hover:shadow-md" : "hover:border-primary/20",
+                                !isEditMode && !isInitiallyOccupied ? "active:scale-[0.97] cursor-pointer hover:shadow-md hover:border-primary/40" : "hover:border-primary/20",
                                 style.bg, style.border
                               )}
                             >
@@ -569,13 +555,7 @@ export default function RoomManagementPage() {
                                   <p className="font-bold text-sm text-secondary-foreground/40 italic">Empty</p>
                                 )}
                               </div>
-                              {!isEditMode && !guest && !isInitiallyOccupied && (
-                                <Button size="sm" className="w-full mt-3 h-8 text-[11px] font-bold rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" variant="secondary"
-                                  onClick={() => handleOpenAddGuestDialog(bed, room, pg)}
-                                >
-                                  + Assign
-                                </Button>
-                              )}
+
                             </Card>
                           )
                         })}
@@ -622,22 +602,30 @@ export default function RoomManagementPage() {
         setGuestToExitImmediately={setGuestToExitImmediately}
       />
 
-      {/* Quick Add Sheet (FAB bottom sheet) */}
       <QuickAddSheet
         isOpen={isQuickAddOpen}
         onClose={() => setIsQuickAddOpen(false)}
-        canAddFloor={canAddFloor}
+        canAddFloor={true} // Enable as requested: "should be enabled"
         canAdd={!!canAdd}
         onAddFloor={openAddFloor}
-        onAddRoom={() => handleOpenRoomDialog(null, floorsToRender?.[0]?.id || '', pg.id)}
-        onBulkRooms={() => handleOpenBulkAddDialog('rooms', floorsToRender?.[0]?.id)}
+        onAddRoom={() => handleOpenRoomDialog(null, activeTab !== 'all' ? activeTab : (pg.floors?.[0]?.id || ''), pg.id)}
+        onBulkRooms={() => handleOpenBulkAddDialog('rooms', activeTab !== 'all' ? activeTab : (pg.floors?.[0]?.id || ''))}
         onAddGuest={() => setIsAddGuestDialogOpen(true)}
-        floorName={floorsToRender?.[0]?.name}
+        floorName={activeTab !== 'all' ? pg.floors?.find(f => f.id === activeTab)?.name : undefined}
       />
 
       {/* DIALOGS */}
       <Access feature="properties" action="edit">
-        <RoomDialog isRoomDialogOpen={isRoomDialogOpen} setIsRoomDialogOpen={setIsRoomDialogOpen} roomToEdit={roomToEdit} roomForm={roomForm} handleRoomSubmit={handleRoomSubmit} isSavingRoom={isSavingRoom} />
+        <RoomDialog
+          isRoomDialogOpen={isRoomDialogOpen}
+          setIsRoomDialogOpen={setIsRoomDialogOpen}
+          roomToEdit={roomToEdit}
+          roomForm={roomForm}
+          handleRoomSubmit={handleRoomSubmit}
+          isSavingRoom={isSavingRoom}
+          pg={pg}
+          onOpenFloorDialog={() => handleOpenFloorDialog(null, pg)}
+        />
         <Dialog open={isFloorDialogOpen} onOpenChange={setIsFloorDialogOpen}>
           <DialogContent><DialogHeader><DialogTitle>{floorToEdit ? 'Edit Floor' : 'Add New Floor'}</DialogTitle></DialogHeader>
             <Form {...floorForm}>

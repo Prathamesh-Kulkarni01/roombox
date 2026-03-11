@@ -472,9 +472,13 @@ Thank you!`;
 
   const processRoomSubmit = (values: RoomFormValues) => {
     startRoomTransition(async () => {
+      const formFloorId = values.floorId;
       const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
-      const floorId = roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId;
-      if (!pgId || !floorId) return;
+      const floorId = formFloorId || (roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId);
+      if (!pgId || !floorId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Floor or Property information missing.' });
+        return;
+      }
 
       const pg = getPgById(pgId);
       if (!pg) return;
@@ -695,19 +699,26 @@ Thank you!`;
 
   const handleOpenRoomDialog = (room: Room | null, floorId?: string, pgId?: string) => {
     setRoomToEdit(room);
-    if (!room && floorId && pgId) {
+    if (room) {
+      roomForm.reset({
+        ...room,
+        roomTitle: room.name,
+        monthlyRent: room.rent,
+        securityDeposit: room.deposit,
+        floorId: room.floorId
+      });
+    } else if (floorId && pgId) {
       setSelectedLocationForRoomAdd({ floorId, pgId });
+      roomForm.reset({
+        ...roomForm.getValues(),
+        floorId: floorId
+      });
     }
     setIsRoomDialogOpen(true);
   }
 
   const openAddFloorDialog = (pg: PG) => {
-    const floorLimit = currentPlan?.floorLimit || 0;
-    if (currentPlan && (floorLimit === 'unlimited' || (pg.floors?.length || 0) < Number(floorLimit))) {
-      handleOpenFloorDialog(null, pg);
-    } else {
-      toast({ variant: 'destructive', title: 'Floor Limit Reached', description: 'Please upgrade your plan to add more floors.' });
-    }
+    handleOpenFloorDialog(null, pg);
   };
 
   const handleOpenFloorDialog = (floor: Floor | null, pg?: PG) => {
