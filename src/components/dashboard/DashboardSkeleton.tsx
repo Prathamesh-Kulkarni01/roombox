@@ -30,24 +30,25 @@ export default function DashboardSkeleton() {
                         </Card>
                     ))}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Card className="border-border/40 shadow-sm">
-                        <CardHeader className="p-4 pb-2">
-                            <Skeleton className="h-10 w-10 rounded-xl" />
-                        </CardHeader>
-                        <CardContent className="p-4 pt-0 space-y-3">
-                            <Skeleton className="h-8 w-full" />
-                            <Skeleton className="h-2 w-full rounded-full" />
-                        </CardContent>
-                    </Card>
+                <div className="grid grid-cols-1 gap-4">
                     <Card className="border-border/40 shadow-sm">
                         <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
                             <div className="space-y-2">
-                                <Skeleton className="h-3 w-24" />
-                                <Skeleton className="h-8 w-32" />
+                                <Skeleton className="h-4 w-32" />
+                                <Skeleton className="h-8 w-48" />
                             </div>
-                            <Skeleton className="h-12 w-12 rounded-2xl" />
+                            <div className="text-right space-y-2">
+                                <Skeleton className="h-8 w-24 rounded-lg" />
+                                <Skeleton className="h-2 w-16 ml-auto" />
+                            </div>
                         </CardHeader>
+                        <CardContent className="p-4 pt-0 space-y-3">
+                            <div className="flex justify-between">
+                                <Skeleton className="h-3 w-20" />
+                                <Skeleton className="h-3 w-24" />
+                            </div>
+                            <Skeleton className="h-2 w-full rounded-full" />
+                        </CardContent>
                     </Card>
                 </div>
                 <div className="h-20 w-full rounded-2xl border border-border/40 bg-muted/20 flex items-center p-4 gap-4">

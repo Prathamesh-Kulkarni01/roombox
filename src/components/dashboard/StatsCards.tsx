@@ -61,44 +61,38 @@ export default function StatsCards({ stats, onSendReminders }: StatsCardsProps) 
         </Access>
       </div>
 
-      {/* Middle Row: Revenue */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Access feature="finances" action="view">
-          <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group">
-            <CardHeader className="p-4 pb-2">
-              <div className="w-10 h-10 bg-green-500/10 text-green-500 rounded-xl flex items-center justify-center mb-2">
-                <IndianRupee className="w-5 h-5" />
+      {/* Middle Row: Revenue (Merged) */}
+      <Access feature="finances" action="view">
+        <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group bg-gradient-to-br from-background to-emerald-50/20 dark:to-emerald-500/5">
+          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-8 h-8 bg-emerald-500/10 text-emerald-600 rounded-lg flex items-center justify-center">
+                  <IndianRupee className="w-4 h-4" />
+                </div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Monthly Collection</p>
               </div>
-              <p className="text-sm font-semibold text-muted-foreground">Rent Collected (Monthly)</p>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="flex flex-wrap lg:flex-nowrap items-baseline gap-1.5 mb-3">
-                <h2 className="text-3xl font-extrabold text-foreground">{(stats.revenue.collected / 100000).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 1 }).replace('₹', '₹ ')}L</h2>
-                <span className="text-muted-foreground font-semibold">/ {(stats.revenue.expected / 100000).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 1 }).replace('₹', '₹ ')}L</span>
-                <span className="ml-auto text-primary font-bold">{revPercentage}%</span>
-              </div>
-              <Progress value={revPercentage} className="h-2 rounded-full" />
-            </CardContent>
-          </Card>
-        </Access>
-
-        <Access feature="finances" action="view">
-          <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group bg-green-50/30 dark:bg-green-500/5">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-wider">Today's Collection</p>
-                <h2 className="text-3xl font-black text-green-600 dark:text-green-400 mt-1">₹{stats.revenue.collectedToday.toLocaleString('en-IN')}</h2>
-              </div>
-              <div className="p-3 bg-green-500/20 text-green-600 rounded-2xl">
-                <Wallet className="w-6 h-6" />
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <p className="text-[10px] text-muted-foreground font-medium uppercase mt-2 italic">Refreshed just now</p>
-            </CardContent>
-          </Card>
-        </Access>
-      </div>
+              <h2 className="text-3xl font-black text-foreground">
+                ₹{(stats.revenue.collected / 100000).toFixed(1)}L
+                <span className="text-lg font-medium text-muted-foreground ml-1">/ {(stats.revenue.expected / 100000).toFixed(1)}L</span>
+              </h2>
+            </div>
+            <div className="text-right flex flex-col items-end">
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-black px-2 py-1 mb-1">
+                + ₹{stats.revenue.collectedToday.toLocaleString('en-IN')}
+              </Badge>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Collected Today</p>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{revPercentage}% Efficiency</span>
+              <span className="text-xs font-bold text-muted-foreground">₹{stats.revenue.collected.toLocaleString('en-IN')} collected</span>
+            </div>
+            <Progress value={revPercentage} className="h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/20" />
+          </CardContent>
+        </Card>
+      </Access>
 
       {/* Bottom Row: Pending Dues */}
       <Access feature="finances" action="view">

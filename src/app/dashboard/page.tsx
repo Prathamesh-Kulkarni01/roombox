@@ -65,7 +65,6 @@ export default function DashboardPage() {
     const totalBeds = relevantPgs.reduce((sum: number, pg: PG) => sum + (pg.totalBeds || 0), 0);
 
     const monthlyRevenue = relevantGuests
-      .filter((g: Guest) => !g.isVacated)
       .reduce((sum: number, g: Guest) => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -78,7 +77,6 @@ export default function DashboardPage() {
     const openComplaintsCount = relevantComplaints.filter((c: Complaint) => c.status === 'open').length;
 
     const pendingDues = relevantGuests
-      .filter((g: Guest) => !g.isVacated)
       .reduce((sum: number, g: Guest) => {
         const totalDebits = (g.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
         const totalCredits = (g.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
