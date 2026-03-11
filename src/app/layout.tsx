@@ -99,7 +99,6 @@ export default function RootLayout({
         <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
         <meta name="google-site-verification" content="HLDs7KWq0n7qSkYF2Lbuziso5ekVPmQM4ez6Bu6wL1A" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
 
         {/* Performance Optimizations */}

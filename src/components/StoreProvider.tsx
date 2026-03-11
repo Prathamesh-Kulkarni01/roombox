@@ -108,11 +108,12 @@ function AuthHandler({ children }: { children: ReactNode }) {
     if (currentUser) {
       const isInviteOrSetPassword = pathname.startsWith('/invite') || pathname.startsWith('/login/set-password');
       const isLoginPage = pathname === '/login' || pathname === '/signup';
+      const isAllowedPublicPage = pathname === '/download';
 
-      if (currentUser.role === 'tenant' && (!pathname.startsWith('/tenants') || isLoginPage || isInviteOrSetPassword)) {
+      if (currentUser.role === 'tenant' && ((!pathname.startsWith('/tenants') && !isAllowedPublicPage) || isLoginPage || isInviteOrSetPassword)) {
         console.log(`[StoreProvider] Redirecting tenant to portal... (Path: ${pathname})`);
         router.replace('/tenants/my-pg');
-      } else if (allowedDashboardRoles.includes(currentUser.role) && (!pathname.startsWith('/dashboard') || isLoginPage || isInviteOrSetPassword) && !pathname.startsWith('/admin')) {
+      } else if (allowedDashboardRoles.includes(currentUser.role) && ((!pathname.startsWith('/dashboard') && !isAllowedPublicPage) || isLoginPage || isInviteOrSetPassword) && !pathname.startsWith('/admin')) {
         console.log(`[StoreProvider] Redirecting ${currentUser.role} to dashboard... (Path: ${pathname})`);
         router.replace('/dashboard');
       } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile' && !isPublicPage) {
