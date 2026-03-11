@@ -30,6 +30,7 @@ import TenantCsvUploader from '@/components/tenant-csv-uploader';
 import { useDashboard } from '@/hooks/use-dashboard'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
+import { formatBalanceBreakdown } from "@/lib/ledger-utils"
 
 
 const rentStatusColors: Record<Guest['rentStatus'], string> = {
@@ -84,9 +85,16 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                                 </TableCell>
                                 <TableCell>{guest.pgName}</TableCell>
                                 <TableCell>
-                                    <Badge className={cn("capitalize border-transparent", rentStatusColors[guest.rentStatus])}>
-                                        {guest.rentStatus}
-                                    </Badge>
+                                    <div className="flex flex-col">
+                                        <Badge className={cn("capitalize border-transparent w-fit", rentStatusColors[guest.rentStatus])}>
+                                            {guest.rentStatus}
+                                        </Badge>
+                                        {formatBalanceBreakdown(guest) && (
+                                            <span className="text-[10px] text-rose-600 font-bold uppercase mt-1 leading-tight">
+                                                {formatBalanceBreakdown(guest)}
+                                            </span>
+                                        )}
+                                    </div>
                                 </TableCell>
                                 <TableCell>
                                     <Badge className={cn("capitalize border-transparent", kycStatusColors[guest.kycStatus])}>
@@ -170,7 +178,14 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-center gap-2">
                                     <IndianRupee className="w-4 h-4 text-muted-foreground" />
-                                    <span>{guest.isVacated ? `Exited on ${format(new Date(guest.exitDate!), 'do MMM')}` : `Rent Due: ${format(new Date(guest.dueDate), 'do MMM')}`}</span>
+                                    <div className="flex flex-col">
+                                        <span>{guest.isVacated ? `Exited on ${format(new Date(guest.exitDate!), 'do MMM')}` : `Rent Due: ${format(new Date(guest.dueDate), 'do MMM')}`}</span>
+                                        {formatBalanceBreakdown(guest) && (
+                                            <span className="text-[10px] text-rose-600 font-bold uppercase">
+                                                Due: {formatBalanceBreakdown(guest)}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <ShieldCheck className="w-4 h-4 text-muted-foreground" />
@@ -195,7 +210,7 @@ export default function GuestManagementPage() {
     const { currentUser } = useAppSelector(state => state.user);
     const { featurePermissions } = usePermissionsStore();
 
-    const dashboard = useDashboard({ pgs, guests });
+    const dashboard = useDashboard();
     const {
         isAddGuestDialogOpen, setIsAddGuestDialogOpen,
         isEditGuestDialogOpen, setIsEditGuestDialogOpen,

@@ -127,7 +127,7 @@ export default function RoomManagementPage() {
     isSavingRoom,
     isAddingGuest,
     isUpdatingGuest,
-  } = useDashboard(pgId)
+  } = useDashboard()
 
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
 

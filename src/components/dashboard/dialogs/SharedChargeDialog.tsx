@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Users, IndianRupee, Calendar } from "lucide-react"
+import { Users, IndianRupee, Calendar, Loader2 } from "lucide-react"
 import { useAppSelector } from "@/lib/hooks"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, startOfMonth, endOfMonth, subMonths, setDate, addMonths, isValid } from 'date-fns'
@@ -25,16 +25,16 @@ const sharedChargeSchema = z.object({
     units: z.coerce.number().optional(),
 });
 
-type SharedChargeDialogProps = Pick<UseDashboardReturn, 'isSharedChargeDialogOpen' | 'setIsSharedChargeDialogOpen' | 'sharedChargeForm' | 'handleSharedChargeSubmit' | 'roomForSharedCharge'>;
+type SharedChargeDialogProps = Pick<UseDashboardReturn, 'isSharedChargeDialogOpen' | 'setIsSharedChargeDialogOpen' | 'sharedChargeForm' | 'handleSharedChargeSubmit' | 'roomForSharedCharge' | 'isAddingSharedCharge'>;
 
-export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsSharedChargeDialogOpen, sharedChargeForm, handleSharedChargeSubmit, roomForSharedCharge }: SharedChargeDialogProps) {
-    const { chargeTemplates=[] } = useAppSelector(state => state.chargeTemplates);
+export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsSharedChargeDialogOpen, sharedChargeForm, handleSharedChargeSubmit, roomForSharedCharge, isAddingSharedCharge }: SharedChargeDialogProps) {
+    const { chargeTemplates = [] } = useAppSelector(state => state.chargeTemplates);
     const { guests } = useAppSelector(state => state.guests);
-    
+
     const getDefaultTab = () => {
         return chargeTemplates.find(t => t.autoAddToDialog)?.id || 'custom';
     };
-    
+
     const [activeTab, setActiveTab] = useState(getDefaultTab);
 
 
@@ -194,8 +194,11 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                     </Tabs>
                 </Access>
                 <DialogFooter className="mt-4">
-                    <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                    <Button type="submit" form="shared-charge-form" disabled={occupiedGuests.length === 0 || !calculatedTotal || calculatedTotal <= 0}>Apply Charge</Button>
+                    <DialogClose asChild><Button type="button" variant="secondary" disabled={isAddingSharedCharge}>Cancel</Button></DialogClose>
+                    <Button type="submit" form="shared-charge-form" disabled={occupiedGuests.length === 0 || !calculatedTotal || calculatedTotal <= 0 || isAddingSharedCharge}>
+                        {isAddingSharedCharge && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Apply Charge
+                    </Button>
                 </DialogFooter>
 
             </DialogContent>

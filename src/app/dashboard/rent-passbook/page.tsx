@@ -54,12 +54,12 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
         <div className="printable-area">
             <Accordion type="multiple" className="w-full">
                 {filteredPendingGuests.map(guest => {
-                     const balanceBf = guest.balanceBroughtForward || 0;
-                     const chargesDue = (guest.additionalCharges || []).reduce((sum: number, charge: { amount: number; }) => sum + charge.amount, 0);
-                     const rentDue = (guest.rentStatus === 'paid') ? 0 : guest.rentAmount - (guest.rentPaidAmount || 0);
-                     const totalDue = balanceBf + chargesDue + rentDue;
+                    const balanceBf = guest.balanceBroughtForward || 0;
+                    const chargesDue = (guest.additionalCharges || []).reduce((sum: number, charge: { amount: number; }) => sum + charge.amount, 0);
+                    const rentDue = (guest.rentStatus === 'paid') ? 0 : guest.rentAmount - (guest.rentPaidAmount || 0);
+                    const totalDue = balanceBf + chargesDue + rentDue;
 
-                     if (totalDue <= 0) return null; // Don't show if there's nothing to pay
+                    if (totalDue <= 0) return null; // Don't show if there's nothing to pay
 
                     return (
                         <AccordionItem value={guest.id} key={guest.id}>
@@ -79,7 +79,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                 <div className="p-4 bg-muted/50 rounded-md border space-y-4">
                                     <div className="space-y-2 text-sm">
                                         <h4 className="font-semibold mb-2">Dues Breakdown for {guest.name}</h4>
-                                         {balanceBf > 0 && (
+                                        {balanceBf > 0 && (
                                             <div className="flex justify-between items-center text-muted-foreground">
                                                 <span>Balance from previous months:</span>
                                                 <span className="font-medium text-foreground">₹{balanceBf.toLocaleString('en-IN')}</span>
@@ -97,15 +97,15 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                                 <span className="font-medium text-foreground">₹{charge.amount.toLocaleString('en-IN')}</span>
                                             </div>
                                         ))}
-                                        
-                                         <div className="flex justify-between items-center border-t pt-2 mt-2">
+
+                                        <div className="flex justify-between items-center border-t pt-2 mt-2">
                                             <span className="font-bold text-base">Total Amount Due:</span>
                                             <span className="font-bold text-base text-destructive">₹{totalDue.toLocaleString('en-IN')}</span>
                                         </div>
                                     </div>
                                     <div className="flex gap-2 justify-end pt-2 border-t">
-                                        <Button size="sm" variant="ghost" onClick={() => onSendReminder(guest)}><MessageCircle className="w-4 h-4 mr-2"/>Send Reminder</Button>
-                                        <Button size="sm" onClick={() => onCollectRent(guest)}><Wallet className="w-4 h-4 mr-2"/>Collect Rent</Button>
+                                        <Button size="sm" variant="ghost" onClick={() => onSendReminder(guest)}><MessageCircle className="w-4 h-4 mr-2" />Send Reminder</Button>
+                                        <Button size="sm" onClick={() => onCollectRent(guest)}><Wallet className="w-4 h-4 mr-2" />Collect Rent</Button>
                                     </div>
                                 </div>
                             </AccordionContent>
@@ -119,7 +119,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
 
 const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
     const [open, setOpen] = useState(false);
-    
+
     if (!payment) {
         return <Badge variant="outline">N/A</Badge>;
     }
@@ -157,10 +157,10 @@ const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
                     <DialogDescription>Details for payment made on {format(parseISO(payment.date), 'do MMM, yyyy')}.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                     <div className="flex justify-between items-center text-sm">
+                    <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Status</span>
                         <Badge variant="outline" className={cn(meta.className, "text-base")}>
-                             <meta.icon className={cn("w-4 h-4 mr-1.5", status !== 'pending' && 'animate-none')} />
+                            <meta.icon className={cn("w-4 h-4 mr-1.5", 'animate-none')} />
                             {meta.text}
                         </Badge>
                     </div>
@@ -170,19 +170,19 @@ const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
                             <p className="text-destructive/90">{payment.payoutFailureReason}</p>
                         </div>
                     )}
-                     <div className="flex justify-between items-center text-sm">
+                    <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Original Payment ID</span>
                         <span className="font-mono text-xs">{payment.id}</span>
                     </div>
-                     <div className="flex justify-between items-center text-sm">
+                    <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Payout Transaction ID</span>
                         <span className="font-mono text-xs">{payment.payoutId || 'N/A'}</span>
                     </div>
-                     <div className="flex justify-between items-center text-sm">
+                    <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Amount Transferred</span>
                         <span className="font-semibold">₹{payment.amount.toLocaleString('en-IN')}</span>
                     </div>
-                     <div className="flex justify-between items-center text-sm">
+                    <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Destination Account</span>
                         <span className="font-medium">{payment.payoutTo || 'Primary Account'}</span>
                     </div>
@@ -200,9 +200,9 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
                 <p className="text-muted-foreground">{pgName}</p>
                 <p className="text-muted-foreground">{dateRange}</p>
             </div>
-             <div className="p-4 mb-6 border rounded-lg bg-muted/50">
+            <div className="p-4 mb-6 border rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">Total Collection for this Period</p>
-                <p className="text-3xl font-bold flex items-center gap-1"><IndianRupee/>{totalCollection.toLocaleString('en-IN')}</p>
+                <p className="text-3xl font-bold flex items-center gap-1"><IndianRupee />{totalCollection.toLocaleString('en-IN')}</p>
             </div>
             <Table>
                 <TableHeader>
@@ -221,7 +221,7 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
                             <TableCell className="font-medium">{(p as any).guestName}</TableCell>
                             <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
                             <TableCell>
-                               <span className="capitalize">{p.payoutStatus || 'N/A'}</span>
+                                <span className="capitalize">{p.payoutStatus || 'N/A'}</span>
                             </TableCell>
                             <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
                         </TableRow>
@@ -242,7 +242,7 @@ export default function RentPassbookPage() {
         pgs: state.pgs.pgs,
         isLoading: state.app.isLoading
     }));
-    
+
     const {
         isPaymentDialogOpen,
         setIsPaymentDialogOpen,
@@ -255,8 +255,10 @@ export default function RentPassbookPage() {
         reminderMessage,
         isGeneratingReminder,
         selectedGuestForReminder,
-        handleOpenReminderDialog
-    } = useDashboard({ pgs, guests });
+        handleOpenReminderDialog,
+        isRecordingPayment,
+        setReminderMessage
+    } = useDashboard();
 
     const [filters, setFilters] = useState({
         pgId: 'all',
@@ -270,8 +272,8 @@ export default function RentPassbookPage() {
         content: () => printRef.current,
         documentTitle: `Rent_Report_${filters.month}`
     });
-    
-     const handleDownloadCsv = () => {
+
+    const handleDownloadCsv = () => {
         const headers = ["Date", "Guest Name", "Property Name", "Payment Details", "Amount", "Payout Status", "Payout Account", "Payout Failure Reason"];
         const rows = filteredPayments.map(p => [
             format(parseISO(p.date), 'yyyy-MM-dd'),
@@ -284,10 +286,10 @@ export default function RentPassbookPage() {
             p.payoutFailureReason || ''
         ].map(val => `"${String(val ?? '').replace(/"/g, '""')}"`));
 
-        let csvContent = "data:text/csv;charset=utf-8," 
-            + headers.join(",") + "\n" 
+        let csvContent = "data:text/csv;charset=utf-8,"
+            + headers.join(",") + "\n"
             + rows.map(e => e.join(",")).join("\n");
-        
+
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -299,7 +301,7 @@ export default function RentPassbookPage() {
 
 
     const allPayments = useMemo(() => {
-        return guests.flatMap(g => 
+        return guests.flatMap(g =>
             (g.paymentHistory || []).map(p => ({
                 ...p,
                 guestName: g.name,
@@ -314,7 +316,7 @@ export default function RentPassbookPage() {
         const [year, month] = filters.month.split('-');
         const startDate = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
         const endDate = endOfMonth(startDate);
-        
+
         return allPayments.filter(p => {
             const paymentDate = parseISO(p.date);
             const pgMatch = filters.pgId === 'all' || p.pgId === filters.pgId;
@@ -336,14 +338,14 @@ export default function RentPassbookPage() {
         if (filters.pgId === 'all') return uniqueGuests;
         return uniqueGuests.filter(g => g.pgId === filters.pgId);
     }, [guests, filters.pgId]);
-    
+
     const totalCollection = useMemo(() => {
         return filteredPayments.reduce((sum, p) => sum + p.amount, 0);
     }, [filteredPayments]);
 
     if (isLoading) {
         return (
-             <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-8">
                 <Skeleton className="h-28 w-full" />
                 <Card>
                     <CardHeader>
@@ -367,7 +369,7 @@ export default function RentPassbookPage() {
                 <CardContent>
                     <Tabs defaultValue="analytics">
                         <TabsList className="grid w-full grid-cols-4">
-                             <TabsTrigger value="analytics">
+                            <TabsTrigger value="analytics">
                                 <span className="sm:hidden">Stats</span>
                                 <span className="hidden sm:inline">Analytics</span>
                             </TabsTrigger>
@@ -379,7 +381,7 @@ export default function RentPassbookPage() {
                                 <span className="sm:hidden">History</span>
                                 <span className="hidden sm:inline">Payment History</span>
                             </TabsTrigger>
-                             <TabsTrigger value="deposits">
+                            <TabsTrigger value="deposits">
                                 <span className="sm:hidden">Deposits</span>
                                 <span className="hidden sm:inline">Deposits</span>
                             </TabsTrigger>
@@ -397,7 +399,7 @@ export default function RentPassbookPage() {
                             <PendingDuesTable guests={guests} pgs={pgs} filters={filters} onCollectRent={handleOpenPaymentDialog} onSendReminder={handleOpenReminderDialog} />
                         </TabsContent>
                         <TabsContent value="payment-history" className="mt-4">
-                           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                                 <Select value={filters.pgId} onValueChange={(val) => setFilters(f => ({ ...f, pgId: val, guestId: 'all' }))}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent><SelectItem value="all">All Properties</SelectItem>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent>
@@ -409,13 +411,13 @@ export default function RentPassbookPage() {
                                 <Input type="month" value={filters.month} onChange={(e) => setFilters(f => ({ ...f, month: e.target.value }))} />
                             </div>
                             <div className="flex gap-2 justify-end mb-4">
-                                <Button onClick={handleDownloadCsv} variant="outline"><Download className="mr-2 h-4 w-4"/>Download CSV</Button>
-                                <Button onClick={handlePrint} variant="outline"><Printer className="mr-2 h-4 w-4"/>Print Report</Button>
+                                <Button onClick={handleDownloadCsv} variant="outline"><Download className="mr-2 h-4 w-4" />Download CSV</Button>
+                                <Button onClick={handlePrint} variant="outline"><Printer className="mr-2 h-4 w-4" />Print Report</Button>
                             </div>
-                            
+
                             <div style={{ display: "none" }}>
-                                <PrintableReport 
-                                    ref={printRef} 
+                                <PrintableReport
+                                    ref={printRef}
                                     payments={filteredPayments}
                                     pgName={filters.pgId === 'all' ? 'All Properties' : pgs.find(p => p.id === filters.pgId)?.name}
                                     dateRange={format(parseISO(`${filters.month}-01`), 'MMMM yyyy')}
@@ -459,8 +461,22 @@ export default function RentPassbookPage() {
                 </CardContent>
             </Card>
 
-            <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} selectedGuestForPayment={selectedGuestForPayment} paymentForm={paymentForm} handlePaymentSubmit={handlePaymentSubmit} />
-            <ReminderDialog isReminderDialogOpen={isReminderDialogOpen} setIsReminderDialogOpen={setIsReminderDialogOpen} selectedGuestForReminder={selectedGuestForReminder} isGeneratingReminder={isGeneratingReminder} reminderMessage={reminderMessage} />
+            <PaymentDialog
+                isPaymentDialogOpen={isPaymentDialogOpen}
+                setIsPaymentDialogOpen={setIsPaymentDialogOpen}
+                selectedGuestForPayment={selectedGuestForPayment}
+                paymentForm={paymentForm}
+                handlePaymentSubmit={handlePaymentSubmit}
+                isRecordingPayment={isRecordingPayment}
+            />
+            <ReminderDialog
+                isReminderDialogOpen={isReminderDialogOpen}
+                setIsReminderDialogOpen={setIsReminderDialogOpen}
+                selectedGuestForReminder={selectedGuestForReminder}
+                isGeneratingReminder={isGeneratingReminder}
+                reminderMessage={reminderMessage}
+                setReminderMessage={setReminderMessage}
+            />
         </div>
     )
 }

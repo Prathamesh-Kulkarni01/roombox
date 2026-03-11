@@ -24,6 +24,7 @@ import {
   useGetComplaintsQuery
 } from "@/lib/api/apiSlice"
 import type { PG, Guest, Complaint } from "@/lib/types"
+import { formatBalanceBreakdown } from "@/lib/ledger-utils"
 
 export default function DashboardPage() {
   const { currentUser } = useAppSelector(state => state.user);
@@ -54,7 +55,7 @@ export default function DashboardPage() {
     handleOpenPaymentDialog,
     isAddingGuest,
     isRecordingPayment,
-  } = useDashboard({ pgs, guests });
+  } = useDashboard();
 
   const stats: DashboardStats = useMemo(() => {
     const relevantPgs = selectedPgId && selectedPgId !== 'all' ? pgs.filter((p: PG) => p.id === selectedPgId) : pgs;
@@ -213,6 +214,11 @@ export default function DashboardPage() {
                               return (
                                 <div className="flex flex-col items-end">
                                   <span className="text-rose-600 font-black text-sm">₹{balance.toLocaleString('en-IN')} DUE</span>
+                                  {formatBalanceBreakdown(guest) && (
+                                    <span className="text-[10px] text-rose-600 font-bold uppercase tracking-tight">
+                                      {formatBalanceBreakdown(guest)}
+                                    </span>
+                                  )}
                                   {guest.phone && (
                                     <Button
                                       variant="ghost"

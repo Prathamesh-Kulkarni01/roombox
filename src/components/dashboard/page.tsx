@@ -19,7 +19,7 @@ import RoomDialog from '@/components/dashboard/dialogs/RoomDialog'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from '@/lib/permissions';
 
-import StatsCards from '@/components/dashboard/StatsCards'
+import StatsCards, { DashboardStats } from '@/components/dashboard/StatsCards'
 import PgLayout from '@/components/dashboard/PgLayout'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
@@ -80,7 +80,7 @@ export default function DashboardPage() {
   const {
     isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit,
     isEditGuestDialogOpen, setIsEditGuestDialogOpen, guestToEdit, editGuestForm, handleEditGuestSubmit,
-    isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit, isSavingRoom,
+    isRoomDialogOpen, setIsRoomDialogOpen, roomToEdit, roomForm, handleRoomSubmit,
     isFloorDialogOpen, setIsFloorDialogOpen, floorToEdit, floorForm, handleFloorSubmit,
     isBedDialogOpen, setIsBedDialogOpen, bedToEdit, bedForm, handleBedSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit,
@@ -99,8 +99,13 @@ export default function DashboardPage() {
     handleOpenFloorDialog,
     handleOpenRoomDialog,
     handleOpenBedDialog,
-    handleDelete
-  } = useDashboard({ pgs, guests });
+    handleDelete,
+    isSavingRoom,
+    isRecordingPayment,
+    isAddingSharedCharge,
+    isAddingGuest,
+    isUpdatingGuest
+  } = useDashboard();
 
   const { currentUser } = useAppSelector(state => state.user);
 
@@ -461,6 +466,7 @@ export default function DashboardPage() {
           selectedBedForGuestAdd={selectedBedForGuestAdd}
           addGuestForm={addGuestForm}
           handleAddGuestSubmit={handleAddGuestSubmit}
+          isAddingGuest={isAddingGuest}
         />
       </Access>
       <Access feature="guests" action="edit">
@@ -470,6 +476,7 @@ export default function DashboardPage() {
           guestToEdit={guestToEdit}
           editGuestForm={editGuestForm}
           handleEditGuestSubmit={handleEditGuestSubmit}
+          isUpdatingGuest={isUpdatingGuest}
         />
       </Access>
       <Access feature="properties" action="edit">
@@ -484,6 +491,7 @@ export default function DashboardPage() {
           selectedGuestForPayment={selectedGuestForPayment}
           paymentForm={paymentForm}
           handlePaymentSubmit={handlePaymentSubmit}
+          isRecordingPayment={isRecordingPayment}
         />
         <SharedChargeDialog
           isSharedChargeDialogOpen={isSharedChargeDialogOpen}
@@ -491,6 +499,7 @@ export default function DashboardPage() {
           roomForSharedCharge={roomForSharedCharge}
           sharedChargeForm={sharedChargeForm}
           handleSharedChargeSubmit={handleSharedChargeSubmit}
+          isAddingSharedCharge={isAddingSharedCharge}
         />
       </Access>
       <Access feature="complaints" action="edit">

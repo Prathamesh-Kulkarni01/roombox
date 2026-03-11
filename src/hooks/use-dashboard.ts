@@ -82,7 +82,7 @@ const bulkBedSchema = z.object({
   bedPrefix: z.string().optional().default("B"),
 });
 
-export function useDashboard(pgId?: string) {
+export function useDashboard() {
   const dispatch = useAppDispatch();
   const { toast } = useToast()
 
@@ -269,7 +269,7 @@ export function useDashboard(pgId?: string) {
         pgName: pg.name,
         bedId: bed.id,
         rentAmount: values.rentAmount,
-        depositAmount: values.depositAmount,
+        deposit: values.depositAmount,
         joinDate: values.moveInDate.toISOString(),
         rentCycleUnit: values.rentCycleUnit,
         rentCycleValue: values.rentCycleValue,

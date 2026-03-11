@@ -33,6 +33,7 @@ import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment, LedgerEntry } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw, Link as LinkIcon, Key } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
+import { formatBalanceBreakdown } from "@/lib/ledger-utils"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { useInitiateGuestExitMutation, useVacateGuestMutation, useAddGuestChargeMutation, useRemoveGuestChargeMutation, useUpdateKycStatusMutation, useSubmitKycDocumentsMutation, useResetKycMutation } from '@/lib/api/apiSlice'
@@ -121,8 +122,10 @@ export default function GuestProfilePage() {
         reminderMessage,
         isGeneratingReminder,
         selectedGuestForReminder,
-        handleOpenReminderDialog
-    } = useDashboard({ pgs: pgs.pgs, guests: guestsState.guests });
+        handleOpenReminderDialog,
+        isRecordingPayment,
+        setReminderMessage
+    } = useDashboard();
 
 
     const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false)
@@ -313,7 +316,7 @@ export default function GuestProfilePage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    ownerId: currentUser.uid,
+                    ownerId: currentUser.id,
                     tenantId: guest.id,
                     phone: guest.phone
                 })
@@ -435,7 +438,14 @@ export default function GuestProfilePage() {
                             <CardContent className="space-y-4 text-sm">
                                 <div className="flex justify-between items-center">
                                     <span>Rent Status:</span>
-                                    <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[guest.rentStatus])}>{guest.rentStatus}</Badge>
+                                    <div className="flex flex-col items-end">
+                                        <Badge variant="outline" className={cn("capitalize text-base", rentStatusColors[guest.rentStatus])}>{guest.rentStatus}</Badge>
+                                        {formatBalanceBreakdown(guest) && (
+                                            <span className="text-[10px] text-rose-600 font-bold uppercase mt-1">
+                                                {formatBalanceBreakdown(guest)}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2 pt-4 border-t">
