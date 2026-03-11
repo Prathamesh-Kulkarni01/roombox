@@ -91,7 +91,9 @@ export function useDashboard(pgId?: string) {
   const { currentPlan, currentUser } = useAppSelector(state => state.user)
   const [isTransitioningRoom, startRoomTransition] = useTransition();
   const { showConfetti } = useConfetti();
-  const { isLoading: isLoadingGuests } = useGetGuestsQuery(undefined);
+  const { isLoading: isLoadingGuests } = useGetGuestsQuery(undefined, {
+    pollingInterval: 15000, // Poll every 15 seconds to catch background reconciliation updates
+  });
   const { guests } = useAppSelector(state => state.guests);
 
   // RTK Query Mutations
@@ -127,11 +129,22 @@ export function useDashboard(pgId?: string) {
   const [itemToDelete, setItemToDelete] = useState<{ type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string } } | null>(null)
 
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [selectedGuestForPayment, setSelectedGuestForPayment] = useState<Guest | null>(null);
+  const [selectedGuestForPaymentId, setSelectedGuestForPaymentId] = useState<string | null>(null);
+  const selectedGuestForPayment = useMemo(() => {
+    if (!selectedGuestForPaymentId) return null;
+    return guests.find(g => g.id === selectedGuestForPaymentId) || null;
+  }, [selectedGuestForPaymentId, guests]);
+
+  const [selectedGuestForReminderId, setSelectedGuestForReminderId] = useState<string | null>(null);
+  const selectedGuestForReminder = useMemo(() => {
+    if (!selectedGuestForReminderId) return null;
+    return guests.find(g => g.id === selectedGuestForReminderId) || null;
+  }, [selectedGuestForReminderId, guests]);
+
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
   const [reminderMessage, setReminderMessage] = useState('');
   const [isGeneratingReminder, setIsGeneratingReminder] = useState(false);
-  const [selectedGuestForReminder, setSelectedGuestForReminder] = useState<Guest | null>(null);
+
   const [guestToInitiateExit, setGuestToInitiateExit] = useState<Guest | null>(null);
   const [guestToExitImmediately, setGuestToExitImmediately] = useState<Guest | null>(null);
   const [isSharedChargeDialogOpen, setIsSharedChargeDialogOpen] = useState(false);
@@ -230,7 +243,7 @@ export function useDashboard(pgId?: string) {
   };
 
   const handleOpenPaymentDialog = (guest: Guest) => {
-    setSelectedGuestForPayment(guest);
+    setSelectedGuestForPaymentId(guest.id);
     setIsPaymentDialogOpen(true);
   };
 
@@ -310,7 +323,7 @@ export function useDashboard(pgId?: string) {
 
       toast({ title: "Payment Recorded" });
       setIsPaymentDialogOpen(false);
-      setSelectedGuestForPayment(null);
+      setSelectedGuestForPaymentId(null);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to record payment.' });
     }
@@ -387,7 +400,7 @@ export function useDashboard(pgId?: string) {
       setIsReminderDialogOpen(true);
       return;
     };
-    setSelectedGuestForReminder(guest);
+    setSelectedGuestForReminderId(guest.id);
     setIsGeneratingReminder(true);
     setIsReminderDialogOpen(true);
     setReminderMessage("Generating payment link...");

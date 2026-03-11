@@ -680,13 +680,15 @@ export class TenantService {
 
             const totalDebits = reconciledGuest.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
             const totalCredits = reconciledGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-            const newBalance = totalDebits - totalCredits;
+            const newBalance = Number((totalDebits - totalCredits).toFixed(2));
 
-            const hasCredits = reconciledGuest.ledger.some(e => e.type === 'credit');
+            const hasRemainder = Math.abs((totalCredits % reconciledGuest.rentAmount)) > 0.01 &&
+                Math.abs((totalCredits % reconciledGuest.rentAmount) - reconciledGuest.rentAmount) > 0.01;
+
             const finalGuest = {
                 ...reconciledGuest,
                 balance: newBalance,
-                rentStatus: (newBalance > 0 ? (hasCredits ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial'
+                rentStatus: (newBalance > 0 ? (hasRemainder ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial'
             };
 
             txn.set(guestRef, finalGuest, { merge: true });

@@ -45,10 +45,10 @@ export default function BedActionSheet({
 
     if (!guest) return null
 
-    const totalDue = (guest.ledger || []).reduce(
+    const totalDue = Number(((guest.ledger || []).reduce(
         (acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount),
         0
-    )
+    )).toFixed(2))
     const status = rentStatusConfig[guest.rentStatus] ?? { label: guest.rentStatus, color: 'bg-muted text-muted-foreground border-border' }
     const canEditGuests = canAccess(featurePermissions, currentUser?.role, 'guests', 'edit')
     const canDeleteGuests = canAccess(featurePermissions, currentUser?.role, 'guests', 'delete')

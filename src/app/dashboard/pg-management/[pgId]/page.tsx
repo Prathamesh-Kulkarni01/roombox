@@ -54,7 +54,12 @@ export default function RoomManagementPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'available' | 'due' | 'paid'>('all')
 
   // Bottom sheet state
-  const [bedSheetGuest, setBedSheetGuest] = useState<Guest | null>(null)
+  const [bedSheetGuestId, setBedSheetGuestId] = useState<string | null>(null)
+  const bedSheetGuest = useMemo(() => {
+    if (!bedSheetGuestId) return null
+    return guests.find(g => g.id === bedSheetGuestId) || null
+  }, [bedSheetGuestId, guests])
+
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
 
   const {
@@ -337,7 +342,7 @@ export default function RoomManagementPage() {
                                   "flex items-center justify-between p-4 transition-colors",
                                   guest && !isEditMode ? "active:bg-muted/20 cursor-pointer" : ""
                                 )}
-                                onClick={(!isEditMode && guest) ? () => setBedSheetGuest(guest) : undefined}
+                                onClick={(!isEditMode && guest) ? () => setBedSheetGuestId(guest.id) : undefined}
                               >
                                 <div className="flex items-center gap-3">
                                   <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border shadow-sm",
@@ -419,7 +424,7 @@ export default function RoomManagementPage() {
                           return (
                             <Card
                               key={bed.id}
-                              onClick={(!isEditMode && guest) ? () => setBedSheetGuest(guest) : undefined}
+                              onClick={(!isEditMode && guest) ? () => setBedSheetGuestId(guest.id) : undefined}
                               className={cn(
                                 "p-4 border shadow-sm rounded-2xl flex flex-col justify-between transition-all",
                                 guest ? "active:scale-[0.97] cursor-pointer hover:shadow-md" : "",
@@ -504,8 +509,8 @@ export default function RoomManagementPage() {
       {/* Bed Action Sheet (replaces popover) */}
       <BedActionSheet
         guest={bedSheetGuest}
-        isOpen={!!bedSheetGuest}
-        onClose={() => setBedSheetGuest(null)}
+        isOpen={!!bedSheetGuestId}
+        onClose={() => setBedSheetGuestId(null)}
         handleOpenPaymentDialog={handleOpenPaymentDialog}
         handleOpenReminderDialog={handleOpenReminderDialog}
         handleOpenEditGuestDialog={handleOpenEditGuestDialog}

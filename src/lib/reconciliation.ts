@@ -43,12 +43,20 @@ export function runReconciliationLogic(
   let nextDueDate = dueDate;
 
   // Iteratively count how many cycles have passed.
-  while (isAfter(now, nextDueDate)) {
+  // Use >= comparison to catch cycles that are precisely due now.
+  while (now.getTime() >= nextDueDate.getTime()) {
     cyclesToProcess++;
     nextDueDate = calculateFirstDueDate(nextDueDate, cycleUnit, cycleValue, billingAnchorDay);
   }
 
-  if (cyclesToProcess <= 0) return { guest, cyclesProcessed: 0 };
+  if (cyclesToProcess <= 0) {
+    // Even if no new cycles, ensure status is reconciled based on current balance
+    const currentBalance = Number(((guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0)).toFixed(2));
+    if (guest.rentStatus !== 'paid' && currentBalance <= 0) {
+      return { guest: produce(guest, d => { d.rentStatus = 'paid'; d.balance = 0; }), cyclesProcessed: 0 };
+    }
+    return { guest, cyclesProcessed: 0 };
+  }
 
   const updatedGuest = produce(guest, (draft) => {
     if (!draft.ledger) {
@@ -73,17 +81,20 @@ export function runReconciliationLogic(
 
     const totalDebits = draft.ledger.filter((e) => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
     const totalCredits = draft.ledger.filter((e) => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-    const balance = totalDebits - totalCredits;
+    // Round to 2 decimal places to avoid floating point issues (e.g. 0.000000001 showing as partial)
+    const balance = Number((totalDebits - totalCredits).toFixed(2));
 
     draft.balance = balance;
 
-    // Corrected Logic: If a new cycle has been added, the balance will be > 0.
-    // The status should become 'unpaid' because this is a new, unpaid charge.
-    // The 'partial' status should only be set when a *payment* is made that doesn't clear the balance.
-    // The reconciliation logic's job is to add debits, thus making it 'unpaid'.
     if (balance > 0) {
-      const hasCredits = draft.ledger.some((e) => e.type === 'credit');
-      draft.rentStatus = hasCredits ? 'partial' : 'unpaid';
+      // Improved logic: 
+      // It's 'unpaid' if the balance is exactly a multiple of the rent amount (meaning no partial payment made yet)
+      // or if total credits is zero.
+      const hasCredits = totalCredits > 0;
+      const hasRemainder = Math.abs((totalCredits % draft.rentAmount)) > 0.01 &&
+        Math.abs((totalCredits % draft.rentAmount) - draft.rentAmount) > 0.01;
+
+      draft.rentStatus = hasRemainder ? 'partial' : 'unpaid';
     } else {
       draft.rentStatus = 'paid';
     }
