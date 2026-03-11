@@ -29,11 +29,14 @@ export async function GET(req: NextRequest) {
     const manifest = {
         name: config.name || 'RentSutra',
         short_name: config.shortName || 'RentSutra',
-        description: `Welcome to ${config.name || 'our property'}`,
-        start_url: subdomain ? `/site/${subdomain}` : '/dashboard',
+        description: `Welcome to ${config.name || 'our property'}. The Modern OS for Your Rental Property.`,
+        id: '/',
+        start_url: subdomain ? `/site/${subdomain}?utm_source=pwa` : '/dashboard?utm_source=pwa',
+        scope: '/',
         display: 'standalone',
         background_color: config.backgroundColor || '#ffffff',
         theme_color: config.themeColor || '#0f172a',
+        orientation: 'portrait',
         icons: [
             {
                 src: config.logo || '/icons/icon-192x192.png',

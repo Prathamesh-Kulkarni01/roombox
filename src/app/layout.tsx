@@ -91,16 +91,16 @@ export default function RootLayout({
   return (
     <html lang="en" className="!scroll-smooth" suppressHydrationWarning>
       <head>
-        <meta name="application-name" content="RentVastu" />
+        <meta name="application-name" content="RentSutra" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="RentVastu" />
+        <meta name="apple-mobile-web-app-title" content="RentSutra" />
         <meta name="mobile-web-app-capable" content="yes" />
         <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
         <meta name="google-site-verification" content="HLDs7KWq0n7qSkYF2Lbuziso5ekVPmQM4ez6Bu6wL1A" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
 
         {/* Performance Optimizations */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

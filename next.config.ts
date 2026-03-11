@@ -91,7 +91,6 @@ const withPWA = withPWAInit({
         },
       },
     ],
-    importScripts: ["/firebase-messaging-sw.js"],
     skipWaiting: true,
     clientsClaim: true,
   },

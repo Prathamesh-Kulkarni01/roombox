@@ -10,7 +10,20 @@ export default function PWAHandler() {
     const { currentUser } = useAppSelector(state => state.user);
 
     useEffect(() => {
-        // 1. Dynamic Manifest Injection
+        // 1. Service Worker Registration Fallback
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator && !window.navigator.userAgent.includes('Lighthouse')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                    .then(reg => {
+                        console.log('[PWA] Service Worker registered with scope:', reg.scope);
+                    })
+                    .catch(err => {
+                        console.error('[PWA] Service Worker registration failed:', err);
+                    });
+            });
+        }
+
+        // 2. Dynamic Manifest Injection
         const updateManifest = () => {
             let manifestUrl = '/manifest.json'; // Default
 
@@ -30,6 +43,7 @@ export default function PWAHandler() {
             let link: HTMLLinkElement | null = document.querySelector('link[rel="manifest"]');
             if (link) {
                 if (link.href !== window.location.origin + manifestUrl) {
+                    console.log('[PWA] Updating manifest to:', manifestUrl);
                     link.href = manifestUrl;
                 }
             } else {
@@ -42,7 +56,7 @@ export default function PWAHandler() {
 
         updateManifest();
 
-        // 2. Standalone Redirect Detection
+        // 3. Standalone Redirect Detection
         const isStandalone = typeof window !== 'undefined' && (
             window.matchMedia('(display-mode: standalone)').matches
             || (window.navigator as any).standalone
