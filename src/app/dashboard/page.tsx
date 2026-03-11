@@ -6,14 +6,16 @@ import Link from 'next/link'
 import { useAppSelector } from "@/lib/hooks"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Loader2 } from "lucide-react"
+import { ArrowRight, Loader2, MessageCircle } from "lucide-react"
 
 import StatsCards, { DashboardStats } from '@/components/dashboard/StatsCards'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import QuickActions from "@/components/dashboard/QuickActions"
+import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton"
 import { useDashboard } from '@/hooks/use-dashboard'
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Sparkles, Sun, Moon, CloudSun } from "lucide-react"
 import Access from '@/components/ui/PermissionWrapper';
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -125,25 +127,41 @@ export default function DashboardPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
+
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { text: 'Good Morning', icon: <Sun className="w-5 h-5 text-amber-500" /> };
+    if (hour < 17) return { text: 'Good Afternoon', icon: <CloudSun className="w-5 h-5 text-amber-500" /> };
+    return { text: 'Good Evening', icon: <Moon className="w-5 h-5 text-indigo-500" /> };
+  };
+
+  const greeting = getTimeGreeting();
 
   return (
     <>
       <div className="flex flex-col gap-6 md:max-w-xl mx-auto md:mx-0 w-full pb-20 mt-4 md:mt-0">
 
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 px-1">
           <div>
-            <h2 className="text-xl font-bold tracking-tight">Property Overview</h2>
-            <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()}</p>
+            <div className="flex items-center gap-2 mb-1">
+              {greeting.icon}
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{greeting.text}</span>
+            </div>
+            <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+              Welcome, {currentUser?.name?.split(' ')[0] || 'Partner'}
+              <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+            </h2>
+            <p className="text-sm font-semibold text-muted-foreground mt-1">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
           </div>
+          <Avatar className="w-12 h-12 border-2 border-primary/20 shadow-sm ring-2 ring-background">
+            <AvatarFallback className="bg-primary/5 text-primary text-sm font-black">
+              {currentUser?.name?.slice(0, 2).toUpperCase() || 'HB'}
+            </AvatarFallback>
+          </Avatar>
         </div>
 
         <StatsCards
@@ -184,22 +202,37 @@ export default function DashboardPage() {
                           <p className="text-xs text-muted-foreground mt-0.5">Room {pgs.find((p: PG) => p.id === guest.pgId)?.floors?.find(f => f.rooms.some(r => r.id === guest.roomId))?.rooms.find(r => r.id === guest.roomId)?.name || 'N/A'}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        {(() => {
-                          const totalDebits = (guest.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
-                          const totalCredits = (guest.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
-                          const balance = totalDebits - totalCredits;
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          {(() => {
+                            const totalDebits = (guest.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
+                            const totalCredits = (guest.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
+                            const balance = totalDebits - totalCredits;
 
-                          if (balance <= 0) {
-                            return <span className="text-green-600 font-bold text-sm">₹{guest.rentAmount.toLocaleString('en-IN')}</span>;
-                          } else {
-                            return (
-                              <div className="flex flex-col items-end">
-                                <span className="text-red-500 font-bold text-sm">₹{balance.toLocaleString('en-IN')} DUE</span>
-                              </div>
-                            );
-                          }
-                        })()}
+                            if (balance <= 0) {
+                              return <span className="text-emerald-600 font-bold text-sm">₹{guest.rentAmount.toLocaleString('en-IN')}</span>;
+                            } else {
+                              return (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-rose-600 font-black text-sm">₹{balance.toLocaleString('en-IN')} DUE</span>
+                                  {guest.phone && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 mt-1"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        window.open(`https://wa.me/91${guest.phone}?text=Hi ${guest.name}, your rent of ₹${balance} for room ${pgs.find((p: PG) => p.id === guest.pgId)?.floors?.find(f => f.rooms.some(r => r.id === guest.roomId))?.rooms.find(r => r.id === guest.roomId)?.name || ''} is pending. Please pay at your earliest convenience.`, '_blank');
+                                      }}
+                                    >
+                                      <MessageCircle className="w-5 h-5 fill-emerald-600/10" />
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            }
+                          })()}
+                        </div>
                       </div>
                     </li>
                   )) : (
@@ -210,8 +243,12 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex justify-center mt-6">
-              <Button onClick={() => router.push(`/dashboard/pg-management/${!selectedPgId || selectedPgId === 'all' ? pgs[0]?.id : selectedPgId}`)} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-native py-6 rounded-xl text-lg">
-                Manage Rooms & Beds <ArrowRight className="ml-2 w-5 h-5" />
+              <Button
+                onClick={() => router.push(`/dashboard/pg-management/${!selectedPgId || selectedPgId === 'all' ? pgs[0]?.id : selectedPgId}`)}
+                className="w-full bg-gradient-to-r from-primary to-indigo-600 hover:opacity-90 text-primary-foreground font-black shadow-xl py-7 rounded-2xl text-lg group transition-all"
+              >
+                Manage Rooms & Beds
+                <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
               </Button>
             </div>
           </>
