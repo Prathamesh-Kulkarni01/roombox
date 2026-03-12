@@ -44,6 +44,13 @@ export default function MassReminderDialog({
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(guests.map(g => g.id)));
     const [isSending, setIsSending] = useState(false);
 
+    // Initial select all when opening
+    React.useEffect(() => {
+        if (isOpen) {
+            setSelectedIds(new Set(guests.map(g => g.id)));
+        }
+    }, [isOpen, guests]);
+
     // Pricing from send-message.ts (TEMPLATE = 1.5)
     const WHATSAPP_TEMPLATE_COST = 1.5;
 
@@ -51,9 +58,10 @@ export default function MassReminderDialog({
         guests.filter(g => selectedIds.has(g.id)), 
     [guests, selectedIds]);
 
-    const totalCost = useMemo(() => 
-        whatsappEnabled ? selectedGuests.length * WHATSAPP_TEMPLATE_COST : 0,
-    [selectedGuests, whatsappEnabled]);
+    const totalCost = useMemo(() => {
+        const eligibleGuests = selectedGuests.filter(g => !!g.phone);
+        return eligibleGuests.length * WHATSAPP_TEMPLATE_COST;
+    }, [selectedGuests]);
 
     const hasInsufficientCredits = whatsappEnabled && totalCost > whatsappCredits;
 
@@ -88,61 +96,64 @@ export default function MassReminderDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden gap-0">
-                <DialogHeader className="p-6 pb-4 bg-muted/30">
-                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
+            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh] gap-0">
+                <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 bg-muted/30 flex-shrink-0">
+                    <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
                         <Send className="w-5 h-5 text-primary" />
                         Send Bulk Reminders
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Review and select guests to receive payment alerts via WhatsApp and Push.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="p-4 bg-primary/5 border-y border-primary/10">
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 sm:p-4 bg-primary/5 border-y border-primary/10 flex-shrink-0">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Selected</span>
-                            <span className="text-2xl font-black text-primary">{selectedGuests.length} / {guests.length}</span>
+                            <span className="text-xl sm:text-2xl font-black text-primary">{selectedGuests.length} / {guests.length}</span>
                         </div>
                         <div className="flex flex-col items-end">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Est. Cost</span>
-                            <div className="flex items-center gap-1.5">
-                                <span className={`text-2xl font-black ${hasInsufficientCredits ? 'text-rose-600' : 'text-foreground'}`}>
+                            <div className="flex flex-col items-end">
+                                <span className={`text-xl sm:text-2xl font-black ${hasInsufficientCredits ? 'text-rose-600' : 'text-foreground'}`}>
                                     {totalCost.toFixed(1)} <span className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Credits</span>
                                 </span>
+                                {!whatsappEnabled && totalCost > 0 && (
+                                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-tighter">WA Disabled</span>
+                                )}
                             </div>
                         </div>
                     </div>
 
                     {whatsappEnabled && (
-                        <div className="mt-3 flex items-center justify-between bg-background/50 rounded-lg px-3 py-2 border border-primary/10">
+                        <div className="mt-2 text-[10px] sm:text-xs sm:mt-3 flex items-center justify-between bg-background/50 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 border border-primary/10">
                             <div className="flex items-center gap-2">
                                 <Info className="w-3.5 h-3.5 text-primary" />
-                                <span className="text-xs font-semibold">Current Balance: {whatsappCredits.toFixed(1)} Credits</span>
+                                <span className="font-semibold text-[10px] sm:text-xs">Current Balance: {whatsappCredits.toFixed(1)} Credits</span>
                             </div>
                             {hasInsufficientCredits && (
-                                <Badge variant="destructive" className="text-[10px] h-5 py-0">Low Balance</Badge>
+                                <Badge variant="destructive" className="text-[9px] sm:text-[10px] h-4 sm:h-5 py-0">Low Balance</Badge>
                             )}
                         </div>
                     )}
                 </div>
 
-                <div className="p-4 flex items-center justify-between">
+                <div className="p-3 sm:p-4 pb-1 sm:pb-2 flex items-center justify-between flex-shrink-0">
                     <div className="flex items-center gap-2">
                         <Checkbox 
                             id="select-all" 
                             checked={selectedIds.size === guests.length && guests.length > 0}
                             onCheckedChange={toggleAll}
-                            className="w-5 h-5 rounded-md"
+                            className="w-4 h-4 sm:w-5 sm:h-5 rounded-md"
                         />
-                        <label htmlFor="select-all" className="text-sm font-bold cursor-pointer select-none">
+                        <label htmlFor="select-all" className="text-xs sm:text-sm font-bold cursor-pointer select-none">
                             Select All
                         </label>
                     </div>
                 </div>
 
-                <ScrollArea className="h-[350px] px-2">
+                <ScrollArea className="flex-1 min-h-0 px-2">
                     <div className="space-y-1 p-2">
                         {guests.map((guest) => (
                             <div 
@@ -190,7 +201,7 @@ export default function MassReminderDialog({
                     </div>
                 </ScrollArea>
 
-                <DialogFooter className="p-6 bg-muted/30 border-t flex-col sm:flex-row gap-3">
+                <DialogFooter className="p-4 sm:p-6 bg-muted/30 border-t flex-col sm:flex-row gap-2 sm:gap-3 flex-shrink-0">
                     <Button 
                         variant="ghost" 
                         onClick={() => onOpenChange(false)}

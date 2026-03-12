@@ -1,19 +1,12 @@
-
 'use client'
 
-import React, { useState, useMemo, useTransition } from 'react'
-import { useAppSelector } from '@/lib/hooks'
+import React, { useState, useMemo } from 'react'
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { UserPlus, Wallet, BellRing, Send, Search, Loader2 } from "lucide-react"
+import { UserPlus, Wallet, BellRing, Search } from "lucide-react"
 import type { PG, Room, Bed, Guest } from '@/lib/types'
 import { Input } from '../ui/input'
-import { Checkbox } from '../ui/checkbox'
-import { Label } from '../ui/label'
-import { useToast } from '@/hooks/use-toast'
-import { auth } from '@/lib/firebase'
-import { cn } from '@/lib/utils'
 
 const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: { pg: PG, room: Room, bed: Bed }[], onSelectBed: (bed: { pg: PG, room: Room, bed: Bed }) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -58,11 +51,16 @@ const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: { pg:
 const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const guestsWithDues = useMemo(() => {
-        const guestsWithDues = guests.filter(g => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial'));
-        if (!searchTerm) return guestsWithDues;
-        return guestsWithDues.filter(g =>
+        const withDues = guests.filter(g => !g.isVacated).map(g => {
+            const totalDebits = (g.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
+            const totalCredits = (g.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
+            return { ...g, balance: totalDebits - totalCredits };
+        }).filter(g => g.balance > 0);
+
+        if (!searchTerm) return withDues;
+        return withDues.filter(g =>
             g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            g.pgName.toLowerCase().includes(searchTerm.toLowerCase())
+            (g.pgName || '').toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [guests, searchTerm]);
 
@@ -85,7 +83,7 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
                                     <p className="font-semibold">{guest.name}</p>
                                     <p className="text-sm text-muted-foreground">{guest.pgName}</p>
                                 </div>
-                                <p className="text-sm font-semibold text-destructive">₹{(guest.ledger.reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0)).toLocaleString('en-IN')}</p>
+                                <p className="text-sm font-semibold text-destructive">₹{guest.balance.toLocaleString('en-IN')}</p>
                             </div>
                         ))}
                         {guestsWithDues.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No guests with pending dues.</p>}
@@ -96,105 +94,9 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
     )
 }
 
-const SendRemindersDialog = ({ guests, open, onOpenChange }: { guests: Guest[], open: boolean, onOpenChange: (open: boolean) => void }) => {
-    const { toast } = useToast();
-    const [isSending, startSendingTransition] = useTransition();
-    const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
-
-    // Reset selection when dialog opens or guests change
-    React.useEffect(() => {
-        if (open) {
-            setSelectedGuests(guests.map(g => g.id));
-        }
-    }, [open, guests]);
-
-    const handleSelectAll = (checked: boolean) => {
-        setSelectedGuests(checked ? guests.map(g => g.id) : []);
-    };
-
-    const handleSelectGuest = (guestId: string, checked: boolean) => {
-        setSelectedGuests(prev => checked ? [...prev, guestId] : prev.filter(id => id !== guestId));
-    };
-
-    const handleSend = () => {
-        if (selectedGuests.length === 0) {
-            toast({ variant: 'destructive', title: 'No Guests Selected', description: 'Please select at least one guest to send reminders to.' });
-            return;
-        }
-
-        startSendingTransition(async () => {
-            toast({ title: 'Sending Reminders...', description: `Sending reminders to ${selectedGuests.length} guest(s).` });
-            try {
-                if (auth && auth.currentUser) {
-                    const token = await auth.currentUser.getIdToken();
-                    const response = await fetch('/api/reminders/send-manual', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                        body: JSON.stringify({ guestIds: selectedGuests }),
-                    });
-
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.error || 'An unknown error occurred.');
-
-                    toast({ title: 'Reminders Sent!', description: `Successfully queued ${result.sentCount} reminders.` });
-                    onOpenChange(false);
-                } else {
-                    // Handle case where auth.currentUser is not available
-                    toast({ variant: 'destructive', title: 'Authentication Error', description: 'User not authenticated. Please log in again.' });
-                }
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Error', description: error.message });
-            }
-        });
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Send Rent Reminders</DialogTitle>
-                    <DialogDescription>Choose which guests with pending dues should receive a reminder.</DialogDescription>
-                </DialogHeader>
-                {guests.length > 0 ? (
-                    <>
-                        <div className="flex items-center space-x-2 py-2 border-y">
-                            <Checkbox id="select-all" checked={selectedGuests.length === guests.length && guests.length > 0} onCheckedChange={(checked) => handleSelectAll(!!checked)} />
-                            <Label htmlFor="select-all">Select All ({selectedGuests.length} / {guests.length})</Label>
-                        </div>
-                        <ScrollArea className="h-64">
-                            <div className="space-y-2">
-                                {guests.map(guest => (
-                                    <div key={guest.id} className="flex items-center space-x-3 p-2 rounded-md">
-                                        <Checkbox id={`guest-${guest.id}`} checked={selectedGuests.includes(guest.id)} onCheckedChange={(checked) => handleSelectGuest(guest.id, !!checked)} />
-                                        <Label htmlFor={`guest-${guest.id}`} className="flex flex-col cursor-pointer">
-                                            <span className="font-semibold">{guest.name}</span>
-                                            <span className="text-xs text-muted-foreground">{guest.pgName}</span>
-                                        </Label>
-                                    </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </>
-                ) : (
-                    <p className="text-center text-sm text-muted-foreground py-10">No guests with pending dues to remind.</p>
-                )}
-                <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
-                    <Button onClick={handleSend} disabled={isSending || selectedGuests.length === 0}>
-                        {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Send Reminders ({selectedGuests.length})
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
-
-
-export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendAnnouncement }: any) {
+export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, handleOpenPaymentDialog, onSendReminders }: any) {
     const [isAddGuestOpen, setIsAddGuestOpen] = useState(false);
     const [isCollectRentOpen, setIsCollectRentOpen] = useState(false);
-    const [isSendRemindersOpen, setIsSendRemindersOpen] = useState(false);
 
     const availableBeds = useMemo(() => {
         const beds: { pg: PG, room: Room, bed: Bed }[] = [];
@@ -212,10 +114,6 @@ export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, ha
         return beds;
     }, [pgs, guests]);
 
-    const guestsWithDuesForReminder = useMemo(() => {
-        return guests.filter((g: Guest) => !g.isVacated && (g.rentStatus === 'unpaid' || g.rentStatus === 'partial') && g.userId);
-    }, [guests]);
-
     const handleSelectBedForGuestAdd = (item: { pg: PG, room: Room, bed: Bed }) => {
         handleOpenAddGuestDialog(item.bed, item.room, item.pg);
     }
@@ -225,29 +123,19 @@ export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, ha
     }
 
     return (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 gap-3">
             <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80 group" onClick={() => setIsAddGuestOpen(true)}>
                 <UserPlus className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" strokeWidth={1.5} />
                 <span className="text-sm font-semibold text-foreground">Add Guest</span>
             </Button>
 
-            <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80" onClick={() => setIsCollectRentOpen(true)}>
-                <Wallet className="w-6 h-6 text-primary" strokeWidth={1.5} />
+            <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80 group" onClick={() => setIsCollectRentOpen(true)}>
+                <Wallet className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" strokeWidth={1.5} />
                 <span className="text-sm font-semibold text-foreground">Collect Rent</span>
             </Button>
 
-            <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80" onClick={() => setIsSendRemindersOpen(true)}>
-                <BellRing className="w-6 h-6 text-primary" strokeWidth={1.5} />
-                <span className="text-sm font-semibold text-foreground">Send Reminders</span>
-            </Button>
-
-            <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80" onClick={onSendAnnouncement}>
-                <Send className="w-6 h-6 text-primary" strokeWidth={1.5} />
-                <span className="text-sm font-semibold text-foreground">Announce</span>
-            </Button>
             <AddGuestDialog beds={availableBeds} onSelectBed={handleSelectBedForGuestAdd} open={isAddGuestOpen} onOpenChange={setIsAddGuestOpen} />
             <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />
-            <SendRemindersDialog guests={guestsWithDuesForReminder} open={isSendRemindersOpen} onOpenChange={setIsSendRemindersOpen} />
         </div>
     );
 };

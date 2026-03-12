@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Loader2, MessageCircle } from "lucide-react"
 
-import StatsCards, { DashboardStats } from '@/components/dashboard/StatsCards'
+import StatsCards, { DashboardStats, PendingDuesCard } from '@/components/dashboard/StatsCards'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import QuickActions from "@/components/dashboard/QuickActions"
@@ -175,9 +175,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSendAnnouncement = () => {
-    toast({ title: "Announcement", description: "Announcement dialog opened (coming soon)." });
-  }
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -219,7 +216,6 @@ export default function DashboardPage() {
 
         <StatsCards
           stats={stats}
-          onSendReminders={handleSendMassReminder}
         />
 
         {pgs.length > 0 ? (
@@ -231,7 +227,13 @@ export default function DashboardPage() {
                 guests={selectedPgId && selectedPgId !== 'all' ? guests.filter(g => g.pgId === selectedPgId) : guests}
                 handleOpenAddGuestDialog={handleOpenAddGuestDialog}
                 handleOpenPaymentDialog={handleOpenPaymentDialog}
-                onSendAnnouncement={handleSendAnnouncement}
+              />
+            </div>
+
+            <div className="pt-2">
+              <PendingDuesCard 
+                amount={stats.pendingDues.amount}
+                onSendReminders={handleSendMassReminder}
               />
             </div>
 

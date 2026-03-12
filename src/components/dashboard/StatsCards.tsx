@@ -14,10 +14,28 @@ export interface DashboardStats {
 
 interface StatsCardsProps {
   stats: DashboardStats;
-  onSendReminders: () => void;
 }
 
-export default function StatsCards({ stats, onSendReminders }: StatsCardsProps) {
+export function PendingDuesCard({ amount, onSendReminders }: { amount: number, onSendReminders: () => void }) {
+  return (
+    <Access feature="finances" action="view">
+      <div className="bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20 border shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-red-500/20 text-red-600 dark:text-red-400 rounded-full shrink-0">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-red-600/80 dark:text-red-400/80 uppercase tracking-wider mb-0.5">Pending Dues</p>
+            <h3 className="text-2xl font-black text-red-600 dark:text-red-400">₹{amount.toLocaleString('en-IN')}</h3>
+          </div>
+        </div>
+        <Button variant="outline" onClick={onSendReminders} className="border-red-600/20 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 font-bold tracking-tight rounded-xl">SEND ALERTS</Button>
+      </div>
+    </Access>
+  )
+}
+
+export default function StatsCards({ stats }: StatsCardsProps) {
   const occPercentage = stats.occupancy.total > 0 ? Math.round((stats.occupancy.occupied / stats.occupancy.total) * 100) : 0;
   const revPercentage = stats.revenue.expected > 0 ? Math.round((stats.revenue.collected / stats.revenue.expected) * 100) : 0;
 
@@ -101,22 +119,6 @@ export default function StatsCards({ stats, onSendReminders }: StatsCardsProps) 
             <Progress value={revPercentage} className="h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/20" />
           </CardContent>
         </Card>
-      </Access>
-
-      {/* Bottom Row: Pending Dues */}
-      <Access feature="finances" action="view">
-        <div className="bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20 border shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-500/20 text-red-600 dark:text-red-400 rounded-full shrink-0">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-red-600/80 dark:text-red-400/80 uppercase tracking-wider mb-0.5">Pending Dues</p>
-              <h3 className="text-2xl font-black text-red-600 dark:text-red-400">₹{stats.pendingDues.amount.toLocaleString('en-IN')}</h3>
-            </div>
-          </div>
-          <Button variant="outline" onClick={onSendReminders} className="border-red-600/20 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 font-bold tracking-tight rounded-xl">SEND ALERTS</Button>
-        </div>
       </Access>
     </div>
   )
