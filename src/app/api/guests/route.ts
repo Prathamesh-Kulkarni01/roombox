@@ -66,6 +66,20 @@ const PatchSchema = z.discriminatedUnion('action', [
     z.object({ action: z.literal('shared-charge'), ownerId: z.string().optional(), roomId: z.string(), description: z.string(), amount: z.coerce.number().positive() }),
     // Record payment + reconcile
     z.object({ action: z.literal('record-payment'), ownerId: z.string().optional(), guest: z.record(z.unknown()), amount: z.coerce.number().positive(), method: z.enum(['cash', 'upi', 'in-app']) }),
+    // Transfer guest to new bed
+    z.object({
+        action: z.literal('transfer'),
+        ownerId: z.string().optional(),
+        guestId: z.string(),
+        newPgId: z.string(),
+        newBedId: z.string(),
+        newRoomId: z.string(),
+        newRoomName: z.string(),
+        newRentAmount: z.coerce.number().optional(),
+        newDepositAmount: z.coerce.number().optional(),
+        shouldProrate: z.boolean().optional(),
+        prorationAmount: z.coerce.number().optional(),
+    }),
 ]);
 
 // ─── Handlers ─────────────────────────────────────────────────────────────────
@@ -199,6 +213,21 @@ export async function PATCH(req: NextRequest) {
                     paymentMode: data.method,
                 });
                 return NextResponse.json({ success: true, guest });
+            }
+
+            case 'transfer': {
+                await TenantService.transferGuest(db, ownerId, data.guestId, {
+                    newPgId: data.newPgId,
+                    newBedId: data.newBedId,
+                    newRoomId: data.newRoomId,
+                    newRoomName: data.newRoomName,
+                    newRentAmount: data.newRentAmount,
+                    newDepositAmount: data.newDepositAmount,
+                    shouldProrate: data.shouldProrate,
+                    prorationAmount: data.prorationAmount
+                });
+                const updated = await db.collection('users_data').doc(ownerId).collection('guests').doc(data.guestId).get();
+                return NextResponse.json({ success: true, guest: { id: updated.id, ...updated.data() } });
             }
 
             default:

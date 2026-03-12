@@ -5,7 +5,7 @@
  * shared between the Web UI (via API routes) and the WhatsApp bot.
  * It combines the old GuestService and TenantService logic.
  */
-import { Firestore, FieldValue } from 'firebase-admin/firestore';
+import { Firestore, FieldValue, DocumentSnapshot } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 import { runReconciliationLogic } from '@/lib/reconciliation';
 import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument } from '@/lib/types';
@@ -171,6 +171,7 @@ export class TenantService {
                     type: 'debit',
                     description: `Rent for Cycle Starting ${format(startOfCycle, 'do MMM')}`,
                     amount: numericRent,
+                    pgId: pgId
                 });
                 initialBalance += numericRent;
             }
@@ -182,6 +183,7 @@ export class TenantService {
                     type: 'debit',
                     description: `Security Deposit`,
                     amount: numericDeposit,
+                    pgId: pgId
                 });
                 initialBalance += numericDeposit;
             }
@@ -497,6 +499,173 @@ export class TenantService {
         }
 
         await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).update(updates);
+    }
+
+    static async transferGuest(db: Firestore, ownerId: string, guestId: string, input: {
+        newPgId: string,
+        newBedId: string,
+        newRoomId: string,
+        newRoomName: string,
+        newRentAmount?: number,
+        newDepositAmount?: number,
+        shouldProrate?: boolean,
+        prorationAmount?: number
+    }): Promise<void> {
+        const { newPgId, newBedId, newRoomId, newRoomName, newRentAmount, newDepositAmount, shouldProrate, prorationAmount } = input;
+        console.log(`[TenantService.transferGuest] Transferring ${guestId} to pg:${newPgId}, bed:${newBedId}`);
+
+        const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+
+        await db.runTransaction(async (transaction) => {
+            // --- ALL READS MUST COME FIRST ---
+            const guestSnap = await transaction.get(guestRef);
+            if (!guestSnap.exists) throw new Error('Guest not found');
+            const guest = guestSnap.data() as Guest;
+
+            let oldPgSnap: DocumentSnapshot | null = null;
+            if (guest.pgId) {
+                const oldPgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(guest.pgId);
+                oldPgSnap = await transaction.get(oldPgRef);
+            }
+
+            let newPgSnap: DocumentSnapshot | null = null;
+            if (newPgId === guest.pgId && oldPgSnap) {
+                newPgSnap = oldPgSnap;
+            } else {
+                const newPgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(newPgId);
+                newPgSnap = await transaction.get(newPgRef);
+            }
+            // --- ALL READS DONE ---
+
+            if (guest.bedId === newBedId && guest.pgId === newPgId && newRentAmount === guest.rentAmount && newDepositAmount === guest.depositAmount) {
+                console.log('[TenantService.transferGuest] No changes detected for transfer.');
+                return;
+            }
+
+            // 1. Free the old bed
+            if (guest.pgId && guest.bedId && oldPgSnap && oldPgSnap.exists) {
+                const oldPgData = oldPgSnap.data()!;
+                const updatedOldFloors = (oldPgData.floors as any[] || []).map(f => ({
+                    ...f,
+                    rooms: f.rooms.map((r: any) => ({
+                        ...r,
+                        beds: r.beds.map((b: any) =>
+                            b.id === guest.bedId ? { ...b, guestId: null } : b
+                        )
+                    }))
+                }));
+                const oldPgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(guest.pgId);
+                transaction.update(oldPgRef, {
+                    floors: updatedOldFloors,
+                    occupancy: FieldValue.increment(-1)
+                });
+            }
+
+            // 2. Occupy the new bed
+            if (!newPgSnap.exists) throw new Error('Target property not found');
+            const newPgData = newPgSnap.data()!;
+
+            let bedFound = false;
+            const updatedNewFloors = (newPgData.floors as any[] || []).map(f => ({
+                ...f,
+                rooms: f.rooms.map((r: any) => {
+                    if (r.id === newRoomId) {
+                        return {
+                            ...r,
+                            beds: r.beds.map((b: any) => {
+                                if (b.id === newBedId) {
+                                    if (b.guestId && b.id !== guest.bedId && b.guestId !== guestId) throw new Error('Target bed is already occupied');
+                                    bedFound = true;
+                                    return { ...b, guestId };
+                                }
+                                return b;
+                            })
+                        };
+                    }
+                    return r;
+                })
+            }));
+
+            if (!bedFound) throw new Error('Target bed not found in the property');
+
+            const newPgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(newPgId);
+            transaction.update(newPgRef, {
+                floors: updatedNewFloors,
+                occupancy: FieldValue.increment(1)
+            });
+
+            // 3. Prepare Ledger Updates for Clarity
+            const currentBalance = guest.balance ?? 0;
+
+            const ledgerUpdates: LedgerEntry[] = [{
+                id: `trans-memo-${Date.now()}`,
+                date: new Date().toISOString(),
+                type: 'debit',
+                description: `TRANSFER: Moved from ${guest.pgName} to ${newPgData.name}. B/F Balance: ₹${currentBalance}`,
+                amount: 0,
+                pgId: guest.pgId
+            }];
+
+            let updatedBalance = currentBalance;
+            let updatedDepositAmount = guest.depositAmount;
+            
+            if (newDepositAmount !== undefined && newDepositAmount !== guest.depositAmount) {
+                const diff = newDepositAmount - (guest.depositAmount || 0);
+                ledgerUpdates.push({
+                    id: `dep-adj-${Date.now()}`,
+                    date: new Date().toISOString(),
+                    type: diff > 0 ? 'debit' : 'credit',
+                    description: `Security Deposit Adjustment (${guest.pgName} -> ${newPgData.name})`,
+                    amount: Math.abs(diff),
+                    pgId: newPgId
+                });
+                updatedBalance += diff;
+                updatedDepositAmount = newDepositAmount;
+            }
+
+            if (newRentAmount !== undefined && newRentAmount !== guest.rentAmount) {
+                ledgerUpdates.push({
+                    id: `rent-info-${Date.now()}`,
+                    date: new Date().toISOString(),
+                    type: 'debit',
+                    description: `Rent adjusted from ₹${guest.rentAmount} to ₹${newRentAmount}`,
+                    amount: 0,
+                    pgId: newPgId
+                });
+            }
+
+            if (shouldProrate && prorationAmount) {
+                ledgerUpdates.push({
+                    id: `prorate-adj-${Date.now()}`,
+                    date: new Date().toISOString(),
+                    type: prorationAmount > 0 ? 'debit' : 'credit',
+                    description: `Mid-month rent proration (${guest.pgName} -> ${newPgData.name})`,
+                    amount: Math.abs(prorationAmount),
+                    pgId: newPgId
+                });
+                updatedBalance += prorationAmount;
+            }
+
+            // 4. Update guest profile
+            const guestUpdates: any = {
+                pgId: newPgId,
+                pgName: newPgData.name,
+                roomId: newRoomId,
+                roomName: newRoomName,
+                bedId: newBedId,
+                balance: updatedBalance,
+                depositAmount: updatedDepositAmount,
+                ledger: FieldValue.arrayUnion(...ledgerUpdates)
+            };
+
+            if (newRentAmount !== undefined) {
+                guestUpdates.rentAmount = newRentAmount;
+            }
+
+            transaction.update(guestRef, guestUpdates);
+        });
+
+        console.log(`[TenantService.transferGuest] Successfully transferred ${guestId}`);
     }
 
     /**

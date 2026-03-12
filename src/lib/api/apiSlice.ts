@@ -191,6 +191,21 @@ export const api = createApi({
             invalidatesTags: ['Guests', 'Tenants'],
         }),
 
+        transferGuest: builder.mutation<{ success: boolean; guest: Guest }, {
+            guestId: string;
+            newPgId: string;
+            newBedId: string;
+            newRoomId: string;
+            newRoomName: string;
+            newRentAmount?: number;
+            newDepositAmount?: number;
+            shouldProrate?: boolean;
+            prorationAmount?: number;
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'transfer' } }),
+            invalidatesTags: ['Guests', 'Properties'],
+        }),
+
         addGuest: builder.mutation<{ success: boolean; guest: Guest }, any>({
             query: (body) => ({ url: 'api/guests', method: 'POST', body }),
             async onQueryStarted({ bedId, pgId, name }, { dispatch, queryFulfilled }) {

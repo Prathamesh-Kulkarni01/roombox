@@ -60,10 +60,11 @@ async function runVerification() {
         dueDate: '5',
         rentCycleUnit: 'months' as any,
         rentCycleValue: 1,
-        ownerId
+        ownerId,
+        planId: 'pro'
     };
 
-    const guest = await TenantService.onboardTenant(db, appDb, tenantInput);
+    const { guest } = await TenantService.onboardTenant(db, appDb, tenantInput);
     console.log(`✅ Tenant onboarded with ID: ${guest.id}`);
 
     // Check if balance includes deposit/initial rent (depending on how business logic works)

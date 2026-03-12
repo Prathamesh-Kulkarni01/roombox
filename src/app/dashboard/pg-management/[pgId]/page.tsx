@@ -20,6 +20,7 @@ import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog'
 import BulkAddDialog from '@/components/dashboard/dialogs/BulkAddDialog'
+import TransferGuestDialog from '@/components/dashboard/dialogs/TransferGuestDialog'
 import BedActionSheet from '@/components/dashboard/BedActionSheet'
 import QuickAddSheet from '@/components/dashboard/QuickAddSheet'
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
@@ -128,6 +129,9 @@ export default function RoomManagementPage() {
     isSavingRoom,
     isAddingGuest,
     isUpdatingGuest,
+    isTransferDialogOpen, setIsTransferDialogOpen,
+    guestToTransfer, handleOpenTransferDialog,
+    handleTransferGuestSubmit, isTransferringGuest,
   } = useDashboard()
 
   const pg = useMemo(() => pgs.find(p => p.id === pgId), [pgs, pgId])
@@ -598,8 +602,17 @@ export default function RoomManagementPage() {
         handleOpenPaymentDialog={handleOpenPaymentDialog}
         handleOpenReminderDialog={handleOpenReminderDialog}
         handleOpenEditGuestDialog={handleOpenEditGuestDialog}
+        handleOpenTransferDialog={handleOpenTransferDialog}
         setGuestToInitiateExit={setGuestToInitiateExit}
         setGuestToExitImmediately={setGuestToExitImmediately}
+      />
+
+      <TransferGuestDialog
+        isOpen={isTransferDialogOpen}
+        onOpenChange={setIsTransferDialogOpen}
+        guest={guestToTransfer}
+        isTransferring={isTransferringGuest}
+        onTransfer={handleTransferGuestSubmit}
       />
 
       <QuickAddSheet

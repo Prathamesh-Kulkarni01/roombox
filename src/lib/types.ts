@@ -132,6 +132,7 @@ export interface LedgerEntry {
   type: 'debit' | 'credit';
   description: string;
   amount: number;
+  pgId?: string;
 }
 
 // Payment Method Types

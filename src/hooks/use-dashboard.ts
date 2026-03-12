@@ -25,7 +25,8 @@ import {
   useVacateGuestMutation,
   useAddSharedRoomChargeMutation,
   useRecordGuestPaymentMutation,
-  useUpdatePropertyMutation
+  useUpdatePropertyMutation,
+  useTransferGuestMutation
 } from "@/lib/api/apiSlice"
 import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
 import { sanitizeObjectForFirebase } from "@/lib/utils"
@@ -105,6 +106,7 @@ export function useDashboard() {
   const [recordPayment, { isLoading: isRecordingPayment }] = useRecordGuestPaymentMutation();
   const [updateProperty, { isLoading: isUpdatingProperty }] = useUpdatePropertyMutation();
   const [saveRoom, { isLoading: isSavingRoom }] = useUpdatePropertyMutation();
+  const [transferGuest, { isLoading: isTransferringGuest }] = useTransferGuestMutation();
 
 
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
@@ -149,6 +151,8 @@ export function useDashboard() {
   const [guestToExitImmediately, setGuestToExitImmediately] = useState<Guest | null>(null);
   const [isSharedChargeDialogOpen, setIsSharedChargeDialogOpen] = useState(false);
   const [roomForSharedCharge, setRoomForSharedCharge] = useState<{ room: Room, guests: Guest[] } | null>(null);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [guestToTransfer, setGuestToTransfer] = useState<Guest | null>(null);
 
 
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
@@ -253,6 +257,11 @@ export function useDashboard() {
     sharedChargeForm.reset({ description: '', totalAmount: 0 });
   };
 
+  const handleOpenTransferDialog = (guest: Guest) => {
+    setGuestToTransfer(guest);
+    setIsTransferDialogOpen(true);
+  };
+
   const handleAddGuestSubmit = async (values: z.infer<typeof addGuestSchema>) => {
     if (!selectedBedForGuestAdd || !currentUser) return;
 
@@ -306,6 +315,34 @@ export function useDashboard() {
       toast({ title: 'Guest Updated' });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to update guest.' });
+    }
+  };
+
+  const handleTransferGuestSubmit = async (values: {
+    newPgId: string;
+    newBedId: string;
+    newRoomId: string;
+    newRoomName: string;
+    newRentAmount?: number;
+    newDepositAmount?: number;
+    shouldProrate?: boolean;
+    prorationAmount?: number;
+  }) => {
+    if (!guestToTransfer || !currentUser) return;
+    const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
+    if (!ownerId) return;
+
+    try {
+      await transferGuest({
+        guestId: guestToTransfer.id,
+        ...values,
+      }).unwrap();
+      setIsTransferDialogOpen(false);
+      setGuestToTransfer(null);
+      toast({ title: 'Guest Transferred Successfully' });
+      showConfetti({ particleCount: 100, spread: 70 });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to transfer guest.' });
     }
   };
 
@@ -791,7 +828,10 @@ Thank you!`;
     isAddingSharedCharge,
     isRecordingPayment,
     isUpdatingProperty,
-    isLoadingGuests
+    isLoadingGuests,
+    isTransferDialogOpen, setIsTransferDialogOpen,
+    guestToTransfer, handleOpenTransferDialog,
+    handleTransferGuestSubmit, isTransferringGuest,
   }
 }
 

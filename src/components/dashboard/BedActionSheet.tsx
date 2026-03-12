@@ -20,6 +20,7 @@ interface BedActionSheetProps {
     handleOpenPaymentDialog: (guest: Guest) => void
     handleOpenReminderDialog: (guest: Guest) => void
     handleOpenEditGuestDialog: (guest: Guest) => void
+    handleOpenTransferDialog: (guest: Guest) => void
     setGuestToInitiateExit: (guest: Guest | null) => void
     setGuestToExitImmediately: (guest: Guest | null) => void
 }
@@ -37,6 +38,7 @@ export default function BedActionSheet({
     handleOpenPaymentDialog,
     handleOpenReminderDialog,
     handleOpenEditGuestDialog,
+    handleOpenTransferDialog,
     setGuestToInitiateExit,
     setGuestToExitImmediately,
 }: BedActionSheetProps) {
@@ -155,6 +157,17 @@ export default function BedActionSheet({
                         <User className="w-7 h-7 text-primary" />
                         <span>Profile</span>
                     </Link>
+
+                    {/* Transfer Guest */}
+                    {canEditGuests && (
+                        <button
+                            onClick={() => handleAction(() => handleOpenTransferDialog(guest))}
+                            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-muted hover:bg-muted/70 font-semibold text-sm active:scale-95 transition-transform"
+                        >
+                            <ArrowRight className="w-7 h-7 text-orange-500" />
+                            <span>Transfer</span>
+                        </button>
+                    )}
 
                     {/* Edit Guest */}
                     {canEditGuests && (
