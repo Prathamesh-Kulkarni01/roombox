@@ -73,8 +73,17 @@ export default function StatsCards({ stats, onSendReminders }: StatsCardsProps) 
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Monthly Collection</p>
               </div>
               <h2 className="text-3xl font-black text-foreground">
-                ₹{(stats.revenue.collected / 100000).toFixed(1)}L
-                <span className="text-lg font-medium text-muted-foreground ml-1">/ {(stats.revenue.expected / 100000).toFixed(1)}L</span>
+                {stats.revenue.expected >= 100000 ? (
+                  <>
+                    ₹{(stats.revenue.collected / 100000).toFixed(2)}L
+                    <span className="text-lg font-medium text-muted-foreground ml-1">/ {(stats.revenue.expected / 100000).toFixed(2)}L</span>
+                  </>
+                ) : (
+                  <>
+                    ₹{stats.revenue.collected.toLocaleString('en-IN')}
+                    <span className="text-lg font-medium text-muted-foreground ml-1">/ {stats.revenue.expected.toLocaleString('en-IN')}</span>
+                  </>
+                )}
               </h2>
             </div>
             <div className="text-right flex flex-col items-end">

@@ -68,9 +68,14 @@ export default function DashboardPage() {
     const monthlyRevenue = relevantGuests
       .reduce((sum: number, g: Guest) => {
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
         const collectedThisMonth = (g.ledger || [])
-          .filter(e => e.type === 'credit' && new Date(e.date) >= startOfMonth)
+          .filter(e => {
+            if (e.type !== 'credit') return false;
+            const date = new Date(e.date);
+            return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+          })
           .reduce((s, e) => s + (e.amount || 0), 0);
         return sum + collectedThisMonth;
       }, 0);
@@ -93,10 +98,9 @@ export default function DashboardPage() {
     }).length;
 
     const rentCollectedToday = relevantGuests.reduce((sum, g: Guest) => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = new Date().toDateString();
       const todayPayments = (g.ledger || [])
-        .filter(e => e.type === 'credit' && new Date(e.date) >= today)
+        .filter(e => e.type === 'credit' && new Date(e.date).toDateString() === today)
         .reduce((s, e) => s + (e.amount || 0), 0);
       return sum + todayPayments;
     }, 0);
