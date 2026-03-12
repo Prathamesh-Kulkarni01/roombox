@@ -68,8 +68,8 @@ export class WhatsAppLogsService {
                 }));
             } catch (sortError: any) {
                 // If index is missing, fallback to unsorted (will still work, just not desc)
-                if (sortError.message?.includes('index')) {
-                    console.warn('[WhatsAppLogsService] Missing index for sorted logs, falling back to unsorted');
+                if (sortError.message?.includes('index') || sortError.code === 9) {
+                    console.warn('[WhatsAppLogsService] Missing index for sorted logs, falling back to unsorted. Error details:', sortError.message);
                     const snapshot = await query.limit(limit).get();
                     return snapshot.docs.map(doc => ({
                         ...doc.data(),

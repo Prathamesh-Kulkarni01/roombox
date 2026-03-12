@@ -51,10 +51,11 @@ export async function POST(req: NextRequest) {
             if (order.notes?.type === 'whatsapp_recharge') {
                 const ownerId = order.notes.ownerId;
                 console.log(`[Webhook: Razorpay-Rent] Detected WhatsApp recharge for owner: ${ownerId}`);
-                const amount = order.amount / 100;
-                const credits = Math.floor(amount / 1.5); // 1 credit per message approx
+                // Use payment.amount as fallback/primary as it's more reliable in captured events
+                const amount = (payment.amount || order.amount || 0) / 100;
+                const credits = Math.floor(amount / 1.5); 
 
-                if (ownerId) {
+                if (ownerId && !isNaN(credits) && credits > 0) {
                     const adminDb = await getAdminDb();
                     const rechargeRef = adminDb.collection('wallet_recharges').doc(payment.id);
                     

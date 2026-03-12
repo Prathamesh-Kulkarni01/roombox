@@ -1,8 +1,7 @@
 
 'use server'
 
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getAdminDb } from '../firebaseAdmin'
 import type { PremiumFeatures } from '../types'
 
 interface ToggleFeatureParams {
@@ -11,16 +10,14 @@ interface ToggleFeatureParams {
     enabled: boolean;
 }
 
-// This is now a pure server action that only updates the database.
-// The Redux thunk in userSlice will handle the business logic and state updates.
+// This is now a pure server action that only updates the database using ADMIN SDK to bypass rules.
 export async function togglePremiumFeature({ userId, feature, enabled }: ToggleFeatureParams) {
     try {
-        if (!db) throw new Error("Database not connected");
+        const adminDb = await getAdminDb();
+        const userDocRef = adminDb.collection('users').doc(userId);
+        const userDoc = await userDocRef.get();
 
-        const userDocRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userDocRef);
-
-        if (!userDoc.exists()) {
+        if (!userDoc.exists) {
             throw new Error("User not found.");
         }
 
@@ -31,14 +28,15 @@ export async function togglePremiumFeature({ userId, feature, enabled }: ToggleF
             throw new Error("You must have an active subscription to enable premium features.");
         }
 
-        await updateDoc(userDocRef, {
-            [`subscription.premiumFeatures.${feature}.enabled`]: enabled
+        await userDocRef.update({
+            [`subscription.premiumFeatures.${feature}.enabled`]: enabled,
+            updatedAt: new Date().toISOString()
         });
 
-        const updatedDoc = await getDoc(userDocRef);
+        const updatedDoc = await userDocRef.get();
         const updatedUser = updatedDoc.data();
 
-        return { success: true, updatedUser };
+        return { success: true, updatedUser: JSON.parse(JSON.stringify(updatedUser)) };
     } catch (error: any) {
         console.error("Error toggling premium feature:", error);
         throw error;
@@ -47,11 +45,10 @@ export async function togglePremiumFeature({ userId, feature, enabled }: ToggleF
 
 export async function fetchUserData(userId: string) {
     try {
-        if (!db) throw new Error("Database not connected");
-        const userDocRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userDocRef);
-        if (!userDoc.exists()) throw new Error("User not found");
-        return { success: true, user: userDoc.data() };
+        const adminDb = await getAdminDb();
+        const userDoc = await adminDb.collection('users').doc(userId).get();
+        if (!userDoc.exists) throw new Error("User not found");
+        return { success: true, user: JSON.parse(JSON.stringify(userDoc.data())) };
     } catch (error: any) {
         console.error("Error fetching user data:", error);
         return { success: false, error: error.message };

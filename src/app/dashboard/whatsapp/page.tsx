@@ -175,24 +175,38 @@ export default function WhatsAppPage() {
     };
 
     React.useEffect(() => {
-        if (currentUser) {
+        if (currentUser?.id) {
             loadLogs();
         }
-    }, [currentUser]);
+    }, [currentUser?.id]);
 
     const loadLogs = async () => {
-        if (!currentUser) return;
+        if (!currentUser?.id) return;
         setIsLoadingLogs(true);
-
-        // Refresh user data to get latest credits
-        const userRes = await fetchUserData(currentUser.id);
-        if (userRes.success && userRes.user) {
-            dispatch(setCurrentUser(userRes.user as any));
-        }
 
         const res = await fetchWhatsAppLogs(currentUser.id);
         if (res.success) {
             setLogs(res.logs);
+        }
+        setIsLoadingLogs(false);
+    };
+
+    const handleRefresh = async () => {
+        if (!currentUser?.id) return;
+        setIsLoadingLogs(true);
+        
+        // Explicitly refresh both user data (for credits) and logs
+        const [userRes, logsRes] = await Promise.all([
+            fetchUserData(currentUser.id),
+            fetchWhatsAppLogs(currentUser.id)
+        ]);
+
+        if (userRes.success && userRes.user) {
+            dispatch(setCurrentUser(userRes.user as any));
+        }
+
+        if (logsRes.success) {
+            setLogs(logsRes.logs);
         }
         setIsLoadingLogs(false);
     };
@@ -202,9 +216,13 @@ export default function WhatsAppPage() {
         setIsRecharging(true);
 
         try {
+            const token = await auth?.currentUser?.getIdToken();
             const res = await fetch('/api/razorpay/create-whatsapp-recharge', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ ownerId: currentUser.id, amount }),
             });
             const { success, order, error } = await res.json();
@@ -447,7 +465,7 @@ export default function WhatsAppPage() {
                                             <CardTitle>Usage History</CardTitle>
                                             <CardDescription>A log of your WhatsApp message credits and interactions.</CardDescription>
                                         </div>
-                                        <Button variant="ghost" size="sm" onClick={loadLogs} disabled={isLoadingLogs}>
+                                        <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isLoadingLogs}>
                                             <Plus className={`w-4 h-4 mr-2 ${isLoadingLogs ? 'animate-spin' : ''}`} /> Refresh
                                         </Button>
                                     </div>

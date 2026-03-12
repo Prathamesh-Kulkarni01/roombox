@@ -18,14 +18,13 @@ export async function updateWhatsAppSettings(ownerId: string, settings: any) {
     if (!ownerId) return { success: false, error: 'Owner ID is required' };
 
     try {
-        const { db } = await import('../firebase');
-        const { doc, updateDoc } = await import('firebase/firestore');
+        const { getAdminDb } = await import('../firebaseAdmin');
+        const adminDb = await getAdminDb();
 
-        if (!db) throw new Error('Firestore not initialized');
-
-        const userRef = doc(db, 'users', ownerId);
-        await updateDoc(userRef, {
-            'subscription.whatsappSettings': settings
+        const userRef = adminDb.collection('users').doc(ownerId);
+        await userRef.update({
+            'subscription.whatsappSettings': settings,
+            updatedAt: new Date().toISOString()
         });
 
         return { success: true };

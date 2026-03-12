@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const options = {
       amount: amountInPaise,
       currency: "INR",
-      receipt: `recharge_${verifiedOwnerId}_${shortid.generate()}`,
+      receipt: `recharge_${shortid.generate()}`,
       notes: {
         type: 'whatsapp_recharge',
         ownerId: verifiedOwnerId,
