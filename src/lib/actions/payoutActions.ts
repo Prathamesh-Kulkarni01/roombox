@@ -16,20 +16,20 @@ const payoutAccountSchema = z.object({
   ifsc: z.string().optional(),
   vpa: z.string().optional(),
 
-  legal_business_name: z.string(),
+  legal_business_name: z.string().optional(),
   business_type: z.enum([
     'proprietorship', 'partnership', 'private_limited', 'public_limited',
     'llp', 'trust', 'society', 'not_for_profit'
-  ]),
-  pan_number: z.string(),
+  ]).optional(),
+  pan_number: z.string().optional(),
   gst_number: z.string().optional(),
   email: z.string().email(),
   phone: z.string(),
-  street1: z.string(),
+  street1: z.string().optional(),
   street2: z.string().optional(),
-  city: z.string(),
-  state: z.string(),
-  postal_code: z.string(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  postal_code: z.string().optional(),
 }).refine(data => 
   data.payoutMethod === 'vpa' 
     ? !!data.vpa 
@@ -63,7 +63,7 @@ async function createOrGetContact(owner: User, details: z.infer<typeof payoutAcc
       email: details.email,
       contact: details.phone,
       type: 'vendor',
-      reference_id: owner.id.slice(0, 20),
+      reference_id: `cont_${owner.id.slice(0, 15)}_${Date.now().toString().slice(-6)}`,
     });
 
     return { id: response.data.id, isNew: true };
@@ -85,7 +85,7 @@ async function createOrGetContact(owner: User, details: z.infer<typeof payoutAcc
         const listResponse = await razorpayV1Api.get('/contacts', { params: { count: 100 } });
         const existingContact = listResponse.data.items?.find((cont: any) => 
           cont.email?.toLowerCase() === details.email?.toLowerCase() ||
-          cont.reference_id === owner.id.slice(0, 20)
+          cont.reference_id === `cont_${owner.id.slice(0, 15)}_${Date.now().toString().slice(-6)}`
         );
 
         if (existingContact) {
@@ -110,7 +110,7 @@ async function createLinkedAccount(owner: User, details: z.infer<typeof payoutAc
       email: details.email,
       phone: details.phone,
       type: 'route',
-      reference_id: owner.id.slice(0, 20),
+      reference_id: `acc_${owner.id.slice(0, 15)}_${Date.now().toString().slice(-6)}`,
       legal_business_name: details.legal_business_name,
       business_type: details.business_type,
       contact_name: owner.name,
@@ -248,19 +248,28 @@ export async function addPayoutMethod(data: z.infer<typeof payoutAccountSchema>,
       if (!ownerDoc.exists) throw new Error("Owner not found.");
       const { id: _, ...ownerData } = ownerDoc.data() as User;
       const owner = { id: ownerId, ...ownerData } as User;
+      const payoutMode = owner.subscription?.payoutMode || 'PAYOUT';
   
-      // 1. Create or get contact
+      // 1. Create or get contact (Mandatory for both modes)
       const { id: contactId } = await createOrGetContact(owner, data);
   
-      // 2. Create linked account
-      const { id: accountId, isNew: isNewAccount } = await createLinkedAccount(owner, data);
-  
-      // 3. Create stakeholder (only if account is new or attempt it gracefully)
-      if (isNewAccount) {
-        await createStakeholder(accountId, owner, data);
+      // 2. Conditional: Marketplace/Route Account Setup
+      let accountId: string | undefined = owner.subscription?.razorpay_account_id;
+      if (payoutMode === 'ROUTE') {
+        // Business details are mandatory for Marketplace mode
+        if (!data.legal_business_name || !data.pan_number || !data.street1 || !data.city || !data.state || !data.postal_code) {
+          throw new Error("Business details (PAN, Address, Legal Name) are required for Marketplace mode.");
+        }
+        
+        // Ensure account creation and stakeholder setup if needed
+        const result = await createLinkedAccount(owner, data);
+        accountId = result.id;
+        if (result.isNew) {
+          await createStakeholder(accountId!, owner, data); // Explicitly non-null
+        }
       }
   
-      // 4. Create fund account
+      // 3. Create fund account (linked to contact)
       const fundAccount = await createFundAccount(contactId, data);
   
       // Prevent duplicate payout methods
@@ -292,7 +301,7 @@ export async function addPayoutMethod(data: z.infer<typeof payoutAccountSchema>,
       // ✅ All writes after reads
       transaction.update(ownerDocRef, {
         'subscription.razorpay_contact_id': contactId,
-        'subscription.razorpay_account_id': accountId,
+        'subscription.razorpay_account_id': accountId || FieldValue.delete(), 
         'subscription.payoutMethods': FieldValue.arrayUnion(newMethod),
       });
   
@@ -302,7 +311,7 @@ export async function addPayoutMethod(data: z.infer<typeof payoutAccountSchema>,
         subscription: {
           ...owner.subscription!,
           razorpay_contact_id: contactId,
-          razorpay_account_id: accountId,
+          razorpay_account_id: accountId, 
           payoutMethods: [...existingMethods, newMethod],
           planId: owner.subscription?.planId || 'free',
           status: owner.subscription?.status || 'active',
@@ -394,12 +403,94 @@ export async function resetRazorpayAccount(token?: string) {
       'subscription.razorpay_contact_id': null,
       'subscription.payoutMethods': [],
       'subscription.kycDetails': null,
+      'subscription.payoutMode': 'PAYOUT', // Reset to default
     });
 
     const updatedOwnerDoc = await ownerDocRef.get();
     return { success: true, updatedUser: updatedOwnerDoc.data() as User };
   } catch (error: any) {
     console.error("Error in resetRazorpayAccount:", error);
+    throw error;
+  }
+}
+
+// UPDATE PAYOUT MODE
+export async function updatePayoutMode(mode: 'PAYOUT' | 'ROUTE', token?: string) {
+  try {
+    const { ownerId, error } = await getVerifiedOwnerId(undefined, token);
+    if (!ownerId) throw new Error(error || "Unauthorized");
+
+    const db = await getAdminDb();
+    const ownerDocRef = db.collection('users').doc(ownerId);
+
+    await ownerDocRef.update({
+      'subscription.payoutMode': mode,
+    });
+
+    const updatedOwnerDoc = await ownerDocRef.get();
+    return { success: true, updatedUser: updatedOwnerDoc.data() as User };
+  } catch (error: any) {
+    console.error("Error in updatePayoutMode:", error);
+    throw error;
+  }
+}
+// EXECUTE PAYOUT (Internal use for webhooks/automated flows)
+export async function executePayout(params: {
+  fund_account_id: string;
+  amountPaise: number;
+  idempotencyKey?: string; // Extremely important for preventing double payouts on retries
+  purpose?: string;
+  mode?: 'UPI' | 'IMPS' | 'NEFT' | 'RTGS';
+  notes?: Record<string, string>;
+}) {
+  const { RAZORPAY_ACCOUNT_NUMBER } = process.env;
+  
+  if (!RAZORPAY_ACCOUNT_NUMBER) {
+    throw new Error("RAZORPAY_ACCOUNT_NUMBER is not configured for master payouts.");
+  }
+
+  try {
+    const response = await razorpayV1Api.post('/payouts', {
+      account_number: RAZORPAY_ACCOUNT_NUMBER,
+      fund_account_id: params.fund_account_id,
+      amount: params.amountPaise,
+      currency: 'INR',
+      mode: params.mode || 'UPI',
+      purpose: params.purpose || 'payout',
+      queue_if_low_balance: true,
+      reference_id: params.idempotencyKey, // Match with idempotency key for easier lookup
+      notes: params.notes,
+    }, {
+      headers: params.idempotencyKey ? {
+        'X-Payout-Idempotency': params.idempotencyKey
+      } : {}
+    });
+
+    return { success: true, payout: response.data };
+  } catch (error: any) {
+    console.error("Error executing Razorpay Payout:", error.response?.data || error.message);
+    throw new Error(`Payout execution failed: ${error.response?.data?.error?.description || error.message}`);
+  }
+}
+
+// FETCH PAYOUT STATUS (To verify before refunds)
+export async function fetchPayoutStatus(payoutId: string) {
+  try {
+    const response = await razorpayV1Api.get(`/payouts/${payoutId}`);
+    return response.data;
+  } catch (error: any) {
+    console.error(`Error fetching payout status for ${payoutId}:`, error.response?.data || error.message);
+    throw error;
+  }
+}
+// FETCH PAYOUT BY REFERENCE ID (To recover after timeouts)
+export async function fetchPayoutByReference(referenceId: string) {
+  try {
+    const response = await razorpayV1Api.get(`/payouts`, { params: { reference_id: referenceId } });
+    // Returns { entity: "collection", count: X, items: [...] }
+    return response.data.items?.[0] || null;
+  } catch (error: any) {
+    console.error(`Error fetching payout by reference ${referenceId}:`, error.response?.data || error.message);
     throw error;
   }
 }

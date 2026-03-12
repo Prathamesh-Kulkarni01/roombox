@@ -37,7 +37,12 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
   const fbProjectId = getEnv('FIREBASE_PROJECT_ID');
   const fbClientEmail = getEnv('FIREBASE_CLIENT_EMAIL');
   const fbPrivateKey = getEnv('FIREBASE_PRIVATE_KEY');
-  const legacyConfig = getEnv('FIREBASE_ADMIN_SDK_CONFIG');
+  const legacyConfig = getEnv('FIREBASE_ADMIN_SDK_CONFIG', undefined, true);
+
+  const hasIndividualVars = fbPrivateKey && fbClientEmail && fbProjectId;
+  if (!hasIndividualVars && !legacyConfig) {
+    console.warn('[Firebase] Missing FIREBASE_ADMIN_SDK_CONFIG and individual variables.');
+  }
 
   let appOptions: AppOptions = {
     storageBucket: getEnv('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'),

@@ -120,9 +120,17 @@ export interface Payment {
   forMonth: string;
   notes?: string;
   payoutId?: string; // razorpay payout id
-  payoutStatus?: 'pending' | 'processed' | 'failed';
+  payoutStatus?: 'COMPLETED' | 'PAYOUT_PENDING' | 'SETTLED' | 'PAYOUT_FAILED' | 'REFUND_PENDING' | 'REFUNDED' | 'FAILED';
+  payoutMode?: 'PAYOUT' | 'ROUTE';
   payoutTo?: string;
   payoutFailureReason?: string;
+  payoutSnapshot?: {
+    fund_account_id?: string;
+    vpa?: string;
+    mode: 'PAYOUT' | 'ROUTE';
+    account_id?: string;
+    payout_type?: string; 
+  };
   schemaVersion?: number;
 }
 
@@ -344,6 +352,7 @@ export interface User {
     razorpay_subscription_id?: string;
     razorpay_payment_id?: string;
     payoutMethods?: PaymentMethod[];
+    payoutMode?: 'PAYOUT' | 'ROUTE';
     trialEndDate?: string; // ISO string
     premiumFeatures?: PremiumFeatures;
     paymentHistory?: UserSubscriptionPayment[];

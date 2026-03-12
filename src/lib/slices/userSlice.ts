@@ -18,6 +18,7 @@ import { fetchPermissions, updatePermissions } from './permissionsSlice';
 import { isAfter } from 'date-fns';
 import { planPermissionConfig, type RolePermissions } from '../permissions';
 import { togglePremiumFeature as togglePremiumFeatureAction } from '../actions/userActions';
+import { updatePayoutMode as updatePayoutModeAction } from '../actions/payoutActions';
 import { sanitizeObjectForFirebase } from '../utils';
 
 
@@ -258,6 +259,25 @@ export const togglePremiumFeature = createAsyncThunk(
     }
 );
 
+export const updatePayoutMode = createAsyncThunk<User, 'PAYOUT' | 'ROUTE', { state: RootState }>(
+    'user/updatePayoutMode',
+    async (mode, { getState, rejectWithValue }) => {
+        const { currentUser } = (getState() as RootState).user;
+        if (!currentUser) return rejectWithValue('User not found.');
+
+        try {
+            const token = await auth?.currentUser?.getIdToken();
+            const result = await updatePayoutModeAction(mode, token);
+            if (result.success && result.updatedUser) {
+                return result.updatedUser as User;
+            }
+            throw new Error('Failed to update payout mode');
+        } catch (error: any) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
+
 
 export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { state: RootState }>(
     'user/disassociateAndCreateOwnerAccount',
@@ -383,6 +403,9 @@ const userSlice = createSlice({
                 }
             })
             .addCase(updateUserKycDetails.fulfilled, (state, action) => {
+                state.currentUser = action.payload;
+            })
+            .addCase(updatePayoutMode.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
             });
     },

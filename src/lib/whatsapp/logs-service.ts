@@ -31,11 +31,18 @@ export class WhatsAppLogsService {
             const adminDb = await getAdminDb();
             const logRef = adminDb.collection(this.COLLECTION).doc();
 
-            const logData = {
+            const logData: any = {
                 ...log,
                 id: logRef.id,
                 timestamp: FieldValue.serverTimestamp(),
             };
+
+            // 🛡️ Firestore doesn't allow 'undefined'. Sanitize all fields.
+            Object.keys(logData).forEach(key => {
+                if (logData[key] === undefined) {
+                    logData[key] = null;
+                }
+            });
 
             await logRef.set(logData);
             console.log(`[WhatsAppLogsService] Logged ${log.direction} message for ${log.phone}`);

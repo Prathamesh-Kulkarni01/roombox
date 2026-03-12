@@ -69,15 +69,10 @@ export async function POST(req: NextRequest) {
     if (!ownerDoc.exists) return notFound('Property owner not found.');
 
     const owner = ownerDoc.data() as User;
+    const payoutMode = owner.subscription?.payoutMode || 'PAYOUT';
     let linkedAccountId = owner.subscription?.razorpay_account_id?.trim();
 
-
-    if (!linkedAccountId) {
-      return badRequest('Owner has not configured a primary payout account. Payment cannot be processed.');
-    }
-
-    // SELF-HEALING: Ensure the account ID has the mandatory 'acc_' prefix (18 characters)
-    // Legacy data might only have the 14-character suffix
+    // Account ID normalization logic...
     if (linkedAccountId && !linkedAccountId.startsWith('acc_')) {
       if (linkedAccountId.length === 14) {
         linkedAccountId = `acc_${linkedAccountId}`;
@@ -130,7 +125,7 @@ export async function POST(req: NextRequest) {
     const amountInPaise = Math.round(amount * 100);
     const commissionInPaise = Math.round(amountInPaise * COMMISSION_RATE);
 
-    const options = {
+    let options: any = {
       amount: amountInPaise,
       currency: "INR",
       receipt: `rent_${guestId}_${shortid.generate()}`,
@@ -139,16 +134,37 @@ export async function POST(req: NextRequest) {
         ownerId,
         guestName: guest.name,
         pgName: guest.pgName,
-      },
-      transfers: [
+        payoutMode // Store the mode in notes for webhook reference
+      }
+    };
+
+    // If using MARKETPLACE ROUTE model, add the transfers block
+    if (payoutMode === 'ROUTE') {
+      if (!linkedAccountId) {
+        return badRequest(`Owner ${ownerId} does not have a linked Razorpay account ID for ROUTE mode.`);
+      }
+
+      options.transfers = [
         {
           account: linkedAccountId,
           amount: amountInPaise - commissionInPaise,
           currency: "INR",
-          on_hold: 0,
+          notes: {
+            guestId,
+            type: "rent_share"
+          },
+          on_linked_account_settlement: true 
         }
-      ]
-    };
+      ];
+      console.log(`[Order: Create] Using ROUTE mode for owner ${ownerId}. Transferring ${options.transfers[0].amount / 100} to ${linkedAccountId}`);
+    } else {
+      // PAYOUT mode check
+      const primaryPayoutAccount = owner.subscription?.payoutMethods?.find(m => m.isPrimary && m.isActive);
+      if (!primaryPayoutAccount?.razorpay_fund_account_id) {
+        return badRequest(`Owner ${ownerId} has not configured a primary payout method (Fund Account) for PAYOUT mode.`);
+      }
+      console.log(`[Order: Create] Using PAYOUT mode for owner ${ownerId}. No automated transfer block added.`);
+    }
 
     const order = await razorpay.orders.create(options);
     return NextResponse.json({ success: true, order });

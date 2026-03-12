@@ -41,10 +41,18 @@ function getRedisClient(): Redis {
 
         if (!url || !token) {
             console.error('[Redis] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+        } else {
+            console.log(`[Redis] Initializing with URL: ${url.substring(0, 15)}...`);
+        }
+
+        // Sanitize URL: ensure it starts with https:// if it doesn't
+        let sanitizedUrl = url || '';
+        if (sanitizedUrl && !sanitizedUrl.startsWith('http')) {
+            sanitizedUrl = `https://${sanitizedUrl}`;
         }
 
         redisClient = new Redis({
-            url: url || '',
+            url: sanitizedUrl,
             token: token || '',
         });
     }
