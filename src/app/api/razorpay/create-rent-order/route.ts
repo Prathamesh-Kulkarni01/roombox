@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
     let options: any = {
       amount: amountInPaise,
       currency: "INR",
-      receipt: `rent_${guestId}_${shortid.generate()}`,
+      receipt: `r_${guestId.slice(-10)}_${shortid.generate()}`,
       notes: {
         guestId,
         ownerId,
