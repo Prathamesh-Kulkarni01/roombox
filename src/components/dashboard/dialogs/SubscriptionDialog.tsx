@@ -37,10 +37,11 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
   const [isSubscribing, startSubscriptionTransition] = useTransition();
 
   const handleSubscribe = () => {
-    if (!currentUser) return;
+    if (!currentUser || !auth) return;
     
     startSubscriptionTransition(async () => {
-      const res = await createRazorpaySubscription(currentUser.id);
+      const token = await auth?.currentUser?.getIdToken();
+      const res = await createRazorpaySubscription(token);
       if (!res.success || !res.subscription) {
         toast({ variant: 'destructive', title: 'Error', description: res.error || 'Could not initiate subscription.' });
         return;
@@ -52,11 +53,12 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
         name: 'RentSutra Subscription',
         description: `Usage-based Billing`,
         handler: async (response: any) => {
-          const verificationResult = await verifySubscriptionPayment({ ...response, userId: currentUser.id });
+          const token = await auth.currentUser?.getIdToken();
+          const verificationResult = await verifySubscriptionPayment(response, token);
           if (verificationResult.success) {
             // Re-initialize user to fetch the latest subscription status
-            if(auth.currentUser) {
-              dispatch(initializeUser(auth.currentUser));
+            if(auth && auth?.currentUser) {
+              dispatch(initializeUser(auth?.currentUser));
             }
             toast({ title: 'Success!', description: `You've successfully subscribed!` });
             onOpenChange(false);

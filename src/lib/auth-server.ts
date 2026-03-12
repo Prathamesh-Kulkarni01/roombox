@@ -4,22 +4,27 @@ import { headers } from 'next/headers';
 import { auth } from './firebaseAdmin';
 import { PlanName, SubscriptionStatus } from './types';
 
-export async function getUserIdFromRequest(req?: NextRequest): Promise<string | null> {
+export async function getUserIdFromRequest(req?: NextRequest, explicitToken?: string): Promise<string | null> {
     try {
-        let authHeader: string | null = null;
-        if (req) {
-            authHeader = req.headers.get('Authorization');
-        } else {
-            const headerList = await headers();
-            authHeader = headerList.get('Authorization');
+        let token: string | null = explicitToken || null;
+
+        if (!token) {
+            let authHeader: string | null = null;
+            if (req) {
+                authHeader = req.headers.get('Authorization');
+            } else {
+                const headerList = await headers();
+                authHeader = headerList.get('Authorization');
+            }
+
+            if (authHeader?.startsWith('Bearer ')) {
+                token = authHeader.split('Bearer ')[1];
+            }
         }
 
-        if (!authHeader?.startsWith('Bearer ')) {
-            // Fallback to checking for a cookie if needed, but the user specifically mentioned auth token
+        if (!token) {
             return null;
         }
-
-        const token = authHeader.split('Bearer ')[1];
 
         // --- PREVENT NOISY FIREBASE ADMIN SDK ERRORS ---
 
@@ -52,7 +57,7 @@ import { getAdminDb } from './firebaseAdmin';
  * For Owners: returns their own UID as ownerId.
  * For Staff/Tenants: returns their associated ownerId.
  */
-export async function getVerifiedOwnerId(req?: NextRequest): Promise<{
+export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Promise<{
     ownerId: string | null,
     userId?: string,
     role?: string,
@@ -60,7 +65,7 @@ export async function getVerifiedOwnerId(req?: NextRequest): Promise<{
     plan?: { id: PlanName; status: SubscriptionStatus },
     error: string | null
 }> {
-    const userId = await getUserIdFromRequest(req);
+    const userId = await getUserIdFromRequest(req, token);
     if (!userId) return { ownerId: null, error: 'Unauthorized: Invalid or missing token' };
 
     try {
@@ -118,6 +123,6 @@ export async function getVerifiedOwnerId(req?: NextRequest): Promise<{
 /**
  * Server Action version of getVerifiedOwnerId.
  */
-export async function getVerifiedOwnerIdFromHeaders() {
-    return getVerifiedOwnerId();
+export async function getVerifiedOwnerIdFromHeaders(token?: string) {
+    return getVerifiedOwnerId(undefined, token);
 }

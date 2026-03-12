@@ -29,18 +29,28 @@ export async function POST(req: NextRequest) {
             .digest('hex');
 
         if (signature !== expectedSignature) {
-            console.warn('Invalid webhook signature received.');
+            console.warn('[Webhook: Razorpay-Rent] Invalid signature mismatch.');
             return NextResponse.json({ success: false, error: 'Invalid signature.' }, { status: 400 });
         }
 
         const event = JSON.parse(body);
+        console.log(`[Webhook: Razorpay-Rent] Received event: ${event.event} (ID: ${event.id})`);
 
-        if (event.event === 'order.paid') {
-            const order = event.payload.order.entity;
+        if (event.event === 'order.paid' || event.event === 'payment.captured') {
+            const order = event.payload.order?.entity || { id: event.payload.payment.entity.order_id, notes: event.payload.payment.entity.notes };
+            const payment = event.payload.payment?.entity;
+
+            if (!payment) {
+                console.warn('[Webhook: Razorpay-Rent] Payment entity missing from payload.');
+                return NextResponse.json({ success: true });
+            }
+
+            console.log(`[Webhook: Razorpay-Rent] Processing ${event.event} for order: ${order.id}, payment: ${payment.id}`);
 
             // Check for wallet recharge
             if (order.notes?.type === 'whatsapp_recharge') {
                 const ownerId = order.notes.ownerId;
+                console.log(`[Webhook: Razorpay-Rent] Detected WhatsApp recharge for owner: ${ownerId}`);
                 const amount = order.amount / 100;
                 const credits = Math.floor(amount / 1.5); // 1 credit per message approx
 
@@ -56,12 +66,12 @@ export async function POST(req: NextRequest) {
             }
 
             // Handle rent payment
-            const payment = event.payload.payment.entity;
-            const { guestId, ownerId } = order.notes;
+            const { guestId, ownerId } = order.notes || {};
             const amountPaid = payment.amount / 100;
+            console.log(`[Webhook: Razorpay-Rent] Rent Payment Details - Guest: ${guestId}, Owner: ${ownerId}, Amount: ₹${amountPaid}, PaymentID: ${payment.id}`);
 
             if (!guestId || !ownerId) {
-                console.warn('Webhook received without guestId or ownerId in notes.');
+                console.warn('[Webhook: Razorpay-Rent] Missing guestId or ownerId in metadata.');
                 return NextResponse.json({ success: true, message: 'Webhook processed, but no action taken due to missing metadata.' });
             }
 
@@ -79,7 +89,7 @@ export async function POST(req: NextRequest) {
             const transactionResult = await dataDb.runTransaction(async (transaction): Promise<any> => {
                 const guestDoc = await transaction.get(guestDocRef);
                 if (!guestDoc.exists) {
-                    console.error(`Webhook handler: Guest with ID ${guestId} not found.`);
+                    console.error(`[Webhook: Razorpay-Rent] ERROR: Guest with ID ${guestId} not found in database.`);
                     return null;
                 }
 
@@ -130,6 +140,7 @@ export async function POST(req: NextRequest) {
                 });
 
                 transaction.set(guestDocRef, updatedGuest);
+                console.log(`[Webhook: Razorpay-Rent] Transaction successful. New balance for guest ${guestId}: ₹${updatedGuest.balance}`);
 
                 return {
                     notificationData: {

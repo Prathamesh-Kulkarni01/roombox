@@ -69,11 +69,34 @@ export async function POST(req: NextRequest) {
     if (!ownerDoc.exists) return notFound('Property owner not found.');
 
     const owner = ownerDoc.data() as User;
-    const linkedAccountId = owner.subscription?.razorpay_account_id;
+    let linkedAccountId = owner.subscription?.razorpay_account_id?.trim();
+
 
     if (!linkedAccountId) {
       return badRequest('Owner has not configured a primary payout account. Payment cannot be processed.');
     }
+
+    // SELF-HEALING: Ensure the account ID has the mandatory 'acc_' prefix (18 characters)
+    // Legacy data might only have the 14-character suffix
+    if (linkedAccountId && !linkedAccountId.startsWith('acc_')) {
+      if (linkedAccountId.length === 14) {
+        linkedAccountId = `acc_${linkedAccountId}`;
+      } else {
+        console.warn(`[DEBUG] Account ID length is ${linkedAccountId.length}, not 14. Cannot safely auto-fix with prefix, but checking if it's already 18 total...`);
+      }
+      
+      if (linkedAccountId.length === 18) {
+        // Proactively update Firestore so we don't have to keep fixing it
+        try {
+          await adminDb.collection('users').doc(ownerId).update({
+            'subscription.razorpay_account_id': linkedAccountId
+          });
+        } catch (updateErr) {
+          console.error("Failed to proactively update normalized account ID in Firestore:", updateErr);
+        }
+      }
+    }
+
 
     // Use owner's enterprise database (if configured) for tenant records
     const enterpriseDbId = owner.subscription?.enterpriseProject?.databaseId;
@@ -88,8 +111,18 @@ export async function POST(req: NextRequest) {
 
     // 4. Validate Amount
     // Ensure the guest is not overpaying (unless they want to, but we keep it safe)
-    // We allow a small buffer (1 INR) for rounding issues or currency conversion PAise logic
-    const outstandingBalance = guest.balance || 0;
+    // We calculate current balance from ledger to be sure it's accurate
+    const ledger = guest.ledger || [];
+    const calculatedBalance = ledger.reduce((acc, entry) => {
+      if (entry.type === 'debit') return acc + entry.amount;
+      if (entry.type === 'credit') return acc - entry.amount;
+      return acc;
+    }, 0);
+
+    // We use the higher of calculated or field-stored balance for maximum flexibility
+    const outstandingBalance = Math.max(calculatedBalance, guest.balance || 0);
+
+    // We allow a small buffer (1 INR) for rounding issues or currency conversion Paise logic
     if (amount > (outstandingBalance + 1)) {
       return badRequest(`Requested amount (₹${amount}) exceeds outstanding balance (₹${outstandingBalance}).`);
     }

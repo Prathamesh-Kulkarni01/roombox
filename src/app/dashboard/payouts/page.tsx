@@ -8,9 +8,9 @@ import { z } from 'zod';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks';
 import { useToast } from '@/hooks/use-toast';
 import type { PaymentMethod, BankPaymentMethod, UpiPaymentMethod } from '@/lib/types';
-import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod } from '@/lib/actions/payoutActions';
+import { addPayoutMethod, deletePayoutMethod, setPrimaryPayoutMethod, resetRazorpayAccount } from '@/lib/actions/payoutActions';
 import { setCurrentUser, updateUserKycDetails } from '@/lib/slices/userSlice';
-import { Loader2, CheckCircle, AlertCircle, Banknote, IndianRupee, PlusCircle, MoreVertical, Trash2, Check, HandCoins } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Banknote, IndianRupee, PlusCircle, MoreVertical, Trash2, Check, HandCoins, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -21,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { auth } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 
 // KYC & Payout Schemas
@@ -29,6 +30,7 @@ const kycSchema = z.object({
     business_type: z.enum(['proprietorship', 'partnership', 'private_limited', 'public_limited', 'llp', 'trust', 'society', 'not_for_profit']),
     pan_number: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, "Invalid PAN format."),
     gst_number: z.string().optional(),
+    email: z.string().email("A valid email address is required."),
     phone: z.string().regex(/^\d{10}$/, "A valid 10-digit phone number is required."),
     street1: z.string().min(3, 'Address is required.'),
     street2: z.string().optional(),
@@ -58,6 +60,7 @@ export default function PayoutsPage() {
     const { toast } = useToast();
     const [isSaving, startSavingTransition] = useTransition();
     const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);
+    const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
     const [methodToUnlink, setMethodToUnlink] = useState<PaymentMethod | null>(null);
 
     const kycForm = useForm<KycFormValues>({
@@ -67,6 +70,7 @@ export default function PayoutsPage() {
             business_type: 'proprietorship',
             pan_number: '',
             gst_number: '',
+            email: currentUser?.email || '',
             phone: currentUser?.phone || '',
             street1: '',
             street2: '',
@@ -99,14 +103,22 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             const submissionData = { ...data, ...kycData, name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) };
             try {
-                const result = await addPayoutMethod(currentUser.id, submissionData);
+                const token = await auth?.currentUser?.getIdToken();
+                const result = await addPayoutMethod(submissionData, token);
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Success', description: 'Payout account added.' });
                     setIsPayoutDialogOpen(false);
-                    payoutForm.reset({ payoutMethod: 'vpa' });
+                    payoutForm.reset({
+                        payoutMethod: 'vpa',
+                        vpa: '',
+                        account_number: '',
+                        ifsc: '',
+                        name: ''
+                    });
                 } else {
-                    throw new Error(result.error || 'Failed to link account.');
+                    const errorMsg = (result as any).error || 'Failed to add payout account.';
+                    toast({ variant: 'destructive', title: 'Error', description: errorMsg });
                 }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Failed', description: e.message || 'Error adding account.' });
@@ -127,7 +139,8 @@ export default function PayoutsPage() {
         if (!currentUser) return;
         startSavingTransition(async () => {
             try {
-                const result = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
+                const token = await auth?.currentUser?.getIdToken();
+                const result = await setPrimaryPayoutMethod(methodId, token);
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Primary Account Updated' });
@@ -140,13 +153,31 @@ export default function PayoutsPage() {
         if (!currentUser || !methodToUnlink) return;
         startSavingTransition(async () => {
             try {
-                const result = await deletePayoutMethod({ ownerId: currentUser.id, methodId: methodToUnlink.razorpay_fund_account_id! });
+                const token = await auth?.currentUser?.getIdToken();
+                const result = await deletePayoutMethod(methodToUnlink.razorpay_fund_account_id!, token);
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Unlinked' });
                 }
             } catch (e: any) { toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message }); }
             finally { setMethodToUnlink(null); }
+        });
+    };
+
+    const handleResetAccount = () => {
+        if (!currentUser) return;
+        startSavingTransition(async () => {
+            try {
+                const token = await auth?.currentUser?.getIdToken();
+                const result = await resetRazorpayAccount(token);
+                if (result.success && result.updatedUser) {
+                    dispatch(setCurrentUser(result.updatedUser));
+                    toast({ title: 'Reset Successful', description: 'Your Razorpay linking has been cleared. You can now re-onboard with a different email.' });
+                    setIsResetConfirmOpen(false);
+                }
+            } catch (e: any) {
+                toast({ variant: 'destructive', title: 'Reset Failed', description: e.message });
+            }
         });
     };
     
@@ -162,13 +193,23 @@ export default function PayoutsPage() {
                         <CardContent className="space-y-6">
                              <div className="grid md:grid-cols-2 gap-6">
                                 <FormField control={kycForm.control} name="legal_business_name" render={({ field }) => (<FormItem><FormLabel>Legal Business Name</FormLabel><FormControl><Input placeholder="Your full name as per PAN" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                <FormField control={kycForm.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="Your 10-digit mobile number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                <FormField control={kycForm.control} name="email" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Payout Notification Email</FormLabel>
+                                        <FormControl><Input placeholder="Email for Razorpay sub-account" {...field} /></FormControl>
+                                        <p className="text-[0.7rem] text-muted-foreground mt-1">
+                                            Important: Use an email different from your master Razorpay account.
+                                        </p>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
                             </div>
                             <div className="grid md:grid-cols-2 gap-6">
+                                <FormField control={kycForm.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input placeholder="Your 10-digit mobile number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                                 <FormField control={kycForm.control} name="pan_number" render={({ field }) => ( <FormItem><FormLabel>PAN Number</FormLabel><FormControl><Input placeholder="Enter 10-digit PAN" {...field} /></FormControl><FormMessage /></FormItem> )}/>
-                                <FormField control={kycForm.control} name="business_type" render={({ field }) => (<FormItem><FormLabel>Business Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select business type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="proprietorship">Proprietorship</SelectItem><SelectItem value="partnership">Partnership</SelectItem><SelectItem value="private_limited">Private Limited</SelectItem><SelectItem value="public_limited">Public Limited</SelectItem><SelectItem value="llp">LLP</SelectItem><SelectItem value="trust">Trust</SelectItem><SelectItem value="society">Society</SelectItem><SelectItem value="not_for_profit">Not for Profit</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                             </div>
-                             <div className="grid md:grid-cols-2 gap-6">
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <FormField control={kycForm.control} name="business_type" render={({ field }) => (<FormItem><FormLabel>Business Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select business type..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="proprietorship">Proprietorship</SelectItem><SelectItem value="partnership">Partnership</SelectItem><SelectItem value="private_limited">Private Limited</SelectItem><SelectItem value="public_limited">Public Limited</SelectItem><SelectItem value="llp">LLP</SelectItem><SelectItem value="trust">Trust</SelectItem><SelectItem value="society">Society</SelectItem><SelectItem value="not_for_profit">Not for Profit</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={kycForm.control} name="gst_number" render={({ field }) => ( <FormItem><FormLabel>GST Number (Optional)</FormLabel><FormControl><Input placeholder="Enter 15-digit GSTIN" {...field} /></FormControl><FormMessage /></FormItem> )}/>
                             </div>
                              <div>
@@ -193,9 +234,16 @@ export default function PayoutsPage() {
             <Card>
                 <CardHeader><CardTitle>Payout Onboarding Status</CardTitle></CardHeader>
                 <CardContent>
-                    <div className={cn("flex items-center gap-3 p-4 rounded-lg border", onboardingComplete ? 'bg-green-100 text-green-900 border-green-300' : 'bg-yellow-100 text-yellow-900 border-yellow-300')}>
-                        {onboardingComplete ? <CheckCircle className="w-5 h-5"/> : <AlertCircle className="w-5 h-5"/>}
-                        <span className="font-semibold">{onboardingComplete ? 'Onboarding Complete: You can receive automated payouts.' : 'Action Required: Link a payout method to complete onboarding.'}</span>
+                    <div className={cn("flex items-center justify-between p-4 rounded-lg border", onboardingComplete ? 'bg-green-100 text-green-900 border-green-300' : 'bg-yellow-100 text-yellow-900 border-yellow-300')}>
+                        <div className="flex items-center gap-3">
+                            {onboardingComplete ? <CheckCircle className="w-5 h-5"/> : <AlertCircle className="w-5 h-5"/>}
+                            <span className="font-semibold">{onboardingComplete ? 'Onboarding Complete: You can receive automated payouts.' : 'Action Required: Link a payout method to complete onboarding.'}</span>
+                        </div>
+                        {onboardingComplete && (
+                            <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="bg-white hover:bg-red-50 text-red-600 border-red-200">
+                                <RefreshCw className="mr-2 h-4 w-4" /> Reset Linking
+                            </Button>
+                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -298,6 +346,26 @@ export default function PayoutsPage() {
                         <AlertDialogAction onClick={handleUnlink} disabled={isSaving} className="bg-destructive hover:bg-destructive/90">
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Unlink
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Reset Razorpay Linking?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will clear your current Razorpay Account ID and Payout Methods. Use this if you need to re-link with a **different email address**.
+                            <br/><br/>
+                            <span className="text-destructive font-semibold">Warning: This does not delete the account in Razorpay, it only clears the linking in this app.</span>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleResetAccount} disabled={isSaving} className="bg-red-600 hover:bg-red-700">
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Confirm Reset
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

@@ -14,23 +14,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const signature = req.headers.get('x-razorpay-signature');
-  const body = await req.text();
+    const signature = req.headers.get('x-razorpay-signature');
+    const body = await req.text();
 
-  try {
-    const expectedSignature = crypto
-      .createHmac('sha256', WEBHOOK_SECRET)
-      .update(body)
-      .digest('hex');
+    try {
+      const expectedSignature = crypto
+        .createHmac('sha256', WEBHOOK_SECRET)
+        .update(body)
+        .digest('hex');
 
-    if (signature !== expectedSignature) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid signature.' },
-        { status: 400 }
-      );
-    }
+      if (signature !== expectedSignature) {
+        console.warn('[Webhook: Razorpay-Subscription] Invalid signature mismatch.');
+        return NextResponse.json(
+          { success: false, error: 'Invalid signature.' },
+          { status: 400 }
+        );
+      }
 
     const event = JSON.parse(body);
+    console.log(`[Webhook: Razorpay-Subscription] Received event: ${event.event} (ID: ${event.id})`);
     const adminDb = await getAdminDb();
 
     // Handle failed subscription payments
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
     ) {
       const subscriptionId = event.payload.subscription.entity.id;
 
-      console.log(`Processing failed payment for subscription: ${subscriptionId}`);
+      console.log(`[Webhook: Razorpay-Subscription] Processing failed payment for subscription: ${subscriptionId}`);
 
       const usersRef = adminDb.collection('users');
       const snapshot = await usersRef
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
         .get();
 
       if (snapshot.empty) {
-        console.warn(`No user found with subscription ID: ${subscriptionId}`);
+        console.warn(`[Webhook: Razorpay-Subscription] No user found with subscription ID: ${subscriptionId}`);
         return NextResponse.json({
           success: true,
           message: 'No user found for this subscription.',
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
 
       const batch = adminDb.batch();
       snapshot.forEach((userDoc) => {
-        console.log(`Downgrading user ${userDoc.id} to free plan.`);
+        console.log(`[Webhook: Razorpay-Subscription] Downgrading user ${userDoc.id} to free plan due to payment failure.`);
         batch.update(userDoc.ref, {
           'subscription.planId': 'free',
           'subscription.status': 'inactive',

@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { LedgerEntry } from "@/lib/types"
+import { auth } from "@/lib/firebase"
 
 const rentStatusColors: Record<string, string> = {
     paid: 'bg-green-100 text-green-800 border-green-300',
@@ -121,7 +122,9 @@ export default function MyPgPage() {
 
         startPaymentTransition(async () => {
             try {
-                const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+                const token = await auth?.currentUser?.getIdToken();
+                if (!token) throw new Error("Authentication session expired. Please refresh and log in again.");
+
                 const res = await fetch('/api/razorpay/create-rent-order', {
                     method: 'POST',
                     headers: {

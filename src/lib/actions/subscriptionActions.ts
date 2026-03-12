@@ -21,9 +21,9 @@ const BASE_PLAN_ID = process.env.RAZORPAY_BASE_PLAN_ID || 'plan_base_monthly';
  * Creates a base subscription for the authenticated user on Razorpay.
  * This subscription has a ₹0 cost and serves as the anchor for monthly addons.
  */
-export async function createRazorpaySubscription() {
+export async function createRazorpaySubscription(token?: string) {
   try {
-    const { ownerId: userId, error: authError } = await getVerifiedOwnerIdFromHeaders();
+    const { ownerId: userId, error: authError } = await getVerifiedOwnerIdFromHeaders(token);
     if (!userId) return { success: false, error: authError || 'Unauthorized' };
 
     // Check if the base plan exists on Razorpay
@@ -62,11 +62,11 @@ export async function verifySubscriptionPayment(data: {
   razorpay_payment_id: string
   razorpay_subscription_id: string
   razorpay_signature: string
-}) {
+}, token?: string) {
   const { razorpay_subscription_id, razorpay_payment_id, razorpay_signature } = data;
   
   try {
-    const { ownerId: userId, error: authError } = await getVerifiedOwnerIdFromHeaders();
+    const { ownerId: userId, error: authError } = await getVerifiedOwnerIdFromHeaders(token);
     if (!userId) return { success: false, error: authError || 'Unauthorized' };
 
     const generated_signature = crypto

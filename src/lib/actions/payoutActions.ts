@@ -23,6 +23,7 @@ const payoutAccountSchema = z.object({
   ]),
   pan_number: z.string(),
   gst_number: z.string().optional(),
+  email: z.string().email(),
   phone: z.string(),
   street1: z.string(),
   street2: z.string().optional(),
@@ -59,16 +60,45 @@ async function createOrGetContact(owner: User, details: z.infer<typeof payoutAcc
   try {
     const response = await razorpayV1Api.post('/contacts', {
       name: owner.name,
-      email: owner.email,
+      email: details.email,
       contact: details.phone,
       type: 'vendor',
-      reference_id: owner.id,
+      reference_id: owner.id.slice(0, 20),
     });
 
     return { id: response.data.id, isNew: true };
   } catch (error: any) {
+    const errorDescription = error.response?.data?.error?.description || "";
+    
+    // Recovery logic if contact already exists
+    if (errorDescription.includes("already exists")) {
+      try {
+        // Attempt to extract contact ID from description if present
+        // Format example: "The contact already exists with the same email - cont_XXXX"
+        const idMatch = errorDescription.match(/cont_[a-zA-Z0-9]+/);
+        if (idMatch) {
+          console.log("Extracted contact ID from error message:", idMatch[0]);
+          return { id: idMatch[0], isNew: false };
+        }
+
+        console.log("Contact email already exists. Attempting to recover contact for:", owner.email);
+        const listResponse = await razorpayV1Api.get('/contacts', { params: { count: 100 } });
+        const existingContact = listResponse.data.items?.find((cont: any) => 
+          cont.email?.toLowerCase() === details.email?.toLowerCase() ||
+          cont.reference_id === owner.id.slice(0, 20)
+        );
+
+        if (existingContact) {
+          console.log("Recovered existing Razorpay contact:", existingContact.id);
+          return { id: existingContact.id, isNew: false };
+        }
+      } catch (listError: any) {
+        console.error("Failed to recover contact via listing:", listError.response?.data || listError);
+      }
+    }
+
     console.error("Error creating Razorpay contact:", error.response?.data || error);
-    throw new Error(`Contact creation failed: ${error.response?.data?.error?.description || error.message}`);
+    throw new Error(`Contact creation failed: ${errorDescription || error.message}`);
   }
 }
 
@@ -77,10 +107,10 @@ async function createLinkedAccount(owner: User, details: z.infer<typeof payoutAc
 
   try {
     const response = await razorpayV2Api.post('/accounts', {
-      email: owner.email,
+      email: details.email,
       phone: details.phone,
       type: 'route',
-      reference_id: owner.id,
+      reference_id: owner.id.slice(0, 20),
       legal_business_name: details.legal_business_name,
       business_type: details.business_type,
       contact_name: owner.name,
@@ -102,8 +132,52 @@ async function createLinkedAccount(owner: User, details: z.infer<typeof payoutAc
 
     return { id: response.data.id, isNew: true };
   } catch (error: any) {
+    const errorDescription = error.response?.data?.error?.description || "";
+    
+    // Handle "merchant email already exist" by attempting to find the account in the merchant's linked accounts list
+    if (errorDescription.includes("email already exist")) {
+      try {
+        console.log("Merchant email already exists. Fetching linked accounts for verification...");
+        const listResponse = await razorpayV2Api.get('/accounts', { params: { count: 100 } });
+        const linkedAccounts = listResponse.data.items || [];
+        
+        // 1. Try to find by email in the actual linked accounts list
+        const existingAccount = linkedAccounts.find((acc: any) => 
+          acc.email?.toLowerCase() === details.email?.toLowerCase()
+        );
+
+        if (existingAccount) {
+          console.log("Recovered valid linked account from list:", existingAccount.id);
+          return { id: existingAccount.id, isNew: false };
+        }
+
+        // 2. If not in list, check if we can extract an ID from the error message for explanation
+        const idMatch = errorDescription.match(/account - ([a-zA-Z0-9]+)/);
+        if (idMatch && idMatch[1]) {
+          const extractedId = idMatch[1].startsWith("acc_") ? idMatch[1] : `acc_${idMatch[1]}`;
+          
+          // Verify if this extracted ID is in our linked accounts list
+          const isInList = linkedAccounts.some((acc: any) => acc.id === extractedId);
+          
+          if (!isInList) {
+            console.error(`[CRITICAL] Extracted ID ${extractedId} is NOT in the merchant's linked accounts list. It likely belongs to the master account.`);
+            throw new Error(`The email "${details.email}" is already used by your main Razorpay account or an external account. Please use a different email for this PG Owner payout profile.`);
+          }
+
+          console.log("Extracted ID verified in linked accounts list:", extractedId);
+          return { id: extractedId, isNew: false };
+        }
+
+        // 3. Fallback: If email exists but nowhere in our accessible linked accounts
+        throw new Error(`The email "${details.email}" is already associated with a Razorpay account that cannot be accessed as a linked account. Please use a unique email for payouts.`);
+      } catch (listError: any) {
+        if (listError.message.includes("use a different email") || listError.message.includes("unique email")) throw listError;
+        console.error("Failed to recover or verify account via listing:", listError.response?.data || listError);
+      }
+    }
+
     console.error("Error creating Razorpay Linked Account:", error.response?.data || error);
-    throw new Error(`Linked Account creation failed: ${error.response?.data?.error?.description || error.message}`);
+    throw new Error(`Linked Account creation failed: ${errorDescription || error.message}`);
   }
 }
 
@@ -111,7 +185,7 @@ async function createStakeholder(accountId: string, owner: User, details: z.infe
   try {
     await razorpayV2Api.post(`/accounts/${accountId}/stakeholders`, {
       name: owner.name,
-      email: owner.email,
+      email: details.email,
       phone: { primary: details.phone },
       relationship: { director: true, executive: true },
       percentage_ownership: 100,
@@ -126,15 +200,18 @@ async function createStakeholder(accountId: string, owner: User, details: z.infe
       },
     });
   } catch (error: any) {
+    const errorCode = error.response?.data?.error?.code;
+    const errorDescription = error.response?.data?.error?.description || "";
+
     if (
-      error.response?.data?.error?.code === 'BAD_REQUEST_ERROR' &&
-      error.response?.data?.error?.description.includes('already exists')
+      (errorCode === 'BAD_REQUEST_ERROR' && errorDescription.includes('already exists')) ||
+      errorDescription === 'Access Denied'
     ) {
-      console.log("Stakeholder already exists for account:", accountId);
+      console.log(`Stakeholder creation skipped for account ${accountId}: ${errorDescription}`);
       return;
     }
     console.error("Error creating Razorpay Stakeholder:", error.response?.data || error);
-    throw new Error(`Stakeholder creation failed: ${error.response?.data?.error?.description || error.message}`);
+    throw new Error(`Stakeholder creation failed: ${errorDescription || error.message}`);
   }
 }
 
@@ -158,9 +235,9 @@ async function createFundAccount(contactId: string, details: z.infer<typeof payo
 }
 
 // ----------------- FIRESTORE TRANSACTION FLOW -----------------
-export async function addPayoutMethod(accountDetails: z.infer<typeof payoutAccountSchema>) {
+export async function addPayoutMethod(data: z.infer<typeof payoutAccountSchema>, token?: string) {
   try {
-    const { ownerId, error } = await getVerifiedOwnerId();
+    const { ownerId, error } = await getVerifiedOwnerId(undefined, token);
     if (!ownerId) throw new Error(error || "Unauthorized");
 
     const db = await getAdminDb();
@@ -173,16 +250,18 @@ export async function addPayoutMethod(accountDetails: z.infer<typeof payoutAccou
       const owner = { id: ownerId, ...ownerData } as User;
   
       // 1. Create or get contact
-      const { id: contactId } = await createOrGetContact(owner, accountDetails);
+      const { id: contactId } = await createOrGetContact(owner, data);
   
       // 2. Create linked account
-      const { id: accountId } = await createLinkedAccount(owner, accountDetails);
+      const { id: accountId, isNew: isNewAccount } = await createLinkedAccount(owner, data);
   
-      // 3. Create stakeholder
-      await createStakeholder(accountId, owner, accountDetails);
+      // 3. Create stakeholder (only if account is new or attempt it gracefully)
+      if (isNewAccount) {
+        await createStakeholder(accountId, owner, data);
+      }
   
       // 4. Create fund account
-      const fundAccount = await createFundAccount(contactId, accountDetails);
+      const fundAccount = await createFundAccount(contactId, data);
   
       // Prevent duplicate payout methods
       const existingMethods = owner.subscription?.payoutMethods || [];
@@ -195,18 +274,18 @@ export async function addPayoutMethod(accountDetails: z.infer<typeof payoutAccou
       const newMethod: PaymentMethod = {
         id: fundAccount.id,
         razorpay_fund_account_id: fundAccount.id,
-        name: accountDetails.name || accountDetails.vpa!,
+        name: data.name || data.vpa!,
         isActive: fundAccount.active,
         isPrimary,
         createdAt: new Date().toISOString(),
-        ...(accountDetails.payoutMethod === 'vpa'
-          ? { type: 'upi', vpaAddress: accountDetails.vpa! }
+        ...(data.payoutMethod === 'vpa'
+          ? { type: 'upi', vpaAddress: data.vpa! }
           : {
               type: 'bank_account',
-              accountNumber: accountDetails.account_number!,
-              accountNumberLast4: accountDetails.account_number!.slice(-4),
-              ifscCode: accountDetails.ifsc!,
-              accountHolderName: accountDetails.name!,
+              accountNumber: data.account_number!,
+              accountNumberLast4: data.account_number!.slice(-4),
+              ifscCode: data.ifsc!,
+              accountHolderName: data.name!,
             }),
       } as PaymentMethod;
   
@@ -239,9 +318,9 @@ export async function addPayoutMethod(accountDetails: z.infer<typeof payoutAccou
 }
   
 // DELETE PAYOUT METHOD
-export async function deletePayoutMethod(methodId: string) {
+export async function deletePayoutMethod(payoutId: string, token?: string) {
   try {
-    const { ownerId, error } = await getVerifiedOwnerId();
+    const { ownerId, error } = await getVerifiedOwnerId(undefined, token);
     if (!ownerId) throw new Error(error || "Unauthorized");
 
     const db = await getAdminDb();
@@ -252,7 +331,7 @@ export async function deletePayoutMethod(methodId: string) {
     const owner = ownerDoc.data() as User;
 
     const methods = owner.subscription?.payoutMethods || [];
-    const methodToDeactivate = methods.find(m => m.razorpay_fund_account_id === methodId);
+    const methodToDeactivate = methods.find(m => m.razorpay_fund_account_id === payoutId);
 
     if (methodToDeactivate?.razorpay_fund_account_id) {
       try {
@@ -262,7 +341,7 @@ export async function deletePayoutMethod(methodId: string) {
       }
     }
 
-    const updatedMethods = methods.filter(m => m.razorpay_fund_account_id !== methodId);
+    const updatedMethods = methods.filter(m => m.razorpay_fund_account_id !== payoutId);
     if (methodToDeactivate?.isPrimary && updatedMethods.length > 0) updatedMethods[0].isPrimary = true;
 
     await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
@@ -275,9 +354,9 @@ export async function deletePayoutMethod(methodId: string) {
 }
 
 // SET PRIMARY PAYOUT METHOD
-export async function setPrimaryPayoutMethod(methodId: string) {
+export async function setPrimaryPayoutMethod(payoutId: string, token?: string) {
   try {
-    const { ownerId, error } = await getVerifiedOwnerId();
+    const { ownerId, error } = await getVerifiedOwnerId(undefined, token);
     if (!ownerId) throw new Error(error || "Unauthorized");
 
     const db = await getAdminDb();
@@ -287,16 +366,40 @@ export async function setPrimaryPayoutMethod(methodId: string) {
     if (!ownerDoc.exists) throw new Error("Owner not found.");
     const owner = ownerDoc.data() as User;
 
-    const updatedMethods = (owner.subscription?.payoutMethods || []).map(m => ({
+    const updatedMethods = owner.subscription?.payoutMethods?.map(m => ({
       ...m,
-      isPrimary: m.razorpay_fund_account_id === methodId,
-    }));
+      isPrimary: m.razorpay_fund_account_id === payoutId,
+    })) || [];
 
     await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
     const updatedOwnerDoc = await ownerDocRef.get();
     return { success: true, updatedUser: updatedOwnerDoc.data() as User };
   } catch (error: any) {
     console.error("Error in setPrimaryPayoutMethod:", error);
+    throw error;
+  }
+}
+
+// RESET RAZORPAY ACCOUNT LINKING
+export async function resetRazorpayAccount(token?: string) {
+  try {
+    const { ownerId, error } = await getVerifiedOwnerId(undefined, token);
+    if (!ownerId) throw new Error(error || "Unauthorized");
+
+    const db = await getAdminDb();
+    const ownerDocRef = db.collection('users').doc(ownerId);
+
+    await ownerDocRef.update({
+      'subscription.razorpay_account_id': null,
+      'subscription.razorpay_contact_id': null,
+      'subscription.payoutMethods': [],
+      'subscription.kycDetails': null,
+    });
+
+    const updatedOwnerDoc = await ownerDocRef.get();
+    return { success: true, updatedUser: updatedOwnerDoc.data() as User };
+  } catch (error: any) {
+    console.error("Error in resetRazorpayAccount:", error);
     throw error;
   }
 }
