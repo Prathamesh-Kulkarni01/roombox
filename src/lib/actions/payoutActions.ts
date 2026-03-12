@@ -450,6 +450,13 @@ export async function executePayout(params: {
   }
 
   try {
+    console.log(`[Payout: Execute] Requesting payout:`, {
+      fund_account_id: params.fund_account_id,
+      amount: params.amountPaise / 100,
+      mode: params.mode || 'UPI',
+      reference_id: params.idempotencyKey
+    });
+
     const response = await razorpayV1Api.post('/payouts', {
       account_number: RAZORPAY_ACCOUNT_NUMBER,
       fund_account_id: params.fund_account_id,
@@ -466,9 +473,11 @@ export async function executePayout(params: {
       } : {}
     });
 
+    console.log(`[Payout: Execute] SUCCESS: Payout ID: ${response.data.id}, Status: ${response.data.status}`);
     return { success: true, payout: response.data };
   } catch (error: any) {
-    console.error("Error executing Razorpay Payout:", error.response?.data || error.message);
+    const errorData = error.response?.data || error.message;
+    console.error(`[Payout: Execute] FAILED:`, JSON.stringify(errorData, null, 2));
     throw new Error(`Payout execution failed: ${error.response?.data?.error?.description || error.message}`);
   }
 }

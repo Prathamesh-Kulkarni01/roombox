@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
                 });
 
                 transaction.set(guestDocRef, updatedGuest);
-                console.log(`[Webhook: Razorpay-Rent] Transaction successful. New balance for guest ${guestId}: ₹${updatedGuest.balance}`);
+                console.log(`[Webhook: Razorpay-Rent] Ledger updated. New balance for guest ${guestId}: ₹${updatedGuest.balance}. Rent Status: ${updatedGuest.rentStatus}`);
 
                 return {
                     notificationData: {

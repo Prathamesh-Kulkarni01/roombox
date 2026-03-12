@@ -166,10 +166,22 @@ export async function POST(req: NextRequest) {
       console.log(`[Order: Create] Using PAYOUT mode for owner ${ownerId}. No automated transfer block added.`);
     }
 
+    console.log(`[Order: Create] Final Options:`, JSON.stringify({
+      amount: options.amount,
+      currency: options.currency,
+      receipt: options.receipt,
+      notes: options.notes,
+      hasTransfers: !!options.transfers
+    }, null, 2));
+
     const order = await razorpay.orders.create(options);
     return NextResponse.json({ success: true, order });
 
   } catch (error: any) {
+    console.error(`[Order: Create] CRITICAL FAILURE:`, error.message || error);
+    if (error.response) {
+      console.error(`[Order: Create] Razorpay Error Details:`, JSON.stringify(error.response.data || error.response, null, 2));
+    }
     return serverError(error, 'POST /api/razorpay/create-rent-order');
   }
 }
