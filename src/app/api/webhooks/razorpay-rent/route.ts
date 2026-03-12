@@ -56,11 +56,38 @@ export async function POST(req: NextRequest) {
 
                 if (ownerId) {
                     const adminDb = await getAdminDb();
-                    const ownerDocRef = adminDb.collection('users').doc(ownerId);
-                    await ownerDocRef.update({
-                        'subscription.whatsappCredits': FieldValue.increment(credits)
-                    });
-                    console.log(`Successfully credited ${credits} messages to owner ${ownerId}'s wallet (from ₹${amount}).`);
+                    const rechargeRef = adminDb.collection('wallet_recharges').doc(payment.id);
+                    
+                    try {
+                        await adminDb.runTransaction(async (transaction) => {
+                            const rechargeDoc = await transaction.get(rechargeRef);
+                            if (rechargeDoc.exists) {
+                                console.log(`[Webhook: Razorpay-Rent] Recharge ${payment.id} already processed. Skipping.`);
+                                return;
+                            }
+
+                            const ownerDocRef = adminDb.collection('users').doc(ownerId);
+                            transaction.update(ownerDocRef, {
+                                'subscription.whatsappCredits': FieldValue.increment(credits),
+                                updatedAt: new Date().toISOString()
+                            });
+
+                            transaction.set(rechargeRef, {
+                                paymentId: payment.id,
+                                orderId: order.id,
+                                ownerId,
+                                amount,
+                                credits,
+                                method: payment.method,
+                                status: 'captured',
+                                processedAt: FieldValue.serverTimestamp()
+                            });
+                        });
+                        console.log(`Successfully credited ${credits} messages to owner ${ownerId}'s wallet (from ₹${amount}). Payment ID: ${payment.id}`);
+                    } catch (txError: any) {
+                        console.error('[Webhook: Razorpay-Rent] Failed to process recharge transaction:', txError.message);
+                        throw txError;
+                    }
                 }
                 return NextResponse.json({ success: true, message: 'Recharge processed.' });
             }
