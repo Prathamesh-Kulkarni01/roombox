@@ -13,6 +13,7 @@ import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import QuickActions from "@/components/dashboard/QuickActions"
 import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton"
+import MassReminderDialog from "@/components/dashboard/dialogs/MassReminderDialog"
 import { useDashboard } from '@/hooks/use-dashboard'
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Sparkles, Sun, Moon, CloudSun } from "lucide-react"
@@ -25,6 +26,7 @@ import {
 } from "@/lib/api/apiSlice"
 import type { PG, Guest, Complaint } from "@/lib/types"
 import { formatBalanceBreakdown } from "@/lib/ledger-utils"
+import { sendMassPaymentReminders } from "@/lib/actions/notificationActions"
 
 export default function DashboardPage() {
   const { currentUser } = useAppSelector(state => state.user);
@@ -56,6 +58,9 @@ export default function DashboardPage() {
     isAddingGuest,
     isRecordingPayment,
   } = useDashboard();
+
+  const [isMassReminderDialogOpen, setIsMassReminderDialogOpen] = React.useState(false);
+  const [guestsForReminder, setGuestsForReminder] = React.useState<any[]>([]);
 
   const stats: DashboardStats = useMemo(() => {
     const relevantPgs = selectedPgId && selectedPgId !== 'all' ? pgs.filter((p: PG) => p.id === selectedPgId) : pgs;
@@ -122,7 +127,52 @@ export default function DashboardPage() {
   }, [guests, selectedPgId]);
 
   const handleSendMassReminder = async () => {
-    toast({ title: "Reminders Sent", description: "Payment reminders sent to all guests with pending dues." });
+    const guestsWithDues = guests
+      .filter((g: Guest) => !g.isVacated)
+      .map(g => {
+        const totalDebits = (g.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
+        const totalCredits = (g.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
+        return { ...g, balance: totalDebits - totalCredits };
+      })
+      .filter(g => g.balance > 0)
+      .map(g => ({
+        id: g.id,
+        name: g.name,
+        phone: g.phone,
+        userId: g.userId,
+        balance: g.balance,
+        roomName: pgs.find(p => p.id === g.pgId)?.floors?.find(f => f.rooms.some(r => r.id === g.roomId))?.rooms.find(r => r.id === g.roomId)?.name || 'N/A'
+      }));
+
+    if (guestsWithDues.length === 0) {
+      toast({ title: "All Settled!", description: "No guests have pending dues at the moment." });
+      return;
+    }
+
+    setGuestsForReminder(guestsWithDues);
+    setIsMassReminderDialogOpen(true);
+  };
+
+  const handleConfirmMassReminders = async (selectedGuests: any[]) => {
+    toast({ title: "Sending Alerts", description: `Processing reminders for ${selectedGuests.length} guests...` });
+
+    const result = await sendMassPaymentReminders({
+      ownerId: currentUser!.id,
+      guests: selectedGuests
+    });
+
+    if (result.success) {
+      toast({
+        title: "Alerts Sent Successfully",
+        description: `WhatsApp: ${result.results?.whatsapp}, Push: ${result.results?.push} delivered.`
+      });
+    } else {
+      toast({
+        title: "Failed to send alerts",
+        description: result.error || "An unknown error occurred",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSendAnnouncement = () => {
@@ -297,6 +347,15 @@ export default function DashboardPage() {
           isRecordingPayment={isRecordingPayment}
         />
       </Access>
+
+      <MassReminderDialog
+        isOpen={isMassReminderDialogOpen}
+        onOpenChange={setIsMassReminderDialogOpen}
+        guests={guestsForReminder}
+        whatsappCredits={currentUser?.subscription?.whatsappCredits || 0}
+        whatsappEnabled={!!currentUser?.subscription?.premiumFeatures?.whatsapp?.enabled}
+        onSend={handleConfirmMassReminders}
+      />
     </>
   )
 }
