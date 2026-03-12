@@ -48,9 +48,9 @@ export async function POST(req: NextRequest) {
                     const adminDb = await getAdminDb();
                     const ownerDocRef = adminDb.collection('users').doc(ownerId);
                     await ownerDocRef.update({
-                        'subscription.whatsappCredits': FieldValue.increment(amount)
+                        'subscription.whatsappCredits': FieldValue.increment(credits)
                     });
-                    console.log(`Successfully credited ₹${amount} to owner ${ownerId}'s wallet.`);
+                    console.log(`Successfully credited ${credits} messages to owner ${ownerId}'s wallet (from ₹${amount}).`);
                 }
                 return NextResponse.json({ success: true, message: 'Recharge processed.' });
             }

@@ -1,7 +1,8 @@
-
 'use server';
 
 import { getAdminDb } from '../firebaseAdmin';
+import { db } from "../firebase";
+import { getVerifiedOwnerId } from "../auth-server";
 import { z } from 'zod';
 import type { User, PaymentMethod } from '../types';
 import { FieldValue, Firestore } from 'firebase-admin/firestore';
@@ -157,14 +158,19 @@ async function createFundAccount(contactId: string, details: z.infer<typeof payo
 }
 
 // ----------------- FIRESTORE TRANSACTION FLOW -----------------
-export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<typeof payoutAccountSchema>) {
+export async function addPayoutMethod(accountDetails: z.infer<typeof payoutAccountSchema>) {
+  try {
+    const { ownerId, error } = await getVerifiedOwnerId();
+    if (!ownerId) throw new Error(error || "Unauthorized");
+
     const db = await getAdminDb();
     const ownerDocRef = db.collection('users').doc(ownerId);
   
     return db.runTransaction(async (transaction) => {
       const ownerDoc = await transaction.get(ownerDocRef);
       if (!ownerDoc.exists) throw new Error("Owner not found.");
-      const owner = { id: ownerId, ...ownerDoc.data() } as User;
+      const { id: _, ...ownerData } = ownerDoc.data() as User;
+      const owner = { id: ownerId, ...ownerData } as User;
   
       // 1. Create or get contact
       const { id: contactId } = await createOrGetContact(owner, accountDetails);
@@ -187,14 +193,14 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
       const isPrimary = !existingMethods.some(m => m.isPrimary);
   
       const newMethod: PaymentMethod = {
-        id: accountId,
+        id: fundAccount.id,
         razorpay_fund_account_id: fundAccount.id,
         name: accountDetails.name || accountDetails.vpa!,
         isActive: fundAccount.active,
         isPrimary,
         createdAt: new Date().toISOString(),
         ...(accountDetails.payoutMethod === 'vpa'
-          ? { type: 'vpa', vpaAddress: accountDetails.vpa! }
+          ? { type: 'upi', vpaAddress: accountDetails.vpa! }
           : {
               type: 'bank_account',
               accountNumber: accountDetails.account_number!,
@@ -202,7 +208,7 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
               ifscCode: accountDetails.ifsc!,
               accountHolderName: accountDetails.name!,
             }),
-      };
+      } as PaymentMethod;
   
       // ✅ All writes after reads
       transaction.update(ownerDocRef, {
@@ -215,23 +221,32 @@ export async function addPayoutMethod(ownerId: string, accountDetails: z.infer<t
       const updatedUser: User = {
         ...owner,
         subscription: {
-          ...owner.subscription,
+          ...owner.subscription!,
           razorpay_contact_id: contactId,
           razorpay_account_id: accountId,
           payoutMethods: [...existingMethods, newMethod],
+          planId: owner.subscription?.planId || 'free',
+          status: owner.subscription?.status || 'active',
         },
       };
   
       return { success: true, updatedUser };
     });
+  } catch (error: any) {
+    console.error("Error in addPayoutMethod:", error);
+    throw error;
   }
+}
   
 // DELETE PAYOUT METHOD
-export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }) {
-  const db = await getAdminDb();
-  const ownerDocRef = db.collection('users').doc(ownerId);
-
+export async function deletePayoutMethod(methodId: string) {
   try {
+    const { ownerId, error } = await getVerifiedOwnerId();
+    if (!ownerId) throw new Error(error || "Unauthorized");
+
+    const db = await getAdminDb();
+    const ownerDocRef = db.collection('users').doc(ownerId);
+
     const ownerDoc = await ownerDocRef.get();
     if (!ownerDoc.exists) throw new Error("Owner not found.");
     const owner = ownerDoc.data() as User;
@@ -260,19 +275,22 @@ export async function deletePayoutMethod({ ownerId, methodId }: { ownerId: strin
 }
 
 // SET PRIMARY PAYOUT METHOD
-export async function setPrimaryPayoutMethod({ ownerId, methodId }: { ownerId: string; methodId: string }) {
-  const db = await getAdminDb();
-  const ownerDocRef = db.collection('users').doc(ownerId);
-
+export async function setPrimaryPayoutMethod(methodId: string) {
   try {
+    const { ownerId, error } = await getVerifiedOwnerId();
+    if (!ownerId) throw new Error(error || "Unauthorized");
+
+    const db = await getAdminDb();
+    const ownerDocRef = db.collection('users').doc(ownerId);
+
     const ownerDoc = await ownerDocRef.get();
     if (!ownerDoc.exists) throw new Error("Owner not found.");
     const owner = ownerDoc.data() as User;
 
-    const updatedMethods = owner.subscription?.payoutMethods.map(m => ({
+    const updatedMethods = (owner.subscription?.payoutMethods || []).map(m => ({
       ...m,
       isPrimary: m.razorpay_fund_account_id === methodId,
-    })) || [];
+    }));
 
     await ownerDocRef.update({ 'subscription.payoutMethods': updatedMethods });
     const updatedOwnerDoc = await ownerDocRef.get();

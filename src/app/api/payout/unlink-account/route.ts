@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
+import { getVerifiedOwnerId } from "@/lib/auth-server";
 
 export async function POST(req: NextRequest) {
   try {
+    const { ownerId, error: authError } = await getVerifiedOwnerId(req);
+    if (!ownerId) {
+      return NextResponse.json({ error: authError || "Unauthorized" }, { status: 401 });
+    }
+
     const { fundAccountId } = await req.json();
 
     if (!fundAccountId) {

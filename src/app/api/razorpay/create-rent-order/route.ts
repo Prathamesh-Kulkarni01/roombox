@@ -86,7 +86,15 @@ export async function POST(req: NextRequest) {
 
     const guest = guestDoc.data() as Guest;
 
-    const amountInPaise = amount * 100;
+    // 4. Validate Amount
+    // Ensure the guest is not overpaying (unless they want to, but we keep it safe)
+    // We allow a small buffer (1 INR) for rounding issues or currency conversion PAise logic
+    const outstandingBalance = guest.balance || 0;
+    if (amount > (outstandingBalance + 1)) {
+      return badRequest(`Requested amount (₹${amount}) exceeds outstanding balance (₹${outstandingBalance}).`);
+    }
+
+    const amountInPaise = Math.round(amount * 100);
     const commissionInPaise = Math.round(amountInPaise * COMMISSION_RATE);
 
     const options = {

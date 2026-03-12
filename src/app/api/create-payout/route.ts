@@ -1,6 +1,6 @@
-
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import axios from "axios";
+import { getVerifiedOwnerId } from "@/lib/auth-server";
 
 interface PayoutRequestBody {
   account_number: string;
@@ -12,8 +12,13 @@ interface PayoutRequestBody {
   notes?: Record<string, string>;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const { ownerId, error: authError } = await getVerifiedOwnerId(req);
+    if (!ownerId) {
+      return NextResponse.json({ error: authError || "Unauthorized" }, { status: 401 });
+    }
+
     // ✅ Parse request body
     const {
       fund_account_id,

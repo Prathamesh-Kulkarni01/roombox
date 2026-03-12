@@ -3,12 +3,10 @@
 
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
-import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../firebase'
-import type { User, PremiumFeatures, BillingDetails, BillingCycleDetails } from '../types'
+import type { User } from '../types'
 import { getAdminDb } from '../firebaseAdmin'
-import { PRICING_CONFIG } from '../mock-data'
 import { calculateOwnerBill } from './billingActions'
+import { getVerifiedOwnerIdFromHeaders } from '../auth-server'
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -20,11 +18,14 @@ const razorpay = new Razorpay({
 const BASE_PLAN_ID = process.env.RAZORPAY_BASE_PLAN_ID || 'plan_base_monthly';
 
 /**
- * Creates a base subscription for a new user on Razorpay.
+ * Creates a base subscription for the authenticated user on Razorpay.
  * This subscription has a ₹0 cost and serves as the anchor for monthly addons.
  */
-export async function createRazorpaySubscription(userId: string) {
+export async function createRazorpaySubscription() {
   try {
+    const { ownerId: userId, error: authError } = await getVerifiedOwnerIdFromHeaders();
+    if (!userId) return { success: false, error: authError || 'Unauthorized' };
+
     // Check if the base plan exists on Razorpay
     try {
        await razorpay.plans.fetch(BASE_PLAN_ID);
@@ -61,24 +62,26 @@ export async function verifySubscriptionPayment(data: {
   razorpay_payment_id: string
   razorpay_subscription_id: string
   razorpay_signature: string
-  userId: string
 }) {
-  const { userId, razorpay_subscription_id, razorpay_payment_id, razorpay_signature } = data;
+  const { razorpay_subscription_id, razorpay_payment_id, razorpay_signature } = data;
   
-  const generated_signature = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
-    .update(razorpay_payment_id + '|' + razorpay_subscription_id)
-    .digest('hex');
-
-  if (generated_signature !== razorpay_signature) {
-    return { success: false, error: 'Payment verification failed. Signature mismatch.' };
-  }
-
-  // Signature is valid, update user's subscription in Firestore
   try {
+    const { ownerId: userId, error: authError } = await getVerifiedOwnerIdFromHeaders();
+    if (!userId) return { success: false, error: authError || 'Unauthorized' };
+
+    const generated_signature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .update(razorpay_payment_id + '|' + razorpay_subscription_id)
+      .digest('hex');
+
+    if (generated_signature !== razorpay_signature) {
+      return { success: false, error: 'Payment verification failed. Signature mismatch.' };
+    }
+
+    // Signature is valid, update user's subscription in Firestore using Admin SDK
     const adminDb = await getAdminDb();
-    const userDocRef = doc(adminDb, 'users', userId);
-    await updateDoc(userDocRef, {
+    const userDocRef = adminDb.collection('users').doc(userId);
+    await userDocRef.update({
         'subscription.status': 'active',
         'subscription.planId': 'pro',
         'subscription.razorpay_subscription_id': razorpay_subscription_id,

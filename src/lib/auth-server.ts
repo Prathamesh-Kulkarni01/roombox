@@ -1,11 +1,19 @@
 
 import { NextRequest } from 'next/server';
+import { headers } from 'next/headers';
 import { auth } from './firebaseAdmin';
 import { PlanName, SubscriptionStatus } from './types';
 
-export async function getUserIdFromRequest(req: NextRequest): Promise<string | null> {
+export async function getUserIdFromRequest(req?: NextRequest): Promise<string | null> {
     try {
-        const authHeader = req.headers.get('Authorization');
+        let authHeader: string | null = null;
+        if (req) {
+            authHeader = req.headers.get('Authorization');
+        } else {
+            const headerList = await headers();
+            authHeader = headerList.get('Authorization');
+        }
+
         if (!authHeader?.startsWith('Bearer ')) {
             // Fallback to checking for a cookie if needed, but the user specifically mentioned auth token
             return null;
@@ -44,7 +52,7 @@ import { getAdminDb } from './firebaseAdmin';
  * For Owners: returns their own UID as ownerId.
  * For Staff/Tenants: returns their associated ownerId.
  */
-export async function getVerifiedOwnerId(req: NextRequest): Promise<{
+export async function getVerifiedOwnerId(req?: NextRequest): Promise<{
     ownerId: string | null,
     userId?: string,
     role?: string,
@@ -105,4 +113,11 @@ export async function getVerifiedOwnerId(req: NextRequest): Promise<{
         console.error('[AuthServer] Error fetching user data:', error);
         return { ownerId: null, error: 'Internal Server Error during auth verification' };
     }
+}
+
+/**
+ * Server Action version of getVerifiedOwnerId.
+ */
+export async function getVerifiedOwnerIdFromHeaders() {
+    return getVerifiedOwnerId();
 }

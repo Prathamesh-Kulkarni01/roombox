@@ -452,6 +452,7 @@ export const {
     // Guests (via /api/guests)
     useGetGuestsQuery,
     useUpdateGuestMutation,
+    useTransferGuestMutation,
     useAddGuestMutation,
     useInitiateGuestExitMutation,
     useVacateGuestMutation,

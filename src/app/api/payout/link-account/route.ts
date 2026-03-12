@@ -1,8 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
 import Razorpay from "razorpay";
+import { User } from '@/lib/types';
+
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+const RAZORPAY_ENV = process.env.RAZORPAY_ENV || 'test';
 
 export async function POST(req: NextRequest) {
-  const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_ENV } = process.env;
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
     return NextResponse.json(
       { error: "Server misconfiguration: Razorpay keys missing." },
@@ -10,36 +16,47 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body;
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+    const { ownerId: verifiedOwnerId, error: authError } = await getVerifiedOwnerId(req);
+    
+    if (!verifiedOwnerId) {
+      return NextResponse.json({ error: authError || "Unauthorized" }, { status: 401 });
+    }
 
-  const { owner, accountDetails } = body;
-  if (!owner || !accountDetails) {
-    return NextResponse.json({ error: "Missing owner or accountDetails" }, { status: 400 });
-  }
+    const body = await req.json();
+    const { accountDetails } = body;
 
-  if (!["bank_account", "vpa"].includes(accountDetails.payoutMethod)) {
-    return NextResponse.json({ error: "Invalid payout method" }, { status: 400 });
-  }
+    if (!accountDetails) {
+      return NextResponse.json({ error: "Missing accountDetails" }, { status: 400 });
+    }
 
-  const isTest = RAZORPAY_ENV === "test"||true;
+    if (!["bank_account", "vpa"].includes(accountDetails.payoutMethod)) {
+      return NextResponse.json({ error: "Invalid payout method" }, { status: 400 });
+    }
 
-  try {
+    const db = await getAdminDb();
+    const ownerDoc = await db.collection('users').doc(verifiedOwnerId).get();
+    
+    if (!ownerDoc.exists) {
+      return NextResponse.json({ error: "Owner not found" }, { status: 404 });
+    }
+
+    const owner = ownerDoc.data() as User;
+    const isTest = RAZORPAY_ENV === "test";
+
     const razorpay = new Razorpay({
       key_id: RAZORPAY_KEY_ID,
       key_secret: RAZORPAY_KEY_SECRET,
     });
+
+    const accounts = razorpay.accounts as any;
 
     // 1️⃣ Prepare Linked Account Payload
     const linkedAccountPayload: any = {
       name: accountDetails.payoutMethod === "vpa"
         ? `UPI for ${owner.name}`
         : accountDetails.name || owner.name,
-      email: owner.email || `test_${Date.now()}@example.com`,
+      email: owner.email || `owner_${verifiedOwnerId}@example.com`,
       contact: owner.phone || "9999999999",
       type: "individual",
       tnc_accepted: true,
@@ -48,16 +65,14 @@ export async function POST(req: NextRequest) {
         business_type: "individual",
       },
     };
-    console.log({ linkedAccountPayload });
 
-    const linkedAccount = await razorpay.accounts.create(linkedAccountPayload);
-    console.log({ linkedAccount });
+    const linkedAccount = await accounts.create(linkedAccountPayload);
     if (!linkedAccount?.id) throw new Error("Failed to create linked account.");
 
     // 2️⃣ Stakeholder
     const stakeholderPayload: any = {
       name: owner.name,
-      email: owner.email || `test_${Date.now()}@example.com`,
+      email: owner.email || `owner_${verifiedOwnerId}@example.com`,
       phone: owner.phone || "9999999999",
       relationship: { director: true, executive: true },
       kyc: isTest
@@ -69,13 +84,13 @@ export async function POST(req: NextRequest) {
           },
       percentage_ownership: 100,
     };
-    const stakeholder = await razorpay.accounts.createStakeholder(linkedAccount.id, stakeholderPayload);
+    const stakeholder = await accounts.createStakeholder(linkedAccount.id, stakeholderPayload);
 
     // 3️⃣ Request Route Product
-    await razorpay.accounts.requestProductConfiguration(linkedAccount.id, { product: "route", tnc_accepted: true });
+    await accounts.requestProductConfiguration(linkedAccount.id, { product: "route", tnc_accepted: true });
 
     // 4️⃣ Configure Route Product
-    const productConfigUpdate = await razorpay.accounts.updateProductConfiguration(
+    const productConfigUpdate = await accounts.updateProductConfiguration(
       linkedAccount.id,
       "route",
       accountDetails.payoutMethod === "vpa"

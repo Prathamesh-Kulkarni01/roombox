@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { z } from 'zod';
 import shortid from 'shortid';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { unauthorized, badRequest } from '@/lib/api/apiError';
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
@@ -10,28 +12,30 @@ const razorpay = new Razorpay({
 });
 
 const rechargeRequestSchema = z.object({
-  ownerId: z.string(),
   amount: z.number().min(100, "Minimum recharge is ₹100."), // Min recharge amount
 });
 
 export async function POST(req: NextRequest) {
   try {
+    const { ownerId: verifiedOwnerId, error: authError } = await getVerifiedOwnerId(req);
+    if (!verifiedOwnerId) return unauthorized(authError);
+
     const body = await req.json();
     const validation = rechargeRequestSchema.safeParse(body);
     if (!validation.success) {
-      return NextResponse.json({ success: false, error: 'Invalid request payload.' }, { status: 400 });
+      return badRequest('Invalid request: amount must be at least ₹100.');
     }
 
-    const { ownerId, amount } = validation.data;
-    const amountInPaise = amount * 100;
+    const { amount } = validation.data;
+    const amountInPaise = Math.round(amount * 100);
 
     const options = {
       amount: amountInPaise,
       currency: "INR",
-      receipt: `recharge_${ownerId}_${shortid.generate()}`,
+      receipt: `recharge_${verifiedOwnerId}_${shortid.generate()}`,
       notes: {
         type: 'whatsapp_recharge',
-        ownerId,
+        ownerId: verifiedOwnerId,
       },
     };
     
