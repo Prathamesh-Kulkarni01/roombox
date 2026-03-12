@@ -11,7 +11,7 @@ import { calculateFirstDueDate } from '@/lib/utils';
 import { FieldValue } from 'firebase-admin/firestore';
 
 
-const WEBHOOK_SECRET = process.env.RAZORPAY_RENT_WEBHOOK_SECRET;
+const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
 export async function POST(req: NextRequest) {
     if (!WEBHOOK_SECRET) {
