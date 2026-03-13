@@ -74,7 +74,9 @@ async function runAudit() {
             const simDate = addMonths(startDate, month); // End of month or start of next
             try {
                 await TenantService.reconcileRentCycle(db as any, ownerId, t.id, simDate.toISOString());
-            } catch (e) { /* ignore if vacated */ }
+            } catch (e) {
+                console.error(`Audit Reconcile Error for ${t.id}:`, e);
+            }
         }
 
         // 2. Simulate Payments

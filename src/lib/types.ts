@@ -248,6 +248,7 @@ export interface Guest {
   isVacated: boolean; // True if the guest has permanently left the PG
   ledger: LedgerEntry[];
   documents?: SubmittedKycDocument[];
+  paymentHistory: any[]; // History of payments recorded
   payments?: Payment[]; // For tracking manual/offline payment submissions
   lastPaymentDate?: string;
   schemaVersion?: number;

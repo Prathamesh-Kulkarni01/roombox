@@ -8,21 +8,16 @@
  * 4. Rent Reminders & Ledger Accounting
  */
 
-import * as admin from 'firebase-admin';
 import { PropertyService } from '../src/services/propertyService';
 import { TenantService } from '../src/services/tenantService';
 import { getReminderForGuest } from '../src/lib/reminder-logic';
 import { Guest } from '../src/lib/types';
-
-// ─── Setup ───────────────────────────────────────────────────────────────────
-
-if (!admin.apps.length) {
-    admin.initializeApp({ projectId: 'roombox-test' });
-}
-const db = admin.firestore();
+import { getAdminDb } from '../src/lib/firebaseAdmin';
+import { Firestore } from 'firebase-admin/firestore';
 
 async function runAudit() {
     console.log('\n🚀 Starting Owner Journey Audit Simulation...');
+    const db = await getAdminDb();
 
     // 0. Cleanup previous runs for this phone
     console.log('--- Phase 0: Cleanup ---');
@@ -90,7 +85,7 @@ async function runAudit() {
             rentCycleValue: 1
         };
 
-        const guest = await TenantService.onboardTenant(db, db, tenantInput);
+        const { guest } = await TenantService.onboardTenant(db, db, tenantInput);
         console.log(`✅ Tenant Onboarded: ${guest.name} (${guest.id})`);
 
         // Final verify PG occupancy
@@ -154,17 +149,17 @@ async function runAudit() {
 
         // --- 6. Cleanup ---
         console.log('\n🧹 [SKIPPED] Cleaning up test data for tenant audit...');
-        // await cleanup(TEST_OWNER_ID);
+        // await cleanup(db, TEST_OWNER_ID);
         console.log('✨ Audit Complete. Data seeded for Step 3.');
 
     } catch (err) {
         console.error('\n❌ Audit Failed:', err);
-        // await cleanup(TEST_OWNER_ID);
+        // await cleanup(db, TEST_OWNER_ID);
         process.exit(1);
     }
 }
 
-async function cleanup(ownerId: string) {
+async function cleanup(db: Firestore, ownerId: string) {
     const guests = await db.collection('users_data').doc(ownerId).collection('guests').get();
     const pgs = await db.collection('users_data').doc(ownerId).collection('pgs').get();
     const complaints = await db.collection('users_data').doc(ownerId).collection('complaints').get();

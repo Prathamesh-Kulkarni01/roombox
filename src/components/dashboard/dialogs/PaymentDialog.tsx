@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import type { Guest, LedgerEntry } from "@/lib/types"
 import { produce } from "immer";
-import { Loader2 } from "lucide-react"
+import { Loader2, Ghost } from "lucide-react"
 
 type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setIsPaymentDialogOpen' | 'selectedGuestForPayment' | 'paymentForm' | 'handlePaymentSubmit' | 'isRecordingPayment'>
 
@@ -112,11 +112,14 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
                       <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1">
                         <FormItem className="flex items-center space-x-2">
                           <FormControl><RadioGroupItem value="numeric" id="pay-numeric" /></FormControl>
-                          <FormLabel htmlFor="pay-numeric" className="font-normal cursor-pointer">Numeric (₹)</FormLabel>
+                          <FormLabel htmlFor="pay-numeric" className="font-normal cursor-pointer">Cash/Numeric (₹)</FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-2">
                           <FormControl><RadioGroupItem value="symbolic" id="pay-symbolic" /></FormControl>
-                          <FormLabel htmlFor="pay-symbolic" className="font-normal cursor-pointer">Special (XXX)</FormLabel>
+                          <FormLabel htmlFor="pay-symbolic" className="font-normal cursor-pointer flex items-center gap-1.5">
+                            <Ghost className="w-3.5 h-3.5" />
+                            Ghost Unit
+                          </FormLabel>
                         </FormItem>
                       </RadioGroup>
                     </FormControl>

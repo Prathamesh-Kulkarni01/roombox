@@ -62,6 +62,7 @@ export function runReconciliationLogic(
     if (!draft.ledger) {
       draft.ledger = [];
     }
+    const currentAmountType = draft.amountType || 'numeric';
     let currentDueDate = parseISO(draft.dueDate);
 
     for (let i = 0; i < cyclesToProcess; i++) {
@@ -70,9 +71,9 @@ export function runReconciliationLogic(
         date: currentDueDate.toISOString(),
         type: 'debit',
         description: `Rent for Cycle Starting ${format(currentDueDate, 'do MMM')}`,
-        amount: draft.amountType === 'symbolic' ? 0 : draft.rentAmount,
-        amountType: draft.amountType,
-        symbolicValue: draft.amountType === 'symbolic' ? draft.symbolicRentValue : undefined,
+        amount: currentAmountType === 'symbolic' ? 0 : draft.rentAmount,
+        amountType: currentAmountType,
+        ...(currentAmountType === 'symbolic' && draft.symbolicRentValue ? { symbolicValue: draft.symbolicRentValue } : {}),
       };
       draft.ledger.push(rentEntry);
 

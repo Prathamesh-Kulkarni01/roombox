@@ -4,16 +4,9 @@
  * Verifies the Tenant Transfer logic across 10 critical financial scenarios.
  */
 
-import * as admin from 'firebase-admin';
+import { getAdminDb } from '../src/lib/firebaseAdmin';
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import { TenantService } from '../src/services/tenantService';
-
-// --- Emulator Config ---
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-if (!admin.apps.length) {
-    admin.initializeApp({ projectId: 'roombox-test' });
-}
-const db: Firestore = admin.firestore();
 
 type TestResult = { name: string; pass: boolean; details?: any };
 const results: TestResult[] = [];
@@ -23,7 +16,7 @@ function record(name: string, pass: boolean, details?: any) {
     console.log(`${pass ? '[PASS]' : '[FAIL]'} ${name}${details ? ' : ' + JSON.stringify(details) : ''}`);
 }
 
-async function setupTestEnvironment() {
+async function setupTestEnvironment(db: Firestore) {
     const ownerId = 'owner-test';
     const pgId1 = 'pg-alpha';
     const pgId2 = 'pg-beta';
@@ -46,7 +39,8 @@ async function setupTestEnvironment() {
 }
 
 async function runTests() {
-    let env = await setupTestEnvironment();
+    const db = await getAdminDb();
+    let env = await setupTestEnvironment(db);
 
     // SCENARIO 1: Basic Transfer with Pending Balance
     console.log('\n--- Scenario 1: Pending Balance Transfer ---');
@@ -70,7 +64,7 @@ async function runTests() {
     record('S1: Bed Updated', g1?.bedId === `b3-${env.pgId1}`);
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 2: Transfer with Deposit Increase
     console.log('\n--- Scenario 2: Deposit Upgrade ---');
@@ -92,7 +86,7 @@ async function runTests() {
     record('S2: Cross-PG update', g2?.pgId === env.pgId2);
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 3: Mid-Month Transfer
     console.log('\n--- Scenario 3: Mid-Month (15 Days) Transition ---');
@@ -117,7 +111,7 @@ async function runTests() {
     record('S3: Move documented', g3?.ledger.some((l: any) => l.description.includes('TRANSFER: Moved from')));
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 4: Deposit Decrease
     console.log('\n--- Scenario 4: Deposit Downgrade ---');
@@ -138,7 +132,7 @@ async function runTests() {
     record('S4: Deposit Credit applied', g4?.balance === -5000, { actual: g4?.balance });
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 5: Overpaid Tenant
     console.log('\n--- Scenario 5: Credit Balance Move ---');
@@ -159,7 +153,7 @@ async function runTests() {
     record('S5: Credit stayed active', g5?.balance === -2000, { actual: g5?.balance });
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 6: Same PG Room Change (Lateral Move)
     console.log('\n--- Scenario 6: Same PG Lateral Move ---');
@@ -181,7 +175,7 @@ async function runTests() {
     record('S6: Balance remains zero', g6?.balance === 0, { actual: g6?.balance });
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 7: Occupation Conflict Check (Negative)
     console.log('\n--- Scenario 7: Occupational Conflict ---');
@@ -211,7 +205,7 @@ async function runTests() {
     }
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 8: Full Deposit Refund Move
     console.log('\n--- Scenario 8: Zero Deposit Refund ---');
@@ -229,7 +223,7 @@ async function runTests() {
     record('S8: New Deposit is 0', g8?.depositAmount === 0);
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 9: Cross-PG Move with Balance
     console.log('\n--- Scenario 9: Cross-PG Balance Migration ---');
@@ -247,7 +241,7 @@ async function runTests() {
     record('S9: Cross-PG balance correct (7400)', g9?.balance === 7400, { actual: g9?.balance });
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 10: History Consistency
     console.log('\n--- Scenario 10: Data Integrity (History) ---');
@@ -272,7 +266,7 @@ async function runTests() {
     record('S10: New bed occupied', bed1Beta.guestId === guestId10);
 
     // RESET ENV
-    env = await setupTestEnvironment();
+    env = await setupTestEnvironment(db);
 
     // SCENARIO 11: Mid-Month Rent Proration
     console.log('\n--- Scenario 11: Mid-Month Proration ---');

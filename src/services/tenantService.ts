@@ -241,14 +241,14 @@ export class TenantService {
                 symbolicDepositValue: amountType === 'symbolic' ? (symbolicDepositValue || 'XXX') : null,
                 balance: initialBalance,
                 paidAmount: 0,
-                rentStatus: initialBalance > 0 ? 'unpaid' : 'paid',
+                rentStatus: (initialBalance > 0 || (initialLedger.length > 0 && amountType === 'symbolic')) ? 'unpaid' : 'paid',
                 paymentStatus: initialBalance > 0 ? 'pending' : 'paid',
                 isVacated: false,
                 kycStatus: 'not_submitted',
                 documents: [],
                 ledger: initialLedger,
                 paymentHistory: [],
-                dueDate: (dueDate ? new Date(dueDate) : nextDueDate).toISOString(),
+                dueDate: nextDueDate.toISOString(),
                 joinDate: startOfCycle.toISOString(),
                 moveInDate: startOfCycle.toISOString(),
                 rentCycleUnit: rentCycleUnit || 'months',
@@ -909,8 +909,8 @@ export class TenantService {
             type: 'credit',
             description: `${notes || 'Rent Payment'} (${paymentMode})`,
             amount: amountType === 'symbolic' ? 0 : Number(amount),
-            amountType,
-            symbolicValue
+            amountType: amountType || 'numeric',
+            ...(amountType === 'symbolic' && symbolicValue ? { symbolicValue } : {})
         };
 
         console.log(`[TenantService.recordPayment] Recording payment (transactional) for ${resolvedGuestId}`);
@@ -931,8 +931,8 @@ export class TenantService {
                         id: `pay-${Date.now()}`,
                         date: now.toISOString(),
                         amount: amountType === 'symbolic' ? 0 : Number(amount),
-                        amountType,
-                        symbolicValue,
+                        amountType: amountType || 'numeric',
+                        ...(amountType === 'symbolic' && symbolicValue ? { symbolicValue } : {}),
                         method: paymentMode,
                         forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
                     },
@@ -949,13 +949,13 @@ export class TenantService {
             const totalSymbolicCredits = reconciledGuest.ledger.filter(e => e.type === 'credit' && e.amountType === 'symbolic').length;
             const symbolicBalanceUnits = totalSymbolicDebits - totalSymbolicCredits;
 
-            const hasRemainder = Math.abs((totalCredits % reconciledGuest.rentAmount)) > 0.01 &&
-                Math.abs((totalCredits % reconciledGuest.rentAmount) - reconciledGuest.rentAmount) > 0.01;
+            const isPartiallyPaid = (totalCredits > 0 || totalSymbolicCredits > 0);
+            const hasRemainingDebt = (newBalance > 0 || symbolicBalanceUnits > 0);
 
             const finalGuest = {
                 ...reconciledGuest,
                 balance: newBalance,
-                rentStatus: (newBalance > 0 || symbolicBalanceUnits > 0 ? (hasRemainder || totalSymbolicCredits > 0 ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial'
+                rentStatus: (hasRemainingDebt ? (isPartiallyPaid ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial'
             };
 
             txn.set(guestRef, finalGuest, { merge: true });
@@ -1197,11 +1197,16 @@ export class TenantService {
         if (!snap.exists) throw new Error('Guest not found');
         const guest = snap.data() as Guest;
         const now = mockDate ? new Date(mockDate) : new Date();
-        const { guest: reconciledGuest, cyclesProcessed } = runReconciliationLogic(guest, now);
-        if (cyclesProcessed > 0 || JSON.stringify(guest) !== JSON.stringify(reconciledGuest)) {
-            await guestRef.set(reconciledGuest, { merge: true });
+        try {
+            const { guest: reconciledGuest, cyclesProcessed } = runReconciliationLogic(guest, now);
+            if (cyclesProcessed > 0 || JSON.stringify(guest) !== JSON.stringify(reconciledGuest)) {
+                await guestRef.set(reconciledGuest, { merge: true });
+            }
+            return { guest: reconciledGuest, cyclesProcessed };
+        } catch (err) {
+            console.error(`[ReconcileDebug] Error for ${guestId}:`, err);
+            throw err;
         }
-        return { guest: reconciledGuest, cyclesProcessed };
     }
 
     /**

@@ -11,8 +11,8 @@ import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canAccess } from '@/lib/permissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RentCycleUnit } from "@/lib/types"
-import { Loader2 } from "lucide-react"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Loader2, Ghost, Info } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 
 type AddGuestDialogProps = Pick<UseDashboardReturn, 'isAddGuestDialogOpen' | 'setIsAddGuestDialogOpen' | 'selectedBedForGuestAdd' | 'addGuestForm' | 'handleAddGuestSubmit' | 'isAddingGuest'>
 
@@ -53,21 +53,33 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
                 )} />
               </div>
               <FormField control={addGuestForm.control} name="amountType" render={({ field }) => (
-                <FormItem className="space-y-3">
-                  <FormLabel>Amount Mode</FormLabel>
-                  <FormControl>
-                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1">
-                      <FormItem className="flex items-center space-x-2">
-                        <FormControl><RadioGroupItem value="numeric" id="numeric-mode" /></FormControl>
-                        <FormLabel htmlFor="numeric-mode" className="font-normal cursor-pointer">Numeric (₹)</FormLabel>
-                      </FormItem>
-                      <FormItem className="flex items-center space-x-2">
-                        <FormControl><RadioGroupItem value="symbolic" id="symbolic-mode" /></FormControl>
-                        <FormLabel htmlFor="symbolic-mode" className="font-normal cursor-pointer">Special (XXX)</FormLabel>
-                      </FormItem>
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
+                <FormItem className="flex flex-col gap-2 p-4 rounded-2xl bg-muted/30 border border-primary/5">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <FormLabel className="flex items-center gap-2 text-base font-bold">
+                        <Ghost className="w-4 h-4 text-purple-600" />
+                        Ghost Mode
+                      </FormLabel>
+                      <p className="text-[11px] text-muted-foreground leading-tight max-w-[200px]">
+                        Hide actual money amounts and use custom symbols like XXX or UNITS.
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value === 'symbolic'}
+                        onCheckedChange={(checked) => field.onChange(checked ? 'symbolic' : 'numeric')}
+                      />
+                    </FormControl>
+                  </div>
+                  
+                  {field.value === 'symbolic' && (
+                    <div className="flex items-start gap-2 mt-2 p-2 rounded-lg bg-purple-500/5 border border-purple-500/10 text-[10px] text-purple-700/80 leading-normal">
+                      <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      <span>
+                        <strong>Why use this?</strong> If you prefer tracking rent in special units or want to keep financial numbers private from staff/system logs, Ghost Mode is for you.
+                      </span>
+                    </div>
+                  )}
                 </FormItem>
               )} />
 
@@ -83,10 +95,18 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField control={addGuestForm.control} name="symbolicRentValue" render={({ field }) => (
-                    <FormItem><FormLabel>Rent Unit Name</FormLabel><FormControl><Input placeholder="e.g., XXX" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Rent Label (Ghost Mode)</FormLabel>
+                      <FormControl><Input placeholder="e.g., XXX or 1 UNIT" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={addGuestForm.control} name="symbolicDepositValue" render={({ field }) => (
-                    <FormItem><FormLabel>Deposit Unit Name</FormLabel><FormControl><Input placeholder="e.g., XXX" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Deposit Label (Ghost Mode)</FormLabel>
+                      <FormControl><Input placeholder="e.g., XXX or 1 UNIT" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                 </div>
               )}
