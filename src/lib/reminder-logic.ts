@@ -8,16 +8,31 @@ interface ReminderResult {
 }
 
 function getOldestUnpaidDate(guest: Guest): Date | null {
-  if (!guest.balance || guest.balance <= 0) return null;
+  const isSymbolic = guest.amountType === 'symbolic';
+  const hasNumericBalance = guest.balance > 0;
+  const hasSymbolicBalance = isSymbolic && guest.symbolicBalance && guest.symbolicBalance !== '0';
+
+  if (!hasNumericBalance && !hasSymbolicBalance) return null;
+
   const debits = (guest.ledger || []).filter(e => e.type === 'debit').sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const credits = (guest.ledger || []).filter(e => e.type === 'credit');
-  let totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
+  
+  let totalCredits = credits.filter(e => e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
+  let totalSymbolicCredits = credits.filter(e => e.amountType === 'symbolic').length;
 
   for (const debit of debits) {
-    if (totalCredits >= debit.amount) {
-      totalCredits -= debit.amount;
+    if (debit.amountType === 'symbolic') {
+      if (totalSymbolicCredits >= 1) {
+        totalSymbolicCredits -= 1;
+      } else {
+        return new Date(debit.date);
+      }
     } else {
-      return new Date(debit.date);
+      if (totalCredits >= debit.amount) {
+        totalCredits -= debit.amount;
+      } else {
+        return new Date(debit.date);
+      }
     }
   }
   return null;
@@ -67,6 +82,13 @@ export function getReminderForGuest(guest: Guest, now: Date = new Date()): Remin
   let body = '';
   let unitString = nextDueCheck.unitString;
 
+  const rentStr = guest.amountType === 'symbolic' ? (guest.symbolicRentValue || 'XXX') : `₹${guest.rentAmount}`;
+  const hasNumericBalance = guest.balance > 0;
+  const hasSymbolicBalance = guest.amountType === 'symbolic' && guest.symbolicBalance && guest.symbolicBalance !== '0';
+  const balanceStr = guest.amountType === 'symbolic' 
+    ? guest.symbolicBalance 
+    : `₹${guest.balance}`;
+
   // 1. Check Upcoming Reminders (T-3, T-1, T0) based on nextDueDate
   if (nextDueCheck.checkValue === 3) {
     type = 'T-3';
@@ -74,22 +96,22 @@ export function getReminderForGuest(guest: Guest, now: Date = new Date()): Remin
   } else if (nextDueCheck.checkValue === 1) {
     type = 'T-1';
     const dueStr = unitString === 'day(s)' ? '*Tomorrow*' : `in 1 ${unitString}`;
-    body = `Hello ${guest.name},\nYour rent of ₹${guest.rentAmount} for ${guest.pgName || 'your PG'} is due ${dueStr}.\nPlease pay on time to avoid late fees.`;
+    body = `Hello ${guest.name},\nYour rent of ${rentStr} for ${guest.pgName || 'your PG'} is due ${dueStr}.\nPlease pay on time to avoid late fees.`;
   } else if (nextDueCheck.checkValue === 0) {
     type = 'T0';
     const todayStr = unitString === 'day(s)' ? '*TODAY*' : '*NOW*';
-    body = `Hello ${guest.name},\nThis is a gentle reminder that your rent of ₹${guest.rentAmount} for ${guest.pgName || 'your PG'} is due ${todayStr}.\nPlease pay using the link below.`;
+    body = `Hello ${guest.name},\nThis is a gentle reminder that your rent of ${rentStr} for ${guest.pgName || 'your PG'} is due ${todayStr}.\nTotal Due: ${balanceStr}\nPlease pay using the link below.`;
   }
 
   // 2. Check Overdue Reminders (T+2) based on Oldest Unpaid Date
-  if (!type && guest.balance > 0) {
+  if (!type && (hasNumericBalance || hasSymbolicBalance)) {
     const oldestUnpaidDate = getOldestUnpaidDate(guest);
     if (oldestUnpaidDate) {
       const overdueCheck = getCheckValue(oldestUnpaidDate, guest.rentCycleUnit || 'months');
       if (overdueCheck.checkValue === -2) {
         type = 'T+2';
         unitString = overdueCheck.unitString;
-        body = `⚠️ Hello ${guest.name},\nYour rent payment is *2 ${unitString} overdue*.\nDue Date was: ${oldestUnpaidDate.toLocaleDateString()}.\nPlease clear your dues immediately.`;
+        body = `⚠️ Hello ${guest.name},\nYour rent payment is *2 ${unitString} overdue*.\nDue Date was: ${oldestUnpaidDate.toLocaleDateString()}.\nTotal Outstanding: ${balanceStr}\nPlease clear your dues immediately.`;
       }
     }
   }

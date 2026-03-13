@@ -340,6 +340,8 @@ export const api = createApi({
         recordGuestPayment: builder.mutation<{ success: boolean; guest: Guest }, {
             guest: Guest;
             amount: number;
+            amountType?: 'numeric' | 'symbolic';
+            symbolicValue?: string;
             method: 'cash' | 'upi' | 'in-app';
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'record-payment' } }),
@@ -360,6 +362,8 @@ export const api = createApi({
         recordPayment: builder.mutation<PaymentResponse, {
             guestId: string;
             amount: number;
+            amountType?: 'numeric' | 'symbolic';
+            symbolicValue?: string;
             paymentMode?: string;
             notes?: string;
         }>({

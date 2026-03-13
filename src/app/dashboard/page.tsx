@@ -70,11 +70,12 @@ export default function DashboardPage() {
     const totalOccupancy = relevantGuests.filter((g: Guest) => !g.isVacated).length;
     const totalBeds = relevantPgs.reduce((sum: number, pg: PG) => sum + (pg.totalBeds || 0), 0);
 
-    const monthlyRevenue = relevantGuests
-      .reduce((sum: number, g: Guest) => {
+    const revenue = relevantGuests
+      .reduce((acc, g: Guest) => {
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
+        
         const collectedThisMonth = (g.ledger || [])
           .filter(e => {
             if (e.type !== 'credit') return false;
@@ -82,39 +83,50 @@ export default function DashboardPage() {
             return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
           })
           .reduce((s, e) => s + (e.amount || 0), 0);
-        return sum + collectedThisMonth;
-      }, 0);
+        
+        const collectedToday = (g.ledger || [])
+          .filter(e => {
+            const date = new Date(e.date);
+            const today = new Date();
+            return e.type === 'credit' && 
+                   date.getDate() === today.getDate() && 
+                   date.getMonth() === today.getMonth() && 
+                   date.getFullYear() === today.getFullYear();
+          })
+          .reduce((s, e) => s + (e.amount || 0), 0);
+
+        const breakdown = getBalanceBreakdown(g);
+        const newThisMonth = relevantGuests.filter((guest: Guest) => {
+          if (!guest.moveInDate) return false;
+          const joinDate = new Date(guest.moveInDate);
+          const now = new Date();
+          return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
+        }).length;
+        
+        return {
+          collected: acc.collected + collectedThisMonth,
+          collectedToday: acc.collectedToday + collectedToday,
+          pending: acc.pending + breakdown.total,
+          symbolicPending: acc.symbolicPending + (breakdown.symbolicRent + breakdown.symbolicDeposit),
+          newThisMonth: acc.newThisMonth + newThisMonth,
+        };
+      }, { collected: 0, collectedToday: 0, pending: 0, symbolicPending: 0, newThisMonth: 0 });
 
     const openComplaintsCount = relevantComplaints.filter((c: Complaint) => c.status === 'open').length;
-
-    const pendingDues = relevantGuests
-      .reduce((sum: number, g: Guest) => {
-        const totalDebits = (g.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
-        const totalCredits = (g.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
-        const balance = totalDebits - totalCredits;
-        return sum + (balance > 0 ? balance : 0);
-      }, 0);
-
-    const newThisMonth = relevantGuests.filter((g: Guest) => {
-      if (!g.moveInDate) return false;
-      const joinDate = new Date(g.moveInDate);
-      const now = new Date();
-      return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
-    }).length;
-
-    const rentCollectedToday = relevantGuests.reduce((sum, g: Guest) => {
-      const today = new Date().toDateString();
-      const todayPayments = (g.ledger || [])
-        .filter(e => e.type === 'credit' && new Date(e.date).toDateString() === today)
-        .reduce((s, e) => s + (e.amount || 0), 0);
-      return sum + todayPayments;
-    }, 0);
 
     return {
       occupancy: { total: totalBeds, occupied: totalOccupancy, newThisMonth },
       complaints: { active: openComplaintsCount, severity: openComplaintsCount > 0 ? 'High' : 'Normal' },
-      revenue: { collected: monthlyRevenue, expected: monthlyRevenue + pendingDues, collectedToday: rentCollectedToday },
-      pendingDues: { amount: pendingDues },
+      revenue: { 
+        collected: revenue.collected, 
+        expected: revenue.collected + revenue.pending, 
+        collectedToday: revenue.collectedToday,
+        symbolicPending: revenue.symbolicPending 
+      },
+      pendingDues: { 
+        amount: revenue.pending,
+        symbolicUnits: revenue.symbolicPending
+      },
     };
   }, [pgs, guests, complaints, selectedPgId]);
 
@@ -233,6 +245,7 @@ export default function DashboardPage() {
             <div className="pt-2">
               <PendingDuesCard 
                 amount={stats.pendingDues.amount}
+                symbolicUnits={stats.pendingDues.symbolicUnits}
                 onSendReminders={handleSendMassReminder}
               />
             </div>
@@ -260,16 +273,17 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           {(() => {
-                            const totalDebits = (guest.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
-                            const totalCredits = (guest.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
-                            const balance = totalDebits - totalCredits;
+                            const breakdown = getBalanceBreakdown(guest);
+                            const balance = breakdown.total;
+                            const hasSymbolic = breakdown.symbolicRent > 0 || breakdown.symbolicDeposit > 0;
 
-                            if (balance <= 0) {
+                            if (balance <= 0 && !hasSymbolic) {
                               return <span className="text-emerald-600 font-bold text-sm">₹{guest.rentAmount.toLocaleString('en-IN')}</span>;
                             } else {
                               return (
                                 <div className="flex flex-col items-end">
-                                  <span className="text-rose-600 font-black text-sm">₹{balance.toLocaleString('en-IN')} DUE</span>
+                                  {balance > 0 && <span className="text-rose-600 font-black text-sm">₹{balance.toLocaleString('en-IN')} DUE</span>}
+                                  {hasSymbolic && <span className="text-rose-600 font-black text-sm">{breakdown.symbolicRent + breakdown.symbolicDeposit} * {guest.symbolicRentValue || 'XXX'} DUE</span>}
                                   {formatBalanceBreakdown(guest) && (
                                     <span className="text-[10px] text-rose-600 font-bold uppercase tracking-tight">
                                       {formatBalanceBreakdown(guest)}

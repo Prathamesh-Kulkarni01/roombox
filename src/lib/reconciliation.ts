@@ -70,7 +70,9 @@ export function runReconciliationLogic(
         date: currentDueDate.toISOString(),
         type: 'debit',
         description: `Rent for Cycle Starting ${format(currentDueDate, 'do MMM')}`,
-        amount: draft.rentAmount,
+        amount: draft.amountType === 'symbolic' ? 0 : draft.rentAmount,
+        amountType: draft.amountType,
+        symbolicValue: draft.amountType === 'symbolic' ? draft.symbolicRentValue : undefined,
       };
       draft.ledger.push(rentEntry);
 
@@ -79,22 +81,36 @@ export function runReconciliationLogic(
 
     draft.dueDate = currentDueDate.toISOString();
 
-    const totalDebits = draft.ledger.filter((e) => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-    const totalCredits = draft.ledger.filter((e) => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-    // Round to 2 decimal places to avoid floating point issues (e.g. 0.000000001 showing as partial)
-    const balance = Number((totalDebits - totalCredits).toFixed(2));
+    const totalDebits = draft.ledger.filter((e) => e.type === 'debit' && e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
+    const totalCredits = draft.ledger.filter((e) => e.type === 'credit' && e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
+    
+    // Symbolic totals
+    const totalSymbolicDebits = draft.ledger.filter((e) => e.type === 'debit' && e.amountType === 'symbolic').length;
+    const totalSymbolicCredits = draft.ledger.filter((e) => e.type === 'credit' && e.amountType === 'symbolic').length;
+    const symbolicBalanceUnits = totalSymbolicDebits - totalSymbolicCredits;
 
+    const balance = Number((totalDebits - totalCredits).toFixed(2));
     draft.balance = balance;
 
+    // Construct symbolic balance string
+    const unit = draft.symbolicRentValue || 'XXX';
+    const symbolicParts = [];
+    if (symbolicBalanceUnits > 0) {
+      symbolicParts.push(symbolicBalanceUnits === 1 ? unit : `${symbolicBalanceUnits} * ${unit}`);
+    }
     if (balance > 0) {
-      // Improved logic: 
-      // It's 'unpaid' if the balance is exactly a multiple of the rent amount (meaning no partial payment made yet)
-      // or if total credits is zero.
-      const hasCredits = totalCredits > 0;
-      const hasRemainder = Math.abs((totalCredits % draft.rentAmount)) > 0.01 &&
-        Math.abs((totalCredits % draft.rentAmount) - draft.rentAmount) > 0.01;
+      symbolicParts.push(`${balance}`);
+    }
+    draft.symbolicBalance = symbolicParts.join(' + ');
 
-      draft.rentStatus = hasRemainder ? 'partial' : 'unpaid';
+    if (balance > 0 || symbolicBalanceUnits > 0) {
+      const hasCredits = (totalCredits > 0 || totalSymbolicCredits > 0);
+      
+      // For symbolic, reminder checks if exactly multiple of unit
+      // Since it's integer units, if units > 0 it might be partial if credits exist?
+      // Simplified: if there's a balance or symbolic balance, and no credits, it's unpaid. 
+      // If credits exist, it's partial.
+      draft.rentStatus = hasCredits ? 'partial' : 'unpaid';
     } else {
       draft.rentStatus = 'paid';
     }

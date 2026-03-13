@@ -8,15 +8,15 @@ import { BedDouble, ShieldAlert, Wallet, Clock, IndianRupee } from "lucide-react
 export interface DashboardStats {
   occupancy: { total: number, occupied: number, newThisMonth: number };
   complaints: { active: number, severity: 'High' | 'Normal' };
-  revenue: { collected: number, expected: number, collectedToday: number };
-  pendingDues: { amount: number };
+  revenue: { collected: number, expected: number, collectedToday: number, symbolicPending?: number };
+  pendingDues: { amount: number, symbolicUnits?: number };
 }
 
 interface StatsCardsProps {
   stats: DashboardStats;
 }
 
-export function PendingDuesCard({ amount, onSendReminders }: { amount: number, onSendReminders: () => void }) {
+export function PendingDuesCard({ amount, symbolicUnits, onSendReminders }: { amount: number, symbolicUnits?: number, onSendReminders: () => void }) {
   return (
     <Access feature="finances" action="view">
       <div className="bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20 border shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
@@ -26,7 +26,10 @@ export function PendingDuesCard({ amount, onSendReminders }: { amount: number, o
           </div>
           <div>
             <p className="text-xs font-bold text-red-600/80 dark:text-red-400/80 uppercase tracking-wider mb-0.5">Pending Dues</p>
-            <h3 className="text-2xl font-black text-red-600 dark:text-red-400">₹{amount.toLocaleString('en-IN')}</h3>
+            <h3 className="text-2xl font-black text-red-600 dark:text-red-400">
+              ₹{amount.toLocaleString('en-IN')}
+              {symbolicUnits && symbolicUnits > 0 ? ` + ${symbolicUnits} * XXX` : ''}
+            </h3>
           </div>
         </div>
         <Button variant="outline" onClick={onSendReminders} className="border-red-600/20 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 font-bold tracking-tight rounded-xl">SEND ALERTS</Button>

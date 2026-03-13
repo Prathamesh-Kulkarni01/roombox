@@ -1,5 +1,5 @@
 import { Guest, PG, Payment, Complaint, CURRENT_SCHEMA_VERSION } from './types';
-import { adminDb } from './firebaseAdmin';
+import { getAdminDb } from './firebaseAdmin';
 import { GuestSchema, PGSchema, PaymentSchema, ComplaintSchema } from './schema';
 import { z } from 'zod';
 
@@ -26,7 +26,7 @@ export async function lazyMigrateDocument<T extends Record<string, any>>(
             const updatedDoc = {
                 ...docData,
                 ...updates,
-            };
+            } as any;
 
             // Set schemaVersion
             updatedDoc.schemaVersion = CURRENT_SCHEMA_VERSION;
@@ -38,6 +38,7 @@ export async function lazyMigrateDocument<T extends Record<string, any>>(
             };
 
             // Perform the update
+            const adminDb = await getAdminDb();
             await adminDb.collection(collectionName).doc(docId).update(finalUpdates);
 
             return updatedDoc;
@@ -68,6 +69,10 @@ export function getSafeGuestData(guest: any, docId: string): Guest {
         depositAmount: guest.depositAmount ?? 0,
         rentAmount: guest.rentAmount ?? 0,
         rentStatus: guest.rentStatus ?? 'unpaid',
+        amountType: guest.amountType ?? 'numeric',
+        symbolicRentValue: guest.symbolicRentValue ?? 'XXX',
+        symbolicDepositValue: guest.symbolicDepositValue ?? 'XXX',
+        symbolicBalance: guest.symbolicBalance ?? '',
         schemaVersion: guest.schemaVersion ?? 0,
         kycStatus: guest.kycStatus ?? 'not-started',
         rentCycleUnit: guest.rentCycleUnit ?? 'months',
@@ -93,6 +98,8 @@ export function getSafePgData(pg: any, docId: string): PG {
 export function getSafePaymentData(payment: any, docId: string): Payment {
     const safeData = {
         ...payment,
+        amountType: payment.amountType ?? 'numeric',
+        symbolicValue: payment.symbolicValue ?? '',
         schemaVersion: payment.schemaVersion ?? 0,
     };
     return validateWithZod<Payment>(PaymentSchema, safeData, docId);

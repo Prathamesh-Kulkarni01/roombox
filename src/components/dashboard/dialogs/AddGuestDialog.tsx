@@ -12,6 +12,7 @@ import { canAccess } from '@/lib/permissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RentCycleUnit } from "@/lib/types"
 import { Loader2 } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 type AddGuestDialogProps = Pick<UseDashboardReturn, 'isAddGuestDialogOpen' | 'setIsAddGuestDialogOpen' | 'selectedBedForGuestAdd' | 'addGuestForm' | 'handleAddGuestSubmit' | 'isAddingGuest'>
 
@@ -51,14 +52,44 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
                   <FormItem><FormLabel>Email Address (Optional)</FormLabel><FormControl><Input type="email" placeholder="e.g., priya@example.com" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={addGuestForm.control} name="rentAmount" render={({ field }) => (
-                  <FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={addGuestForm.control} name="depositAmount" render={({ field }) => (
-                  <FormItem><FormLabel>Security Deposit (Optional)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
+              <FormField control={addGuestForm.control} name="amountType" render={({ field }) => (
+                <FormItem className="space-y-3">
+                  <FormLabel>Amount Mode</FormLabel>
+                  <FormControl>
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1">
+                      <FormItem className="flex items-center space-x-2">
+                        <FormControl><RadioGroupItem value="numeric" id="numeric-mode" /></FormControl>
+                        <FormLabel htmlFor="numeric-mode" className="font-normal cursor-pointer">Numeric (₹)</FormLabel>
+                      </FormItem>
+                      <FormItem className="flex items-center space-x-2">
+                        <FormControl><RadioGroupItem value="symbolic" id="symbolic-mode" /></FormControl>
+                        <FormLabel htmlFor="symbolic-mode" className="font-normal cursor-pointer">Special (XXX)</FormLabel>
+                      </FormItem>
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
+              {addGuestForm.watch('amountType') === 'numeric' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={addGuestForm.control} name="rentAmount" render={({ field }) => (
+                    <FormItem><FormLabel>Monthly Rent</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={addGuestForm.control} name="depositAmount" render={({ field }) => (
+                    <FormItem><FormLabel>Security Deposit (Optional)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={addGuestForm.control} name="symbolicRentValue" render={({ field }) => (
+                    <FormItem><FormLabel>Rent Unit Name</FormLabel><FormControl><Input placeholder="e.g., XXX" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={addGuestForm.control} name="symbolicDepositValue" render={({ field }) => (
+                    <FormItem><FormLabel>Deposit Unit Name</FormLabel><FormControl><Input placeholder="e.g., XXX" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <FormField control={addGuestForm.control} name="rentCycleUnit" render={({ field }) => (

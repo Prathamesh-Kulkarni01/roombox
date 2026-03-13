@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export interface PWAConfig {
   name: string;
@@ -30,6 +30,9 @@ export interface Room {
   beds: Bed[];
   rent: number;
   deposit: number;
+  amountType?: 'numeric' | 'symbolic';
+  symbolicRentValue?: string; // e.g. "XXX"
+  symbolicDepositValue?: string; // e.g. "XXX"
   amenities?: string[];
   floorId: string;
   pgId: string;
@@ -116,6 +119,9 @@ export interface Payment {
   id: string; // razorpay payment id
   date: string;
   amount: number;
+  amountType?: 'numeric' | 'symbolic';
+  symbolicValue?: string; // e.g. "XXX"
+
   method: 'cash' | 'upi' | 'in-app';
   forMonth: string;
   notes?: string;
@@ -140,6 +146,9 @@ export interface LedgerEntry {
   type: 'debit' | 'credit';
   description: string;
   amount: number;
+  amountType?: 'numeric' | 'symbolic';
+  symbolicValue?: string; // e.g. "XXX"
+
   pgId?: string;
 }
 
@@ -213,6 +222,9 @@ export interface Guest {
   dueDate: string; // ISO string
   rentAmount: number;
   depositAmount: number;
+  amountType?: 'numeric' | 'symbolic';
+  symbolicRentValue?: string; // e.g. "XXX"
+  symbolicDepositValue?: string; // e.g. "XXX"
   kycStatus: 'not-started' | 'pending' | 'verified' | 'rejected';
   kycRejectReason?: string | null;
   moveInDate: string; // ISO string
@@ -235,6 +247,7 @@ export interface Guest {
   lastReminderSentAt?: string;
   lastReminderType?: 'T-3' | 'T-1' | 'T0' | 'T+2';
   balance: number;
+  symbolicBalance?: string; // e.g. "2 * XXX + 500"
   isOnboarded?: boolean;
 }
 

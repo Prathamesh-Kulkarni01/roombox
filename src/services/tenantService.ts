@@ -158,34 +158,63 @@ export class TenantService {
             // If a specific due date (day of month) is provided, use it as the anchor.
             // Otherwise, anchor to the join date.
             const anchorDay = Number(dueDate) || startOfCycle.getDate();
+            const amountType = input.amountType || 'numeric';
+            const symbolicRentValue = input.symbolicRentValue || 'XXX';
+            const symbolicDepositValue = input.symbolicDepositValue || 'XXX';
+
             const numericRent = Number(rentAmount) || 0;
             const numericDeposit = Number(deposit || 0);
 
             const initialLedger: LedgerEntry[] = [];
             let initialBalance = 0;
 
-            if (numericRent > 0) {
+            if (amountType === 'symbolic') {
                 initialLedger.push({
                     id: `rent-${Date.now()}-initial`,
                     date: startOfCycle.toISOString(),
                     type: 'debit',
                     description: `Rent for Cycle Starting ${format(startOfCycle, 'do MMM')}`,
-                    amount: numericRent,
+                    amount: 0,
+                    amountType: 'symbolic',
+                    symbolicValue: symbolicRentValue,
                     pgId: pgId
                 });
-                initialBalance += numericRent;
-            }
+                if (symbolicDepositValue) {
+                    initialLedger.push({
+                        id: `deposit-${Date.now()}-initial`,
+                        date: startOfCycle.toISOString(),
+                        type: 'debit',
+                        description: `Security Deposit`,
+                        amount: 0,
+                        amountType: 'symbolic',
+                        symbolicValue: symbolicDepositValue,
+                        pgId: pgId
+                    });
+                }
+            } else {
+                if (numericRent > 0) {
+                    initialLedger.push({
+                        id: `rent-${Date.now()}-initial`,
+                        date: startOfCycle.toISOString(),
+                        type: 'debit',
+                        description: `Rent for Cycle Starting ${format(startOfCycle, 'do MMM')}`,
+                        amount: numericRent,
+                        pgId: pgId
+                    });
+                    initialBalance += numericRent;
+                }
 
-            if (numericDeposit > 0) {
-                initialLedger.push({
-                    id: `deposit-${Date.now()}-initial`,
-                    date: startOfCycle.toISOString(),
-                    type: 'debit',
-                    description: `Security Deposit`,
-                    amount: numericDeposit,
-                    pgId: pgId
-                });
-                initialBalance += numericDeposit;
+                if (numericDeposit > 0) {
+                    initialLedger.push({
+                        id: `deposit-${Date.now()}-initial`,
+                        date: startOfCycle.toISOString(),
+                        type: 'debit',
+                        description: `Security Deposit`,
+                        amount: numericDeposit,
+                        pgId: pgId
+                    });
+                    initialBalance += numericDeposit;
+                }
             }
 
             const nextDueDate = calculateFirstDueDate(startOfCycle, rentCycleUnit || 'months', rentCycleValue || 1, anchorDay);
@@ -203,6 +232,9 @@ export class TenantService {
                 roomName: roomName || '',
                 rentAmount: numericRent,
                 depositAmount: numericDeposit,
+                amountType,
+                symbolicRentValue: amountType === 'symbolic' ? symbolicRentValue : undefined,
+                symbolicDepositValue: amountType === 'symbolic' ? symbolicDepositValue : undefined,
                 balance: initialBalance,
                 paidAmount: 0,
                 rentStatus: initialBalance > 0 ? 'unpaid' : 'paid',
@@ -801,14 +833,19 @@ export class TenantService {
         guestId?: string,
         guest?: Guest,
         amount: number,
+        amountType?: 'numeric' | 'symbolic',
+        symbolicValue?: string,
         paymentMode?: string,
         notes?: string
     }): Promise<{ guest: Guest, ledgerEntry: LedgerEntry, newBalance: number, newStatus: string }> {
-        const { ownerId, amount, paymentMode = 'cash', notes = '' } = input;
+        const { ownerId, amount, amountType = 'numeric', symbolicValue, paymentMode = 'cash', notes = '' } = input;
         const resolvedGuestId = input.guestId || input.guest?.id;
 
         if (!resolvedGuestId) throw new Error('Guest or guestId required');
-        if (!amount || Number(amount) <= 0) throw new Error('Payment amount must be greater than 0');
+        
+        if (amountType === 'numeric') {
+            if (!amount || Number(amount) <= 0) throw new Error('Payment amount must be greater than 0');
+        }
 
         const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(resolvedGuestId);
         const now = new Date();
@@ -818,7 +855,9 @@ export class TenantService {
             date: now.toISOString(),
             type: 'credit',
             description: `${notes || 'Rent Payment'} (${paymentMode})`,
-            amount: Number(amount),
+            amount: amountType === 'symbolic' ? 0 : Number(amount),
+            amountType,
+            symbolicValue
         };
 
         console.log(`[TenantService.recordPayment] Recording payment (transactional) for ${resolvedGuestId}`);
@@ -838,7 +877,9 @@ export class TenantService {
                     {
                         id: `pay-${Date.now()}`,
                         date: now.toISOString(),
-                        amount: Number(amount),
+                        amount: amountType === 'symbolic' ? 0 : Number(amount),
+                        amountType,
+                        symbolicValue,
                         method: paymentMode,
                         forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
                     },
@@ -847,9 +888,13 @@ export class TenantService {
 
             const { guest: reconciledGuest } = runReconciliationLogic(guestWithPayment as Guest, now);
 
-            const totalDebits = reconciledGuest.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-            const totalCredits = reconciledGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+            const totalDebits = reconciledGuest.ledger.filter(e => e.type === 'debit' && e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
+            const totalCredits = reconciledGuest.ledger.filter(e => e.type === 'credit' && e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
             const newBalance = Number((totalDebits - totalCredits).toFixed(2));
+
+            const totalSymbolicDebits = reconciledGuest.ledger.filter(e => e.type === 'debit' && e.amountType === 'symbolic').length;
+            const totalSymbolicCredits = reconciledGuest.ledger.filter(e => e.type === 'credit' && e.amountType === 'symbolic').length;
+            const symbolicBalanceUnits = totalSymbolicDebits - totalSymbolicCredits;
 
             const hasRemainder = Math.abs((totalCredits % reconciledGuest.rentAmount)) > 0.01 &&
                 Math.abs((totalCredits % reconciledGuest.rentAmount) - reconciledGuest.rentAmount) > 0.01;
@@ -857,7 +902,7 @@ export class TenantService {
             const finalGuest = {
                 ...reconciledGuest,
                 balance: newBalance,
-                rentStatus: (newBalance > 0 ? (hasRemainder ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial'
+                rentStatus: (newBalance > 0 || symbolicBalanceUnits > 0 ? (hasRemainder || totalSymbolicCredits > 0 ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial'
             };
 
             txn.set(guestRef, finalGuest, { merge: true });
@@ -881,9 +926,9 @@ export class TenantService {
                             type: 'body',
                             parameters: [
                                 { type: 'text', text: finalGuest.name },
-                                { type: 'text', text: String(amount) },
+                                { type: 'text', text: amountType === 'symbolic' ? (symbolicValue || 'XXX') : String(amount) },
                                 { type: 'text', text: creditEntry.description },
-                                { type: 'text', text: String(newBalance) },
+                                { type: 'text', text: finalGuest.symbolicBalance || String(newBalance) },
                                 { type: 'text', text: creditEntry.id },
                                 { type: 'text', text: receiptUrl } // {{6}}
                             ]

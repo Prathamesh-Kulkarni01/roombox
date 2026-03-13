@@ -35,8 +35,11 @@ const addGuestSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
   email: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
-  rentAmount: z.coerce.number().min(1, "Rent amount is required."),
-  depositAmount: z.coerce.number().min(0, "Deposit amount must be 0 or more."),
+  amountType: z.enum(['numeric', 'symbolic']).default('numeric'),
+  rentAmount: z.coerce.number().min(0).optional().or(z.literal('')),
+  depositAmount: z.coerce.number().min(0).optional().or(z.literal('')),
+  symbolicRentValue: z.string().optional(),
+  symbolicDepositValue: z.string().optional(),
   moveInDate: z.date({ required_error: "A move-in date is required." }),
   rentCycleUnit: z.enum(['minutes', 'hours', 'days', 'weeks', 'months']),
   rentCycleValue: z.coerce.number().min(1, 'Cycle value must be at least 1.'),
@@ -56,7 +59,9 @@ const floorSchema = z.object({ name: z.string().min(2, "Floor name must be at le
 const bedSchema = z.object({ name: z.string().min(1, "Bed name/number is required.") })
 
 const paymentSchema = z.object({
-  amountPaid: z.coerce.number().min(0.01, "Payment amount must be greater than 0."),
+  amountType: z.enum(['numeric', 'symbolic']).default('numeric'),
+  amountPaid: z.coerce.number().min(0).optional(),
+  symbolicValue: z.string().optional(),
   paymentMethod: z.enum(['cash', 'upi', 'in-app']),
 });
 
@@ -158,7 +163,8 @@ export function useDashboard() {
   const addGuestForm = useForm<z.infer<typeof addGuestSchema>>({
     resolver: zodResolver(addGuestSchema),
     defaultValues: {
-      name: '', phone: '', email: '', rentAmount: 0, depositAmount: 0,
+      name: '', phone: '', email: '', amountType: 'numeric', rentAmount: 0, depositAmount: 0,
+      symbolicRentValue: 'XXX', symbolicDepositValue: 'XXX',
       rentCycleUnit: 'months', rentCycleValue: 1,
     },
   });
@@ -169,7 +175,7 @@ export function useDashboard() {
   const bedForm = useForm<z.infer<typeof bedSchema>>({ resolver: zodResolver(bedSchema), defaultValues: { name: '' } });
   const paymentForm = useForm<z.infer<typeof paymentSchema>>({
     resolver: zodResolver(paymentSchema),
-    defaultValues: { paymentMethod: 'cash' }
+    defaultValues: { amountType: 'numeric', paymentMethod: 'cash', amountPaid: 0, symbolicValue: 'XXX' }
   });
   const roomForm = useForm<RoomFormValues>({
     resolver: zodResolver(roomSchema),
@@ -221,8 +227,22 @@ export function useDashboard() {
 
   useEffect(() => {
     if (selectedGuestForPayment) {
-      const totalDue = (selectedGuestForPayment.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
-      paymentForm.reset({ paymentMethod: 'cash', amountPaid: totalDue > 0 ? Number(totalDue.toFixed(2)) : 0 });
+      if (selectedGuestForPayment.amountType === 'symbolic') {
+        paymentForm.reset({ 
+          amountType: 'symbolic', 
+          paymentMethod: 'cash', 
+          symbolicValue: 'XXX',
+          amountPaid: 0 
+        });
+      } else {
+        const totalDue = (selectedGuestForPayment.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
+        paymentForm.reset({ 
+          amountType: 'numeric', 
+          paymentMethod: 'cash', 
+          amountPaid: totalDue > 0 ? Number(totalDue.toFixed(2)) : 0,
+          symbolicValue: undefined
+        });
+      }
     }
   }, [selectedGuestForPayment, paymentForm]);
 
@@ -232,8 +252,11 @@ export function useDashboard() {
       name: '',
       phone: '',
       email: '',
-      rentAmount: room.rent,
-      depositAmount: room.deposit,
+      amountType: room.amountType || 'numeric',
+      rentAmount: room.amountType === 'symbolic' ? 0 : room.rent,
+      depositAmount: room.amountType === 'symbolic' ? 0 : room.deposit,
+      symbolicRentValue: room.symbolicRentValue || 'XXX',
+      symbolicDepositValue: room.symbolicDepositValue || 'XXX',
       moveInDate: new Date(),
       rentCycleUnit: 'months',
       rentCycleValue: 1,
@@ -277,8 +300,11 @@ export function useDashboard() {
         pgId: pg.id,
         pgName: pg.name,
         bedId: bed.id,
-        rentAmount: values.rentAmount,
-        deposit: values.depositAmount,
+        amountType: values.amountType,
+        rentAmount: values.amountType === 'numeric' ? (values.rentAmount || 0) : 0,
+        deposit: values.amountType === 'numeric' ? (values.depositAmount || 0) : 0,
+        symbolicRentValue: values.amountType === 'symbolic' ? values.symbolicRentValue : undefined,
+        symbolicDepositValue: values.amountType === 'symbolic' ? values.symbolicDepositValue : undefined,
         joinDate: values.moveInDate.toISOString(),
         rentCycleUnit: values.rentCycleUnit,
         rentCycleValue: values.rentCycleValue,
@@ -354,7 +380,9 @@ export function useDashboard() {
     try {
       await recordPayment({
         guest: selectedGuestForPayment,
-        amount: values.amountPaid,
+        amountType: values.amountType,
+        amount: values.amountType === 'numeric' ? (values.amountPaid || 0) : 0,
+        symbolicValue: values.amountType === 'symbolic' ? values.symbolicValue : undefined,
         method: values.paymentMethod,
       }).unwrap();
 
@@ -443,6 +471,9 @@ export function useDashboard() {
     setReminderMessage("Generating payment link...");
 
     const totalDue = (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
+    const balanceStr = guest.amountType === 'symbolic' 
+      ? (totalDue > 0 ? `₹${totalDue.toLocaleString('en-IN')} + ${guest.symbolicBalance || '0'}` : (guest.symbolicBalance || '0'))
+      : `₹${totalDue.toLocaleString('en-IN')}`;
 
     try {
       const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
@@ -465,7 +496,7 @@ export function useDashboard() {
 
       const message = `Hi ${guest.name}, this is a friendly reminder for your rent payment for ${guest.pgName}.
 
-Total Amount Due: ₹${totalDue.toLocaleString('en-IN')}
+Total Amount Due: ${balanceStr}
 Due Date: ${format(new Date(guest.dueDate), "do MMMM yyyy")}
 
 You can pay securely by clicking the link below:

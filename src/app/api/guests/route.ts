@@ -65,7 +65,15 @@ const PatchSchema = z.discriminatedUnion('action', [
     // Shared room charge
     z.object({ action: z.literal('shared-charge'), ownerId: z.string().optional(), roomId: z.string(), description: z.string(), amount: z.coerce.number().positive() }),
     // Record payment + reconcile
-    z.object({ action: z.literal('record-payment'), ownerId: z.string().optional(), guest: z.record(z.unknown()), amount: z.coerce.number().positive(), method: z.enum(['cash', 'upi', 'in-app']) }),
+    z.object({ 
+        action: z.literal('record-payment'), 
+        ownerId: z.string().optional(), 
+        guest: z.record(z.unknown()), 
+        amount: z.coerce.number().nonnegative(), 
+        amountType: z.enum(['numeric', 'symbolic']).optional(),
+        symbolicValue: z.string().optional(),
+        method: z.enum(['cash', 'upi', 'in-app']) 
+    }),
     // Transfer guest to new bed
     z.object({
         action: z.literal('transfer'),
@@ -210,6 +218,8 @@ export async function PATCH(req: NextRequest) {
                     ownerId,
                     guest: data.guest as any,
                     amount: data.amount,
+                    amountType: data.amountType,
+                    symbolicValue: data.symbolicValue,
                     paymentMode: data.method,
                 });
                 return NextResponse.json({ success: true, guest });

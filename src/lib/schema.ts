@@ -34,6 +34,10 @@ export const GuestSchema = z.object({
     dueDate: z.string().optional(),
     rentAmount: z.number().default(0),
     depositAmount: z.number().default(0),
+    amountType: z.enum(['numeric', 'symbolic']).default('numeric'),
+    symbolicRentValue: z.string().optional(),
+    symbolicDepositValue: z.string().optional(),
+    symbolicBalance: z.string().optional(),
     kycStatus: z.enum(['not-started', 'pending', 'verified', 'rejected']).default('not-started'),
     moveInDate: z.string().optional(),
     noticePeriodDays: z.number().default(30),
@@ -48,6 +52,8 @@ export const PaymentSchema = z.object({
     id: z.string(),
     date: z.string(),
     amount: z.number(),
+    amountType: z.enum(['numeric', 'symbolic']).default('numeric'),
+    symbolicValue: z.string().optional(),
     method: z.enum(['cash', 'upi', 'in-app']),
     forMonth: z.string(),
     notes: z.string().optional(),
@@ -65,4 +71,17 @@ export const ComplaintSchema = z.object({
     date: z.string(),
     isPublic: z.boolean().default(false),
     schemaVersion: z.number().default(CURRENT_SCHEMA_VERSION),
+}).passthrough();
+
+export const RoomSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    rent: z.number().default(0),
+    deposit: z.number().default(0),
+    amountType: z.enum(['numeric', 'symbolic']).default('numeric'),
+    symbolicRentValue: z.string().optional(),
+    symbolicDepositValue: z.string().optional(),
+    amenities: z.array(z.string()).optional(),
+    floorId: z.string(),
+    pgId: z.string(),
 }).passthrough();
