@@ -9,6 +9,8 @@ import Script from 'next/script';
 import { LanguageProvider } from '@/context/language-context';
 import ConfettiProvider from '@/context/confetti-provider';
 import PWAHandler from '@/components/PWAHandler';
+import { Analytics } from "@vercel/analytics/next"
+
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.app";
 
