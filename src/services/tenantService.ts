@@ -11,6 +11,7 @@ import { runReconciliationLogic } from '@/lib/reconciliation';
 import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument } from '@/lib/types';
 import { getPlanLimit } from '@/lib/permissions';
 import { parseDateString } from '@/lib/utils';
+import { ActivityLogsService } from '@/lib/activity-logs-service';
 
 export interface Tenant {
     id: string;
@@ -62,7 +63,10 @@ export class TenantService {
             used: false
         });
 
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app';
+        let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app').replace(/\/+$/, '');
+        if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
+            appUrl = 'https://rentsutra-mcp.netlify.app';
+        }
         return `${appUrl}/invite/${token}`;
     }
 
@@ -233,8 +237,8 @@ export class TenantService {
                 rentAmount: numericRent,
                 depositAmount: numericDeposit,
                 amountType,
-                symbolicRentValue: amountType === 'symbolic' ? symbolicRentValue : undefined,
-                symbolicDepositValue: amountType === 'symbolic' ? symbolicDepositValue : undefined,
+                symbolicRentValue: amountType === 'symbolic' ? (symbolicRentValue || 'XXX') : null,
+                symbolicDepositValue: amountType === 'symbolic' ? (symbolicDepositValue || 'XXX') : null,
                 balance: initialBalance,
                 paidAmount: 0,
                 rentStatus: initialBalance > 0 ? 'unpaid' : 'paid',
@@ -463,7 +467,10 @@ export class TenantService {
                     if (ownerPhone.length === 10) ownerPhone = '91' + ownerPhone;
                 }
 
-                const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://rentsutra-v1.netlify.app');
+                let appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://rentsutra-v1.netlify.app').replace(/\/+$/, '');
+                if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
+                    appUrl = 'https://rentsutra-mcp.netlify.app';
+                }
                 const dashboardUrl = await TenantService.generateMagicLink(appDb, guestId, standardizedPhone, ownerId, pgName || newGuest.pgName || 'RentSutra');
                 magicLinkResult = dashboardUrl;
 
@@ -506,10 +513,38 @@ export class TenantService {
                     await import('@/lib/whatsapp/send-message').then(m => m.sendWhatsAppMessage(formattedPhone, fallbackMsg, ownerId, guestId));
                 } else {
                     console.log(`[onboardTenant] WhatsApp template welcome sent successfully to ${formattedPhone}`);
+                    const usedFallback = (process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost');
+                    await ActivityLogsService.logActivity({
+                        ownerId,
+                        activityType: 'GUEST_ONBOARDING',
+                        details: `WhatsApp welcome sent to ${name} (${formattedPhone})${usedFallback ? ' [INFO: Used rentsutra-mcp.netlify.app fallback for localhost]' : ''}`,
+                        targetId: guestId,
+                        targetType: 'guest',
+                        status: 'success'
+                    });
                 }
-            } catch (waErr) {
+            } catch (waErr: any) {
                 console.warn(`[TenantService.onboardTenant] WA Notify Failed:`, waErr);
+                await ActivityLogsService.logActivity({
+                    ownerId,
+                    activityType: 'GUEST_ONBOARDING',
+                    details: `WhatsApp welcome FAILED for ${name} (${phone})`,
+                    targetId: guestId,
+                    targetType: 'guest',
+                    status: 'failed',
+                    error: waErr.message
+                });
             }
+        } else {
+            // No phone provided
+            await ActivityLogsService.logActivity({
+                ownerId,
+                activityType: 'GUEST_ONBOARDING',
+                details: `Guest ${name} added without phone. No WhatsApp sent.`,
+                targetId: guestId,
+                targetType: 'guest',
+                status: 'warning'
+            });
         }
 
         console.log(`[TenantService.onboardTenant] Onboarding complete for ${guestId}`);
@@ -709,6 +744,16 @@ export class TenantService {
         exitDate.setDate(exitDate.getDate() + noticePeriodDays);
         const exitDateStr = exitDate.toISOString();
         await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({ exitDate: exitDateStr }, { merge: true });
+        
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'SYSTEM_LOG',
+            details: `Tenant ${guestId} initiated exit. Notice period end: ${exitDateStr}`,
+            targetId: guestId,
+            targetType: 'guest',
+            status: 'success'
+        });
+        
         return { id: guestId, exitDate: exitDateStr };
     }
 
@@ -820,6 +865,14 @@ export class TenantService {
         }
 
         console.log(`[TenantService.vacateTenant] ${guestId} vacated successfully.`);
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'GUEST_VACATED',
+            details: `Guest ${guest.name} vacated from ${guest.pgName}. Final Settlement: ₹${finalSettlementAmount}`,
+            targetId: guestId,
+            targetType: 'guest',
+            status: 'success'
+        });
         return { guestId, pgId: guest.pgId };
     }
 
@@ -949,6 +1002,15 @@ export class TenantService {
         });
 
         console.log(`[TenantService.recordPayment] Payment recorded. New Balance: ${result.newBalance}`);
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'PAYMENT_RECORDED',
+            details: `Payment of ₹${amount} recorded for ${result.guest.name} via ${paymentMode}. New Balance: ₹${result.newBalance}`,
+            targetId: resolvedGuestId,
+            targetType: 'guest',
+            status: 'success',
+            metadata: { amount, paymentMode, notes }
+        });
         return result;
     }
 
@@ -1007,6 +1069,15 @@ export class TenantService {
             kycStatus: status,
             kycRejectReason: reason || null,
         }, { merge: true });
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'KYC_SUBMITTED',
+            details: `KYC for guest ${guestId} marked as ${status}${reason ? ': ' + reason : ''}`,
+            targetId: guestId,
+            targetType: 'guest',
+            status: status === 'verified' ? 'success' : 'warning'
+        });
     }
 
     /**
@@ -1187,8 +1258,25 @@ export class TenantService {
             ], ownerId, guestId);
 
             console.log(`[TenantService.notifyComplaintStatusChange] WhatsApp template notification sent to ${formattedPhone}`);
-        } catch (err) {
+            await ActivityLogsService.logActivity({
+                ownerId,
+                activityType: 'COMPLAINT_CREATED',
+                details: `Complaint ${complaintId} status changed to ${status}. Notification sent.`,
+                targetId: complaintId,
+                targetType: 'complaint',
+                status: 'success'
+            });
+        } catch (err: any) {
             console.warn(`[TenantService.notifyComplaintStatusChange] Failed to send WhatsApp:`, err);
+            await ActivityLogsService.logActivity({
+                ownerId,
+                activityType: 'COMPLAINT_CREATED',
+                details: `Complaint ${complaintId} notification FAILED.`,
+                targetId: complaintId,
+                targetType: 'complaint',
+                status: 'failed',
+                error: err.message
+            });
         }
     }
 }

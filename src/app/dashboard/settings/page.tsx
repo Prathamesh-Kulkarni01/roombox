@@ -5,6 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAppSelector } from "@/lib/hooks"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PWASettings } from "@/components/dashboard/pwa-settings"
+import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
+import { Button } from "@/components/ui/button"
 
 export default function SettingsPage() {
     const { currentUser, currentPlan } = useAppSelector((state) => state.user)
@@ -37,6 +40,24 @@ export default function SettingsPage() {
                             </span>
                         </div>
                     </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Payment Settings</CardTitle>
+                    <CardDescription>Configure how you receive payments from tenants.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        Set up your Direct UPI details, QR code, or manage your online payment gateway integrated with Razorpay.
+                    </p>
+                    <Button asChild variant="outline" className="w-full justify-between">
+                        <Link href="/dashboard/settings/payment">
+                            Manage Payment Modes
+                            <ArrowRight className="h-4 w-4" />
+                        </Link>
+                    </Button>
                 </CardContent>
             </Card>
 

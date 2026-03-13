@@ -124,6 +124,14 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'api.qrserver.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
       }
     ],
   },

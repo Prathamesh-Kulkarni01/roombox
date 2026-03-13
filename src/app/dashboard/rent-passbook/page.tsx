@@ -236,6 +236,9 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
 PrintableReport.displayName = 'PrintableReport';
 
 
+import DirectPaymentVerification from '@/components/dashboard/DirectPaymentVerification';
+
+
 export default function RentPassbookPage() {
     const { guests, pgs, isLoading } = useAppSelector(state => ({
         guests: state.guests.guests,
@@ -243,9 +246,20 @@ export default function RentPassbookPage() {
         isLoading: state.app.isLoading
     }));
 
+    // Calculate count of pending manual payments for the badge
+    const pendingVerificationCount = useMemo(() => {
+        return guests.reduce((count, guest) => {
+            const pendingPayments = (guest.paymentHistory || []).filter(p => 
+                (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && p.status === 'pending'
+            );
+            return count + pendingPayments.length;
+        }, 0);
+    }, [guests]);
+
     const {
         isPaymentDialogOpen,
         setIsPaymentDialogOpen,
+        // ... rest of useDashboard remains same
         paymentForm,
         handlePaymentSubmit,
         selectedGuestForPayment,
@@ -339,6 +353,20 @@ export default function RentPassbookPage() {
         return uniqueGuests.filter(g => g.pgId === filters.pgId);
     }, [guests, filters.pgId]);
 
+    const allPendingPayments = useMemo(() => {
+        return guests.flatMap(g => 
+            (g.paymentHistory || [])
+                .filter(p => (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && p.status === 'pending')
+                .map(p => ({
+                    ...p,
+                    guestName: g.name,
+                    pgName: g.pgName,
+                    pgId: g.pgId,
+                    guestId: g.id,
+                }))
+        ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [guests]);
+
     const totalCollection = useMemo(() => {
         return filteredPayments.reduce((sum, p) => sum + p.amount, 0);
     }, [filteredPayments]);
@@ -368,7 +396,7 @@ export default function RentPassbookPage() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="analytics">
-                        <TabsList className="grid w-full grid-cols-4">
+                        <TabsList className="grid w-full grid-cols-5">
                             <TabsTrigger value="analytics">
                                 <span className="sm:hidden">Stats</span>
                                 <span className="hidden sm:inline">Analytics</span>
@@ -376,6 +404,15 @@ export default function RentPassbookPage() {
                             <TabsTrigger value="pending-dues">
                                 <span className="sm:hidden">Dues</span>
                                 <span className="hidden sm:inline">Pending Dues</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="verify-payments" className="relative">
+                                <span className="sm:hidden">Verify</span>
+                                <span className="hidden sm:inline">Verify Payments</span>
+                                {pendingVerificationCount > 0 && (
+                                    <Badge className="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-[1.25rem] h-5 flex items-center justify-center bg-destructive text-destructive-foreground border-2 border-background animate-pulse">
+                                        {pendingVerificationCount}
+                                    </Badge>
+                                )}
                             </TabsTrigger>
                             <TabsTrigger value="payment-history">
                                 <span className="sm:hidden">History</span>
@@ -453,6 +490,9 @@ export default function RentPassbookPage() {
                                     </TableBody>
                                 </Table>
                             </div>
+                        </TabsContent>
+                        <TabsContent value="verify-payments" className="mt-4">
+                            <DirectPaymentVerification pendingPayments={allPendingPayments} />
                         </TabsContent>
                         <TabsContent value="deposits" className="mt-4">
                             <DepositManagementTab guests={guests} />

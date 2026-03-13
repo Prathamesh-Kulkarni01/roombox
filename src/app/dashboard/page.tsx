@@ -25,7 +25,7 @@ import {
   useGetComplaintsQuery
 } from "@/lib/api/apiSlice"
 import type { PG, Guest, Complaint } from "@/lib/types"
-import { formatBalanceBreakdown } from "@/lib/ledger-utils"
+import { formatBalanceBreakdown, getBalanceBreakdown } from "@/lib/ledger-utils"
 import { sendMassPaymentReminders } from "@/lib/actions/notificationActions"
 
 export default function DashboardPage() {
@@ -69,13 +69,12 @@ export default function DashboardPage() {
 
     const totalOccupancy = relevantGuests.filter((g: Guest) => !g.isVacated).length;
     const totalBeds = relevantPgs.reduce((sum: number, pg: PG) => sum + (pg.totalBeds || 0), 0);
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
 
     const revenue = relevantGuests
       .reduce((acc, g: Guest) => {
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-        
         const collectedThisMonth = (g.ledger || [])
           .filter(e => {
             if (e.type !== 'credit') return false;
@@ -87,35 +86,33 @@ export default function DashboardPage() {
         const collectedToday = (g.ledger || [])
           .filter(e => {
             const date = new Date(e.date);
-            const today = new Date();
             return e.type === 'credit' && 
-                   date.getDate() === today.getDate() && 
-                   date.getMonth() === today.getMonth() && 
-                   date.getFullYear() === today.getFullYear();
+                   date.getDate() === now.getDate() && 
+                   date.getMonth() === currentMonth && 
+                   date.getFullYear() === currentYear;
           })
           .reduce((s, e) => s + (e.amount || 0), 0);
 
         const breakdown = getBalanceBreakdown(g);
-        const newThisMonth = relevantGuests.filter((guest: Guest) => {
-          if (!guest.moveInDate) return false;
-          const joinDate = new Date(guest.moveInDate);
-          const now = new Date();
-          return joinDate.getMonth() === now.getMonth() && joinDate.getFullYear() === now.getFullYear();
-        }).length;
         
         return {
           collected: acc.collected + collectedThisMonth,
           collectedToday: acc.collectedToday + collectedToday,
           pending: acc.pending + breakdown.total,
           symbolicPending: acc.symbolicPending + (breakdown.symbolicRent + breakdown.symbolicDeposit),
-          newThisMonth: acc.newThisMonth + newThisMonth,
         };
-      }, { collected: 0, collectedToday: 0, pending: 0, symbolicPending: 0, newThisMonth: 0 });
+      }, { collected: 0, collectedToday: 0, pending: 0, symbolicPending: 0 });
+
+    const newThisMonthCount = relevantGuests.filter((guest: Guest) => {
+      if (!guest.moveInDate) return false;
+      const joinDate = new Date(guest.moveInDate);
+      return joinDate.getMonth() === currentMonth && joinDate.getFullYear() === currentYear;
+    }).length;
 
     const openComplaintsCount = relevantComplaints.filter((c: Complaint) => c.status === 'open').length;
 
     return {
-      occupancy: { total: totalBeds, occupied: totalOccupancy, newThisMonth },
+      occupancy: { total: totalBeds, occupied: totalOccupancy, newThisMonth: newThisMonthCount },
       complaints: { active: openComplaintsCount, severity: openComplaintsCount > 0 ? 'High' : 'Normal' },
       revenue: { 
         collected: revenue.collected, 

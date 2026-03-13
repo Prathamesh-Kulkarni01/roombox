@@ -125,7 +125,8 @@ export const allNavItems: NavGroup[] = [
     items: [
         { href: '/dashboard/rent-passbook', label: 'nav_rentbook', icon: BookUser, feature: 'finances', description: 'nav_rentbook_desc' },
         { href: '/dashboard/expense', label: 'nav_expenses', icon: Wallet, feature: 'finances', description: 'nav_expenses_desc' },
-        { href: '/dashboard/payouts', label: 'nav_payouts', icon: HandCoins, feature: 'finances', description: 'nav_payouts_desc' },
+        { href: '/dashboard/payouts', label: 'nav_payouts', icon: IndianRupee, feature: 'finances', description: 'nav_payouts_desc' },
+        { href: '/dashboard/subscription', label: 'nav_billing', icon: CreditCard, feature: 'finances', description: 'nav_billing_desc' },
     ]
   },
   {
@@ -136,15 +137,14 @@ export const allNavItems: NavGroup[] = [
     ]
   },
   {
-      title: "nav_group_growth",
-      items: [
-          { href: '/dashboard/website', label: 'nav_app_website', icon: Globe, feature: 'website', description: 'nav_app_website_desc' },
-          { href: '/dashboard/whatsapp', label: 'nav_whatsapp', icon: MessageCircle, feature: 'whatsapp', description: 'nav_whatsapp_desc' },
-          { href: '/dashboard/subscription', label: 'nav_billing', icon: CreditCard, feature: 'core', description: 'nav_billing_desc' },
-          { href: '/dashboard/training', label: 'nav_training', icon: BookOpen, feature: 'core', description: 'nav_training_desc' },
-          { href: '/dashboard/enterprise', label: 'nav_enterprise', icon: Building, feature: 'core', description: 'nav_enterprise_desc' },
-          { href: '/dashboard/settings', label: 'nav_settings', icon: Settings, feature: 'core', description: 'nav_settings_desc' },
-      ]
+    title: "nav_group_growth",
+    items: [
+        { href: '/dashboard/website', label: 'nav_app_website', icon: Globe, feature: 'website', description: 'nav_app_website_desc' },
+        { href: '/dashboard/whatsapp', label: 'nav_whatsapp', icon: MessageCircle, feature: 'whatsapp', description: 'nav_whatsapp_desc' },
+        { href: '/dashboard/training', label: 'nav_training', icon: BookOpen, feature: 'core', description: 'nav_training_desc' },
+        { href: '/dashboard/enterprise', label: 'nav_enterprise', icon: Building, feature: 'core', description: 'nav_enterprise_desc' },
+        { href: '/dashboard/settings', label: 'nav_settings', icon: Settings, feature: 'core', description: 'nav_settings_desc' },
+    ]
   }
 ];
 
@@ -173,5 +173,8 @@ export const mockPgs: PG[] = [
       'Rent to be paid by the 5th of every month.',
     ],
     contact: '+919876543210',
+    priceRange: { min: 5000, max: 15000 },
+    amenities: ['wifi', 'ac', 'food'],
+    status: 'active',
   },
 ];

@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export interface PWAConfig {
   name: string;
@@ -112,6 +112,11 @@ export interface PG {
   menuTemplates?: MenuTemplate[];
   ownerId: string;
   status: 'active' | 'pending_approval' | 'rejected' | 'suspended';
+  paymentMode?: 'direct_upi' | 'gateway' | 'cash';
+  upiId?: string;
+  payeeName?: string;
+  qrCodeImage?: string;
+  online_payment_enabled?: boolean;
   schemaVersion?: number;
 }
 
@@ -122,7 +127,7 @@ export interface Payment {
   amountType?: 'numeric' | 'symbolic';
   symbolicValue?: string; // e.g. "XXX"
 
-  method: 'cash' | 'upi' | 'in-app';
+  method: 'cash' | 'upi' | 'in-app' | 'direct_upi' | 'gateway';
   forMonth: string;
   notes?: string;
   payoutId?: string; // razorpay payout id
@@ -130,6 +135,11 @@ export interface Payment {
   payoutMode?: 'PAYOUT' | 'ROUTE';
   payoutTo?: string;
   payoutFailureReason?: string;
+  verificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  utr?: string;
+  screenshotUrl?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
   payoutSnapshot?: {
     fund_account_id?: string;
     vpa?: string;
@@ -238,10 +248,8 @@ export interface Guest {
   isVacated: boolean; // True if the guest has permanently left the PG
   ledger: LedgerEntry[];
   documents?: SubmittedKycDocument[];
-  paymentHistory?: Payment[]; // This is now deprecated in favor of ledger
-  balanceBroughtForward?: number; // Also deprecated, calculated from ledger
-  rentPaidAmount?: number; // Also deprecated
-  additionalCharges?: AdditionalCharge[]; // Also deprecated
+  payments?: Payment[]; // For tracking manual/offline payment submissions
+  lastPaymentDate?: string;
   schemaVersion?: number;
   finalSettlementAmount?: number;
   lastReminderSentAt?: string;
@@ -298,6 +306,7 @@ export interface Plan {
   name: string;
   price: number | 'Custom';
   pricePeriod: string;
+  description: string;
   pgLimit: number | 'unlimited';
   floorLimit?: number | 'unlimited';
   hasStaffManagement: boolean;

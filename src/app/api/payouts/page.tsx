@@ -64,7 +64,7 @@ export default function PayoutsPage() {
                 // For 'vpa', the name field is not strictly needed for the API but good for display
                 const submissionData = { ...data, name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : '') };
 
-                const result = await addPayoutMethod(currentUser.id, submissionData);
+                const result = await addPayoutMethod(submissionData);
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Linked!', description: 'Your new payout account has been successfully added.' });
@@ -83,7 +83,7 @@ export default function PayoutsPage() {
         if (!currentUser) return;
         startSavingTransition(async () => {
             try {
-                const result = await setPrimaryPayoutMethod({ ownerId: currentUser.id, methodId });
+                const result = await setPrimaryPayoutMethod(methodId);
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Primary Account Updated' });
@@ -100,7 +100,7 @@ export default function PayoutsPage() {
         if (!currentUser || !methodToUnlink) return;
         startSavingTransition(async () => {
             try {
-                const result = await deletePayoutMethod({ ownerId: currentUser.id, methodId: methodToUnlink.id });
+                const result = await deletePayoutMethod(methodToUnlink.id);
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Unlinked' });

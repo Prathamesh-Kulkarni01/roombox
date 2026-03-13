@@ -53,13 +53,12 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
         name: 'RentSutra Subscription',
         description: `Usage-based Billing`,
         handler: async (response: any) => {
-          const token = await auth.currentUser?.getIdToken();
+          if (!auth?.currentUser) return;
+          const token = await auth.currentUser.getIdToken();
           const verificationResult = await verifySubscriptionPayment(response, token);
           if (verificationResult.success) {
             // Re-initialize user to fetch the latest subscription status
-            if(auth && auth?.currentUser) {
-              dispatch(initializeUser(auth?.currentUser));
-            }
+            dispatch(initializeUser(auth.currentUser));
             toast({ title: 'Success!', description: `You've successfully subscribed!` });
             onOpenChange(false);
           } else {

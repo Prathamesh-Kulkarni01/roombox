@@ -62,7 +62,7 @@ const paymentSchema = z.object({
   amountType: z.enum(['numeric', 'symbolic']).default('numeric'),
   amountPaid: z.coerce.number().min(0).optional(),
   symbolicValue: z.string().optional(),
-  paymentMethod: z.enum(['cash', 'upi', 'in-app']),
+  paymentMethod: z.enum(['cash', 'upi', 'in-app', 'direct_upi', 'gateway']),
 });
 
 const sharedChargeSchema = z.object({

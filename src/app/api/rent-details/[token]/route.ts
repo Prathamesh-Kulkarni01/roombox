@@ -52,6 +52,9 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
         // We will just show all unpaid debits. A more robust solution might track which credits apply to which debits.
         const unpaidDebits = debits; // For now, show all debits as part of the due amount.
 
+        const pgDoc = await adminDb.collection('users_data').doc(ownerId).collection('properties').doc(guest.pgId).get();
+        const pgData = pgDoc.exists ? pgDoc.data() : null;
+
         const responseDetails = {
             guest: {
                 id: guest.id,
@@ -62,8 +65,17 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
                 dueDate: guest.dueDate,
                 rentAmount: guest.rentAmount,
                 totalDue: totalDue,
-                dueItems: unpaidDebits, // Send the itemized list of what is due
+                dueItems: unpaidDebits,
+                amountType: guest.amountType,
+                symbolicBalance: guest.symbolicBalance,
             },
+            property: pgData ? {
+                paymentMode: pgData.paymentMode || 'GATEWAY',
+                upiId: pgData.upiId,
+                payeeName: pgData.payeeName,
+                qrCodeImage: pgData.qrCodeImage,
+                online_payment_enabled: pgData.online_payment_enabled !== false, // default to true
+            } : null,
             ownerId: ownerId,
         };
         

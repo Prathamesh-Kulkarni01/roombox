@@ -440,6 +440,17 @@ export const api = createApi({
             query: (body) => ({ url: 'api/staff', method: 'DELETE', body }),
             invalidatesTags: ['Staff'],
         }),
+
+        // ─── Verification ────────────────────────────────────────────────
+        verifyPayment: builder.mutation<{ success: boolean; guest: Guest }, {
+            guestId: string;
+            paymentId: string;
+            status: 'VERIFIED' | 'REJECTED';
+            notes?: string;
+        }>({
+            query: (body) => ({ url: 'api/payments/verify', method: 'POST', body }),
+            invalidatesTags: ['Guests', 'Tenants', 'Rent'],
+        }),
     }),
 });
 
@@ -482,4 +493,6 @@ export const {
     useGetStaffQuery,
     useUpdateStaffApiMutation,
     useDeleteStaffApiMutation,
+    // Verification
+    useVerifyPaymentMutation,
 } = api;

@@ -21,11 +21,11 @@ export function getBalanceBreakdown(guest: Guest) {
     const isSymbolic = guest.amountType === 'symbolic';
     const unit = guest.symbolicRentValue || 'XXX';
 
-    let creditsToApply = guest.ledger
+    let creditsToApply = (guest.ledger || [])
         .filter(e => e.type === 'credit' && e.amountType !== 'symbolic')
         .reduce((sum, e) => sum + e.amount, 0);
 
-    let symbolicCreditsToApply = guest.ledger
+    let symbolicCreditsToApply = (guest.ledger || [])
         .filter(e => e.type === 'credit' && e.amountType === 'symbolic')
         .length; // Each symbolic credit is 1 unit of XXX
 

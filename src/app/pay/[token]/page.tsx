@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { IndianRupee, Loader2, CheckCircle, ShieldX, Building, User, Calendar } from 'lucide-react';
+import { IndianRupee, Loader2, CheckCircle, ShieldX, Building, User, Calendar, Copy, Smartphone, Upload, Info } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { Guest, LedgerEntry } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 
@@ -16,7 +18,16 @@ type RentDetails = {
     guest: Omit<Guest, 'paymentHistory' | 'additionalCharges' | 'ledger'> & {
         totalDue: number;
         dueItems: LedgerEntry[];
+        amountType?: 'numeric' | 'symbolic';
+        symbolicBalance?: string;
     };
+    property: {
+        paymentMode: 'DIRECT_UPI' | 'GATEWAY' | 'CASH_ONLY';
+        upiId?: string;
+        payeeName?: string;
+        qrCodeImage?: string;
+        online_payment_enabled: boolean;
+    } | null;
     ownerId: string;
 };
 
@@ -28,6 +39,12 @@ export default function PublicPaymentPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isPaying, startPaymentTransition] = useTransition();
+
+    // Direct UPI / Manual Verification state
+    const [showManualForm, setShowManualForm] = useState(false);
+    const [utr, setUtr] = useState('');
+    const [screenshotLink, setScreenshotLink] = useState('');
+    const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
     useEffect(() => {
         if (token) {
@@ -48,7 +65,14 @@ export default function PublicPaymentPage() {
     const handlePayNow = () => {
         if (!details || details.guest.totalDue <= 0) return;
 
+        // If Direct UPI is enabled, show the manual flow / instructions
+        if (details.property?.paymentMode === 'DIRECT_UPI') {
+            setShowManualForm(true);
+            return;
+        }
+
         startPaymentTransition(async () => {
+            // ... (existing Razorpay logic)
             try {
                 const res = await fetch('/api/razorpay/create-rent-order', {
                     method: 'POST',
@@ -99,6 +123,53 @@ export default function PublicPaymentPage() {
         })
     }
 
+    const handleConfirmManualPayment = async () => {
+        if (!utr) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please enter the UTR / Transaction ID.' });
+            return;
+        }
+
+        setIsSubmittingManual(true);
+        try {
+            const res = await fetch('/api/rent-details/confirm-manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    token,
+                    utr,
+                    screenshotUrl: screenshotLink,
+                    amount: details?.guest.totalDue,
+                }),
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                toast({ title: 'Submitted!', description: 'Your payment confirmation has been sent to the owner for verification.' });
+                setError('Payment confirmation submitted. The owner will verify and update your passbook soon.');
+            } else {
+                throw new Error(data.error || 'Failed to submit confirmation.');
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not submit confirmation.' });
+        } finally {
+            setIsSubmittingManual(false);
+        }
+    }
+
+    const copyToClipboard = (text: string, label: string) => {
+        navigator.clipboard.writeText(text);
+        toast({ title: 'Copied!', description: `${label} copied to clipboard.` });
+    }
+
+    const upiDeepLink = useMemo(() => {
+        if (!details?.property?.upiId) return '';
+        const { upiId, payeeName } = details.property;
+        const amount = details.guest.totalDue;
+        const tn = encodeURIComponent(`Rent for ${details.guest.pgName} ${format(new Date(), 'MMM yyyy')}`);
+        const pn = encodeURIComponent(payeeName || details.guest.pgName);
+        return `upi://pay?pa=${upiId}&pn=${pn}&am=${amount}&tn=${tn}&cu=INR`;
+    }, [details]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-muted/40">
@@ -131,8 +202,81 @@ export default function PublicPaymentPage() {
     }
 
     if (!details) return null;
+    const { guest, property } = details;
 
-    const { guest } = details;
+    const isSymbolic = guest.amountType === 'symbolic';
+
+    if (showManualForm && property?.paymentMode === 'DIRECT_UPI') {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-muted/40 p-4">
+                <Card className="w-full max-w-md">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Smartphone className="w-6 h-6 text-primary" />
+                            Direct UPI Payment
+                        </CardTitle>
+                        <CardDescription>Scan QR or use UPI ID to pay ₹{guest.totalDue.toLocaleString('en-IN')}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {property.qrCodeImage && (
+                            <div className="flex flex-col items-center gap-2 border p-4 rounded-xl bg-white shadow-sm">
+                                <img src={property.qrCodeImage} alt="Owner QR Code" className="w-48 h-48 object-contain" />
+                                <span className="text-xs text-muted-foreground">Scan with any UPI App</span>
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <div className="p-3 bg-muted rounded-lg flex justify-between items-center group relative cursor-pointer active:bg-muted/80 transition-colors"
+                                 onClick={() => copyToClipboard(property.upiId || '', 'UPI ID')}>
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Owner UPI ID</span>
+                                    <span className="font-mono text-sm">{property.upiId}</span>
+                                </div>
+                                <div className="p-2 hover:bg-background rounded-full transition-colors">
+                                    <Copy className="w-4 h-4 text-primary" />
+                                </div>
+                            </div>
+
+                            <Button asChild className="w-full h-12 text-lg gap-2 bg-[#0070E0] hover:bg-[#005BB8]" variant="default">
+                                <a href={upiDeepLink}>
+                                    <Smartphone className="w-5 h-5" />
+                                    Pay via UPI App
+                                </a>
+                            </Button>
+                        </div>
+
+                        <div className="space-y-3 pt-4 border-t">
+                            <Label htmlFor="utr" className="text-sm font-semibold">Enter UTR / Transaction ID</Label>
+                            <Input 
+                                id="utr"
+                                placeholder="12-digit number from payment apps" 
+                                value={utr}
+                                onChange={(e) => setUtr(e.target.value)}
+                                className="h-11"
+                            />
+                            <p className="text-[10px] text-muted-foreground flex items-start gap-1">
+                                <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                                Please enter the reference number from GPay/PhonePe to help us verify your payment.
+                            </p>
+                            
+                            <Button 
+                                className="w-full h-11 mt-2" 
+                                onClick={handleConfirmManualPayment}
+                                disabled={isSubmittingManual || !utr}
+                            >
+                                {isSubmittingManual && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Confirm Payment
+                            </Button>
+                            
+                            <Button variant="ghost" className="w-full text-xs text-muted-foreground" onClick={() => setShowManualForm(false)}>
+                                Go Back
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-muted/40 p-4">
@@ -151,27 +295,51 @@ export default function PublicPaymentPage() {
                     <div className="space-y-2 pt-4 border-t">
                         <p className="font-semibold text-base">Dues Breakdown:</p>
                         {guest.dueItems && guest.dueItems.length > 0 ? (
-                            guest.dueItems.map(item => (
+                            guest.dueItems.map((item: LedgerEntry) => (
                                 <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
                                     <span>{item.description}</span>
-                                    <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
+                                    <span className="font-medium text-foreground">
+                                        {item.amountType === 'symbolic' ? item.symbolicValue : `₹${item.amount.toLocaleString('en-IN')}`}
+                                    </span>
                                 </div>
                             ))
                         ) : (
-                            <div className="flex justify-between text-sm text-muted-foreground"><span>Current Rent</span><span>₹{guest.rentAmount.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                                <span>Current Rent</span>
+                                <span>
+                                    {guest.amountType === 'symbolic' ? guest.symbolicRentValue : `₹${guest.rentAmount.toLocaleString('en-IN')}`}
+                                </span>
+                            </div>
                         )}
                     </div>
 
                     <div className="flex justify-between items-center pt-4 border-t">
                         <span className="font-bold text-lg">Total Due</span>
-                        <span className="font-extrabold text-2xl text-primary flex items-center"><IndianRupee className="w-6 h-6" />{guest.totalDue.toLocaleString('en-IN')}</span>
+                        <div className="text-right">
+                            {isSymbolic && (
+                                <div className="text-sm font-semibold text-primary mb-1">{guest.symbolicBalance}</div>
+                            )}
+                            <span className="font-extrabold text-2xl text-primary flex items-center justify-end">
+                                <IndianRupee className="w-6 h-6" />
+                                {guest.totalDue.toLocaleString('en-IN')}
+                            </span>
+                        </div>
                     </div>
                 </CardContent>
                 <div className="p-6 pt-2">
-                    <Button className="w-full text-lg h-12" onClick={handlePayNow} disabled={isPaying || guest.totalDue <= 0}>
-                        {isPaying ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                        {guest.totalDue > 0 ? 'Pay Now' : 'No Dues'}
-                    </Button>
+                    {property?.paymentMode === 'CASH_ONLY' || !property?.online_payment_enabled ? (
+                        <div className="p-4 bg-orange-50 border border-orange-100 rounded-lg flex gap-3">
+                            <Info className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                            <p className="text-xs text-orange-800 leading-relaxed">
+                                <strong>Online payment is disabled.</strong> Please pay via Cash or ask your owner for their Direct UPI details.
+                            </p>
+                        </div>
+                    ) : (
+                        <Button className="w-full text-lg h-12" onClick={handlePayNow} disabled={isPaying || guest.totalDue <= 0}>
+                            {isPaying ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                            {guest.totalDue > 0 ? (property?.paymentMode === 'DIRECT_UPI' ? 'Pay via UPI' : 'Pay Now') : 'No Dues'}
+                        </Button>
+                    )}
                 </div>
             </Card>
         </div>

@@ -18,6 +18,11 @@ export const PGSchema = z.object({
     contact: z.string().optional(),
     ownerId: z.string(),
     status: z.enum(['active', 'pending_approval', 'rejected', 'suspended']).default('active'),
+    paymentMode: z.enum(['DIRECT_UPI', 'GATEWAY', 'CASH_ONLY']).optional(),
+    upiId: z.string().optional(),
+    payeeName: z.string().optional(),
+    qrCodeImage: z.string().optional(),
+    online_payment_enabled: z.boolean().default(true),
     schemaVersion: z.number().default(CURRENT_SCHEMA_VERSION),
 }).passthrough(); // allows other fields to pass through without being stripped
 
@@ -57,6 +62,11 @@ export const PaymentSchema = z.object({
     method: z.enum(['cash', 'upi', 'in-app']),
     forMonth: z.string(),
     notes: z.string().optional(),
+    verificationStatus: z.enum(['PENDING', 'VERIFIED', 'REJECTED']).optional(),
+    utr: z.string().optional(),
+    screenshotUrl: z.string().optional(),
+    verifiedBy: z.string().optional(),
+    verifiedAt: z.string().optional(),
     schemaVersion: z.number().default(CURRENT_SCHEMA_VERSION),
 }).passthrough();
 

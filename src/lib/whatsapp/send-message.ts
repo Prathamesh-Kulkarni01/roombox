@@ -2,6 +2,7 @@ import { getEnv } from '../env';
 import { getAdminDb } from '../firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { WhatsAppLogsService } from './logs-service';
+import { ActivityLogsService } from '../activity-logs-service';
 
 const WHATSAPP_ACCESS_TOKEN = getEnv('WHATSAPP_ACCESS_TOKEN');
 const WHATSAPP_PHONE_ID = getEnv('WHATSAPP_PHONE_NUMBER_ID');
@@ -92,6 +93,14 @@ async function sendWhatsAppWithBilling(
 
                 if (!creditResult.success) {
                     // Log the failure attempt if it's due to credits
+                    await ActivityLogsService.logActivity({
+                        ownerId,
+                        activityType: 'SYSTEM_LOG',
+                        details: `WhatsApp FAILED: Insufficient Credits (${cost} required) for ${to}`,
+                        targetId,
+                        status: 'failed',
+                        error: 'Insufficient credits'
+                    });
                     await WhatsAppLogsService.logMessage({
                         ownerId,
                         targetId,
@@ -109,6 +118,14 @@ async function sendWhatsAppWithBilling(
             }
         } catch (e: any) {
             console.error('[WhatsApp Billing] Error during deduction:', e.message);
+            await ActivityLogsService.logActivity({
+                ownerId: ownerId || 'system',
+                activityType: 'SYSTEM_LOG',
+                details: `WhatsApp Billing Service Error for ${to}`,
+                targetId,
+                status: 'failed',
+                error: e.message
+            });
             // In case of billing error, we might still want to try sending if it's critical, 
             // but for now we follow the fail-safe business rule.
             return { success: false, error: 'Billing service error' };
@@ -287,6 +304,10 @@ async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries =
                 }
             } else {
                 const data = await response.json();
+                const wamid = data.messages?.[0]?.id;
+                if (wamid) {
+                    console.log(`[WhatsApp API] Success! Message ID (wamid): ${wamid}`);
+                }
                 return { success: true, data };
             }
         } catch (error) {

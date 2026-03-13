@@ -5,17 +5,21 @@ import { useAppSelector } from "@/lib/hooks"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck, Loader2, User } from "lucide-react"
+import { AlertCircle, BedDouble, Building, Calendar, CheckCircle, Clock, FileText, IndianRupee, ShieldCheck, Loader2, User, Info } from "lucide-react"
 import { format, differenceInDays, parseISO, isValid, differenceInSeconds } from "date-fns"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import { useMemo, useState, useTransition, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { LedgerEntry } from "@/lib/types"
+import { ExternalLink, Copy, Check } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import TenantPaymentModal from "@/components/tenants/TenantPaymentModal"
+import { WhatsAppLogsService } from "@/lib/whatsapp/logs-service"
+import type { LedgerEntry, PG, Guest, Payment } from "@/lib/types"
 import { auth } from "@/lib/firebase"
+import { Input } from "@/components/ui/input"
+import { useEffect, useMemo, useState, useTransition } from "react"
+import { cn } from "@/lib/utils"
 
 const rentStatusColors: Record<string, string> = {
     paid: 'bg-green-100 text-green-800 border-green-300',
@@ -40,6 +44,10 @@ export default function MyPgPage() {
     const { toast } = useToast();
     const [isPaying, startPaymentTransition] = useTransition();
     const [timeLeft, setTimeLeft] = useState('');
+    const [showUpiFlow, setShowUpiFlow] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [utr, setUtr] = useState('');
+    const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
     const currentGuest = useMemo(() => {
         if (!currentUser || !currentUser.guestId) return null;
@@ -114,69 +122,55 @@ export default function MyPgPage() {
 
         return () => clearInterval(interval);
 
+
     }, [currentGuest?.dueDate]);
 
+    const pendingManualPayment = useMemo(() => {
+        if (!currentGuest?.payments) return undefined;
+        return (currentGuest.payments as Payment[]).find(p => p.verificationStatus === 'PENDING');
+    }, [currentGuest?.payments]);
 
     const handlePayNow = () => {
-        if (!currentGuest || !currentUser || !currentUser.ownerId || totalDue <= 0) return;
+        if (!currentGuest || !currentUser || !currentUser.ownerId || totalDue <= 0 || !currentPg) return;
+        setIsPaymentModalOpen(true);
+    };
 
-        startPaymentTransition(async () => {
-            try {
-                const token = await auth?.currentUser?.getIdToken();
-                if (!token) throw new Error("Authentication session expired. Please refresh and log in again.");
+    const handleConfirmManualPayment = async (newUtr?: string) => {
+        const finalUtr = newUtr || utr;
+        if (!finalUtr) {
+            toast({ variant: 'destructive', title: 'UTR Required', description: 'Please enter the transaction UTR number.' });
+            return;
+        }
 
-                const res = await fetch('/api/razorpay/create-rent-order', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        guestId: currentGuest.id,
-                        amount: totalDue,
-                    }),
-                });
+        setIsSubmittingManual(true);
+        try {
+            const token = await auth?.currentUser?.getIdToken();
+            const res = await fetch('/api/tenant/confirm-manual', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    utr: finalUtr,
+                    amount: totalDue,
+                }),
+            });
 
-                const { success, order, error } = await res.json();
-                if (!success || !order) {
-                    throw new Error(error || 'Failed to create payment order.');
-                }
-
-                const options = {
-                    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-                    amount: order.amount,
-                    currency: order.currency,
-                    name: `Rent for ${currentGuest.pgName}`,
-                    description: `Payment for ${currentGuest.name}`,
-                    order_id: order.id,
-                    handler: function (response: any) {
-                        toast({ title: 'Payment Successful!', description: 'Your payment is being processed. The status will update shortly.' });
-                    },
-                    prefill: {
-                        name: currentGuest.name,
-                        email: currentGuest.email,
-                        contact: currentGuest.phone,
-                    },
-                    notes: {
-                        address: `${currentGuest.pgName}, ${bedDetails.roomName}`
-                    },
-                    theme: { color: '#3399cc' }
-                };
-
-                const rzp = new (window as any).Razorpay(options);
-                rzp.on('payment.failed', function (response: any) {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Payment Failed',
-                        description: response.error.description || 'Something went wrong.'
-                    });
-                });
-                rzp.open();
-
-            } catch (error: any) {
-                toast({ variant: 'destructive', title: 'Error', description: error.message || 'Could not initiate payment.' });
+            const data = await res.json();
+            if (data.success) {
+                toast({ title: 'Submitted', description: 'Your payment confirmation has been sent to the owner for verification.' });
+                setIsPaymentModalOpen(false);
+                setUtr('');
+                router.refresh();
+            } else {
+                throw new Error(data.error || 'Failed to submit confirmation.');
             }
-        });
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Error', description: err.message });
+        } finally {
+            setIsSubmittingManual(false);
+        }
     };
 
     if (isLoading) {
@@ -231,13 +225,27 @@ export default function MyPgPage() {
         )
     }
 
+
     const moveInDate = currentGuest.moveInDate ? parseISO(currentGuest.moveInDate) : null;
     const exitDate = currentGuest.exitDate ? parseISO(currentGuest.exitDate) : null;
     const dueDate = currentGuest.dueDate ? parseISO(currentGuest.dueDate) : null;
     const stayDuration = moveInDate && isValid(moveInDate) ? differenceInDays(new Date(), moveInDate) : 0;
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="space-y-6">
+            {/* UTR Verification Box */}
+            {pendingManualPayment && (
+                <Alert className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                    <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <AlertTitle className="text-blue-800 dark:text-blue-200 font-bold">Payment Under Verification</AlertTitle>
+                    <AlertDescription className="text-blue-700 dark:text-blue-300">
+                        We've received your UTR: <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded font-mono">{pendingManualPayment.utr}</code>. 
+                        Owner is verifying your payment of ₹{pendingManualPayment.amount.toLocaleString('en-IN')}.
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             <div className="lg:col-span-2 space-y-6">
                 <Card>
                     <CardHeader>
@@ -297,14 +305,32 @@ export default function MyPgPage() {
                             <span className="font-bold text-lg text-primary flex items-center"><IndianRupee className="w-5 h-5" />{totalDue.toLocaleString('en-IN')}</span>
                         </div>
                     </CardContent>
-                    <CardFooter>
-                        <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={handlePayNow} disabled={totalDue <= 0 || isPaying}>
+                    <CardFooter className="flex flex-col gap-3">
+                        <Button 
+                            className="w-full bg-accent text-accent-foreground hover:bg-accent/90 py-6 text-lg font-bold shadow-lg shadow-accent/20" 
+                            onClick={handlePayNow} 
+                            disabled={totalDue <= 0 || isPaying}
+                        >
                             {isPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Pay Now
+                            <IndianRupee className="ml-1 w-5 h-5" />
                         </Button>
                     </CardFooter>
                 </Card>
             </div>
+            </div>
+
+            <TenantPaymentModal 
+                isOpen={isPaymentModalOpen}
+                onClose={() => setIsPaymentModalOpen(false)}
+                currentPg={currentPg}
+                currentGuest={currentGuest}
+                totalDue={totalDue}
+                onConfirmManual={async (newUtr) => {
+                    setUtr(newUtr);
+                    await handleConfirmManualPayment();
+                }}
+            />
         </div>
     )
 }
