@@ -97,14 +97,14 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
                   <FormField control={addGuestForm.control} name="symbolicRentValue" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Rent Label (Ghost Mode)</FormLabel>
-                      <FormControl><Input placeholder="e.g., XXX or 1 UNIT" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g., XXX" {...field} disabled /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={addGuestForm.control} name="symbolicDepositValue" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Deposit Label (Ghost Mode)</FormLabel>
-                      <FormControl><Input placeholder="e.g., XXX or 1 UNIT" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g., YYY" {...field} disabled /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />

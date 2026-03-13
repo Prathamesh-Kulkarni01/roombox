@@ -1,5 +1,29 @@
 export const CURRENT_SCHEMA_VERSION = 3;
 
+export interface KycFieldConfig {
+    id: string;
+    label: string;
+    type: 'text' | 'file' | 'select' | 'date';
+    required: boolean;
+    options?: string[];
+}
+
+export interface SubmittedKycDocument {
+    fieldId: string;
+    value?: string;
+    fileUrl?: string;
+    fileName?: string;
+    submittedAt: string;
+}
+
+export interface BusinessKycDetails {
+    gstin?: string;
+    pan?: string;
+    businessName?: string;
+    address?: string;
+}
+
+
 export interface PWAConfig {
   name: string;
   shortName: string;
@@ -256,7 +280,7 @@ export interface Guest {
   lastReminderSentAt?: string;
   lastReminderType?: 'T-3' | 'T-1' | 'T0' | 'T+2';
   balance: number;
-  symbolicBalance?: string; // e.g. "2 * XXX + 500"
+  symbolicBalance?: string | null; // e.g. "2 * XXX + 500"
   isOnboarded?: boolean;
 }
 

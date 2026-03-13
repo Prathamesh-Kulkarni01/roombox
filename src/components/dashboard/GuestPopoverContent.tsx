@@ -57,7 +57,13 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
           </div>
           <div className="flex justify-between items-center">
             <span>Total Due:</span>
-            <span className="font-bold text-base flex items-center"><IndianRupee className="w-3.5 h-3.5" />{totalDue.toLocaleString('en-IN')}</span>
+            <span className="font-bold text-base flex items-center">
+               {guest.amountType === 'symbolic' ? (
+                 <span className="text-purple-600">{guest.symbolicBalance || 'None'}</span>
+               ) : (
+                 <><IndianRupee className="w-3.5 h-3.5" />{totalDue.toLocaleString('en-IN')}</>
+               )}
+            </span>
           </div>
           <div className="flex justify-between">
             <span>Due Date:</span>

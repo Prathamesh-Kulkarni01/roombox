@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart'
 import { format, subMonths, getYear, getMonth, parseISO } from 'date-fns'
 import type { Guest, PG } from '@/lib/types'
-import { IndianRupee, Users, TrendingUp, WalletCards } from 'lucide-react'
+import { IndianRupee, Users, TrendingUp, Ghost } from 'lucide-react'
+import { getBalanceBreakdown } from '@/lib/ledger-utils'
 
 interface RentAnalyticsProps {
     guests: Guest[];
@@ -33,7 +34,8 @@ export default function RentAnalytics({ guests, pgs }: RentAnalyticsProps) {
                 const monthKey = format(paymentDate, 'MMM yy');
                 const monthData = data.find(d => d.month === monthKey);
                 if (monthData) {
-                    monthData.total += payment.amount;
+                    // Only add numeric amount to the total
+                    monthData.total += (payment.amount || 0);
                 }
             });
         });
@@ -59,30 +61,30 @@ export default function RentAnalytics({ guests, pgs }: RentAnalyticsProps) {
         const occupancyRate = totalBeds > 0 ? (activeGuests.length / totalBeds) * 100 : 0;
 
         const totalOutstanding = activeGuests
-            .filter(g => g.rentStatus === 'unpaid' || g.rentStatus === 'partial')
             .reduce((sum, g) => {
-                 const balanceBf = g.balanceBroughtForward || 0;
-                 const currentMonthRent = g.rentAmount;
-                 const chargesDue = (g.additionalCharges || []).reduce((s, charge) => s + charge.amount, 0);
-                 const totalOwed = balanceBf + currentMonthRent + chargesDue;
-                 const totalPaid = g.rentPaidAmount || 0;
-                 return sum + (totalOwed - totalPaid);
+                 const breakdown = getBalanceBreakdown(g);
+                 return sum + breakdown.total;
             }, 0);
             
         const ytdCollection = guests.flatMap(g => g.paymentHistory || [])
             .filter(p => getYear(parseISO(p.date)) === getYear(new Date()))
-            .reduce((sum, p) => sum + p.amount, 0);
+            .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+        const symbolicCollectedYTD = guests.flatMap(g => g.paymentHistory || [])
+            .filter(p => p.amountType === 'symbolic' && getYear(parseISO(p.date)) === getYear(new Date()))
+            .length;
 
         return {
             occupancyRate,
             totalOutstanding,
             ytdCollection,
+            symbolicCollectedYTD
         };
     }, [guests, pgs]);
 
     return (
         <div className="space-y-6">
-             <div className="grid gap-4 md:grid-cols-3">
+             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">YTD Collections</CardTitle>
@@ -94,13 +96,23 @@ export default function RentAnalytics({ guests, pgs }: RentAnalyticsProps) {
                         </div>
                     </CardContent>
                 </Card>
-                 <Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Ghost Units Collected (YTD)</CardTitle>
+                        <Ghost className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{kpiData.symbolicCollectedYTD}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Symbolic payments tracked</p>
+                    </CardContent>
+                </Card>
+                <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Outstanding Dues</CardTitle>
                         <IndianRupee className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">₹{kpiData.totalOutstanding.toLocaleString('en-IN')}</div>
+                        <div className="text-2xl font-bold text-destructive">₹{kpiData.totalOutstanding.toLocaleString('en-IN')}</div>
                     </CardContent>
                 </Card>
                 <Card>

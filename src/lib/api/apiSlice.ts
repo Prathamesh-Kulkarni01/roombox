@@ -342,7 +342,7 @@ export const api = createApi({
             amount: number;
             amountType?: 'numeric' | 'symbolic';
             symbolicValue?: string;
-            method: 'cash' | 'upi' | 'in-app';
+            method: 'cash' | 'upi' | 'in-app' | 'direct_upi' | 'gateway';
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'record-payment' } }),
             invalidatesTags: ['Guests', 'Tenants', 'Rent'],
@@ -364,7 +364,7 @@ export const api = createApi({
             amount: number;
             amountType?: 'numeric' | 'symbolic';
             symbolicValue?: string;
-            paymentMode?: string;
+            paymentMode: string;
             notes?: string;
         }>({
             query: (body) => ({ url: 'api/rent', method: 'POST', body }),

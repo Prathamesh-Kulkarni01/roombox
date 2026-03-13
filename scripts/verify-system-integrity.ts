@@ -419,8 +419,8 @@ async function testWhatsAppReminderIdempotency(): Promise<void> {
     await seedGuest(GUEST_ID, {
         dueDate: dueDate.toISOString(),
         rentStatus: 'unpaid',
-        lastReminderSentAt: undefined,
-        lastReminderType: undefined,
+        lastReminderSentAt: null,
+        lastReminderType: null,
     });
 
     // Mirrors the cron job reminder logic (send-rent-reminders/route.ts)

@@ -8,15 +8,22 @@ import { BedDouble, ShieldAlert, Wallet, Clock, IndianRupee } from "lucide-react
 export interface DashboardStats {
   occupancy: { total: number, occupied: number, newThisMonth: number };
   complaints: { active: number, severity: 'High' | 'Normal' };
-  revenue: { collected: number, expected: number, collectedToday: number, symbolicPending?: number };
-  pendingDues: { amount: number, symbolicUnits?: number };
+  revenue: { 
+    collected: number, 
+    expected: number, 
+    collectedToday: number, 
+    symbolicBalance?: string | null,
+    symbolicCollected?: number,
+    symbolicCollectedToday?: number
+  };
+  pendingDues: { amount: number, symbolicBalance?: string | null };
 }
 
 interface StatsCardsProps {
   stats: DashboardStats;
 }
 
-export function PendingDuesCard({ amount, symbolicUnits, onSendReminders }: { amount: number, symbolicUnits?: number, onSendReminders: () => void }) {
+export function PendingDuesCard({ amount, symbolicBalance, onSendReminders }: { amount: number, symbolicBalance?: string | null, onSendReminders: () => void }) {
   return (
     <Access feature="finances" action="view">
       <div className="bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20 border shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
@@ -27,8 +34,9 @@ export function PendingDuesCard({ amount, symbolicUnits, onSendReminders }: { am
           <div>
             <p className="text-xs font-bold text-red-600/80 dark:text-red-400/80 uppercase tracking-wider mb-0.5">Pending Dues</p>
             <h3 className="text-2xl font-black text-red-600 dark:text-red-400">
-              ₹{amount.toLocaleString('en-IN')}
-              {symbolicUnits && symbolicUnits > 0 ? ` + ${symbolicUnits} * XXX` : ''}
+              {amount > 0 ? `₹${amount.toLocaleString('en-IN')}` : ''}
+              {amount > 0 && symbolicBalance ? ' + ' : ''}
+              {symbolicBalance || (amount === 0 ? '₹0' : '')}
             </h3>
           </div>
         </div>
@@ -96,20 +104,26 @@ export default function StatsCards({ stats }: StatsCardsProps) {
               <h2 className="text-3xl font-black text-foreground">
                 {stats.revenue.expected >= 100000 ? (
                   <>
-                    ₹{(stats.revenue.collected / 100000).toFixed(2)}L
-                    <span className="text-lg font-medium text-muted-foreground ml-1">/ {(stats.revenue.expected / 100000).toFixed(2)}L</span>
+                    {stats.revenue.collected > 0 ? `₹${(stats.revenue.collected / 100000).toFixed(2)}L` : ''}
+                    {stats.revenue.collected > 0 && stats.revenue.symbolicCollected ? ' + ' : ''}
+                    {stats.revenue.symbolicCollected ? (stats.revenue.symbolicCollected === 1 ? 'XXX' : stats.revenue.symbolicCollected + 'XXX') : (stats.revenue.collected === 0 ? '₹0' : '')}
+                    <span className="text-lg font-medium text-muted-foreground ml-1">/ {(stats.revenue.expected / 100000).toFixed(2)}L {stats.revenue.symbolicBalance ? `+ ${stats.revenue.symbolicBalance} (Inc. Coll.)` : ''}</span>
                   </>
                 ) : (
                   <>
-                    ₹{stats.revenue.collected.toLocaleString('en-IN')}
-                    <span className="text-lg font-medium text-muted-foreground ml-1">/ {stats.revenue.expected.toLocaleString('en-IN')}</span>
+                    {stats.revenue.collected > 0 ? `₹${stats.revenue.collected.toLocaleString('en-IN')}` : ''}
+                    {stats.revenue.collected > 0 && stats.revenue.symbolicCollected ? ' + ' : ''}
+                    {stats.revenue.symbolicCollected ? (stats.revenue.symbolicCollected === 1 ? 'XXX' : stats.revenue.symbolicCollected + 'XXX') : (stats.revenue.collected === 0 ? '₹0' : '')}
+                    <span className="text-lg font-medium text-muted-foreground ml-1">/ {stats.revenue.expected.toLocaleString('en-IN')}{stats.revenue.symbolicBalance ? ` + ${stats.revenue.symbolicBalance} (Inc. Coll.)` : ''}</span>
                   </>
                 )}
               </h2>
             </div>
             <div className="text-right flex flex-col items-end">
               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-black px-2 py-1 mb-1">
-                + ₹{stats.revenue.collectedToday.toLocaleString('en-IN')}
+                {stats.revenue.collectedToday > 0 ? `+ ₹${stats.revenue.collectedToday.toLocaleString('en-IN')}` : ''}
+                {stats.revenue.collectedToday > 0 && stats.revenue.symbolicCollectedToday ? ' + ' : ''}
+                {stats.revenue.symbolicCollectedToday ? (stats.revenue.symbolicCollectedToday === 1 ? 'XXX' : stats.revenue.symbolicCollectedToday + 'XXX') : (stats.revenue.collectedToday === 0 ? '₹0' : '')}
               </Badge>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">Collected Today</p>
             </div>
@@ -117,7 +131,11 @@ export default function StatsCards({ stats }: StatsCardsProps) {
           <CardContent className="p-4 pt-0">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{revPercentage}% Efficiency</span>
-              <span className="text-xs font-bold text-muted-foreground">₹{stats.revenue.collected.toLocaleString('en-IN')} collected</span>
+              <span className="text-xs font-bold text-muted-foreground">
+                {stats.revenue.collected > 0 ? `₹${stats.revenue.collected.toLocaleString('en-IN')}` : ''}
+                {stats.revenue.collected > 0 && stats.revenue.symbolicCollected ? ' + ' : ''}
+                {stats.revenue.symbolicCollected ? (stats.revenue.symbolicCollected === 1 ? 'XXX' : stats.revenue.symbolicCollected + 'XXX') : (stats.revenue.collected === 0 ? '₹0' : '')} collected
+              </span>
             </div>
             <Progress value={revPercentage} className="h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/20" />
           </CardContent>

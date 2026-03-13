@@ -25,9 +25,13 @@ export function getBalanceBreakdown(guest: Guest) {
         .filter(e => e.type === 'credit' && e.amountType !== 'symbolic')
         .reduce((sum, e) => sum + e.amount, 0);
 
-    let symbolicCreditsToApply = (guest.ledger || [])
+    const symbolicCreditsMap: Record<string, number> = {};
+    (guest.ledger || [])
         .filter(e => e.type === 'credit' && e.amountType === 'symbolic')
-        .length; // Each symbolic credit is 1 unit of XXX
+        .forEach(e => {
+            const val = e.symbolicValue || 'XXX';
+            symbolicCreditsMap[val] = (symbolicCreditsMap[val] || 0) + 1;
+        });
 
     const debits = [...guest.ledger]
         .filter(e => e.type === 'debit')
@@ -47,12 +51,12 @@ export function getBalanceBreakdown(guest: Guest) {
         let unpaid = debitIsSymbolic ? 1 : debit.amount;
 
         if (debitIsSymbolic) {
-            if (symbolicCreditsToApply >= unpaid) {
-                symbolicCreditsToApply -= unpaid;
+            const val = debit.symbolicValue || 'XXX';
+            if (symbolicCreditsMap[val] > 0) {
+                symbolicCreditsMap[val]--;
                 unpaid = 0;
             } else {
-                unpaid -= symbolicCreditsToApply;
-                symbolicCreditsToApply = 0;
+                // Keep unpaid as 1
             }
         } else {
             if (creditsToApply >= unpaid) {
@@ -74,27 +78,35 @@ export function getBalanceBreakdown(guest: Guest) {
                 else breakdown.rent += unpaid;
             } else {
                 // Symbolic other? Unlikely but fallback
-                breakdown.other += unpaid;
+                if (debitIsSymbolic) breakdown.symbolicRent += unpaid; // fallback to rent for symbolic if not deposit
+                else breakdown.other += unpaid;
             }
             if (!debitIsSymbolic) breakdown.total += unpaid;
         }
     }
 
-    // Construct symbolic string: "2 * XXX + 500"
+    // Construct symbolic string: "XXX + YYY + ₹500"
     const symbolicParts = [];
-    const totalSymbolicUnits = breakdown.symbolicRent + breakdown.symbolicDeposit;
-    if (totalSymbolicUnits > 0) {
-        symbolicParts.push(totalSymbolicUnits === 1 ? unit : `${totalSymbolicUnits} * ${unit}`);
+    const rentUnit = guest.symbolicRentValue || 'XXX';
+    const depUnit = guest.symbolicDepositValue || 'YYY';
+
+    if (breakdown.symbolicRent > 0) {
+        symbolicParts.push(breakdown.symbolicRent === 1 ? rentUnit : `${breakdown.symbolicRent}${rentUnit}`);
+    }
+    if (breakdown.symbolicDeposit > 0) {
+        symbolicParts.push(breakdown.symbolicDeposit === 1 ? depUnit : `${breakdown.symbolicDeposit}${depUnit}`);
     }
     if (breakdown.total > 0) {
-        symbolicParts.push(`${breakdown.total}`);
+        symbolicParts.push(`₹${breakdown.total.toLocaleString('en-IN')}`);
     }
 
     return {
         ...breakdown,
-        symbolic: symbolicParts.length > 0 ? symbolicParts.join(' + ') : (isSymbolic ? '0' : null)
+        symbolic: symbolicParts.length > 0 ? symbolicParts.join(' + ') : null
     };
 }
+
+
 
 /**
  * Formats the breakdown into a readable string like "₹5 Rent + ₹10 Dep" or "2 * XXX + ₹500"
@@ -105,18 +117,19 @@ export function formatBalanceBreakdown(guest: Guest) {
     if (breakdown.total <= 0 && (!breakdown.symbolic || breakdown.symbolic === '0')) return null;
 
     const parts = [];
-    const unit = guest.symbolicRentValue || 'XXX';
+    const rentUnit = guest.symbolicRentValue || 'XXX';
+    const depUnit = guest.symbolicDepositValue || 'YYY';
 
     if (breakdown.symbolicRent > 0) {
-        parts.push(breakdown.symbolicRent === 1 ? unit : `${breakdown.symbolicRent} * ${unit}`);
+        parts.push(breakdown.symbolicRent === 1 ? rentUnit : `${breakdown.symbolicRent}${rentUnit}`);
     } else if (breakdown.rent > 0) {
-        parts.push(`₹${breakdown.rent} (Rent)`);
+        parts.push(`₹${breakdown.rent.toLocaleString('en-IN')}`);
     }
 
     if (breakdown.symbolicDeposit > 0) {
-        parts.push(breakdown.symbolicDeposit === 1 ? `Deposit (${unit})` : `${breakdown.symbolicDeposit} * ${unit} (Dep)`);
+        parts.push(breakdown.symbolicDeposit === 1 ? depUnit : `${breakdown.symbolicDeposit}${depUnit}`);
     } else if (breakdown.deposit > 0) {
-        parts.push(`₹${breakdown.deposit} (Dep)`);
+        parts.push(`₹${breakdown.deposit.toLocaleString('en-IN')}`);
     }
 
     if (breakdown.other > 0) parts.push(`₹${breakdown.other} (Other)`);

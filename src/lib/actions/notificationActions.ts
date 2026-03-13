@@ -134,7 +134,7 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
     return { whatsAppStatus };
 }
 
-export async function sendMassPaymentReminders({ ownerId, guests }: { ownerId: string, guests: { id: string, name: string, phone?: string, userId?: string | null, balance: number, roomName: string }[] }) {
+export async function sendMassPaymentReminders({ ownerId, guests }: { ownerId: string, guests: { id: string, name: string, phone?: string, userId?: string | null, balance: number, symbolicBalance?: string | null, amountType?: string, roomName: string }[] }) {
     if (!ownerId || !guests.length) return { success: false, error: 'Owner ID and guests are required' };
 
     try {
@@ -148,7 +148,8 @@ export async function sendMassPaymentReminders({ ownerId, guests }: { ownerId: s
         // Process in small batches or sequentially to avoid hitting limits or overwhelming the server
         for (const guest of guests) {
             const title = 'Rent Payment Reminder';
-            const message = `Hi ${guest.name}, your rent of ₹${guest.balance} for room ${guest.roomName} is pending. Please pay at your earliest convenience.`;
+            const amountStr = guest.amountType === 'symbolic' ? guest.symbolicBalance : `₹${guest.balance.toLocaleString('en-IN')}`;
+            const message = `Hi ${guest.name}, your rent of ${amountStr} for room ${guest.roomName} is pending. Please pay at your earliest convenience.`;
             
             // 1. WhatsApp
             if (owner.subscription?.premiumFeatures?.whatsapp?.enabled && guest.phone) {

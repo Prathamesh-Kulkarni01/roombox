@@ -1,5 +1,5 @@
-import { getAdminDb } from '../src/lib/firebaseAdmin';
-import { TenantService } from '../src/services/tenantService';
+import { getAdminDb } from '@/lib/firebaseAdmin';
+import { TenantService } from '@/services/tenantService';
 
 async function runConcurrencyTest(db: any) {
     console.log('--- Running Concurrency Test ---');

@@ -10,44 +10,46 @@ import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import type { Guest, LedgerEntry } from "@/lib/types"
+import { getBalanceBreakdown } from "@/lib/ledger-utils";
 import { produce } from "immer";
-import { Loader2, Ghost } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setIsPaymentDialogOpen' | 'selectedGuestForPayment' | 'paymentForm' | 'handlePaymentSubmit' | 'isRecordingPayment'>
 
 export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit, isRecordingPayment }: PaymentDialogProps) {
 
-  const { totalDue, dueItems } = useMemo(() => {
-    if (!selectedGuestForPayment?.ledger) return { totalDue: 0, dueItems: [] };
+  const { totalDue, dueItems, localSymbolicBalance } = useMemo(() => {
+    if (!selectedGuestForPayment) return { totalDue: 0, dueItems: [], localSymbolicBalance: null };
 
-    const ledger = [...selectedGuestForPayment.ledger].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const breakdown = getBalanceBreakdown(selectedGuestForPayment);
+    const ledger = [...(selectedGuestForPayment.ledger || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     
-    // Numeric tracking
+    // We still want to show the items that sum up to the balance
+    // This part is a bit tricky to extract perfectly from getBalanceBreakdown without changing its return type
+    // So we'll keep the breakdown loop but use the Canonical values where possible
+    
     let creditsToApply = ledger
       .filter(e => e.type === 'credit' && e.amountType !== 'symbolic')
       .reduce((sum, e) => sum + e.amount, 0);
 
-    // Symbolic tracking
-    let symbolicCreditsToApply = ledger
+    const symbolicCreditsMap: Record<string, number> = {};
+    ledger
       .filter(e => e.type === 'credit' && e.amountType === 'symbolic')
-      .length;
+      .forEach(e => {
+        const val = e.symbolicValue || 'XXX';
+        symbolicCreditsMap[val] = (symbolicCreditsMap[val] || 0) + 1;
+      });
 
     const unpaidItems: (LedgerEntry & { isSymbolic?: boolean; displayAmount?: string })[] = [];
-
     const debits = ledger.filter(e => e.type === 'debit');
 
     for (const debit of debits) {
-      const isSymbolic = debit.amountType === 'symbolic';
-      
-      if (isSymbolic) {
-        if (symbolicCreditsToApply >= 1) {
-          symbolicCreditsToApply -= 1;
+      if (debit.amountType === 'symbolic') {
+        const val = debit.symbolicValue || 'XXX';
+        if (symbolicCreditsMap[val] >= 1) {
+          symbolicCreditsMap[val] -= 1;
         } else {
-          unpaidItems.push({
-            ...debit,
-            isSymbolic: true,
-            displayAmount: debit.symbolicValue || 'XXX'
-          });
+          unpaidItems.push({ ...debit, isSymbolic: true, displayAmount: val });
         }
       } else {
         if (creditsToApply >= debit.amount) {
@@ -63,11 +65,10 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
       }
     }
 
-    const numericBalance = unpaidItems.filter(i => !i.isSymbolic).reduce((sum, item) => sum + item.amount, 0);
-
     return {
-      totalDue: numericBalance,
-      dueItems: unpaidItems
+      totalDue: breakdown.total,
+      dueItems: unpaidItems,
+      localSymbolicBalance: breakdown.symbolic
     };
   }, [selectedGuestForPayment]);
 
@@ -94,47 +95,28 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
                 <div className="flex justify-between items-center text-base pt-2 border-t">
                   <span className="font-bold">Total Due:</span>
                   <div className="text-right">
-                    <div className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</div>
-                    {selectedGuestForPayment.amountType === 'symbolic' && selectedGuestForPayment.symbolicBalance && (
-                      <div className="text-xs font-semibold text-muted-foreground">
-                        + {selectedGuestForPayment.symbolicBalance}
+                    {selectedGuestForPayment.amountType === 'symbolic' ? (
+                      <div className="font-bold text-lg text-primary">
+                        {localSymbolicBalance || 'Settled'}
                       </div>
+                    ) : (
+                      <>
+                        <div className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</div>
+                        {localSymbolicBalance && (
+                          <div className="text-xs font-semibold text-muted-foreground">
+                            + {localSymbolicBalance}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
               </div>
 
-              {selectedGuestForPayment.amountType === 'symbolic' && (
-                <FormField control={paymentForm.control} name="amountType" render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>Collection Mode</FormLabel>
-                    <FormControl>
-                      <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1">
-                        <FormItem className="flex items-center space-x-2">
-                          <FormControl><RadioGroupItem value="numeric" id="pay-numeric" /></FormControl>
-                          <FormLabel htmlFor="pay-numeric" className="font-normal cursor-pointer">Cash/Numeric (₹)</FormLabel>
-                        </FormItem>
-                        <FormItem className="flex items-center space-x-2">
-                          <FormControl><RadioGroupItem value="symbolic" id="pay-symbolic" /></FormControl>
-                          <FormLabel htmlFor="pay-symbolic" className="font-normal cursor-pointer flex items-center gap-1.5">
-                            <Ghost className="w-3.5 h-3.5" />
-                            Ghost Unit
-                          </FormLabel>
-                        </FormItem>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              )}
 
-              {paymentForm.watch('amountType') === 'numeric' ? (
+              {paymentForm.watch('amountType') === 'numeric' && (
                 <FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (
                   <FormItem><FormLabel>Amount to Collect (₹)</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              ) : (
-                <FormField control={paymentForm.control} name="symbolicValue" render={({ field }) => (
-                  <FormItem><FormLabel>Unit Name to Collect</FormLabel><FormControl><Input placeholder="e.g., XXX" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               )}
               <FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (

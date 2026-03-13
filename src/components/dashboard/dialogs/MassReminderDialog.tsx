@@ -21,6 +21,8 @@ interface GuestForReminder {
     name: string;
     phone?: string;
     balance: number;
+    symbolicBalance?: string | null;
+    amountType?: 'numeric' | 'symbolic';
     roomName: string;
 }
 
@@ -183,7 +185,9 @@ export default function MassReminderDialog({
                                             <Badge variant="outline" className="text-[10px] font-bold py-0 h-4 uppercase tracking-tighter">
                                                 {guest.roomName}
                                             </Badge>
-                                            <span className="text-[10px] font-bold text-rose-600">₹{guest.balance} DUE</span>
+                                            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-tighter">
+                                                {guest.amountType === 'symbolic' ? `${guest.symbolicBalance} DUE` : `₹${guest.balance.toLocaleString('en-IN')} DUE`}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>

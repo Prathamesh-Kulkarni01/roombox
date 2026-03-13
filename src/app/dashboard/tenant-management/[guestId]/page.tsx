@@ -33,7 +33,7 @@ import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment, LedgerEntry } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw, Link as LinkIcon, Key } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
-import { formatBalanceBreakdown } from "@/lib/ledger-utils"
+import { formatBalanceBreakdown, getBalanceBreakdown } from "@/lib/ledger-utils"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { useInitiateGuestExitMutation, useVacateGuestMutation, useAddGuestChargeMutation, useRemoveGuestChargeMutation, useUpdateKycStatusMutation, useSubmitKycDocumentsMutation, useResetKycMutation } from '@/lib/api/apiSlice'
@@ -157,30 +157,37 @@ export default function GuestProfilePage() {
     }, [guest?.documents]);
 
 
-    const { totalDue, dueItems } = useMemo(() => {
-        if (!guest?.ledger) return { totalDue: 0, dueItems: [] };
-        let balance = 0;
-        const unpaidDebits: LedgerEntry[] = [];
-        const allCredits = guest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-        let creditsToApply = allCredits;
+    const { totalDue, dueItems, symbolicBalance } = useMemo(() => {
+        if (!guest) return { totalDue: 0, dueItems: [], symbolicBalance: null };
+        const breakdown = getBalanceBreakdown(guest);
+        
+        // Match the unpaid items logic for display
+        const ledger = [...(guest.ledger || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        let creditsToApply = ledger.filter(e => e.type === 'credit' && e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
+        let symbolicCreditsToApply = ledger.filter(e => e.type === 'credit' && e.amountType === 'symbolic').length;
 
-        const allDebits = guest.ledger.filter(e => e.type === 'debit');
+        const unpaidItems: (LedgerEntry & { isSymbolic?: boolean; displayAmount?: string })[] = [];
+        const debits = ledger.filter(e => e.type === 'debit');
 
-        for (const debit of allDebits) {
-            if (creditsToApply >= debit.amount) {
-                creditsToApply -= debit.amount;
+        for (const debit of debits) {
+            const isSymbolic = debit.amountType === 'symbolic';
+            if (isSymbolic) {
+                if (symbolicCreditsToApply >= 1) symbolicCreditsToApply -= 1;
+                else unpaidItems.push({ ...debit, isSymbolic: true, displayAmount: debit.symbolicValue || 'XXX' });
             } else {
-                unpaidDebits.push({
-                    ...debit,
-                    amount: debit.amount - creditsToApply,
-                });
-                creditsToApply = 0;
+                if (creditsToApply >= debit.amount) creditsToApply -= debit.amount;
+                else {
+                    unpaidItems.push({ ...debit, amount: debit.amount - creditsToApply, displayAmount: `₹${(debit.amount - creditsToApply).toLocaleString('en-IN')}` });
+                    creditsToApply = 0;
+                }
             }
         }
 
-        balance = unpaidDebits.reduce((sum, item) => sum + item.amount, 0);
-
-        return { totalDue: balance, dueItems: unpaidDebits };
+        return { 
+            totalDue: breakdown.total, 
+            dueItems: unpaidItems,
+            symbolicBalance: breakdown.symbolic
+        };
     }, [guest]);
 
     const chargeForm = useForm<z.infer<typeof chargeSchema>>({
@@ -458,18 +465,38 @@ export default function GuestProfilePage() {
                                                 )}
                                                 {item.description}
                                             </span>
-                                            <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
+                                            <span className="font-medium text-foreground">{item.displayAmount}</span>
                                         </div>
                                     )) : <p className="text-sm text-muted-foreground">No outstanding charges.</p>}
                                 </div>
 
                                 <div className="flex justify-between items-center text-base pt-4 border-t">
                                     <span className="font-semibold">Total Amount Due:</span>
-                                    <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
+                                    <div className="text-right">
+                                        {guest.amountType === 'symbolic' ? (
+                                            <>
+                                                {totalDue > 0 ? (
+                                                    <>
+                                                        <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
+                                                        {symbolicBalance && <div className="text-xs font-semibold text-rose-600">+ {symbolicBalance}</div>}
+                                                    </>
+                                                ) : (
+                                                    <span className="font-bold text-lg text-primary">{symbolicBalance || 'Settled'}</span>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</span>
+                                                {symbolicBalance && <div className="text-xs font-semibold text-muted-foreground">+ {symbolicBalance}</div>}
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <span>Security Deposit:</span>
-                                    <span className="font-medium">₹{(guest.depositAmount || 0).toLocaleString('en-IN')}</span>
+                                    <span className="font-medium">
+                                        {guest.amountType === 'symbolic' ? (guest.symbolicDepositValue || 'YYY') : `₹${(guest.depositAmount || 0).toLocaleString('en-IN')}`}
+                                    </span>
                                 </div>
                             </CardContent>
                             <CardFooter className="flex-wrap gap-2">

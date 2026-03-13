@@ -28,8 +28,11 @@ const AddGuestSchema = z.object({
     bedId: z.string().optional(),
     roomId: z.string().optional(),
     roomName: z.string().optional(),
-    rentAmount: z.coerce.number().positive('rentAmount must be positive'),
+    amountType: z.enum(['numeric', 'symbolic']).optional().default('numeric'),
+    rentAmount: z.coerce.number().nonnegative('rentAmount must be non-negative'),
     deposit: z.coerce.number().nonnegative().optional(),
+    symbolicRentValue: z.string().optional(),
+    symbolicDepositValue: z.string().optional(),
     joinDate: z.string().datetime({ offset: true }).optional().or(z.string().optional()),
     dueDate: z.string().optional(),
     rentCycleUnit: z.enum(['minutes', 'hours', 'days', 'weeks', 'months']).optional(),
@@ -72,7 +75,7 @@ const PatchSchema = z.discriminatedUnion('action', [
         amount: z.coerce.number().nonnegative(), 
         amountType: z.enum(['numeric', 'symbolic']).optional(),
         symbolicValue: z.string().optional(),
-        method: z.enum(['cash', 'upi', 'in-app']) 
+        method: z.enum(['cash', 'upi', 'in-app', 'direct_upi', 'gateway']) 
     }),
     // Transfer guest to new bed
     z.object({

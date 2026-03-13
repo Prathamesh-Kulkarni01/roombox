@@ -93,15 +93,42 @@ export default function DashboardPage() {
           })
           .reduce((s, e) => s + (e.amount || 0), 0);
 
+        const symbolicCollectedThisMonth = (g.ledger || [])
+          .filter(e => {
+            if (e.type !== 'credit' || e.amountType !== 'symbolic') return false;
+            const date = new Date(e.date);
+            return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+          })
+          .length;
+
+        const symbolicCollectedToday = (g.ledger || [])
+          .filter(e => {
+            const date = new Date(e.date);
+            return e.type === 'credit' && 
+                   e.amountType === 'symbolic' &&
+                   date.getDate() === now.getDate() && 
+                   date.getMonth() === currentMonth && 
+                   date.getFullYear() === currentYear;
+          })
+          .length;
+
         const breakdown = getBalanceBreakdown(g);
         
         return {
           collected: acc.collected + collectedThisMonth,
           collectedToday: acc.collectedToday + collectedToday,
+          symbolicCollected: acc.symbolicCollected + symbolicCollectedThisMonth,
+          symbolicCollectedToday: acc.symbolicCollectedToday + symbolicCollectedToday,
           pending: acc.pending + breakdown.total,
-          symbolicPending: acc.symbolicPending + (breakdown.symbolicRent + breakdown.symbolicDeposit),
+          symbolicRentDue: acc.symbolicRentDue + breakdown.symbolicRent,
+          symbolicDepDue: acc.symbolicDepDue + breakdown.symbolicDeposit,
         };
-      }, { collected: 0, collectedToday: 0, pending: 0, symbolicPending: 0 });
+      }, { collected: 0, collectedToday: 0, symbolicCollected: 0, symbolicCollectedToday: 0, pending: 0, symbolicRentDue: 0, symbolicDepDue: 0 });
+
+    const symbolicParts = [];
+    if (revenue.symbolicRentDue > 0) symbolicParts.push(`${revenue.symbolicRentDue > 1 ? revenue.symbolicRentDue : ''}XXX`);
+    if (revenue.symbolicDepDue > 0) symbolicParts.push(`${revenue.symbolicDepDue > 1 ? revenue.symbolicDepDue : ''}YYY`);
+    const symbolicBalance = symbolicParts.join(' + ') || null;
 
     const newThisMonthCount = relevantGuests.filter((guest: Guest) => {
       if (!guest.moveInDate) return false;
@@ -118,11 +145,13 @@ export default function DashboardPage() {
         collected: revenue.collected, 
         expected: revenue.collected + revenue.pending, 
         collectedToday: revenue.collectedToday,
-        symbolicPending: revenue.symbolicPending 
+        symbolicBalance: symbolicBalance,
+        symbolicCollected: revenue.symbolicCollected,
+        symbolicCollectedToday: revenue.symbolicCollectedToday
       },
       pendingDues: { 
         amount: revenue.pending,
-        symbolicUnits: revenue.symbolicPending
+        symbolicBalance: symbolicBalance
       },
     };
   }, [pgs, guests, complaints, selectedPgId]);
@@ -139,17 +168,22 @@ export default function DashboardPage() {
     const guestsWithDues = guests
       .filter((g: Guest) => !g.isVacated)
       .map(g => {
-        const totalDebits = (g.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
-        const totalCredits = (g.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
-        return { ...g, balance: totalDebits - totalCredits };
+        const breakdown = getBalanceBreakdown(g);
+        return { 
+          ...g, 
+          balance: breakdown.total,
+          symbolicBalance: breakdown.symbolic
+        };
       })
-      .filter(g => g.balance > 0)
+      .filter(g => g.balance > 0 || g.symbolicBalance)
       .map(g => ({
         id: g.id,
         name: g.name,
         phone: g.phone,
         userId: g.userId,
         balance: g.balance,
+        symbolicBalance: g.symbolicBalance,
+        amountType: g.amountType,
         roomName: pgs.find(p => p.id === g.pgId)?.floors?.find(f => f.rooms.some(r => r.id === g.roomId))?.rooms.find(r => r.id === g.roomId)?.name || 'N/A'
       }));
 
@@ -242,7 +276,7 @@ export default function DashboardPage() {
             <div className="pt-2">
               <PendingDuesCard 
                 amount={stats.pendingDues.amount}
-                symbolicUnits={stats.pendingDues.symbolicUnits}
+                symbolicBalance={stats.pendingDues.symbolicBalance}
                 onSendReminders={handleSendMassReminder}
               />
             </div>

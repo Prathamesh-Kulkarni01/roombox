@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
-import { IndianRupee, Download, Printer, CheckCircle, XCircle, AlertCircle, Loader2, Info } from 'lucide-react';
+import { IndianRupee, Download, Printer, CheckCircle, XCircle, AlertCircle, Loader2, Info, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useReactToPrint } from 'react-to-print';
 import React from 'react';
@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { Payment } from '@/lib/types';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { getBalanceBreakdown } from '@/lib/ledger-utils';
 
 
 const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder }: any) => {
@@ -54,12 +55,12 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
         <div className="printable-area">
             <Accordion type="multiple" className="w-full">
                 {filteredPendingGuests.map(guest => {
-                    const balanceBf = guest.balanceBroughtForward || 0;
-                    const chargesDue = (guest.additionalCharges || []).reduce((sum: number, charge: { amount: number; }) => sum + charge.amount, 0);
-                    const rentDue = (guest.rentStatus === 'paid') ? 0 : guest.rentAmount - (guest.rentPaidAmount || 0);
-                    const totalDue = balanceBf + chargesDue + rentDue;
+                    const isSymbolic = guest.amountType === 'symbolic';
+                    const breakdown = getBalanceBreakdown(guest);
+                    const totalDue = breakdown.total;
 
-                    if (totalDue <= 0) return null; // Don't show if there's nothing to pay
+                    if (!isSymbolic && totalDue <= 0) return null;
+                    if (isSymbolic && !breakdown.symbolic) return null;
 
                     return (
                         <AccordionItem value={guest.id} key={guest.id}>
@@ -70,7 +71,9 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                         <span className="text-sm text-muted-foreground">{guest.pgName} - Due on {format(parseISO(guest.dueDate), 'do MMM')}</span>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-bold text-lg text-destructive">₹{totalDue.toLocaleString('en-IN')}</p>
+                                        <p className="font-bold text-lg text-destructive">
+                                            {isSymbolic ? breakdown.symbolic : `₹${totalDue.toLocaleString('en-IN')}`}
+                                        </p>
                                         <p className="text-xs text-muted-foreground">Total Pending</p>
                                     </div>
                                 </div>
@@ -79,28 +82,55 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                 <div className="p-4 bg-muted/50 rounded-md border space-y-4">
                                     <div className="space-y-2 text-sm">
                                         <h4 className="font-semibold mb-2">Dues Breakdown for {guest.name}</h4>
-                                        {balanceBf > 0 && (
-                                            <div className="flex justify-between items-center text-muted-foreground">
-                                                <span>Balance from previous months:</span>
-                                                <span className="font-medium text-foreground">₹{balanceBf.toLocaleString('en-IN')}</span>
-                                            </div>
+                                        {isSymbolic ? (
+                                            <>
+                                                {breakdown.symbolicRent > 0 && (
+                                                    <div className="flex justify-between items-center text-muted-foreground">
+                                                        <span>Pending Rent:</span>
+                                                        <span className="font-medium text-foreground">{breakdown.symbolicRent === 1 ? (guest.symbolicRentValue || 'XXX') : `${breakdown.symbolicRent}${guest.symbolicRentValue || 'XXX'}`}</span>
+                                                    </div>
+                                                )}
+                                                {breakdown.symbolicDeposit > 0 && (
+                                                    <div className="flex justify-between items-center text-muted-foreground">
+                                                        <span>Pending Deposit:</span>
+                                                        <span className="font-medium text-foreground">{breakdown.symbolicDeposit === 1 ? (guest.symbolicDepositValue || 'YYY') : `${breakdown.symbolicDeposit}${guest.symbolicDepositValue || 'YYY'}`}</span>
+                                                    </div>
+                                                )}
+                                                {breakdown.total > 0 && (
+                                                    <div className="flex justify-between items-center text-muted-foreground">
+                                                        <span>Additional Charges:</span>
+                                                        <span className="font-medium text-foreground">₹{breakdown.total.toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                {breakdown.rent > 0 && (
+                                                    <div className="flex justify-between items-center text-muted-foreground">
+                                                        <span>Pending Rent:</span>
+                                                        <span className="font-medium text-foreground">₹{breakdown.rent.toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                                {breakdown.deposit > 0 && (
+                                                    <div className="flex justify-between items-center text-muted-foreground">
+                                                        <span>Pending Deposit:</span>
+                                                        <span className="font-medium text-foreground">₹{breakdown.deposit.toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                                {breakdown.other > 0 && (
+                                                    <div className="flex justify-between items-center text-muted-foreground">
+                                                        <span>Other Charges:</span>
+                                                        <span className="font-medium text-foreground">₹{breakdown.other.toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
-                                        {rentDue > 0 &&
-                                            <div className="flex justify-between items-center text-muted-foreground">
-                                                <span>Current month's rent:</span>
-                                                <span className="font-medium text-foreground">₹{rentDue.toLocaleString('en-IN')}</span>
-                                            </div>
-                                        }
-                                        {(guest.additionalCharges || []).map((charge: any) => (
-                                            <div key={charge.id} className="flex justify-between items-center text-muted-foreground pl-4">
-                                                <span>- {charge.description}</span>
-                                                <span className="font-medium text-foreground">₹{charge.amount.toLocaleString('en-IN')}</span>
-                                            </div>
-                                        ))}
 
                                         <div className="flex justify-between items-center border-t pt-2 mt-2">
                                             <span className="font-bold text-base">Total Amount Due:</span>
-                                            <span className="font-bold text-base text-destructive">₹{totalDue.toLocaleString('en-IN')}</span>
+                                            <span className="font-bold text-base text-destructive">
+                                                {isSymbolic ? breakdown.symbolic : `₹${totalDue.toLocaleString('en-IN')}`}
+                                            </span>
                                         </div>
                                     </div>
                                     <div className="flex gap-2 justify-end pt-2 border-t">
@@ -124,20 +154,24 @@ const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
         return <Badge variant="outline">N/A</Badge>;
     }
 
-    const statusMeta = {
-        processed: { text: "Processed", icon: CheckCircle, className: "bg-green-100 text-green-800" },
-        failed: { text: "Failed", icon: XCircle, className: "bg-red-100 text-red-800" },
-        pending: { text: "Pending", icon: Loader2, className: "bg-yellow-100 text-yellow-800 animate-spin" },
+    const statusMeta: Record<string, { text: string; icon: any; className: string }> = {
+        COMPLETED: { text: "Processed", icon: CheckCircle, className: "bg-green-100 text-green-800" },
+        SETTLED: { text: "Settled", icon: CheckCircle, className: "bg-green-100 text-green-800" },
+        FAILED: { text: "Failed", icon: XCircle, className: "bg-red-100 text-red-800" },
+        PAYOUT_FAILED: { text: "Payout Failed", icon: XCircle, className: "bg-red-100 text-red-800" },
+        PAYOUT_PENDING: { text: "Payout Pending", icon: Loader2, className: "bg-yellow-100 text-yellow-800 animate-spin" },
+        REFUND_PENDING: { text: "Refund Pending", icon: Loader2, className: "bg-yellow-100 text-yellow-800 animate-spin" },
+        REFUNDED: { text: "Refunded", icon: RefreshCw, className: "bg-blue-100 text-blue-800" },
     };
 
-    const status = payment.payoutStatus || 'pending';
-    const meta = statusMeta[status] || { text: 'Unknown', icon: AlertCircle, className: 'bg-gray-100 text-gray-800' };
+    const status = payment.payoutStatus || 'PAYOUT_PENDING';
+    const meta = statusMeta[status as string] || { text: 'Unknown', icon: AlertCircle, className: 'bg-gray-100 text-gray-800' };
 
-    const isClickable = payment.method === 'in-app' && (status === 'processed' || status === 'failed');
+    const isClickable = payment.method === 'in-app' && (status === 'COMPLETED' || status === 'SETTLED' || status === 'FAILED' || status === 'PAYOUT_FAILED' || status === 'REFUNDED');
 
     const BadgeComponent = (
         <Badge variant="outline" className={cn("cursor-pointer", meta.className, !isClickable && 'cursor-default')}>
-            <meta.icon className={cn("w-3 h-3 mr-1", status !== 'pending' && 'animate-none')} />
+            <meta.icon className={cn("w-3 h-3 mr-1", !status.includes('PENDING') && 'animate-none')} />
             {meta.text}
         </Badge>
     );
@@ -164,7 +198,7 @@ const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
                             {meta.text}
                         </Badge>
                     </div>
-                    {status === 'failed' && payment.payoutFailureReason && (
+                    {(status === 'FAILED' || status === 'PAYOUT_FAILED') && payment.payoutFailureReason && (
                         <div className="text-sm p-3 bg-destructive/10 border border-destructive/20 rounded-md">
                             <p className="font-semibold text-destructive">Reason for Failure:</p>
                             <p className="text-destructive/90">{payment.payoutFailureReason}</p>
@@ -482,7 +516,9 @@ export default function RentPassbookPage() {
                                                 <TableCell>
                                                     <PayoutStatusBadge payment={p} />
                                                 </TableCell>
-                                                <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
+                                                <TableCell className="text-right font-semibold">
+                                                    {p.amountType === 'symbolic' ? (p.symbolicValue || 'XXX') : `₹${p.amount.toLocaleString('en-IN')}`}
+                                                </TableCell>
                                             </TableRow>
                                         )) : (
                                             <TableRow><TableCell colSpan={5} className="text-center h-24">No transactions found for the selected filters.</TableCell></TableRow>

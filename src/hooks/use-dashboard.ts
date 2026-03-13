@@ -30,6 +30,7 @@ import {
 } from "@/lib/api/apiSlice"
 import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
 import { sanitizeObjectForFirebase } from "@/lib/utils"
+import { getBalanceBreakdown } from "@/lib/ledger-utils"
 
 const addGuestSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -164,7 +165,7 @@ export function useDashboard() {
     resolver: zodResolver(addGuestSchema),
     defaultValues: {
       name: '', phone: '', email: '', amountType: 'numeric', rentAmount: 0, depositAmount: 0,
-      symbolicRentValue: 'XXX', symbolicDepositValue: 'XXX',
+      symbolicRentValue: 'XXX', symbolicDepositValue: 'YYY',
       rentCycleUnit: 'months', rentCycleValue: 1,
     },
   });
@@ -231,7 +232,7 @@ export function useDashboard() {
         paymentForm.reset({ 
           amountType: 'symbolic', 
           paymentMethod: 'cash', 
-          symbolicValue: 'XXX',
+          symbolicValue: selectedGuestForPayment.symbolicRentValue || 'XXX',
           amountPaid: 0 
         });
       } else {
@@ -255,8 +256,8 @@ export function useDashboard() {
       amountType: room.amountType || 'numeric',
       rentAmount: room.amountType === 'symbolic' ? 0 : room.rent,
       depositAmount: room.amountType === 'symbolic' ? 0 : room.deposit,
-      symbolicRentValue: room.symbolicRentValue || 'XXX',
-      symbolicDepositValue: room.symbolicDepositValue || 'XXX',
+      symbolicRentValue: room.amountType === 'symbolic' ? (room.symbolicRentValue || 'XXX') : 'XXX',
+      symbolicDepositValue: room.amountType === 'symbolic' ? (room.symbolicDepositValue || 'YYY') : 'YYY',
       moveInDate: new Date(),
       rentCycleUnit: 'months',
       rentCycleValue: 1,
@@ -470,10 +471,8 @@ export function useDashboard() {
     setIsReminderDialogOpen(true);
     setReminderMessage("Generating payment link...");
 
-    const totalDue = (guest.ledger || []).reduce((acc, entry) => acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0);
-    const balanceStr = guest.amountType === 'symbolic' 
-      ? (totalDue > 0 ? `₹${totalDue.toLocaleString('en-IN')} + ${guest.symbolicBalance || '0'}` : (guest.symbolicBalance || '0'))
-      : `₹${totalDue.toLocaleString('en-IN')}`;
+    const breakdown = getBalanceBreakdown(guest);
+    const balanceStr = breakdown.symbolic || (guest.amountType === 'symbolic' ? 'No Dues' : '₹0');
 
     try {
       const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();

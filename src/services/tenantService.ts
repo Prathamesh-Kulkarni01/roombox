@@ -12,6 +12,7 @@ import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type Sub
 import { getPlanLimit } from '@/lib/permissions';
 import { parseDateString } from '@/lib/utils';
 import { ActivityLogsService } from '@/lib/activity-logs-service';
+import { getBalanceBreakdown } from '@/lib/ledger-utils';
 
 export interface Tenant {
     id: string;
@@ -164,7 +165,7 @@ export class TenantService {
             const anchorDay = Number(dueDate) || startOfCycle.getDate();
             const amountType = input.amountType || 'numeric';
             const symbolicRentValue = input.symbolicRentValue || 'XXX';
-            const symbolicDepositValue = input.symbolicDepositValue || 'XXX';
+            const symbolicDepositValue = input.symbolicDepositValue || 'YYY';
 
             const numericRent = Number(rentAmount) || 0;
             const numericDeposit = Number(deposit || 0);
@@ -238,10 +239,20 @@ export class TenantService {
                 depositAmount: numericDeposit,
                 amountType,
                 symbolicRentValue: amountType === 'symbolic' ? (symbolicRentValue || 'XXX') : null,
-                symbolicDepositValue: amountType === 'symbolic' ? (symbolicDepositValue || 'XXX') : null,
+                symbolicDepositValue: amountType === 'symbolic' ? (symbolicDepositValue || 'YYY') : null,
+                symbolicBalance: amountType === 'symbolic' 
+                    ? [symbolicRentValue || 'XXX', (numericDeposit > 0 || symbolicDepositValue) ? (symbolicDepositValue || 'YYY') : null].filter(Boolean).join(' + ')
+                    : (initialBalance > 0 ? `₹${initialBalance}` : null),
                 balance: initialBalance,
                 paidAmount: 0,
-                rentStatus: (initialBalance > 0 || (initialLedger.length > 0 && amountType === 'symbolic')) ? 'unpaid' : 'paid',
+                rentStatus: (() => {
+                    if (amountType === 'symbolic') {
+                        return (initialLedger.length > 0) ? 'unpaid' : 'paid';
+                    } else {
+                        if (initialBalance <= 0) return 'paid';
+                        return (initialBalance < numericRent) ? 'partial' : 'unpaid';
+                    }
+                })(),
                 paymentStatus: initialBalance > 0 ? 'pending' : 'paid',
                 isVacated: false,
                 kycStatus: 'not_submitted',
@@ -843,16 +854,29 @@ export class TenantService {
 
                 const { format } = require('date-fns');
                 const exitDateStr = format(new Date(), 'do MMM yyyy');
-                const settlementText = finalSettlementAmount > 0
-                    ? `You will receive a refund of ₹${finalSettlementAmount.toLocaleString('en-IN')}`
-                    : finalSettlementAmount < 0
-                        ? `You have a pending due of ₹${Math.abs(finalSettlementAmount).toLocaleString('en-IN')}`
-                        : `Your account is fully settled (₹0 balance).`;
+                const breakdown = getBalanceBreakdown(guest);
+                const duesDisplay = breakdown.symbolic || (guest.amountType === 'symbolic' ? 'None' : `₹${currentBalance.toLocaleString('en-IN')}`);
+                const depositDisplay = guest.amountType === 'symbolic' 
+                    ? (guest.symbolicDepositValue || 'YYY') 
+                    : `₹${(guest.depositAmount || 0).toLocaleString('en-IN')}`;
+
+                let settlementText = '';
+                if (guest.amountType === 'symbolic') {
+                    settlementText = breakdown.symbolic 
+                        ? `You have a pending due of ${breakdown.symbolic}`
+                        : `Your account is fully settled.`;
+                } else {
+                    settlementText = finalSettlementAmount > 0
+                        ? `You will receive a refund of ₹${finalSettlementAmount.toLocaleString('en-IN')}`
+                        : finalSettlementAmount < 0
+                            ? `You have a pending due of ₹${Math.abs(finalSettlementAmount).toLocaleString('en-IN')}`
+                            : `Your account is fully settled (₹0 balance).`;
+                }
 
                 const msg = `👋 *Hi ${guest.name}, your checkout from ${guest.pgName} is confirmed.*\n\n` +
                     `*Checkout Date:* ${exitDateStr}\n` +
-                    `*Security Deposit:* ₹${(guest.depositAmount || 0).toLocaleString('en-IN')}\n` +
-                    `*Unpaid Dues:* ₹${currentBalance.toLocaleString('en-IN')}\n\n` +
+                    `*Security Deposit:* ${depositDisplay}\n` +
+                    `*Unpaid Dues:* ${duesDisplay}\n\n` +
                     `*Final Settlement:* ${settlementText}\n\n` +
                     `Thank you for staying with us!`;
 
@@ -868,7 +892,7 @@ export class TenantService {
         await ActivityLogsService.logActivity({
             ownerId,
             activityType: 'GUEST_VACATED',
-            details: `Guest ${guest.name} vacated from ${guest.pgName}. Final Settlement: ₹${finalSettlementAmount}`,
+            details: `Guest ${guest.name} vacated from ${guest.pgName}. Final Settlement: ${guest.amountType === 'symbolic' ? (getBalanceBreakdown(guest).symbolic || 'Settled') : `₹${finalSettlementAmount}`}`,
             targetId: guestId,
             targetType: 'guest',
             status: 'success'
@@ -922,40 +946,89 @@ export class TenantService {
 
             if (guest.isVacated) throw new Error('Cannot record payment for a vacated tenant');
 
+            // --- GREEDY SYMBOLIC COLLECTION LOGIC ---
+            let newCredits: LedgerEntry[] = [];
+            let paymentHistoryItems: any[] = [];
+            
+            if (amountType === 'symbolic') {
+                const ledger = guest.ledger || [];
+                const debits = ledger.filter(e => e.type === 'debit' && e.amountType === 'symbolic');
+                const credits = ledger.filter(e => e.type === 'credit' && e.amountType === 'symbolic');
+                
+                const creditsMap: Record<string, number> = {};
+                credits.forEach(c => {
+                    const val = c.symbolicValue || 'XXX';
+                    creditsMap[val] = (creditsMap[val] || 0) + 1;
+                });
+
+                // Sort debits by date to clear chronologically
+                const sortedDebits = [...debits].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+                for (const debit of sortedDebits) {
+                    const val = debit.symbolicValue || 'XXX';
+                    if (creditsMap[val] > 0) {
+                        creditsMap[val]--;
+                    } else {
+                        // This debit is unpaid. Create a matching credit.
+                        const isDeposit = debit.description.toLowerCase().includes('deposit');
+                        newCredits.push({
+                            id: `credit-${isDeposit ? 'dep' : 'rent'}-${now.getTime()}-${newCredits.length}`,
+                            date: now.toISOString(),
+                            type: 'credit',
+                            amount: 0,
+                            amountType: 'symbolic',
+                            symbolicValue: val,
+                            description: `${isDeposit ? 'Deposit' : 'Rent'} Collection (${paymentMode} - Ghost)`
+                        });
+                    }
+                }
+                
+                // If nothing was pending but we forced a collect, add the primary credit
+                if (newCredits.length === 0) {
+                    newCredits.push(creditEntry);
+                }
+
+                paymentHistoryItems = newCredits.map((c, idx) => ({
+                    id: `pay-${now.getTime()}-${idx}`,
+                    date: now.toISOString(),
+                    amount: 0,
+                    amountType: 'symbolic',
+                    symbolicValue: c.symbolicValue,
+                    method: paymentMode,
+                    forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+                }));
+            } else {
+                newCredits.push(creditEntry);
+                paymentHistoryItems.push({
+                    id: `pay-${Date.now()}`,
+                    date: now.toISOString(),
+                    amount: Number(amount),
+                    amountType: 'numeric',
+                    method: paymentMode,
+                    forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
+                });
+            }
+
             const guestWithPayment = {
                 ...guest,
-                ledger: [...(guest.ledger || []), creditEntry],
+                ledger: [...(guest.ledger || []), ...newCredits],
                 paymentHistory: [
                     ...(guest.paymentHistory || []),
-                    {
-                        id: `pay-${Date.now()}`,
-                        date: now.toISOString(),
-                        amount: amountType === 'symbolic' ? 0 : Number(amount),
-                        amountType: amountType || 'numeric',
-                        ...(amountType === 'symbolic' && symbolicValue ? { symbolicValue } : {}),
-                        method: paymentMode,
-                        forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-                    },
+                    ...paymentHistoryItems
                 ],
             };
 
             const { guest: reconciledGuest } = runReconciliationLogic(guestWithPayment as Guest, now);
 
-            const totalDebits = reconciledGuest.ledger.filter(e => e.type === 'debit' && e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
-            const totalCredits = reconciledGuest.ledger.filter(e => e.type === 'credit' && e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
-            const newBalance = Number((totalDebits - totalCredits).toFixed(2));
-
-            const totalSymbolicDebits = reconciledGuest.ledger.filter(e => e.type === 'debit' && e.amountType === 'symbolic').length;
-            const totalSymbolicCredits = reconciledGuest.ledger.filter(e => e.type === 'credit' && e.amountType === 'symbolic').length;
-            const symbolicBalanceUnits = totalSymbolicDebits - totalSymbolicCredits;
-
-            const isPartiallyPaid = (totalCredits > 0 || totalSymbolicCredits > 0);
-            const hasRemainingDebt = (newBalance > 0 || symbolicBalanceUnits > 0);
-
-            const finalGuest = {
+            // Use getBalanceBreakdown to get canonical balance and symbolic status
+            const breakdown = getBalanceBreakdown(reconciledGuest);
+            const newBalance = breakdown.total;
+            
+            const finalGuest: Guest = {
                 ...reconciledGuest,
                 balance: newBalance,
-                rentStatus: (hasRemainingDebt ? (isPartiallyPaid ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial'
+                symbolicBalance: (breakdown.symbolic || null) as any,
+                // rentStatus is already set correctly by runReconciliationLogic
             };
 
             txn.set(guestRef, finalGuest, { merge: true });
@@ -971,18 +1044,27 @@ export class TenantService {
 
                     const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
+                    const primaryCredit = newCredits[0];
                     const appUrl = (process.env.APP_URL || 'https://roombox.in');
-                    const receiptUrl = `${appUrl}/ledger/${creditEntry.id}`;
+                    const receiptUrl = `${appUrl}/ledger/${primaryCredit.id}`;
+
+                    const messageAmount = amountType === 'symbolic' 
+                        ? (newCredits.map(c => c.symbolicValue).join(' + '))
+                        : `₹${amount}`;
+                    
+                    const messageDesc = amountType === 'symbolic'
+                        ? `Ghost Collection (${paymentMode})`
+                        : primaryCredit.description;
 
                     await sendWhatsAppTemplate(formattedPhone, 'new_payment_success_receipt_utility', 'en_US', [
                         {
                             type: 'body',
                             parameters: [
                                 { type: 'text', text: finalGuest.name },
-                                { type: 'text', text: amountType === 'symbolic' ? (symbolicValue || 'XXX') : String(amount) },
-                                { type: 'text', text: creditEntry.description },
-                                { type: 'text', text: finalGuest.symbolicBalance || String(newBalance) },
-                                { type: 'text', text: creditEntry.id },
+                                { type: 'text', text: messageAmount },
+                                { type: 'text', text: messageDesc },
+                                { type: 'text', text: getBalanceBreakdown(finalGuest).symbolic || (finalGuest.amountType === 'symbolic' ? 'None' : `₹${newBalance}`) },
+                                { type: 'text', text: primaryCredit.id },
                                 { type: 'text', text: receiptUrl } // {{6}}
                             ]
                         }
@@ -995,17 +1077,18 @@ export class TenantService {
 
             return {
                 guest: finalGuest,
-                ledgerEntry: creditEntry,
+                ledgerEntry: newCredits[0],
                 newBalance,
                 newStatus: finalGuest.rentStatus,
             };
         });
 
         console.log(`[TenantService.recordPayment] Payment recorded. New Balance: ${result.newBalance}`);
+        
         await ActivityLogsService.logActivity({
             ownerId,
             activityType: 'PAYMENT_RECORDED',
-            details: `Payment of ₹${amount} recorded for ${result.guest.name} via ${paymentMode}. New Balance: ₹${result.newBalance}`,
+            details: `Payment recorded for ${result.guest.name} via ${paymentMode}. New Balance: ${result.guest.amountType === 'symbolic' ? (getBalanceBreakdown(result.guest).symbolic || 'None') : `₹${result.newBalance}`}`,
             targetId: resolvedGuestId,
             targetType: 'guest',
             status: 'success',
@@ -1032,26 +1115,22 @@ export class TenantService {
 
             const updatedLedger = (guest.ledger || []).filter(e => e.id !== ledgerEntryId);
 
-            // Re-calculate balance from scratch for safety
-            const totalDebits = updatedLedger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-            const totalCredits = updatedLedger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-            const newBalance = totalDebits - totalCredits;
-
-            const hasCredits = updatedLedger.some(e => e.type === 'credit');
-            const newStatus = (newBalance > 0 ? (hasCredits ? 'partial' : 'unpaid') : 'paid') as 'paid' | 'unpaid' | 'partial';
-
-            const finalGuest = {
+            // Use canonical reconciliation
+            const { guest: reconciledGuest } = runReconciliationLogic({
                 ...guest,
-                ledger: updatedLedger,
-                balance: newBalance,
-                rentStatus: newStatus
-            };
+                ledger: updatedLedger
+            }, new Date());
 
-            txn.set(guestRef, finalGuest, { merge: true });
+            txn.update(guestRef, {
+                ledger: updatedLedger,
+                balance: reconciledGuest.balance,
+                rentStatus: reconciledGuest.rentStatus,
+                symbolicBalance: reconciledGuest.symbolicBalance
+            });
 
             return {
-                newBalance,
-                newStatus
+                newBalance: reconciledGuest.balance,
+                newStatus: reconciledGuest.rentStatus
             };
         });
 
