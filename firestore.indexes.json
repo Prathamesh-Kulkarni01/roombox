@@ -16,7 +16,21 @@
     },
     {
       "collectionGroup": "guests",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "phone",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isVacated",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "guests",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "isVacated",
@@ -30,7 +44,7 @@
     },
     {
       "collectionGroup": "guests",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "isVacated",

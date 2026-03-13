@@ -40,9 +40,11 @@ function getRedisClient(): Redis {
         const token = getEnv('UPSTASH_REDIS_REST_TOKEN');
 
         if (!url || !token) {
-            console.error('[Redis] Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+            console.error('[Redis] CRITICAL: Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN. WhatsApp sessions will fail.');
+            // Return a dummy client that throws on every call to avoid the library's internal logging spam
+            // but for now let's just create it and let it fail, but we'll log exactly what we found.
         } else {
-            console.log(`[Redis] Initializing with URL: ${url.substring(0, 15)}...`);
+            console.log(`[Redis] Initializing with URL: ${url.substring(0, 15)}... (Token length: ${token.length})`);
         }
 
         // Sanitize URL: ensure it starts with https:// if it doesn't
@@ -51,10 +53,15 @@ function getRedisClient(): Redis {
             sanitizedUrl = `https://${sanitizedUrl}`;
         }
 
-        redisClient = new Redis({
-            url: sanitizedUrl,
-            token: token || '',
-        });
+        try {
+            redisClient = new Redis({
+                url: sanitizedUrl || 'http://missing-url',
+                token: token || 'missing-token',
+            });
+        } catch (err) {
+            console.error('[Redis] Failed to instantiate Redis client:', err);
+            throw err;
+        }
     }
     return redisClient;
 }
