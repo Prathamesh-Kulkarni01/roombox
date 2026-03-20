@@ -27,6 +27,7 @@ export interface CreatePropertyInput {
     autoSetup?: boolean;
     floorCount?: number;
     roomsPerFloor?: number;
+    bedsPerRoom?: number;
 }
 
 import { getPlanLimit } from '@/lib/permissions';
@@ -62,7 +63,7 @@ export class PropertyService {
      * Handles floor/room generation if requested.
      */
     static async createProperty(db: Firestore, input: CreatePropertyInput & { planId?: string }): Promise<any> {
-        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, planId = 'free' } = input;
+        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, bedsPerRoom = 1, planId = 'free' } = input;
 
         // 1. Check PG Limit
         await this.checkPgLimit(db, ownerId, planId);
@@ -82,12 +83,17 @@ export class PropertyService {
                 for (let r = 1; r <= (roomsPerFloor || 4); r++) {
                     const roomId = `room-${Date.now()}-${f}-${r}`;
                     const roomNum = (f * 100) + r;
+                    const beds: any[] = [];
+                    for (let b = 1; b <= (bedsPerRoom || 1); b++) {
+                        beds.push({ id: `bed-${roomId}-${b}`, name: `${b}`, guestId: null });
+                    }
+
                     rooms.push({
                         id: roomId,
                         name: `${roomNum}`,
                         pgId: newPgId,
                         floorId,
-                        beds: [{ id: `bed-${roomId}-1`, name: '1', guestId: null }],
+                        beds,
                         rent: 0,
                         deposit: 0,
                         available: true,
@@ -113,7 +119,7 @@ export class PropertyService {
             images: [],
             rating: 0,
             occupancy: 0,
-            totalBeds: floorCount * roomsPerFloor || 0,
+            totalBeds: floorCount * roomsPerFloor * bedsPerRoom || 0,
             totalRooms: initialFloors.reduce((acc, f) => acc + f.rooms.length, 0),
             rules: [],
             contact: '',

@@ -37,8 +37,9 @@ const pgSchema = z.object({
   city: z.string().min(2, "City is required."),
   gender: z.enum(['male', 'female', 'co-ed']),
   autoSetup: z.boolean().default(false),
-  floorCount: z.number().min(1).max(10).default(1),
-  roomsPerFloor: z.number().min(1).max(20).default(1),
+  floorCount: z.coerce.number().min(1).max(10).default(1),
+  roomsPerFloor: z.coerce.number().min(1).max(20).default(1),
+  bedsPerRoom: z.coerce.number().min(1).max(10).default(1),
 })
 
 type PgFormValues = z.infer<typeof pgSchema>
@@ -65,6 +66,7 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
       autoSetup: false,
       floorCount: 1,
       roomsPerFloor: 4,
+      bedsPerRoom: 2,
     },
   })
 
@@ -80,7 +82,8 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
         gender: data.gender === 'co-ed' ? 'co-living' : data.gender as any,
         autoSetup: data.autoSetup,
         floorCount: data.floorCount,
-        roomsPerFloor: data.roomsPerFloor
+        roomsPerFloor: data.roomsPerFloor,
+        bedsPerRoom: data.bedsPerRoom
       }).unwrap();
 
       if (result.success && result.pg) {
@@ -191,48 +194,101 @@ export default function AddPgSheet({ open, onOpenChange, onPgAdded }: AddPgSheet
                 />
 
                 {form.watch('autoSetup') && (
-                  <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <FormField
-                      control={form.control}
-                      name="floorCount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Floors</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={10}
-                              {...field}
-                              onChange={e => field.onChange(parseInt(e.target.value) || 1)}
-                              className="h-8 text-xs"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="roomsPerFloor"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Rooms/Floor</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={1}
-                              max={10}
-                              {...field}
-                              onChange={e => field.onChange(parseInt(e.target.value) || 1)}
-                              className="h-8 text-xs"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                    <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <FormField
+                        control={form.control}
+                        name="floorCount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Floors</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                {...field}
+                                value={field.value === undefined || field.value === null ? "" : field.value}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  if (val === "" || /^\d+$/.test(val)) {
+                                    field.onChange(val);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  if (!field.value || Number(field.value) < 1) {
+                                    field.onChange(1);
+                                  }
+                                }}
+                                className="h-8 text-xs font-mono"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="roomsPerFloor"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Rooms/Floor</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                {...field}
+                                value={field.value === undefined || field.value === null ? "" : field.value}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  if (val === "" || /^\d+$/.test(val)) {
+                                    field.onChange(val);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  if (!field.value || Number(field.value) < 1) {
+                                    field.onChange(1);
+                                  }
+                                }}
+                                className="h-8 text-xs font-mono"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                       <FormField
+                        control={form.control}
+                        name="bedsPerRoom"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Beds/Room</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                {...field}
+                                value={field.value === undefined || field.value === null ? "" : field.value}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  if (val === "" || /^\d+$/.test(val)) {
+                                    field.onChange(val);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  if (!field.value || Number(field.value) < 1) {
+                                    field.onChange(1);
+                                  }
+                                }}
+                                className="h-8 text-xs font-mono"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                 )}
               </div>
             </form>

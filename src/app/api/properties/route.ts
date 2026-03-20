@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
             autoSetup: propertyData.autoSetup,
             floorCount: propertyData.floorCount,
             roomsPerFloor: propertyData.roomsPerFloor,
+            bedsPerRoom: propertyData.bedsPerRoom,
             planId: ownerResult.plan?.id
         });
 

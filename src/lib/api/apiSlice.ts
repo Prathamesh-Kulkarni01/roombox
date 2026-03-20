@@ -91,6 +91,7 @@ export const api = createApi({
         }),
 
         createProperty: builder.mutation<{ success: boolean; pg: PG }, {
+            ownerId: string;
             name: string;
             location: string;
             city: string;
@@ -98,6 +99,7 @@ export const api = createApi({
             autoSetup?: boolean;
             floorCount?: number;
             roomsPerFloor?: number;
+            bedsPerRoom?: number;
         }>({
             query: (body) => ({ url: 'api/properties', method: 'POST', body }),
             invalidatesTags: ['Properties'],

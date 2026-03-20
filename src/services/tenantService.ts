@@ -487,18 +487,12 @@ export class TenantService {
 
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
 
-                // Use a verified, reachable logo URL for the header
-                // Fallback to the Netlify app since local roombox.in might not be resolvable to Meta servers.
-                const logoUrl = `${appUrl}/icons/icon-512x512.png`;
-
-                const headerValues = [{ type: 'image', image: { link: logoUrl } }];
                 const bodyValues = [
-                    { type: 'text', text: name }, // {{1}}
-                    { type: 'text', text: pgName || newGuest.pgName || 'Our Property' }, // {{2}}
-                    { type: 'text', text: roomName || 'Assigned Room' }, // {{3}}
-                    { type: 'text', text: String(newGuest.rentAmount || 0) }, // {{4}}
-                    { type: 'text', text: ownerPhone || 'Host' }, // {{5}}
-                    { type: 'text', text: dashboardUrl } // {{6}} (Full URL in Body)
+                    { type: 'text', text: name }, // {{1}} - Tenant Name
+                    { type: 'text', text: pgName || newGuest.pgName }, // {{2}} - PG Name
+                    { type: 'text', text: roomName || 'Assigned Room' }, // {{3}} - Room/Bed
+                    { type: 'text', text: `₹${newGuest.rentAmount}` }, // {{4}} - Rent
+                    { type: 'text', text: dashboardUrl } // {{5}} - Dashboard URL
                 ];
 
                 const result = await sendWhatsAppTemplate(
@@ -506,7 +500,7 @@ export class TenantService {
                     'new_guest_welcome_utility_2',
                     ownerId,
                     'en_US',
-                    headerValues,
+                    [], // No header (safer for templates)
                     bodyValues,
                     [],
                     guestId

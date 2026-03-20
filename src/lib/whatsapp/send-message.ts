@@ -256,31 +256,58 @@ export async function sendWhatsAppTemplate(
     to: string,
     templateName: string,
     ownerId: string,
-    languageCode: string = 'en_US',
-    headerValues: any[] = [],
+    languageCodeOrComponents: string | any[] = 'en_US',
+    headerValuesOrOwnerId: any[] | string = [],
     bodyValues: any[] = [],
     buttonValues: any[] = [],
     targetId?: string
 ) {
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.warn('WhatsApp credentials not configured. Mocking template send:', { to, templateName });
+        console.warn('WhatsApp credentials missing. Mocking message.');
         return { success: true, mock: true };
     }
 
-    const components: any[] = [];
-    
-    if (headerValues && headerValues.length > 0) {
-        components.push({ type: 'header', parameters: headerValues });
-    }
-    
-    if (bodyValues && bodyValues.length > 0) {
-        components.push({ type: 'body', parameters: bodyValues });
-    }
-    
-    if (buttonValues && buttonValues.length > 0) {
-        // Meta API might support multiple buttons or index-based buttons
-        // For simplicity and common use cases:
-        components.push({ type: 'button', sub_type: 'url', index: '0', parameters: buttonValues });
+    let languageCode = 'en_US';
+    let components: any[] = [];
+    let finalOwnerId = ownerId;
+    let finalTargetId = targetId;
+
+    // Handle polyfill for older/different caller signatures
+    // Pattern A: (to, template, ownerId, lang, header, body, buttons, targetId) -> standard
+    // Pattern B: (to, template, languageCode, componentsArr, ownerId, targetId) -> used in some routes
+    if (Array.isArray(languageCodeOrComponents)) {
+        // Pattern B: (to, templateName, ownerId, componentsArr, actualOwnerId, actualTargetId)
+        // In this pattern, the original `ownerId` parameter is actually the languageCode.
+        // `languageCodeOrComponents` is the components array.
+        // `headerValuesOrOwnerId` is the actual ownerId for billing.
+        // `bodyValues` is the actual targetId.
+        languageCode = ownerId; // The original ownerId param is the languageCode in this pattern
+        components = languageCodeOrComponents;
+        finalOwnerId = headerValuesOrOwnerId as string;
+        finalTargetId = bodyValues as any; // targetId in this pattern
+    } else {
+        // Pattern A (Standard): (to, templateName, ownerId, languageCode, headerValues, bodyValues, buttonValues, targetId)
+        languageCode = languageCodeOrComponents || 'en_US';
+        const headerValues = headerValuesOrOwnerId as any[];
+        
+        if (headerValues && headerValues.length > 0) {
+            components.push({ type: 'header', parameters: headerValues });
+        }
+        
+        if (bodyValues && bodyValues.length > 0) {
+            components.push({ type: 'body', parameters: bodyValues });
+        }
+        
+        if (buttonValues && buttonValues.length > 0) {
+            // For buttons, Meta requires sending button component per button group or specific formatting
+            // Usually buttonValues is an array of objects like { type: 'text', text: '...' }
+            // but we might need to wrap it. For now, pushing as is if it follows the pattern.
+            // If buttonValues contains objects with 'type' and 'parameters', it's likely already formatted.
+            // Otherwise, it might be a simple array of values for a single button.
+            // For simplicity and common use cases, assuming it's an array of parameters for a single button component.
+            // If multiple buttons are needed, the caller should use Pattern B with pre-formatted components.
+            components.push({ type: 'button', parameters: buttonValues });
+        }
     }
 
     const payload: WhatsAppMessagePayload = {
@@ -297,7 +324,7 @@ export async function sendWhatsAppTemplate(
         }
     };
 
-    return sendWhatsAppWithBilling(to, payload, ownerId, targetId);
+    return sendWhatsAppWithBilling(to, payload, finalOwnerId, finalTargetId);
 }
 
 async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries = 3) {

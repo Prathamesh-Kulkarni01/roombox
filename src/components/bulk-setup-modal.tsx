@@ -33,7 +33,11 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
     const totalRooms = floors * roomsPerFloor;
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        const { value, name } = e.target;
+        // Allow numeric values or empty string for clearing
+        if (value === '' || /^\d*$/.test(value)) {
+            setForm(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleSubmit = async () => {
@@ -105,11 +109,12 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
                             <Input
                                 id="bulk-floors"
                                 name="floors"
-                                type="number"
-                                min={1}
-                                max={20}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={form.floors}
                                 onChange={handleChange}
+                                onBlur={() => { if (!form.floors || Number(form.floors) < 1) setForm(prev => ({ ...prev, floors: '1' })); }}
                                 placeholder="e.g. 3"
                             />
                         </div>
@@ -118,11 +123,12 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
                             <Input
                                 id="bulk-start-floor"
                                 name="startFloorNumber"
-                                type="number"
-                                min={0}
-                                max={20}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={form.startFloorNumber}
                                 onChange={handleChange}
+                                onBlur={() => { if (form.startFloorNumber === '') setForm(prev => ({ ...prev, startFloorNumber: '1' })); }}
                                 placeholder="e.g. 1"
                             />
                         </div>
@@ -131,11 +137,12 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
                             <Input
                                 id="bulk-rooms"
                                 name="roomsPerFloor"
-                                type="number"
-                                min={1}
-                                max={50}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={form.roomsPerFloor}
                                 onChange={handleChange}
+                                onBlur={() => { if (!form.roomsPerFloor || Number(form.roomsPerFloor) < 1) setForm(prev => ({ ...prev, roomsPerFloor: '1' })); }}
                                 placeholder="e.g. 4"
                             />
                         </div>
@@ -144,11 +151,12 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
                             <Input
                                 id="bulk-beds"
                                 name="bedsPerRoom"
-                                type="number"
-                                min={1}
-                                max={20}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={form.bedsPerRoom}
                                 onChange={handleChange}
+                                onBlur={() => { if (!form.bedsPerRoom || Number(form.bedsPerRoom) < 1) setForm(prev => ({ ...prev, bedsPerRoom: '1' })); }}
                                 placeholder="e.g. 3"
                             />
                         </div>

@@ -90,14 +90,13 @@ export class StaffService {
                         },
                         whatsappConfig: {
                             templateId: 'new_guest_welcome_utility_2',
-                            headerValues: [{ type: 'image', image: { link: `${appUrl}/icons/icon-512x512.png` } }],
+                            headerValues: [], // No header (safer for templates)
                             bodyValues: [
-                                { type: 'text', text: name }, // {{1}}
-                                { type: 'text', text: pgName }, // {{2}}
-                                { type: 'text', text: role.toUpperCase() }, // {{3}} (In place of room)
-                                { type: 'text', text: String(salary) }, // {{4}} (In place of rent)
-                                { type: 'text', text: 'Host' }, // {{5}}
-                                { type: 'text', text: dashboardUrl } // {{6}}
+                                { type: 'text', text: name }, // {{1}} - Name
+                                { type: 'text', text: pgName }, // {{2}} - Building
+                                { type: 'text', text: role.toUpperCase() }, // {{3}} - Role
+                                { type: 'text', text: String(salary || 0) }, // {{4}} - Salary/Rent
+                                { type: 'text', text: dashboardUrl } // {{5}} - Dashboard URL
                             ],
                             languageCode: 'en_US'
                         }
