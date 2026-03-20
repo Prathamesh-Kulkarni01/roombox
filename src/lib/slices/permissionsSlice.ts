@@ -20,13 +20,14 @@ const getDefaultPermissions = (plan: Plan): RolePermissions => {
 
     staffRoles.forEach(role => {
         const perms: FeaturePermissions = {};
-        for (const feature in featurePermissionConfig) {
-            perms[feature] = {};
-            for (const action in featurePermissionConfig[feature as keyof typeof featurePermissionConfig].actions) {
-                // Default all to false for staff
-                perms[feature][action] = false;
-            }
-        }
+        
+        // Initialize all permissions to false
+        featurePermissionConfig.forEach(config => {
+            perms[config.featureId] = {};
+            config.actions.forEach(action => {
+                perms[config.featureId][action.id] = false;
+            });
+        });
 
         // Sensible defaults for a manager on a paying plan
         if (role === 'manager' && plan.hasStaffManagement) {
@@ -50,12 +51,13 @@ const getDefaultPermissions = (plan: Plan): RolePermissions => {
 
     // Owner always gets all permissions
     const ownerPerms: FeaturePermissions = {};
-    for (const feature in featurePermissionConfig) {
-        ownerPerms[feature] = {};
-        for (const action in featurePermissionConfig[feature as keyof typeof featurePermissionConfig].actions) {
-            ownerPerms[feature][action] = true;
-        }
-    }
+    featurePermissionConfig.forEach(config => {
+        ownerPerms[config.featureId] = {};
+        config.actions.forEach(action => {
+            ownerPerms[config.featureId][action.id] = true;
+        });
+    });
+    
     permissions['owner'] = ownerPerms;
     permissions['admin'] = ownerPerms; // Admin also gets all permissions
 

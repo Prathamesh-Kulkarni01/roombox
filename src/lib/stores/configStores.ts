@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { ChargeTemplate, KycFieldConfig } from '@/lib/types';
-import type { RolePermissions } from '@/lib/permissions';
+import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
 
 // ─── Charge Templates Store ───────────────────────────────────────────────────
 
@@ -48,26 +48,22 @@ export const useChargeTemplatesStore = create<ChargeTemplatesState>()(
 
 // ─── Permissions Store ────────────────────────────────────────────────────────
 
-export type { RolePermissions };
+export type { RolePermissions, FeaturePermissions };
 
 interface PermissionsState {
-    featurePermissions: RolePermissions | null;
-    setPermissions: (perms: RolePermissions) => void;
-    updatePermissions: (perms: RolePermissions) => void;
+    featurePermissions: RolePermissions | FeaturePermissions | null;
+    setPermissions: (perms: RolePermissions | FeaturePermissions) => void;
+    updatePermissions: (perms: RolePermissions | FeaturePermissions) => void;
+    clearPermissions: () => void;
 }
 
 export const usePermissionsStore = create<PermissionsState>()(
-    persist(
-        (set) => ({
-            featurePermissions: null,
-            setPermissions: (perms) => set({ featurePermissions: perms }),
-            updatePermissions: (perms) => set({ featurePermissions: perms }),
-        }),
-        {
-            name: 'permissions',
-            storage: createJSONStorage(() => localStorage),
-        }
-    )
+    (set) => ({
+        featurePermissions: null,
+        setPermissions: (perms) => set({ featurePermissions: perms }),
+        updatePermissions: (perms) => set({ featurePermissions: perms }),
+        clearPermissions: () => set({ featurePermissions: null }),
+    })
 );
 
 // ─── KYC Config Store ─────────────────────────────────────────────────────────

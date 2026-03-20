@@ -422,6 +422,7 @@ export interface User {
   };
   fcmToken?: string | null;
   createdAt?: string; // ISO string for when the user was created
+  permissions?: string[]; // For staff users, synchronized from staff document
 }
 
 export interface Invite {
@@ -512,11 +513,15 @@ export interface Staff {
   name: string;
   role: StaffRole;
   pgId: string;
+  ownerId: string;
   userId?: string | null;
   phone: string;
   email?: string;
   salary: number;
   pgName: string;
+  permissions: string[];
+  isActive: boolean;
+  schemaVersion: number;
 }
 
 export type OnboardingStatus = 'complete' | 'pending' | 'error' | 'disabled';

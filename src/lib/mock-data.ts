@@ -45,7 +45,7 @@ export const plans: Record<PlanName, Plan> = {
     pgLimit: 1,
     floorLimit: 2,
     hasComplaints: true,
-    hasStaffManagement: false,
+    hasStaffManagement: true,
     hasAiRentReminders: false,
     hasSeoGenerator: false,
     hasKycVerification: false,

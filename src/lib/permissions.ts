@@ -17,79 +17,121 @@ import type { UserRole } from './types';
  *
  * This dual system ensures both subscription tier limitations and fine-grained staff delegation are handled correctly.
  */
-export const featurePermissionConfig = {
-  properties: {
-    label: "Properties",
-    actions: {
-      view: "View Property Layout",
-      add: "Add Floors/Rooms/Beds",
-      edit: "Edit Floors/Rooms/Beds",
-      delete: "Delete Floors/Rooms/Beds",
-      sharedCharge: "Manage Shared Charges",
-    }
+import { 
+  Home, 
+  Users, 
+  CircleDollarSign, 
+  MessageSquare, 
+  Utensils, 
+  UserCog, 
+  Globe, 
+  Zap, 
+  FileCheck 
+} from 'lucide-react';
+
+export interface PermissionAction {
+  id: string;
+  label: string;
+}
+
+export interface FeatureConfig {
+  featureId: string;
+  featureName: string;
+  icon: any;
+  actions: PermissionAction[];
+}
+
+export const featurePermissionConfig: FeatureConfig[] = [
+  {
+    featureId: 'properties',
+    featureName: 'Properties',
+    icon: Home,
+    actions: [
+      { id: 'view', label: "View Property Layout" },
+      { id: 'add', label: "Add Floors/Rooms/Beds" },
+      { id: 'edit', label: "Edit Floors/Rooms/Beds" },
+      { id: 'delete', label: "Delete Floors/Rooms/Beds" },
+      { id: 'sharedCharge', label: "Manage Shared Charges" },
+    ]
   },
-  guests: {
-    label: "Guests",
-    actions: {
-      view: "View Guest Details",
-      add: "Add/Onboard New Guests",
-      edit: "Edit Guest Info",
-      delete: "Initiate/Finalize Exit"
-    }
+  {
+    featureId: 'guests',
+    featureName: 'Guests',
+    icon: Users,
+    actions: [
+      { id: 'view', label: "View Guest Details" },
+      { id: 'add', label: "Add/Onboard New Guests" },
+      { id: 'edit', label: "Edit Guest Info" },
+      { id: 'delete', label: "Initiate/Finalize Exit" }
+    ]
   },
-  finances: {
-    label: "Financials",
-    actions: {
-      view: "View Passbook & Expenses",
-      add: "Collect Rent & Add Expenses",
-    }
+  {
+    featureId: 'finances',
+    featureName: 'Financials',
+    icon: CircleDollarSign,
+    actions: [
+      { id: 'view', label: "View Passbook & Expenses" },
+      { id: 'add', label: "Collect Rent & Add Expenses" },
+    ]
   },
-  complaints: {
-    label: "Complaints",
-    actions: {
-      view: "View Complaints",
-      edit: "Update Complaint Status",
-      add: "Raise a new complaint"
-    }
+  {
+    featureId: 'complaints',
+    featureName: 'Complaints',
+    icon: MessageSquare,
+    actions: [
+      { id: 'view', label: "View Complaints" },
+      { id: 'edit', label: "Update Complaint Status" },
+      { id: 'add', label: "Raise a new complaint" }
+    ]
   },
-  food: {
-    label: "Food Menu",
-    actions: {
-      view: "View Menu",
-      edit: "Edit Menu"
-    }
+  {
+    featureId: 'food',
+    featureName: 'Food Menu',
+    icon: Utensils,
+    actions: [
+      { id: 'view', label: "View Menu" },
+      { id: 'edit', label: "Edit Menu" }
+    ]
   },
-  staff: {
-    label: "Staff Management",
-    actions: {
-      view: "View Staff List",
-      add: "Add New Staff",
-      edit: "Edit Staff Details",
-      delete: "Delete Staff",
-    }
+  {
+    featureId: 'staff',
+    featureName: 'Staff Management',
+    icon: UserCog,
+    actions: [
+      { id: 'view', label: "View Staff List" },
+      { id: 'add', label: "Add New Staff" },
+      { id: 'edit', label: "Edit Staff Details" },
+      { id: 'delete', label: "Delete Staff" },
+    ]
   },
-  website: {
-    label: "Website Builder",
-    actions: {
-      view: "View Site Details",
-      edit: "Edit & Publish Site",
-    }
+  {
+    featureId: 'website',
+    featureName: 'Website Builder',
+    icon: Globe,
+    actions: [
+      { id: 'view', label: "View Site Details" },
+      { id: 'edit', label: "Edit & Publish Site" },
+    ]
   },
-  seo: {
-    label: "AI SEO Generator",
-    actions: {
-      use: "Use the AI SEO tool",
-    }
+  {
+    featureId: 'seo',
+    featureName: 'AI SEO Generator',
+    icon: Zap,
+    actions: [
+      { id: 'use', label: "Use the AI SEO tool" },
+    ]
   },
-  kyc: {
-    label: 'KYC Verification',
-    actions: {
-      view: 'View KYC Status & Docs',
-      edit: 'Approve/Reject KYC',
-      add: 'Request KYC from Tenant',
-    },
+  {
+    featureId: 'kyc',
+    featureName: 'KYC Verification',
+    icon: FileCheck,
+    actions: [
+      { id: 'view', label: 'View KYC Status & Docs' },
+      { id: 'edit', label: 'Approve/Reject KYC' },
+      { id: 'add', label: 'Request KYC from Tenant' },
+    ],
   },
-};
+];
 
 // Type definition for a single feature's permissions
 export type FeatureActions = { [key: string]: boolean };
@@ -101,38 +143,59 @@ export type FeaturePermissions = { [key: string]: FeatureActions };
 export type RolePermissions = Record<UserRole, FeaturePermissions | null>;
 
 /**
+ * Converts a flat array of "feature:action" strings into a FeaturePermissions object.
+ */
+export function parseStaffPermissions(perms: string[]): FeaturePermissions {
+  const result: FeaturePermissions = {};
+  perms.forEach(p => {
+    const [feature, action] = p.split(':');
+    if (feature && action) {
+      if (!result[feature]) result[feature] = {};
+      result[feature][action] = true;
+    }
+  });
+  return result;
+}
+
+/**
  * Checks if a user has a specific action permission on a feature.
- * @param permissions The RolePermissions object (from Redux or backend).
+ * @param permissions The RolePermissions object OR granular FeaturePermissions for staff.
  * @param role The user's role.
  * @param feature The feature key (e.g., 'properties', 'guests').
  * @param action The action key (e.g., 'add', 'edit', 'delete', 'view').
  * @returns boolean
  */
 export function canAccess(
-  permissions: RolePermissions | null | undefined,
+  permissions: RolePermissions | FeaturePermissions | null | undefined,
   role?: UserRole,
   feature?: string,
   action?: string
 ): boolean {
   if (!role) return false;
   if (role === 'admin' || role === 'owner') return true;
-  if (!permissions) return false;
-  const rolePerms = permissions[role];
-  if (!rolePerms || !feature || !action) return false;
-  const featurePerms = rolePerms[feature];
+  if (!permissions || !feature || !action) return false;
+
+  // Handle case where permissions is already the granular FeaturePermissions (for staff)
+  // or it's the RolePermissions map indexed by role.
+  let featurePerms: FeatureActions | undefined;
+  
+  if (role && (permissions as any)[role]) {
+      // It's RolePermissions map
+      featurePerms = (permissions as RolePermissions)[role]?.[feature];
+  } else {
+      // It's likely FeaturePermissions already
+      featurePerms = (permissions as FeaturePermissions)[feature];
+  }
+
   if (!featurePerms) return false;
   return !!featurePerms[action];
 }
 
 /**
  * Checks if a user can view a feature (for navigation/sidebar).
- * @param permissions The RolePermissions object.
- * @param role The user's role.
- * @param feature The feature key.
- * @returns boolean
  */
 export function canViewFeature(
-  permissions: RolePermissions | null | undefined,
+  permissions: RolePermissions | FeaturePermissions | null | undefined,
   role: UserRole,
   feature: string
 ): boolean {

@@ -20,39 +20,25 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
     'staff/addStaff',
     async (staffData, { getState, rejectWithValue }) => {
         const { user } = getState();
-        if (!user.currentUser || !staffData.email) return rejectWithValue('No user or staff email');
+        if (!user.currentUser) return rejectWithValue('No user');
 
-        const userQuery = query(collection(db!, "users"), where("email", "==", staffData.email));
-        const userSnapshot = await getDocs(userQuery);
-        if (!userSnapshot.empty) {
-            const existingUser = userSnapshot.docs[0].data() as User;
-            if (existingUser.role === 'owner') {
-                return rejectWithValue('This email belongs to an owner. Please use a different email to invite staff.');
-            }
-            if (existingUser.role === 'tenant') {
-                return rejectWithValue('This email belongs to an active tenant. Please use a different email.');
-            }
+        try {
+            const response = await fetch('/api/staff/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'add',
+                    ownerId: user.currentUser.id,
+                    data: staffData
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok) return rejectWithValue(result.error);
+            return result.staff;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
         }
-
-        const newStaff: Staff = { id: `staff-${Date.now()}`, ...staffData };
-        const invite: Invite = { email: newStaff.email, ownerId: user.currentUser.id, role: newStaff.role, details: newStaff };
-
-        if (isFirebaseConfigured() && auth) {
-            const actionCodeSettings = { url: `${window.location.origin}/login/verify`, handleCodeInApp: true };
-            try { await sendSignInLinkToEmail(auth, newStaff.email, actionCodeSettings); } catch { }
-        }
-
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const selectedDb = selectOwnerDataDb(user.currentUser);
-            const batch = writeBatch(selectedDb!);
-            const staffDocRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'staff', newStaff.id);
-            batch.set(staffDocRef, newStaff);
-            // invites always on App DB
-            const inviteDocRef = doc(db!, 'invites', newStaff.email);
-            await setDoc(inviteDocRef, invite);
-            await batch.commit();
-        }
-        return newStaff;
     }
 );
 
@@ -62,25 +48,24 @@ export const updateStaff = createAsyncThunk<Staff, Staff, { state: RootState }>(
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const selectedDb = selectOwnerDataDb(user.currentUser);
-            const batch = writeBatch(selectedDb!);
-            const staffDocRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'staff', updatedStaff.id);
-            batch.set(staffDocRef, updatedStaff, { merge: true });
+        try {
+            const response = await fetch('/api/staff/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'update',
+                    ownerId: user.currentUser.id,
+                    staffId: updatedStaff.id,
+                    data: updatedStaff
+                }),
+            });
 
-            if (updatedStaff.userId) {
-                const userDocRef = doc(db!, 'users', updatedStaff.userId);
-                batch.update(userDocRef as any, { role: updatedStaff.role } as any);
-            } else if (updatedStaff.email) {
-                const inviteDocRef = doc(db!, 'invites', updatedStaff.email);
-                const inviteDoc = await getDoc(inviteDocRef);
-                if (inviteDoc.exists()) {
-                    await updateDoc(inviteDocRef, { role: updatedStaff.role, 'details.role': updatedStaff.role });
-                }
-            }
-            await batch.commit();
+            const result = await response.json();
+            if (!response.ok) return rejectWithValue(result.error);
+            return updatedStaff;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
         }
-        return updatedStaff;
     }
 );
 
@@ -90,12 +75,41 @@ export const deleteStaff = createAsyncThunk<string, string, { state: RootState }
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const selectedDb = selectOwnerDataDb(user.currentUser);
-            const docRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'staff', staffId);
-            await deleteDoc(docRef);
+        try {
+            const response = await fetch('/api/staff/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'delete',
+                    ownerId: user.currentUser.id,
+                    staffId: staffId
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok) return rejectWithValue(result.error);
+            return staffId;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
         }
-        return staffId;
+    }
+);
+
+export const fetchStaff = createAsyncThunk<Staff[], string, { state: RootState }>(
+    'staff/fetchStaff',
+    async (ownerId, { rejectWithValue }) => {
+        try {
+            const response = await fetch('/api/staff/manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'list', ownerId }),
+            });
+            const result = await response.json();
+            if (!response.ok) return rejectWithValue(result.error);
+            return result.staff;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
+        }
     }
 );
 
@@ -107,6 +121,7 @@ const staffSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(fetchStaff.fulfilled, (state, action) => { state.staff = action.payload; })
             .addCase(addStaff.fulfilled, (state, action) => { state.staff.push(action.payload); })
             .addCase(updateStaff.fulfilled, (state, action) => {
                 const index = state.staff.findIndex(s => s.id === action.payload.id);

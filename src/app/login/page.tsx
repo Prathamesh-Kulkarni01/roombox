@@ -44,7 +44,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
-  const [tenantPassword, setTenantPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  const [waitingForOtp, setWaitingForOtp] = useState(false)
 
   const loading = appLoading || isSigningIn;
 
@@ -130,36 +131,58 @@ export default function LoginPage() {
     }
   };
 
-  const handlePhoneSignIn = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
-    if (!phone || !tenantPassword) {
-      toast({ variant: "destructive", title: "Error", description: "Phone and password required." });
-      return;
+    if (!phone) {
+        toast({ variant: "destructive", title: "Error", description: "Phone number is required." });
+        return;
     }
-
     setIsSigningIn(true);
     try {
-      const res = await fetch('/api/auth/phone-login', {
+        const res = await fetch('/api/auth/otp/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to send OTP');
+        
+        setWaitingForOtp(true);
+        toast({ title: 'OTP Sent', description: "Please check your phone for the 6-digit code." });
+    } catch (error: any) {
+        toast({ variant: "destructive", title: "Error", description: error.message });
+    } finally {
+        setIsSigningIn(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp || otp.length !== 6) {
+        toast({ variant: "destructive", title: "Error", description: "Please enter a valid 6-digit OTP." });
+        return;
+    }
+    setIsSigningIn(true);
+    try {
+      const res = await fetch('/api/auth/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password: tenantPassword })
+        body: JSON.stringify({ phone, otp })
       });
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to authenticate');
+        throw new Error(data.error || 'Failed to verify OTP');
       }
 
-      await signInWithCustomToken(auth, data.customToken);
-      toast({ title: 'Welcome Back!', description: "You've been signed in successfully." });
-      // Redirect handled by useEffect above for 'tenant' role
+      await signInWithCustomToken(auth!, data.customToken);
+      toast({ title: 'Welcome!', description: "You've been signed in successfully." });
     } catch (error: any) {
-      console.error("Phone Sign-In Error:", error);
+      console.error("OTP Verification Error:", error);
       toast({
         variant: "destructive",
         title: "Log In Failed",
-        description: error.message || "Invalid phone number or password.",
+        description: error.message || "Invalid OTP.",
       });
     } finally {
       setIsSigningIn(false);
@@ -178,8 +201,8 @@ export default function LoginPage() {
         <CardContent className="grid gap-4">
           <Tabs defaultValue="owner" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="owner">Owner / Staff</TabsTrigger>
-              <TabsTrigger value="tenant">Tenant</TabsTrigger>
+              <TabsTrigger value="owner">Owner</TabsTrigger>
+              <TabsTrigger value="tenant">Staff / Tenant</TabsTrigger>
             </TabsList>
 
             <TabsContent value="owner" className="grid gap-4">
@@ -196,7 +219,7 @@ export default function LoginPage() {
 
                 <Button type="submit" className="w-full" disabled={loading || !email || !password}>
                   {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Log In
+                  Log In as Owner
                 </Button>
               </form>
 
@@ -212,27 +235,42 @@ export default function LoginPage() {
             </TabsContent>
 
             <TabsContent value="tenant" className="grid gap-4">
-              <form onSubmit={handlePhoneSignIn} className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" type="tel" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
-                </div>
-
-                <div className="grid gap-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="tenantPassword">Password</Label>
-                    <Link href="/login/forgot-password" className="text-sm font-medium text-muted-foreground hover:text-primary">
-                      Forgot Password?
-                    </Link>
+              {!waitingForOtp ? (
+                <form onSubmit={handleSendOtp} className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input id="phone" type="tel" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
+                    <p className="text-xs text-muted-foreground">We will send a 6-digit OTP to your phone.</p>
                   </div>
-                  <Input id="tenantPassword" type="password" placeholder="Your password" required value={tenantPassword} onChange={(e) => setTenantPassword(e.target.value)} disabled={loading} />
-                </div>
 
-                <Button type="submit" className="w-full" disabled={loading || !phone || !tenantPassword}>
-                  {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Log In as Tenant
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full" disabled={loading || !phone}>
+                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Send OTP
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="otp">Enter OTP</Label>
+                    <Input id="otp" type="text" placeholder="6-digit code" required maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} />
+                    <div className="flex justify-between items-center">
+                        <p className="text-xs text-muted-foreground">Sent to {phone}</p>
+                        <button type="button" onClick={() => setWaitingForOtp(false)} className="text-xs font-medium text-primary hover:underline" disabled={loading}>
+                            Change Number
+                        </button>
+                    </div>
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
+                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Verify & Log In
+                  </Button>
+                  
+                  <Button type="button" variant="link" className="text-xs" onClick={handleSendOtp} disabled={loading}>
+                     Resend OTP
+                  </Button>
+                </form>
+              )}
             </TabsContent>
           </Tabs>
 

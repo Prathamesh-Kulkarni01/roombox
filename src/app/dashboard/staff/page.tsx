@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { usePermissionsStore, type RolePermissions } from '@/lib/stores/configStores'
+import { usePermissionsStore, type FeaturePermissions } from '@/lib/stores/configStores'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { produce } from "immer"
-import { featurePermissionConfig } from '@/lib/permissions';
+import { featurePermissionConfig, parseStaffPermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
@@ -26,7 +26,7 @@ import { Users, PlusCircle, MoreHorizontal, IndianRupee, Pencil, Trash2, Buildin
 import type { Staff } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction } from '@/lib/slices/staffSlice'
+import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction, fetchStaff as fetchStaffAction } from '@/lib/slices/staffSlice'
 import Link from 'next/link'
 import { canAccess } from '@/lib/permissions';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
@@ -112,9 +112,16 @@ export default function StaffPage() {
 
     // Permissions State
     const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
-    const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
-    const [selectedPermissions, setSelectedPermissions] = useState<RolePermissions>({});
+    const [staffForPermissions, setStaffForPermissions] = useState<Staff | null>(null);
+    const [selectedPermissions, setSelectedPermissions] = useState<FeaturePermissions>({});
+    const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null); // Kept for legacy UI if needed, but not used for per-staff
     const { toast } = useToast();
+
+    useEffect(() => {
+        if (currentUser?.id) {
+            dispatch(fetchStaffAction(currentUser.id));
+        }
+    }, [currentUser, dispatch]);
 
 
     const form = useForm<StaffFormValues>({
@@ -124,26 +131,38 @@ export default function StaffPage() {
     useEffect(() => {
         if (isDialogOpen) {
             if (staffToEdit) {
-                form.reset(staffToEdit);
+                form.reset({
+                    ...staffToEdit,
+                    phone: staffToEdit.phone.slice(-10) // Strip prefix for local editing
+                });
             } else {
                 form.reset({
                     pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
                     name: '',
                     email: '',
                     phone: '',
-                    salary: undefined,
-                    role: undefined,
+                    salary: undefined as any,
+                    role: undefined as any,
                 });
             }
         }
     }, [isDialogOpen, staffToEdit, selectedPgId, pgs, form])
 
-    const onSubmit = (data: StaffFormValues) => {
+    const onSubmit = async (data: StaffFormValues) => {
         const pgName = pgs.find(p => p.id === data.pgId)?.name || 'Unknown Property';
+        const staffData = {
+            ...data,
+            pgName,
+            ownerId: currentUser?.id || '',
+            permissions: staffToEdit?.permissions || [],
+            isActive: true,
+            schemaVersion: 1
+        };
+
         if (staffToEdit) {
-            dispatch(updateStaffAction({ ...staffToEdit, ...data, pgName }));
+            await dispatch(updateStaffAction({ ...staffToEdit, ...staffData }));
         } else {
-            dispatch(addStaffAction({ ...data, pgName }));
+            await dispatch(addStaffAction(staffData as any));
         }
         setIsDialogOpen(false);
         setStaffToEdit(null);
@@ -160,37 +179,45 @@ export default function StaffPage() {
         }
     }
 
-    const handleOpenPermissionsDialog = (role: UserRole) => {
-        setRoleToEdit(role);
-        setSelectedPermissions(featurePermissions || {});
+    const handleOpenPermissionsDialog = (member: Staff) => {
+        setStaffForPermissions(member);
+        const perms = parseStaffPermissions(member.permissions || []);
+        setSelectedPermissions(perms);
         setIsPermissionsDialogOpen(true);
     }
 
     const handlePermissionChange = (feature: string, action: string, checked: boolean) => {
-        if (!roleToEdit) return;
-
         const nextState = produce(selectedPermissions, (draft: any) => {
-            if (!draft[roleToEdit]) {
-                draft[roleToEdit] = {};
+            if (!draft[feature]) {
+                draft[feature] = {};
             }
-            if (!draft[roleToEdit]![feature]) {
-                draft[roleToEdit]![feature] = {};
-            }
-            draft[roleToEdit]![feature][action] = checked;
+            draft[feature][action] = checked;
         });
         setSelectedPermissions(nextState);
     }
 
-    const handleSavePermissions = () => {
-        if (!roleToEdit) return;
-        const updatedPermissions = { ...(featurePermissions ?? {}), [roleToEdit]: selectedPermissions[roleToEdit]! } as import('@/lib/permissions').RolePermissions;
-        savePermissions(updatedPermissions);
-        toast({ title: "Permissions Updated", description: `Permissions for ${roleToEdit} have been saved.` });
+    const handleSavePermissions = async () => {
+        if (!staffForPermissions) return;
+        
+        // Convert FeaturePermissions object back to flat array
+        const flatPerms: string[] = [];
+        Object.entries(selectedPermissions).forEach(([feature, actions]) => {
+            if (actions) {
+                Object.entries(actions).forEach(([action, allowed]) => {
+                    if (allowed) flatPerms.push(`${feature}:${action}`);
+                });
+            }
+        });
+
+        const updatedStaff = { ...staffForPermissions, permissions: flatPerms };
+        await dispatch(updateStaffAction(updatedStaff));
+        
+        toast({ title: "Permissions Updated", description: `Permissions for ${staffForPermissions.name} have been saved.` });
         setIsPermissionsDialogOpen(false);
     }
 
+    const currentRolePermissions = selectedPermissions;
     const staffRoles: UserRole[] = ['manager', 'cook', 'cleaner', 'security', 'other'];
-    const currentRolePermissions = roleToEdit ? selectedPermissions?.[roleToEdit] : {};
 
 
     const filteredStaff = useMemo(() => {
@@ -318,6 +345,9 @@ export default function StaffPage() {
                                                             </Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => handleOpenPermissionsDialog(member)}>
+                                                                <ShieldAlert className="mr-2 h-4 w-4" /> Permissions
+                                                            </DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => openDialog(member)} disabled={!canAccess(featurePermissions, currentUser?.role, 'staff', 'edit')}>
                                                                 <Pencil className="mr-2 h-4 w-4" /> Edit
                                                             </DropdownMenuItem>
@@ -368,33 +398,54 @@ export default function StaffPage() {
             </Tabs>
 
             <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Edit Permissions for <span className="capitalize">{roleToEdit}</span></DialogTitle>
-                        <DialogDescription>Select the actions this role can perform on the dashboard.</DialogDescription>
+                        <DialogTitle className="flex items-center gap-2">
+                            <ShieldAlert className="w-5 h-5 text-primary" />
+                            Manage Permissions - {staffForPermissions?.name} ({staffForPermissions?.role})
+                        </DialogTitle>
+                        <DialogDescription>
+                            Configure granular permissions for this staff member. These settings override default role behaviors.
+                        </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto pr-2">
-                        {Object.entries(featurePermissionConfig).map(([featureKey, config]) => (
-                            <div key={featureKey}>
-                                <h4 className="font-semibold text-lg mb-2">{config.label}</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l">
-                                    {Object.entries(config.actions).map(([actionKey, actionLabel]) => (
-                                        <div key={actionKey} className="flex items-center space-x-2">
+
+                    <div className="space-y-6 my-4">
+                        {featurePermissionConfig.map((config) => (
+                            <div key={config.featureId} className="border rounded-lg p-4 bg-muted/30">
+                                <div className="flex items-center gap-2 mb-4">
+                                    {config.icon && <config.icon className="w-5 h-5 text-primary" />}
+                                    <h3 className="font-semibold">{config.featureName}</h3>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                    {config.actions.map((action) => (
+                                        <div key={action.id} className="flex items-center space-x-2">
                                             <Switch
-                                                id={`${roleToEdit}-${featureKey}-${actionKey}`}
-                                                checked={currentRolePermissions?.[featureKey]?.[actionKey] || false}
-                                                onCheckedChange={(checked) => handlePermissionChange(featureKey, actionKey, checked)}
+                                                id={`${config.featureId}-${action.id}`}
+                                                checked={currentRolePermissions[config.featureId]?.[action.id] || false}
+                                                onCheckedChange={(checked) =>
+                                                    handlePermissionChange(config.featureId, action.id, checked as boolean)
+                                                }
                                             />
-                                            <Label htmlFor={`${roleToEdit}-${featureKey}-${actionKey}`} className="font-normal">{actionLabel}</Label>
+                                            <Label
+                                                htmlFor={`${config.featureId}-${action.id}`}
+                                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                            >
+                                                {action.label}
+                                            </Label>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         ))}
                     </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
-                        <Button onClick={handleSavePermissions}>Save Permissions</Button>
+
+                    <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t">
+                        <Button variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSavePermissions}>
+                            Save Permissions
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

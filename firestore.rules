@@ -22,6 +22,12 @@ service cloud.firestore {
       return isAuth() && request.auth.token.pgs != null && pgId in request.auth.token.pgs;
     }
 
+    // New helper for granular permissions (supports flat array format)
+    function hasPermission(feature, action) {
+      let perm = feature + ":" + action;
+      return isAuth() && request.auth.token.permissions != null && perm in request.auth.token.permissions;
+    }
+
     // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read, write: if isAuth() && request.auth.uid == userId;
@@ -54,21 +60,21 @@ service cloud.firestore {
       allow list: if isAuth();
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.guests.view == true)
+        (isStaff(resource.data.pgId) && (hasPermission('guests', 'view') || request.auth.token.permissions.guests.view == true))
       );
       allow create: if isAuth() && (
         request.resource.data.ownerId == request.auth.uid ||
-        (isStaff(request.resource.data.pgId) && request.auth.token.permissions.guests.add == true)
+        (isStaff(request.resource.data.pgId) && (hasPermission('guests', 'add') || request.auth.token.permissions.guests.add == true))
       ) && request.resource.data.name is string
         && request.resource.data.pgId is string
         && request.resource.data.email is string;
       allow update: if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.guests.edit == true)
+        (isStaff(resource.data.pgId) && (hasPermission('guests', 'edit') || request.auth.token.permissions.guests.edit == true))
       );
       allow delete: if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.guests.delete == true)
+        (isStaff(resource.data.pgId) && (hasPermission('guests', 'delete') || request.auth.token.permissions.guests.delete == true))
       );
     }
 
@@ -77,11 +83,11 @@ service cloud.firestore {
       allow list: if isAuth();
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.complaints.view == true)
+        (isStaff(resource.data.pgId) && (hasPermission('complaints', 'view') || request.auth.token.permissions.complaints.view == true))
       );
       allow create, update, delete: if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.complaints.edit == true)
+        (isStaff(resource.data.pgId) && (hasPermission('complaints', 'edit') || request.auth.token.permissions.complaints.edit == true))
       );
     }
 
@@ -90,16 +96,16 @@ service cloud.firestore {
       allow list: if isAuth();
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.finances.view == true)
+        (isStaff(resource.data.pgId) && (hasPermission('finances', 'view') || request.auth.token.permissions.finances.view == true))
       );
       allow create: if isAuth() && (
         request.resource.data.ownerId == request.auth.uid ||
-        (isStaff(request.resource.data.pgId) && request.auth.token.permissions.finances.add == true)
+        (isStaff(request.resource.data.pgId) && (hasPermission('finances', 'add') || request.auth.token.permissions.finances.add == true))
       ) && request.resource.data.amount is number
         && request.resource.data.pgId is string;
       allow update, delete: if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.finances.add == true)
+        (isStaff(resource.data.pgId) && (hasPermission('finances', 'edit') || request.auth.token.permissions.finances.edit == true || request.auth.token.permissions.finances.add == true))
       );
     }
 
@@ -108,20 +114,20 @@ service cloud.firestore {
       allow list: if isAuth();
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.staff.view == true)
+        (isStaff(resource.data.pgId) && (hasPermission('staff', 'view') || request.auth.token.permissions.staff.view == true))
       );
       allow create: if isAuth() && (
         request.resource.data.ownerId == request.auth.uid ||
-        (isStaff(request.resource.data.pgId) && request.auth.token.permissions.staff.add == true)
+        (isStaff(request.resource.data.pgId) && (hasPermission('staff', 'add') || request.auth.token.permissions.staff.add == true))
       ) && request.resource.data.name is string
         && request.resource.data.pgId is string;
       allow update: if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.staff.edit == true)
+        (isStaff(resource.data.pgId) && (hasPermission('staff', 'edit') || request.auth.token.permissions.staff.edit == true))
       );
       allow delete: if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
-        (isStaff(resource.data.pgId) && request.auth.token.permissions.staff.delete == true)
+        (isStaff(resource.data.pgId) && (hasPermission('staff', 'delete') || request.auth.token.permissions.staff.delete == true))
       );
     }
 
