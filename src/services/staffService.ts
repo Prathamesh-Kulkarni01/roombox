@@ -54,6 +54,59 @@ export class StaffService {
             });
             newStaff.userId = uid;
         }
+        // 3. Send Welcome WhatsApp (Non-blocking)
+        if (standardizedPhone && ownerId) {
+            (async () => {
+                try {
+                    const { createAndSendNotification } = await import('@/lib/actions/notificationActions');
+                    
+                    // Generate a magic link for staff onboarding
+                    const token = Math.random().toString(36).substring(2, 15);
+                    const expiresAt = new Date();
+                    expiresAt.setDate(expiresAt.getDate() + 7);
+                    
+                    await appDb.collection('invites').doc(token).set({
+                        id: token,
+                        phone: standardizedPhone,
+                        ownerId,
+                        pgName,
+                        type: 'staff_onboarding',
+                        role,
+                        expiresAt: expiresAt.toISOString(),
+                        createdAt: new Date().toISOString()
+                    });
+
+                    const appUrl = (process.env.APP_URL || 'https://roombox.in');
+                    const dashboardUrl = `${appUrl}/invite?token=${token}`;
+                    
+                    await createAndSendNotification({
+                        ownerId,
+                        notification: {
+                            targetId: newStaff.userId || staffId,
+                            type: 'staff-welcome',
+                            title: 'Welcome to the Team!',
+                            message: `Hi ${name}, you've been added as a ${role} to ${pgName}.`,
+                            link: dashboardUrl
+                        },
+                        whatsappConfig: {
+                            templateId: 'new_guest_welcome_utility_2',
+                            headerValues: [{ type: 'image', image: { link: `${appUrl}/icons/icon-512x512.png` } }],
+                            bodyValues: [
+                                { type: 'text', text: name }, // {{1}}
+                                { type: 'text', text: pgName }, // {{2}}
+                                { type: 'text', text: role.toUpperCase() }, // {{3}} (In place of room)
+                                { type: 'text', text: String(salary) }, // {{4}} (In place of rent)
+                                { type: 'text', text: 'Host' }, // {{5}}
+                                { type: 'text', text: dashboardUrl } // {{6}}
+                            ],
+                            languageCode: 'en_US'
+                        }
+                    });
+                } catch (err) {
+                    console.error('[StaffService] Welcome notification failed:', err);
+                }
+            })();
+        }
 
         return newStaff;
     }

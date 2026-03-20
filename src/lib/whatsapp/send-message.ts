@@ -245,20 +245,42 @@ export async function sendWhatsAppImageMessage(to: string, imageLink: string, ow
  * Templates must be pre-approved in the Meta Business Suite.
  * @param to recipient phone number
  * @param templateName name of the approved template
+ * @param ownerId owner ID for billing
  * @param languageCode language (e.g., 'en_US', 'hi')
- * @param components template components (body parameters, buttons, etc.)
+ * @param headerValues header parameters
+ * @param bodyValues body parameters
+ * @param buttonValues button parameters
+ * @param targetId optional target ID for logging
  */
 export async function sendWhatsAppTemplate(
     to: string,
     templateName: string,
+    ownerId: string,
     languageCode: string = 'en_US',
-    components: any[] = [],
-    ownerId?: string,
+    headerValues: any[] = [],
+    bodyValues: any[] = [],
+    buttonValues: any[] = [],
     targetId?: string
 ) {
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
         console.warn('WhatsApp credentials not configured. Mocking template send:', { to, templateName });
         return { success: true, mock: true };
+    }
+
+    const components: any[] = [];
+    
+    if (headerValues && headerValues.length > 0) {
+        components.push({ type: 'header', parameters: headerValues });
+    }
+    
+    if (bodyValues && bodyValues.length > 0) {
+        components.push({ type: 'body', parameters: bodyValues });
+    }
+    
+    if (buttonValues && buttonValues.length > 0) {
+        // Meta API might support multiple buttons or index-based buttons
+        // For simplicity and common use cases:
+        components.push({ type: 'button', sub_type: 'url', index: '0', parameters: buttonValues });
     }
 
     const payload: WhatsAppMessagePayload = {

@@ -491,32 +491,26 @@ export class TenantService {
                 // Fallback to the Netlify app since local roombox.in might not be resolvable to Meta servers.
                 const logoUrl = `${appUrl}/icons/icon-512x512.png`;
 
-                const components = [
-                    {
-                        type: 'header',
-                        parameters: [
-                            {
-                                type: 'image',
-                                image: {
-                                    link: logoUrl
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        type: 'body',
-                        parameters: [
-                            { type: 'text', text: name }, // {{1}}
-                            { type: 'text', text: pgName || newGuest.pgName || 'Our Property' }, // {{2}}
-                            { type: 'text', text: roomName || 'Assigned Room' }, // {{3}}
-                            { type: 'text', text: String(newGuest.rentAmount || 0) }, // {{4}}
-                            { type: 'text', text: ownerPhone || 'Host' }, // {{5}}
-                            { type: 'text', text: dashboardUrl } // {{6}} (Full URL in Body)
-                        ]
-                    }
+                const headerValues = [{ type: 'image', image: { link: logoUrl } }];
+                const bodyValues = [
+                    { type: 'text', text: name }, // {{1}}
+                    { type: 'text', text: pgName || newGuest.pgName || 'Our Property' }, // {{2}}
+                    { type: 'text', text: roomName || 'Assigned Room' }, // {{3}}
+                    { type: 'text', text: String(newGuest.rentAmount || 0) }, // {{4}}
+                    { type: 'text', text: ownerPhone || 'Host' }, // {{5}}
+                    { type: 'text', text: dashboardUrl } // {{6}} (Full URL in Body)
                 ];
 
-                const result = await sendWhatsAppTemplate(formattedPhone, 'new_guest_welcome_utility_2', 'en_US', components, ownerId, guestId);
+                const result = await sendWhatsAppTemplate(
+                    formattedPhone,
+                    'new_guest_welcome_utility_2',
+                    ownerId,
+                    'en_US',
+                    headerValues,
+                    bodyValues,
+                    [],
+                    guestId
+                );
 
                 if (!result.success) {
                     console.warn(`[onboardTenant] Template failed, sending fallback text message...`);
@@ -1056,19 +1050,25 @@ export class TenantService {
                         ? `Ghost Collection (${paymentMode})`
                         : primaryCredit.description;
 
-                    await sendWhatsAppTemplate(formattedPhone, 'new_payment_success_receipt_utility', 'en_US', [
-                        {
-                            type: 'body',
-                            parameters: [
-                                { type: 'text', text: finalGuest.name },
-                                { type: 'text', text: messageAmount },
-                                { type: 'text', text: messageDesc },
-                                { type: 'text', text: getBalanceBreakdown(finalGuest).symbolic || (finalGuest.amountType === 'symbolic' ? 'None' : `₹${newBalance}`) },
-                                { type: 'text', text: primaryCredit.id },
-                                { type: 'text', text: receiptUrl } // {{6}}
-                            ]
-                        }
-                    ], ownerId, resolvedGuestId);
+                    const bodyValues = [
+                        { type: 'text', text: finalGuest.name },
+                        { type: 'text', text: messageAmount },
+                        { type: 'text', text: messageDesc },
+                        { type: 'text', text: getBalanceBreakdown(finalGuest).symbolic || (finalGuest.amountType === 'symbolic' ? 'None' : `₹${newBalance}`) },
+                        { type: 'text', text: primaryCredit.id },
+                        { type: 'text', text: receiptUrl } // {{6}}
+                    ];
+
+                    await sendWhatsAppTemplate(
+                        formattedPhone, 
+                        'new_payment_success_receipt_utility', 
+                        ownerId,
+                        'en_US', 
+                        [], // No header
+                        bodyValues, 
+                        [], // No buttons
+                        resolvedGuestId
+                    );
                     console.log(`[recordPayment] WhatsApp receipt sent to ${formattedPhone}`);
                 } catch (receiptErr) {
                     console.warn(`[recordPayment] Failed to send WhatsApp receipt:`, receiptErr);
@@ -1327,19 +1327,25 @@ export class TenantService {
             const title = compData.description || compData.category;
             const updateMessage = status === 'resolved' ? 'Fixed! Contact landlord if issue persists.' : 'We are working on it!';
 
-            await sendWhatsAppTemplate(formattedPhone, 'new_maintenance_ticket_update', 'en_US', [
-                {
-                    type: 'body',
-                    parameters: [
-                        { type: 'text', text: guestData.pgName || 'Property' }, // {{1}}
-                        { type: 'text', text: guestData.name }, // {{2}}
-                        { type: 'text', text: title }, // {{3}}
-                        { type: 'text', text: status.toUpperCase() }, // {{4}}
-                        { type: 'text', text: updateMessage }, // {{5}}
-                        { type: 'text', text: statusUrl } // {{6}}
-                    ]
-                }
-            ], ownerId, guestId);
+            const bodyValues = [
+                { type: 'text', text: guestData.pgName || 'Property' }, // {{1}}
+                { type: 'text', text: guestData.name }, // {{2}}
+                { type: 'text', text: title }, // {{3}}
+                { type: 'text', text: status.toUpperCase() }, // {{4}}
+                { type: 'text', text: updateMessage }, // {{5}}
+                { type: 'text', text: statusUrl } // {{6}}
+            ];
+
+            await sendWhatsAppTemplate(
+                formattedPhone, 
+                'new_maintenance_ticket_update', 
+                ownerId,
+                'en_US', 
+                [], // No header
+                bodyValues, 
+                [], // No buttons
+                guestId
+            );
 
             console.log(`[TenantService.notifyComplaintStatusChange] WhatsApp template notification sent to ${formattedPhone}`);
             await ActivityLogsService.logActivity({

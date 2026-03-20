@@ -4,13 +4,20 @@
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import type { Notification, User, Guest } from '@/lib/types';
 import { sendPushToUser } from '../notifications';
-import { sendWhatsAppMessage as sendWA } from '../whatsapp/send-message';
+import { sendWhatsAppMessage as sendWA, sendWhatsAppTemplate } from '../whatsapp/send-message';
 import { doc, getDoc, updateDoc, increment, collection, writeBatch } from 'firebase/firestore';
 import axios from 'axios';
 
 interface CreateAndSendNotificationParams {
     ownerId: string;
-    notification: Omit<Notification, 'id' | 'date' | 'isRead'>;
+    notification: Omit<Notification, 'id' | 'date' | 'isRead' | 'link'> & { link?: string };
+    whatsappConfig?: {
+        templateId?: string;
+        headerValues?: any[];
+        bodyValues?: any[];
+        buttonValues?: any[];
+        languageCode?: string;
+    };
 }
 
 const SETTINGS_MAP: Record<string, string> = {
@@ -23,7 +30,7 @@ const SETTINGS_MAP: Record<string, string> = {
 type WhatsAppStatus = 'sent' | 'failed' | 'skipped';
 
 
-export async function createAndSendNotification({ ownerId, notification }: CreateAndSendNotificationParams): Promise<{ whatsAppStatus: WhatsAppStatus }> {
+export async function createAndSendNotification({ ownerId, notification, whatsappConfig }: CreateAndSendNotificationParams): Promise<{ whatsAppStatus: WhatsAppStatus }> {
     if (!ownerId || !notification || !notification.targetId) {
         console.error('createAndSendNotification: ownerId, notification, and targetId are required.');
         return { whatsAppStatus: 'skipped' };
@@ -83,12 +90,29 @@ export async function createAndSendNotification({ ownerId, notification }: Creat
                 // Ensure digits only for WhatsApp
                 let fullPhone = targetPhoneNumber.replace(/\D/g, '');
                 if (fullPhone.length === 10) fullPhone = '91' + fullPhone;
-                const result = await sendWA(
-                    fullPhone,
-                    `${notification.title}\n\n${notification.message}`,
-                    ownerId,
-                    targetId
-                );
+                
+                let result;
+                if (whatsappConfig?.templateId) {
+                    // Use WhatsApp Template
+                    result = await sendWhatsAppTemplate(
+                        fullPhone,
+                        whatsappConfig.templateId,
+                        ownerId,
+                        whatsappConfig.languageCode || 'en_US',
+                        whatsappConfig.headerValues || [],
+                        whatsappConfig.bodyValues || [],
+                        whatsappConfig.buttonValues || [],
+                        targetId
+                    );
+                } else {
+                    // Use Plain Text Message
+                    result = await sendWA(
+                        fullPhone,
+                        `${notification.title}\n\n${notification.message}`,
+                        ownerId,
+                        targetId
+                    );
+                }
 
                 if (result.success) {
                     whatsAppStatus = 'sent';
