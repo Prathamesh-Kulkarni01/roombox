@@ -19,7 +19,7 @@ export async function initPushAndSaveToken(userId: string): Promise<InitPushResu
 	const raw = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || ''
 	const vapidKey = raw.trim().replace(/\s+/g, '')
 	if (!vapidKey || !/^B[A-Za-z0-9_-]+$/.test(vapidKey)) {
-		console.error('[Push] Invalid VAPID key')
+		console.warn('[Push] Invalid VAPID key. Skipping FCM registration.')
 		return {}
 	}
 

@@ -113,7 +113,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
       if (currentUser.role === 'tenant' && ((!pathname.startsWith('/tenants') && !isAllowedPublicPage) || isLoginPage || isInviteOrSetPassword)) {
         console.log(`[StoreProvider] Redirecting tenant to portal... (Path: ${pathname})`);
         router.replace('/tenants/my-pg');
-      } else if (allowedDashboardRoles.includes(currentUser.role) && ((!pathname.startsWith('/dashboard') && !isAllowedPublicPage) || isLoginPage || isInviteOrSetPassword) && !pathname.startsWith('/admin')) {
+      } else if (allowedDashboardRoles.includes(currentUser.role) && ((!pathname.startsWith('/dashboard') && !isPublicPage) || isLoginPage || isInviteOrSetPassword) && !pathname.startsWith('/admin')) {
         console.log(`[StoreProvider] Redirecting ${currentUser.role} to dashboard... (Path: ${pathname})`);
         router.replace('/dashboard');
       } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile' && !isPublicPage) {

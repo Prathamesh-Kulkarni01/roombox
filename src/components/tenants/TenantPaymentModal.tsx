@@ -5,7 +5,11 @@ import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { IndianRupee, AlertCircle, Loader2, Copy, Check } from "lucide-react"
+import { IndianRupee, AlertCircle, Loader2, Copy, Check, Smartphone } from "lucide-react"
+import { format } from 'date-fns'
+import { auth } from '@/lib/firebase'
+import { generateRentSutraNote } from '@/lib/upi'
+import { useToast } from "@/hooks/use-toast"
 import type { PG, Guest } from "@/lib/types"
 
 interface TenantPaymentModalProps {
@@ -25,13 +29,46 @@ export default function TenantPaymentModal({
     totalDue,
     onConfirmManual 
 }: TenantPaymentModalProps) {
+    const { toast } = useToast();
     const [utr, setUtr] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [noteCopied, setNoteCopied] = useState(false);
 
     const hasOnlineDetails = !!currentPg.upiId || !!currentPg.qrCodeImage;
     const isManualOnly = !hasOnlineDetails;
-    const isUplandUpi = hasOnlineDetails;
+
+    const handleUpiClick = async () => {
+        setIsGeneratingLink(true);
+        try {
+            const token = await auth?.currentUser?.getIdToken();
+            const res = await fetch('/api/payments/intent', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({ 
+                    guestId: currentGuest.id, 
+                    amount: totalDue, 
+                    month: format(new Date(), 'MMM').toUpperCase(),
+                    pgId: currentPg.id,
+                    ownerId: currentPg.ownerId
+                }),
+            });
+            const data = await res.json();
+            if (data.success && data.upiLink) {
+                window.location.href = data.upiLink;
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to generate payment link.' });
+            }
+        } catch (err) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to connect to payment server.' });
+        } finally {
+            setIsGeneratingLink(false);
+        }
+    };
 
     const handleCopyUpi = () => {
         if (!currentPg.upiId) return;
@@ -76,6 +113,29 @@ export default function TenantPaymentModal({
                         </div>
                     ) : (
                         <div className="flex flex-col items-center gap-6">
+                            {/* Pay via UPI App Button */}
+                            <Button 
+                                onClick={handleUpiClick}
+                                disabled={isGeneratingLink}
+                                className="w-full h-14 rounded-2xl bg-primary hover:opacity-90 text-primary-foreground font-bold flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95"
+                            >
+                                {isGeneratingLink ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <Smartphone className="w-5 h-5" />
+                                )}
+                                <div className="flex flex-col items-start leading-none">
+                                    <span className="text-sm">Pay via UPI App</span>
+                                    <span className="text-[10px] opacity-70 font-normal">Instant & Verified</span>
+                                </div>
+                            </Button>
+
+                            <div className="flex items-center gap-4 w-full px-2 py-2">
+                                <div className="h-px bg-border flex-1" />
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">OR SCAN / COPY</span>
+                                <div className="h-px bg-border flex-1" />
+                            </div>
+
                             {/* QR Code - Only show if image exists */}
                             {currentPg.qrCodeImage && (
                                 <div className="bg-white p-4 rounded-3xl border-2 border-primary/5 shadow-xl w-full max-w-[240px] aspect-square flex items-center justify-center">
@@ -104,6 +164,46 @@ export default function TenantPaymentModal({
                                 {currentPg.payeeName && (
                                     <p className="text-[10px] text-muted-foreground font-medium ml-1">Registered to: <span className="text-foreground font-bold">{currentPg.payeeName}</span></p>
                                 )}
+                            </div>
+
+                            {/* Verification Note (IMPORTANT FOR OWNER TRACKING) */}
+                            <div className="w-full space-y-2 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                                <label className="text-[10px] font-bold text-primary flex items-center gap-2 uppercase tracking-wider">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                    Payment Note (Paste in app)
+                                </label>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="font-mono text-xs font-black tracking-tight text-foreground/80 truncate">
+                                        {generateRentSutraNote(
+                                            currentGuest.shortId || 'NEW',
+                                            totalDue,
+                                            format(new Date(), 'MMM').toUpperCase(),
+                                            currentGuest.name,
+                                            currentGuest.roomName
+                                        )}
+                                    </span>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-8 px-2 text-[10px] font-bold gap-1 rounded-lg hover:bg-white"
+                                        onClick={() => {
+                                            const note = generateRentSutraNote(
+                                                currentGuest.shortId || 'NEW',
+                                                totalDue,
+                                                format(new Date(), 'MMM').toUpperCase(),
+                                                currentGuest.name,
+                                                currentGuest.roomName
+                                            );
+                                            navigator.clipboard.writeText(note);
+                                            setNoteCopied(true);
+                                            setTimeout(() => setNoteCopied(false), 2000);
+                                        }}
+                                    >
+                                        {noteCopied ? <Check className="w-3 h-3 text-green-600" /> : <Copy className="w-3 h-3" />}
+                                        {noteCopied ? 'Done!' : 'Copy'}
+                                    </Button>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground leading-tight italic">Paste this in your payment app note for instant verification.</p>
                             </div>
 
                             {/* UTR Input */}

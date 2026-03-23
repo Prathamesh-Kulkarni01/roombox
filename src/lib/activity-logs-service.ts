@@ -5,6 +5,8 @@ export type ActivityType =
     | 'GUEST_ONBOARDING'
     | 'GUEST_VACATED'
     | 'PAYMENT_RECORDED'
+    | 'PAYMENT_CLAIMED'
+    | 'PAYMENT_VERIFIED'
     | 'KYC_SUBMITTED'
     | 'COMPLAINT_CREATED'
     | 'SYSTEM_LOG';

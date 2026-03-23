@@ -212,11 +212,9 @@ export default function GuestManagementPage() {
 
     const dashboard = useDashboard();
     const {
-        isAddGuestDialogOpen, setIsAddGuestDialogOpen,
-        isEditGuestDialogOpen, setIsEditGuestDialogOpen,
-        guestToEdit, editGuestForm, handleEditGuestSubmit,
         addGuestForm, handleAddGuestSubmit,
-        handleOpenEditGuestDialog
+        handleOpenEditGuestDialog,
+        handleOpenGeneralAddGuestDialog
     } = dashboard;
 
     const [isCsvUploaderOpen, setIsCsvUploaderOpen] = useState(false);
@@ -323,7 +321,7 @@ export default function GuestManagementPage() {
                                 <Button variant="outline" onClick={() => setIsCsvUploaderOpen(true)}>
                                     <Upload className="mr-2 h-4 w-4" /> Import CSV
                                 </Button>
-                                <Button onClick={() => setIsAddGuestDialogOpen(true)}>
+                                <Button onClick={handleOpenGeneralAddGuestDialog}>
                                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Guest
                                 </Button>
                             </div>

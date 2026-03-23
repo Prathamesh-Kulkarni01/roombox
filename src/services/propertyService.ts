@@ -203,12 +203,26 @@ export class PropertyService {
             pgsSnap.forEach(docSnap => {
                 const data = docSnap.data();
                 pgs.push({
+                    // Spread all data first so no stored field is lost
+                    ...data,
+                    // Then enforce defaults for critical fields
                     id: docSnap.id,
                     name: data.name || 'Unnamed Property',
                     occupancy: data.occupancy || 0,
                     totalBeds: data.totalBeds || 0,
                     totalRooms: data.totalRooms || 0,
                     floors: data.floors || [],
+                    // Payment fields
+                    upiId: data.upiId || '',
+                    payeeName: data.payeeName || '',
+                    qrCodeImage: data.qrCodeImage || '',
+                    paymentMode: data.paymentMode || 'CASH_ONLY',
+                    online_payment_enabled: data.online_payment_enabled || false,
+                    // Property details
+                    location: data.location || '',
+                    city: data.city || '',
+                    gender: data.gender || '',
+                    priceRange: data.priceRange || { min: 0, max: 0 },
                 });
             });
 

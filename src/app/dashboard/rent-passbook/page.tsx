@@ -284,7 +284,8 @@ export default function RentPassbookPage() {
     const pendingVerificationCount = useMemo(() => {
         return guests.reduce((count, guest) => {
             const pendingPayments = (guest.paymentHistory || []).filter(p => 
-                (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && p.status === 'pending'
+                (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && 
+                (p.status === 'pending' || p.status === 'CLAIMED_PAID')
             );
             return count + pendingPayments.length;
         }, 0);
@@ -390,7 +391,10 @@ export default function RentPassbookPage() {
     const allPendingPayments = useMemo(() => {
         return guests.flatMap(g => 
             (g.paymentHistory || [])
-                .filter(p => (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && p.status === 'pending')
+                .filter(p => 
+                    (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && 
+                    (p.status === 'pending' || p.status === 'CLAIMED_PAID')
+                )
                 .map(p => ({
                     ...p,
                     guestName: g.name,

@@ -45,6 +45,11 @@ export default function PublicPaymentPage() {
     const [utr, setUtr] = useState('');
     const [screenshotLink, setScreenshotLink] = useState('');
     const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    const [activePaymentId, setActivePaymentId] = useState<string | null>(null);
+    const [serverUpiLink, setServerUpiLink] = useState<string>('');
+    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
 
     useEffect(() => {
         if (token) {
@@ -62,17 +67,36 @@ export default function PublicPaymentPage() {
         }
     }, [token]);
 
-    const handlePayNow = () => {
+    const handlePayNow = async () => {
         if (!details || details.guest.totalDue <= 0) return;
 
-        // If Direct UPI is enabled, show the manual flow / instructions
+        // If Direct UPI is enabled, create an intent first
         if (details.property?.paymentMode === 'DIRECT_UPI') {
-            setShowManualForm(true);
+            setIsGeneratingLink(true);
+            try {
+                const res = await fetch('/api/payments/intent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, amount: details.guest.totalDue }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setActivePaymentId(data.paymentId);
+                    setServerUpiLink(data.upiLink);
+                    setShowManualForm(true);
+                } else {
+                    toast({ variant: 'destructive', title: 'Error', description: data.error || 'Could not prepare UPI link.' });
+                }
+            } catch (err) {
+                toast({ variant: 'destructive', title: 'Error', description: 'Failed to connect to server.' });
+            } finally {
+                setIsGeneratingLink(false);
+            }
             return;
         }
 
         startPaymentTransition(async () => {
-            // ... (existing Razorpay logic)
+            // ... (rest of the razorpay logic remains same for now)
             try {
                 const res = await fetch('/api/razorpay/create-rent-order', {
                     method: 'POST',
@@ -131,21 +155,19 @@ export default function PublicPaymentPage() {
 
         setIsSubmittingManual(true);
         try {
-            const res = await fetch('/api/rent-details/confirm-manual', {
+            const res = await fetch('/api/payments/claim', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     token,
+                    paymentId: activePaymentId,
                     utr,
-                    screenshotUrl: screenshotLink,
-                    amount: details?.guest.totalDue,
                 }),
             });
 
             const data = await res.json();
             if (data.success) {
-                toast({ title: 'Submitted!', description: 'Your payment confirmation has been sent to the owner for verification.' });
-                setError('Payment confirmation submitted. The owner will verify and update your passbook soon.');
+                setSuccessMessage('Payment confirmation submitted. The owner will verify and update your passbook soon.');
             } else {
                 throw new Error(data.error || 'Failed to submit confirmation.');
             }
@@ -161,15 +183,6 @@ export default function PublicPaymentPage() {
         toast({ title: 'Copied!', description: `${label} copied to clipboard.` });
     }
 
-    const upiDeepLink = useMemo(() => {
-        if (!details?.property?.upiId) return '';
-        const { upiId, payeeName } = details.property;
-        const amount = details.guest.totalDue;
-        const tn = encodeURIComponent(`Rent for ${details.guest.pgName} ${format(new Date(), 'MMM yyyy')}`);
-        const pn = encodeURIComponent(payeeName || details.guest.pgName);
-        return `upi://pay?pa=${upiId}&pn=${pn}&am=${amount}&tn=${tn}&cu=INR`;
-    }, [details]);
-
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-muted/40">
@@ -179,6 +192,22 @@ export default function PublicPaymentPage() {
                         <Skeleton className="h-6 w-full" />
                         <Skeleton className="h-6 w-1/2" />
                         <Skeleton className="h-12 w-full mt-4" />
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
+    if (successMessage) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-muted/40 text-center p-4">
+                <Card className="w-full max-w-md">
+                    <CardHeader>
+                        <CheckCircle className="w-14 h-14 mx-auto text-green-500" />
+                        <CardTitle className="mt-4 text-green-600">Payment Submitted!</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">{successMessage}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -237,12 +266,16 @@ export default function PublicPaymentPage() {
                                 </div>
                             </div>
 
-                            <Button asChild className="w-full h-12 text-lg gap-2 bg-[#0070E0] hover:bg-[#005BB8]" variant="default">
-                                <a href={upiDeepLink}>
-                                    <Smartphone className="w-5 h-5" />
+                            <Button asChild className="w-full h-12 text-lg gap-2 bg-[#0070E0] hover:bg-[#005BB8]" variant="default" disabled={isGeneratingLink}>
+                                <a href={serverUpiLink}>
+                                    {isGeneratingLink ? <Loader2 className="w-5 h-5 animate-spin" /> : <Smartphone className="w-5 h-5" />}
                                     Pay via UPI App
                                 </a>
                             </Button>
+                            <p className="text-[10px] text-center text-muted-foreground flex items-center justify-center gap-1">
+                                <Info className="w-3 h-3" />
+                                Please do not change the <strong>Note</strong> in your UPI app.
+                            </p>
                         </div>
 
                         <div className="space-y-3 pt-4 border-t">

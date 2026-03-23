@@ -1,11 +1,11 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { PG, Floor, Room, Bed } from '../types';
-import { db, isFirebaseConfigured } from '../firebase';
+import type { PG, Floor, Room, Bed } from './types';
+import { db, isFirebaseConfigured } from './firebase';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { produce } from 'immer';
-import { defaultMenu } from '../mock-data';
-import { RootState } from '../store';
+import { defaultMenu } from './mock-data';
+import { RootState } from './store';
 import { addGuest, updateGuest } from './guestsSlice';
 
 interface PgsState {
@@ -23,7 +23,7 @@ export const fetchPgs = createAsyncThunk(
     'pgs/fetchPgs',
     async ({ userId, useCloud }: { userId: string, useCloud: boolean }, { rejectWithValue }) => {
         if (useCloud) {
-            const pgsCollection = collection(db, 'users_data', userId, 'pgs');
+            const pgsCollection = collection(db!, 'users_data', userId, 'pgs');
             const pgsSnap = await getDocs(pgsCollection);
             return pgsSnap.docs.map(d => d.data() as PG);
         } else {
@@ -48,15 +48,17 @@ export const addPg = createAsyncThunk<PG, NewPgData, { state: RootState }>(
             rating: 0, 
             occupancy: 0, 
             totalBeds: 0, 
+            totalRooms: 0,
+            status: 'active',
             rules: [], 
             contact: '', 
             priceRange: { min: 0, max: 0 }, 
-            amenities: ['wifi', 'food'], 
+            amenities: ['wifi' as any, 'food' as any], 
             floors: [], 
-            menu: defaultMenu 
+            menu: (defaultMenu as any) 
         };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
             const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', newPg.id);
             await setDoc(docRef, newPg);
         }
@@ -70,7 +72,7 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
             const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
             await setDoc(docRef, updatedPg, { merge: true });
         }

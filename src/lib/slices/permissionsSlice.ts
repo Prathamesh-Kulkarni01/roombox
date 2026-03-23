@@ -5,7 +5,7 @@ import type { Plan, UserRole } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
-import { navItems } from '../mock-data';
+import { allNavItems } from '../mock-data';
 import { featurePermissionConfig, type FeaturePermissions, RolePermissions } from '../permissions';
 
 // This maps a UserRole to a full set of feature permissions

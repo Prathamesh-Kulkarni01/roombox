@@ -12,6 +12,9 @@ import InstallForceOverlay from '@/components/InstallForceOverlay';
 import { ShieldAlert } from 'lucide-react';
 
 
+import { useGetGuestsQuery, useGetPropertiesQuery } from '@/lib/api/apiSlice';
+
+
 export default function TenantDashboardLayout({
   children,
 }: {
@@ -19,8 +22,19 @@ export default function TenantDashboardLayout({
 }) {
   const { currentUser } = useAppSelector((state) => state.user);
   const { guests } = useAppSelector((state) => state.guests);
-  const { isLoading } = useAppSelector((state) => state.app);
+  const { isLoading: appLoading } = useAppSelector((state) => state.app);
+  
+  // Call global data fetching hooks to ensure store is populated
+  const { isFetching: isFetchingGuests } = useGetGuestsQuery(undefined, {
+    skip: !currentUser?.id
+  });
+  const { isFetching: isFetchingProperties } = useGetPropertiesQuery(undefined, {
+    skip: !currentUser?.id
+  });
+
   const router = useRouter();
+
+  const isLoading = appLoading || isFetchingGuests || isFetchingProperties;
 
   useEffect(() => {
     if (isLoading) return;
@@ -41,8 +55,10 @@ export default function TenantDashboardLayout({
   }, [isLoading, currentUser, router]);
 
   // Check if tenant is vacated
+  // A tenant is considered vacated if they are logged in but have no guestId OR their guest record says they are vacated
+  // We only check this after loading is complete
   const currentGuest = guests.find(g => g.id === currentUser?.guestId);
-  const isVacated = currentUser?.role === 'tenant' && (!currentUser?.guestId || currentGuest?.isVacated);
+  const isVacated = !isLoading && currentUser?.role === 'tenant' && (!currentUser?.guestId || currentGuest?.isVacated);
 
   if (isLoading || !currentUser || currentUser.role !== 'tenant') {
     return (

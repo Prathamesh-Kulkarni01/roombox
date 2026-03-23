@@ -88,24 +88,35 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        const role = 'tenant' as const;
+        const guestId = magicLinkData?.guestId || userDoc.data().guestId;
+        const ownerId = magicLinkData?.ownerId || userDoc.data().ownerId;
+        const pgId = magicLinkData?.pgId || userDoc.data().pgId;
+
         // Clear legacy password from Firestore if it exists and update metadata
         await userDoc.ref.update({
             password: FieldValue.delete(),
-            guestId: magicLinkData?.guestId || userDoc.data().guestId,
-            ownerId: magicLinkData?.ownerId || userDoc.data().ownerId,
-            role: 'tenant',
+            guestId,
+            ownerId,
+            pgId,
+            role,
             status: 'active',
             updatedAt: new Date(),
             schemaVersion: 2 // Mark as versioned
         });
 
+        const claims = {
+            role,
+            guestId,
+            ownerId,
+            pgId
+        };
 
-        // Generate Custom Token to sign them in immediately
-        const customToken = await auth.createCustomToken(uid, {
-            role: 'tenant',
-            guestId: magicLinkData?.guestId || userDoc.data().guestId,
-            ownerId: magicLinkData?.ownerId || userDoc.data().ownerId
-        });
+        // Set claims PERMANENTLY on the user's Auth record for standard logins on other browsers
+        await auth.setCustomUserClaims(uid, claims);
+
+        // Generate Custom Token to sign them in immediately with current session claims
+        const customToken = await auth.createCustomToken(uid, claims);
 
         // Delete magic token now that it is consumed
         await magicLinkRef.delete();

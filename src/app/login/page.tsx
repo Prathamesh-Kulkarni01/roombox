@@ -43,9 +43,13 @@ export default function LoginPage() {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [tenantPassword, setTenantPassword] = useState('')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [waitingForOtp, setWaitingForOtp] = useState(false)
+  const [tenantLoginMode, setTenantLoginMode] = useState<'otp' | 'password'>('password')
+
+  const [activeTab, setActiveTab] = useState('tenant')
 
   const loading = appLoading || isSigningIn;
 
@@ -104,6 +108,45 @@ export default function LoginPage() {
         variant: "destructive",
         title: "Log In Failed",
         description: error.message || "Invalid email or password.",
+      });
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleTenantPasswordSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
+
+    if (!tenantPassword) {
+      toast({
+        variant: "destructive",
+        title: "Password Missing",
+        description: "Please enter your password.",
+      });
+      return;
+    }
+
+    setIsSigningIn(true);
+    try {
+      // Logic for staff/tenant: could be email or phone
+      let loginId = phone;
+      if (phone && !phone.includes('@')) {
+        // Map phone to internal email: 1234567890@roombox.app
+        const cleanPhone = phone.replace(/\D/g, '');
+        if (cleanPhone.length >= 10) {
+            loginId = `${cleanPhone.slice(-10)}@roombox.app`;
+        }
+      }
+
+      await signInWithEmailAndPassword(auth, loginId, tenantPassword);
+      toast({ title: 'Welcome Back!', description: "You've been signed in successfully." });
+    } catch (error: any) {
+      console.error("Tenant Password Auth Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Log In Failed",
+        description: error.message || "Invalid credentials. If you don't have a password, use OTP.",
       });
     } finally {
       setIsSigningIn(false);
@@ -195,15 +238,89 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl pt-4">Welcome Back</CardTitle>
           <CardDescription>
-            Log in to manage your properties.
+            {activeTab === 'owner' ? 'Log in to manage your properties.' : 'Log in to access your PG dashboard.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <Tabs defaultValue="owner" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="owner">Owner</TabsTrigger>
               <TabsTrigger value="tenant">Staff / Tenant</TabsTrigger>
+              <TabsTrigger value="owner">Owner</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="tenant" className="grid gap-4">
+              {tenantLoginMode === 'otp' ? (
+                !waitingForOtp ? (
+                  <form onSubmit={handleSendOtp} className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input id="phone" type="tel" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
+                      <p className="text-xs text-muted-foreground">We will send a 6-digit OTP to your phone.</p>
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={loading || !phone}>
+                      {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Send OTP
+                    </Button>
+                    
+                    <Button type="button" variant="link" className="text-xs" onClick={() => setTenantLoginMode('password')} disabled={loading}>
+                       Login with Password instead
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyOtp} className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="otp">Enter OTP</Label>
+                      <Input id="otp" type="text" placeholder="6-digit code" required maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} />
+                      <div className="flex justify-between items-center">
+                          <p className="text-xs text-muted-foreground">Sent to {phone}</p>
+                          <button type="button" onClick={() => setWaitingForOtp(false)} className="text-xs font-medium text-primary hover:underline" disabled={loading}>
+                              Change Number
+                          </button>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
+                      {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Verify & Log In
+                    </Button>
+                    
+                    <div className="flex flex-col gap-2 mt-2">
+                        <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={handleSendOtp} disabled={loading}>
+                           Resend OTP
+                        </Button>
+                        <Button type="button" variant="link" className="text-xs h-auto p-0 text-muted-foreground" onClick={() => { setWaitingForOtp(false); setTenantLoginMode('password'); }} disabled={loading}>
+                           Login with Password instead
+                        </Button>
+                    </div>
+                  </form>
+                )
+              ) : (
+                <form onSubmit={handleTenantPasswordSignIn} className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="tenant-phone">Phone Number or Email</Label>
+                    <Input id="tenant-phone" type="text" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label htmlFor="tenant-password">Password</Label>
+                    <Input id="tenant-password" type="password" placeholder="Your password" required value={tenantPassword} onChange={(e) => setTenantPassword(e.target.value)} disabled={loading} />
+                    <button type="button" onClick={() => setTenantLoginMode('otp')} className="text-xs font-medium text-primary hover:underline text-left" disabled={loading}>
+                        Forgot password? Login with OTP
+                    </button>
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={loading || !phone || !tenantPassword}>
+                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Log In
+                  </Button>
+
+                  <Button type="button" variant="link" className="text-xs" onClick={() => setTenantLoginMode('otp')} disabled={loading}>
+                     Back to OTP Login
+                  </Button>
+                </form>
+              )}
+            </TabsContent>
 
             <TabsContent value="owner" className="grid gap-4">
               <form onSubmit={handleEmailSignIn} className="grid gap-4">
@@ -233,53 +350,16 @@ export default function LoginPage() {
                 Log in with Google
               </Button>
             </TabsContent>
-
-            <TabsContent value="tenant" className="grid gap-4">
-              {!waitingForOtp ? (
-                <form onSubmit={handleSendOtp} className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" type="tel" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
-                    <p className="text-xs text-muted-foreground">We will send a 6-digit OTP to your phone.</p>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={loading || !phone}>
-                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Send OTP
-                  </Button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="otp">Enter OTP</Label>
-                    <Input id="otp" type="text" placeholder="6-digit code" required maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} />
-                    <div className="flex justify-between items-center">
-                        <p className="text-xs text-muted-foreground">Sent to {phone}</p>
-                        <button type="button" onClick={() => setWaitingForOtp(false)} className="text-xs font-medium text-primary hover:underline" disabled={loading}>
-                            Change Number
-                        </button>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
-                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Verify & Log In
-                  </Button>
-                  
-                  <Button type="button" variant="link" className="text-xs" onClick={handleSendOtp} disabled={loading}>
-                     Resend OTP
-                  </Button>
-                </form>
-              )}
-            </TabsContent>
           </Tabs>
 
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
-              Sign up
-            </Link>
-          </div>
+          {activeTab === 'owner' && (
+            <div className="mt-4 text-center text-sm">
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
+                Sign up
+              </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

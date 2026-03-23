@@ -1,13 +1,13 @@
 
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { Guest, PG } from '../types';
-import { auth, db, isFirebaseConfigured } from '../firebase';
+import type { Guest, PG } from './types';
+import { auth, db, isFirebaseConfigured } from './firebase';
 import { sendSignInLinkToEmail } from 'firebase/auth';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
-import { RootState } from '../store';
+import { RootState } from './store';
 import { produce } from 'immer';
-import { addNotification } from './notificationsSlice';
+import { addNotification } from './slices/notificationsSlice';
 import { verifyKyc } from '@/ai/flows/verify-kyc-flow';
 import { format, addMonths } from 'date-fns';
 
@@ -26,7 +26,7 @@ export const fetchGuests = createAsyncThunk(
     'guests/fetchGuests',
     async ({ userId, useCloud }: { userId: string, useCloud: boolean }) => {
         if (useCloud) {
-            const guestsCollection = collection(db, 'users_data', userId, 'guests');
+            const guestsCollection = collection(db!, 'users_data', userId, 'guests');
             const guestsSnap = await getDocs(guestsCollection);
             return guestsSnap.docs.map(d => d.data() as Guest);
         } else {
@@ -74,7 +74,7 @@ export const addGuest = createAsyncThunk<{ newGuest: Guest; updatedPg: PG }, New
             }
         }
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
             const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', newGuest.id);
             const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
@@ -123,7 +123,7 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
         if (user.currentPlan?.hasKycVerification) {
             try {
                 const verificationResult = await verifyKyc({ idDocumentUri: kycData.aadhaarDataUri, selfieUri: kycData.photoDataUri });
-                kycUpdate.kycStatus = (verificationResult.isIdValid && verificationResult.isFaceMatch) ? 'verified' : 'rejected';
+                kycUpdate.kycStatus = (verificationResult.isIdValidDocument && verificationResult.isSelfieValid) ? 'verified' : 'rejected';
                 kycUpdate.kycRejectReason = verificationResult.reason;
             } catch (e) {
                 console.error("AI KYC verification failed", e);
@@ -134,8 +134,8 @@ export const updateGuestKyc = createAsyncThunk<Guest, {
 
         const updatedGuest = { ...guestToUpdate, ...kycUpdate };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
-            const docRef = doc(db, 'users_data', user.ownerId || user.currentUser.id, 'guests', updatedGuest.id);
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
+            const docRef = doc(db, 'users_data', (user as any).ownerId || user.currentUser.id, 'guests', updatedGuest.id);
             await setDoc(docRef, updatedGuest, { merge: true });
         }
         
@@ -170,7 +170,7 @@ export const updateGuest = createAsyncThunk<{ updatedGuest: Guest, updatedPg?: P
             }));
         }
         
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
             const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', updatedGuest.id);
             batch.set(guestDocRef, updatedGuest, { merge: true });
@@ -198,7 +198,7 @@ export const initiateGuestExit = createAsyncThunk<Guest, string, { state: RootSt
         exitDate.setDate(exitDate.getDate() + guest.noticePeriodDays);
         const updatedGuest: Guest = { ...guest, exitDate: exitDate.toISOString() };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guestId);
             await setDoc(guestDocRef, updatedGuest, { merge: true });
         }
@@ -232,7 +232,7 @@ export const vacateGuest = createAsyncThunk<{ guest: Guest, pg: PG }, string, { 
         
         const updatedGuest = { ...guest, exitDate: new Date().toISOString(), isVacated: true };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
             const batch = writeBatch(db);
             const guestDocRef = doc(db, 'users_data', user.currentUser.id, 'guests', guestId);
             const pgDocRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
@@ -283,8 +283,8 @@ const guestsSlice = createSlice({
                 // Remove guest from the list as they are now vacated
                 state.guests = state.guests.filter(g => g.id !== action.payload.guest.id);
             })
-            .addCase('pgs/deletePg/fulfilled', (state, action) => {
-                state.guests = state.guests.filter(g => g.pgId !== action.payload);
+            .addCase('pgs/deletePg/fulfilled', (state, action: any) => {
+                state.guests = state.guests.filter((g: Guest) => g.pgId !== action.payload);
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.guests = [];

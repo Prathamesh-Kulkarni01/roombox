@@ -82,7 +82,7 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
       const hasOnlineDetails = !!values.upiId || !!qrUrl;
       
       const updates: any = {
-        paymentMode: hasOnlineDetails ? 'direct_upi' : 'cash',
+        paymentMode: hasOnlineDetails ? 'DIRECT_UPI' : 'CASH_ONLY',
         online_payment_enabled: hasOnlineDetails,
         upiId: values.upiId || '',
         payeeName: values.payeeName || '',

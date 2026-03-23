@@ -93,11 +93,17 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             });
             const roleFromClaim = tokenResult.claims.role as UserRole;
 
-            if (roleFromClaim && roleFromClaim !== 'unassigned' && userData.role !== roleFromClaim) {
-                console.log(`[initializeUser] Overriding Firestore role (${userData.role}) with Auth Claim: ${roleFromClaim}`);
-                userData.role = roleFromClaim;
+            if (roleFromClaim && roleFromClaim !== 'unassigned') {
+                if (userData.role !== roleFromClaim) {
+                    console.log(`[initializeUser] Overriding Firestore role (${userData.role}) with Auth Claim: ${roleFromClaim}`);
+                    userData.role = roleFromClaim;
+                }
+                
+                // Always merge IDs from claims as they are more authoritative for the current session
                 if (tokenResult.claims.ownerId) userData.ownerId = tokenResult.claims.ownerId as string;
                 if (tokenResult.claims.guestId) userData.guestId = tokenResult.claims.guestId as string;
+                if (tokenResult.claims.pgId) userData.pgId = tokenResult.claims.pgId as string;
+                if (tokenResult.claims.pgs && Array.isArray(tokenResult.claims.pgs)) userData.pgIds = tokenResult.claims.pgs as string[];
             }
 
             // --- Handle Invites (only if still unassigned) ---

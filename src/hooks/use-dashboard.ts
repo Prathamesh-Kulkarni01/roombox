@@ -31,6 +31,7 @@ import {
 import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
 import { sanitizeObjectForFirebase } from "@/lib/utils"
 import { getBalanceBreakdown } from "@/lib/ledger-utils"
+import { auth } from "@/lib/firebase"
 
 const addGuestSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -44,7 +45,11 @@ const addGuestSchema = z.object({
   moveInDate: z.date({ required_error: "A move-in date is required." }),
   rentCycleUnit: z.enum(['minutes', 'hours', 'days', 'weeks', 'months']),
   rentCycleValue: z.coerce.number().min(1, 'Cycle value must be at least 1.'),
-  kycDocument: z.any().optional()
+  kycDocument: z.any().optional(),
+  // Used when no bed is pre-selected (opened from All Guests page)
+  pgId: z.string().optional(),
+  roomId: z.string().optional(),
+  bedId: z.string().optional(),
 })
 
 const editGuestSchema = z.object({
@@ -265,6 +270,27 @@ export function useDashboard() {
     setIsAddGuestDialogOpen(true);
   };
 
+  const handleOpenGeneralAddGuestDialog = () => {
+    setSelectedBedForGuestAdd(null);
+    addGuestForm.reset({
+      name: '',
+      phone: '',
+      email: '',
+      amountType: 'numeric',
+      rentAmount: 0,
+      depositAmount: 0,
+      symbolicRentValue: 'XXX',
+      symbolicDepositValue: 'YYY',
+      moveInDate: new Date(),
+      rentCycleUnit: 'months',
+      rentCycleValue: 1,
+      pgId: '',
+      roomId: '',
+      bedId: '',
+    });
+    setIsAddGuestDialogOpen(true);
+  };
+
   const handleOpenEditGuestDialog = (guest: Guest) => {
     setGuestToEdit(guest);
     setIsEditGuestDialogOpen(true);
@@ -287,9 +313,37 @@ export function useDashboard() {
   };
 
   const handleAddGuestSubmit = async (values: z.infer<typeof addGuestSchema>) => {
-    if (!selectedBedForGuestAdd || !currentUser) return;
+    if (!currentUser) return;
 
-    const { pg, bed } = selectedBedForGuestAdd;
+    // Resolve pg/bed from either pre-selected (from bed UI) or from form dropdowns (from All Guests page)
+    let resolvedPg: PG | undefined;
+    let resolvedBed: Bed | undefined;
+    let resolvedBedId: string | undefined;
+
+    if (selectedBedForGuestAdd) {
+      resolvedPg = selectedBedForGuestAdd.pg;
+      resolvedBed = selectedBedForGuestAdd.bed;
+      resolvedBedId = selectedBedForGuestAdd.bed.id;
+    } else {
+      // Opened from All Guests page — use form-selected pgId/roomId/bedId
+      if (!values.pgId || !values.roomId || !values.bedId) {
+        toast({ variant: 'destructive', title: 'Missing Selection', description: 'Please select a Property, Room, and Bed.' });
+        return;
+      }
+      resolvedPg = pgs.find(p => p.id === values.pgId);
+      if (!resolvedPg) { toast({ variant: 'destructive', title: 'Error', description: 'Selected property not found.' }); return; }
+
+      for (const floor of (resolvedPg.floors || [])) {
+        for (const room of (floor.rooms || [])) {
+          if (room.id === values.roomId) {
+            resolvedBed = (room.beds || []).find(b => b.id === values.bedId);
+          }
+        }
+      }
+      if (!resolvedBed) { toast({ variant: 'destructive', title: 'Error', description: 'Selected bed not found.' }); return; }
+      resolvedBedId = resolvedBed.id;
+    }
+
     const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
     if (!ownerId) return;
 
@@ -298,9 +352,9 @@ export function useDashboard() {
         name: values.name,
         phone: values.phone,
         email: values.email || '',
-        pgId: pg.id,
-        pgName: pg.name,
-        bedId: bed.id,
+        pgId: resolvedPg!.id,
+        pgName: resolvedPg!.name,
+        bedId: resolvedBedId!,
         amountType: values.amountType,
         rentAmount: values.amountType === 'numeric' ? (values.rentAmount || 0) : 0,
         deposit: values.amountType === 'numeric' ? (values.depositAmount || 0) : 0,
@@ -475,7 +529,7 @@ export function useDashboard() {
     const balanceStr = breakdown.symbolic || (guest.amountType === 'symbolic' ? 'No Dues' : '₹0');
 
     try {
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const token = await auth?.currentUser?.getIdToken();
       const response = await fetch('/api/generate-payment-link', {
         method: 'POST',
         headers: {
@@ -836,7 +890,9 @@ Thank you!`;
     addGuestForm,
     editGuestForm,
     roomForm, floorForm, bedForm, paymentForm, sharedChargeForm,
-    handleOpenAddGuestDialog, handleAddGuestSubmit,
+    handleOpenAddGuestDialog,
+    handleOpenGeneralAddGuestDialog,
+    handleAddGuestSubmit,
     handleOpenEditGuestDialog, handleEditGuestSubmit,
     handleOpenPaymentDialog, handlePaymentSubmit,
     handleOpenSharedChargeDialog, handleSharedChargeSubmit,

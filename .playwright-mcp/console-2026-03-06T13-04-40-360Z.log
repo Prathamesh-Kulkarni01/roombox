@@ -1,8 +1,0 @@
-[    1005ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:9002/icon.svg:0
-[    1118ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:9002/favicon.ico:0
-[    6259ms] [WARNING] Selector LoginPage.useAppSelector returned a different result when called with the same parameters. This can lead to unnecessary rerenders.
-Selectors that return a new reference (such as an object or an array) should be memoized: https://redux.js.org/usage/deriving-data-selectors#optimizing-selectors-with-memoization {state: Object, selected: Object, selected2: Object, stack: Error
-    at LoginPage.useAppSelector (http://loca…modules_next_dist_compiled_a0e4c7b4._.js:2647:64)} @ http://localhost:9002/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297
-[    6367ms] [ERROR] [FCM] Invalid VAPID key format. Ensure it is the Web Push Public key (starts with B), one line, no quotes. Length: 0 @ http://localhost:9002/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
-[    6438ms] [ERROR] [Push] Invalid VAPID key @ http://localhost:9002/_next/static/chunks/node_modules_next_dist_f3530cac._.js:3127
-[    7877ms] [WARNING] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior @ http://localhost:9002/_next/static/chunks/node_modules_next_dist_f3530cac._.js:2297

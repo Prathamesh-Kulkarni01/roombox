@@ -25,20 +25,15 @@ export default function CompleteProfilePage() {
         }
 
         setLoadingRole(role)
-        if (role === 'tenant') {
-            // For tenants, we just guide them.
-            toast({ title: 'Check with your PG Manager', description: 'Please ask your manager for an invitation link to join your property.', duration: 10000 });
-            setLoadingRole(null);
-            // Optional: Log them out so they don't get stuck, and wait for the invite link.
-            // await dispatch(logoutUser());
-            // router.push('/login');
-            return;
-        }
-
         try {
             await dispatch(finalizeUserRole(role)).unwrap();
-            toast({ title: 'Welcome!', description: "Your owner account has been created."});
-            router.push('/dashboard');
+            if (role === 'owner') {
+                toast({ title: 'Welcome!', description: "Your owner account has been created."});
+                router.push('/dashboard');
+            } else {
+                toast({ title: 'Account Ready!', description: "Your tenant account is ready. Ask your manager to add you to your PG."});
+                router.push('/tenants/my-pg');
+            }
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Setup Failed', description: error.message || 'Could not set up your account.' });
             setLoadingRole(null);
@@ -64,6 +59,19 @@ export default function CompleteProfilePage() {
                         {loadingRole === 'owner' ? <Loader2 className="h-8 w-8 animate-spin" /> : <Building2 className="h-8 w-8 text-primary" />}
                         <span className="font-bold text-lg">I'm a Property Owner</span>
                         <span className="text-xs text-muted-foreground text-center">Manage your PG, hostel, or co-living space.</span>
+                    </Button>
+
+                    <Button 
+                        variant="outline" 
+                        className="h-auto p-6 flex flex-col gap-1 items-center"
+                        onClick={() => handleRoleSelection('tenant')}
+                        disabled={!!loadingRole}
+                    >
+                        <div className="bg-primary/10 p-2 rounded-full">
+                            <Building2 className="h-5 w-5 text-primary" />
+                        </div>
+                        <span className="font-semibold text-lg leading-none">Renting a room</span>
+                        <span className="text-xs text-muted-foreground text-center">Access your room dashboard & pay bills.</span>
                     </Button>
                 </CardContent>
             </Card>

@@ -23,11 +23,13 @@ export const PGSchema = z.object({
     payeeName: z.string().optional(),
     qrCodeImage: z.string().optional(),
     online_payment_enabled: z.boolean().default(true),
+    direct_upi_enabled: z.boolean().default(true),
     schemaVersion: z.number().default(CURRENT_SCHEMA_VERSION),
 }).passthrough(); // allows other fields to pass through without being stripped
 
 export const GuestSchema = z.object({
     id: z.string(),
+    shortId: z.string().optional(),
     name: z.string(),
     phone: z.string().optional(),
     email: z.string().optional(),
@@ -59,14 +61,17 @@ export const PaymentSchema = z.object({
     amount: z.number(),
     amountType: z.enum(['numeric', 'symbolic']).default('numeric'),
     symbolicValue: z.string().optional(),
-    method: z.enum(['cash', 'upi', 'in-app']),
+    method: z.enum(['cash', 'upi', 'in-app', 'direct_upi', 'gateway', 'DIRECT_UPI']),
     forMonth: z.string(),
     notes: z.string().optional(),
+    status: z.enum(['INITIATED', 'CLAIMED_PAID', 'VERIFIED', 'REJECTED', 'pending']).optional(),
     verificationStatus: z.enum(['PENDING', 'VERIFIED', 'REJECTED']).optional(),
     utr: z.string().optional(),
     screenshotUrl: z.string().optional(),
     verifiedBy: z.string().optional(),
     verifiedAt: z.string().optional(),
+    claimedAt: z.string().optional(),
+    createdAt: z.string().optional(),
     schemaVersion: z.number().default(CURRENT_SCHEMA_VERSION),
 }).passthrough();
 

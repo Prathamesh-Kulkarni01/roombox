@@ -4,56 +4,53 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 import jwt from 'jsonwebtoken';
 import type { Guest, LedgerEntry } from '@/lib/types';
 
-export async function GET(req: NextRequest, { params }: { params: { token: string } }) {
-    const { token } = params;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> | { token: string } }) {
+    // Next.js 15 requires awaiting params
+    const resolvedParams = await Promise.resolve(params);
+    const token = resolvedParams.token;
     const secret = process.env.JWT_SECRET;
 
     if (!secret) {
         return NextResponse.json({ success: false, error: 'Server misconfiguration: JWT secret missing.' }, { status: 500 });
     }
 
+    let decoded: { guestId: string; ownerId: string };
     try {
-        const decoded = jwt.verify(token, secret) as { guestId: string, ownerId: string };
+        decoded = jwt.verify(token, secret) as { guestId: string; ownerId: string };
+    } catch (jwtError: any) {
+        console.error('[rent-details] JWT verification failed:', jwtError.message);
+        return NextResponse.json({ success: false, error: 'Invalid or expired payment link.' }, { status: 400 });
+    }
+
+    try {
         const { guestId, ownerId } = decoded;
 
         const adminDb = await getAdminDb();
         const guestDoc = await adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
-        
+
         if (!guestDoc.exists) {
+            console.error(`[rent-details] Guest not found: ownerId=${ownerId}, guestId=${guestId}`);
             return NextResponse.json({ success: false, error: 'Rent details not found or link expired.' }, { status: 404 });
         }
-        
+
         const guest = guestDoc.data() as Guest;
-        
-        const debits = guest.ledger.filter(e => e.type === 'debit');
-        const credits = guest.ledger.filter(e => e.type === 'credit');
-        
-        const totalDebits = debits.reduce((sum, e) => sum + e.amount, 0);
-        const totalCredits = credits.reduce((sum, e) => sum + e.amount, 0);
-        
-        const totalDue = totalDebits - totalCredits;
 
-        if (totalDue <= 0) {
-            return NextResponse.json({ success: false, error: 'There are no pending dues for this rent cycle.' }, { status: 400 });
-        }
+        // Safely handle missing ledger — older documents may not have one yet
+        const ledger: LedgerEntry[] = guest.ledger || [];
+        const debits = ledger.filter(e => e.type === 'debit');
+        const credits = ledger.filter(e => e.type === 'credit');
 
-        const dueItems: LedgerEntry[] = [];
-        let tempBalance = 0;
-        const sortedLedger = guest.ledger.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const totalDebits = debits.reduce((sum, e) => sum + (e.amount || 0), 0);
+        const totalCredits = credits.reduce((sum, e) => sum + (e.amount || 0), 0);
+        const totalDue = Math.max(0, totalDebits - totalCredits);
 
-        for (const entry of sortedLedger) {
-            tempBalance += (entry.type === 'debit' ? entry.amount : -entry.amount);
-            if (entry.type === 'debit') {
-                dueItems.push(entry);
-            }
-        }
-        
-        // This part is simplified; a real accounting system would be more complex.
-        // We will just show all unpaid debits. A more robust solution might track which credits apply to which debits.
-        const unpaidDebits = debits; // For now, show all debits as part of the due amount.
-
-        const pgDoc = await adminDb.collection('users_data').doc(ownerId).collection('properties').doc(guest.pgId).get();
+        // Fetch PG data from the correct 'pgs' collection
+        const pgDoc = await adminDb.collection('users_data').doc(ownerId).collection('pgs').doc(guest.pgId).get();
         const pgData = pgDoc.exists ? pgDoc.data() : null;
+
+        if (!pgData) {
+            console.warn(`[rent-details] PG not found: ownerId=${ownerId}, pgId=${guest.pgId}`);
+        }
 
         const responseDetails = {
             guest: {
@@ -64,25 +61,25 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
                 pgName: guest.pgName,
                 dueDate: guest.dueDate,
                 rentAmount: guest.rentAmount,
-                totalDue: totalDue,
-                dueItems: unpaidDebits,
+                totalDue,
+                dueItems: debits,
                 amountType: guest.amountType,
                 symbolicBalance: guest.symbolicBalance,
             },
             property: pgData ? {
-                paymentMode: pgData.paymentMode || 'GATEWAY',
-                upiId: pgData.upiId,
-                payeeName: pgData.payeeName,
-                qrCodeImage: pgData.qrCodeImage,
-                online_payment_enabled: pgData.online_payment_enabled !== false, // default to true
+                paymentMode: pgData.paymentMode || 'CASH_ONLY',
+                upiId: pgData.upiId || '',
+                payeeName: pgData.payeeName || '',
+                qrCodeImage: pgData.qrCodeImage || '',
+                online_payment_enabled: pgData.online_payment_enabled !== false,
             } : null,
-            ownerId: ownerId,
+            ownerId,
         };
-        
+
         return NextResponse.json({ success: true, details: responseDetails });
 
-    } catch (error) {
-        console.error('Error verifying rent token:', error);
-        return NextResponse.json({ success: false, error: 'Invalid or expired payment link.' }, { status: 400 });
+    } catch (error: any) {
+        console.error('[rent-details] Unexpected error:', error?.message || error);
+        return NextResponse.json({ success: false, error: 'An unexpected error occurred. Please try again.' }, { status: 500 });
     }
 }

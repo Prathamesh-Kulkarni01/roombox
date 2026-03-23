@@ -127,16 +127,29 @@ export default function DirectPaymentVerification({ pendingPayments }: DirectPay
                     {selectedPayment && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
                             <div className="space-y-4">
-                                <div className="space-y-1">
-                                    <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Guest Name</p>
-                                    <p className="font-medium">{selectedPayment.guestName}</p>
+                                <div className="flex justify-between items-start">
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Guest Name</p>
+                                        <p className="font-medium">{selectedPayment.guestName}</p>
+                                    </div>
+                                    <Badge variant={selectedPayment.status === 'CLAIMED_PAID' ? 'default' : 'secondary'} className={selectedPayment.status === 'CLAIMED_PAID' ? 'bg-blue-100 text-blue-800 border-blue-200' : ''}>
+                                        {selectedPayment.status === 'CLAIMED_PAID' ? 'Tenant Paid' : selectedPayment.status || 'Pending'}
+                                    </Badge>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Payment Amount</p>
-                                    <p className="text-xl font-bold text-primary">
-                                        {selectedPayment.amountType === 'symbolic' ? 'XXX' : `₹${selectedPayment.amount.toLocaleString('en-IN')}`}
-                                    </p>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Amount</p>
+                                        <p className="text-xl font-bold text-primary">
+                                            {selectedPayment.amountType === 'symbolic' ? 'XXX' : `₹${selectedPayment.amount.toLocaleString('en-IN')}`}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">For Month</p>
+                                        <p className="font-medium">{selectedPayment.month || 'N/A'}</p>
+                                    </div>
                                 </div>
+
                                 <div className="space-y-1">
                                     <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">UTR Number</p>
                                     <p className="font-mono bg-muted p-2 rounded text-sm select-all">{selectedPayment.utr || 'Not provided'}</p>

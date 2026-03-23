@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
 
         const customToken = await auth.createCustomToken(uid, claims);
 
+        // Also set claims permanently for future standard logins
+        await auth.setCustomUserClaims(uid, claims);
+
         return NextResponse.json({ success: true, customToken });
 
     } catch (error: any) {

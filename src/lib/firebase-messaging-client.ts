@@ -45,7 +45,7 @@ export const initializeFirebaseMessaging = async (userId?: string) => {
             const rawVapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
             const vapidKey = sanitizeVapidKey(rawVapidKey || '');
             if (!isLikelyValidVapidKey(vapidKey)) {
-                console.error('[FCM] Invalid VAPID key format. Ensure it is the Web Push Public key (starts with B), one line, no quotes. Length:', vapidKey.length);
+                console.warn('[FCM] Invalid or missing VAPID key. FCM registration skipped.');
                 return;
             }
             console.log('[FCM] Using VAPID prefix:', vapidKey.substring(0, 8));

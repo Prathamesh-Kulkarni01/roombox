@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 export interface KycFieldConfig {
     id: string;
@@ -136,34 +136,30 @@ export interface PG {
   menuTemplates?: MenuTemplate[];
   ownerId: string;
   status: 'active' | 'pending_approval' | 'rejected' | 'suspended';
-  paymentMode?: 'direct_upi' | 'gateway' | 'cash';
+  paymentMode?: 'DIRECT_UPI' | 'GATEWAY' | 'CASH_ONLY';
   upiId?: string;
   payeeName?: string;
   qrCodeImage?: string;
   online_payment_enabled?: boolean;
+  direct_upi_enabled?: boolean;
   schemaVersion?: number;
 }
 
 export interface Payment {
-  id: string; // razorpay payment id
-  date: string;
+  id: string;
   amount: number;
-  amountType?: 'numeric' | 'symbolic';
-  symbolicValue?: string; // e.g. "XXX"
-
-  method: 'cash' | 'upi' | 'in-app' | 'direct_upi' | 'gateway';
-  forMonth: string;
+  month: string;
+  type: 'credit' | 'debit';
+  method: 'cash' | 'upi' | 'in-app' | 'direct_upi' | 'gateway' | 'DIRECT_UPI';
+  forMonth?: string; // deprecated by month
   notes?: string;
-  payoutId?: string; // razorpay payout id
-  payoutStatus?: 'COMPLETED' | 'PAYOUT_PENDING' | 'SETTLED' | 'PAYOUT_FAILED' | 'REFUND_PENDING' | 'REFUNDED' | 'FAILED';
-  payoutMode?: 'PAYOUT' | 'ROUTE';
-  payoutTo?: string;
-  payoutFailureReason?: string;
-  verificationStatus?: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  status: 'INITIATED' | 'CLAIMED_PAID' | 'VERIFIED' | 'REJECTED' | 'pending';
   utr?: string;
   screenshotUrl?: string;
   verifiedBy?: string;
   verifiedAt?: string;
+  claimedAt?: string;
+  createdAt?: string;
   payoutSnapshot?: {
     fund_account_id?: string;
     vpa?: string;
@@ -245,6 +241,7 @@ export type RentCycleUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
 
 export interface Guest {
   id: string;
+  shortId?: string;
   name: string;
   phone?: string;
   email: string;
@@ -282,6 +279,10 @@ export interface Guest {
   balance: number;
   symbolicBalance?: string | null; // e.g. "2 * XXX + 500"
   isOnboarded?: boolean;
+  // Legacy fields for dashboard component compatibility
+  balanceBroughtForward?: number;
+  additionalCharges?: AdditionalCharge[];
+  rentPaidAmount?: number;
 }
 
 export interface AdditionalCharge { // Also deprecated

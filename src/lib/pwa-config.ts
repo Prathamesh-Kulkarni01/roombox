@@ -6,7 +6,7 @@ const PWA_COLLECTION = 'pwa_configs';
 
 export async function savePWAConfig(ownerId: string, config: PWAConfig) {
     try {
-        await setDoc(doc(db, PWA_COLLECTION, ownerId), {
+        await setDoc(doc(db!, PWA_COLLECTION, ownerId), {
             ...config,
             updatedAt: new Date().toISOString(),
             ownerId
@@ -20,7 +20,7 @@ export async function savePWAConfig(ownerId: string, config: PWAConfig) {
 
 export async function getPWAConfigByOwnerId(ownerId: string): Promise<PWAConfig | null> {
     try {
-        const docRef = doc(db, PWA_COLLECTION, ownerId);
+        const docRef = doc(db!, PWA_COLLECTION, ownerId);
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
@@ -36,7 +36,7 @@ export async function getPWAConfigByOwnerId(ownerId: string): Promise<PWAConfig 
 export async function getPWAConfigBySubdomain(subdomain: string): Promise<PWAConfig | null> {
     try {
         const q = query(
-            collection(db, PWA_COLLECTION),
+            collection(db!, PWA_COLLECTION),
             where('subdomain', '==', subdomain)
         );
         
@@ -54,7 +54,7 @@ export async function getPWAConfigBySubdomain(subdomain: string): Promise<PWACon
 export async function getOwnerForTenant(tenantId: string): Promise<string | null> {
     try {
         // Query the tenants collection to get the owner ID
-        const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
+        const tenantDoc = await getDoc(doc(db!, 'tenants', tenantId));
         if (tenantDoc.exists()) {
             return tenantDoc.data().ownerId || null;
         }
