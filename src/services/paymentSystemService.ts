@@ -33,6 +33,10 @@ export class PaymentSystemService {
      */
     static async createPaymentIntent(db: Firestore, ownerId: string, guestId: string, amount: number, month: string): Promise<string> {
         const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+        const guestDoc = await guestRef.get();
+        if (!guestDoc.exists) throw new Error('Guest not found');
+
+        const guest = guestDoc.data() as Guest;
         const paymentId = `upi_${Date.now()}`;
         
         const intent: Payment = {
@@ -41,13 +45,15 @@ export class PaymentSystemService {
             status: 'INITIATED',
             createdAt: new Date().toISOString(),
             month: month,
-            paymentMode: 'DIRECT_UPI',
+            method: 'direct_upi',
             notes: `Rent for ${month}`,
             type: 'credit'
         };
 
+        const paymentHistory = guest.paymentHistory || [];
+
         await guestRef.update({
-            paymentHistory: (await guestRef.get()).data()?.paymentHistory ? [...(await guestRef.get()).data()?.paymentHistory, intent] : [intent],
+            paymentHistory: [...paymentHistory, intent],
             schemaVersion: CURRENT_SCHEMA_VERSION
         });
 

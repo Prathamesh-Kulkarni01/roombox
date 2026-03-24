@@ -147,9 +147,31 @@ export default function PublicPaymentPage() {
         })
     }
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        // Ensure its an image and not too large (<5MB)
+        if (!file.type.startsWith('image/')) {
+            toast({ variant: 'destructive', title: 'Invalid File', description: 'Please upload an image file.' });
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast({ variant: 'destructive', title: 'File too large', description: 'Screenshot must be under 5MB.' });
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const dataUri = event.target?.result as string;
+            setScreenshotLink(dataUri);
+        };
+        reader.readAsDataURL(file);
+    };
+
     const handleConfirmManualPayment = async () => {
-        if (!utr) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Please enter the UTR / Transaction ID.' });
+        if (!utr || !screenshotLink) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please enter the UTR and upload a screenshot.' });
             return;
         }
 
@@ -162,6 +184,7 @@ export default function PublicPaymentPage() {
                     token,
                     paymentId: activePaymentId,
                     utr,
+                    screenshotUrl: screenshotLink,
                 }),
             });
 
@@ -292,10 +315,24 @@ export default function PublicPaymentPage() {
                                 Please enter the reference number from GPay/PhonePe to help us verify your payment.
                             </p>
                             
+                            <Label htmlFor="screenshot" className="text-sm font-semibold mt-4 block">Upload Payment Screenshot <span className="text-destructive">*</span></Label>
+                            <Input 
+                                id="screenshot"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                                className="h-11 cursor-pointer"
+                            />
+                            {screenshotLink && (
+                                <div className="mt-2 border rounded-md p-1 w-24 h-24 overflow-hidden">
+                                    <img src={screenshotLink} alt="Screenshot Preview" className="w-full h-full object-cover" />
+                                </div>
+                            )}
+
                             <Button 
-                                className="w-full h-11 mt-2" 
+                                className="w-full h-11 mt-4" 
                                 onClick={handleConfirmManualPayment}
-                                disabled={isSubmittingManual || !utr}
+                                disabled={isSubmittingManual || !utr || !screenshotLink}
                             >
                                 {isSubmittingManual && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Confirm Payment

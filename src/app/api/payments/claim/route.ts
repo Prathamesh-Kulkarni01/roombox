@@ -16,6 +16,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: 'Token, Payment ID, and UTR are required.' }, { status: 400 });
         }
 
+        // 1. Strict UTR Validation
+        if (!process.env.SKIP_UTR_VALIDATION && !/^\d{12}$/.test(utr)) {
+            return NextResponse.json({ success: false, error: 'Invalid UTR: Must be exactly 12 numeric digits.' }, { status: 400 });
+        }
+
         // Decode JWT token to get ownerId and guestId
         const secret = process.env.JWT_SECRET;
         if (!secret) {
@@ -43,8 +48,14 @@ export async function POST(req: NextRequest) {
 
         const db = await getAdminDb();
 
-        // Use a transaction to update status
         await db.runTransaction(async (txn: any) => {
+            // 2. Duplicate UTR check using global registry for the owner
+            const utrRef = db.collection('users_data').doc(ownerId).collection('utrs').doc(utr);
+            const utrSnap = await txn.get(utrRef);
+            if (utrSnap.exists) {
+                throw new Error('This UTR has already been used for another payment.');
+            }
+
             const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
             const guestSnap = await txn.get(guestRef);
             if (!guestSnap.exists) throw new Error('Guest not found');
@@ -64,8 +75,17 @@ export async function POST(req: NextRequest) {
                 ...paymentHistory[paymentIndex],
                 status: 'CLAIMED_PAID',
                 utr: utr,
-                claimedAt: new Date().toISOString()
+                claimedAt: new Date().toISOString(),
+                matchConfidence: 'HIGH' // System generated intent, high confidence unless owner rejects
             };
+
+            // Register UTR to prevent reuse
+            txn.set(utrRef, {
+                paymentId,
+                guestId,
+                claimedAt: new Date().toISOString(),
+                schemaVersion: 1
+            });
 
             txn.set(guestRef, { paymentHistory }, { merge: true });
         });

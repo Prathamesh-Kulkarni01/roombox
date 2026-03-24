@@ -78,11 +78,13 @@ export default function TenantPaymentModal({
     };
 
     const handleSubmit = async () => {
-        if (!utr) return;
         setIsSubmitting(true);
         try {
             await onConfirmManual(utr);
             setUtr('');
+            onClose();
+        } catch (error) {
+            console.error('Error confirming payment:', error);
         } finally {
             setIsSubmitting(false);
         }
@@ -177,9 +179,7 @@ export default function TenantPaymentModal({
                                         {generateRentSutraNote(
                                             currentGuest.shortId || 'NEW',
                                             totalDue,
-                                            format(new Date(), 'MMM').toUpperCase(),
-                                            currentGuest.name,
-                                            currentGuest.roomName
+                                            format(new Date(), 'MMM').toUpperCase()
                                         )}
                                     </span>
                                     <Button 
@@ -190,9 +190,7 @@ export default function TenantPaymentModal({
                                             const note = generateRentSutraNote(
                                                 currentGuest.shortId || 'NEW',
                                                 totalDue,
-                                                format(new Date(), 'MMM').toUpperCase(),
-                                                currentGuest.name,
-                                                currentGuest.roomName
+                                                format(new Date(), 'MMM').toUpperCase()
                                             );
                                             navigator.clipboard.writeText(note);
                                             setNoteCopied(true);
@@ -206,9 +204,8 @@ export default function TenantPaymentModal({
                                 <p className="text-[10px] text-muted-foreground leading-tight italic">Paste this in your payment app note for instant verification.</p>
                             </div>
 
-                            {/* UTR Input */}
                             <div className="w-full space-y-3 pt-6 border-t border-dashed">
-                                <label className="text-sm font-black tracking-tight">Transaction UTR / Ref Number</label>
+                                <label className="text-sm font-black tracking-tight">Transaction UTR / Ref Number (Optional)</label>
                                 <Input 
                                     placeholder="Enter 12-digit UTR from your app" 
                                     value={utr} 
@@ -216,7 +213,7 @@ export default function TenantPaymentModal({
                                     className="h-14 rounded-2xl font-mono text-center text-lg tracking-widest bg-muted/30 border-primary/5 focus:ring-green-500/20"
                                 />
                                 <p className="text-[10px] text-muted-foreground text-center font-medium">
-                                    Submit this after paying to notify your owner for verification.
+                                    Optionally submit this after paying to notify your owner for verification faster.
                                 </p>
                             </div>
                         </div>
@@ -230,11 +227,11 @@ export default function TenantPaymentModal({
                     {!isManualOnly && (
                         <Button 
                             className="h-12 rounded-2xl font-bold uppercase tracking-widest text-xs flex-[2] bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20" 
-                            disabled={!utr || isSubmitting}
+                            disabled={isSubmitting}
                             onClick={handleSubmit}
                         >
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Confirm Payment
+                            Notify Owner of Payment
                         </Button>
                     )}
                 </DialogFooter>

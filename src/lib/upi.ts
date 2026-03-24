@@ -29,22 +29,16 @@ export function generateUpiLink(config: UpiConfig): string {
 }
 
 /**
- * Generates the standardized RentSutra payment note.
- * Format: RS|{shortId}|{amount}|{month}|{name}|{room}
- * Example: RS|T123|5000|MAR|RAHUL|101
+ * Generates the standardized lightweight payment reference ID.
+ * Format: R{shortId}-{month}-{amount} 
+ * Example: R12A-MAR-5000
  */
-export function generateRentSutraNote(shortId: string, amount: number, month: string, name?: string, room?: string): string {
-    let note = `RS|${shortId}|${amount}|${month}`;
-    if (name) {
-        // Sanitize name: remove spaces, take first 10 chars
-        const cleanName = name.replace(/\s+/g, '').substring(0, 10).toUpperCase();
-        note += `|${cleanName}`;
-    }
-    if (room) {
-        const cleanRoom = room.replace(/\s+/g, '').substring(0, 5).toUpperCase();
-        note += `|${cleanRoom}`;
-    }
-    return note.toUpperCase();
+export function generateRentSutraNote(shortId: string, amount: number, month: string): string {
+    const cleanId = shortId ? shortId.substring(0, 4).toUpperCase() : 'XXX';
+    const cleanMonth = month ? month.substring(0, 3).toUpperCase() : 'MTH';
+    
+    // R12A-MAR-5000
+    return `R${cleanId}-${cleanMonth}-${amount}`;
 }
 
 /**

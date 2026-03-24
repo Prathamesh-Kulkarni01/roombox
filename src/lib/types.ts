@@ -160,6 +160,11 @@ export interface Payment {
   verifiedAt?: string;
   claimedAt?: string;
   createdAt?: string;
+  date?: string; // Legacy/fallback for createdAt
+  payoutStatus?: string; // Legacy
+  payoutFailureReason?: string; // Legacy
+  payoutId?: string; // Legacy
+  payoutTo?: string; // Legacy
   payoutSnapshot?: {
     fund_account_id?: string;
     vpa?: string;
@@ -167,6 +172,9 @@ export interface Payment {
     account_id?: string;
     payout_type?: string; 
   };
+  matchConfidence?: 'HIGH' | 'PARTIAL' | 'UNMATCHED';
+  referenceId?: string;
+  discrepancies?: string[];
   schemaVersion?: number;
 }
 

@@ -126,9 +126,9 @@ export default function MyPgPage() {
     }, [currentGuest?.dueDate]);
 
     const pendingManualPayment = useMemo(() => {
-        if (!currentGuest?.payments) return undefined;
-        return (currentGuest.payments as Payment[]).find(p => p.verificationStatus === 'PENDING');
-    }, [currentGuest?.payments]);
+        if (!currentGuest?.paymentHistory) return null;
+        return (currentGuest.paymentHistory as Payment[]).find(p => p.status === 'CLAIMED_PAID' || p.status === 'pending');
+    }, [currentGuest?.paymentHistory]);
 
     const handlePayNow = () => {
         if (!currentGuest || !currentUser || !currentUser.ownerId || totalDue <= 0 || !currentPg) return;
@@ -136,11 +136,7 @@ export default function MyPgPage() {
     };
 
     const handleConfirmManualPayment = async (newUtr?: string) => {
-        const finalUtr = newUtr || utr;
-        if (!finalUtr) {
-            toast({ variant: 'destructive', title: 'UTR Required', description: 'Please enter the transaction UTR number.' });
-            return;
-        }
+        const finalUtr = newUtr || utr || 'NOT_PROVIDED';
 
         setIsSubmittingManual(true);
         try {
@@ -153,7 +149,7 @@ export default function MyPgPage() {
                 },
                 body: JSON.stringify({
                     utr: finalUtr,
-                    amount: totalDue,
+                    amount: totalDue
                 }),
             });
 
@@ -328,7 +324,7 @@ export default function MyPgPage() {
                 totalDue={totalDue}
                 onConfirmManual={async (newUtr) => {
                     setUtr(newUtr);
-                    await handleConfirmManualPayment();
+                    await handleConfirmManualPayment(newUtr);
                 }}
             />
         </div>

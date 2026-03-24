@@ -20,6 +20,7 @@ import RentAnalytics from '@/components/dashboard/rent-passbook/RentAnalytics';
 import DepositManagementTab from '@/components/dashboard/rent-passbook/DepositManagementTab';
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog';
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog';
+import ManualPaymentMatcher from '@/components/dashboard/ManualPaymentMatcher';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { Wallet, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -68,7 +69,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                 <div className="flex justify-between items-center w-full pr-4">
                                     <div className="flex flex-col text-left">
                                         <span className="font-semibold">{guest.name}</span>
-                                        <span className="text-sm text-muted-foreground">{guest.pgName} - Due on {format(parseISO(guest.dueDate), 'do MMM')}</span>
+                                        <span className="text-sm text-muted-foreground">{guest.pgName} - Due on {format(parseISO(guest.dueDate || new Date().toISOString()), 'do MMM')}</span>
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-lg text-destructive">
@@ -188,7 +189,7 @@ const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Payout Details</DialogTitle>
-                    <DialogDescription>Details for payment made on {format(parseISO(payment.date), 'do MMM, yyyy')}.</DialogDescription>
+                    <DialogDescription>Details for payment made on {format(parseISO(payment.date || payment.createdAt || new Date().toISOString()), 'do MMM, yyyy')}.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="flex justify-between items-center text-sm">
@@ -232,7 +233,7 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
             <div className="mb-8">
                 <h1 className="text-2xl font-bold">Rent Collection Report</h1>
                 <p className="text-muted-foreground">{pgName}</p>
-                <p className="text-muted-foreground">{dateRange}</p>
+                <p className="text-muted-foreground">{dateRange || 'Current Period'}</p>
             </div>
             <div className="p-4 mb-6 border rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">Total Collection for this Period</p>
@@ -251,7 +252,7 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
                 <TableBody>
                     {payments.length > 0 ? payments.map((p: Payment) => (
                         <TableRow key={p.id}>
-                            <TableCell>{format(parseISO(p.date), 'dd MMM, yyyy')}</TableCell>
+                            <TableCell>{format(parseISO(p.date || p.createdAt || new Date().toISOString()), 'dd MMM, yyyy')}</TableCell>
                             <TableCell className="font-medium">{(p as any).guestName}</TableCell>
                             <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
                             <TableCell>
@@ -274,10 +275,11 @@ import DirectPaymentVerification from '@/components/dashboard/DirectPaymentVerif
 
 
 export default function RentPassbookPage() {
-    const { guests, pgs, isLoading } = useAppSelector(state => ({
+    const { guests, pgs, isLoading, currentUser } = useAppSelector(state => ({
         guests: state.guests.guests,
         pgs: state.pgs.pgs,
-        isLoading: state.app.isLoading
+        isLoading: state.app.isLoading,
+        currentUser: state.user.currentUser
     }));
 
     // Calculate count of pending manual payments for the badge
@@ -325,7 +327,7 @@ export default function RentPassbookPage() {
     const handleDownloadCsv = () => {
         const headers = ["Date", "Guest Name", "Property Name", "Payment Details", "Amount", "Payout Status", "Payout Account", "Payout Failure Reason"];
         const rows = filteredPayments.map(p => [
-            format(parseISO(p.date), 'yyyy-MM-dd'),
+            format(parseISO(p.date || p.createdAt || new Date().toISOString()), 'yyyy-MM-dd'),
             p.guestName,
             p.pgName,
             p.notes || p.method,
@@ -367,7 +369,7 @@ export default function RentPassbookPage() {
         const endDate = endOfMonth(startDate);
 
         return allPayments.filter(p => {
-            const paymentDate = parseISO(p.date);
+            const paymentDate = parseISO(p.date || p.createdAt || new Date().toISOString());
             const pgMatch = filters.pgId === 'all' || p.pgId === filters.pgId;
             const guestMatch = filters.guestId === 'all' || p.guestId === filters.guestId;
             const dateMatch = paymentDate >= startDate && paymentDate <= endDate;
@@ -393,17 +395,44 @@ export default function RentPassbookPage() {
             (g.paymentHistory || [])
                 .filter(p => 
                     (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && 
-                    (p.status === 'pending' || p.status === 'CLAIMED_PAID')
+                    (p.status === 'pending' || p.status === 'CLAIMED_PAID' || p.status === 'INITIATED')
                 )
                 .map(p => ({
                     ...p,
                     guestName: g.name,
-                    pgName: g.pgName,
+                    pgName: g.pgName || pgs.find(pg => pg.id === g.pgId)?.name || 'Unknown',
                     pgId: g.pgId,
                     guestId: g.id,
                 }))
-        ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [guests]);
+        ).sort((a, b) => {
+            const dateA = new Date(a.date || a.createdAt || 0).getTime();
+            const dateB = new Date(b.date || b.createdAt || 0).getTime();
+            return dateB - dateA;
+        });
+    }, [guests, pgs]);
+
+    const guestsWithMetaData = useMemo(() => {
+        return guests.map(g => {
+            const pg = pgs.find(p => p.id === g.pgId);
+            let roomName = 'Room ?';
+            if (pg) {
+                for (const floor of pg.floors || []) {
+                    for (const room of floor.rooms) {
+                        if (room.beds.some(b => b.guestId === g.id)) {
+                            roomName = room.name;
+                            break;
+                        }
+                    }
+                }
+            }
+            return {
+                ...g,
+                pgName: pg?.name || 'Unknown',
+                roomName,
+                ownerId: pg?.ownerId || (currentUser as any)?.id || ''
+            };
+        });
+    }, [guests, pgs, currentUser]);
 
     const totalCollection = useMemo(() => {
         return filteredPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -514,7 +543,7 @@ export default function RentPassbookPage() {
                                     <TableBody>
                                         {filteredPayments.length > 0 ? filteredPayments.map(p => (
                                             <TableRow key={p.id}>
-                                                <TableCell>{format(parseISO(p.date), 'dd MMM, yyyy')}</TableCell>
+                                                <TableCell>{format(parseISO(p.date || p.createdAt || new Date().toISOString()), 'dd MMM, yyyy')}</TableCell>
                                                 <TableCell className="font-medium">{p.guestName}</TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
                                                 <TableCell>
@@ -531,8 +560,18 @@ export default function RentPassbookPage() {
                                 </Table>
                             </div>
                         </TabsContent>
-                        <TabsContent value="verify-payments" className="mt-4">
-                            <DirectPaymentVerification pendingPayments={allPendingPayments} />
+                        <TabsContent value="verify-payments" className="mt-4 space-y-6">
+                            <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-3">Quick Reconciliation</h3>
+                                <ManualPaymentMatcher guests={guestsWithMetaData as any} />
+                            </div>
+                            
+                            <hr className="border-dashed" />
+                            
+                            <div>
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">Tenant Submissions</h3>
+                                <DirectPaymentVerification pendingPayments={allPendingPayments} />
+                            </div>
                         </TabsContent>
                         <TabsContent value="deposits" className="mt-4">
                             <DepositManagementTab guests={guests} />

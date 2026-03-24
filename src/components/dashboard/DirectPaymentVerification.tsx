@@ -82,7 +82,7 @@ export default function DirectPaymentVerification({ pendingPayments }: DirectPay
                         {pendingPayments.map((payment) => (
                             <TableRow key={payment.id}>
                                 <TableCell className="whitespace-nowrap">
-                                    {format(parseISO(payment.date), 'dd MMM, HH:mm')}
+                                    {format(parseISO(payment.date || payment.createdAt || new Date().toISOString()), 'dd MMM, HH:mm')}
                                 </TableCell>
                                 <TableCell>
                                     <div className="font-medium">{payment.guestName}</div>
@@ -156,7 +156,7 @@ export default function DirectPaymentVerification({ pendingPayments }: DirectPay
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Submission Date</p>
-                                    <p>{format(parseISO(selectedPayment.date), 'do MMMM yyyy, h:mm a')}</p>
+                                    <p>{format(parseISO(selectedPayment.date || selectedPayment.createdAt || new Date().toISOString()), 'do MMMM yyyy, h:mm a')}</p>
                                 </div>
                                 
                                 <div className="pt-2">
