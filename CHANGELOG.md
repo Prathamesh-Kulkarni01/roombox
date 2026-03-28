@@ -1,3 +1,19 @@
+## Version 0.2.0 (3/28/2026, 8:57:27 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ src/app/changelog/page.tsx | 245 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 245 insertions(+)
+
+```
+
+### ✨ Features
+- feat: implement dynamic changelog page with markdown parsing and visual timeline
+- feat: implement dashboard dialog components and modals for guest management, subscriptions, and property configuration
+- feat: implement guest management and payment processing dialogs with supporting API routes and state slices
+- feat: implement automated CI/CD pipeline with semantic release management and deployment orchestration
+
+
 ## Version 0.1.0 (3/28/2026, 7:51:42 AM)
 
 ### 🔄 Semantic Impact Summary
