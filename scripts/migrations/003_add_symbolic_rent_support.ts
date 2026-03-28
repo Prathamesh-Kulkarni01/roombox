@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types';
 import { MigrationResult } from './runner';
 
-export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult> => {
+export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Promise<MigrationResult> => {
     console.log('Running Migration: 003_add_symbolic_rent_support');
 
     const collections = ['guests', 'payments', 'rooms'];
@@ -25,14 +25,16 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
                 const data = doc.data();
 
                 if (!data.schemaVersion || data.schemaVersion < CURRENT_SCHEMA_VERSION) {
-                    batch.update(doc.ref, { 
-                        schemaVersion: CURRENT_SCHEMA_VERSION,
-                        amountType: data.amountType || 'numeric'
-                    });
+                    if (!isDryRun) {
+                        batch.update(doc.ref, { 
+                            schemaVersion: CURRENT_SCHEMA_VERSION,
+                            amountType: data.amountType || 'numeric'
+                        });
+                    }
                     totalUpdated++;
                     operationsInBatch++;
 
-                    if (operationsInBatch === batchSize) {
+                    if (operationsInBatch === batchSize && !isDryRun) {
                         await batch.commit();
                         console.log(`[Batch Commit] Updated ${operationsInBatch} documents.`);
                         batch = db.batch();
@@ -41,7 +43,7 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
                 }
             }
 
-            if (operationsInBatch > 0) {
+            if (operationsInBatch > 0 && !isDryRun) {
                 await batch.commit();
                 console.log(`[Batch Commit] Updated ${operationsInBatch} documents.`);
             }

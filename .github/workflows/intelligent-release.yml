@@ -1,0 +1,105 @@
+name: Intelligent Release & Deployment
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  validate:
+    name: 🛡️ Validate & Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history needed for semantic analysis
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+          run_install: true
+
+      - name: Set up Java for Firebase Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Start Firebase Emulator
+        run: |
+          pnpm exec firebase emulators:start --only firestore &
+          sleep 15
+
+      - name: Check System Integrity
+        run: pnpm run verify-logic
+        env:
+          FIRESTORE_EMULATOR_HOST: "localhost:8080"
+          FIREBASE_PROJECT_ID: "roombox-test"
+
+      - name: Dry-Run Production Migration (Safety Check)
+        if: github.event_name == 'pull_request'
+        run: pnpm run migrate --dry-run
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          FIREBASE_PROJECT_ID: "roombox-prod"
+
+  release-management:
+    name: 📊 Semantic Release Management
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+          run_install: true
+
+      - name: Run Intelligent Release Manager
+        run: npx ts-node --project scripts/tsconfig.json -r tsconfig-paths/register scripts/ci/release-manager.ts
+        env:
+          NODE_ENV: production
+
+      - name: Commit & Tag Version
+        run: |
+          git config --global user.name "Intelligent CI Bot"
+          git config --global user.email "ci-bot@rentsutra.com"
+          git add package.json CHANGELOG.md
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          git commit -m "chore(release): $NEW_VERSION [skip ci]" || echo "No changes to commit"
+          git tag "v$NEW_VERSION"
+          git push origin main --tags || echo "Failed to push (ensure GH_TOKEN has permissions)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: 🚀 Production Deployment
+    needs: release-management
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+          run_install: true
+
+      - name: Execute Live Migrations
+        run: pnpm run migrate
+        env:
+          FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          FIREBASE_PROJECT_ID: "roombox-prod" # Update with actual PROD ID
+
+      - name: Build & Deploy
+        run: pnpm run build
+        # Add actual deployment step here (e.g., firebase deploy, netlify deploy, etc.)

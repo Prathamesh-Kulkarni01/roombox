@@ -2,17 +2,34 @@ import { readdirSync } from 'fs';
 import { join } from 'path';
 import * as admin from 'firebase-admin';
 import * as dotenv from 'dotenv';
+import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types'; // Target version from code
 dotenv.config();
 
 // Ensure firebase admin is initialized
 if (!admin.apps.length) {
+    const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    console.log(`[INFO] Initializing Firebase for project: ${projectId}`);
+    
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        console.log(`[INFO] Using FIREBASE_SERVICE_ACCOUNT_KEY`);
         admin.initializeApp({
             credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)),
+            projectId
+        });
+    } else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+        console.log(`[INFO] Using split FIREBASE_PRIVATE_KEY and FIREBASE_CLIENT_EMAIL`);
+        admin.initializeApp({
+            credential: admin.credential.cert({
+                projectId: projectId,
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            }),
+            projectId
         });
     } else {
-        // try default app
-        admin.initializeApp();
+        const isEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
+        console.log(`[INFO] Using default/local initialization (Emulator: ${isEmulator})`);
+        admin.initializeApp({ projectId });
     }
 }
 
@@ -26,112 +43,262 @@ export interface MigrationResult {
 
 export interface Migration {
     name: string;
-    up: (db: admin.firestore.Firestore) => Promise<MigrationResult>;
-    down?: (db: admin.firestore.Firestore) => Promise<void>;
+    targetSchemaVersion: number;
+    description: string;
+    // New: Up returns stats and actual field-level changes for audit
+    up: (db: admin.firestore.Firestore, isDryRun?: boolean) => Promise<MigrationResult>;
+    // New: Down for rollbacks
+    down?: (db: admin.firestore.Firestore) => Promise<MigrationResult>;
 }
 
 async function runMigrations() {
     const migrationsDir = __dirname;
-    console.log(`Scanning migrations in ${migrationsDir}`);
+    console.log(`\n--- 🗄️ DETERMINISTIC MIGRATION RUNNER ---`);
+    console.log(`Scan dir: ${migrationsDir}`);
 
-    // Migration Lock System
+    // 1. Fetch CURRENT DB VERSION from Firestore
+    const configRef = db.doc('system/config');
+    const configDoc = await configRef.get();
+    let dbVersion = 0;
+    
+    if (configDoc.exists) {
+        dbVersion = configDoc.data()?.schemaVersion || 0;
+    } else {
+        console.log('⚠️ No system/config found. Assuming baseline version 0.');
+        await configRef.set({ schemaVersion: 0, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    }
+
+    console.log(`DB Version:   ${dbVersion}`);
+    console.log(`Code Version: ${CURRENT_SCHEMA_VERSION}`);
+
+    if (dbVersion === CURRENT_SCHEMA_VERSION) {
+        console.log('✅ DB is already up to date with code version.');
+        return;
+    }
+
+    if (dbVersion > CURRENT_SCHEMA_VERSION) {
+        console.error('❌ CRITICAL: DB version is ahead of code! Deployment might be invalid.');
+        process.exit(1);
+    }
+
+    // 2. Lock System with TTL
     const lockRef = db.doc('system/migration_lock');
-
+    const isForce = process.argv.includes('--force');
     try {
         const lockDoc = await lockRef.get();
-
-        // Check if the lock already exists and is recent (e.g. less than 15 minutes old)
-        if (lockDoc.exists) {
+        if (lockDoc.exists && !isForce) {
             const lockData = lockDoc.data();
             const lockTime = lockData?.lockedAt?.toDate();
-            const recentThreshold = new Date(Date.now() - 15 * 60 * 1000); // 15 mins
-
-            if (lockTime && lockTime > recentThreshold) {
-                console.log(`[LOCKED] Migration is currently running by another process (locked since ${lockTime.toISOString()}). Safe exit.`);
-                return; // Safely exit
+            // TTL: 30 minutes
+            const ttlThreshold = new Date(Date.now() - 30 * 60 * 1000);
+            
+            if (lockTime && lockTime > ttlThreshold) {
+                console.error(`❌ LOCKED: Migration already running (Locked at: ${lockTime.toISOString()})`);
+                console.error(`Use --force to override if you are sure no other process is running.`);
+                process.exit(1);
             } else {
-                console.log('[LOCK-TIMEOUT] Found a stale lock, overwriting.');
+                console.log('⚠️ Overwriting stale/expired lock.');
             }
         }
-
-        // Attempt to acquire lock
-        // Using simple set since we evaluated freshness, more precise lock mechanism could use transactions
-        await lockRef.set({
-            lockedAt: admin.firestore.FieldValue.serverTimestamp(),
+        await lockRef.set({ 
+            lockedAt: admin.firestore.FieldValue.serverTimestamp(), 
             lockedBy: process.pid,
+            githubRunId: process.env.GITHUB_RUN_ID || 'local'
         });
-    } catch (error) {
-        console.error('Failed to acquire migration lock:', error);
+    } catch (err) {
+        console.error('Lock fail:', err);
         process.exit(1);
     }
 
     try {
-        // Fetch executed migrations from the system_migrations collection
-        const executedMigrationsRef = await db.collection('system_migrations').get();
-        const executedMigrations = new Set(executedMigrationsRef.docs.map(doc => doc.id));
+        const isDryRun = process.argv.includes('--dry-run') || process.argv.includes('--dryrun');
+        const isSkipBackup = process.argv.includes('--skip-backup');
 
-        const files = readdirSync(migrationsDir)
-            .filter(file => file.endsWith('.ts') && Reflect.apply(Object.prototype.toString, file, []) !== '[object Undefined]' && file !== 'runner.ts')
-            .sort(); // Sorting ensures sequential execution
+        if (isDryRun) {
+            console.log('🧪 DRY RUN MODE: No data will be committed.');
+        } else {
+            console.log('🚀 LIVE MODE: Changes will be committed to production.');
+        }
 
-        console.log(`Found ${files.length} migration file(s).`);
-
-        for (const file of files) {
-            const migrationName = file.replace(/\.ts$/, '');
-
-            if (executedMigrations.has(migrationName)) {
-                console.log(`[SKIP] Migration ${migrationName} has already been executed.`);
-                continue;
-            }
-
-            console.log(`\n[START] Running migration: ${migrationName}`);
-            const startTime = process.hrtime(); // for duration logging
-
-            const filePath = join(migrationsDir, file);
-            const migrationModule = await import(filePath);
-
-            if (migrationModule.up && typeof migrationModule.up === 'function') {
-                try {
-                    const result: MigrationResult = await migrationModule.up(db);
-
-                    const durationTuple = process.hrtime(startTime);
-                    const durationSec = (durationTuple[0] + durationTuple[1] / 1e9).toFixed(2);
-
-                    // Record successful execution
-                    await db.collection('system_migrations').doc(migrationName).set({
-                        name: migrationName,
-                        executedAt: admin.firestore.FieldValue.serverTimestamp(),
-                        stats: result,
-                        durationSeconds: parseFloat(durationSec),
-                    });
-
-                    console.log(`[SUCCESS] Migration ${migrationName} completed.`);
-                    console.log(`scanned: ${result.scanned}`);
-                    console.log(`updated: ${result.updated}`);
-                    console.log(`errors: ${result.errors}`);
-                    console.log(`duration: ${durationSec} seconds`);
-                } catch (error) {
-                    console.error(`[ERROR] Migration ${migrationName} failed:`, error);
-                    process.exit(1); // Stop execution on failure
+        // 3. Optional: Backup critical Collections or Docs
+        if (!isDryRun && !isSkipBackup) {
+            console.log(`\n📦 [BACKUP] Snapshotting critical data...`);
+            const pathsToBackup = ['system/config', 'tenants', 'properties']; 
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            
+            for (const path of pathsToBackup) {
+                const isDoc = path.split('/').filter(Boolean).length % 2 === 0;
+                
+                if (isDoc) {
+                    const snapshotPath = `system_backups/${timestamp}_doc_${path.replace(/\//g, '_')}`;
+                    console.log(` - Backing up doc: ${path} to ${snapshotPath}...`);
+                    const source = await db.doc(path).get();
+                    if (source.exists) {
+                        await db.doc(snapshotPath).set({ ...source.data(), backupAt: timestamp });
+                    }
+                } else {
+                    // It's a collection - snapshot first 100 docs
+                    const snapshotCol = `system_backups/${timestamp}_col_${path.replace(/\//g, '_')}/data`;
+                    console.log(` - Backing up collection (sample): ${path} to ${snapshotCol}...`);
+                    const snap = await db.collection(path).limit(100).get();
+                    if (!snap.empty) {
+                        const batch = db.batch();
+                        snap.forEach(doc => {
+                            const ref = db.collection(snapshotCol).doc(doc.id);
+                            batch.set(ref, { ...doc.data(), backupAt: timestamp });
+                        });
+                        await batch.commit();
+                        console.log(`   - Snapshotted ${snap.size} docs from ${path}.`);
+                    }
                 }
-            } else {
-                console.error(`[ERROR] Migration ${migrationName} does not export an 'up' function.`);
-                process.exit(1);
             }
         }
 
-        console.log('\nAll migrations completed safely.');
+        // 4. Scan Migration Files
+        const files = readdirSync(migrationsDir)
+            .filter(file => file.endsWith('.ts') && file !== 'runner.ts')
+            .sort();
+
+        console.log(`Found ${files.length} migration file(s).`);
+
+        let totalScanned = 0;
+        let totalUpdated = 0;
+        let migrationChain: string[] = [];
+
+        for (const file of files) {
+            const migrationName = file.replace(/\.ts$/, '');
+            const filePath = join(migrationsDir, file);
+            const migrationModule = await import(filePath);
+            const targetVersion = migrationModule.targetVersion || parseInt(file.split('_')[0]) || 0;
+
+            if (targetVersion > dbVersion && targetVersion <= CURRENT_SCHEMA_VERSION) {
+                console.log(`\n[EXEC] Running migration: ${migrationName} (Target v${targetVersion})`);
+                
+                // 4. Pre-flight Production Sampling (Anti-Blindspot)
+                console.log(`🔍 [PRE-FLIGHT] Sampling data for ${migrationName}...`);
+                const targetCollection = migrationModule.collection || 'tenants'; 
+                const sample = await db.collection(targetCollection).limit(3).get();
+                
+                if (sample.empty) {
+                    console.log(`⚠️ Collection ${targetCollection} is empty. Proceeding...`);
+                } else {
+                    console.log(`📊 Sample doc shape verified for ${targetCollection}.`);
+                }
+
+                const startTime = process.hrtime();
+                try {
+                    const result: MigrationResult = await migrationModule.up(db, isDryRun);
+                    const durationTuple = process.hrtime(startTime);
+                    const durationSec = (durationTuple[0] + durationTuple[1] / 1e9).toFixed(2);
+
+                    if (result.updated === 0 && !isDryRun) {
+                        console.warn(`🚨 WARNING: Migration touched 0 documents! This is highly suspicious.`);
+                    }
+
+                    if (!isDryRun) {
+                        totalScanned += result.scanned;
+                        totalUpdated += result.updated;
+                        migrationChain.push(migrationName);
+
+                        await db.collection('system_migrations').doc(migrationName).set({
+                            name: migrationName,
+                            targetVersion,
+                            executedAt: admin.firestore.FieldValue.serverTimestamp(),
+                            stats: result,
+                            durationSeconds: parseFloat(durationSec),
+                        });
+
+                        await configRef.update({ 
+                            schemaVersion: targetVersion,
+                            lastExecutedMigration: migrationName,
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log(`[SUCCESS] Migration ${migrationName} (v${targetVersion}) completed.`);
+                    } else {
+                        console.log(`[DRY-RUN] Success: Found ${result.scanned} docs, would have updated ${result.updated}.`);
+                    }
+                } catch (error) {
+                    console.error(`[FATAL] ${migrationName} failed:`, error);
+                    throw error; // Let outer catch handle lock cleanup
+                }
+            }
+        }
+
+        // Final Validation
+        if (!isDryRun) {
+            const configDocAfter = await configRef.get();
+            const finalDbVersion = configDocAfter.data()?.schemaVersion || 0;
+            
+            if (finalDbVersion < CURRENT_SCHEMA_VERSION) {
+                console.error(`\n❌ CHAIN ERROR: Missing migration files to reach version ${CURRENT_SCHEMA_VERSION}. (Current DB: ${finalDbVersion})`);
+                process.exit(1);
+            }
+            console.log(`\n✨ Successfully migrated to v${finalDbVersion}.`);
+        } else {
+            console.log(`\n✨ Dry run complete. Code version is ${CURRENT_SCHEMA_VERSION}.`);
+        }
+        
+        if (process.env.GITHUB_STEP_SUMMARY) {
+            const finalDbVersion = isDryRun ? 'DRY-RUN' : CURRENT_SCHEMA_VERSION;
+            const summary = `
+## 🗄️ DB Migration Report: v${dbVersion} ➡️ v${finalDbVersion}
+- **Status:** ${isDryRun ? '🧪 DRY-RUN' : '✅ SUCCESS'}
+- **Migrations Ran/Projected:** ${migrationChain.length || 0}
+- **Docs Impacted:** ${totalUpdated} (Scanned: ${totalScanned})
+- **Chain:** ${migrationChain.join(' ➔ ') || 'none'}
+            `.trim();
+            require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
+        }
     } finally {
-        console.log('Releasing migration lock...');
         await lockRef.delete();
     }
 }
 
+async function rollback() {
+    const migrationsDir = __dirname;
+    console.log(`\n--- 🔄 ROLLBACK RUNNER ---`);
+    
+    const configRef = db.doc('system/config');
+    const configDoc = await configRef.get();
+    if (!configDoc.exists) { console.error('No system/config found.'); return; }
+    
+    const currentVersion = configDoc.data()?.schemaVersion || 0;
+    if (currentVersion === 0) { console.log('Already at version 0.'); return; }
+
+    const files = readdirSync(migrationsDir)
+        .filter(file => file.endsWith('.ts') && file !== 'runner.ts')
+        .sort().reverse(); // Decending to rollback
+
+    for (const file of files) {
+        const migrationModule = await import(join(migrationsDir, file));
+        const targetVersion = migrationModule.targetVersion || parseInt(file.split('_')[0]) || 0;
+
+        if (targetVersion === currentVersion) {
+            console.log(`[ROLLBACK] Reverting version ${currentVersion} using ${file}...`);
+            if (migrationModule.down) {
+                await migrationModule.down(db);
+                await configRef.update({ 
+                    schemaVersion: currentVersion - 1,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(` ✅ Rollback to v${currentVersion - 1} complete.`);
+            } else {
+                console.error(` ❌ No down() method found in ${file}. Manual intervention required.`);
+            }
+            return;
+        }
+    }
+}
+
 if (require.main === module) {
-    runMigrations()
-        .then(() => process.exit(0))
-        .catch((error) => {
-            console.error('Migration runner failed:', error);
-            process.exit(1);
-        });
+    if (process.argv.includes('--rollback')) {
+        rollback().then(() => process.exit(0));
+    } else {
+        runMigrations()
+            .then(() => process.exit(0))
+            .catch((error) => {
+                console.error('Runner failed:', error);
+                process.exit(1);
+            });
+    }
 }

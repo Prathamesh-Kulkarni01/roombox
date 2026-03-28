@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types';
 import { MigrationResult } from './runner';
 
-export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult> => {
+export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Promise<MigrationResult> => {
     console.log('Running Migration: 001_add_schema_version');
 
     // Core collections to update
@@ -29,12 +29,14 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
 
                 // If schemaVersion is missing or less than CURRENT_SCHEMA_VERSION
                 if (!data.schemaVersion || data.schemaVersion < CURRENT_SCHEMA_VERSION) {
-                    batch.update(doc.ref, { schemaVersion: CURRENT_SCHEMA_VERSION });
+                    if (!isDryRun) {
+                        batch.update(doc.ref, { schemaVersion: CURRENT_SCHEMA_VERSION });
+                    }
                     totalUpdated++;
                     operationsInBatch++;
 
                     // Commit batch every batchSize
-                    if (operationsInBatch === batchSize) {
+                    if (operationsInBatch === batchSize && !isDryRun) {
                         await batch.commit();
                         console.log(`[Batch Commit] Updated ${operationsInBatch} documents.`);
                         batch = db.batch(); // Create new batch
@@ -44,7 +46,7 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
             }
 
             // Commit remaining updates
-            if (operationsInBatch > 0) {
+            if (operationsInBatch > 0 && !isDryRun) {
                 await batch.commit();
                 console.log(`[Batch Commit] Updated ${operationsInBatch} documents.`);
             }

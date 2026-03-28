@@ -4,7 +4,7 @@ import { MigrationResult } from './runner';
 // Note: Using relative imports for types/utils might be tricky in ts-node if not configured.
 // We'll use local logic for date fallbacks.
 
-export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult> => {
+export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Promise<MigrationResult> => {
     console.log('Running Migration: 002_fix_missing_due_dates');
 
     let totalScanned = 0;
@@ -15,9 +15,6 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
         console.log(`\nChecking database: ${label}`);
 
         // In the data database, guests are stored in users_data/{ownerId}/guests
-        // However, for the default database, they might also be in a top-level collection or users_data
-        // Based on reconciliationActions.ts, they are in users_data/{ownerId}/guests
-
         const ownersSnap = await targetDb.collection('users').where('role', '==', 'owner').get();
         console.log(`Found ${ownersSnap.size} owners in ${label}`);
 
@@ -36,27 +33,27 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
                 const updates: any = {};
 
                 if (!guest.moveInDate) {
-                    // Fallback: createdAt > now
                     const fallbackDate = guest.createdAt ? new Date(guest.createdAt).toISOString() : new Date().toISOString();
                     updates.moveInDate = fallbackDate;
                     console.log(`[Fixed] Guest ${doc.id} missing moveInDate. Set to ${fallbackDate}`);
                 }
 
                 if (!guest.dueDate) {
-                    // Fallback: moveInDate (might be the one we just set)
                     const fallbackDate = updates.moveInDate || guest.moveInDate || new Date().toISOString();
                     updates.dueDate = fallbackDate;
                     console.log(`[Fixed] Guest ${doc.id} missing dueDate. Set to ${fallbackDate}`);
                 }
 
                 if (Object.keys(updates).length > 0) {
-                    batch.update(doc.ref, updates);
+                    if (!isDryRun) {
+                        batch.update(doc.ref, updates);
+                    }
                     totalUpdated++;
                     ops++;
                 }
             }
 
-            if (ops > 0) {
+            if (ops > 0 && !isDryRun) {
                 await batch.commit();
                 console.log(`Committed ${ops} repair(s) for owner ${ownerId}`);
             }

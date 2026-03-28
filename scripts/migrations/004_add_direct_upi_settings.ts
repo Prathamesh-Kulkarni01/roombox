@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types';
 import { MigrationResult } from './runner';
 
-export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult> => {
+export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Promise<MigrationResult> => {
     console.log('Running Migration: 004_add_direct_upi_settings');
 
     let totalScanned = 0;
@@ -14,10 +14,12 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
     let operationsInBatch = 0;
 
     const commitBatch = async () => {
-        if (operationsInBatch > 0) {
+        if (operationsInBatch > 0 && !isDryRun) {
             await batch.commit();
             console.log(`[Batch Commit] Updated ${operationsInBatch} documents.`);
             batch = db.batch();
+            operationsInBatch = 0;
+        } else if (isDryRun) {
             operationsInBatch = 0;
         }
     };
@@ -41,12 +43,14 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
                     }))
                 }));
 
-                batch.update(doc.ref, {
-                    schemaVersion: CURRENT_SCHEMA_VERSION,
-                    paymentMode: data.paymentMode || 'gateway',
-                    online_payment_enabled: data.online_payment_enabled ?? true,
-                    floors: updatedFloors
-                });
+                if (!isDryRun) {
+                    batch.update(doc.ref, {
+                        schemaVersion: CURRENT_SCHEMA_VERSION,
+                        paymentMode: data.paymentMode || 'gateway',
+                        online_payment_enabled: data.online_payment_enabled ?? true,
+                        floors: updatedFloors
+                    });
+                }
                 
                 totalUpdated++;
                 operationsInBatch++;
@@ -66,11 +70,13 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
             totalScanned++;
             const data = doc.data();
             if (!data.schemaVersion || data.schemaVersion < CURRENT_SCHEMA_VERSION) {
-                batch.update(doc.ref, {
-                    schemaVersion: CURRENT_SCHEMA_VERSION,
-                    verificationStatus: data.verificationStatus || 'verified',
-                    amountType: data.amountType || 'numeric'
-                });
+                if (!isDryRun) {
+                    batch.update(doc.ref, {
+                        schemaVersion: CURRENT_SCHEMA_VERSION,
+                        verificationStatus: data.verificationStatus || 'verified',
+                        amountType: data.amountType || 'numeric'
+                    });
+                }
                 totalUpdated++;
                 operationsInBatch++;
                 if (operationsInBatch >= batchSize) await commitBatch();
@@ -85,14 +91,21 @@ export const up = async (db: admin.firestore.Firestore): Promise<MigrationResult
     try {
         console.log('Processing Guests...');
         const guestsSnapshot = await db.collectionGroup('guests').get();
+        const { nanoid } = await import('nanoid'); 
+        
         for (const doc of guestsSnapshot.docs) {
             totalScanned++;
             const data = doc.data();
-            if (!data.schemaVersion || data.schemaVersion < CURRENT_SCHEMA_VERSION) {
-                batch.update(doc.ref, {
-                    schemaVersion: CURRENT_SCHEMA_VERSION,
-                    amountType: data.amountType || 'numeric'
-                });
+            if (!data.schemaVersion || data.schemaVersion < CURRENT_SCHEMA_VERSION || !data.shortId) {
+                const shortId = data.shortId || nanoid(6).toUpperCase();
+                
+                if (!isDryRun) {
+                    batch.update(doc.ref, {
+                        schemaVersion: CURRENT_SCHEMA_VERSION,
+                        amountType: data.amountType || 'numeric',
+                        shortId
+                    });
+                }
                 totalUpdated++;
                 operationsInBatch++;
                 if (operationsInBatch >= batchSize) await commitBatch();
