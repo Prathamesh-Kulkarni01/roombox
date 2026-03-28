@@ -141,7 +141,7 @@ export default async function ChangelogPage() {
                 </div>
                 
                 {/* Content Card */}
-                <div className="flex-1 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border border-border/70 hover:shadow-md hover:border-primary/30 transition-all duration-300 relative overflow-hidden group-hover:shadow-primary/5">
+                <div className="flex-1 min-w-0 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-sm border border-border/70 hover:shadow-md hover:border-primary/30 transition-all duration-300 relative overflow-hidden group-hover:shadow-primary/5">
                   
                   {/* Decorative background element */}
                   <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10 transition-transform group-hover:scale-110"></div>
