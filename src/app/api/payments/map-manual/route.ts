@@ -3,6 +3,8 @@ import { Transaction } from 'firebase-admin/firestore';
 import { selectOwnerDataAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
 import { nanoid } from 'nanoid';
 import { PaymentSystemService } from '@/services/paymentSystemService';
+import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
+import type { LedgerEntry, Payment } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
     try {
@@ -47,14 +49,14 @@ export async function POST(req: NextRequest) {
             
             const guest = guestSnap.data() as any;
             
-            const newPayment = {
+            const newPayment: Payment = {
                 id: paymentId,
                 amount: Number(amount) || 0,
                 method: 'direct_upi',
                 month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
                 type: 'credit',
                 status: 'INITIATED',
-                utr: noteOrUtr,
+                ...(noteOrUtr ? { utr: noteOrUtr } : {}),
                 schemaVersion: 4,
                 createdAt: timestamp,
                 claimedAt: timestamp,

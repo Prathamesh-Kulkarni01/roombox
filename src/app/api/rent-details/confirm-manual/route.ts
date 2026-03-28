@@ -46,21 +46,21 @@ export async function POST(req: NextRequest) {
             description: `Manual Payment Confirmation (UTR: ${utr})`,
             amount: Number(amount) || 0,
             amountType: guest.amountType || 'numeric',
-            symbolicValue: guest.amountType === 'symbolic' ? guest.symbolicRentValue : undefined,
+            ...(guest.amountType === 'symbolic' ? { symbolicValue: guest.symbolicRentValue } : {}),
         };
 
         const newPayment: Payment = {
             id: paymentId,
             date: timestamp,
             amount: Number(amount) || 0,
-            amountType: guest.amountType || 'numeric',
-            symbolicValue: guest.amountType === 'symbolic' ? guest.symbolicRentValue : undefined,
+            month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+            type: 'credit',
             method: 'upi',
-            forMonth: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
-            verificationStatus: 'PENDING',
+            status: 'pending',
             utr: utr,
-            screenshotUrl: screenshotUrl || undefined,
-            schemaVersion: 3
+            ...(guest.amountType === 'symbolic' ? { symbolicValue: guest.symbolicRentValue } : {}),
+            ...(screenshotUrl ? { screenshotUrl } : {}),
+            schemaVersion: 4
         };
 
         // Update the guest document
