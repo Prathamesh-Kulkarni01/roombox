@@ -102,15 +102,23 @@ export async function GET(req: NextRequest) {
 
     try {
         const pgId = req.nextUrl.searchParams.get('pgId') || undefined;
+        const guestId = req.nextUrl.searchParams.get('guestId') || undefined;
         const vacated = req.nextUrl.searchParams.get('vacated');
         const limit = parseInt(req.nextUrl.searchParams.get('limit') || '200', 10);
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        let query = db.collection('users_data').doc(ownerId).collection('guests')
-            .limit(limit) as FirebaseFirestore.Query;
+        let collection = db.collection('users_data').doc(ownerId).collection('guests');
 
+        if (guestId) {
+            const doc = await collection.doc(guestId).get();
+            const guests = doc.exists ? [{ id: doc.id, ...doc.data() }] : [];
+            return NextResponse.json({ success: true, guests });
+        }
+
+        let query = collection.limit(limit) as FirebaseFirestore.Query;
         if (pgId) query = query.where('pgId', '==', pgId);
         if (vacated !== 'true') query = query.where('isVacated', '==', false);
+
 
         const snapshot = await query.get();
         const guests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));

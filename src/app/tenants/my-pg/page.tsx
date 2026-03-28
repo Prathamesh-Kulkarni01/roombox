@@ -170,7 +170,9 @@ export default function MyPgPage() {
         }
     };
 
-    if (isLoading) {
+    const isWaitingForFirstGuestData = currentUser?.role === 'tenant' && currentUser.guestId && !currentGuest;
+    const isWaitingForPgData = !!(currentGuest && currentGuest.pgId && !currentPg);
+    if (isLoading || isWaitingForFirstGuestData || isWaitingForPgData) {
         return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                 <div className="lg:col-span-2 space-y-6">

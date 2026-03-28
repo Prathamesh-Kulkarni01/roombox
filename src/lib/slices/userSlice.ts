@@ -344,17 +344,36 @@ const userSlice = createSlice({
     initialState,
     reducers: {
         setCurrentUser: (state, action: PayloadAction<User | null>) => {
-            state.currentUser = action.payload;
-            if (action.payload) {
-                const sub = action.payload.subscription;
+            if (action.payload && state.currentUser) {
+                // Merge to preserve authoritative fields from claims that might be missing in Firestore
+                const mergedUser = { ...state.currentUser, ...action.payload };
+                
+                // Explicitly preserve linking IDs and role if they exist in state but not in payload (or are default/unassigned)
+                if (!action.payload.ownerId && state.currentUser.ownerId) mergedUser.ownerId = state.currentUser.ownerId;
+                if (!action.payload.guestId && state.currentUser.guestId) mergedUser.guestId = state.currentUser.guestId;
+                if (!action.payload.pgId && state.currentUser.pgId) mergedUser.pgId = state.currentUser.pgId;
+                if (!action.payload.pgIds && state.currentUser.pgIds) mergedUser.pgIds = state.currentUser.pgIds;
+                
+                // Also preserve role if the payload has 'unassigned' but state has a specific role
+                if (action.payload.role === 'unassigned' && state.currentUser.role !== 'unassigned') {
+                    mergedUser.role = state.currentUser.role;
+                }
+
+                state.currentUser = mergedUser;
+            } else {
+                state.currentUser = action.payload;
+            }
+
+            if (state.currentUser) {
+                const sub = state.currentUser.subscription;
                 if (!sub || sub.status === 'inactive') {
                     state.currentPlan = plans.free;
-                    return;
+                } else {
+                    const isActive = sub.status === 'active';
+                    const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
+                    const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
+                    state.currentPlan = { ...plans[basePlanId] };
                 }
-                const isActive = sub.status === 'active';
-                const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
-                const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
-                state.currentPlan = { ...plans[basePlanId] };
             } else {
                 state.currentPlan = null;
             }

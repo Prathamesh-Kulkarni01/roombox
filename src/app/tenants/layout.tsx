@@ -25,16 +25,21 @@ export default function TenantDashboardLayout({
   const { isLoading: appLoading } = useAppSelector((state) => state.app);
   
   // Call global data fetching hooks to ensure store is populated
-  const { isFetching: isFetchingGuests } = useGetGuestsQuery(undefined, {
-    skip: !currentUser?.id
-  });
+  const { isFetching: isFetchingGuests } = useGetGuestsQuery(
+    (currentUser?.role === 'tenant' && currentUser.guestId) ? { guestId: currentUser.guestId } : undefined,
+    { skip: !currentUser?.id }
+  );
+
+
   const { isFetching: isFetchingProperties } = useGetPropertiesQuery(undefined, {
     skip: !currentUser?.id
   });
 
   const router = useRouter();
 
-  const isLoading = appLoading || isFetchingGuests || isFetchingProperties;
+  const currentGuest = guests.find(g => g.id === currentUser?.guestId);
+  const isWaitingForFirstGuestData = currentUser?.role === 'tenant' && currentUser.guestId && !currentGuest;
+  const isLoading = appLoading || isFetchingGuests || isFetchingProperties || isWaitingForFirstGuestData;
 
   useEffect(() => {
     if (isLoading) return;
@@ -57,7 +62,6 @@ export default function TenantDashboardLayout({
   // Check if tenant is vacated
   // A tenant is considered vacated if they are logged in but have no guestId OR their guest record says they are vacated
   // We only check this after loading is complete
-  const currentGuest = guests.find(g => g.id === currentUser?.guestId);
   const isVacated = !isLoading && currentUser?.role === 'tenant' && (!currentUser?.guestId || currentGuest?.isVacated);
 
   if (isLoading || !currentUser || currentUser.role !== 'tenant') {

@@ -64,6 +64,8 @@ export interface StaffResponse {
 
 
 import { auth as clientAuth } from '@/lib/firebase';
+import { setPgs } from '../slices/pgsSlice';
+import { setGuests } from '../slices/guestsSlice';
 
 // ─── API Slice ─────────────────────────────────────────────────────────────────
 
@@ -87,6 +89,14 @@ export const api = createApi({
         // ─── Properties ────────────────────────────────────────────────
         getProperties: builder.query<PropertyResponse, void>({
             query: () => `api/properties`,
+            async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+                try {
+                    const { data } = await queryFulfilled;
+                    if (data.success && data.buildings) {
+                        dispatch(setPgs(data.buildings));
+                    }
+                } catch (err) {}
+            },
             providesTags: ['Properties'],
         }),
 
@@ -160,12 +170,22 @@ export const api = createApi({
         }),
 
         // ─── Guests (via /api/guests — full client-side data) ───────────
-        getGuests: builder.query<GuestsResponse, { pgId?: string; vacated?: boolean } | void>({
+        getGuests: builder.query<GuestsResponse, { pgId?: string; guestId?: string; vacated?: boolean } | void>({
             query: (params) => {
                 let url = `api/guests`;
                 if (params?.pgId) url += `${url.includes('?') ? '&' : '?'}pgId=${params.pgId}`;
+                if (params?.guestId) url += `${url.includes('?') ? '&' : '?'}guestId=${params.guestId}`;
                 if (params?.vacated !== undefined) url += `${url.includes('?') ? '&' : '?'}vacated=${params.vacated}`;
                 return url;
+            },
+
+            async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+                try {
+                    const { data } = await queryFulfilled;
+                    if (data.success && data.guests) {
+                        dispatch(setGuests(data.guests));
+                    }
+                } catch (err) {}
             },
             providesTags: ['Guests'],
         }),
