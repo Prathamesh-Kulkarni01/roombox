@@ -1,3 +1,20 @@
+## Version 0.3.0 (3/28/2026, 9:06:46 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 16 ++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 17 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement StoreProvider for centralized auth, data synchronization, and routing, and add changelog page
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.2.0 (3/28/2026, 8:57:27 AM)
 
 ### 🔄 Semantic Impact Summary
