@@ -135,7 +135,7 @@ export default function MyPgPage() {
         setIsPaymentModalOpen(true);
     };
 
-    const handleConfirmManualPayment = async (newUtr?: string) => {
+    const handleConfirmManualPayment = async (newUtr?: string, screenshotUrl?: string) => {
         const finalUtr = newUtr || utr || 'NOT_PROVIDED';
 
         setIsSubmittingManual(true);
@@ -149,7 +149,8 @@ export default function MyPgPage() {
                 },
                 body: JSON.stringify({
                     utr: finalUtr,
-                    amount: totalDue
+                    amount: totalDue,
+                    screenshotUrl: screenshotUrl
                 }),
             });
 
@@ -322,9 +323,9 @@ export default function MyPgPage() {
                 currentPg={currentPg}
                 currentGuest={currentGuest}
                 totalDue={totalDue}
-                onConfirmManual={async (newUtr) => {
+                onConfirmManual={async (newUtr, screenshotUrl) => {
                     setUtr(newUtr);
-                    await handleConfirmManualPayment(newUtr);
+                    await handleConfirmManualPayment(newUtr, screenshotUrl);
                 }}
             />
         </div>

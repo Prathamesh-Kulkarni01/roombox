@@ -104,6 +104,17 @@ export async function createAndSendNotification({ ownerId, notification, whatsap
                         whatsappConfig.buttonValues || [],
                         targetId
                     );
+
+                    // If template failed, fallback to text message
+                    if (!result.success) {
+                        console.warn(`[createAndSendNotification] Template ${whatsappConfig.templateId} failed, falling back to text message. Error:`, result.error);
+                        result = await sendWA(
+                            fullPhone,
+                            `${notification.title}\n\n${notification.message}`,
+                            ownerId,
+                            targetId
+                        );
+                    }
                 } else {
                     // Use Plain Text Message
                     result = await sendWA(

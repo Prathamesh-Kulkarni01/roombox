@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
 
         const appDb = await getAdminDb();
 
-        // 1. Check if user exists in users collection
-        const variations = [phone, cleanPhone, `+${cleanPhone}`, `+91${cleanPhone}`];
+        // 1. Check if a users doc exists with this phone (i.e. owner previously onboarded them)
+        const phoneVariations = [cleanPhone, `+91${cleanPhone}`, `91${cleanPhone}`];
         let userDoc = null;
-        for (const v of variations) {
+        for (const v of phoneVariations) {
             const snap = await appDb.collection('users').where('phone', '==', v).limit(1).get();
             if (!snap.empty) {
                 userDoc = snap.docs[0];
@@ -28,7 +28,17 @@ export async function POST(req: NextRequest) {
         }
 
         if (!userDoc) {
-            return NextResponse.json({ error: 'No account found with this phone number' }, { status: 404 });
+            // [BLOCKED] Phone not registered by any owner → reject
+            console.log(`[BLOCKED] Unauthorized OTP request for phone ${cleanPhone} — not added by any owner.`);
+            return NextResponse.json({
+                error: 'You are not added to any property. Please contact your property owner to get access.'
+            }, { status: 403 });
+        }
+
+        const userData = userDoc.data();
+        // Only tenants and staff can use OTP login. Owners use email.
+        if (userData.role === 'owner') {
+            return NextResponse.json({ error: 'Owners must log in with email and password.' }, { status: 403 });
         }
 
         // 2. Generate OTP
@@ -44,7 +54,7 @@ export async function POST(req: NextRequest) {
             createdAt: Date.now()
         });
 
-        // 4. "Send" OTP (Mock: Log to console)
+        // 4. "Send" OTP (Mock: Log to console; replace with real SMS in production)
         if (isTestNumber) {
             console.log(`[TEST] Used fixed OTP 123456 for ${phone}`);
         } else {

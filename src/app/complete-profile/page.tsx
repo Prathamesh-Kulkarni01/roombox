@@ -14,26 +14,21 @@ export default function CompleteProfilePage() {
     const router = useRouter()
     const dispatch = useAppDispatch()
     const { toast } = useToast()
-    const [loadingRole, setLoadingRole] = useState<'owner' | 'tenant' | null>(null)
+    const [loadingRole, setLoadingRole] = useState<'owner' | null>(null)
     const { currentUser } = useAppSelector(state => state.user)
 
-    const handleRoleSelection = async (role: 'owner' | 'tenant') => {
+    const handleOwnerSetup = async () => {
         if (!currentUser) {
             toast({ variant: 'destructive', title: 'Error', description: 'User session not found. Please log in again.'})
             router.push('/login');
             return;
         }
 
-        setLoadingRole(role)
+        setLoadingRole('owner')
         try {
-            await dispatch(finalizeUserRole(role)).unwrap();
-            if (role === 'owner') {
-                toast({ title: 'Welcome!', description: "Your owner account has been created."});
-                router.push('/dashboard');
-            } else {
-                toast({ title: 'Account Ready!', description: "Your tenant account is ready. Ask your manager to add you to your PG."});
-                router.push('/tenants/my-pg');
-            }
+            await dispatch(finalizeUserRole('owner')).unwrap();
+            toast({ title: 'Welcome!', description: "Your owner account has been created."});
+            router.push('/dashboard');
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Setup Failed', description: error.message || 'Could not set up your account.' });
             setLoadingRole(null);
@@ -46,33 +41,27 @@ export default function CompleteProfilePage() {
                  <CardHeader className="text-center">
                     <CardTitle className="text-2xl">One Last Step!</CardTitle>
                     <CardDescription>
-                        Create your owner account to get started with RentSutra.
+                        Set up your account to start managing your properties.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-4">
                     <Button 
                         variant="outline" 
                         className="h-auto p-6 flex flex-col gap-2 items-center"
-                        onClick={() => handleRoleSelection('owner')}
+                        onClick={handleOwnerSetup}
                         disabled={!!loadingRole}
                     >
                         {loadingRole === 'owner' ? <Loader2 className="h-8 w-8 animate-spin" /> : <Building2 className="h-8 w-8 text-primary" />}
-                        <span className="font-bold text-lg">I'm a Property Owner</span>
+                        <span className="font-bold text-lg">I&apos;m a Property Owner</span>
                         <span className="text-xs text-muted-foreground text-center">Manage your PG, hostel, or co-living space.</span>
                     </Button>
 
-                    <Button 
-                        variant="outline" 
-                        className="h-auto p-6 flex flex-col gap-1 items-center"
-                        onClick={() => handleRoleSelection('tenant')}
-                        disabled={!!loadingRole}
-                    >
-                        <div className="bg-primary/10 p-2 rounded-full">
-                            <Building2 className="h-5 w-5 text-primary" />
-                        </div>
-                        <span className="font-semibold text-lg leading-none">Renting a room</span>
-                        <span className="text-xs text-muted-foreground text-center">Access your room dashboard & pay bills.</span>
-                    </Button>
+                    <div className="p-4 rounded-xl border border-dashed text-center space-y-1">
+                        <p className="text-sm font-medium text-muted-foreground">Are you a Tenant?</p>
+                        <p className="text-xs text-muted-foreground">
+                            Tenant accounts are created by your property owner. Ask them to add you, then log in using your phone number and OTP.
+                        </p>
+                    </div>
                 </CardContent>
             </Card>
         </div>

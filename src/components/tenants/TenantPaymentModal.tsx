@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { IndianRupee, AlertCircle, Loader2, Copy, Check, Smartphone } from "lucide-react"
+import { IndianRupee, AlertCircle, Loader2, Copy, Check, Smartphone, Upload, X, ImageIcon } from "lucide-react"
 import { format } from 'date-fns'
 import { auth } from '@/lib/firebase'
 import { generateRentSutraNote } from '@/lib/upi'
@@ -18,7 +18,7 @@ interface TenantPaymentModalProps {
     currentPg: PG;
     currentGuest: Guest;
     totalDue: number;
-    onConfirmManual: (utr: string) => Promise<void>;
+    onConfirmManual: (utr: string, screenshotUrl?: string) => Promise<void>;
 }
 
 export default function TenantPaymentModal({ 
@@ -35,6 +35,9 @@ export default function TenantPaymentModal({
     const [isGeneratingLink, setIsGeneratingLink] = useState(false);
     const [copied, setCopied] = useState(false);
     const [noteCopied, setNoteCopied] = useState(false);
+    const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+    const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const hasOnlineDetails = !!currentPg.upiId || !!currentPg.qrCodeImage;
     const isManualOnly = !hasOnlineDetails;
@@ -76,12 +79,67 @@ export default function TenantPaymentModal({
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
+    
+    const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                toast({ variant: 'destructive', title: 'File too large', description: 'Please upload an image smaller than 5MB.' });
+                return;
+            }
+            setScreenshotFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setScreenshotPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const uploadScreenshot = async (): Promise<string | undefined> => {
+        if (!screenshotPreview) return undefined;
+        
+        setIsUploading(true);
+        try {
+            const token = await auth?.currentUser?.getIdToken();
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    dataUri: screenshotPreview,
+                    folder: 'payment-receipts',
+                }),
+            });
+
+            if (!response.ok) throw new Error('Upload failed');
+            const data = await response.json();
+            return data.url;
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Upload Error', description: 'Failed to upload screenshot. Please try again.' });
+            return undefined;
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const handleSubmit = async () => {
         setIsSubmitting(true);
         try {
-            await onConfirmManual(utr);
+            let screenshotUrl;
+            if (screenshotFile) {
+                screenshotUrl = await uploadScreenshot();
+                if (!screenshotUrl) {
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+            await onConfirmManual(utr, screenshotUrl);
             setUtr('');
+            setScreenshotFile(null);
+            setScreenshotPreview(null);
             onClose();
         } catch (error) {
             console.error('Error confirming payment:', error);
@@ -216,6 +274,48 @@ export default function TenantPaymentModal({
                                     Optionally submit this after paying to notify your owner for verification faster.
                                 </p>
                             </div>
+
+                            {/* Screenshot Upload Section */}
+                            <div className="w-full space-y-3 pt-6 border-t border-dashed">
+                                <label className="text-sm font-black tracking-tight flex items-center gap-2">
+                                    Payment Screenshot (Optional)
+                                    <span className="text-[10px] uppercase bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Recommended</span>
+                                </label>
+                                
+                                {!screenshotPreview ? (
+                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary/20 rounded-2xl bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all group">
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                            <Upload className="w-8 h-8 text-primary/40 group-hover:text-primary/60 mb-2 transition-colors" />
+                                            <p className="text-xs font-bold text-primary/60">Tap to upload receipt</p>
+                                            <p className="text-[10px] text-muted-foreground mt-1">PNG, JPG up to 5MB</p>
+                                        </div>
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleScreenshotChange} />
+                                    </label>
+                                ) : (
+                                    <div className="relative rounded-2xl overflow-hidden border-2 border-primary/20 bg-muted/30 aspect-video group">
+                                        <img src={screenshotPreview} alt="Receipt Preview" className="w-full h-full object-contain" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                            <Button 
+                                                variant="destructive" 
+                                                size="sm" 
+                                                className="h-9 rounded-xl font-bold"
+                                                onClick={() => {
+                                                    setScreenshotFile(null);
+                                                    setScreenshotPreview(null);
+                                                }}
+                                            >
+                                                <X className="w-4 h-4 mr-2" />
+                                                Remove
+                                            </Button>
+                                            <label className="h-9 px-4 inline-flex items-center justify-center rounded-xl bg-white text-black text-sm font-bold cursor-pointer hover:bg-white/90">
+                                                <ImageIcon className="w-4 h-4 mr-2" />
+                                                Change
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleScreenshotChange} />
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -227,11 +327,11 @@ export default function TenantPaymentModal({
                     {!isManualOnly && (
                         <Button 
                             className="h-12 rounded-2xl font-bold uppercase tracking-widest text-xs flex-[2] bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20" 
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || isUploading}
                             onClick={handleSubmit}
                         >
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Notify Owner of Payment
+                            {(isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isUploading ? 'Uploading Screenshot...' : 'Notify Owner of Payment'}
                         </Button>
                     )}
                 </DialogFooter>

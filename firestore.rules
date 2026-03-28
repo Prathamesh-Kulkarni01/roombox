@@ -140,6 +140,13 @@ service cloud.firestore {
 
     // ─── Owner data (permissions, etc.) ──────────────────────────────────────
     match /users_data/{ownerId}/{document=**} {
+      // Allow tenants to read their own guest record specifically
+      allow read: if isAuth() && (
+        (document.matches('guests/.*') && get(/databases/$(database)/documents/users_data/$(ownerId)/guests/$(document[1])).data.uid == request.auth.uid) ||
+        request.auth.uid == ownerId ||
+        request.auth.token.ownerId == ownerId
+      );
+      
       allow read, write: if isAuth() && (
         request.auth.uid == ownerId ||
         request.auth.token.ownerId == ownerId

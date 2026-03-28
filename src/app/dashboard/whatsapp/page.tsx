@@ -237,6 +237,8 @@ export default function WhatsAppPage() {
                 order_id: order.id,
                 handler: (response: any) => {
                     toast({ title: 'Recharge Successful!', description: 'Your new balance will reflect shortly.' });
+                    // Provide slight delay for webhook to potentially complete, then refresh
+                    setTimeout(() => handleRefresh(), 1500);
                 },
                 prefill: { name: currentUser.name, email: currentUser.email, contact: currentUser.phone },
                 theme: { color: '#2563EB' }

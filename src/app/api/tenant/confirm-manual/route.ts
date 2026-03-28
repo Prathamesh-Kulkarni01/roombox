@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-        const { utr, amount } = await req.json();
+        const { utr, amount, screenshotUrl } = await req.json();
 
         if (!utr) {
             return badRequest('UTR / Transaction ID is required.');
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
                 type: 'credit',
                 status: 'CLAIMED_PAID',
                 utr: utr !== 'NOT_PROVIDED' ? utr : undefined,
+                screenshotUrl: screenshotUrl || undefined,
                 schemaVersion: 4,
                 matchConfidence: confidence as any,
                 createdAt: timestamp,

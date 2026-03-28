@@ -12,6 +12,9 @@ import StatsCards, { DashboardStats, PendingDuesCard } from '@/components/dashbo
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog'
 import QuickActions from "@/components/dashboard/QuickActions"
+import DirectPaymentVerification from '@/components/dashboard/DirectPaymentVerification'
+import ManualPaymentMatcher from '@/components/dashboard/ManualPaymentMatcher'
+import { Badge } from "@/components/ui/badge"
 import DashboardSkeleton from "@/components/dashboard/DashboardSkeleton"
 import MassReminderDialog from "@/components/dashboard/dialogs/MassReminderDialog"
 import { useDashboard } from '@/hooks/use-dashboard'
@@ -164,6 +167,50 @@ export default function DashboardPage() {
       .slice(0, 5);
   }, [guests, selectedPgId]);
 
+  const allPendingPayments = useMemo(() => {
+    return guests.flatMap((g: Guest) => 
+      (g.paymentHistory || [])
+        .filter(p => 
+          (p.method === 'direct_upi' || p.method === 'direct-upi' || p.method === 'DIRECT_UPI') && 
+          (p.status === 'pending' || p.status === 'CLAIMED_PAID' || p.status === 'INITIATED')
+        )
+        .map(p => ({
+          ...p,
+          guestName: g.name,
+          pgName: g.pgName || pgs.find(pg => pg.id === g.pgId)?.name || 'Unknown',
+          pgId: g.pgId,
+          guestId: g.id,
+        }))
+    ).sort((a: any, b: any) => {
+      const dateA = new Date(a.date || a.createdAt || 0).getTime();
+      const dateB = new Date(b.date || b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [guests, pgs]);
+
+  const guestsWithMetaData = useMemo(() => {
+    return guests.map((g: Guest) => {
+      const pg = pgs.find(p => p.id === g.pgId);
+      let roomName = 'Room ?';
+      if (pg) {
+        for (const floor of pg.floors || []) {
+          for (const room of floor.rooms) {
+            if (room.beds.some(b => b.guestId === g.id)) {
+              roomName = room.name;
+              break;
+            }
+          }
+        }
+      }
+      return {
+        ...g,
+        pgName: pg?.name || 'Unknown',
+        roomName,
+        ownerId: pg?.ownerId || (currentUser as any)?.id || ''
+      };
+    });
+  }, [guests, pgs, currentUser]);
+
   const handleSendMassReminder = async () => {
     const guestsWithDues = guests
       .filter((g: Guest) => !g.isVacated)
@@ -271,6 +318,36 @@ export default function DashboardPage() {
                 handleOpenAddGuestDialog={handleOpenAddGuestDialog}
                 handleOpenPaymentDialog={handleOpenPaymentDialog}
               />
+            </div>
+
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Payment Verification</h3>
+                {allPendingPayments.length > 0 && (
+                  <Badge variant="destructive" className="animate-pulse bg-rose-600">
+                    {allPendingPayments.length} Pending
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-primary/5 p-4 rounded-3xl border border-primary/10 shadow-sm relative overflow-hidden">
+                  <div className="relative z-10">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3 opacity-70">Quick Reconciliation</h3>
+                    <ManualPaymentMatcher guests={guestsWithMetaData as any} />
+                  </div>
+                  <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+                    <Sparkles className="w-24 h-24 text-primary" />
+                  </div>
+                </div>
+
+                {allPendingPayments.length > 0 && (
+                  <div className="bg-card border rounded-3xl overflow-hidden shadow-sm p-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4 opacity-70">Tenant Submissions</h3>
+                    <DirectPaymentVerification pendingPayments={allPendingPayments} />
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="pt-2">

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import * as path from 'path';
+import { TENANT_PHONE } from './test-utils';
 
 const OWNER_AUTH = path.join(__dirname, '../playwright/.auth/owner.json');
 const TENANT_AUTH = path.join(__dirname, '../playwright/.auth/tenant.json');
@@ -67,14 +68,13 @@ test.describe('Payment Note Verification (Tenant)', () => {
     test.use({ storageState: TENANT_AUTH });
 
     test('Tenant Dashboard shows correct Payment Note', async ({ page }) => {
-        console.log('Navigating to Tenant Dashboard (already logged in)...');
-        await page.goto('/'); // Base URL usually redirects to /tenants/my-pg for tenants
+        console.log(`Navigating to Tenant Dashboard as phone: ${TENANT_PHONE} (already logged in)...`);
+        await page.goto('/'); // Redirects to /tenants/my-pg for tenants
         
         // Ensure we are in the tenant area
         await page.waitForURL(url => url.pathname.includes('/tenants/'), { timeout: 15000 });
 
         console.log('Opening Payment Modal...');
-        // Find the "Pay Rent" button if it exists, or just check the state
         const payBtn = page.getByRole('button', { name: 'Pay Rent' });
         await payBtn.click();
         
@@ -82,6 +82,10 @@ test.describe('Payment Note Verification (Tenant)', () => {
         await expect(modal).toContainText('Payment Note (Paste in app)');
         await expect(modal).toContainText('RS|'); // Standardized prefix
         
-        console.log('SUCCESS: Tenant payment note is visible and correctly formatted.');
+        // Verify Screenshot Upload Section
+        await expect(modal).toContainText('Payment Screenshot');
+        await expect(modal).toContainText('Tap to upload receipt');
+        
+        console.log('SUCCESS: Tenant payment modal shows screenshot upload UI.');
     });
 });

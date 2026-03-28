@@ -165,6 +165,7 @@ export interface Payment {
   payoutFailureReason?: string; // Legacy
   payoutId?: string; // Legacy
   payoutTo?: string; // Legacy
+  payoutMode?: 'PAYOUT' | 'ROUTE';
   payoutSnapshot?: {
     fund_account_id?: string;
     vpa?: string;

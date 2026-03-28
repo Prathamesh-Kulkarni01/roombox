@@ -10,7 +10,7 @@ import { getApp } from 'firebase/app'
 import { auth, db, isFirebaseConfigured, getDynamicDb, getOwnerClientDb } from '@/lib/firebase'
 import { getAnalytics, isSupported } from 'firebase/analytics'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { initializeUser, logoutUser } from '@/lib/slices/userSlice'
+import { initializeUser, logoutUser, setCurrentUser } from '@/lib/slices/userSlice'
 import { setPgs } from '@/lib/slices/pgsSlice'
 import { setGuests } from '@/lib/slices/guestsSlice'
 import { setComplaints } from '@/lib/slices/complaintsSlice'
@@ -75,8 +75,25 @@ function AuthHandler({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       console.log(`[StoreProvider] Auth change detected. User: ${firebaseUser?.uid || 'logged out'}`);
       setAuthReady(false);
+      
       if (firebaseUser) {
+        // First initialization
         await dispatch(initializeUser(firebaseUser));
+        
+        // Add real-time user doc listener to catch role/guestId updates while logged in
+        const userDocRef = doc(db!, 'users', firebaseUser.uid);
+        const userUnsub = onSnapshot(userDocRef, (snap) => {
+          if (snap.exists()) {
+            const userData = { ...snap.data(), id: snap.id } as User;
+            // Use the same action that initializeUser uses internally if possible, 
+            // or just dispatch setCurrentUser (need to make sure we don't overwrite crucial metadata)
+            // For now, let's just trigger initializeUser again if role/guestId changes significantly?
+            // Actually, we can just update the Redux state directly.
+            dispatch(setCurrentUser(userData));
+          }
+        });
+        
+        setDataListeners(prev => [...prev, userUnsub]);
       } else {
         dispatch(logoutUser());
         dispatch(setLoading(false));

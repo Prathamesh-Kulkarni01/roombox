@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Building2, LayoutGrid, BedDouble, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { auth } from '@/lib/firebase';
 import type { PG } from '@/lib/types';
 
 interface BulkSetupModalProps {
@@ -48,9 +49,13 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
 
         setLoading(true);
         try {
+            const token = await auth?.currentUser?.getIdToken();
             const res = await fetch('/api/properties/bulk-setup', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
                 body: JSON.stringify({
                     pgId: pg.id,
                     floors,

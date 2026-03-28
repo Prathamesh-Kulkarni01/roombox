@@ -138,6 +138,9 @@ async function sendWhatsAppWithBilling(
         result = { success: true, mock: true };
     } else {
         result = await makeWhatsAppApiCall(payload);
+        if (!result.success) {
+            console.error('[WhatsApp API] Response Failure:', JSON.stringify(result.error, null, 2));
+        }
     }
 
     // 3. Refund if failed & cost was > 0

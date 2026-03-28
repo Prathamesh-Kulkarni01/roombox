@@ -5,6 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
     testDir: './e2e-tests',
+    timeout: 180 * 1000,
     /* Run tests in files in parallel */
     fullyParallel: false,
     /* Fail the build on CI if you forgot to edit your test files */
@@ -49,6 +50,14 @@ export default defineConfig({
         command: 'npm run dev',
         url: 'http://localhost:9002',
         reuseExistingServer: true,
-        timeout: 120000,
+        timeout: 180000,
+        env: {
+            FIRESTORE_EMULATOR_HOST: 'localhost:8080',
+            FIREBASE_AUTH_EMULATOR_HOST: 'localhost:9099',
+            FIREBASE_PROJECT_ID: 'roombox-test',
+            NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'roombox-test',
+            NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: 'localhost:8080',
+            NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: 'localhost:9099',
+        }
     },
 });

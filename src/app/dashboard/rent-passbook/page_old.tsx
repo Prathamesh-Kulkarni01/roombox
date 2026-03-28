@@ -1,4 +1,6 @@
-'use client';
+﻿
+
+'use client'
 
 import { useState, useMemo, useRef } from 'react';
 import { useAppSelector } from '@/lib/hooks';
@@ -8,23 +10,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from '@/components/ui/button';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
-import { IndianRupee, Download, Printer, CheckCircle, XCircle, AlertCircle, Loader2, RefreshCw, Wallet, MessageCircle, Info } from 'lucide-react';
+import { IndianRupee, Download, Printer, CheckCircle, XCircle, AlertCircle, Loader2, Info, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useReactToPrint } from 'react-to-print';
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import RentAnalytics from '@/components/dashboard/rent-passbook/RentAnalytics';
 import DepositManagementTab from '@/components/dashboard/rent-passbook/DepositManagementTab';
 import PaymentDialog from '@/components/dashboard/dialogs/PaymentDialog';
 import ReminderDialog from '@/components/dashboard/dialogs/ReminderDialog';
 import { useDashboard } from '@/hooks/use-dashboard';
-import { getBalanceBreakdown } from '@/lib/ledger-utils';
+import { Wallet, MessageCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { Payment } from '@/lib/types';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { getBalanceBreakdown } from '@/lib/ledger-utils';
+
 
 const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder }: any) => {
     const filteredPendingGuests = useMemo(() => {
@@ -69,7 +72,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-lg text-destructive">
-                                            {isSymbolic ? breakdown.symbolic : `₹${totalDue.toLocaleString('en-IN')}`}
+                                            {isSymbolic ? breakdown.symbolic : `Γé╣${totalDue.toLocaleString('en-IN')}`}
                                         </p>
                                         <p className="text-xs text-muted-foreground">Total Pending</p>
                                     </div>
@@ -96,7 +99,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                                 {breakdown.total > 0 && (
                                                     <div className="flex justify-between items-center text-muted-foreground">
                                                         <span>Additional Charges:</span>
-                                                        <span className="font-medium text-foreground">₹{breakdown.total.toLocaleString('en-IN')}</span>
+                                                        <span className="font-medium text-foreground">Γé╣{breakdown.total.toLocaleString('en-IN')}</span>
                                                     </div>
                                                 )}
                                             </>
@@ -105,19 +108,19 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                                 {breakdown.rent > 0 && (
                                                     <div className="flex justify-between items-center text-muted-foreground">
                                                         <span>Pending Rent:</span>
-                                                        <span className="font-medium text-foreground">₹{breakdown.rent.toLocaleString('en-IN')}</span>
+                                                        <span className="font-medium text-foreground">Γé╣{breakdown.rent.toLocaleString('en-IN')}</span>
                                                     </div>
                                                 )}
                                                 {breakdown.deposit > 0 && (
                                                     <div className="flex justify-between items-center text-muted-foreground">
                                                         <span>Pending Deposit:</span>
-                                                        <span className="font-medium text-foreground">₹{breakdown.deposit.toLocaleString('en-IN')}</span>
+                                                        <span className="font-medium text-foreground">Γé╣{breakdown.deposit.toLocaleString('en-IN')}</span>
                                                     </div>
                                                 )}
                                                 {breakdown.other > 0 && (
                                                     <div className="flex justify-between items-center text-muted-foreground">
                                                         <span>Other Charges:</span>
-                                                        <span className="font-medium text-foreground">₹{breakdown.other.toLocaleString('en-IN')}</span>
+                                                        <span className="font-medium text-foreground">Γé╣{breakdown.other.toLocaleString('en-IN')}</span>
                                                     </div>
                                                 )}
                                             </>
@@ -126,7 +129,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
                                         <div className="flex justify-between items-center border-t pt-2 mt-2">
                                             <span className="font-bold text-base">Total Amount Due:</span>
                                             <span className="font-bold text-base text-destructive">
-                                                {isSymbolic ? breakdown.symbolic : `₹${totalDue.toLocaleString('en-IN')}`}
+                                                {isSymbolic ? breakdown.symbolic : `Γé╣${totalDue.toLocaleString('en-IN')}`}
                                             </span>
                                         </div>
                                     </div>
@@ -185,7 +188,7 @@ const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Payout Details</DialogTitle>
-                    <DialogDescription>Details for payment made on {format(parseISO(payment.date || payment.createdAt || new Date().toISOString()), 'do MMM, yyyy')}.</DialogDescription>
+                    <DialogDescription>Details for payment made on {format(parseISO(payment.date), 'do MMM, yyyy')}.</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="flex justify-between items-center text-sm">
@@ -211,7 +214,7 @@ const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
                     </div>
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Amount Transferred</span>
-                        <span className="font-semibold">₹{payment.amount.toLocaleString('en-IN')}</span>
+                        <span className="font-semibold">Γé╣{payment.amount.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                         <span className="text-muted-foreground">Destination Account</span>
@@ -221,7 +224,7 @@ const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
             </DialogContent>
         </Dialog>
     );
-};
+}
 
 const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCollection }: any, ref: any) => {
     return (
@@ -248,13 +251,13 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
                 <TableBody>
                     {payments.length > 0 ? payments.map((p: Payment) => (
                         <TableRow key={p.id}>
-                            <TableCell>{format(parseISO(p.date || p.createdAt || new Date().toISOString()), 'dd MMM, yyyy')}</TableCell>
+                            <TableCell>{format(parseISO(p.date), 'dd MMM, yyyy')}</TableCell>
                             <TableCell className="font-medium">{(p as any).guestName}</TableCell>
                             <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
                             <TableCell>
                                 <span className="capitalize">{p.payoutStatus || 'N/A'}</span>
                             </TableCell>
-                            <TableCell className="text-right font-semibold">₹{p.amount.toLocaleString('en-IN')}</TableCell>
+                            <TableCell className="text-right font-semibold">Γé╣{p.amount.toLocaleString('en-IN')}</TableCell>
                         </TableRow>
                     )) : (
                         <TableRow><TableCell colSpan={5} className="text-center h-24">No transactions found.</TableCell></TableRow>
@@ -266,17 +269,32 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
 });
 PrintableReport.displayName = 'PrintableReport';
 
+
+import DirectPaymentVerification from '@/components/dashboard/DirectPaymentVerification';
+
+
 export default function RentPassbookPage() {
-    const { guests, pgs, isLoading, currentUser } = useAppSelector(state => ({
+    const { guests, pgs, isLoading } = useAppSelector(state => ({
         guests: state.guests.guests,
         pgs: state.pgs.pgs,
-        isLoading: state.app.isLoading,
-        currentUser: state.user.currentUser
+        isLoading: state.app.isLoading
     }));
+
+    // Calculate count of pending manual payments for the badge
+    const pendingVerificationCount = useMemo(() => {
+        return guests.reduce((count, guest) => {
+            const pendingPayments = (guest.paymentHistory || []).filter(p => 
+                (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && 
+                (p.status === 'pending' || p.status === 'CLAIMED_PAID')
+            );
+            return count + pendingPayments.length;
+        }, 0);
+    }, [guests]);
 
     const {
         isPaymentDialogOpen,
         setIsPaymentDialogOpen,
+        // ... rest of useDashboard remains same
         paymentForm,
         handlePaymentSubmit,
         selectedGuestForPayment,
@@ -307,7 +325,7 @@ export default function RentPassbookPage() {
     const handleDownloadCsv = () => {
         const headers = ["Date", "Guest Name", "Property Name", "Payment Details", "Amount", "Payout Status", "Payout Account", "Payout Failure Reason"];
         const rows = filteredPayments.map(p => [
-            format(parseISO(p.date || p.createdAt || new Date().toISOString()), 'yyyy-MM-dd'),
+            format(parseISO(p.date), 'yyyy-MM-dd'),
             p.guestName,
             p.pgName,
             p.notes || p.method,
@@ -330,6 +348,7 @@ export default function RentPassbookPage() {
         document.body.removeChild(link);
     };
 
+
     const allPayments = useMemo(() => {
         return guests.flatMap(g =>
             (g.paymentHistory || []).map(p => ({
@@ -339,7 +358,7 @@ export default function RentPassbookPage() {
                 pgId: g.pgId,
                 guestId: g.id,
             }))
-        ).sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
+        ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [guests]);
 
     const filteredPayments = useMemo(() => {
@@ -348,7 +367,7 @@ export default function RentPassbookPage() {
         const endDate = endOfMonth(startDate);
 
         return allPayments.filter(p => {
-            const paymentDate = parseISO(p.date || p.createdAt || new Date().toISOString());
+            const paymentDate = parseISO(p.date);
             const pgMatch = filters.pgId === 'all' || p.pgId === filters.pgId;
             const guestMatch = filters.guestId === 'all' || p.guestId === filters.guestId;
             const dateMatch = paymentDate >= startDate && paymentDate <= endDate;
@@ -369,6 +388,23 @@ export default function RentPassbookPage() {
         return uniqueGuests.filter(g => g.pgId === filters.pgId);
     }, [guests, filters.pgId]);
 
+    const allPendingPayments = useMemo(() => {
+        return guests.flatMap(g => 
+            (g.paymentHistory || [])
+                .filter(p => 
+                    (p.method === 'direct_upi' || p.method === ('direct-upi' as any) || p.method === ('DIRECT_UPI' as any)) && 
+                    (p.status === 'pending' || p.status === 'CLAIMED_PAID')
+                )
+                .map(p => ({
+                    ...p,
+                    guestName: g.name,
+                    pgName: g.pgName,
+                    pgId: g.pgId,
+                    guestId: g.id,
+                }))
+        ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [guests]);
+
     const totalCollection = useMemo(() => {
         return filteredPayments.reduce((sum, p) => sum + p.amount, 0);
     }, [filteredPayments]);
@@ -386,7 +422,7 @@ export default function RentPassbookPage() {
                     </CardContent>
                 </Card>
             </div>
-        );
+        )
     }
 
     return (
@@ -398,7 +434,7 @@ export default function RentPassbookPage() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="analytics">
-                        <TabsList className="grid w-full grid-cols-4">
+                        <TabsList className="grid w-full grid-cols-5">
                             <TabsTrigger value="analytics">
                                 <span className="sm:hidden">Stats</span>
                                 <span className="hidden sm:inline">Analytics</span>
@@ -406,6 +442,15 @@ export default function RentPassbookPage() {
                             <TabsTrigger value="pending-dues">
                                 <span className="sm:hidden">Dues</span>
                                 <span className="hidden sm:inline">Pending Dues</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="verify-payments" className="relative">
+                                <span className="sm:hidden">Verify</span>
+                                <span className="hidden sm:inline">Verify Payments</span>
+                                {pendingVerificationCount > 0 && (
+                                    <Badge className="absolute -top-2 -right-2 px-1.5 py-0.5 min-w-[1.25rem] h-5 flex items-center justify-center bg-destructive text-destructive-foreground border-2 border-background animate-pulse">
+                                        {pendingVerificationCount}
+                                    </Badge>
+                                )}
                             </TabsTrigger>
                             <TabsTrigger value="payment-history">
                                 <span className="sm:hidden">History</span>
@@ -469,14 +514,14 @@ export default function RentPassbookPage() {
                                     <TableBody>
                                         {filteredPayments.length > 0 ? filteredPayments.map(p => (
                                             <TableRow key={p.id}>
-                                                <TableCell>{format(parseISO(p.date || p.createdAt || new Date().toISOString()), 'dd MMM, yyyy')}</TableCell>
+                                                <TableCell>{format(parseISO(p.date), 'dd MMM, yyyy')}</TableCell>
                                                 <TableCell className="font-medium">{p.guestName}</TableCell>
                                                 <TableCell className="text-xs text-muted-foreground">{p.notes || p.method}</TableCell>
                                                 <TableCell>
                                                     <PayoutStatusBadge payment={p} />
                                                 </TableCell>
                                                 <TableCell className="text-right font-semibold">
-                                                    {p.amountType === 'symbolic' ? (p.symbolicValue || 'XXX') : `₹${p.amount.toLocaleString('en-IN')}`}
+                                                    {p.amountType === 'symbolic' ? (p.symbolicValue || 'XXX') : `Γé╣${p.amount.toLocaleString('en-IN')}`}
                                                 </TableCell>
                                             </TableRow>
                                         )) : (
@@ -485,6 +530,9 @@ export default function RentPassbookPage() {
                                     </TableBody>
                                 </Table>
                             </div>
+                        </TabsContent>
+                        <TabsContent value="verify-payments" className="mt-4">
+                            <DirectPaymentVerification pendingPayments={allPendingPayments} />
                         </TabsContent>
                         <TabsContent value="deposits" className="mt-4">
                             <DepositManagementTab guests={guests} />
@@ -510,5 +558,5 @@ export default function RentPassbookPage() {
                 setReminderMessage={setReminderMessage}
             />
         </div>
-    );
+    )
 }

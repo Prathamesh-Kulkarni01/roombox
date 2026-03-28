@@ -126,7 +126,7 @@ export default function ManualPaymentMatcher({ guests }: { guests: Guest[] }) {
                     <Search className="absolute left-3 top-5 w-5 h-5 text-muted-foreground" />
                     <Input 
                         placeholder="Type UTR, RS-..., Tenant Name, or Amount..." 
-                        className="pl-10 h-14 text-lg font-mono rounded-xl bg-white focus:ring-primary/20"
+                        className="pl-10 h-14 text-lg font-mono rounded-xl bg-background/50 border-white/10 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50 transition-all shadow-inner"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         autoFocus

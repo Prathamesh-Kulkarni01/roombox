@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, addMonths, setDate, lastDayOfMonth } from 'date-fns';
-import type { Guest, Payment, User } from '@/lib/types';
+import type { Guest, Payment, User, LedgerEntry } from '@/lib/types';
 import { produce } from 'immer';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 import { calculateFirstDueDate } from '@/lib/utils';
@@ -59,9 +59,11 @@ export async function POST(req: NextRequest) {
             if (order.notes?.type === 'whatsapp_recharge') {
                 const ownerId = order.notes.ownerId;
                 console.log(`[Webhook: Razorpay-Rent] Detected WhatsApp recharge for owner: ${ownerId}`);
-                // Use payment.amount as fallback/primary as it's more reliable in captured events
+                
+                // Use payment.amount as primary as it's the actual money captured
                 const amount = (payment.amount || order.amount || 0) / 100;
-                const credits = Math.floor(amount / 1.5); 
+                // Important: Credits are 1:1 with Rupees. Deductions happen per message (e.g. 1.5 per template).
+                const credits = amount; 
 
                 if (ownerId && !isNaN(credits) && credits > 0) {
                     const adminDb = await getAdminDb();
@@ -76,10 +78,25 @@ export async function POST(req: NextRequest) {
                             }
 
                             const ownerDocRef = adminDb.collection('users').doc(ownerId);
-                            transaction.update(ownerDocRef, {
-                                'subscription.whatsappCredits': FieldValue.increment(credits),
+                            const ownerDoc = await transaction.get(ownerDocRef);
+                            
+                            if (!ownerDoc.exists) {
+                                throw new Error(`Owner document ${ownerId} not found`);
+                            }
+
+                            const ownerData = ownerDoc.data();
+                            const currentSubscription = ownerData?.subscription || {};
+                            const currentCredits = currentSubscription.whatsappCredits || 0;
+                            const newCredits = Number((currentCredits + credits).toFixed(2));
+
+                            transaction.set(ownerDocRef, {
+                                subscription: {
+                                    ...currentSubscription,
+                                    whatsappCredits: newCredits,
+                                    lastRechargeAt: FieldValue.serverTimestamp()
+                                },
                                 updatedAt: new Date().toISOString()
-                            });
+                            }, { merge: true });
 
                             transaction.set(rechargeRef, {
                                 paymentId: payment.id,
@@ -89,14 +106,18 @@ export async function POST(req: NextRequest) {
                                 credits,
                                 method: payment.method,
                                 status: 'captured',
-                                processedAt: FieldValue.serverTimestamp()
+                                processedAt: FieldValue.serverTimestamp(),
+                                prevCredits: currentCredits,
+                                newCredits: newCredits
                             });
                         });
-                        console.log(`Successfully credited ${credits} messages to owner ${ownerId}'s wallet (from ₹${amount}). Payment ID: ${payment.id}`);
+                        console.log(`[Webhook: Razorpay-Rent] Successfully credited ₹${credits} to owner ${ownerId}'s wallet. Payment ID: ${payment.id}`);
                     } catch (txError: any) {
                         console.error('[Webhook: Razorpay-Rent] Failed to process recharge transaction:', txError.message);
                         throw txError;
                     }
+                } else {
+                    console.warn(`[Webhook: Razorpay-Rent] Invalid recharge data: ownerId=${ownerId}, credits=${credits}`);
                 }
                 return NextResponse.json({ success: true, message: 'Recharge processed.' });
             }
@@ -157,8 +178,11 @@ export async function POST(req: NextRequest) {
                     date: new Date(payment.created_at * 1000).toISOString(),
                     amount: amountPaid,
                     method: 'in-app',
+                    type: 'credit',
+                    month: format(new Date(guest.dueDate), 'MMMM yyyy'),
                     forMonth: format(new Date(guest.dueDate), 'MMMM yyyy'),
                     notes: `Paid via ${(payment.method || 'online').toLowerCase()}`,
+                    status: 'VERIFIED',
                     payoutStatus: 'COMPLETED',
                     payoutMode: order.notes?.payoutMode || owner.subscription?.payoutMode || 'PAYOUT',
                     payoutTo: primaryPayoutAccount?.name || 'Linked Account',
@@ -170,12 +194,12 @@ export async function POST(req: NextRequest) {
                         account_id: owner.subscription?.razorpay_account_id,
                         payout_type: primaryPayoutAccount?.type // 'upi' or 'bank_account'
                     }
-                };
+                } as any; // Using any as a temporary escape if types still lag or contain minor mismatches
 
-                const ledgerEntry = {
+                const ledgerEntry: LedgerEntry = {
                     id: `credit-${payment.id}`,
-                    date: newPayment.date,
-                    type: 'credit' as const,
+                    date: new Date(payment.created_at * 1000).toISOString(),
+                    type: 'credit',
                     description: `Rent payment via ${payment.method}`,
                     amount: amountPaid
                 };

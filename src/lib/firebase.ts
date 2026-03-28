@@ -1,8 +1,8 @@
 
 
 import { initializeApp, getApps, getApp, type FirebaseOptions, type FirebaseApp } from 'firebase/app';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getFirestore, initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 
 const firebaseConfig: FirebaseOptions = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,6 +25,19 @@ const app = isFirebaseConfigured() && !getApps().length ? initializeApp(firebase
 // Initialize default firestore instance
 const db = app ? initializeFirestore(app, { experimentalAutoDetectLongPolling: true }) : null;
 const auth = app ? getAuth(app) : null;
+
+// Connect to emulators if host variables are set
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+    if (db && process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST) {
+        const [host, port] = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST.split(':');
+        connectFirestoreEmulator(db, host, parseInt(port));
+        console.log(`[Firebase] Connected to Firestore Emulator: ${host}:${port}`);
+    }
+    if (auth && process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST) {
+        connectAuthEmulator(auth, `http://${process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST}`);
+        console.log(`[Firebase] Connected to Auth Emulator: ${process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST}`);
+    }
+}
 
 const dynamicDbInstances: { [key: string]: any } = {};
 

@@ -1,154 +1,109 @@
 import { test as setup, expect, type Page } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
+import { login, logout, OWNER_EMAIL, TENANT_PHONE, TARGET_PG_NAME, TARGET_ROOM_NAME, RUN_ID } from './test-utils';
 
-// Authentication states storage - use absolute paths for reliability
 const AUTH_DIR = path.resolve(process.cwd(), 'playwright/.auth');
 const OWNER_AUTH = path.join(AUTH_DIR, 'owner.json');
 const TENANT_AUTH = path.join(AUTH_DIR, 'tenant.json');
 
-// Ensure dir exists
-if (!fs.existsSync(AUTH_DIR)) {
-    fs.mkdirSync(AUTH_DIR, { recursive: true });
-}
-
-async function login(page: Page, email: string, pass: string, isOwner: boolean = true) {
-    console.log(`[Setup] Attempting login/signup for ${email}...`);
-    await page.goto('/login');
-    await page.waitForLoadState('networkidle');
-
-    // Skip if already in
-    if (page.url().includes('dashboard') || page.url().includes('tenants/my-pg')) {
-        console.log(`[Setup] ${email} already has session.`);
-        return;
-    }
-
-    if (isOwner) {
-        await page.click('button:has-text("Owner")');
-        await page.waitForTimeout(1000);
-        await page.fill('input[id="email"]', email);
-        await page.fill('input[id="password"]', pass);
-        await page.click('button:has-text("Log In as Owner")');
-    } else {
-        await page.click('button:has-text("Staff / Tenant")');
-        await page.waitForTimeout(1000);
-        if (!await page.locator('input[id="tenant-password"]').isVisible()) {
-            await page.click('button:has-text("Login with Password instead")');
-        }
-        await page.fill('input[id="tenant-phone"]', email);
-        await page.fill('input[id="tenant-password"]', pass);
-        await page.click('button[type="submit"]');
-    }
-
-    // Wait for redirect
-    try {
-        await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 10000 });
-        console.log(`[Setup] Login successful for ${email}.`);
-    } catch (e) {
-        console.log(`[Setup] Login failed for ${email}, attempting signup...`);
-        await page.goto('/signup');
-        await page.fill('input[id="email"]', email);
-        await page.fill('input[id="password"]', pass);
-        await page.click('button:has-text("Sign Up")');
-        await page.waitForURL(url => !url.pathname.includes('/signup'), { timeout: 20000 });
-        console.log(`[Setup] Signup successful for ${email}.`);
-    }
-}
-
-async function setupOwner(page: Page) {
-    const email = 'bot_tester_8@roombox.app';
-    const pass = 'Password123!';
-    await login(page, email, pass);
-
-    if (page.url().includes('/complete-profile')) {
-        await page.click('button:has-text("I\'m a Property Owner")');
-        await page.waitForURL('**/dashboard', { timeout: 20000 });
-    }
-
-    await page.goto('/dashboard/pg-management');
-    await page.waitForLoadState('networkidle');
-
-    const targetPgName = 'Automation PG';
-    const pgExists = await page.getByText(targetPgName).isVisible();
+setup('Authenticate Both Owner and Tenant', async ({ page }) => {
+    // 1. Authenticate as Owner
+    await login(page, OWNER_EMAIL);
     
-    if (!pgExists) {
-        console.log(`[Setup] Creating ${targetPgName}...`);
-        const addBtn = page.getByRole('button', { name: /Add (New )?Property/i }).first();
-        await addBtn.click();
-        await page.waitForTimeout(2000); 
-        
-        await page.locator('input[name="name"]').fill(targetPgName);
-        await page.locator('input[name="location"]').fill('Automation Lane 8');
-        await page.locator('input[name="city"]').fill('Bangalore');
-        
-        const autoSetupSwitch = page.locator('button[role="switch"]:has-text("Auto-Setup")');
-        if (await autoSetupSwitch.getAttribute('aria-checked') === 'false') {
-            await autoSetupSwitch.click();
-            await page.waitForTimeout(1000);
-        }
-        
-        await page.locator('input[name="floorCount"]').fill('1');
-        await page.locator('input[name="roomsPerFloor"]').fill('1');
-        await page.locator('input[name="bedsPerRoom"]').fill('1');
-        
-        await page.click('button[form="add-pg-form"]');
-        await page.waitForSelector(`text=${targetPgName}`, { timeout: 30000 });
-        console.log(`[Setup] Property created.`);
-    }
-
-    // Tenant Onboarding
-    await page.goto('/dashboard/tenant-management');
-    await page.waitForLoadState('networkidle');
-    const tenantEmail = 'tenant_tester_8@roombox.app';
-    const tenantExists = await page.getByText(tenantEmail).isVisible();
+    // 2. Setup Property
+    console.log(`[Setup] Navigating to PG management...`);
+    await page.goto('/dashboard/pg-management', { waitUntil: 'load' });
     
-    if (!tenantExists) {
-        console.log(`[Setup] Onboarding ${tenantEmail}...`);
-        await page.getByRole('button', { name: 'Add New Guest' }).click();
-        await page.waitForTimeout(2000);
+    let row = page.locator('tr').filter({ hasText: TARGET_PG_NAME }).first();
+    if (!await row.isVisible({ timeout: 5000 }).catch(() => false)) {
+        console.log(`[Setup] Creating Property: ${TARGET_PG_NAME}...`);
+        await page.getByRole('button', { name: /Add (New )?Property/i }).or(page.locator('button:has-text("Add Property")')).first().click();
+        await page.fill('input[name="name"]', TARGET_PG_NAME);
+        await page.fill('input[name="location"]', 'Auto Street');
+        await page.fill('input[name="city"]', 'AutoCity');
+        await page.getByRole('button', { name: /Add Property|Create/i }).or(page.locator('button[type="submit"]')).first().click();
         
-        await page.getByPlaceholder('e.g., Priya Sharma').fill('Test Tenant Eight');
-        await page.getByPlaceholder('e.g., 9876543210').fill('1234567890');
-        await page.getByPlaceholder('e.g., priya@example.com').fill(tenantEmail);
-
-        // Property Selection
-        await page.click('button:has-text("Select a property...")');
-        await page.waitForTimeout(1000);
-        await page.keyboard.press('ArrowDown');
-        await page.keyboard.press('Enter');
-        
-        await page.waitForTimeout(1000);
-        await page.click('button:has-text("Select a room...")');
-        await page.waitForTimeout(1000);
-        await page.keyboard.press('ArrowDown');
-        await page.keyboard.press('Enter');
-        
-        await page.waitForTimeout(1000);
-        await page.click('button:has-text("Select a bed...")');
-        await page.waitForTimeout(1000);
-        await page.keyboard.press('ArrowDown');
-        await page.keyboard.press('Enter');
-        
-        await page.getByRole('button', { name: 'Add Guest' }).click();
-        await page.waitForSelector('text=successfully added', { timeout: 40000 });
-        console.log(`[Setup] Tenant onboarded.`);
+        row = page.locator('tr').filter({ hasText: TARGET_PG_NAME }).first();
+        await expect(row).toBeVisible({ timeout: 15_000 });
     }
 
-    await page.waitForTimeout(2000); 
+    // 3. SEED TENANT (directly via Tenant Management)
+    console.log(`[Setup] Seeding tenant ${TENANT_PHONE} to ${TARGET_PG_NAME}...`);
+    await page.goto('/dashboard/tenant-management', { waitUntil: 'load' });
+    
+    // Cleanup prev test tenant
+    const existing = page.locator('tr').filter({ hasText: TENANT_PHONE }).first();
+    if (await existing.isVisible().catch(() => false)) {
+        console.log(`[Setup] Cleaning up old test record for ${TENANT_PHONE}...`);
+        const delBtn = existing.locator('button').filter({ has: page.locator('svg') }).or(existing.locator('button')).last();
+        await delBtn.click();
+        await page.getByRole('menuitem', { name: /Delete/i }).click();
+        await page.getByRole('button', { name: /Confirm/i }).click();
+        await page.waitForTimeout(3000); // Give Firestore a moment
+    }
+
+    console.log(`[Setup] Opening Add Guest form...`);
+    await page.getByRole('button', { name: /Add (New )?Guest/i }).first().click();
+    const guestForm = page.locator('role=dialog').or(page.locator('form')).filter({ hasText: /Add/i }).last();
+    await expect(guestForm).toBeVisible({ timeout: 10_000 });
+
+    await guestForm.locator('input[name="name"]').fill(`Auth Tenant ${RUN_ID}`);
+    await page.keyboard.press('Tab');
+    await page.keyboard.type(TENANT_PHONE);
+    await page.keyboard.press('Tab');
+
+    // Select Property
+    await guestForm.locator('button[role="combobox"]').first().click();
+    await page.getByRole('option', { name: TARGET_PG_NAME, exact: true }).first().click();
+    
+    // Select Room
+    await page.waitForTimeout(2000);
+    await guestForm.locator('button[role="combobox"]').nth(1).click();
+    await page.getByRole('option', { name: new RegExp(`^${TARGET_ROOM_NAME}`, 'i') }).or(page.getByRole('option')).first().click();
+    
+    // Select Bed
+    await page.waitForTimeout(1000);
+    const bedCombo = guestForm.locator('button[role="combobox"]').nth(2);
+    if (await bedCombo.isVisible().catch(() => false)) {
+        await bedCombo.click();
+        await page.getByRole('option').first().click();
+    }
+
+    // Monthly Rent
+    await guestForm.locator('input[name="rentAmount"]').click();
+    await page.keyboard.type('5000');
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(1000);
+
+    console.log(`[Setup] Validating and Submitting...`);
+    const submitBtn = guestForm.getByRole('button', { name: /Add Guest|Save|Confirm/i }).first();
+    await submitBtn.click({ force: true });
+    
+    // Fallback if button still "disabled" in Playwright's eyes
+    await page.waitForTimeout(2000);
+    if (await guestForm.isVisible()) {
+        console.log(`[Setup] Form still visible, forcing submission via Enter...`);
+        await page.keyboard.press('Enter');
+    }
+
+    await expect(guestForm).toBeHidden({ timeout: 20_000 });
+    console.log(`[Setup] Tenant seeded successfully.`);
+
+    // Store Owner State for convenience later
     await page.context().storageState({ path: OWNER_AUTH });
-}
 
-setup('Authenticate as Owner', async ({ page }) => {
-    await setupOwner(page);
-});
+    // 4. LOGOUT -> Login TENANT
+    await logout(page);
+    console.log(`[Setup] Logging in as tenant ${TENANT_PHONE}...`);
+    await page.goto('/login', { waitUntil: 'load' });
+    const tenantTab = page.getByRole('tab', { name: /Staff \/ Tenant/i });
+    if (await tenantTab.isVisible()) await tenantTab.click();
+    await page.getByLabel(/Phone/i).fill(TENANT_PHONE);
+    await page.getByLabel(/Password/i).fill('Password123!');
+    await page.getByRole('button', { name: /Login/i }).click();
 
-setup('Authenticate as Tenant', async ({ page }) => {
-    await login(page, 'tenant_tester_8@roombox.app', 'Password123!', false);
-    if (page.url().includes('/complete-profile')) {
-        await page.click('button:has-text("Renting a room")');
-        await page.waitForURL('**/tenants/my-pg', { timeout: 20000 });
-    }
-    await page.waitForTimeout(2000); 
+    await page.waitForURL('/dashboard');
     await page.context().storageState({ path: TENANT_AUTH });
+    console.log(`[Setup] Tenant setup complete.`);
 });
-

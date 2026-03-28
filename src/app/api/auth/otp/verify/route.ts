@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
         }
 
         if (otpData.otp !== otp) {
-            // Increment attempts
             await otpDoc.ref.update({ attempts: (otpData.attempts || 0) + 1 });
             if ((otpData.attempts || 0) >= 3) {
                 await otpDoc.ref.delete();
@@ -34,8 +33,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 });
         }
 
-        // 2. Find user
-        const variations = [phone, cleanPhone, `+${cleanPhone}`, `+91${cleanPhone}`];
+        // 2. Find user document by phone
+        const variations = [cleanPhone, `+91${cleanPhone}`, `91${cleanPhone}`];
         let userDoc = null;
         for (const v of variations) {
             const snap = await appDb.collection('users').where('phone', '==', v).limit(1).get();
@@ -55,8 +54,35 @@ export async function POST(req: NextRequest) {
         // 3. Delete OTP after successful verification
         await otpDoc.ref.delete();
 
-        // 4. Generate Custom Token
-        // Claims should include role and appropriate IDs
+        // 4. Auto-link: If user has a guestId but no UID linked on the guest doc, link now
+        //    This handles first-time login after owner adds them.
+        if (userData.guestId && userData.ownerId) {
+            try {
+                const guestRef = appDb
+                    .collection('users_data')
+                    .doc(userData.ownerId)
+                    .collection('guests')
+                    .doc(userData.guestId);
+                const guestSnap = await guestRef.get();
+
+                if (guestSnap.exists) {
+                    const guestData = guestSnap.data()!;
+                    // Only link if not already linked to a uid (avoid overwriting)
+                    if (!guestData.uid) {
+                        await guestRef.update({
+                            uid,
+                            inviteStatus: 'ACTIVE',
+                            linkedAt: Date.now(),
+                        });
+                        console.log(`[LINK] UID ${uid} linked to guest ${userData.guestId}`);
+                    }
+                }
+            } catch (linkErr) {
+                console.warn('[OTP Verify] Guest auto-link failed:', linkErr);
+            }
+        }
+
+        // 5. Build custom token claims
         const claims: any = {
             role: userData.role || 'tenant',
             ownerId: userData.ownerId || (userData.role === 'owner' ? uid : null),
@@ -67,16 +93,13 @@ export async function POST(req: NextRequest) {
         }
 
         if (userData.role !== 'owner' && userData.role !== 'tenant' && userData.role !== 'admin') {
-            // It's a staff member. Add permissions if available.
-            // For now, if no specific permissions in userDoc, we fallback to default role permissions
             claims.permissions = userData.permissions || {};
             claims.pgId = userData.pgId;
-            claims.pgs = [userData.pgId]; // For isStaff(pgId) check in rules
+            claims.pgs = [userData.pgId];
         }
 
         const customToken = await auth.createCustomToken(uid, claims);
-
-        // Also set claims permanently for future standard logins
+        // Also persist claims for future standard logins
         await auth.setCustomUserClaims(uid, claims);
 
         return NextResponse.json({ success: true, customToken });

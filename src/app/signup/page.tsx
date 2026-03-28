@@ -42,11 +42,9 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!appLoading && currentUser) {
-      if (currentUser.role === 'tenant') {
-        router.replace('/tenants/my-pg');
-      } else if (allowedDashboardRoles.includes(currentUser.role)) {
+      if (allowedDashboardRoles.includes(currentUser.role)) {
         router.replace('/dashboard');
-      } else if (currentUser.role === 'unassigned') {
+      } else {
         router.replace('/complete-profile');
       }
     }
@@ -126,9 +124,9 @@ export default function SignupPage() {
     <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl pt-4">Create an Account</CardTitle>
+          <CardTitle className="text-2xl pt-4">Owner Sign Up</CardTitle>
           <CardDescription>
-            Join RentSutra to manage your properties easily.
+            Create an owner account to manage your properties. Tenants are added by owners — not through this page.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
