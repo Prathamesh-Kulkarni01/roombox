@@ -104,7 +104,3 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
           FIREBASE_PROJECT_ID: "roombox-f7bff" # Update with actual PROD ID
-
-      - name: Build & Deploy
-        run: npm run build
-        # Add actual deployment step here (e.g., firebase deploy, netlify deploy, etc.)
