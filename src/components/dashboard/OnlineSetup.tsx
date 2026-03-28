@@ -466,67 +466,69 @@ export default function OnlineSetup({ onOnboardingComplete }: OnlineSetupProps) 
 
             {/* Modals & Dialogs */}
             <Dialog open={isPayoutDialogOpen} onOpenChange={setIsPayoutDialogOpen}>
-                <DialogContent className="max-w-md rounded-3xl p-8">
-                    <DialogHeader>
+                <DialogContent className="max-w-md rounded-3xl p-0 flex flex-col max-h-[90dvh]">
+                    <DialogHeader className="p-8 pb-4 flex-shrink-0">
                         <DialogTitle className="flex items-center gap-3 text-2xl font-black tracking-tight"><CreditCard className="w-6 h-6 text-emerald-600"/> Add Target Account</DialogTitle>
                         <DialogDescription className="text-base font-medium">Link your business account for secure settlements.</DialogDescription>
                     </DialogHeader>
-                    <Form {...payoutForm}>
-                        <form id="payout-form-modal" onSubmit={payoutForm.handleSubmit(handlePayoutAccountSubmit)} className="space-y-6 pt-6">
-                            <FormField
-                                control={payoutForm.control}
-                                name="payoutMethod"
-                                render={({ field }) => (
-                                    <FormItem className="space-y-3">
-                                        <FormControl>
-                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <RadioGroupItem value="vpa" id="setup_vpa" className="peer sr-only" />
-                                                    <label htmlFor="setup_vpa" className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/[0.03] [&:has([data-state=checked])]:border-primary transition-all cursor-pointer shadow-sm group">
-                                                        <IndianRupee className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                                                        <span className="text-sm font-bold tracking-tight">UPI / VPA</span>
-                                                    </label>
-                                                </div>
-                                                <div>
-                                                    <RadioGroupItem value="bank_account" id="setup_bank_account" className="peer sr-only" />
-                                                    <label htmlFor="setup_bank_account" className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/[0.03] [&:has([data-state=checked])]:border-primary transition-all cursor-pointer shadow-sm group">
-                                                        <Building2 className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                                                        <span className="text-sm font-bold tracking-tight">Bank Details</span>
-                                                    </label>
-                                                </div>
-                                            </RadioGroup>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            
-                            <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
-                                {payoutMethodValue === 'bank_account' && (
-                                    <div className="space-y-5">
-                                        <FormField control={payoutForm.control} name="name" render={({ field }) => (<FormItem><FormLabel className="font-bold">Account Holder Name</FormLabel><FormControl><Input placeholder="Legal name as in bank" className="rounded-xl h-12" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField control={payoutForm.control} name="account_number" render={({ field }) => (<FormItem><FormLabel className="font-bold">A/C Number</FormLabel><FormControl><Input placeholder="0000 0000 0000" className="rounded-xl h-12 font-mono" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="font-bold">IFSC Code</FormLabel><FormControl><Input placeholder="HDFC0000123" className="uppercase rounded-xl h-12 font-mono" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        </div>
-                                    </div>
-                                )}
-                                {payoutMethodValue === 'vpa' && (
-                                    <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="font-bold">UPI ID Address</FormLabel>
-                                            <FormControl><Input placeholder="user@okhdfcbank" className="lowercase rounded-xl h-12 font-mono" {...field} onChange={(e) => field.onChange(e.target.value.trim().toLowerCase())} /></FormControl>
-                                            <p className="text-[0.65rem] text-muted-foreground mt-2 px-1 font-medium italic">Instant settlements: Money reflects in your account within minutes of release.</p>
+                    <div className="flex-1 overflow-y-auto px-8 py-2">
+                        <Form {...payoutForm}>
+                            <form id="payout-form-modal" onSubmit={payoutForm.handleSubmit(handlePayoutAccountSubmit)} className="space-y-6">
+                                <FormField
+                                    control={payoutForm.control}
+                                    name="payoutMethod"
+                                    render={({ field }) => (
+                                        <FormItem className="space-y-3">
+                                            <FormControl>
+                                                <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <RadioGroupItem value="vpa" id="setup_vpa" className="peer sr-only" />
+                                                        <label htmlFor="setup_vpa" className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/[0.03] [&:has([data-state=checked])]:border-primary transition-all cursor-pointer shadow-sm group">
+                                                            <IndianRupee className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                            <span className="text-sm font-bold tracking-tight">UPI / VPA</span>
+                                                        </label>
+                                                    </div>
+                                                    <div>
+                                                        <RadioGroupItem value="bank_account" id="setup_bank_account" className="peer sr-only" />
+                                                        <label htmlFor="setup_bank_account" className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/[0.03] [&:has([data-state=checked])]:border-primary transition-all cursor-pointer shadow-sm group">
+                                                            <Building2 className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                                                            <span className="text-sm font-bold tracking-tight">Bank Details</span>
+                                                        </label>
+                                                    </div>
+                                                </RadioGroup>
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
-                                    )} />
-                                )}
-                            </div>
-                        </form>
-                    </Form>
-                    <DialogFooter className="mt-8 gap-3 sm:justify-center">
-                        <DialogClose asChild><Button type="button" variant="ghost" className="font-bold h-12 px-6 rounded-xl">Discard</Button></DialogClose>
-                        <Button type="submit" form="payout-form-modal" disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 h-12 px-8 rounded-xl font-bold font-lg shadow-native min-w-[180px]">
+                                    )}
+                                />
+                                
+                                <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+                                    {payoutMethodValue === 'bank_account' && (
+                                        <div className="space-y-5">
+                                            <FormField control={payoutForm.control} name="name" render={({ field }) => (<FormItem><FormLabel className="font-bold">Account Holder Name</FormLabel><FormControl><Input placeholder="Legal name as in bank" className="rounded-xl h-12" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <FormField control={payoutForm.control} name="account_number" render={({ field }) => (<FormItem><FormLabel className="font-bold">A/C Number</FormLabel><FormControl><Input placeholder="0000 0000 0000" className="rounded-xl h-12 font-mono" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                                <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel className="font-bold">IFSC Code</FormLabel><FormControl><Input placeholder="HDFC0000123" className="uppercase rounded-xl h-12 font-mono" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {payoutMethodValue === 'vpa' && (
+                                        <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="font-bold">UPI ID Address</FormLabel>
+                                                <FormControl><Input placeholder="user@okhdfcbank" className="lowercase rounded-xl h-12 font-mono" {...field} onChange={(e) => field.onChange(e.target.value.trim().toLowerCase())} /></FormControl>
+                                                <p className="text-[0.65rem] text-muted-foreground mt-2 px-1 font-medium italic">Instant settlements: Money reflects in your account within minutes of release.</p>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    )}
+                                </div>
+                            </form>
+                        </Form>
+                    </div>
+                    <DialogFooter className="p-8 pt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center sm:gap-3 border-t flex-shrink-0">
+                        <DialogClose asChild><Button type="button" variant="ghost" className="font-bold h-12 px-6 rounded-xl w-full sm:w-auto">Discard</Button></DialogClose>
+                        <Button type="submit" form="payout-form-modal" disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 h-12 px-8 rounded-xl font-bold font-lg shadow-native min-w-[180px] w-full sm:w-auto">
                             {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShieldCheck className="mr-2 h-5 w-5" />}
                             Secure Link Now
                         </Button>

@@ -98,8 +98,8 @@ export default function MassReminderDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[90vh] gap-0">
-                <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 bg-muted/30 flex-shrink-0">
+            <DialogContent className="sm:max-w-[500px] p-0 flex flex-col max-h-[90dvh]">
+                <DialogHeader className="p-6 pb-2 bg-muted/30 flex-shrink-0">
                     <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
                         <Send className="w-5 h-5 text-primary" />
                         Send Bulk Reminders
@@ -109,54 +109,54 @@ export default function MassReminderDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="p-3 sm:p-4 bg-primary/5 border-y border-primary/10 flex-shrink-0">
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Selected</span>
-                            <span className="text-xl sm:text-2xl font-black text-primary">{selectedGuests.length} / {guests.length}</span>
-                        </div>
-                        <div className="flex flex-col items-end">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Est. Cost</span>
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    <div className="p-4 bg-primary/5 border-y border-primary/10">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Selected</span>
+                                <span className="text-xl sm:text-2xl font-black text-primary">{selectedGuests.length} / {guests.length}</span>
+                            </div>
                             <div className="flex flex-col items-end">
-                                <span className={`text-xl sm:text-2xl font-black ${hasInsufficientCredits ? 'text-rose-600' : 'text-foreground'}`}>
-                                    {totalCost.toFixed(1)} <span className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Credits</span>
-                                </span>
-                                {!whatsappEnabled && totalCost > 0 && (
-                                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-tighter">WA Disabled</span>
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Est. Cost</span>
+                                <div className="flex flex-col items-end">
+                                    <span className={`text-xl sm:text-2xl font-black ${hasInsufficientCredits ? 'text-rose-600' : 'text-foreground'}`}>
+                                        {totalCost.toFixed(1)} <span className="text-xs font-bold text-muted-foreground uppercase tracking-tight">Credits</span>
+                                    </span>
+                                    {!whatsappEnabled && totalCost > 0 && (
+                                        <span className="text-[9px] font-bold text-rose-500 uppercase tracking-tighter">WA Disabled</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {whatsappEnabled && (
+                            <div className="mt-3 text-xs flex items-center justify-between bg-background/50 rounded-lg px-3 py-2 border border-primary/10">
+                                <div className="flex items-center gap-2">
+                                    <Info className="w-3.5 h-3.5 text-primary" />
+                                    <span className="font-semibold text-xs text-muted-foreground">Current Balance: {whatsappCredits.toFixed(1)} Credits</span>
+                                </div>
+                                {hasInsufficientCredits && (
+                                    <Badge variant="destructive" className="text-[10px] h-5 py-0">Low Balance</Badge>
                                 )}
                             </div>
+                        )}
+                    </div>
+
+                    <div className="p-4 pb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Checkbox 
+                                id="select-all" 
+                                checked={selectedIds.size === guests.length && guests.length > 0}
+                                onCheckedChange={toggleAll}
+                                className="w-5 h-5 rounded-md"
+                            />
+                            <label htmlFor="select-all" className="text-sm font-bold cursor-pointer select-none">
+                                Select All
+                            </label>
                         </div>
                     </div>
 
-                    {whatsappEnabled && (
-                        <div className="mt-2 text-[10px] sm:text-xs sm:mt-3 flex items-center justify-between bg-background/50 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 border border-primary/10">
-                            <div className="flex items-center gap-2">
-                                <Info className="w-3.5 h-3.5 text-primary" />
-                                <span className="font-semibold text-[10px] sm:text-xs">Current Balance: {whatsappCredits.toFixed(1)} Credits</span>
-                            </div>
-                            {hasInsufficientCredits && (
-                                <Badge variant="destructive" className="text-[9px] sm:text-[10px] h-4 sm:h-5 py-0">Low Balance</Badge>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                <div className="p-3 sm:p-4 pb-1 sm:pb-2 flex items-center justify-between flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                        <Checkbox 
-                            id="select-all" 
-                            checked={selectedIds.size === guests.length && guests.length > 0}
-                            onCheckedChange={toggleAll}
-                            className="w-4 h-4 sm:w-5 sm:h-5 rounded-md"
-                        />
-                        <label htmlFor="select-all" className="text-xs sm:text-sm font-bold cursor-pointer select-none">
-                            Select All
-                        </label>
-                    </div>
-                </div>
-
-                <ScrollArea className="flex-1 min-h-0 px-2">
-                    <div className="space-y-1 p-2">
+                    <div className="px-4 pb-4 space-y-1">
                         {guests.map((guest) => (
                             <div 
                                 key={guest.id}
@@ -203,30 +203,30 @@ export default function MassReminderDialog({
                             </div>
                         ))}
                     </div>
-                </ScrollArea>
+                </div>
 
-                <DialogFooter className="p-4 sm:p-6 bg-muted/30 border-t flex-col sm:flex-row gap-2 sm:gap-3 flex-shrink-0">
+                <DialogFooter className="p-6 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 border-t flex-shrink-0 bg-muted/30">
                     <Button 
                         variant="ghost" 
                         onClick={() => onOpenChange(false)}
-                        className="font-bold text-muted-foreground"
+                        className="font-bold text-muted-foreground w-full sm:w-auto"
                     >
                         Cancel
                     </Button>
                     <Button 
                         onClick={handleConfirm}
                         disabled={selectedGuests.length === 0 || isSending || hasInsufficientCredits}
-                        className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-black shadow-lg rounded-xl h-12"
+                        className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-black shadow-lg rounded-xl h-12 w-full sm:w-auto"
                     >
                         {isSending ? (
                             <>
                                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                                Sending Alerts...
+                                Sending...
                             </>
                         ) : (
                             <>
                                 <Send className="w-5 h-5 mr-2" />
-                                Send {selectedGuests.length} Reminders
+                                Send Alerts
                             </>
                         )}
                     </Button>

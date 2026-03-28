@@ -320,13 +320,13 @@ export default function TenantPaymentModal({
                     )}
                 </div>
 
-                <DialogFooter className="p-6 pt-2 flex-col sm:flex-row gap-3 border-t bg-muted/5">
+                <DialogFooter className="p-6 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 border-t flex-shrink-0 bg-muted/5">
                     <DialogClose asChild>
-                        <Button variant="outline" className="h-12 rounded-2xl font-bold uppercase tracking-widest text-xs flex-1">Close</Button>
+                        <Button variant="outline" className="h-12 rounded-2xl font-bold uppercase tracking-widest text-xs w-full sm:w-auto">Close</Button>
                     </DialogClose>
                     {!isManualOnly && (
                         <Button 
-                            className="h-12 rounded-2xl font-bold uppercase tracking-widest text-xs flex-[2] bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20" 
+                            className="h-12 rounded-2xl font-bold uppercase tracking-widest text-xs w-full sm:w-auto sm:flex-1 bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20" 
                             disabled={isSubmitting || isUploading}
                             onClick={handleSubmit}
                         >

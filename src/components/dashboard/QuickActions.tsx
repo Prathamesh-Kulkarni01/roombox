@@ -21,28 +21,33 @@ const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: { pg:
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-md p-0 flex flex-col max-h-[90dvh]">
+                <DialogHeader className="p-6 pb-2 flex-shrink-0">
                     <DialogTitle>Add Guest to a Bed</DialogTitle>
                     <DialogDescription>Search for a vacant bed across all your properties.</DialogDescription>
                 </DialogHeader>
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search by property, room, or bed..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <div className="px-6 flex-shrink-0">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search by property, room, or bed..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    </div>
                 </div>
-                <ScrollArea className="h-64 mt-4">
+                <div className="flex-1 overflow-y-auto px-6 py-4">
                     <div className="space-y-2">
                         {filteredBeds.map(item => (
-                            <div key={item.bed.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => { onSelectBed(item); onOpenChange(false); }}>
+                            <div key={item.bed.id} className="flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary/5 transition-all cursor-pointer shadow-sm group" onClick={() => { onSelectBed(item); onOpenChange(false); }}>
                                 <div>
-                                    <p className="font-semibold">{item.pg.name}</p>
-                                    <p className="text-sm text-muted-foreground">Room {item.room.name} - Bed {item.bed.name}</p>
+                                    <p className="font-bold text-base leading-tight group-hover:text-primary transition-colors">{item.pg.name}</p>
+                                    <p className="text-sm text-muted-foreground font-medium">Room {item.room.name} — Bed {item.bed.name}</p>
+                                </div>
+                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <UserPlus className="w-4 h-4 text-primary" />
                                 </div>
                             </div>
                         ))}
                         {filteredBeds.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No vacant beds found.</p>}
                     </div>
-                </ScrollArea>
+                </div>
             </DialogContent>
         </Dialog>
     )
@@ -66,29 +71,34 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-md p-0 flex flex-col max-h-[90dvh]">
+                <DialogHeader className="p-6 pb-2 flex-shrink-0">
                     <DialogTitle>Collect Rent</DialogTitle>
                     <DialogDescription>Select a guest with pending dues to record a payment.</DialogDescription>
                 </DialogHeader>
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search by guest name or property..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <div className="px-6 flex-shrink-0">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search by guest name or property..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    </div>
                 </div>
-                <ScrollArea className="h-64 mt-4">
+                <div className="flex-1 overflow-y-auto px-6 py-4">
                     <div className="space-y-2">
                         {guestsWithDues.map(guest => (
-                            <div key={guest.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer" onClick={() => { onSelectGuest(guest); onOpenChange(false); }}>
+                            <div key={guest.id} className="flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary/5 transition-all cursor-pointer shadow-sm group" onClick={() => { onSelectGuest(guest); onOpenChange(false); }}>
                                 <div>
-                                    <p className="font-semibold">{guest.name}</p>
-                                    <p className="text-sm text-muted-foreground">{guest.pgName}</p>
+                                    <p className="font-bold text-base leading-tight group-hover:text-primary transition-colors">{guest.name}</p>
+                                    <p className="text-sm text-muted-foreground font-medium">{guest.pgName}</p>
                                 </div>
-                                <p className="text-sm font-semibold text-destructive">₹{guest.balance.toLocaleString('en-IN')}</p>
+                                <div className="text-right">
+                                    <p className="text-sm font-bold text-destructive">₹{guest.balance.toLocaleString('en-IN')}</p>
+                                    <p className="text-[0.65rem] text-muted-foreground font-semibold uppercase tracking-wider">Pending</p>
+                                </div>
                             </div>
                         ))}
                         {guestsWithDues.length === 0 && <p className="text-center text-sm text-muted-foreground pt-4">No guests with pending dues.</p>}
                     </div>
-                </ScrollArea>
+                </div>
             </DialogContent>
         </Dialog>
     )

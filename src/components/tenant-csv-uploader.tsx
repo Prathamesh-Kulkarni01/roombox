@@ -104,8 +104,8 @@ export default function TenantCsvUploader({ open, onOpenChange, onSuccess }: Ten
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
+        <DialogContent className="sm:max-w-lg p-0 flex flex-col max-h-[90dvh]">
+                <DialogHeader className="p-6 pb-2 flex-shrink-0">
                     <DialogTitle className="flex items-center gap-2">
                         <FileSpreadsheet className="w-5 h-5 text-primary" />
                         Bulk Import Tenants
@@ -115,7 +115,7 @@ export default function TenantCsvUploader({ open, onOpenChange, onSuccess }: Ten
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-2">
+                <div className="p-6 pt-0 flex-1 overflow-y-auto space-y-4">
                     {/* Download Template */}
                     <Button variant="outline" size="sm" className="w-full gap-2" onClick={handleDownloadTemplate}>
                         <Download className="w-4 h-4" />
@@ -187,9 +187,9 @@ export default function TenantCsvUploader({ open, onOpenChange, onSuccess }: Ten
                     )}
                 </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={handleClose} disabled={loading}>Cancel</Button>
-                    <Button onClick={handleUpload} disabled={!selectedFile || loading}>
+                <DialogFooter className="p-6 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 border-t flex-shrink-0">
+                    <Button variant="outline" onClick={handleClose} disabled={loading} className="w-full sm:w-auto">Cancel</Button>
+                    <Button onClick={handleUpload} disabled={!selectedFile || loading} className="w-full sm:w-auto">
                         {loading
                             ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importing...</>
                             : <><Upload className="mr-2 h-4 w-4" /> Import Tenants</>

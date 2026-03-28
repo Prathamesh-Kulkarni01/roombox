@@ -22,25 +22,25 @@ export default function ReminderDialog({ isReminderDialogOpen, setIsReminderDial
             setReminderMessage(''); // Clear message on close
         }
     }}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md p-0 flex flex-col max-h-[90dvh]">
+        <DialogHeader className="p-6 pb-2 flex-shrink-0">
           <DialogTitle>Send Rent Reminder</DialogTitle>
           <DialogDescription>A reminder message has been generated for {selectedGuestForReminder?.name}. You can edit it before sending.</DialogDescription>
         </DialogHeader>
-        <div className="py-4 space-y-2">
-            <Label htmlFor="reminder-message">Reminder Message</Label>
+        <div className="p-6 pt-0 flex-1 overflow-y-auto space-y-2">
+            <Label htmlFor="reminder-message" className="text-sm font-medium">Reminder Message</Label>
             {isGeneratingReminder ? (
-                <div className="space-y-2">
+                <div className="space-y-2 py-4">
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-3/4" />
                 </div>
             ) : (
-                <Textarea id="reminder-message" value={reminderMessage} onChange={(e) => setReminderMessage ? setReminderMessage(e.target.value) : null} rows={8} className="bg-muted/50" />
+                <Textarea id="reminder-message" value={reminderMessage} onChange={(e) => setReminderMessage ? setReminderMessage(e.target.value) : null} rows={8} className="bg-muted/50 resize-none" />
             )}
         </div>
-        <DialogFooter className="gap-2 sm:justify-end">
-          <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}>
+        <DialogFooter className="p-6 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 border-t flex-shrink-0">
+          <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }} className="w-full sm:w-auto">
             <Copy className="mr-2 h-4 w-4" /> Copy
           </Button>
           <a href={`https://wa.me/${selectedGuestForReminder?.phone}?text=${encodeURIComponent(reminderMessage)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">

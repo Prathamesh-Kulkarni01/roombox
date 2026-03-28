@@ -73,69 +73,70 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
   }, [selectedGuestForPayment]);
 
   return (
-    <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+    <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>      <DialogContent className="sm:max-w-md p-0 flex flex-col max-h-[90dvh]">
+        <DialogHeader className="p-6 pb-2 flex-shrink-0">
           <DialogTitle>Collect Rent Payment</DialogTitle>
           <DialogDescription>Record a full or partial payment for {selectedGuestForPayment?.name}.</DialogDescription>
         </DialogHeader>
-        {selectedGuestForPayment && (
-          <Form {...paymentForm}>
-            <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4">
-              <div className="space-y-2 py-2 border-y my-2">
-                <p className="font-semibold">Dues Breakdown:</p>
-                <div className="text-sm text-muted-foreground max-h-32 overflow-y-auto pr-2">
-                  {dueItems.length > 0 ? dueItems.map(item => (
-                    <div key={item.id} className="flex justify-between">
-                      <span>{item.description}</span>
-                      <span className="font-medium text-foreground">{item.displayAmount}</span>
-                    </div>
-                  )) : !selectedGuestForPayment.symbolicBalance && <p>No outstanding charges.</p>}
-                </div>
-                <div className="flex justify-between items-center text-base pt-2 border-t">
-                  <span className="font-bold">Total Due:</span>
-                  <div className="text-right">
-                    {selectedGuestForPayment.amountType === 'symbolic' ? (
-                      <div className="font-bold text-lg text-primary">
-                        {localSymbolicBalance || 'Settled'}
+        <div className="p-6 pt-0 flex-1 overflow-y-auto">
+          {selectedGuestForPayment && (
+            <Form {...paymentForm}>
+              <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} id="payment-form" className="space-y-4">
+                <div className="space-y-2 py-2 border-y my-2">
+                  <p className="font-semibold text-sm">Dues Breakdown:</p>
+                  <div className="text-sm text-muted-foreground max-h-48 overflow-y-auto pr-2">
+                    {dueItems.length > 0 ? dueItems.map(item => (
+                      <div key={item.id} className="flex justify-between py-1 border-b border-muted/50 last:border-0">
+                        <span>{item.description}</span>
+                        <span className="font-medium text-foreground">{item.displayAmount}</span>
                       </div>
-                    ) : (
-                      <>
-                        <div className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</div>
-                        {localSymbolicBalance && (
-                          <div className="text-xs font-semibold text-muted-foreground">
-                            + {localSymbolicBalance}
-                          </div>
-                        )}
-                      </>
-                    )}
+                    )) : !selectedGuestForPayment.symbolicBalance && <p>No outstanding charges.</p>}
+                  </div>
+                  <div className="flex justify-between items-center text-base pt-2 border-t mt-2">
+                    <span className="font-bold">Total Due:</span>
+                    <div className="text-right">
+                      {selectedGuestForPayment.amountType === 'symbolic' ? (
+                        <div className="font-bold text-lg text-primary">
+                          {localSymbolicBalance || 'Settled'}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-bold text-lg text-primary">₹{totalDue.toLocaleString('en-IN')}</div>
+                          {localSymbolicBalance && (
+                            <div className="text-xs font-semibold text-muted-foreground">
+                              + {localSymbolicBalance}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
 
-              {paymentForm.watch('amountType') === 'numeric' && (
-                <FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (
-                  <FormItem><FormLabel>Amount to Collect (₹)</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>
+                {paymentForm.watch('amountType') === 'numeric' && (
+                  <FormField control={paymentForm.control} name="amountPaid" render={({ field }) => (
+                    <FormItem><FormLabel>Amount to Collect (₹)</FormLabel><FormControl><Input type="number" placeholder="Enter amount" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                )}
+                <FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (
+                  <FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel>
+                    <FormControl>
+                      <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1">
+                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash-payment" /></FormControl><FormLabel htmlFor="cash-payment" className="font-normal cursor-pointer">Cash</FormLabel></FormItem>
+                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi-payment" /></FormControl><FormLabel htmlFor="upi-payment" className="font-normal cursor-pointer">UPI</FormLabel></FormItem>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
-              )}
-              <FormField control={paymentForm.control} name="paymentMethod" render={({ field }) => (
-                <FormItem className="space-y-3"><FormLabel>Payment Method</FormLabel>
-                  <FormControl>
-                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-1">
-                      <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="cash" id="cash-payment" /></FormControl><FormLabel htmlFor="cash-payment" className="font-normal cursor-pointer">Cash</FormLabel></FormItem>
-                      <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi-payment" /></FormControl><FormLabel htmlFor="upi-payment" className="font-normal cursor-pointer">UPI</FormLabel></FormItem>
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </form>
-          </Form>
-        )}
-        <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="secondary" disabled={isRecordingPayment}>Cancel</Button></DialogClose>
-          <Button type="submit" form="payment-form" disabled={isRecordingPayment}>
+              </form>
+            </Form>
+          )}
+        </div>
+        <DialogFooter className="p-6 pt-2 border-t flex-shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+          <DialogClose asChild><Button type="button" variant="secondary" disabled={isRecordingPayment} className="w-full sm:w-auto">Cancel</Button></DialogClose>
+          <Button type="submit" form="payment-form" disabled={isRecordingPayment} className="w-full sm:w-auto">
             {isRecordingPayment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirm Payment
           </Button>

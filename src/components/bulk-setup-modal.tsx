@@ -86,8 +86,8 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
+        <DialogContent className="sm:max-w-md p-0 flex flex-col max-h-[90dvh]">
+                <DialogHeader className="p-6 pb-2 flex-shrink-0">
                     <DialogTitle className="flex items-center gap-2">
                         <Zap className="w-5 h-5 text-primary" />
                         Bulk Setup — {pg.name}
@@ -97,7 +97,7 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-5 py-2">
+                <div className="p-6 pt-0 flex-1 overflow-y-auto space-y-5">
                     {/* Preview Banner */}
                     <div className="rounded-lg bg-muted px-4 py-3 text-sm flex items-center justify-between">
                         <span className="text-muted-foreground">Will create</span>
@@ -168,11 +168,11 @@ export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: Bu
                     </div>
                 </div>
 
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+                <DialogFooter className="p-6 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 border-t flex-shrink-0">
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading} className="w-full sm:w-auto">
                         Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={loading || !totalBeds}>
+                    <Button onClick={handleSubmit} disabled={loading || !totalBeds} className="w-full sm:w-auto">
                         {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</> : `Generate ${totalBeds} Beds`}
                     </Button>
                 </DialogFooter>

@@ -116,89 +116,91 @@ export default function DirectPaymentVerification({ pendingPayments }: DirectPay
             </div>
 
             <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
+                <DialogContent className="max-w-2xl p-0 flex flex-col max-h-[90dvh]">
+                    <DialogHeader className="p-6 pb-2 flex-shrink-0">
                         <DialogTitle>Verify Payment Details</DialogTitle>
                         <DialogDescription>
                             Review the transaction receipt and UTR before approving.
                         </DialogDescription>
                     </DialogHeader>
 
-                    {selectedPayment && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-start">
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Guest Name</p>
-                                        <p className="font-medium">{selectedPayment.guestName}</p>
+                    <div className="flex-1 overflow-y-auto px-6 py-2">
+                        {selectedPayment && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Guest Name</p>
+                                            <p className="font-medium">{selectedPayment.guestName}</p>
+                                        </div>
+                                        <Badge variant={selectedPayment.status === 'CLAIMED_PAID' ? 'default' : 'secondary'} className={selectedPayment.status === 'CLAIMED_PAID' ? 'bg-blue-100 text-blue-800 border-blue-200' : ''}>
+                                            {selectedPayment.status === 'CLAIMED_PAID' ? 'Tenant Paid' : selectedPayment.status || 'Pending'}
+                                        </Badge>
                                     </div>
-                                    <Badge variant={selectedPayment.status === 'CLAIMED_PAID' ? 'default' : 'secondary'} className={selectedPayment.status === 'CLAIMED_PAID' ? 'bg-blue-100 text-blue-800 border-blue-200' : ''}>
-                                        {selectedPayment.status === 'CLAIMED_PAID' ? 'Tenant Paid' : selectedPayment.status || 'Pending'}
-                                    </Badge>
-                                </div>
-                                
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Amount</p>
-                                        <p className="text-xl font-bold text-primary">
-                                            {selectedPayment.amountType === 'symbolic' ? 'XXX' : `₹${selectedPayment.amount.toLocaleString('en-IN')}`}
-                                        </p>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Amount</p>
+                                            <p className="text-xl font-bold text-primary">
+                                                {selectedPayment.amountType === 'symbolic' ? 'XXX' : `₹${selectedPayment.amount.toLocaleString('en-IN')}`}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">For Month</p>
+                                            <p className="font-medium">{selectedPayment.month || 'N/A'}</p>
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">For Month</p>
-                                        <p className="font-medium">{selectedPayment.month || 'N/A'}</p>
-                                    </div>
-                                </div>
 
-                                <div className="space-y-1">
-                                    <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">UTR Number</p>
-                                    <p className="font-mono bg-muted p-2 rounded text-sm select-all">{selectedPayment.utr || 'Not provided'}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Submission Date</p>
-                                    <p>{format(parseISO(selectedPayment.date || selectedPayment.createdAt || new Date().toISOString()), 'do MMMM yyyy, h:mm a')}</p>
-                                </div>
-                                
-                                <div className="pt-2">
-                                    <p className="text-sm font-semibold mb-2">Internal Notes (Optional)</p>
-                                    <Textarea 
-                                        placeholder="Add a reason for rejection or a note for approval..."
-                                        value={verificationNotes}
-                                        onChange={(e) => setVerificationNotes(e.target.value)}
-                                        className="h-20"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Screenshot / Receipt</p>
-                                {selectedPayment.screenshotUrl ? (
-                                    <div className="relative group rounded-lg overflow-hidden border bg-black/5 aspect-[3/4] flex items-center justify-center">
-                                        <img 
-                                            src={selectedPayment.screenshotUrl} 
-                                            alt="Payment Screenshot" 
-                                            className="max-w-full max-h-full object-contain"
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">UTR Number</p>
+                                        <p className="font-mono bg-muted p-2 rounded text-sm select-all">{selectedPayment.utr || 'Not provided'}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Submission Date</p>
+                                        <p>{format(parseISO(selectedPayment.date || selectedPayment.createdAt || new Date().toISOString()), 'do MMMM yyyy, h:mm a')}</p>
+                                    </div>
+                                    
+                                    <div className="pt-2">
+                                        <p className="text-sm font-semibold mb-2">Internal Notes (Optional)</p>
+                                        <Textarea 
+                                            placeholder="Add a reason for rejection or a note for approval..."
+                                            value={verificationNotes}
+                                            onChange={(e) => setVerificationNotes(e.target.value)}
+                                            className="h-20"
                                         />
-                                        <a 
-                                            href={selectedPayment.screenshotUrl} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="absolute bottom-2 right-2 p-2 bg-white/90 rounded-full text-black opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shadow-sm text-xs"
-                                        >
-                                            <ExternalLink className="w-3 h-3" /> Full View
-                                        </a>
                                     </div>
-                                ) : (
-                                    <div className="aspect-[3/4] rounded-lg border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground bg-muted/20">
-                                        <AlertCircle className="w-8 h-8 mb-2 opacity-20" />
-                                        <p className="text-xs">No screenshot uploaded</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                                </div>
 
-                    <DialogFooter className="flex gap-2 sm:justify-between sm:gap-0">
+                                <div className="space-y-2">
+                                    <p className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Screenshot / Receipt</p>
+                                    {selectedPayment.screenshotUrl ? (
+                                        <div className="relative group rounded-lg overflow-hidden border bg-black/5 aspect-[3/4] flex items-center justify-center">
+                                            <img 
+                                                src={selectedPayment.screenshotUrl} 
+                                                alt="Payment Screenshot" 
+                                                className="max-w-full max-h-full object-contain"
+                                            />
+                                            <a 
+                                                href={selectedPayment.screenshotUrl} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="absolute bottom-2 right-2 p-2 bg-white/90 rounded-full text-black opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shadow-sm text-xs"
+                                            >
+                                                <ExternalLink className="w-3 h-3" /> Full View
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <div className="aspect-[3/4] rounded-lg border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground bg-muted/20">
+                                            <AlertCircle className="w-8 h-8 mb-2 opacity-20" />
+                                            <p className="text-xs">No screenshot uploaded</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter className="p-6 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 border-t flex-shrink-0">
                         <Button 
                             variant="destructive" 
                             className="w-full sm:w-auto"
@@ -206,7 +208,7 @@ export default function DirectPaymentVerification({ pendingPayments }: DirectPay
                             disabled={isVerifying}
                         >
                             {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <X className="w-4 h-4 mr-2" />}
-                            Reject Payment
+                            Reject
                         </Button>
                         <Button 
                             variant="default" 
@@ -215,7 +217,7 @@ export default function DirectPaymentVerification({ pendingPayments }: DirectPay
                             disabled={isVerifying}
                         >
                             {isVerifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-                            Approve & Verify
+                            Approve
                         </Button>
                     </DialogFooter>
                 </DialogContent>

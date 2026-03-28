@@ -79,14 +79,14 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0">
-        <DialogHeader className="p-6 pb-4">
+      <DialogContent className="max-w-md p-0 flex flex-col max-h-[90dvh]">
+        <DialogHeader className="p-6 pb-4 flex-shrink-0">
           <DialogTitle className="text-2xl font-bold text-center">Subscription</DialogTitle>
           <DialogDescription className="text-center max-w-lg mx-auto">
             Our platform operates on a fair, usage-based billing model. Activate your subscription to unlock all features.
           </DialogDescription>
         </DialogHeader>
-        <div className="p-6 pt-0">
+        <div className="flex-1 overflow-y-auto p-6 pt-0">
           <Card className="border-2 border-primary shadow-lg">
              <CardHeader className="text-center">
                 <CardTitle className="text-xl font-bold">Usage-Based Plan</CardTitle>

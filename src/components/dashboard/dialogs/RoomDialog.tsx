@@ -113,21 +113,21 @@ export default function RoomDialog({
 
   return (
     <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-4 border-b">
+      <DialogContent className="sm:max-w-4xl p-0 flex flex-col max-h-[90dvh]">
+        <DialogHeader className="p-6 pb-2 flex-shrink-0 border-b">
           <DialogTitle>{roomToEdit ? 'Edit Room' : 'Add a New Room'}</DialogTitle>
           <DialogDescription>
             {roomToEdit ? `Editing room: ${roomToEdit.name}.` : "Fill out the details below. Click save when you're done."}
           </DialogDescription>
         </DialogHeader>
         <Form {...roomForm}>
-          <form onSubmit={handleRoomSubmit} id="room-form" className="flex flex-col flex-1 overflow-hidden">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
-              <div className="px-6 border-b">
+          <form onSubmit={handleRoomSubmit} id="room-form" className="flex flex-col flex-1 overflow-hidden min-h-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="px-6 border-b flex-shrink-0">
                 <ScrollArea className="w-full whitespace-nowrap">
                   <TabsList className="inline-flex h-10 items-center justify-start rounded-none bg-transparent p-0 w-full">
                     {tabs.map(tab => (
-                      <TabsTrigger key={tab.value} value={tab.value} className="relative inline-flex items-center justify-center whitespace-nowrap rounded-sm px-4 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary">
+                      <TabsTrigger key={tab.value} value={tab.value} className="relative inline-flex items-center justify-center whitespace-nowrap rounded-sm px-4 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary">
                         {tab.label}
                       </TabsTrigger>
                     ))}
@@ -136,25 +136,23 @@ export default function RoomDialog({
                 </ScrollArea>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <ScrollArea className="h-full">
-                  <div className="p-6">
-                    <TabsContent value="basics" forceMount={true} hidden={activeTab !== 'basics'}><RoomBasicsForm form={roomForm} pg={pg} onOpenFloorDialog={onOpenFloorDialog} /></TabsContent>
-                    <TabsContent value="pricing" forceMount={true} hidden={activeTab !== 'pricing'}><PricingForm form={roomForm} /></TabsContent>
-                    <TabsContent value="amenities" forceMount={true} hidden={activeTab !== 'amenities'}><AmenitiesForm form={roomForm} /></TabsContent>
-                    <TabsContent value="rules" forceMount={true} hidden={activeTab !== 'rules'}><RulesForm form={roomForm} /></TabsContent>
-                    <TabsContent value="food" forceMount={true} hidden={activeTab !== 'food'}><FoodServicesForm form={roomForm} /></TabsContent>
-                    <TabsContent value="media" forceMount={true} hidden={activeTab !== 'media'}><MediaForm form={roomForm} /></TabsContent>
-                  </div>
-                </ScrollArea>
+                <div className="p-6">
+                  <TabsContent value="basics" forceMount={true} hidden={activeTab !== 'basics'} className="m-0"><RoomBasicsForm form={roomForm} pg={pg} onOpenFloorDialog={onOpenFloorDialog} /></TabsContent>
+                  <TabsContent value="pricing" forceMount={true} hidden={activeTab !== 'pricing'} className="m-0"><PricingForm form={roomForm} /></TabsContent>
+                  <TabsContent value="amenities" forceMount={true} hidden={activeTab !== 'amenities'} className="m-0"><AmenitiesForm form={roomForm} /></TabsContent>
+                  <TabsContent value="rules" forceMount={true} hidden={activeTab !== 'rules'} className="m-0"><RulesForm form={roomForm} /></TabsContent>
+                  <TabsContent value="food" forceMount={true} hidden={activeTab !== 'food'} className="m-0"><FoodServicesForm form={roomForm} /></TabsContent>
+                  <TabsContent value="media" forceMount={true} hidden={activeTab !== 'media'} className="m-0"><MediaForm form={roomForm} /></TabsContent>
+                </div>
               </div>
             </Tabs>
           </form>
         </Form>
-        <DialogFooter className="p-6 pt-4 border-t bg-background">
+        <DialogFooter className="p-6 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 border-t flex-shrink-0 bg-background">
           <DialogClose asChild>
-            <Button type="button" variant="secondary">Cancel</Button>
+            <Button type="button" variant="secondary" className="w-full sm:w-auto">Cancel</Button>
           </DialogClose>
-          <Button type="submit" form="room-form" disabled={isSavingRoom}>
+          <Button type="submit" form="room-form" disabled={isSavingRoom} className="w-full sm:w-auto">
             {isSavingRoom ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {roomToEdit ? 'Save Changes' : 'Add Room'}
           </Button>
