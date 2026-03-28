@@ -52,10 +52,14 @@ jobs:
     needs: validate
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -75,10 +79,14 @@ jobs:
           git config --global user.name "Intelligent CI Bot"
           git config --global user.email "ci-bot@rentsutra.com"
           git add package.json CHANGELOG.md
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          git commit -m "chore(release): $NEW_VERSION [skip ci]" || echo "No changes to commit"
-          git tag "v$NEW_VERSION"
-          git push origin master --tags || echo "Failed to push (ensure GH_TOKEN has permissions)"
+          if ! git diff --cached --quiet; then
+            NEW_VERSION=$(node -p "require('./package.json').version")
+            git commit -m "chore(release): $NEW_VERSION [skip ci]" 
+            git tag "v$NEW_VERSION"
+            git push origin master --tags
+          else
+            echo "No changes to commit (version already up to date)"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

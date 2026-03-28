@@ -63,14 +63,20 @@ function determineBumpType(commits: CommitInfo[]): 'major' | 'minor' | 'patch' |
     // Semantic Impact Analysis: Look at the actual file diffs
     let impactBump: 'major' | 'minor' | 'patch' | 'none' = 'none';
     try {
-        const diffNames = execSync('git diff --name-only HEAD~1 HEAD').toString().trim().split('\n');
-        
-        // If there are new files in src/app or src/components -> feature
-        if (diffNames.some(f => (f.startsWith('src/app') || f.startsWith('src/components')) && !f.includes('.test.') && !f.includes('.spec.'))) {
-            impactBump = 'minor';
-        }
-        // If only existing files are changed -> patch
-        else if (diffNames.length > 0) {
+        const commitCount = parseInt(execSync('git rev-list --count HEAD').toString().trim());
+        if (commitCount > 1) {
+            const diffNames = execSync('git diff --name-only HEAD~1 HEAD').toString().trim().split('\n');
+            
+            // If there are new files in src/app or src/components -> feature
+            if (diffNames.some(f => (f.startsWith('src/app') || f.startsWith('src/components')) && !f.includes('.test.') && !f.includes('.spec.'))) {
+                impactBump = 'minor';
+            }
+            // If only existing files are changed -> patch
+            else if (diffNames.length > 0) {
+                impactBump = 'patch';
+            }
+        } else {
+            // First commit is always at least a patch
             impactBump = 'patch';
         }
     } catch (err) {
