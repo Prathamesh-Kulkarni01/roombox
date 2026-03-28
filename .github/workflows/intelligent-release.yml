@@ -103,7 +103,7 @@ jobs:
         run: npm run migrate
         env:
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
-          FIREBASE_PROJECT_ID: "roombox-prod" # Update with actual PROD ID
+          FIREBASE_PROJECT_ID: "roombox-f7bff" # Update with actual PROD ID
 
       - name: Build & Deploy
         run: npm run build
