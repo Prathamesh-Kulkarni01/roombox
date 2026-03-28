@@ -27,7 +27,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Start Firebase Emulator
         run: |
@@ -37,7 +37,7 @@ jobs:
       - name: Check System Integrity
         run: npm run verify-logic
         env:
-          FIRESTORE_EMULATOR_HOST: "localhost:8080"
+          FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
           FIREBASE_PROJECT_ID: "roombox-test"
 
       - name: Dry-Run Production Migration (Safety Check)
