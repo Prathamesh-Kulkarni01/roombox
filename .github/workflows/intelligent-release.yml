@@ -107,6 +107,13 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Verify Secret Presence
+        run: |
+          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" ]; then
+            echo "❌ ERROR: FIREBASE_SERVICE_ACCOUNT_KEY is not set in GitHub Secrets."
+            exit 1
+          fi
+
       - name: Execute Live Migrations
         run: npm run migrate
         env:

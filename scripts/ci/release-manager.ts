@@ -23,36 +23,40 @@ const PACKAGE_JSON_PATH = path.join(process.cwd(), 'package.json');
 const SCHEMA_FILE_PATH = path.join(process.cwd(), 'src/lib/schema.ts');
 const MIGRATIONS_DIR = path.join(process.cwd(), 'scripts/migrations');
 
-function getCommitsSinceLastVersion(range?: string): CommitInfo[] {
+function getCommitsSinceLastVersion(): { commits: CommitInfo[]; lastReleaseHash: string } {
     try {
-        const gitRange = range || "-n 20";
+        let lastReleaseHash = '';
+        try {
+            lastReleaseHash = execSync('git log --grep="chore(release):" -n 1 --format="%H"').toString().trim();
+        } catch (e) {
+            console.log('No previous release commit found.');
+        }
+
+        const gitRange = lastReleaseHash ? `${lastReleaseHash}..HEAD` : "-n 50";
         const logOutput = execSync(`git log ${gitRange} --pretty=format:"%H|%s"`).toString();
         const commits: CommitInfo[] = [];
 
         for (const line of logOutput.split('\n')) {
             if (!line.trim()) continue;
             const [hash, message] = line.split('|');
-            
+            if (message.includes('chore(release):')) continue;
+
             let type: 'feat' | 'fix' | 'chore' | 'other' = 'other';
             if (message.startsWith('feat:')) type = 'feat';
             else if (message.startsWith('fix:')) type = 'fix';
             else if (message.startsWith('chore:')) type = 'chore';
 
             const isBreaking = message.includes('BREAKING CHANGE:') || message.includes('!');
-            
             commits.push({ hash, message, isBreaking, type });
-            
-            // If the commit is a version bump (e.g., "chore(release): 0.0.1"), stop here
-            if (message.includes('chore(release):')) break;
         }
-        return commits;
+        return { commits, lastReleaseHash };
     } catch (err) {
         console.error('Failed to get git commits:', err);
-        return [];
+        return { commits: [], lastReleaseHash: '' };
     }
 }
 
-function determineBumpType(commits: CommitInfo[]): 'major' | 'minor' | 'patch' | 'none' {
+function determineBumpType(commits: CommitInfo[], lastReleaseHash?: string): 'major' | 'minor' | 'patch' | 'none' {
     const fromCommits = (() => {
         if (commits.some(c => c.isBreaking)) return 'major';
         if (commits.some(c => c.type === 'feat')) return 'minor';
@@ -63,21 +67,18 @@ function determineBumpType(commits: CommitInfo[]): 'major' | 'minor' | 'patch' |
     // Semantic Impact Analysis: Look at the actual file diffs
     let impactBump: 'major' | 'minor' | 'patch' | 'none' = 'none';
     try {
-        const commitCount = parseInt(execSync('git rev-list --count HEAD').toString().trim());
-        if (commitCount > 1) {
-            const diffNames = execSync('git diff --name-only HEAD~1 HEAD').toString().trim().split('\n');
-            
+        const diffRange = lastReleaseHash ? `${lastReleaseHash}..HEAD` : "HEAD~1 HEAD";
+        const diffNames = execSync(`git diff --name-only ${diffRange}`).toString().trim().split('\n');
+        
+        if (diffNames.length > 0 && diffNames[0] !== '') {
             // If there are new files in src/app or src/components -> feature
             if (diffNames.some(f => (f.startsWith('src/app') || f.startsWith('src/components')) && !f.includes('.test.') && !f.includes('.spec.'))) {
                 impactBump = 'minor';
             }
             // If only existing files are changed -> patch
-            else if (diffNames.length > 0) {
+            else {
                 impactBump = 'patch';
             }
-        } else {
-            // First commit is always at least a patch
-            impactBump = 'patch';
         }
     } catch (err) {
         impactBump = 'none';
@@ -104,14 +105,15 @@ function getNextVersion(current: string, bump: 'major' | 'minor' | 'patch' | 'no
     return parts.join('.');
 }
 
-function detectSchemaChanges(): { changed: boolean; from?: number; to?: number } {
+function detectSchemaChanges(lastReleaseHash?: string): { changed: boolean; from?: number; to?: number } {
     try {
-        const typesFile = path.join(process.cwd(), 'src/lib/types.ts');
-        const currentContent = fs.readFileSync(typesFile, 'utf8');
+        const typesFile = 'src/lib/types.ts';
+        const currentContent = fs.readFileSync(path.join(process.cwd(), typesFile), 'utf8');
         const currentMatch = currentContent.match(/export const CURRENT_SCHEMA_VERSION = (\d+);/);
         const currentVersion = currentMatch ? parseInt(currentMatch[1]) : 0;
 
-        const prevContent = execSync(`git show HEAD~1:src/lib/types.ts`, { stdio: 'pipe' }).toString();
+        const prevRef = lastReleaseHash || 'HEAD~1';
+        const prevContent = execSync(`git show ${prevRef}:${typesFile}`, { stdio: 'pipe' }).toString();
         const prevMatch = prevContent.match(/export const CURRENT_SCHEMA_VERSION = (\d+);/);
         const prevVersion = prevMatch ? parseInt(prevMatch[1]) : 0;
 
@@ -189,12 +191,12 @@ async function run() {
     const currentVersion = pkg.version;
     
     // 1. Semantic Analysis
-    const commits = getCommitsSinceLastVersion();
-    const bumpType = determineBumpType(commits);
+    const { commits, lastReleaseHash } = getCommitsSinceLastVersion();
+    const bumpType = determineBumpType(commits, lastReleaseHash);
     const nextVersion = getNextVersion(currentVersion, bumpType);
     
     // 2. Schema Guard
-    const schemaGuard = detectSchemaChanges();
+    const schemaGuard = detectSchemaChanges(lastReleaseHash);
     if (schemaGuard.changed) {
         console.log(`🔍 INFO: Schema change detected (Version ${schemaGuard.from} -> ${schemaGuard.to})`);
         const validation = validateMigrations(schemaGuard.to!);
