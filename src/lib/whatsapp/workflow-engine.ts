@@ -12,6 +12,7 @@ import {
     ParsedInput,
     StepDefinition,
 } from './workflow-types';
+import { t_wa } from './translations-wa';
 
 export class WorkflowEngine {
     private workflows: Map<string, WorkflowDefinition> = new Map();
@@ -42,7 +43,7 @@ export class WorkflowEngine {
             if (!step.validation.regex.test(input.trim())) {
                 return {
                     raw: input, normalized, isValid: false,
-                    errorMessage: step.validation.errorMessage || 'Invalid input.',
+                    errorMessage: step.validation.errorMessage || t_wa('invalid_option', context.language as any),
                 };
             }
         }
@@ -53,7 +54,7 @@ export class WorkflowEngine {
             if (!valid) {
                 return {
                     raw: input, normalized, isValid: false,
-                    errorMessage: step.validation.errorMessage || 'Invalid input.',
+                    errorMessage: step.validation.errorMessage || t_wa('invalid_option', context.language as any),
                 };
             }
         }
@@ -161,6 +162,7 @@ export class WorkflowEngine {
             createdAt: new Date(),
             updatedAt: new Date(),
             sessionId: `${userId}-${Date.now()}`,
+            language: 'en', // Default
             ...authData,
         };
     }
@@ -174,12 +176,12 @@ export class WorkflowEngine {
         try {
             const workflow = this.getWorkflow(context.workflowId);
             if (!workflow) {
-                return { success: false, message: '❌ Workflow not found. Reply *Menu* to restart.', context };
+                return { success: false, message: t_wa('workflow_not_found', context.language as any), context };
             }
 
             const currentStep = this.getStep(workflow, context.currentStep);
             if (!currentStep) {
-                return { success: false, message: '❌ Invalid step. Reply *Menu* to restart.', context };
+                return { success: false, message: t_wa('step_not_found', context.language as any), context };
             }
 
             // Validate input
@@ -191,6 +193,14 @@ export class WorkflowEngine {
             // Record history
             context.inputHistory.push(userInput);
 
+            // Call completion handler
+            if (currentStep.onComplete) {
+                const manualNext = await currentStep.onComplete(context, parsed);
+                if (manualNext) {
+                    context.currentStep = manualNext;
+                }
+            }
+
             // Determine next step
             const nextStepId = await this.getNextStep(currentStep, parsed, context);
 
@@ -199,7 +209,7 @@ export class WorkflowEngine {
 
             if (!nextStepId) {
                 // Workflow naturally completed
-                return { success: true, message: '✅ Done! Reply *Menu* to continue.', context, data: context.data };
+                return { success: true, message: t_wa('menu_return', context.language as any), context, data: context.data };
             }
 
             // Handle special cross-workflow navigation tokens
@@ -221,7 +231,13 @@ export class WorkflowEngine {
             if (nextStep.onEnter) await nextStep.onEnter(context);
 
             // Generate message
-            const message = await this.generateMessage(nextStep, context);
+            let message = await this.generateMessage(nextStep, context);
+            
+            // Prepend messageAfter if current step has it
+            if (currentStep.messageAfter) {
+                message = currentStep.messageAfter(context) + '\n\n' + message;
+            }
+
             context.lastMessage = message;
 
             return { success: true, message, nextStep: nextStepId, context, data: context.data };
@@ -236,10 +252,10 @@ export class WorkflowEngine {
 
     async presentStep(context: WorkflowContext): Promise<string> {
         const workflow = this.getWorkflow(context.workflowId);
-        if (!workflow) return '❌ Workflow not found. Reply *Menu*.';
+        if (!workflow) return t_wa('workflow_not_found', context.language as any);
 
         const step = this.getStep(workflow, context.currentStep);
-        if (!step) return '❌ Step not found. Reply *Menu*.';
+        if (!step) return t_wa('step_not_found', context.language as any);
 
         // Run onEnter if presenting fresh
         if (step.onEnter) await step.onEnter(context);

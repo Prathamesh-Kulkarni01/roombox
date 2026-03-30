@@ -11,6 +11,7 @@ export interface WorkflowOption {
     label: string;
     target?: string;
     action?: string;
+    value?: any; // Added value for ease of mapping
     condition?: (context: WorkflowContext) => boolean;
 }
 
@@ -22,6 +23,7 @@ export interface StepDefinition {
     // Message generation (at least one must be present)
     messageTemplate?: string;
     messageBuilder?: (context: WorkflowContext) => string;
+    messageAfter?: (context: WorkflowContext) => string;
 
     // Options
     options?: WorkflowOption[];
@@ -46,7 +48,7 @@ export interface StepDefinition {
     // Callbacks
     onEnter?: (context: WorkflowContext) => Promise<void>;
     onExit?: (context: WorkflowContext) => Promise<void>;
-    onComplete?: (context: WorkflowContext) => Promise<string | void>; // returns next step or void
+    onComplete?: (context: WorkflowContext, input: ParsedInput) => Promise<string | void>; // returns next step or void
 }
 
 export interface FormField {
@@ -98,6 +100,7 @@ export interface WorkflowContext {
     userId: string;
     userPhone: string;
     userRole?: 'owner' | 'manager' | 'staff'; // Role-based access control
+    language?: 'en' | 'hi' | 'mr'; // Localized preference
 
     // Metadata
     createdAt: Date;

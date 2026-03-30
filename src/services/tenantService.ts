@@ -97,6 +97,13 @@ export class TenantService {
 
         console.log(`[TenantService.onboardTenant] Starting for ${name} (${phone})`);
         let magicLinkResult: string | undefined;
+        let welcomeImage: string = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
+
+        const { format } = require('date-fns');
+        const startOfCycle = (joinDate && typeof joinDate === 'string')
+            ? (parseDateString(joinDate) || new Date(joinDate))
+            : new Date(joinDate || new Date().toISOString());
+        
         await this.checkGuestLimit(db, ownerId, planId);
 
         console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
@@ -120,6 +127,7 @@ export class TenantService {
                 throw new Error('Property not found');
             }
             const pgData = pgDoc.data()!;
+            welcomeImage = pgData.images?.[0] || welcomeImage;
 
             // Verify room and bed exist
             let targetBed: any = null;
@@ -148,12 +156,8 @@ export class TenantService {
             // Pre-calculate the anchor day and next due date so we fast-forward the first cycle
             // since we are manually billing it right now.
             const { calculateFirstDueDate } = require('@/lib/utils');
-            const { format } = require('date-fns');
 
-            // Robust parsing of joinDate
-            const startOfCycle = (joinDate && typeof joinDate === 'string')
-                ? (parseDateString(joinDate) || new Date(joinDate))
-                : new Date(joinDate || now);
+            // startOfCycle moved to top of function for scope sharing
 
             if (isNaN(startOfCycle.getTime())) {
                 console.error(`[TenantService.onboardTenant] Invalid joinDate received: ${joinDate}`);
@@ -496,15 +500,18 @@ export class TenantService {
                     { type: 'text', text: pgName || newGuest.pgName }, // {{2}} - PG Name
                     { type: 'text', text: roomName || 'Assigned Room' }, // {{3}} - Room/Bed
                     { type: 'text', text: `₹${newGuest.rentAmount}` }, // {{4}} - Rent
-                    { type: 'text', text: dashboardUrl } // {{5}} - Dashboard URL
+                    { type: 'text', text: dashboardUrl }, // {{5}} - Dashboard URL
+                    { type: 'text', text: format(startOfCycle, 'dd-MMM-yyyy') } // {{6}} - Joining Date
                 ];
+
+                const headerValues = [{ type: 'image', image: { link: welcomeImage } }];
 
                 const result = await sendWhatsAppTemplate(
                     formattedPhone,
                     'new_guest_welcome_utility_2',
                     ownerId,
                     'en_US',
-                    [], // No header (safer for templates)
+                    headerValues,
                     bodyValues,
                     [],
                     guestId

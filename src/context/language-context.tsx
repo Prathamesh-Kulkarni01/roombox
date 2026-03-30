@@ -4,7 +4,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import translations from '@/lib/translations';
 
-type Language = 'en' | 'hi';
+type Language = 'en' | 'hi' | 'mr';
 type TranslationKey = keyof typeof translations.en;
 
 interface LanguageContextType {
@@ -20,7 +20,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const savedLanguage = localStorage.getItem('language') as Language;
-    if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'hi')) {
+    if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'hi' || savedLanguage === 'mr')) {
       setLanguageState(savedLanguage);
     }
   }, []);

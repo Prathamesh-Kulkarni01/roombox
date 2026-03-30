@@ -90,14 +90,15 @@ export class StaffService {
                         },
                         whatsappConfig: {
                             templateId: 'new_guest_welcome_utility_2',
-                            headerValues: [], // No header (safer for templates)
                             bodyValues: [
                                 { type: 'text', text: name }, // {{1}} - Name
                                 { type: 'text', text: pgName }, // {{2}} - Building
                                 { type: 'text', text: role.toUpperCase() }, // {{3}} - Role
                                 { type: 'text', text: String(salary || 0) }, // {{4}} - Salary/Rent
-                                { type: 'text', text: dashboardUrl } // {{5}} - Dashboard URL
+                                { type: 'text', text: dashboardUrl }, // {{5}} - Dashboard URL
+                                { type: 'text', text: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) } // {{6}} - Joining Date
                             ],
+                            headerValues: [{ type: 'image', image: { link: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80' } }],
                             languageCode: 'en_US'
                         }
                     });

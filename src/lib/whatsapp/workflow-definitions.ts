@@ -5,7 +5,8 @@
  * The WorkflowEngine interprets and drives them — no if/else chains needed.
  */
 
-import { WorkflowDefinition } from './workflow-types';
+import { WorkflowDefinition, WorkflowContext, ParsedInput } from './workflow-types';
+import { t_wa, WaLanguage } from './translations-wa';
 import { PropertyService } from '../../services/propertyService';
 import { TenantService } from '../../services/tenantService';
 import { selectOwnerDataAdminDb, getAdminDb } from '../firebaseAdmin';
@@ -29,30 +30,29 @@ export const mainMenuWorkflow: WorkflowDefinition = {
             id: 'showMenu',
             type: 'menu',
             label: 'Main Menu',
-            messageBuilder: (ctx) => {
+            messageBuilder: (ctx: WorkflowContext) => {
+                const lang = ctx.language as WaLanguage || 'en';
                 const ownerName = ctx.ownerName || 'Owner';
                 const stats = ctx.data.stats || {};
                 const statsLine = stats.totalBuildings !== undefined
-                    ? `📊 ${stats.totalBuildings} Properties | ${stats.totalTenants} Tenants\n\n`
+                    ? t_wa('stats_line', lang, stats)
                     : '';
 
                 // Role-based option filtering: staff cannot see tenant mgmt or financial ops
                 const isStaff = ctx.userRole === 'staff';
-                const ownerOnlyOptions = isStaff ? '' :
-                    `6️⃣ Onboard New Tenant\n` +
-                    `7️⃣ Manage Tenants\n` +
-                    `8️⃣ Reports & Analytics\n`;
+                const optionsStr = t_wa('main_menu_options', lang);
+                const optionsArr = optionsStr.split('\n');
+                
+                // If staff, filter out options 6, 7, 8
+                const filteredOptions = isStaff 
+                    ? optionsArr.filter(opt => !opt.startsWith('6') && !opt.startsWith('7') && !opt.startsWith('8')).join('\n')
+                    : optionsStr;
 
                 return (
-                    `🏠 *RentSutra Dashboard*\nHi ${ownerName}!\n\n` +
+                    t_wa('welcome_owner', lang, { ownerName }) + '\n\n' +
                     statsLine +
-                    `1️⃣ View Properties\n` +
-                    `2️⃣ Today's Payments\n` +
-                    `3️⃣ Monthly Summary\n` +
-                    `4️⃣ Pending Rents\n` +
-                    `5️⃣ Send Reminders\n` +
-                    ownerOnlyOptions +
-                    `9️⃣ Dashboard Link`
+                    filteredOptions + '\n' +
+                    `0️⃣ ${lang === 'mr' ? 'भाषा बदला' : lang === 'hi' ? 'भाषा बदलें' : 'Change Language'}`
                 );
             },
             onEnter: async (ctx) => {
@@ -73,6 +73,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                 '7': '__switchManageTenants',
                 '8': 'reports',
                 '9': 'dashboardLink',
+                '0': '__switchChangeLanguage',
             },
             validation: {
                 customValidator: (input, ctx) => {
@@ -81,7 +82,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                     if (ctx?.userRole === 'staff' && ['6', '7', '8'].includes(n)) {
                         return false;
                     }
-                    return ['1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(n);
+                    return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].includes(n);
                 },
                 errorMessage: 'Please reply with a valid option number.',
             },
@@ -1785,6 +1786,52 @@ export const tenantLazyOnboardingWorkflow: WorkflowDefinition = {
     },
 };
 
+// ─────────────────────────────────────────────────────────────
+// CHANGE LANGUAGE WORKFLOW
+// ─────────────────────────────────────────────────────────────
+export const changeLanguageWorkflow: WorkflowDefinition = {
+    id: 'changeLanguage',
+    name: 'Change Language',
+    description: 'Select bot language',
+    entryPoint: 'select',
+
+    steps: {
+        select: {
+            id: 'select',
+            type: 'menu',
+            label: 'Select Language',
+            messageBuilder: (ctx: WorkflowContext) => t_wa('select_language', ctx.language as WaLanguage),
+            options: [
+                { key: '1', label: 'English', value: 'en' },
+                { key: '2', label: 'हिंदी', value: 'hi' },
+                { key: '3', label: 'मराठी', value: 'mr' },
+            ],
+            onComplete: async (ctx: WorkflowContext, input: ParsedInput) => {
+                const selection = input.selectedOption?.toString() || input.normalized;
+                const langMap: Record<string, WaLanguage> = { 
+                    '1': 'en', 'en': 'en', 'english': 'en',
+                    '2': 'hi', 'hi': 'hi', 'hindi': 'hi',
+                    '3': 'mr', 'mr': 'mr', 'marathi': 'mr'
+                };
+                const newLang = langMap[selection];
+                if (newLang) ctx.language = newLang;
+                
+                // Persist language to user settings in DB
+                try {
+                    const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+                    await db.collection('users_data').doc(ctx.ownerId!).set({
+                        whatsappLanguage: ctx.language
+                    }, { merge: true });
+                } catch (e) {
+                    console.error('Failed to persist language:', e);
+                }
+            },
+            messageAfter: (ctx: WorkflowContext) => t_wa('language_set', ctx.language as WaLanguage),
+            defaultNext: '__goMainMenu',
+        },
+    },
+};
+
 // Export all for registration
 export const allWorkflows = [
     mainMenuWorkflow,
@@ -1794,4 +1841,5 @@ export const allWorkflows = [
     tenantPortalWorkflow,
     tenantLazyOnboardingWorkflow,
     ownerRegistrationWorkflow,
+    changeLanguageWorkflow,
 ];

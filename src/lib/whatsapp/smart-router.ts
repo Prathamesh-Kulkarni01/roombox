@@ -30,6 +30,7 @@ const WORKFLOW_SWITCH_MAP: Record<string, { workflowId: string; step: string }> 
     '__switchPendingRents': { workflowId: 'mainMenu', step: 'pendingRents' },
     '__goMainMenu': { workflowId: 'mainMenu', step: 'showMenu' },
     '__goTenantPortal': { workflowId: 'tenantPortal', step: 'tenantMenu' },
+    '__switchChangeLanguage': { workflowId: 'changeLanguage', step: 'select' },
 };
 
 // ─── Data-collecting workflows that can be safely resumed after timeout ────────
