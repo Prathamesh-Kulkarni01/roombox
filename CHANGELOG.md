@@ -1,3 +1,26 @@
+## Version 0.4.0 (3/30/2026, 4:20:35 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ src/components/header.tsx                |   1 +
+ src/context/language-context.tsx         |   4 +-
+ src/lib/translations.ts                  | 193 +++++++++++++++++++++++++++++++
+ src/lib/whatsapp/smart-router.ts         |   1 +
+ src/lib/whatsapp/translations-wa.ts      |  62 ++++++++++
+ src/lib/whatsapp/workflow-definitions.ts |  80 ++++++++++---
+ src/lib/whatsapp/workflow-engine.ts      |  32 +++--
+ src/lib/whatsapp/workflow-types.ts       |   5 +-
+ src/services/staffService.ts             |   5 +-
+ src/services/tenantService.ts            |  21 ++--
+ tmp/verify-fix.ts                        |  35 ++++++
+ 11 files changed, 403 insertions(+), 36 deletions(-)
+
+```
+
+### ✨ Features
+- feat: implement declarative WhatsApp workflow engine with language support and role-based access control
+
+
 ## Version 0.3.0 (3/28/2026, 9:06:46 AM)
 
 ### 🔄 Semantic Impact Summary
