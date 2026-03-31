@@ -98,7 +98,18 @@ export class StaffService {
                                 { type: 'text', text: dashboardUrl }, // {{5}} - Dashboard URL
                                 { type: 'text', text: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) } // {{6}} - Joining Date
                             ],
-                            headerValues: [{ type: 'image', image: { link: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80' } }],
+                            headerValues: [
+                                { 
+                                    type: 'image', 
+                                    image: { 
+                                        // Force JPEG to avoid WebP upload errors
+                                        link: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?fm=jpg&w=800&q=80' 
+                                    } 
+                                }
+                            ],
+                            buttonValues: [
+                                { type: 'text', text: dashboardUrl } // {{1}} for the CTA button
+                            ],
                             languageCode: 'en_US'
                         }
                     });

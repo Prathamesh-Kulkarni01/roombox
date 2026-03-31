@@ -97,7 +97,7 @@ export class TenantService {
 
         console.log(`[TenantService.onboardTenant] Starting for ${name} (${phone})`);
         let magicLinkResult: string | undefined;
-        let welcomeImage: string = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
+        let welcomeImage: string = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?fm=jpg&w=800&q=80';
 
         const { format } = require('date-fns');
         const startOfCycle = (joinDate && typeof joinDate === 'string')
@@ -128,6 +128,10 @@ export class TenantService {
             }
             const pgData = pgDoc.data()!;
             welcomeImage = pgData.images?.[0] || welcomeImage;
+            // Ensure Unsplash images have fm=jpg for Meta API compatibility if not already present
+            if (welcomeImage.includes('unsplash.com') && !welcomeImage.includes('fm=jpg')) {
+                welcomeImage += (welcomeImage.includes('?') ? '&' : '?') + 'fm=jpg';
+            }
 
             // Verify room and bed exist
             let targetBed: any = null;
@@ -478,17 +482,20 @@ export class TenantService {
                 const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
                 // Fetch Owner Phone for "Message Owner" button
+                const ownerDoc = await db.collection('users').doc(ownerId).get();
+                let ownerPhone = ownerDoc.data()?.phone || pgName || 'Contact Support';
                 const ownerSnap = await db.collection('users_data').doc(ownerId).get();
-                let ownerPhone = '';
                 if (ownerSnap.exists) {
-                    ownerPhone = (ownerSnap.data() as any).phone || '';
-                    ownerPhone = ownerPhone.replace(/\D/g, '');
-                    if (ownerPhone.length === 10) ownerPhone = '91' + ownerPhone;
+                    const data = ownerSnap.data() as any;
+                    if (data.phone) {
+                        ownerPhone = data.phone.replace(/\D/g, '');
+                        if (ownerPhone.length === 10) ownerPhone = '91' + ownerPhone;
+                    }
                 }
 
-                let appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://rentsutra-v1.netlify.app').replace(/\/+$/, '');
-                if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
-                    appUrl = 'https://rentsutra-mcp.netlify.app';
+                let appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/+$/, '');
+                if (!appUrl) {
+                    console.warn('[onboardTenant] NEXT_PUBLIC_APP_URL not found, using root fallback. Magic links may break!');
                 }
                 const dashboardUrl = await TenantService.generateMagicLink(appDb, guestId, standardizedPhone, ownerId, pgName || newGuest.pgName || 'RentSutra');
                 magicLinkResult = dashboardUrl;
@@ -496,15 +503,18 @@ export class TenantService {
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
 
                 const bodyValues = [
-                    { type: 'text', text: name }, // {{1}} - Tenant Name
-                    { type: 'text', text: pgName || newGuest.pgName }, // {{2}} - PG Name
-                    { type: 'text', text: roomName || 'Assigned Room' }, // {{3}} - Room/Bed
-                    { type: 'text', text: `₹${newGuest.rentAmount}` }, // {{4}} - Rent
-                    { type: 'text', text: dashboardUrl }, // {{5}} - Dashboard URL
-                    { type: 'text', text: format(startOfCycle, 'dd-MMM-yyyy') } // {{6}} - Joining Date
+                    { type: 'text', text: name },
+                    { type: 'text', text: pgName || newGuest.pgName },
+                    { type: 'text', text: roomName || 'Assigned Room' },
+                    { type: 'text', text: `₹${newGuest.rentAmount}` },
+                    { type: 'text', text: ownerPhone },
+                    { type: 'text', text: dashboardUrl || 'https://rentsutra-mcp.netlify.app' }
                 ];
 
                 const headerValues = [{ type: 'image', image: { link: welcomeImage } }];
+
+                // Extract the dynamic hash from the dashboard URL for the button parameter
+                const inviteHash = dashboardUrl.includes('invite/') ? dashboardUrl.split('invite/')[1] : '';
 
                 const result = await sendWhatsAppTemplate(
                     formattedPhone,
@@ -513,7 +523,7 @@ export class TenantService {
                     'en_US',
                     headerValues,
                     bodyValues,
-                    [],
+                    inviteHash ? [{ type: 'text', text: inviteHash }] : [],
                     guestId
                 );
 

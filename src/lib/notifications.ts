@@ -32,7 +32,7 @@ export async function initPushAndSaveToken(userId: string): Promise<InitPushResu
 }
 
 export async function subscribeToTopic({token, topic,topics,userId}: {token: string, topic?: string, topics?: string[], userId?: string}): Promise<boolean> {
-	const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 	try {
 		const res = await fetch(`${appUrl}/api/notifications/subscribe`, {
 			method: 'POST',
@@ -46,7 +46,7 @@ export async function subscribeToTopic({token, topic,topics,userId}: {token: str
 }
 
 export async function subscribeToTopics(token: string, topics: string[]): Promise<{ ok: boolean; subscribed?: string[] }> {
-	const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 	try {
 		const res = await fetch(`${appUrl}/api/notifications/subscribe`, {
 			method: 'POST',
@@ -62,7 +62,7 @@ export async function subscribeToTopics(token: string, topics: string[]): Promis
 }
 
 export async function getSubscribedTopics(opts: { userId?: string; token?: string }): Promise<string[]> {
-	const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 	const params = new URLSearchParams()
 	if (opts.userId) params.set('userId', opts.userId)
 	if (opts.token) params.set('token', opts.token)
@@ -73,7 +73,7 @@ export async function getSubscribedTopics(opts: { userId?: string; token?: strin
 }
 
 export async function sendPushToUser(params: { userId: string; title: string; body: string; link?: string }): Promise<{ ok: boolean; error?: string }>{
-	const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 	try {
 		const res = await fetch(`${appUrl}/api/notifications/send/user`, {
 			method: 'POST',

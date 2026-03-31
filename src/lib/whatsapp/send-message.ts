@@ -302,14 +302,13 @@ export async function sendWhatsAppTemplate(
         }
         
         if (buttonValues && buttonValues.length > 0) {
-            // For buttons, Meta requires sending button component per button group or specific formatting
-            // Usually buttonValues is an array of objects like { type: 'text', text: '...' }
-            // but we might need to wrap it. For now, pushing as is if it follows the pattern.
-            // If buttonValues contains objects with 'type' and 'parameters', it's likely already formatted.
-            // Otherwise, it might be a simple array of values for a single button.
-            // For simplicity and common use cases, assuming it's an array of parameters for a single button component.
-            // If multiple buttons are needed, the caller should use Pattern B with pre-formatted components.
-            components.push({ type: 'button', parameters: buttonValues });
+            // For buttons, Meta requires sub_type and index in v18.0+
+            components.push({ 
+                type: 'button', 
+                sub_type: 'url', // defaulting to url as it's most common for our apps
+                index: '0', 
+                parameters: buttonValues 
+            });
         }
     }
 
