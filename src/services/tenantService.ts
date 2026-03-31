@@ -58,6 +58,7 @@ export class TenantService {
             guestId,
             phone,
             ownerId,
+            role: 'tenant',
             pgName: pgName || 'RentSutra',
             createdAt: Date.now(),
             expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours expiry
@@ -487,10 +488,10 @@ export class TenantService {
                 const ownerSnap = await db.collection('users_data').doc(ownerId).get();
                 if (ownerSnap.exists) {
                     const data = ownerSnap.data() as any;
-                    if (data.phone) {
-                        ownerPhone = data.phone.replace(/\D/g, '');
-                        if (ownerPhone.length === 10) ownerPhone = '91' + ownerPhone;
-                    }
+                        if (data.phone) {
+                            ownerPhone = data.phone.replace(/\D/g, '').slice(-10);
+                            ownerPhone = `+91 ${ownerPhone}`; 
+                        }
                 }
 
                 let appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/+$/, '');
@@ -513,8 +514,6 @@ export class TenantService {
 
                 const headerValues = [{ type: 'image', image: { link: welcomeImage } }];
 
-                // Extract the dynamic hash from the dashboard URL for the button parameter
-                const inviteHash = dashboardUrl.includes('invite/') ? dashboardUrl.split('invite/')[1] : '';
 
                 const result = await sendWhatsAppTemplate(
                     formattedPhone,
@@ -523,7 +522,7 @@ export class TenantService {
                     'en_US',
                     headerValues,
                     bodyValues,
-                    inviteHash ? [{ type: 'text', text: inviteHash }] : [],
+                    [],
                     guestId
                 );
 

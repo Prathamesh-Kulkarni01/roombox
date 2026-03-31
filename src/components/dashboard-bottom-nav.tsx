@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { MoreHorizontal, Home, BookUser, MessageSquareWarning, CreditCard, ChevronRight, Wallet, Building } from 'lucide-react';
+import { MoreHorizontal, Home, BookUser, MessageSquareWarning, CreditCard, ChevronRight, Wallet, Building, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,

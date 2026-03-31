@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores';
 import { logoutUser } from '@/lib/slices/userSlice';
-import { LogOut, Shield, BookOpen, BookUser } from 'lucide-react';
+import { LogOut, Shield, BookOpen, BookUser, UserCircle } from 'lucide-react';
 import type { RolePermissions } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
 import { canViewFeature } from '@/lib/permissions';
@@ -103,8 +103,15 @@ export default function DashboardSidebar() {
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7"><LogOut/></Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-40 mb-2" align="end" forceMount>
-                     <DropdownMenuItem onClick={() => dispatch(logoutUser())}>
+                <DropdownMenuContent className="w-48 mb-2" align="end" forceMount>
+                    <DropdownMenuLabel>{t('my_account')}</DropdownMenuLabel>
+                    <DropdownMenuItem asChild>
+                        <Link href="/dashboard/profile" className="flex items-center w-full">
+                            <UserCircle className="mr-2 h-4 w-4" />
+                            {t('my_profile')}
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => dispatch(logoutUser())}>
                         <LogOut className="mr-2 h-4 w-4" />
                         {t('logout')}
                     </DropdownMenuItem>

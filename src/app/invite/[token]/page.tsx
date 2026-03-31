@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Building2, Home, Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-export default function TenantInvitePage() {
+export default function InvitePage() {
     const { token } = useParams();
     const router = useRouter();
     const { toast } = useToast();
@@ -17,6 +17,7 @@ export default function TenantInvitePage() {
     const [loading, setLoading] = useState(true);
     const [verifying, setVerifying] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [role, setRole] = useState<string>("tenant");
     const [pgName, setPgName] = useState<string>("Your New Home");
 
     useEffect(() => {
@@ -30,6 +31,7 @@ export default function TenantInvitePage() {
                 }
 
                 setPgName(data.pgName);
+                setRole(data.role || "tenant");
                 setLoading(false);
             } catch (err: any) {
                 console.error("Invite Fetch Error:", err);
@@ -97,24 +99,49 @@ export default function TenantInvitePage() {
 
                 <CardContent className="space-y-8 pb-10">
                     <div className="grid grid-cols-1 gap-4">
-                        <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-                            <div className="bg-green-500/10 p-2 rounded-full">
-                                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            </div>
-                            <span className="text-sm font-medium">Access your digital rent passbook</span>
-                        </div>
-                        <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-                            <div className="bg-green-500/10 p-2 rounded-full">
-                                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            </div>
-                            <span className="text-sm font-medium">Raise complaints & track repairs</span>
-                        </div>
-                        <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-                            <div className="bg-green-500/10 p-2 rounded-full">
-                                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            </div>
-                            <span className="text-sm font-medium">Verify your KYC documents securely</span>
-                        </div>
+                        {role === 'tenant' ? (
+                            <>
+                                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                                    <div className="bg-green-500/10 p-2 rounded-full">
+                                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                    </div>
+                                    <span className="text-sm font-medium">Access your digital rent passbook</span>
+                                </div>
+                                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                                    <div className="bg-green-500/10 p-2 rounded-full">
+                                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                    </div>
+                                    <span className="text-sm font-medium">Raise complaints & track repairs</span>
+                                </div>
+                                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                                    <div className="bg-green-500/10 p-2 rounded-full">
+                                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                    </div>
+                                    <span className="text-sm font-medium">Verify your KYC documents securely</span>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                                    <div className="bg-blue-500/10 p-2 rounded-full">
+                                        <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <span className="text-sm font-medium">Manage property operations digitally</span>
+                                </div>
+                                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                                    <div className="bg-blue-500/10 p-2 rounded-full">
+                                        <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <span className="text-sm font-medium">Access owner dashboards & tools</span>
+                                </div>
+                                <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
+                                    <div className="bg-blue-500/10 p-2 rounded-full">
+                                        <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                                    </div>
+                                    <span className="text-sm font-medium">Coordinate with team & guests</span>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     <Button

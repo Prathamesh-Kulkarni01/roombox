@@ -88,26 +88,29 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const role = 'tenant' as const;
-        const guestId = magicLinkData?.guestId || userDoc.data().guestId;
-        const ownerId = magicLinkData?.ownerId || userDoc.data().ownerId;
-        const pgId = magicLinkData?.pgId || userDoc.data().pgId;
+        const role = magicLinkData?.role || 'tenant';
+        const guestId = magicLinkData?.guestId || userDoc.data()?.guestId || null;
+        const staffId = magicLinkData?.staffId || userDoc.data()?.staffId || null;
+        const ownerId = magicLinkData?.ownerId || userDoc.data()?.ownerId;
+        const pgId = magicLinkData?.pgId || userDoc.data()?.pgId;
 
         // Clear legacy password from Firestore if it exists and update metadata
         await userDoc.ref.update({
             password: FieldValue.delete(),
             guestId,
+            staffId,
             ownerId,
             pgId,
             role,
             status: 'active',
             updatedAt: new Date(),
-            schemaVersion: 2 // Mark as versioned
+            schemaVersion: 4 // Latest schema version
         });
 
         const claims = {
             role,
             guestId,
+            staffId,
             ownerId,
             pgId
         };
@@ -123,7 +126,8 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            customToken
+            customToken,
+            role
         });
 
     } catch (error) {

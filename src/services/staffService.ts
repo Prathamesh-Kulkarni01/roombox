@@ -1,8 +1,33 @@
-
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
+import * as crypto from 'crypto';
 import { CURRENT_SCHEMA_VERSION, type Staff, type User } from '@/lib/types';
 
 export class StaffService {
+    /**
+     * Generates a single-use magic link token for a staff member.
+     */
+    static async generateMagicLink(appDb: Firestore, staffId: string, phone: string, ownerId: string, role: string, pgName?: string): Promise<string> {
+        const token = crypto.randomBytes(32).toString('hex');
+
+        await appDb.collection('magic_links').doc(token).set({
+            token,
+            staffId,
+            phone,
+            ownerId,
+            role,
+            pgName: pgName || 'RentSutra',
+            createdAt: Date.now(),
+            expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days expiry for staff
+            used: false
+        });
+
+        let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app').replace(/\/+$/, '');
+        if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
+            appUrl = 'https://rentsutra-mcp.netlify.app';
+        }
+        return `${appUrl}/invite/${token}`;
+    }
+
     /**
      * Adds a new staff member to the owner's collection.
      */
@@ -54,30 +79,28 @@ export class StaffService {
             });
             newStaff.userId = uid;
         }
+
         // 3. Send Welcome WhatsApp (Non-blocking)
         if (standardizedPhone && ownerId) {
             (async () => {
                 try {
                     const { createAndSendNotification } = await import('@/lib/actions/notificationActions');
                     
-                    // Generate a magic link for staff onboarding
-                    const token = Math.random().toString(36).substring(2, 15);
-                    const expiresAt = new Date();
-                    expiresAt.setDate(expiresAt.getDate() + 7);
+                    const magicLink = await StaffService.generateMagicLink(appDb, staffId, standardizedPhone, ownerId, role, pgName);
                     
-                    await appDb.collection('invites').doc(token).set({
-                        id: token,
-                        phone: standardizedPhone,
-                        ownerId,
-                        pgName,
-                        type: 'staff_onboarding',
-                        role,
-                        expiresAt: expiresAt.toISOString(),
-                        createdAt: new Date().toISOString()
-                    });
+                    const dashboardUrl = magicLink;
 
-                    const appUrl = (process.env.APP_URL || 'https://roombox.in');
-                    const dashboardUrl = `${appUrl}/invite?token=${token}`;
+                    // Fetch Owner Phone for "Host Contact" param
+                    const ownerDoc = await db.collection('users').doc(ownerId).get();
+                    let ownerPhone = ownerDoc.data()?.phone || pgName || 'Contact Support';
+                    const ownerSnap = await db.collection('users_data').doc(ownerId).get();
+                    if (ownerSnap.exists) {
+                        const data = ownerSnap.data() as any;
+                        if (data.phone) {
+                            ownerPhone = data.phone.replace(/\D/g, '').slice(-10);
+                            ownerPhone = `+91 ${ownerPhone}`; // Formatted for readable display in body text
+                        }
+                    }
                     
                     await createAndSendNotification({
                         ownerId,
@@ -94,22 +117,19 @@ export class StaffService {
                                 { type: 'text', text: name }, // {{1}} - Name
                                 { type: 'text', text: pgName }, // {{2}} - Building
                                 { type: 'text', text: role.toUpperCase() }, // {{3}} - Role
-                                { type: 'text', text: String(salary || 0) }, // {{4}} - Salary/Rent
-                                { type: 'text', text: dashboardUrl }, // {{5}} - Dashboard URL
-                                { type: 'text', text: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) } // {{6}} - Joining Date
+                                { type: 'text', text: `₹${salary || 0}` }, // {{4}} - Salary/Rent
+                                { type: 'text', text: ownerPhone }, // {{5}} - Host Contact
+                                { type: 'text', text: dashboardUrl } // {{6}} - Action Link
                             ],
                             headerValues: [
                                 { 
                                     type: 'image', 
                                     image: { 
-                                        // Force JPEG to avoid WebP upload errors
                                         link: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?fm=jpg&w=800&q=80' 
                                     } 
                                 }
                             ],
-                            buttonValues: [
-                                { type: 'text', text: dashboardUrl } // {{1}} for the CTA button
-                            ],
+                            buttonValues: [],
                             languageCode: 'en_US'
                         }
                     });

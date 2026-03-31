@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            pgName: data.pgName
+            pgName: data.pgName,
+            role: data.role || 'tenant'
         });
     } catch (error) {
         return serverError(error, "GET /api/auth/magic-login");
@@ -82,9 +83,12 @@ export async function POST(req: NextRequest) {
             usedAt: Date.now()
         });
 
+        const role = magicLinkData.role || 'tenant';
+
         const customToken = await auth.createCustomToken(uid, {
-            role: 'tenant',
+            role,
             guestId: magicLinkData.guestId,
+            staffId: magicLinkData.staffId,
             ownerId: magicLinkData.ownerId
         });
 
@@ -92,10 +96,12 @@ export async function POST(req: NextRequest) {
         const userRef = adminDb.collection('users').doc(uid);
         const userDoc = await userRef.get();
         if (userDoc.exists) {
+            const existingData = userDoc.data() || {};
             await userRef.update({
-                guestId: magicLinkData.guestId,
+                guestId: magicLinkData.guestId || existingData.guestId || null,
+                staffId: magicLinkData.staffId || existingData.staffId || null,
                 ownerId: magicLinkData.ownerId,
-                role: 'tenant',
+                role,
                 status: 'active',
                 updatedAt: new Date()
             });

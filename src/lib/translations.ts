@@ -81,6 +81,8 @@ const translations = {
     logout: "Logout",
     more: "More",
     more_options: "More Options",
+    my_profile: "My Profile",
+    my_account: "Account",
 
     nav_group_core: "Daily Tasks",
     nav_dashboard: "Dashboard",
@@ -126,6 +128,8 @@ const translations = {
     nav_enterprise_desc: "Connect your own Firebase project.",
     nav_settings: "Settings",
     nav_settings_desc: "Configure your account.",
+    nav_profile: "My Profile",
+    nav_profile_desc: "View your account & role details.",
     nav_payment_settings: "Payment Settings",
     nav_payment_settings_desc: "Configure UPI and Payment Modes.",
 
@@ -274,6 +278,8 @@ const translations = {
     logout: "लॉग आउट",
     more: "अधिक",
     more_options: "अधिक विकल्प",
+    my_profile: "मेरी प्रोफ़ाइल",
+    my_account: "खाता",
 
     nav_group_core: "मुख्य प्रबंधन",
     nav_dashboard: "डैशबोर्ड",
@@ -319,6 +325,8 @@ const translations = {
     nav_enterprise_desc: "अपना खुद का फायरबेस प्रोजेक्ट कनेक्ट करें।",
     nav_settings: "सेटिंग्स",
     nav_settings_desc: "अपना खाता कॉन्फ़िगर करें।",
+    nav_profile: "मेरी प्रोफ़ाइल",
+    nav_profile_desc: "अपना खाता और भूमिका विवरण देखें।",
     nav_payment_settings: "भुगतान सेटिंग्स",
     nav_payment_settings_desc: "UPI और भुगतान मोड कॉन्फ़िगर करें।",
 
@@ -468,6 +476,8 @@ const translations = {
     logout: "लॉगआउट",
     more: "अधिक",
     more_options: "अधिक पर्याय",
+    my_profile: "माझी प्रोफाइल",
+    my_account: "खाते",
 
     nav_group_core: "दैनिक कामे",
     nav_dashboard: "डॅशबोर्ड",
@@ -511,8 +521,10 @@ const translations = {
     nav_training_desc: "RentSutra कसे वापरायचे ते शिका.",
     nav_enterprise: "एंटरप्राइज",
     nav_enterprise_desc: "व्हॉट्सअॅप एपीआय कनेक्टिव्हिटी.",
-    nav_settings: "सेटिंग्ज",
+    nav_settings: "सेटिंग्स",
     nav_settings_desc: "तुमचे खाते कॉन्फिगर करा.",
+    nav_profile: "माझी प्रोफाइल",
+    nav_profile_desc: "तुमचे खाते आणि भूमिकेचे तपशील पहा.",
     nav_payment_settings: "पेमेंट सेटिंग्ज",
     nav_payment_settings_desc: "UPI आणि पेमेंट प्रकार सेट करा.",
 

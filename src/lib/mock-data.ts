@@ -143,6 +143,7 @@ export const allNavItems: NavGroup[] = [
         { href: '/dashboard/whatsapp', label: 'nav_whatsapp', icon: MessageCircle, feature: 'whatsapp', description: 'nav_whatsapp_desc' },
         { href: '/dashboard/training', label: 'nav_training', icon: BookOpen, feature: 'core', description: 'nav_training_desc' },
         { href: '/dashboard/enterprise', label: 'nav_enterprise', icon: Building, feature: 'core', description: 'nav_enterprise_desc' },
+        { href: '/dashboard/profile', label: 'nav_profile', icon: UserCircle, feature: 'core', description: 'nav_profile_desc' },
         { href: '/dashboard/settings', label: 'nav_settings', icon: Settings, feature: 'core', description: 'nav_settings_desc' },
     ]
   }
