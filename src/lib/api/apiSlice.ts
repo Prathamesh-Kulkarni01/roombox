@@ -463,6 +463,13 @@ export const api = createApi({
             invalidatesTags: ['Staff'],
         }),
 
+        generateStaffMagicLink: builder.mutation<{ success: boolean; magicLink: string }, {
+            staffId: string;
+            phone: string;
+        }>({
+            query: (body) => ({ url: 'api/owners/staff/magic-link', method: 'POST', body }),
+        }),
+
         // ─── Verification ────────────────────────────────────────────────
         verifyPayment: builder.mutation<{ success: boolean; guest: Guest }, {
             guestId: string;
@@ -515,6 +522,7 @@ export const {
     useGetStaffQuery,
     useUpdateStaffApiMutation,
     useDeleteStaffApiMutation,
+    useGenerateStaffMagicLinkMutation,
     // Verification
     useVerifyPaymentMutation,
 } = api;

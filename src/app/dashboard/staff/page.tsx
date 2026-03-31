@@ -22,12 +22,13 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Users, PlusCircle, MoreHorizontal, IndianRupee, Pencil, Trash2, Building, ShieldAlert } from 'lucide-react'
+import { Users, User, PlusCircle, MoreHorizontal, IndianRupee, Pencil, Trash2, Building, ShieldAlert } from 'lucide-react'
 import type { Staff } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction, fetchStaff as fetchStaffAction } from '@/lib/slices/staffSlice'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { canAccess } from '@/lib/permissions';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import { useToast } from "@/hooks/use-toast"
@@ -100,6 +101,7 @@ const StaffForm = ({ form, onSubmit }: { form: any, onSubmit: (data: StaffFormVa
 
 export default function StaffPage() {
     const dispatch = useAppDispatch()
+    const router = useRouter()
     const { pgs } = useAppSelector(state => state.pgs)
     const { staff } = useAppSelector(state => state.staff)
     const { isLoading, selectedPgId } = useAppSelector(state => state.app)
@@ -179,10 +181,20 @@ export default function StaffPage() {
         }
     }
 
-    const handleOpenPermissionsDialog = (member: Staff) => {
-        setStaffForPermissions(member);
-        const perms = parseStaffPermissions(member.permissions || []);
-        setSelectedPermissions(perms);
+    const handleOpenPermissionsDialog = (memberOrRole: Staff | UserRole) => {
+        if (typeof memberOrRole === 'string') {
+            setRoleToEdit(memberOrRole);
+            setStaffForPermissions(null);
+            // Assuming per-role permissions are stored differently or just using a dummy staff object?
+            // Actually, let's just use the featurePermissions from the store for roles
+            const rolePerms = (featurePermissions as any)[memberOrRole] || {};
+            setSelectedPermissions(rolePerms);
+        } else {
+            setStaffForPermissions(memberOrRole);
+            setRoleToEdit(null);
+            const perms = parseStaffPermissions(memberOrRole.permissions || []);
+            setSelectedPermissions(perms);
+        }
         setIsPermissionsDialogOpen(true);
     }
 
@@ -197,22 +209,28 @@ export default function StaffPage() {
     }
 
     const handleSavePermissions = async () => {
-        if (!staffForPermissions) return;
-        
-        // Convert FeaturePermissions object back to flat array
-        const flatPerms: string[] = [];
-        Object.entries(selectedPermissions).forEach(([feature, actions]) => {
-            if (actions) {
-                Object.entries(actions).forEach(([action, allowed]) => {
-                    if (allowed) flatPerms.push(`${feature}:${action}`);
-                });
-            }
-        });
+        if (roleToEdit) {
+            const nextPermissions = {
+                ...featurePermissions,
+                [roleToEdit]: selectedPermissions
+            };
+            await savePermissions(nextPermissions);
+            toast({ title: "Role Updated", description: `Permissions for ${roleToEdit} have been saved.` });
+        } else if (staffForPermissions) {
+            const flatPerms: string[] = [];
+            Object.entries(selectedPermissions).forEach(([feature, actions]) => {
+                if (actions) {
+                    Object.entries(actions as any).forEach(([action, allowed]) => {
+                        if (allowed) flatPerms.push(`${feature}:${action}`);
+                    });
+                }
+            });
 
-        const updatedStaff = { ...staffForPermissions, permissions: flatPerms };
-        await dispatch(updateStaffAction(updatedStaff));
+            const updatedStaff = { ...staffForPermissions, permissions: flatPerms };
+            await dispatch(updateStaffAction(updatedStaff));
+            toast({ title: "Permissions Updated", description: `Permissions for ${staffForPermissions.name} have been saved.` });
+        }
         
-        toast({ title: "Permissions Updated", description: `Permissions for ${staffForPermissions.name} have been saved.` });
         setIsPermissionsDialogOpen(false);
     }
 
@@ -325,18 +343,29 @@ export default function StaffPage() {
                                     </TableHeader>
                                     <TableBody>
                                         {filteredStaff.map((member) => (
-                                            <TableRow key={member.id}>
-                                                <TableCell className="font-medium">{member.name}</TableCell>
-                                                <TableCell>{member.pgName}</TableCell>
-                                                <TableCell>
+                                            <TableRow 
+                                                key={member.id} 
+                                                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                                onClick={() => router.push(`/dashboard/staff/${member.id}`)}
+                                            >
+                                                <TableCell className="font-medium">
+                                                    <div className="flex flex-col">
+                                                        <span>{member.name}</span>
+                                                        <span className="text-[10px] text-muted-foreground md:hidden uppercase font-semibold">{member.role}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="hidden md:table-cell">{member.pgName}</TableCell>
+                                                <TableCell className="hidden md:table-cell">
                                                     <Badge className={cn("capitalize border-transparent", roleColors[member.role])}>{member.role}</Badge>
                                                 </TableCell>
                                                 <TableCell>{member.phone}</TableCell>
-                                                <TableCell className="text-right font-medium flex items-center justify-end gap-1">
-                                                    <IndianRupee className="h-4 w-4" />
-                                                    {member.salary.toLocaleString('en-IN')}
+                                                <TableCell className="text-right font-medium">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <IndianRupee className="h-3 w-3" />
+                                                        {member.salary.toLocaleString('en-IN')}
+                                                    </div>
                                                 </TableCell>
-                                                <TableCell>
+                                                <TableCell onClick={(e) => e.stopPropagation()}>
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -345,6 +374,9 @@ export default function StaffPage() {
                                                             </Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => router.push(`/dashboard/staff/${member.id}`)}>
+                                                                <User className="mr-2 h-4 w-4" /> View Profile
+                                                            </DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => handleOpenPermissionsDialog(member)}>
                                                                 <ShieldAlert className="mr-2 h-4 w-4" /> Permissions
                                                             </DropdownMenuItem>
@@ -402,7 +434,7 @@ export default function StaffPage() {
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <ShieldAlert className="w-5 h-5 text-primary" />
-                            Manage Permissions - {staffForPermissions?.name} ({staffForPermissions?.role})
+                            Manage Permissions - {roleToEdit ? (<span className="capitalize">{roleToEdit} Role</span>) : `${staffForPermissions?.name} (${staffForPermissions?.role})`}
                         </DialogTitle>
                         <DialogDescription>
                             Configure granular permissions for this staff member. These settings override default role behaviors.

@@ -47,28 +47,32 @@ export class TenantService {
     }
 
     /**
-     * Generates a single-use magic link token for a tenant.
-     * Use this whenever the tenant needs to log in without a password.
+     * Generates a single-use magic link token for a tenant or staff.
+     * Use this whenever the user needs to log in without a password.
      */
-    static async generateMagicLink(appDb: Firestore, guestId: string, phone: string, ownerId: string, pgName?: string): Promise<string> {
+    static async generateMagicLink(appDb: Firestore, id: string, phone: string, ownerId: string, pgName?: string, role: string = 'tenant'): Promise<string> {
         const token = crypto.randomBytes(32).toString('hex');
 
-        await appDb.collection('magic_links').doc(token).set({
+        const magicLinkData: any = {
             token,
-            guestId,
             phone,
             ownerId,
-            role: 'tenant',
+            role,
             pgName: pgName || 'RentSutra',
             createdAt: Date.now(),
             expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours expiry
             used: false
-        });
+        };
+
+        if (role === 'staff') {
+            magicLinkData.staffId = id;
+        } else {
+            magicLinkData.guestId = id;
+        }
+
+        await appDb.collection('magic_links').doc(token).set(magicLinkData);
 
         let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app').replace(/\/+$/, '');
-        if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
-            appUrl = 'https://rentsutra-mcp.netlify.app';
-        }
         return `${appUrl}/invite/${token}`;
     }
 
