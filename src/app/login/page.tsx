@@ -47,7 +47,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [waitingForOtp, setWaitingForOtp] = useState(false)
-  const [tenantLoginMode, setTenantLoginMode] = useState<'otp' | 'password'>('password')
+  const [tenantLoginMode, setTenantLoginMode] = useState<'otp' | 'password' | 'setup-code'>('password')
 
   const [activeTab, setActiveTab] = useState('tenant')
 
@@ -249,7 +249,30 @@ export default function LoginPage() {
             </TabsList>
 
             <TabsContent value="tenant" className="grid gap-4">
-              {tenantLoginMode === 'otp' ? (
+              {tenantLoginMode === 'setup-code' ? (
+                <form onSubmit={handleVerifyOtp} className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="setup-phone">Phone Number</Label>
+                    <Input id="setup-phone" type="tel" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="setup-code">6-Digit Setup Code</Label>
+                    <Input id="setup-code" type="text" placeholder="Enter 6-digit code" required maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} />
+                    <p className="text-[10px] text-muted-foreground italic">Use the setup code provided by your property owner/manager.</p>
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={loading || !phone || otp.length !== 6}>
+                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Verify & Log In
+                  </Button>
+
+                  <div className="flex flex-col gap-2">
+                    <Button type="button" variant="link" className="text-xs" onClick={() => setTenantLoginMode('otp')} disabled={loading}>
+                      Login with OTP instead
+                    </Button>
+                  </div>
+                </form>
+              ) : tenantLoginMode === 'otp' ? (
                 !waitingForOtp ? (
                   <form onSubmit={handleSendOtp} className="grid gap-4">
                     <div className="grid gap-2">
@@ -263,9 +286,14 @@ export default function LoginPage() {
                       Send OTP
                     </Button>
                     
-                    <Button type="button" variant="link" className="text-xs" onClick={() => setTenantLoginMode('password')} disabled={loading}>
-                       Login with Password instead
-                    </Button>
+                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+                      <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={() => setTenantLoginMode('password')} disabled={loading}>
+                        Password Login
+                      </Button>
+                      <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={() => setTenantLoginMode('setup-code')} disabled={loading}>
+                        Setup Code Login
+                      </Button>
+                    </div>
                   </form>
                 ) : (
                   <form onSubmit={handleVerifyOtp} className="grid gap-4">
@@ -315,9 +343,14 @@ export default function LoginPage() {
                     Log In
                   </Button>
 
-                  <Button type="button" variant="link" className="text-xs" onClick={() => setTenantLoginMode('otp')} disabled={loading}>
-                     Back to OTP Login
-                  </Button>
+                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+                    <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={() => setTenantLoginMode('otp')} disabled={loading}>
+                      Login with OTP
+                    </Button>
+                    <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={() => setTenantLoginMode('setup-code')} disabled={loading}>
+                      Use Setup Code
+                    </Button>
+                  </div>
                 </form>
               )}
             </TabsContent>

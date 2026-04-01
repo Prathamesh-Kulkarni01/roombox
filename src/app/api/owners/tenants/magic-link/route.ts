@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
         const { ownerId, error } = await getVerifiedOwnerId(request);
         if (!ownerId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -27,11 +27,12 @@ export async function POST(request: Request) {
         const pgName = guestData.pgName || 'RentSutra';
 
         // Generate Magic Link
-        const magicLink = await TenantService.generateMagicLink(appDb, guestId, phone, ownerId, pgName);
+        const { magicLink, inviteCode } = await TenantService.generateMagicLink(appDb, guestId, phone, ownerId, pgName);
 
         return NextResponse.json({
             success: true,
-            magicLink
+            magicLink,
+            inviteCode
         });
 
     } catch (error: any) {

@@ -48,6 +48,7 @@ export default function StaffProfilePage() {
     const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false)
     const [selectedPermissions, setSelectedPermissions] = useState<any>({})
     const [magicLink, setMagicLink] = useState('')
+    const [inviteCode, setInviteCode] = useState('')
     const [isMagicLinkDialogOpen, setIsMagicLinkDialogOpen] = useState(false)
     
     const [generateMagicLink, { isLoading: isGeneratingLink }] = useGenerateStaffMagicLinkMutation()
@@ -103,13 +104,14 @@ export default function StaffProfilePage() {
 
             if (result.success && result.magicLink) {
                 setMagicLink(result.magicLink);
+                setInviteCode(result.inviteCode);
                 setIsMagicLinkDialogOpen(true);
-                toast({ title: "Magic Link Generated", description: "You can now share this login link with the staff member." });
+                toast({ title: "Invite Generated", description: "You can share the magic link or the 6-digit setup code." });
             } else {
-                toast({ title: "Error", description: "Failed to generate link", variant: "destructive" });
+                toast({ title: "Error", description: "Failed to generate invite", variant: "destructive" });
             }
         } catch (error: any) {
-            toast({ title: "Error", description: error.data?.error || "Failed to generate link", variant: "destructive" });
+            toast({ title: "Error", description: error.data?.error || "Failed to generate invite", variant: "destructive" });
         }
     }
 
@@ -292,26 +294,50 @@ export default function StaffProfilePage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Magic Link Dialog */}
             <Dialog open={isMagicLinkDialogOpen} onOpenChange={setIsMagicLinkDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Magic Link Generated</DialogTitle>
-                        <DialogDescription>The staff member can use this link to log in instantly without a password.</DialogDescription>
+                <DialogContent className="max-w-[95vw] sm:max-w-md rounded-2xl p-0 overflow-hidden border-none shadow-2xl flex flex-col">
+                    <DialogHeader className="p-4 sm:p-6 pb-0">
+                        <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight">Staff Login Setup</DialogTitle>
+                        <DialogDescription className="text-xs sm:text-sm">Share either the link or the 6-digit code for instant login.</DialogDescription>
                     </DialogHeader>
-                    <div className="p-4 bg-muted rounded-md break-all text-sm font-mono border">
-                        {magicLink}
+                    
+                    <div className="px-4 sm:px-6 py-4 space-y-4 sm:space-y-6 overflow-hidden">
+                        <div className="space-y-3 overflow-hidden">
+                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Option 1: 6-Digit Setup Code</Label>
+                             <div className="flex items-center justify-between p-3 sm:p-4 bg-primary/5 rounded-2xl border border-primary/10 overflow-hidden">
+                                 <span className="text-xl sm:text-3xl font-mono font-black tracking-normal sm:tracking-[0.3em] text-primary flex-1 min-w-0 truncate">{inviteCode}</span>
+                                 <Button size="icon" variant="secondary" className="h-9 w-9 rounded-xl shadow-sm shrink-0 ml-2" onClick={() => { navigator.clipboard.writeText(inviteCode); toast({ title: "Code Copied!" }) }}>
+                                     <Copy className="h-4 w-4" />
+                                 </Button>
+                             </div>
+                             <p className="text-[10px] text-muted-foreground/60 text-center font-medium">Valid for 24 hours</p>
+                        </div>
+
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center px-4"><span className="w-full border-t border-border/50" /></div>
+                            <div className="relative flex justify-center text-[10px] font-bold uppercase"><span className="bg-background px-3 text-muted-foreground/40">OR</span></div>
+                        </div>
+
+                        <div className="space-y-3 overflow-hidden">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Option 2: One-Tap Magic Link</Label>
+                            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-xl border border-border/50 overflow-hidden group">
+                                <LinkIcon className="h-4 w-4 text-muted-foreground/50 shrink-0 group-hover:text-primary transition-colors" />
+                                <div className="text-[11px] sm:text-xs font-mono truncate text-muted-foreground/80 flex-1 min-w-0 select-all">{magicLink}</div>
+                                <Button size="icon" variant="ghost" className="shrink-0 h-8 w-8 rounded-lg" onClick={() => { navigator.clipboard.writeText(magicLink); toast({ title: "Link Copied!" }) }}>
+                                    <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
                     </div>
-                    <DialogFooter className="flex-col sm:flex-row gap-2">
-                        <Button variant="secondary" onClick={() => { navigator.clipboard.writeText(magicLink); toast({ title: "Copied!" }) }}>
-                            <Copy className="mr-2 h-4 w-4" /> Copy
-                        </Button>
-                        <Button className="bg-green-500 hover:bg-green-600 text-white" asChild>
-                            <a href={`https://wa.me/${staffMember.phone}?text=${encodeURIComponent(`Hi ${staffMember.name}, here is your magic login link for RoomBox: ${magicLink}`)}`} target="_blank" rel="noopener noreferrer">
-                                <MessageCircle className="mr-2 h-4 w-4" /> Share on WhatsApp
+
+                    <div className="p-4 sm:p-6 pt-0 mt-auto">
+                        <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold h-12 rounded-xl shadow-lg shadow-green-500/20 group transition-all active:scale-[0.98] overflow-hidden" asChild>
+                            <a href={`https://wa.me/${staffMember.phone}?text=${encodeURIComponent(`Hi ${staffMember.name}, here is your login setup for ${staffMember.pgName || 'the property'}:\n\n✅ *Invite Code:* ${inviteCode}\n\n🔗 *Or click to login:* ${magicLink}`)}`} target="_blank" rel="noopener noreferrer">
+                                <MessageCircle className="mr-2 h-5 w-5 shrink-0 animate-pulse group-hover:animate-none" /> 
+                                <span className="truncate">Share on WhatsApp</span>
                             </a>
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

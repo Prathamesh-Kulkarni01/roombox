@@ -50,11 +50,13 @@ export class TenantService {
      * Generates a single-use magic link token for a tenant or staff.
      * Use this whenever the user needs to log in without a password.
      */
-    static async generateMagicLink(appDb: Firestore, id: string, phone: string, ownerId: string, pgName?: string, role: string = 'tenant'): Promise<string> {
+    static async generateMagicLink(appDb: Firestore, id: string, phone: string, ownerId: string, pgName?: string, role: string = 'tenant'): Promise<{ magicLink: string, inviteCode: string }> {
         const token = crypto.randomBytes(32).toString('hex');
+        const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
 
         const magicLinkData: any = {
             token,
+            inviteCode,
             phone,
             ownerId,
             role,
@@ -73,7 +75,8 @@ export class TenantService {
         await appDb.collection('magic_links').doc(token).set(magicLinkData);
 
         let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app').replace(/\/+$/, '');
-        return `${appUrl}/invite/${token}`;
+        const magicLink = `${appUrl}/invite/${token}`;
+        return { magicLink, inviteCode };
     }
 
     /**
@@ -502,8 +505,8 @@ export class TenantService {
                 if (!appUrl) {
                     console.warn('[onboardTenant] NEXT_PUBLIC_APP_URL not found, using root fallback. Magic links may break!');
                 }
-                const dashboardUrl = await TenantService.generateMagicLink(appDb, guestId, standardizedPhone, ownerId, pgName || newGuest.pgName || 'RentSutra');
-                magicLinkResult = dashboardUrl;
+                const { magicLink } = await TenantService.generateMagicLink(appDb, guestId, standardizedPhone, ownerId, pgName || newGuest.pgName || 'RentSutra');
+                magicLinkResult = magicLink;
 
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
 
@@ -513,7 +516,7 @@ export class TenantService {
                     { type: 'text', text: roomName || 'Assigned Room' },
                     { type: 'text', text: `₹${newGuest.rentAmount}` },
                     { type: 'text', text: ownerPhone },
-                    { type: 'text', text: dashboardUrl || 'https://rentsutra-mcp.netlify.app' }
+                    { type: 'text', text: magicLink || 'https://rentsutra-mcp.netlify.app' }
                 ];
 
                 const headerValues = [{ type: 'image', image: { link: welcomeImage } }];
@@ -542,7 +545,7 @@ export class TenantService {
                         status: 'warning'
                     });
 
-                    const fallbackMsg = `👋 *Welcome to ${pgName || newGuest.pgName}!*\n\nHi ${name}, your host has added you to the portal.\n\nRoom: ${roomName || 'Assigned Room'}\nRent: ₹${newGuest.rentAmount}\n\nAccess your Dashboard here: ${dashboardUrl}`;
+                    const fallbackMsg = `👋 *Welcome to ${pgName || newGuest.pgName}!*\n\nHi ${name}, your host has added you to the portal.\n\nRoom: ${roomName || 'Assigned Room'}\nRent: ₹${newGuest.rentAmount}\n\nAccess your Dashboard here: ${magicLink}`;
                     await import('@/lib/whatsapp/send-message').then(m => m.sendWhatsAppMessage(formattedPhone, fallbackMsg, ownerId, guestId));
                 } else {
                     console.log(`[onboardTenant] WhatsApp template welcome sent successfully to ${formattedPhone}`);

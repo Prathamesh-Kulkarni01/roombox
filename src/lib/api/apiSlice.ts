@@ -463,7 +463,7 @@ export const api = createApi({
             invalidatesTags: ['Staff'],
         }),
 
-        generateStaffMagicLink: builder.mutation<{ success: boolean; magicLink: string }, {
+        generateStaffMagicLink: builder.mutation<{ success: boolean; magicLink: string; inviteCode: string }, {
             staffId: string;
             phone: string;
         }>({

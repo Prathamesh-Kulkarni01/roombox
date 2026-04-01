@@ -6,11 +6,13 @@ export class StaffService {
     /**
      * Generates a single-use magic link token for a staff member.
      */
-    static async generateMagicLink(appDb: Firestore, staffId: string, phone: string, ownerId: string, role: string, pgName?: string): Promise<string> {
+    static async generateMagicLink(appDb: Firestore, staffId: string, phone: string, ownerId: string, role: string, pgName?: string): Promise<{ magicLink: string, inviteCode: string }> {
         const token = crypto.randomBytes(32).toString('hex');
+        const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
 
         await appDb.collection('magic_links').doc(token).set({
             token,
+            inviteCode,
             staffId,
             phone,
             ownerId,
@@ -22,10 +24,8 @@ export class StaffService {
         });
 
         let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app').replace(/\/+$/, '');
-        if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
-            appUrl = 'https://rentsutra-mcp.netlify.app';
-        }
-        return `${appUrl}/invite/${token}`;
+        const magicLink = `${appUrl}/invite/${token}`;
+        return { magicLink, inviteCode };
     }
 
     /**
@@ -86,7 +86,7 @@ export class StaffService {
                 try {
                     const { createAndSendNotification } = await import('@/lib/actions/notificationActions');
                     
-                    const magicLink = await StaffService.generateMagicLink(appDb, staffId, standardizedPhone, ownerId, role, pgName);
+                    const { magicLink } = await StaffService.generateMagicLink(appDb, staffId, standardizedPhone, ownerId, role, pgName);
                     
                     const dashboardUrl = magicLink;
 

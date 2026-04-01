@@ -139,6 +139,7 @@ export default function GuestProfilePage() {
     const [generatedPassword, setGeneratedPassword] = useState('');
     const [isMagicLinkDialogOpen, setIsMagicLinkDialogOpen] = useState(false);
     const [generatedMagicLink, setGeneratedMagicLink] = useState('');
+    const [generatedSetupCode, setGeneratedSetupCode] = useState('');
     const [isGeneratingMagicLink, setIsGeneratingMagicLink] = useState(false);
     const [isGeneratingPassword, setIsGeneratingPassword] = useState(false);
 
@@ -257,7 +258,7 @@ export default function GuestProfilePage() {
     };
 
     const handleKycSubmit = async () => {
-        const documentsToSubmit: { config: KycDocumentConfig; dataUri: string }[] = [];
+        const documentsToSubmit: { config: any; dataUri: string }[] = [];
 
         for (const config of kycConfigs) {
             if (config.required && !documentUris[config.id]) {
@@ -354,6 +355,7 @@ export default function GuestProfilePage() {
             const data = await response.json();
             if (data.success) {
                 setGeneratedMagicLink(data.magicLink);
+                setGeneratedSetupCode(data.inviteCode);
                 setIsMagicLinkDialogOpen(true);
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to generate link', });
@@ -422,16 +424,28 @@ export default function GuestProfilePage() {
                                     <span className="text-sm font-medium">KYC Status:</span>
                                     <Badge variant="outline" className={cn("capitalize", kycStatusColors[guest.kycStatus])}>{guest.kycStatus.replace('-', ' ')}</Badge>
                                 </div>
-                                <Access feature="guests" action="edit">
-                                    <Button
-                                        variant="outline"
-                                        className="w-full mt-4"
-                                        disabled={isGeneratingPassword}
-                                        onClick={handleGeneratePassword}
-                                    >
-                                        {isGeneratingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
-                                        Generate New Password
-                                    </Button>
+                                 <Access feature="guests" action="edit">
+                                    <div className="flex flex-col gap-2 w-full mt-4">
+                                        <Button
+                                            variant="outline"
+                                            className="w-full"
+                                            disabled={isGeneratingPassword}
+                                            onClick={handleGeneratePassword}
+                                        >
+                                            {isGeneratingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                                            Generate New Password
+                                        </Button>
+
+                                        <Button
+                                            variant="outline"
+                                            className="w-full border-primary/30 hover:border-primary"
+                                            disabled={isGeneratingMagicLink}
+                                            onClick={handleGenerateMagicLink}
+                                        >
+                                            {isGeneratingMagicLink ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+                                            {generatedMagicLink ? 'Regenerate Setup Code' : 'Generate Setup Code'}
+                                        </Button>
+                                    </div>
                                 </Access>
                             </CardContent>
                         </Card>
@@ -881,22 +895,212 @@ export default function GuestProfilePage() {
                                     <Label htmlFor="sendWhatsAppGuest" className="text-sm cursor-pointer text-foreground">
                                         Send Settlement details via WhatsApp
                                     </Label>
+                                                    <TableCell className="capitalize">{payment.method}</TableCell>
+                                                    <TableCell className="text-right font-semibold">₹{payment.amount.toLocaleString('en-IN')}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                ) : (
+                                    <p className="text-muted-foreground text-center py-4">No payment history found.</p>
+                                )}
+                            </TabsContent>
+                            <TabsContent value="complaint-history">
+                                {guestComplaints.length === 0 ? (
+                                    <p className="text-muted-foreground text-center py-4">No complaints from this guest. Yay!</p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Date</TableHead>
+                                                <TableHead>Category</TableHead>
+                                                <TableHead>Description</TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {guestComplaints.map(complaint => (
+                                                <TableRow key={complaint.id}>
+                                                    <TableCell>{format(parseISO(complaint.date), 'dd MMM, yyyy')}</TableCell>
+                                                    <TableCell className="capitalize">{complaint.category}</TableCell>
+                                                    <TableCell className="max-w-xs truncate">{complaint.description}</TableCell>
+                                                    <TableCell>
+                                                        <Badge className={cn("capitalize", complaintStatusColors[complaint.status])}>{complaint.status}</Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </TabsContent>
+                        </CardContent>
+                    </Tabs>
+                </Card>
+
+                {/* Dialogs */}
+                <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guest} {...{ editGuestForm, handleEditGuestSubmit }} />
+                <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} selectedGuestForPayment={selectedGuestForPayment} paymentForm={paymentForm} handlePaymentSubmit={handlePaymentSubmit} />
+
+                <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+                    <DialogContent><DialogHeader><DialogTitle>Send Rent Reminder</DialogTitle><DialogDescription>A reminder message has been generated for {guest.name}. You can copy it or send it directly via WhatsApp.</DialogDescription></DialogHeader><div className="py-4">{isGeneratingReminder ? (<div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>) : (<Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />)}</div><DialogFooter className="gap-2 sm:justify-end"><Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}><Copy className="mr-2 h-4 w-4" /> Copy</Button><a href={`https://wa.me/${guest.phone}?text=${encodeURIComponent(reminderMessage)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto"><Button className="w-full bg-green-500 hover:bg-green-600 text-white"><MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp</Button></a></DialogFooter></DialogContent>
+                </Dialog>
+
+                <Dialog open={!!generatedPassword} onOpenChange={(open) => !open && setGeneratedPassword('')}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>New Password Generated</DialogTitle>
+                            <DialogDescription>
+                                A new password has been generated for {guest.name}. Please share this with them securely.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex items-center justify-center p-6 bg-muted rounded-md relative group">
+                            <span className="text-3xl font-mono tracking-widest font-bold">{generatedPassword}</span>
+                        </div>
+                        <DialogFooter className="flex-col sm:flex-row items-center gap-2 mt-4">
+                            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => { navigator.clipboard.writeText(generatedPassword || ''); toast({ title: "Copied!", description: "Password copied to clipboard." }) }}>
+                                <Copy className="mr-2 h-4 w-4" /> Copy Password
+                            </Button>
+                            <a className="w-full sm:w-auto flex-1" href={`https://wa.me/${guest.phone}?text=${encodeURIComponent(`Hi ${guest.name}, your new login password for RoomBox is: *${generatedPassword}*\n\nPlease login at ${typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL}/login`)}`} target="_blank" rel="noopener noreferrer">
+                                <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
+                                    <MessageCircle className="mr-2 h-4 w-4" /> Share via WhatsApp
+                                </Button>
+                            </a>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={isChargeDialogOpen} onOpenChange={setIsChargeDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add Additional Charge</DialogTitle>
+                            <DialogDescription>Add a one-time charge to this guest's current bill.</DialogDescription>
+                        </DialogHeader>
+                        <Form {...chargeForm}>
+                            <form id="charge-form" onSubmit={chargeForm.handleSubmit(handleAddChargeSubmit)} className="space-y-4">
+                                <FormField control={chargeForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="e.g., AC usage for May" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={chargeForm.control} name="amount" render={({ field }) => (<FormItem><FormLabel>Amount</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                            </form>
+                        </Form>
+                        <DialogFooter>
+                            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                            <Button type="submit" form="charge-form">Add Charge</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+            <AlertDialog open={isResetKycDialogOpen} onOpenChange={setIsResetKycDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will reset the guest's KYC status and remove all uploaded documents, requiring them to submit again.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmResetKyc}>Continue</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={isVacateDialogOpen} onOpenChange={setIsVacateDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Vacate {guest.name} Immediately?</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p>This will immediately vacate the guest from their bed. This action cannot be undone.</p>
+                                {(() => {
+                                    const depositAmount = guest.depositAmount || 0;
+                                    const currentBalance = (guest.ledger || []).reduce((acc, entry) =>
+                                        acc + (entry.type === 'debit' ? entry.amount : -entry.amount), 0
+                                    );
+                                    const finalSettlementAmount = depositAmount - currentBalance;
+
+                                    return (
+                                        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-md border text-sm text-foreground">
+                                            <div className="flex justify-between py-1 text-muted-foreground">
+                                                <span>Security Deposit:</span>
+                                                <span className="font-medium text-foreground">₹{depositAmount.toLocaleString('en-IN')}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1 text-muted-foreground">
+                                                <span>Unpaid Balance (Dues):</span>
+                                                <span className="font-medium text-foreground">₹{currentBalance.toLocaleString('en-IN')}</span>
+                                            </div>
+                                            <div className="h-px bg-border my-2" />
+                                            <div className="flex justify-between py-1 font-semibold">
+                                                <span>Final Settlement:</span>
+                                                <span className={cn(finalSettlementAmount > 0 ? "text-green-600" : finalSettlementAmount < 0 ? "text-red-600" : "")}>
+                                                    {finalSettlementAmount > 0
+                                                        ? `Refund ₹${finalSettlementAmount.toLocaleString('en-IN')}`
+                                                        : finalSettlementAmount < 0
+                                                            ? `Owes ₹${Math.abs(finalSettlementAmount).toLocaleString('en-IN')}`
+                                                            : `₹0`}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                <div className="flex items-center space-x-2 pt-2">
+                                    <Checkbox id="sendWhatsAppGuest" checked={sendWhatsAppOnExit} onCheckedChange={(checked) => setSendWhatsAppOnExit(!!checked)} />
+                                    <Label htmlFor="sendWhatsAppGuest" className="text-sm cursor-pointer text-foreground">Send Settlement details via WhatsApp</Label>
                                 </div>
                             </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleConfirmImmediateExit}>
-                            Confirm Vacate
-                        </AlertDialogAction>
+                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleConfirmImmediateExit}>Confirm Vacate</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
+            <Dialog open={isMagicLinkDialogOpen} onOpenChange={setIsMagicLinkDialogOpen}>
+                <DialogContent className="max-w-[95vw] sm:max-w-md rounded-2xl p-0 overflow-hidden border-none shadow-2xl flex flex-col">
+                    <DialogHeader className="p-4 sm:p-6 pb-0">
+                        <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight">Tenant Login Setup</DialogTitle>
+                        <DialogDescription className="text-xs sm:text-sm">Share either the link or the 6-digit code for instant login.</DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="px-4 sm:px-6 py-4 space-y-4 sm:space-y-6 overflow-hidden">
+                        <div className="space-y-3 overflow-hidden">
+                             <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Option 1: 6-Digit Setup Code</Label>
+                             <div className="flex items-center justify-between p-3 sm:p-4 bg-primary/5 rounded-2xl border border-primary/10 overflow-hidden">
+                                 <span className="text-xl sm:text-3xl font-mono font-black tracking-normal sm:tracking-[0.3em] text-primary flex-1 min-w-0 truncate">{generatedSetupCode}</span>
+                                 <Button size="icon" variant="secondary" className="h-9 w-9 rounded-xl shadow-sm shrink-0 ml-2" onClick={() => { navigator.clipboard.writeText(generatedSetupCode); toast({ title: "Code Copied!" }) }}>
+                                     <Copy className="h-4 w-4" />
+                                 </Button>
+                             </div>
+                             <p className="text-[10px] text-muted-foreground/60 text-center font-medium">Valid for 24 hours</p>
+                        </div>
+
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center px-4"><span className="w-full border-t border-border/50" /></div>
+                            <div className="relative flex justify-center text-[10px] font-bold uppercase"><span className="bg-background px-3 text-muted-foreground/40">OR</span></div>
+                        </div>
+
+                        <div className="space-y-3 overflow-hidden">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Option 2: One-Tap Magic Link</Label>
+                            <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-xl border border-border/50 overflow-hidden group">
+                                <LinkIcon className="h-4 w-4 text-muted-foreground/50 shrink-0 group-hover:text-primary transition-colors" />
+                                <div className="text-[11px] sm:text-xs font-mono truncate text-muted-foreground/80 flex-1 min-w-0 select-all">{generatedMagicLink}</div>
+                                <Button size="icon" variant="ghost" className="shrink-0 h-8 w-8 rounded-lg" onClick={() => { navigator.clipboard.writeText(generatedMagicLink); toast({ title: "Link Copied!" }) }}>
+                                    <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-4 sm:p-6 pt-0 mt-auto">
+                        <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold h-12 rounded-xl shadow-lg shadow-green-500/20 group transition-all active:scale-[0.98] overflow-hidden" asChild>
+                            <a href={`https://wa.me/${guest?.phone}?text=${encodeURIComponent(`Hi ${guest?.name}, here is your login setup for ${pg?.name || 'the property'}:\n\n✅ *Setup Code:* ${generatedSetupCode}\n\n🔗 *Or click to login:* ${generatedMagicLink}`)}`} target="_blank" rel="noopener noreferrer">
+                                <MessageCircle className="mr-2 h-5 w-5 shrink-0 animate-pulse group-hover:animate-none" /> 
+                                <span className="truncate">Share on WhatsApp</span>
+                            </a>
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     )
 }
-
-
-

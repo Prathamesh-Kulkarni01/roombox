@@ -14,23 +14,51 @@ export async function POST(req: NextRequest) {
         const auth = await getAdminAuth();
 
         // 1. Verify OTP
-        const otpDoc = await appDb.collection('system_otps').doc(cleanPhone).get();
+        let otpDoc = await appDb.collection('system_otps').doc(cleanPhone).get();
+        let isInviteCode = false;
+        let invitationData: any = null;
+
         if (!otpDoc.exists) {
-            return NextResponse.json({ error: 'OTP not found. Please request a new one.' }, { status: 400 });
-        }
+            // Fallback: Check if it's a 6-digit Invite Code (longer life)
+            // We query by inviteCode first for speed, then verify phone
+            const inviteSnap = await appDb.collection('magic_links')
+                .where('inviteCode', '==', otp)
+                .where('used', '==', false)
+                .limit(5) // In case of collisions, check a few
+                .get();
+            
+            const matchingDoc = inviteSnap.docs.find(d => {
+                const p = d.data().phone || '';
+                const dp = p.replace(/\D/g, '');
+                return dp === cleanPhone || dp.slice(-10) === cleanPhone.slice(-10);
+            });
 
-        const otpData = otpDoc.data()!;
-        if (otpData.expiresAt < Date.now()) {
-            return NextResponse.json({ error: 'OTP expired. Please request a new one.' }, { status: 400 });
-        }
-
-        if (otpData.otp !== otp) {
-            await otpDoc.ref.update({ attempts: (otpData.attempts || 0) + 1 });
-            if ((otpData.attempts || 0) >= 3) {
-                await otpDoc.ref.delete();
-                return NextResponse.json({ error: 'Too many incorrect attempts. Please request a new OTP.' }, { status: 400 });
+            if (matchingDoc) {
+                invitationData = matchingDoc.data();
+                if (invitationData.expiresAt > Date.now()) {
+                    isInviteCode = true;
+                    // Mark as used if it's an invite code
+                    await matchingDoc.ref.update({ used: true, usedAt: Date.now() });
+                } else {
+                    return NextResponse.json({ error: 'Invite code expired. Please ask your owner for a new one.' }, { status: 400 });
+                }
+            } else {
+                return NextResponse.json({ error: 'Incorrect OTP or Invite Code.' }, { status: 400 });
             }
-            return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 });
+        } else {
+            const otpData = otpDoc.data()!;
+            if (otpData.expiresAt < Date.now()) {
+                return NextResponse.json({ error: 'OTP expired. Please request a new one.' }, { status: 400 });
+            }
+
+            if (otpData.otp !== otp) {
+                await otpDoc.ref.update({ attempts: (otpData.attempts || 0) + 1 });
+                if ((otpData.attempts || 0) >= 3) {
+                    await otpDoc.ref.delete();
+                    return NextResponse.json({ error: 'Too many incorrect attempts. Please request a new OTP.' }, { status: 400 });
+                }
+                return NextResponse.json({ error: 'Invalid OTP' }, { status: 400 });
+            }
         }
 
         // 2. Find user document by phone
