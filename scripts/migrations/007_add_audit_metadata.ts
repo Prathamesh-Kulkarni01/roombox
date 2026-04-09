@@ -1,15 +1,14 @@
 import * as admin from 'firebase-admin';
-import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types';
 import { MigrationResult } from './runner';
 
 /**
- * Migration 005: Add activity metadata fields (createdAt, createdBy, updatedAt, updatedBy)
- * and update schemaVersion to 7 for all core entities.
+ * Migration 007: Add activity metadata fields (createdAt, createdBy, updatedAt, updatedBy)
+ * and finalize schemaVersion to 7 for all core entities.
  */
 export const targetVersion = 7;
 
 export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Promise<MigrationResult> => {
-    console.log('Running Migration: 005_add_activity_metadata');
+    console.log('Running Migration: 007_add_audit_metadata');
 
     let totalScanned = 0;
     let totalUpdated = 0;
@@ -35,7 +34,7 @@ export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Prom
         name: 'System Migration'
     };
 
-    const targetSubcollections = ['pgs', 'guests', 'expenses', 'complaints'];
+    const targetSubcollections = ['pgs', 'guests', 'expenses', 'complaints', 'staff', 'payments'];
 
     for (const subcollection of targetSubcollections) {
         try {
@@ -46,21 +45,23 @@ export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Prom
                 totalScanned++;
                 const data = doc.data();
 
-                // Check if we need to update
-                if (!data.schemaVersion || data.schemaVersion < CURRENT_SCHEMA_VERSION) {
+                // Final check to ensure everyone is on v7
+                if (!data.schemaVersion || data.schemaVersion < 7) {
                     const updates: any = {
-                        schemaVersion: CURRENT_SCHEMA_VERSION,
+                        schemaVersion: 7,
                     };
 
-                    // Add createdAt if missing, using document creation time as best guess
+                    // Add createdAt if missing
                     if (!data.createdAt) {
                         updates.createdAt = doc.createTime.toDate().toISOString();
                         updates.createdBy = data.createdBy || systemPerformer;
                     }
 
-                    // Add updatedAt/updatedBy
-                    updates.updatedAt = doc.updateTime.toDate().toISOString();
-                    updates.updatedBy = data.updatedBy || systemPerformer;
+                    // Add updatedAt/updatedBy if missing
+                    if (!data.updatedAt) {
+                        updates.updatedAt = doc.updateTime.toDate().toISOString();
+                        updates.updatedBy = data.updatedBy || systemPerformer;
+                    }
 
                     if (!isDryRun) {
                         batch.update(doc.ref, updates);
@@ -72,7 +73,7 @@ export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Prom
                 }
             }
         } catch (error) {
-            console.error(`Error migrating ${subcollection}:`, error);
+            console.error(`Error migrating audit fields for ${subcollection}:`, error);
             totalErrors++;
         }
     }
@@ -86,6 +87,7 @@ export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Prom
     };
 };
 
-export const down = async (db: admin.firestore.Firestore): Promise<void> => {
-    console.log('Rollback not implemented for 005_add_activity_metadata');
+export const down = async (db: admin.firestore.Firestore): Promise<MigrationResult> => {
+    console.log('Rollback not implemented for 007_add_audit_metadata');
+    return { scanned: 0, updated: 0, errors: 0 };
 };
