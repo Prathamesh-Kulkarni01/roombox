@@ -1,3 +1,26 @@
+## Version 0.6.0 (4/9/2026, 6:44:19 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ src/app/api/staff/manage/route.ts | 10 ++++++----
+ src/lib/slices/staffSlice.ts      | 21 ++++++++++++++++++---
+ 2 files changed, 24 insertions(+), 7 deletions(-)
+
+```
+
+### ✨ Features
+- feat: implement staff management Redux slice and API route for CRUD operations
+- feat: implement smart-router to manage workflow navigation and session state for WhatsApp bot
+- feat: implement WhatsApp bot infrastructure with smart routing, session management, and load simulation testing
+- feat: add database migrations for staff structure updates and payment status fields
+- feat: define core domain models and initialize tenant service for PG management
+- feat: implement header component, app state management, and staff management dashboard pages
+
+### 📝 Other Commits
+- Implement audit logging and refactor service layer
+- Implement effective owner ID for staff management
+
+
 ## Version 0.5.0 (4/9/2026, 2:57:39 PM)
 
 ### 🔄 Semantic Impact Summary
