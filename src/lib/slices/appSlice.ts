@@ -41,10 +41,20 @@ const appSlice = createSlice({
         },
         validateSelectedPg: (state, action: PayloadAction<string[]>) => {
             const validIds = action.payload;
+            
+            // If current selected PG is no longer valid, reset it
             if (state.selectedPgId && !validIds.includes(state.selectedPgId)) {
                 state.selectedPgId = null;
                 if (typeof window !== 'undefined') {
                     localStorage.removeItem('selectedPgId');
+                }
+            }
+
+            // Requirement: If only one property is available, select it automatically
+            if (validIds.length === 1 && state.selectedPgId !== validIds[0]) {
+                state.selectedPgId = validIds[0];
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('selectedPgId', JSON.stringify(validIds[0]));
                 }
             }
         }

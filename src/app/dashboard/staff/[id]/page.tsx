@@ -27,6 +27,7 @@ const roleColors: Record<string, string> = {
     cook: "bg-green-100 text-green-800",
     cleaner: "bg-orange-100 text-orange-800",
     security: "bg-purple-100 text-purple-800",
+    staff: "bg-teal-100 text-teal-800",
     other: "bg-gray-100 text-gray-800",
 }
 
@@ -171,8 +172,14 @@ export default function StaffProfilePage() {
                                     <span className="truncate">{staffMember.email || 'No email provided'}</span>
                                 </div>
                                 <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
-                                    <Building className="w-4 h-4 text-primary" /> 
-                                    <span>{staffMember.pgName}</span>
+                                    <Building className="w-4 h-4 text-primary shrink-0" /> 
+                                    <div className="flex flex-wrap gap-1">
+                                        {(staffMember.pgNames && staffMember.pgNames.length > 0) ? staffMember.pgNames.map(name => (
+                                            <Badge key={name} variant="outline" className="text-[10px] py-0 font-normal">{name}</Badge>
+                                        )) : (
+                                            <span className="text-xs">{staffMember.pgName || 'No property assigned'}</span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
                                     <IndianRupee className="w-4 h-4 text-primary" /> 

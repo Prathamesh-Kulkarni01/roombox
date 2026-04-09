@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label'
 import { produce } from "immer"
 import { featurePermissionConfig, parseStaffPermissions, validateAndEnforceDependencies } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -33,13 +33,14 @@ import { useRouter } from 'next/navigation'
 import { canAccess } from '@/lib/permissions';
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import { useToast } from "@/hooks/use-toast"
+import MultiSelect from '@/components/dashboard/add-room/MultiSelect'
 
 
 const staffSchema = z.object({
-    pgId: z.string().min(1, "Please select a property"),
+    pgIds: z.array(z.string()).min(1, "Please select at least one property"),
     name: z.string().min(2, "Name must be at least 2 characters."),
     email: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
-    role: z.enum(['manager', 'cleaner', 'cook', 'security', 'other']),
+    role: z.enum(['manager', 'cleaner', 'cook', 'security', 'staff', 'other']),
     phone: z.string().regex(/^\d{10}$/, "Please enter a valid 10-digit phone number."),
     salary: z.coerce.number().min(1, "Salary is required."),
 })
@@ -51,6 +52,7 @@ const roleColors: Record<Staff['role'], string> = {
     cook: "bg-green-100 text-green-800",
     cleaner: "bg-orange-100 text-orange-800",
     security: "bg-purple-100 text-purple-800",
+    staff: "bg-teal-100 text-teal-800",
     other: "bg-gray-100 text-gray-800",
 }
 
@@ -63,12 +65,20 @@ const StaffForm = ({ form, onSubmit }: { form: any, onSubmit: (data: StaffFormVa
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="staff-form">
-                <FormField control={form.control} name="pgId" render={({ field }) => (
-                    <FormItem><FormLabel>Property</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select a property" /></SelectTrigger></FormControl>
-                            <SelectContent>{pgs.map(pg => <SelectItem key={pg.id} value={pg.id}>{pg.name}</SelectItem>)}</SelectContent>
-                        </Select><FormMessage />
+                <FormField control={form.control} name="pgIds" render={({ field }) => (
+                    <FormItem><FormLabel>Properties</FormLabel>
+                        <FormControl>
+                            <MultiSelect 
+                                options={pgs.map(pg => ({ id: pg.id, label: pg.name }))}
+                                selected={field.value || []}
+                                onChange={field.onChange}
+                                placeholder="Select properties"
+                            />
+                        </FormControl>
+                        <FormDescription className="text-[10px]">
+                            You can assign this staff member to multiple properties.
+                        </FormDescription>
+                        <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="name" render={({ field }) => (
@@ -136,11 +146,12 @@ export default function StaffPage() {
             if (staffToEdit) {
                 form.reset({
                     ...staffToEdit,
+                    pgIds: staffToEdit.pgIds || (staffToEdit.pgId ? [staffToEdit.pgId] : []),
                     phone: staffToEdit.phone.slice(-10) // Strip prefix for local editing
                 });
             } else {
                 form.reset({
-                    pgId: selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined),
+                    pgIds: selectedPgId ? [selectedPgId] : (pgs.length > 0 ? [pgs[0].id] : []),
                     name: '',
                     email: '',
                     phone: '',
@@ -152,10 +163,10 @@ export default function StaffPage() {
     }, [isDialogOpen, staffToEdit, selectedPgId, pgs, form])
 
     const onSubmit = async (data: StaffFormValues) => {
-        const pgName = pgs.find(p => p.id === data.pgId)?.name || 'Unknown Property';
+        const pgNames = data.pgIds.map(id => pgs.find(p => p.id === id)?.name || 'Unknown Property');
         const staffData = {
             ...data,
-            pgName,
+            pgNames,
             ownerId: currentUser?.id || '',
             permissions: staffToEdit?.permissions || [],
             isActive: true,
@@ -249,7 +260,7 @@ export default function StaffPage() {
 
     const filteredStaff = useMemo(() => {
         if (!selectedPgId) return staff;
-        return staff.filter(s => s.pgId === selectedPgId);
+        return staff.filter(s => s.pgIds?.includes(selectedPgId) || s.pgId === selectedPgId);
     }, [staff, selectedPgId]);
 
     if (isLoading) {
@@ -363,7 +374,13 @@ export default function StaffPage() {
                                                         <span className="text-[10px] text-muted-foreground md:hidden uppercase font-semibold">{member.role}</span>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="hidden md:table-cell">{member.pgName}</TableCell>
+                                                <TableCell className="hidden md:table-cell">
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {(member.pgNames && member.pgNames.length > 0) ? member.pgNames.map(name => (
+                                                            <Badge key={name} variant="outline" className="text-[10px] py-0">{name}</Badge>
+                                                        )) : (member.pgName || 'Unknown')}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="hidden md:table-cell">
                                                     <Badge className={cn("capitalize border-transparent", roleColors[member.role])}>{member.role}</Badge>
                                                 </TableCell>

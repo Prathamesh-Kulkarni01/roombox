@@ -92,8 +92,11 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
     if (!isAddGuestDialogOpen) {
       setSelectedPgId('');
       setSelectedRoomId('');
+    } else if (pgs.length === 1 && !selectedPgId) {
+      // Auto-select if only one property exists
+      handlePgChange(pgs[0].id);
     }
-  }, [isAddGuestDialogOpen]);
+  }, [isAddGuestDialogOpen, pgs, selectedPgId]);
 
   const handlePgChange = (pgId: string) => {
     setSelectedPgId(pgId);

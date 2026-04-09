@@ -93,14 +93,14 @@ export default function Header() {
               <Skeleton className="h-10 w-[120px] sm:w-[180px]" />
             ) : pgs.length > 0 ? (
               <Select
-                value={selectedPgId || 'all'}
+                value={selectedPgId || (pgs.length === 1 ? pgs[0].id : 'all')}
                 onValueChange={handleValueChange}
               >
                 <SelectTrigger className="glass-dark sm:glass border-0 h-9 md:h-10 w-auto sm:w-[180px] flex-1 min-w-[110px] shadow-inner font-medium text-xs md:text-sm">
                   <SelectValue placeholder="Select Property" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Properties</SelectItem>
+                  {pgs.length > 1 && <SelectItem value="all">All Properties</SelectItem>}
                   {pgs.map((pg, index) => (
                     <SelectItem key={`${pg.id}-${index}`} value={pg.id}>
                       {pg.name}

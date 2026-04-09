@@ -129,7 +129,6 @@ export default function ManualPaymentMatcher({ guests }: { guests: Guest[] }) {
                         className="pl-10 h-14 text-lg font-mono rounded-xl bg-background/50 border-white/10 focus:border-primary/50 text-foreground placeholder:text-muted-foreground/50 transition-all shadow-inner"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        autoFocus
                     />
                 </div>
             </CardHeader>

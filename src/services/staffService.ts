@@ -33,7 +33,7 @@ export class StaffService {
      * Adds a new staff member to the owner's collection.
      */
     static async addStaff(db: Firestore, appDb: Firestore, staffData: any): Promise<Staff> {
-        const { ownerId, phone, name, role, pgId, pgName, salary, permissions } = staffData;
+        const { ownerId, phone, name, role, pgIds, pgNames, salary, permissions } = staffData;
         
         const staffId = `s-${Date.now()}`;
         const standardizedPhone = phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '').slice(-10)}`;
@@ -43,8 +43,8 @@ export class StaffService {
             ownerId,
             name,
             role,
-            pgId,
-            pgName,
+            pgIds: pgIds || [],
+            pgNames: pgNames || [],
             salary: Number(salary) || 0,
             phone: standardizedPhone,
             permissions: permissions || [],
@@ -52,6 +52,12 @@ export class StaffService {
             schemaVersion: CURRENT_SCHEMA_VERSION,
             userId: null
         };
+
+        // For backward compatibility (lazy migration)
+        if (pgIds?.length > 0) {
+            newStaff.pgId = pgIds[0];
+            newStaff.pgName = pgNames?.[0] || 'Property';
+        }
 
         // 1. Save to owner's staff collection
         await db.collection('users_data').doc(ownerId).collection('staff').doc(staffId).set(newStaff);
@@ -68,7 +74,8 @@ export class StaffService {
                 role: role, // e.g. 'manager', 'cook'
                 ownerId,
                 staffId, // Critical for finding the original staff record
-                pgId, // Critical for knowing which property the staff belongs to
+                pgIds: pgIds || [], // Now multiple properties
+                pgId: pgIds?.[0] || '', // Maintain single pgId for quick access/legacy
                 status: 'active',
                 permissions: permissions || [],
                 createdAt: new Date().toISOString()
@@ -103,13 +110,14 @@ export class StaffService {
                 try {
                     const { createAndSendNotification } = await import('@/lib/actions/notificationActions');
                     
-                    const { magicLink } = await StaffService.generateMagicLink(appDb, staffId, standardizedPhone, ownerId, role, pgName);
+                    const primaryPgName = pgNames?.[0] || 'RentSutra';
+                    const { magicLink } = await StaffService.generateMagicLink(appDb, staffId, standardizedPhone, ownerId, role, primaryPgName);
                     
                     const dashboardUrl = magicLink;
 
                     // Fetch Owner Phone for "Host Contact" param
                     const ownerDoc = await db.collection('users').doc(ownerId).get();
-                    let ownerPhone = ownerDoc.data()?.phone || pgName || 'Contact Support';
+                    let ownerPhone = ownerDoc.data()?.phone || 'Contact Support';
                     const ownerSnap = await db.collection('users_data').doc(ownerId).get();
                     if (ownerSnap.exists) {
                         const data = ownerSnap.data() as any;
@@ -125,14 +133,14 @@ export class StaffService {
                             targetId: newStaff.userId || staffId,
                             type: 'staff-welcome',
                             title: 'Welcome to the Team!',
-                            message: `Hi ${name}, you've been added as a ${role} to ${pgName}.`,
+                            message: `Hi ${name}, you've been added as a ${role} to ${pgNames?.[0] || 'your property'}.`,
                             link: dashboardUrl
                         },
                         whatsappConfig: {
                             templateId: 'new_guest_welcome_utility_2',
                             bodyValues: [
                                 { type: 'text', text: name }, // {{1}} - Name
-                                { type: 'text', text: pgName }, // {{2}} - Building
+                                { type: 'text', text: pgNames?.[0] || 'Property' }, // {{2}} - Building
                                 { type: 'text', text: role.toUpperCase() }, // {{3}} - Role
                                 { type: 'text', text: `₹${salary || 0}` }, // {{4}} - Salary/Rent
                                 { type: 'text', text: ownerPhone }, // {{5}} - Host Contact
@@ -188,7 +196,10 @@ export class StaffService {
             if (updates.permissions) userUpdate.permissions = updates.permissions;
             if (updates.role) userUpdate.role = updates.role;
             if (updates.name) userUpdate.name = updates.name;
-            if (updates.pgId) userUpdate.pgId = updates.pgId;
+            if (updates.pgIds) {
+                userUpdate.pgIds = updates.pgIds;
+                userUpdate.pgId = updates.pgIds[0] || '';
+            }
             if (updates.isActive !== undefined) userUpdate.status = updates.isActive ? 'active' : 'suspended';
 
             if (Object.keys(userUpdate).length > 0) {

@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 export interface KycFieldConfig {
     id: string;
@@ -395,12 +395,12 @@ export interface User {
   password?: string;
   role: UserRole;
   status: 'active' | 'pending_approval' | 'suspended';
-  pgIds?: string[]; // Kept for owners
   avatarUrl?: string;
   guestId: string | null; // The ID of the ACTIVE guest record
   guestHistoryIds?: string[]; // IDs of previous, vacated guest records
   ownerId?: string; // If role is tenant or staff, this is the ID of their PG owner
   pgId?: string; // Tenant's active PG ID for direct access
+  pgIds?: string[]; // Kept for owners and now multi-property staff
   subscription?: { // Only owners should have this object
     planId: PlanName;
     status: SubscriptionStatus;
@@ -523,13 +523,15 @@ export interface Staff {
   id: string;
   name: string;
   role: StaffRole;
-  pgId: string;
+  pgId?: string; // Deprecated, use pgIds
+  pgIds: string[];
   ownerId: string;
   userId?: string | null;
   phone: string;
   email?: string;
   salary: number;
-  pgName: string;
+  pgName?: string; // Deprecated, use pgNames
+  pgNames: string[];
   permissions: string[];
   isActive: boolean;
   schemaVersion: number;
