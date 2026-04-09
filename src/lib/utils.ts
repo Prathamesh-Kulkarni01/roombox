@@ -109,3 +109,14 @@ export function parseDateString(input: string): Date | null {
 
   return null;
 }
+
+/**
+ * Resolves the effective owner ID for data fetching and management.
+ * For Owners and Admins, this is their own ID. 
+ * For Staff/Managers/Tenants, this is the ID of their employer (ownerId).
+ */
+export function getEffectiveOwnerId(user: { id: string; role: string; ownerId?: string } | null | undefined): string | null {
+  if (!user) return null;
+  if (user.role === 'owner' || user.role === 'admin') return user.id;
+  return user.ownerId || null;
+}

@@ -5,6 +5,7 @@ import { db, isFirebaseConfigured, auth, selectOwnerDataDb } from '../firebase';
 import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import { RootState } from '../store';
 import { sendSignInLinkToEmail } from 'firebase/auth';
+import { getEffectiveOwnerId } from '../utils';
 
 interface StaffState {
     staff: Staff[];
@@ -28,7 +29,7 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'add',
-                    ownerId: user.currentUser.id,
+                    ownerId: getEffectiveOwnerId(user.currentUser),
                     data: staffData
                 }),
             });
@@ -54,7 +55,7 @@ export const updateStaff = createAsyncThunk<Staff, Staff, { state: RootState }>(
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'update',
-                    ownerId: user.currentUser.id,
+                    ownerId: getEffectiveOwnerId(user.currentUser),
                     staffId: updatedStaff.id,
                     data: updatedStaff
                 }),
@@ -81,7 +82,7 @@ export const deleteStaff = createAsyncThunk<string, string, { state: RootState }
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'delete',
-                    ownerId: user.currentUser.id,
+                    ownerId: getEffectiveOwnerId(user.currentUser),
                     staffId: staffId
                 }),
             });

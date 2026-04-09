@@ -25,7 +25,7 @@ import { Badge } from "@/components/ui/badge"
 import { Users, User, PlusCircle, MoreHorizontal, IndianRupee, Pencil, Trash2, Building, ShieldAlert } from 'lucide-react'
 import type { Staff } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
+import { cn, getEffectiveOwnerId } from "@/lib/utils"
 import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction, fetchStaff as fetchStaffAction } from '@/lib/slices/staffSlice'
 import { updatePermissions as updateRolePermissionsAction } from '@/lib/slices/permissionsSlice'
 import Link from 'next/link'
@@ -131,8 +131,9 @@ export default function StaffPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        if (currentUser?.id) {
-            dispatch(fetchStaffAction(currentUser.id));
+        const effectiveOwnerId = getEffectiveOwnerId(currentUser);
+        if (effectiveOwnerId) {
+            dispatch(fetchStaffAction(effectiveOwnerId));
         }
     }, [currentUser, dispatch]);
 
@@ -164,10 +165,11 @@ export default function StaffPage() {
 
     const onSubmit = async (data: StaffFormValues) => {
         const pgNames = data.pgIds.map(id => pgs.find(p => p.id === id)?.name || 'Unknown Property');
+        const effectiveOwnerId = getEffectiveOwnerId(currentUser);
         const staffData = {
             ...data,
             pgNames,
-            ownerId: currentUser?.id || '',
+            ownerId: effectiveOwnerId || '',
             permissions: staffToEdit?.permissions || [],
             isActive: true,
             schemaVersion: 1

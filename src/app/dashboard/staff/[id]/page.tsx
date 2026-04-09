@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ArrowLeft, User, IndianRupee, Phone, Mail, Building, Pencil, Loader2, ShieldCheck, Copy, MessageCircle, MoreHorizontal, ShieldAlert, Link as LinkIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, getEffectiveOwnerId } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { fetchStaff as fetchStaffAction, updateStaff as updateStaffAction } from '@/lib/slices/staffSlice'
 import { useGenerateStaffMagicLinkMutation } from '@/lib/api/apiSlice'
@@ -55,8 +55,9 @@ export default function StaffProfilePage() {
     const [generateMagicLink, { isLoading: isGeneratingLink }] = useGenerateStaffMagicLinkMutation()
 
     useEffect(() => {
-        if (currentUser?.id && staff.length === 0) {
-            dispatch(fetchStaffAction(currentUser.id));
+        const effectiveOwnerId = getEffectiveOwnerId(currentUser);
+        if (effectiveOwnerId && staff.length === 0) {
+            dispatch(fetchStaffAction(effectiveOwnerId));
         }
     }, [currentUser, dispatch, staff.length]);
 
