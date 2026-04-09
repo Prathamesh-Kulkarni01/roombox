@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { enforcePermission } from '@/lib/rbac-middleware';
 import { badRequest, serverError } from '@/lib/api/apiError';
+import { ExpenseService } from '@/services/expenseService';
 
 // GET /api/expenses?[pgId=xxx][&category=maintenance]
 export async function GET(req: NextRequest) {
@@ -19,16 +20,7 @@ export async function GET(req: NextRequest) {
 
     try {
         const db = await selectOwnerDataAdminDb(ownerId);
-        let query = db.collection('users_data').doc(ownerId).collection('expenses')
-            .orderBy('date', 'desc')
-            .limit(limit) as FirebaseFirestore.Query;
-
-        if (pgId) query = query.where('pgId', '==', pgId);
-        if (category) query = query.where('category', '==', category);
-
-        const snapshot = await query.get();
-        const expenses = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-
+        const expenses = await ExpenseService.listExpenses(db, ownerId, { pgId, category, limit });
         return NextResponse.json({ success: true, expenses });
     } catch (error: any) {
         return serverError(error, 'GET /api/expenses');
@@ -39,32 +31,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     const result = await enforcePermission(req, 'finances', 'add', 'POST /api/expenses');
     if (!result.authorized) return result.response;
-    const { ownerId } = result;
+    const { ownerId, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const body = await req.json();
         const { expense } = body;
         if (!expense) return badRequest('expense data is required');
 
-        const { description, amount, category, pgId, date } = expense;
-        if (!description || !amount || !category) {
-            return badRequest('description, amount, and category are required');
-        }
-
         const db = await selectOwnerDataAdminDb(ownerId);
-        const id = `exp-${Date.now()}`;
-        const newExpense = {
-            id,
-            ownerId,
-            description,
-            amount: Number(amount),
-            category,
-            pgId: pgId || null,
-            date: date || new Date().toISOString(),
-            createdAt: Date.now(),
-        };
-
-        await db.collection('users_data').doc(ownerId).collection('expenses').doc(id).set(newExpense);
+        const newExpense = await ExpenseService.createExpense(db, ownerId, expense, performer);
 
         return NextResponse.json({ success: true, expense: newExpense }, { status: 201 });
     } catch (error: any) {
@@ -76,7 +52,8 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     const result = await enforcePermission(req, 'finances', 'add', 'DELETE /api/expenses');
     if (!result.authorized) return result.response;
-    const { ownerId } = result;
+    const { ownerId, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const body = await req.json();
@@ -84,7 +61,7 @@ export async function DELETE(req: NextRequest) {
         if (!expenseId) return badRequest('expenseId is required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        await db.collection('users_data').doc(ownerId).collection('expenses').doc(expenseId).delete();
+        await ExpenseService.deleteExpense(db, ownerId, expenseId, performer);
 
         return NextResponse.json({ success: true, expenseId });
     } catch (error: any) {

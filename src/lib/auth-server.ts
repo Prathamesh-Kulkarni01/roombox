@@ -60,6 +60,7 @@ import { getAdminDb } from './firebaseAdmin';
 export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Promise<{
     ownerId: string | null,
     userId?: string,
+    name?: string,
     role?: string,
     guestId?: string,
     permissions?: string[],
@@ -80,6 +81,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
         // Detail common user info
         const result = {
             userId,
+            name: userData.name || userData.email || 'Unknown User',
             role: userData.role,
             guestId: userData.guestId,
             error: null as string | null

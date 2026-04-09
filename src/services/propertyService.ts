@@ -16,6 +16,15 @@ export interface Building {
     totalBeds: number;
     totalRooms?: number;
     floors?: any[];
+    upiId?: string;
+    payeeName?: string;
+    qrCodeImage?: string;
+    paymentMode?: string;
+    online_payment_enabled?: boolean;
+    location?: string;
+    city?: string;
+    gender?: string;
+    priceRange?: { min: number; max: number };
 }
 
 export interface CreatePropertyInput {
@@ -31,6 +40,8 @@ export interface CreatePropertyInput {
 }
 
 import { getPlanLimit } from '@/lib/permissions';
+import { CURRENT_SCHEMA_VERSION, PerformerInfo } from '@/lib/types';
+import { ActivityLogsService } from '@/lib/activity-logs-service';
 
 export class PropertyService {
     /**
@@ -62,15 +73,15 @@ export class PropertyService {
      * Creates a new property with standardized logic.
      * Handles floor/room generation if requested.
      */
-    static async createProperty(db: Firestore, input: CreatePropertyInput & { planId?: string }): Promise<any> {
+    static async createProperty(db: Firestore, input: CreatePropertyInput & { planId?: string }, performer: PerformerInfo): Promise<any> {
         const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, bedsPerRoom = 1, planId = 'free' } = input;
 
         // 1. Check PG Limit
-        await this.checkPgLimit(db, ownerId, planId);
+        await PropertyService.checkPgLimit(db, ownerId, planId);
 
         // 2. Check Floor Limit if auto-setup is requested
         if (autoSetup || floorCount > 0) {
-            this.checkFloorLimit(0, floorCount, planId);
+            PropertyService.checkFloorLimit(0, floorCount, planId);
         }
 
         const newPgId = `pg-${Date.now()}`;
@@ -126,15 +137,114 @@ export class PropertyService {
             priceRange: { min: 0, max: 0 },
             amenities: ['wifi'],
             floors: initialFloors,
-            status: 'active',
             isActive: true,
-            createdAt: Date.now(),
-            createdDate: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            createdBy: performer,
+            updatedAt: new Date().toISOString(),
+            updatedBy: performer,
+            schemaVersion: CURRENT_SCHEMA_VERSION,
         };
 
         await db.collection('users_data').doc(ownerId).collection('pgs').doc(newPgId).set(newPg);
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'PROPERTY_CREATED',
+            module: 'properties',
+            details: `Created property: ${name} (${city})`,
+            targetId: newPgId,
+            targetType: 'property',
+            status: 'success',
+            performedBy: performer,
+            metadata: { autoSetup, floorCount, roomsPerFloor }
+        });
+
         return newPg;
     }
+
+    /**
+     * Updates an existing property.
+     */
+    static async updateProperty(db: Firestore, ownerId: string, pgId: string, updates: any, performer: PerformerInfo): Promise<void> {
+        console.log(`[PropertyService.updateProperty] Updating ${pgId} by ${performer.name}`);
+        const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
+        const snap = await pgRef.get();
+        if (!snap.exists) throw new Error('Property not found');
+        const oldData = snap.data()!;
+
+        const now = new Date().toISOString();
+        const fullUpdates = {
+            ...updates,
+            updatedAt: now,
+            updatedBy: performer
+        };
+
+        const changedFields = ActivityLogsService.getChangedFields(oldData, fullUpdates);
+        await pgRef.update(fullUpdates);
+
+        if (changedFields.length > 0) {
+            await ActivityLogsService.logActivity({
+                ownerId,
+                activityType: 'PROPERTY_UPDATED',
+                module: 'properties',
+                details: `Updated property ${oldData.name}: ${changedFields.join(', ')}`,
+                targetId: pgId,
+                targetType: 'property',
+                status: 'success',
+                performedBy: performer,
+                changes: {
+                    before: oldData,
+                    after: { ...oldData, ...fullUpdates },
+                    changedFields
+                }
+            });
+        }
+    }
+
+    /**
+     * Deletes a property and its related data.
+     */
+    static async deleteProperty(db: Firestore, ownerId: string, pgId: string, performer: PerformerInfo): Promise<void> {
+        console.log(`[PropertyService.deleteProperty] Deleting ${pgId} by ${performer.name}`);
+        const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
+        const snap = await pgRef.get();
+        if (!snap.exists) throw new Error('Property not found');
+        const pgData = snap.data()!;
+
+        // 1. Check for active guests
+        const guestsSnap = await db.collection('users_data').doc(ownerId).collection('guests')
+            .where('pgId', '==', pgId)
+            .where('isVacated', '==', false)
+            .limit(1)
+            .get();
+        
+        if (!guestsSnap.empty) throw new Error('Cannot delete property with active tenants');
+
+        const batch = db.batch();
+        batch.delete(pgRef);
+
+        // Delete related sub-collection documents
+        for (const subCol of ['complaints', 'expenses']) {
+            const snap = await db.collection('users_data').doc(ownerId).collection(subCol)
+                .where('pgId', '==', pgId).get();
+            snap.docs.forEach(d => batch.delete(d.ref));
+        }
+
+        await batch.commit();
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'PROPERTY_DELETED',
+            module: 'properties',
+            details: `Deleted property: ${pgData.name}`,
+            targetId: pgId,
+            targetType: 'property',
+            status: 'danger',
+            performedBy: performer,
+            metadata: { name: pgData.name }
+        });
+    }
+
 
     /**
      * Fetches the summary stats (briefing) for an owner.
@@ -252,7 +362,8 @@ export class PropertyService {
             bedsPerRoom: number;
             startFloorNumber?: number; // Default 1 — allows appending to existing floors
             planId?: string;
-        }
+        },
+        performer: PerformerInfo
     ): Promise<{ floorsCreated: number; roomsCreated: number; bedsCreated: number }> {
         const { floors, roomsPerFloor, bedsPerRoom, startFloorNumber = 1, planId = 'free' } = opts;
 
@@ -264,7 +375,7 @@ export class PropertyService {
         const existingFloors: any[] = pgData.floors || [];
 
         // 1. Check Floor Limit
-        this.checkFloorLimit(existingFloors.length, floors, planId);
+        PropertyService.checkFloorLimit(existingFloors.length, floors, planId);
 
         const newFloors: any[] = [];
         const ts = Date.now();
@@ -309,6 +420,20 @@ export class PropertyService {
             floors: allFloors,
             totalRooms,
             totalBeds,
+            updatedAt: new Date().toISOString(),
+            updatedBy: performer
+        });
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'ROOM_CREATED', // Closest match for bulk setup
+            module: 'properties',
+            details: `Bulk setup: added ${floors} floors, ${totalRooms - (pgData.totalRooms || 0)} rooms to ${pgData.name}`,
+            targetId: pgId,
+            targetType: 'property',
+            status: 'success',
+            performedBy: performer,
+            metadata: { floorsAdded: floors, roomsPerFloor, bedsPerRoom }
         });
 
         return {

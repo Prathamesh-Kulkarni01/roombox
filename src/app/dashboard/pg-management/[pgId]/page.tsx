@@ -28,7 +28,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { cn } from '@/lib/utils'
 import { useGetGuestsQuery } from '@/lib/api/apiSlice'
 import type { Guest } from '@/lib/types'
-import { Building, BedDouble, PlusCircle, Trash2, Pencil, Plus, CheckCircle, UserPlus, Search, List, Grid, Filter, MoreHorizontal } from 'lucide-react'
+import { Building, BedDouble, PlusCircle, Trash2, Pencil, Plus, CheckCircle, UserPlus, Search, List, Grid, Filter, MoreHorizontal, History } from 'lucide-react'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from '@/lib/permissions'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -36,6 +36,7 @@ import Access from '@/components/ui/PermissionWrapper'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ActivityLogsList } from '@/components/activity/activity-logs-list'
 
 // Constant for bed status colors and labels
 const STATUS_STYLES = {
@@ -227,6 +228,10 @@ export default function RoomManagementPage() {
                 {pg.floors?.map(floor => (
                   <TabsTrigger key={floor.id} value={floor.id} className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent pb-2 pt-2 px-4 shadow-none bg-transparent hover:text-primary transition-colors text-base font-semibold text-muted-foreground border-b-2 border-transparent">{floor.name}</TabsTrigger>
                 ))}
+                <TabsTrigger value="activity" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent pb-2 pt-2 px-4 shadow-none bg-transparent hover:text-primary transition-colors text-base font-semibold text-muted-foreground border-b-2 border-transparent flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Activity
+                </TabsTrigger>
                 {canAdd && (
                   <button
                     onClick={openAddFloor}
@@ -308,7 +313,13 @@ export default function RoomManagementPage() {
 
         {/* Scrollable Floors content */}
         <div className="flex-1 overflow-y-auto pb-32 pr-2 -mx-2 px-2 scrollbar-thin">
-          {floorsToRender?.map(floor => (
+          {activeTab === 'activity' ? (
+            <div className="p-2">
+              <ActivityLogsList targetId={pgId} limit={10} emptyMessage="No activity history for this property." />
+            </div>
+          ) : (
+            <>
+              {floorsToRender?.map(floor => (
             <div key={floor.id} className="space-y-5 mb-8">
               {/* Floor header with actions */}
               <div className="flex items-center justify-between">
@@ -580,10 +591,18 @@ export default function RoomManagementPage() {
                   </div>
                 )
               })}
+              </div>
+            ))}
+            </>
+          )}
+          {activeTab === 'activity' && (
+            <div className="p-4">
+              <ActivityLogsList pgId={pg.id} />
             </div>
-          ))}
+          )}
         </div>
       </Tabs>
+
 
       {/* FAB - Floating Action Button (mobile only, bottom right) */}
       {canAdd && (

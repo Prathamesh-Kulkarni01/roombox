@@ -17,6 +17,7 @@ interface AuthorizedResult {
     authorized: true;
     ownerId: string;
     userId: string;
+    name?: string;
     role: string;
     permissions?: string[];
     plan?: { id: string; status: string };
@@ -48,7 +49,7 @@ export async function enforcePermission(
     routeLabel?: string
 ): Promise<EnforcePermissionResult> {
     const authResult = await getVerifiedOwnerId(req);
-    const { ownerId, userId, role, permissions, plan, error } = authResult;
+    const { ownerId, userId, name, role, permissions, plan, error } = authResult;
 
     if (!ownerId || !userId) {
         return { authorized: false, response: unauthorized(error) };
@@ -60,6 +61,7 @@ export async function enforcePermission(
             authorized: true,
             ownerId,
             userId,
+            name,
             role,
             permissions,
             plan,
@@ -92,6 +94,7 @@ export async function enforcePermission(
         authorized: true,
         ownerId,
         userId,
+        name,
         role: role!,
         permissions,
         plan,

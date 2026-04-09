@@ -136,7 +136,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     const result = await enforcePermission(req, 'guests', 'add', 'POST /api/guests');
     if (!result.authorized) return result.response;
-    const { ownerId, plan } = result;
+    const { ownerId, plan, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const body = await req.json();
@@ -149,7 +150,7 @@ export async function POST(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
         const appDb = await getAdminDb(); // for user/invite linking
 
-        const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId, planId: plan?.id });
+        const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId, planId: plan?.id }, performer);
 
         return NextResponse.json({ success: true, guest: newGuest, magicLink }, { status: 201 });
     } catch (error) {
@@ -160,7 +161,7 @@ export async function POST(req: NextRequest) {
 // PATCH /api/guests — action-based mutations
 export async function PATCH(req: NextRequest) {
     const authResult = await getVerifiedOwnerId(req);
-    const { ownerId, userId, role, permissions, error } = authResult;
+    const { ownerId, userId, name: authName, role, permissions, error } = authResult;
     if (!ownerId || !userId) return unauthorized(error);
 
     try {
@@ -183,38 +184,39 @@ export async function PATCH(req: NextRequest) {
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
+        const performer = { userId, name: authName || 'Unknown User' };
 
         switch (data.action) {
             case 'update': {
-                await TenantService.updateTenant(db, ownerId, data.guestId, data.updates as any);
+                await TenantService.updateTenant(db, ownerId, data.guestId, data.updates as any, performer);
                 const ref = db.collection('users_data').doc(ownerId).collection('guests').doc(data.guestId);
                 const updated = await ref.get();
                 return NextResponse.json({ success: true, guest: { id: updated.id, ...updated.data() } });
             }
 
             case 'initiate-exit': {
-                const result = await TenantService.initiateTenantExit(db, ownerId, data.guestId, data.noticePeriodDays);
+                const result = await TenantService.initiateTenantExit(db, ownerId, data.guestId, performer, data.noticePeriodDays);
                 return NextResponse.json({ success: true, ...result });
             }
 
             case 'vacate': {
                 const appDb = await getAdminDb();
-                const result = await TenantService.vacateTenant(db, ownerId, data.guestId, appDb || undefined, data.sendWhatsApp);
+                const result = await TenantService.vacateTenant(db, ownerId, data.guestId, performer, appDb || undefined, data.sendWhatsApp);
                 return NextResponse.json({ success: true, ...result });
             }
 
             case 'kyc-status': {
-                await TenantService.updateKycStatus(db, ownerId, data.guestId, data.status, data.reason);
+                await TenantService.updateKycStatus(db, ownerId, data.guestId, data.status, performer, data.reason);
                 return NextResponse.json({ success: true, guestId: data.guestId, kycStatus: data.status });
             }
 
             case 'kyc-submit': {
-                await TenantService.submitKycDocuments(db, ownerId, data.guestId, data.documents as any);
+                await TenantService.submitKycDocuments(db, ownerId, data.guestId, data.documents as any, performer);
                 return NextResponse.json({ success: true, guestId: data.guestId, kycStatus: 'pending' });
             }
 
             case 'kyc-reset': {
-                await TenantService.resetKyc(db, ownerId, data.guestId);
+                await TenantService.resetKyc(db, ownerId, data.guestId, performer);
                 return NextResponse.json({ success: true, guestId: data.guestId, kycStatus: 'not-started' });
             }
 
@@ -222,12 +224,12 @@ export async function PATCH(req: NextRequest) {
                 const charge = await TenantService.addCharge(db, ownerId, data.guestId, {
                     description: data.description,
                     amount: data.amount,
-                });
+                }, performer);
                 return NextResponse.json({ success: true, charge });
             }
 
             case 'remove-charge': {
-                await TenantService.removeCharge(db, ownerId, data.guestId, data.chargeId);
+                await TenantService.removeCharge(db, ownerId, data.guestId, data.chargeId, performer);
                 return NextResponse.json({ success: true, guestId: data.guestId, chargeId: data.chargeId });
             }
 
@@ -235,7 +237,7 @@ export async function PATCH(req: NextRequest) {
                 const result = await TenantService.addSharedRoomCharge(db, ownerId, data.roomId, {
                     description: data.description,
                     amount: data.amount,
-                });
+                }, performer);
                 return NextResponse.json({ success: true, ...result });
             }
 
@@ -247,6 +249,7 @@ export async function PATCH(req: NextRequest) {
                     amountType: data.amountType,
                     symbolicValue: data.symbolicValue,
                     paymentMode: data.method,
+                    performer,
                 });
                 return NextResponse.json({ success: true, guest });
             }
@@ -260,7 +263,8 @@ export async function PATCH(req: NextRequest) {
                     newRentAmount: data.newRentAmount,
                     newDepositAmount: data.newDepositAmount,
                     shouldProrate: data.shouldProrate,
-                    prorationAmount: data.prorationAmount
+                    prorationAmount: data.prorationAmount,
+                    performer
                 });
                 const updated = await db.collection('users_data').doc(ownerId).collection('guests').doc(data.guestId).get();
                 return NextResponse.json({ success: true, guest: { id: updated.id, ...updated.data() } });
@@ -278,7 +282,8 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     const result = await enforcePermission(req, 'guests', 'delete', 'DELETE /api/guests');
     if (!result.authorized) return result.response;
-    const { ownerId } = result;
+    const { ownerId, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const body = await req.json();

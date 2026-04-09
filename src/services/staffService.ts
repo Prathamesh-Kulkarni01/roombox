@@ -32,7 +32,7 @@ export class StaffService {
     /**
      * Adds a new staff member to the owner's collection.
      */
-    static async addStaff(db: Firestore, appDb: Firestore, staffData: any): Promise<Staff> {
+    static async addStaff(db: Firestore, appDb: Firestore, staffData: any, performer: PerformerInfo): Promise<Staff> {
         const { ownerId, phone, name, role, pgIds, pgNames, salary, permissions } = staffData;
         
         const staffId = `s-${Date.now()}`;
@@ -50,7 +50,11 @@ export class StaffService {
             permissions: permissions || [],
             isActive: true,
             schemaVersion: CURRENT_SCHEMA_VERSION,
-            userId: null
+            userId: null,
+            createdAt: new Date().toISOString(),
+            createdBy: performer,
+            updatedAt: new Date().toISOString(),
+            updatedBy: performer
         };
 
         // For backward compatibility (lazy migration)
@@ -61,6 +65,18 @@ export class StaffService {
 
         // 1. Save to owner's staff collection
         await db.collection('users_data').doc(ownerId).collection('staff').doc(staffId).set(newStaff);
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'STAFF_ADDED',
+            module: 'staff',
+            details: `Added staff: ${name} as ${role}`,
+            targetId: staffId,
+            targetType: 'staff',
+            status: 'success',
+            performedBy: performer,
+            metadata: { role, pgIds }
+        });
 
         // 2. Create/Update skeleton user in appDb (users collection)
         if (appDb) {
@@ -170,7 +186,7 @@ export class StaffService {
     /**
      * Updates an existing staff member.
      */
-    static async updateStaff(db: Firestore, appDb: Firestore, ownerId: string, staffId: string, updates: any): Promise<void> {
+    static async updateStaff(db: Firestore, appDb: Firestore, ownerId: string, staffId: string, updates: any, performer: PerformerInfo): Promise<void> {
         const staffRef = db.collection('users_data').doc(ownerId).collection('staff').doc(staffId);
         const staffSnap = await staffRef.get();
         if (!staffSnap.exists) throw new Error('Staff member not found');
@@ -187,7 +203,30 @@ export class StaffService {
             updates.phone = updates.phone.startsWith('+') ? updates.phone : `+91${updates.phone.replace(/\D/g, '').slice(-10)}`;
         }
 
+        const now = new Date().toISOString();
+        updates.updatedAt = now;
+        updates.updatedBy = performer;
+        
+        const changedFields = ActivityLogsService.getChangedFields(currentStaff, updates);
         await staffRef.update(updates);
+
+        if (changedFields.length > 0) {
+            await ActivityLogsService.logActivity({
+                ownerId,
+                activityType: 'STAFF_UPDATED',
+                module: 'staff',
+                details: `Updated staff: ${currentStaff.name} (${changedFields.join(', ')})`,
+                targetId: staffId,
+                targetType: 'staff',
+                status: 'success',
+                performedBy: performer,
+                changes: {
+                    before: currentStaff,
+                    after: { ...currentStaff, ...updates },
+                    changedFields
+                }
+            });
+        }
 
         // If userId exists, sync permissions/role to the user document
         const userId = currentStaff.userId;
@@ -229,7 +268,7 @@ export class StaffService {
     /**
      * Deletes a staff member record.
      */
-    static async deleteStaff(db: Firestore, appDb: Firestore, ownerId: string, staffId: string): Promise<void> {
+    static async deleteStaff(db: Firestore, appDb: Firestore, ownerId: string, staffId: string, performer: PerformerInfo): Promise<void> {
         const staffRef = db.collection('users_data').doc(ownerId).collection('staff').doc(staffId);
         const staffSnap = await staffRef.get();
         if (!staffSnap.exists) throw new Error('Staff member not found');
@@ -238,6 +277,18 @@ export class StaffService {
         
         // 1. Delete from staff collection
         await staffRef.delete();
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'STAFF_DELETED',
+            module: 'staff',
+            details: `Deleted staff: ${staff.name}`,
+            targetId: staffId,
+            targetType: 'staff',
+            status: 'success',
+            performedBy: performer,
+            metadata: { prevRole: staff.role }
+        });
 
         // 2. We don't necessarily delete the user from 'users' to avoid breaking their history,
         // but we suspend them or remove as staff

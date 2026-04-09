@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     const result = await enforcePermission(req, 'properties', 'add', 'POST /api/properties');
     if (!result.authorized) return result.response;
-    const { ownerId, plan } = result;
+    const { ownerId, plan, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const body = await req.json();
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
             roomsPerFloor: propertyData.roomsPerFloor,
             bedsPerRoom: propertyData.bedsPerRoom,
             planId: plan?.id
-        });
+        }, performer);
 
         // Update owner summary in main app DB
         try {
@@ -73,7 +74,8 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     const result = await enforcePermission(req, 'properties', 'delete', 'DELETE /api/properties');
     if (!result.authorized) return result.response;
-    const { ownerId } = result;
+    const { ownerId, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const pgId = req.nextUrl.searchParams.get('pgId');
@@ -81,28 +83,7 @@ export async function DELETE(req: NextRequest) {
 
         const db = await selectOwnerDataAdminDb(ownerId);
 
-        // Check for active guests
-        const activeGuestsSnap = await db.collection('users_data').doc(ownerId).collection('guests')
-            .where('pgId', '==', pgId)
-            .where('isVacated', '==', false)
-            .limit(1)
-            .get();
-
-        if (!activeGuestsSnap.empty) {
-            return NextResponse.json({ error: 'Cannot delete property with active tenants. Please vacate all tenants first.' }, { status: 409 });
-        }
-
-        const batch = db.batch();
-        batch.delete(db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId));
-
-        // Delete related sub-collection documents
-        for (const subCol of ['complaints', 'expenses']) {
-            const snap = await db.collection('users_data').doc(ownerId).collection(subCol)
-                .where('pgId', '==', pgId).get();
-            snap.docs.forEach(d => batch.delete(d.ref));
-        }
-
-        await batch.commit();
+        await PropertyService.deleteProperty(db, ownerId, pgId, performer);
 
         // Update owner summary
         try {
@@ -128,7 +109,8 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     const result = await enforcePermission(req, 'properties', 'edit', 'PATCH /api/properties');
     if (!result.authorized) return result.response;
-    const { ownerId } = result;
+    const { ownerId, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const body = await req.json();
@@ -139,15 +121,9 @@ export async function PATCH(req: NextRequest) {
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
 
-        // Perform the update
-        await pgRef.update({
-            ...updates,
-            updatedAt: Date.now(),
-        });
-
-        const updatedPg = (await pgRef.get()).data();
+        await PropertyService.updateProperty(db, ownerId, pgId, updates, performer);
+        const updatedPg = (await db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId).get()).data();
 
         return NextResponse.json({ success: true, pg: updatedPg });
     } catch (error: any) {

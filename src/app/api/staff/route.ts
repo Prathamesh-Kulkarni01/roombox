@@ -4,10 +4,11 @@
  * Complex invite/email logic remains in Redux staffSlice thunks.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 import { enforcePermission } from '@/lib/rbac-middleware';
+import { StaffService } from '@/services/staffService';
 
 // GET /api/staff?[pgId=xxx][&role=manager]
 export async function GET(req: NextRequest) {
@@ -40,7 +41,8 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     const result = await enforcePermission(req, 'staff', 'edit', 'PATCH /api/staff');
     if (!result.authorized) return result.response;
-    const { ownerId } = result;
+    const { ownerId, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const body = await req.json();
@@ -48,10 +50,10 @@ export async function PATCH(req: NextRequest) {
         if (!staffId || !updates) return badRequest('staffId and updates are required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        const ref = db.collection('users_data').doc(ownerId).collection('staff').doc(staffId);
-        await ref.set(updates, { merge: true });
+        const appDb = await getAdminDb();
+        await StaffService.updateStaff(db, appDb, ownerId, staffId, updates, performer);
 
-        const updated = await ref.get();
+        const updated = await db.collection('users_data').doc(ownerId).collection('staff').doc(staffId).get();
         return NextResponse.json({ success: true, staff: { id: updated.id, ...updated.data() } });
     } catch (error: any) {
         return serverError(error, 'PATCH /api/staff');
@@ -62,7 +64,8 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
     const result = await enforcePermission(req, 'staff', 'delete', 'DELETE /api/staff');
     if (!result.authorized) return result.response;
-    const { ownerId } = result;
+    const { ownerId, userId, name } = result;
+    const performer = { userId, name: name || 'Unknown User' };
 
     try {
         const body = await req.json();
@@ -70,7 +73,8 @@ export async function DELETE(req: NextRequest) {
         if (!staffId) return badRequest('staffId is required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        await db.collection('users_data').doc(ownerId).collection('staff').doc(staffId).delete();
+        const appDb = await getAdminDb();
+        await StaffService.deleteStaff(db, appDb, ownerId, staffId, performer);
 
         return NextResponse.json({ success: true, staffId });
     } catch (error: any) {

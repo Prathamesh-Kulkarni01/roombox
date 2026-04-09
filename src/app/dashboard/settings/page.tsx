@@ -8,6 +8,8 @@ import { PWASettings } from "@/components/dashboard/pwa-settings"
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { Button } from "@/components/ui/button"
+import { ActivityLogsList } from "@/components/activity/activity-logs-list"
+
 
 export default function SettingsPage() {
     const { currentUser, currentPlan } = useAppSelector((state) => state.user)
@@ -83,6 +85,17 @@ export default function SettingsPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Audit Logs</CardTitle>
+                    <CardDescription>View recent system and staff activity.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ActivityLogsList limit={5} />
+                </CardContent>
+            </Card>
         </div>
     )
 }
+

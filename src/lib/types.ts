@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 export interface KycFieldConfig {
     id: string;
@@ -6,6 +6,68 @@ export interface KycFieldConfig {
     type: 'text' | 'file' | 'select' | 'date';
     required: boolean;
     options?: string[];
+}
+
+export interface PerformerInfo {
+    userId: string;
+    name: string;
+    role?: string;
+}
+
+export interface BaseEntity {
+    createdAt?: string; // ISO String
+    createdBy?: PerformerInfo;
+    updatedAt?: string; // ISO String
+    updatedBy?: PerformerInfo;
+    schemaVersion?: number;
+}
+
+export type ActivityType = 
+    | 'GUEST_ONBOARDED'
+    | 'GUEST_VACATED'
+    | 'GUEST_UPDATED'
+    | 'PAYMENT_RECORDED'
+    | 'PAYMENT_CLAIMED'
+    | 'PAYMENT_VERIFIED'
+    | 'KYC_SUBMITTED'
+    | 'KYC_STATUS_UPDATED'
+    | 'COMPLAINT_CREATED'
+    | 'PROPERTY_CREATED'
+    | 'PROPERTY_UPDATED'
+    | 'PROPERTY_DELETED'
+    | 'ROOM_CREATED'
+    | 'ROOM_UPDATED'
+    | 'STAFF_ADDED'
+    | 'STAFF_UPDATED'
+    | 'STAFF_DELETED'
+    | 'EXPENSE_ADDED'
+    | 'EXPENSE_DELETED'
+    | 'SYSTEM_LOG';
+
+export interface ActivityChange {
+    field: string;
+    before: any;
+    after: any;
+}
+
+export interface ActivityLog {
+    id: string;
+    ownerId: string;
+    activityType: ActivityType;
+    details: string;
+    module: 'properties' | 'guests' | 'financials' | 'staff' | 'complaints' | 'system';
+    targetId?: string; // e.g., guestId, complaintId
+    targetType?: 'guest' | 'complaint' | 'payment' | 'room' | 'property' | 'staff' | 'expense';
+    status: 'success' | 'failed' | 'warning' | 'danger';
+    performedBy: PerformerInfo;
+    changes?: {
+        before?: any;
+        after?: any;
+        changedFields?: string[];
+    } | ActivityChange[]; // Support both formats during transition
+    error?: string;
+    metadata?: Record<string, any>;
+    timestamp: any; // Firestore Timestamp or Date
 }
 
 export interface SubmittedKycDocument {
@@ -48,7 +110,7 @@ export interface Bed {
   guestId: string | null;
 }
 
-export interface Room {
+export interface Room extends BaseEntity {
   id: string;
   name: string;
   beds: Bed[];
@@ -112,7 +174,7 @@ export interface MenuTemplate {
   menu: Menu;
 }
 
-export interface PG {
+export interface PG extends BaseEntity {
   id: string;
   name: string;
   location: string;
@@ -142,10 +204,9 @@ export interface PG {
   qrCodeImage?: string;
   online_payment_enabled?: boolean;
   direct_upi_enabled?: boolean;
-  schemaVersion?: number;
 }
 
-export interface Payment {
+export interface Payment extends BaseEntity {
   id: string;
   amount: number;
   month: string;
@@ -159,7 +220,6 @@ export interface Payment {
   verifiedBy?: string;
   verifiedAt?: string;
   claimedAt?: string;
-  createdAt?: string;
   date?: string; // Legacy/fallback for createdAt
   payoutStatus?: string; // Legacy
   payoutFailureReason?: string; // Legacy
@@ -176,7 +236,6 @@ export interface Payment {
   matchConfidence?: 'HIGH' | 'PARTIAL' | 'UNMATCHED';
   referenceId?: string;
   discrepancies?: string[];
-  schemaVersion?: number;
 }
 
 export interface LedgerEntry {
@@ -248,7 +307,8 @@ export interface KycDocument {
 
 export type RentCycleUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
 
-export interface Guest {
+export interface Guest extends BaseEntity {
+  roomName: any;
   id: string;
   shortId?: string;
   name: string;
@@ -281,7 +341,6 @@ export interface Guest {
   paymentHistory: any[]; // History of payments recorded
   payments?: Payment[]; // For tracking manual/offline payment submissions
   lastPaymentDate?: string;
-  schemaVersion?: number;
   finalSettlementAmount?: number;
   lastReminderSentAt?: string;
   lastReminderType?: 'T-3' | 'T-1' | 'T0' | 'T+2';
@@ -302,7 +361,7 @@ export interface AdditionalCharge { // Also deprecated
 }
 
 
-export interface Complaint {
+export interface Complaint extends BaseEntity {
   id: string;
   guestId: string | null; // Null if raised by owner for property
   guestName: string; // "Owner Reported" or guest name
@@ -318,10 +377,9 @@ export interface Complaint {
   upvotes?: number;
   isPublic: boolean;
   imageUrls?: string[];
-  schemaVersion?: number;
 }
 
-export interface Expense {
+export interface Expense extends BaseEntity {
   id: string;
   pgId: string;
   pgName: string;
@@ -519,7 +577,7 @@ export interface Notice {
   targetCount: number;
 }
 
-export interface Staff {
+export interface Staff extends BaseEntity {
   id: string;
   name: string;
   role: StaffRole;
@@ -534,7 +592,6 @@ export interface Staff {
   pgNames: string[];
   permissions: string[];
   isActive: boolean;
-  schemaVersion: number;
 }
 
 export type OnboardingStatus = 'complete' | 'pending' | 'error' | 'disabled';

@@ -8,7 +8,7 @@
 import { Firestore, FieldValue, DocumentSnapshot } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 import { runReconciliationLogic } from '@/lib/reconciliation';
-import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument } from '@/lib/types';
+import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument, type PerformerInfo } from '@/lib/types';
 import { getPlanLimit } from '@/lib/permissions';
 import { parseDateString } from '@/lib/utils';
 import { ActivityLogsService } from '@/lib/activity-logs-service';
@@ -83,7 +83,7 @@ export class TenantService {
      * Onboards a new tenant with centralized logic.
      * Handles Firestore updates, bed assignment, user linking/invites, and welcome notifications.
      */
-    static async onboardTenant(db: Firestore, appDb: Firestore, input: any): Promise<{ guest: Guest, magicLink?: string }> {
+    static async onboardTenant(db: Firestore, appDb: Firestore, input: any, performer?: PerformerInfo): Promise<{ guest: Guest, magicLink?: string }> {
         const {
             ownerId,
             name,
@@ -112,7 +112,7 @@ export class TenantService {
             ? (parseDateString(joinDate) || new Date(joinDate))
             : new Date(joinDate || new Date().toISOString());
         
-        await this.checkGuestLimit(db, ownerId, planId);
+        await TenantService.checkGuestLimit(db, ownerId, planId);
 
         console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
 
@@ -281,7 +281,10 @@ export class TenantService {
                 rentCycleUnit: rentCycleUnit || 'months',
                 rentCycleValue: rentCycleValue || 1,
                 billingAnchorDay: anchorDay,
-                createdAt: Date.now(),
+                createdAt: now,
+                createdBy: performer || undefined,
+                updatedAt: now,
+                updatedBy: performer || undefined,
                 noticePeriodDays: 30,
                 schemaVersion: CURRENT_SCHEMA_VERSION,
                 isOnboarded: false, // Tenant self-onboarding via WhatsApp not yet complete
@@ -542,7 +545,9 @@ export class TenantService {
                         details: `WhatsApp Welcome TEMPLATE failed for ${name} (${formattedPhone}). Falling back to text. Reason: ${JSON.stringify(result.error || 'Unknown')}`,
                         targetId: guestId,
                         targetType: 'guest',
-                        status: 'warning'
+                        status: 'warning',
+                        module: 'guests',
+                        performedBy: performer || { userId: ownerId, name: 'System/Owner' }
                     });
 
                     const fallbackMsg = `👋 *Welcome to ${pgName || newGuest.pgName}!*\n\nHi ${name}, your host has added you to the portal.\n\nRoom: ${roomName || 'Assigned Room'}\nRent: ₹${newGuest.rentAmount}\n\nAccess your Dashboard here: ${magicLink}`;
@@ -552,35 +557,18 @@ export class TenantService {
                     const usedFallback = (process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost');
                     await ActivityLogsService.logActivity({
                         ownerId,
-                        activityType: 'GUEST_ONBOARDING',
-                        details: `WhatsApp welcome sent to ${name} (${formattedPhone})${usedFallback ? ' [INFO: Used rentsutra-mcp.netlify.app fallback for localhost]' : ''}`,
+                        activityType: 'GUEST_ONBOARDED',
+                        module: 'guests',
+                        details: `Guest ${name} onboarded to ${pgName || newGuest.pgName} in room ${roomName || 'Assigned Room'}`,
                         targetId: guestId,
                         targetType: 'guest',
-                        status: 'success'
+                        status: 'success',
+                        performedBy: performer || { userId: ownerId, name: 'System/Owner' }
                     });
                 }
             } catch (waErr: any) {
                 console.warn(`[TenantService.onboardTenant] WA Notify Failed:`, waErr);
-                await ActivityLogsService.logActivity({
-                    ownerId,
-                    activityType: 'GUEST_ONBOARDING',
-                    details: `WhatsApp welcome FAILED for ${name} (${phone})`,
-                    targetId: guestId,
-                    targetType: 'guest',
-                    status: 'failed',
-                    error: waErr.message
-                });
             }
-        } else {
-            // No phone provided
-            await ActivityLogsService.logActivity({
-                ownerId,
-                activityType: 'GUEST_ONBOARDING',
-                details: `Guest ${name} added without phone. No WhatsApp sent.`,
-                targetId: guestId,
-                targetType: 'guest',
-                status: 'warning'
-            });
         }
 
         console.log(`[TenantService.onboardTenant] Onboarding complete for ${guestId}`);
@@ -590,19 +578,63 @@ export class TenantService {
     /**
      * Update a tenant record atomically.
      */
-    static async updateTenant(db: Firestore, ownerId: string, guestId: string, updates: Partial<Guest>): Promise<void> {
-        console.log(`[TenantService.updateTenant] Updating ${guestId}`);
+    static async updateTenant(db: Firestore, ownerId: string, guestId: string, updates: Partial<Guest>, performer: PerformerInfo): Promise<void> {
+        console.log(`[TenantService.updateTenant] Updating ${guestId} by ${performer.name}`);
 
-        // Safety check for mandatory fields
-        if (updates.hasOwnProperty('dueDate') && (updates.dueDate === undefined || updates.dueDate === null)) {
-            throw new Error('dueDate cannot be null or undefined');
-        }
-        if (updates.hasOwnProperty('moveInDate') && (updates.moveInDate === undefined || updates.moveInDate === null)) {
-            throw new Error('moveInDate cannot be null or undefined');
-        }
+        const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
+        
+        await db.runTransaction(async (transaction) => {
+            const guestDoc = await transaction.get(guestRef);
+            if (!guestDoc.exists) throw new Error('Guest not found');
+            
+            const before = guestDoc.data() as Guest;
+            const now = new Date().toISOString();
 
-        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).update(updates);
+            // Track changes (excluding internal management fields)
+            const changedFields = ActivityLogsService.getChangedFields(before, updates);
+
+            if (changedFields.length === 0) {
+                console.log(`[TenantService.updateTenant] No changes detected for ${guestId}`);
+                return;
+            }
+
+            // Apply updates + metadata
+            const finalUpdates = {
+                ...updates,
+                updatedAt: now,
+                updatedBy: performer,
+                schemaVersion: CURRENT_SCHEMA_VERSION
+            };
+
+            // Safety check for mandatory fields (re-added from legacy)
+            if (updates.hasOwnProperty('dueDate') && (updates.dueDate === undefined || updates.dueDate === null)) {
+                throw new Error('dueDate cannot be null or undefined');
+            }
+            if (updates.hasOwnProperty('moveInDate') && (updates.moveInDate === undefined || updates.moveInDate === null)) {
+                throw new Error('moveInDate cannot be null or undefined');
+            }
+
+            transaction.update(guestRef, finalUpdates);
+
+            // Log activity
+            await ActivityLogsService.logActivity({
+                ownerId,
+                activityType: 'GUEST_UPDATED',
+                module: 'guests',
+                details: `Updated ${before.name}'s profile: ${changedFields.map(c => c.field).join(', ')}`,
+                targetId: guestId,
+                targetType: 'guest',
+                status: 'success',
+                performedBy: performer,
+                changes: {
+                    before,
+                    after: { ...before, ...updates },
+                    changedFields
+                }
+            });
+        });
     }
+
 
     static async transferGuest(db: Firestore, ownerId: string, guestId: string, input: {
         newPgId: string,
@@ -612,10 +644,11 @@ export class TenantService {
         newRentAmount?: number,
         newDepositAmount?: number,
         shouldProrate?: boolean,
-        prorationAmount?: number
+        prorationAmount?: number,
+        performer: PerformerInfo
     }): Promise<void> {
-        const { newPgId, newBedId, newRoomId, newRoomName, newRentAmount, newDepositAmount, shouldProrate, prorationAmount } = input;
-        console.log(`[TenantService.transferGuest] Transferring ${guestId} to pg:${newPgId}, bed:${newBedId}`);
+        const { newPgId, newBedId, newRoomId, newRoomName, newRentAmount, newDepositAmount, shouldProrate, prorationAmount, performer } = input;
+        console.log(`[TenantService.transferGuest] Transferring ${guestId} to pg:${newPgId}, bed:${newBedId} by ${performer.name}`);
 
         const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
 
@@ -749,6 +782,7 @@ export class TenantService {
                 updatedBalance += prorationAmount;
             }
 
+            const now = new Date().toISOString();
             // 4. Update guest profile
             const guestUpdates: any = {
                 pgId: newPgId,
@@ -758,7 +792,10 @@ export class TenantService {
                 bedId: newBedId,
                 balance: updatedBalance,
                 depositAmount: updatedDepositAmount,
-                ledger: FieldValue.arrayUnion(...ledgerUpdates)
+                ledger: FieldValue.arrayUnion(...ledgerUpdates),
+                updatedAt: now,
+                updatedBy: performer,
+                schemaVersion: CURRENT_SCHEMA_VERSION
             };
 
             if (newRentAmount !== undefined) {
@@ -766,6 +803,24 @@ export class TenantService {
             }
 
             transaction.update(guestRef, guestUpdates);
+
+            // 5. Log activity
+            await ActivityLogsService.logActivity({
+                ownerId,
+                activityType: 'GUEST_TRANSFERRED',
+                module: 'guests',
+                details: `Transferred ${guest.name} from ${guest.pgName} (${guest.roomName}) to ${newPgData.name} (${newRoomName})`,
+                targetId: guestId,
+                targetType: 'guest',
+                status: 'success',
+                performedBy: performer,
+                metadata: {
+                    from: { pgId: guest.pgId, pgName: guest.pgName, roomId: guest.roomId, bedId: guest.bedId },
+                    to: { pgId: newPgId, pgName: newPgData.name, roomId: newRoomId, bedId: newBedId },
+                    rentAdjusted: newRentAmount !== undefined,
+                    depositAdjusted: newDepositAmount !== undefined
+                }
+            });
         });
 
         console.log(`[TenantService.transferGuest] Successfully transferred ${guestId}`);
@@ -774,20 +829,29 @@ export class TenantService {
     /**
      * Initiate exit process.
      */
-    static async initiateTenantExit(db: Firestore, ownerId: string, guestId: string, noticePeriodDays: number = 30): Promise<Partial<Guest>> {
-        console.log(`[TenantService.initiateTenantExit] Initiating exit for ${guestId}`);
+    static async initiateTenantExit(db: Firestore, ownerId: string, guestId: string, performer: PerformerInfo, noticePeriodDays: number = 30): Promise<Partial<Guest>> {
+        console.log(`[TenantService.initiateTenantExit] Initiating exit for ${guestId} by ${performer.name}`);
         const exitDate = new Date();
         exitDate.setDate(exitDate.getDate() + noticePeriodDays);
         const exitDateStr = exitDate.toISOString();
-        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({ exitDate: exitDateStr }, { merge: true });
+        const now = new Date().toISOString();
+
+        await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({ 
+            exitDate: exitDateStr,
+            updatedAt: now,
+            updatedBy: performer
+        }, { merge: true });
         
         await ActivityLogsService.logActivity({
             ownerId,
-            activityType: 'SYSTEM_LOG',
-            details: `Tenant ${guestId} initiated exit. Notice period end: ${exitDateStr}`,
+            activityType: 'GUEST_UPDATED',
+            module: 'guests',
+            details: `Tenant exit initiated. Set for: ${new Date(exitDateStr).toLocaleDateString('en-IN')}`,
             targetId: guestId,
             targetType: 'guest',
-            status: 'success'
+            status: 'success',
+            performedBy: performer,
+            changes: [{ field: 'exitDate', before: null, after: exitDateStr }]
         });
         
         return { id: guestId, exitDate: exitDateStr };
@@ -796,8 +860,8 @@ export class TenantService {
     /**
      * Vacate a tenant: mark vacated, free bed, decrement occupancy.
      */
-    static async vacateTenant(db: Firestore, ownerId: string, guestId: string, appDb?: Firestore, sendWhatsApp: boolean = false): Promise<{ guestId: string; pgId: string }> {
-        console.log(`[TenantService.vacateTenant] Vacating ${guestId}`);
+    static async vacateTenant(db: Firestore, ownerId: string, guestId: string, performer: PerformerInfo, appDb?: Firestore, sendWhatsApp: boolean = false): Promise<{ guestId: string; pgId: string }> {
+        console.log(`[TenantService.vacateTenant] Vacating ${guestId} by ${performer.name}`);
         const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
         const snap = await guestRef.get();
         if (!snap.exists) throw new Error(`Guest not found: ${guestId}`);
@@ -848,7 +912,9 @@ export class TenantService {
         const guestUpdates: any = {
             isVacated: true,
             exitDate: vacatedAt,
-            finalSettlementAmount
+            finalSettlementAmount,
+            updatedAt: vacatedAt,
+            updatedBy: performer
         };
 
         if (ledgerUpdates.length > 0) {
@@ -917,10 +983,12 @@ export class TenantService {
         await ActivityLogsService.logActivity({
             ownerId,
             activityType: 'GUEST_VACATED',
+            module: 'guests',
             details: `Guest ${guest.name} vacated from ${guest.pgName}. Final Settlement: ${guest.amountType === 'symbolic' ? (getBalanceBreakdown(guest).symbolic || 'Settled') : `₹${finalSettlementAmount}`}`,
             targetId: guestId,
             targetType: 'guest',
-            status: 'success'
+            status: 'success',
+            performedBy: performer
         });
         return { guestId, pgId: guest.pgId };
     }
@@ -938,9 +1006,10 @@ export class TenantService {
         amountType?: 'numeric' | 'symbolic',
         symbolicValue?: string,
         paymentMode?: string,
-        notes?: string
+        notes?: string,
+        performer: PerformerInfo
     }): Promise<{ guest: Guest, ledgerEntry: LedgerEntry, newBalance: number, newStatus: string }> {
-        const { ownerId, amount, amountType = 'numeric', symbolicValue, paymentMode = 'cash', notes = '' } = input;
+        const { ownerId, amount, amountType = 'numeric', symbolicValue, paymentMode = 'cash', notes = '', performer } = input;
         const resolvedGuestId = input.guestId || input.guest?.id;
 
         if (!resolvedGuestId) throw new Error('Guest or guestId required');
@@ -1053,6 +1122,8 @@ export class TenantService {
                 ...reconciledGuest,
                 balance: newBalance,
                 symbolicBalance: (breakdown.symbolic || null) as any,
+                updatedAt: now.toISOString(),
+                updatedBy: performer
                 // rentStatus is already set correctly by runReconciliationLogic
             };
 
@@ -1123,7 +1194,9 @@ export class TenantService {
             targetId: resolvedGuestId,
             targetType: 'guest',
             status: 'success',
-            metadata: { amount, paymentMode, notes }
+            metadata: { amount, paymentMode, notes },
+            module: 'guests',
+            performedBy: performer
         });
         return result;
     }
@@ -1173,60 +1246,105 @@ export class TenantService {
     /**
      * KYC status update.
      */
-    static async updateKycStatus(db: Firestore, ownerId: string, guestId: string, status: 'verified' | 'rejected', reason?: string): Promise<void> {
-        console.log(`[TenantService.updateKycStatus] Setting ${guestId} to ${status}`);
+    static async updateKycStatus(db: Firestore, ownerId: string, guestId: string, status: 'verified' | 'rejected', performer: PerformerInfo, reason?: string): Promise<void> {
+        console.log(`[TenantService.updateKycStatus] Setting ${guestId} to ${status} by ${performer.name}`);
+        const now = new Date().toISOString();
         await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({
             kycStatus: status,
             kycRejectReason: reason || null,
+            updatedAt: now,
+            updatedBy: performer
         }, { merge: true });
 
         await ActivityLogsService.logActivity({
             ownerId,
-            activityType: 'KYC_SUBMITTED',
+            activityType: status === 'verified' ? 'KYC_VERIFIED' : 'KYC_REJECTED',
+            module: 'guests',
             details: `KYC for guest ${guestId} marked as ${status}${reason ? ': ' + reason : ''}`,
             targetId: guestId,
             targetType: 'guest',
-            status: status === 'verified' ? 'success' : 'warning'
+            status: status === 'verified' ? 'success' : 'warning',
+            performedBy: performer
         });
     }
 
     /**
      * Submit KYC documents.
      */
-    static async submitKycDocuments(db: Firestore, ownerId: string, guestId: string, documents: SubmittedKycDocument[]): Promise<void> {
-        console.log(`[TenantService.submitKycDocuments] ${guestId} submitted ${documents.length} docs`);
+    static async submitKycDocuments(db: Firestore, ownerId: string, guestId: string, documents: SubmittedKycDocument[], performer: PerformerInfo): Promise<void> {
+        console.log(`[TenantService.submitKycDocuments] ${guestId} submitted ${documents.length} docs by ${performer.name}`);
+        const now = new Date().toISOString();
         await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({
             kycStatus: 'pending',
             documents,
+            updatedAt: now,
+            updatedBy: performer
         }, { merge: true });
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'KYC_SUBMITTED',
+            module: 'guests',
+            details: `KYC documents submitted for guest ${guestId}`,
+            targetId: guestId,
+            targetType: 'guest',
+            status: 'success',
+            performedBy: performer
+        });
     }
 
     /**
      * Reset KYC.
      */
-    static async resetKyc(db: Firestore, ownerId: string, guestId: string): Promise<void> {
-        console.log(`[TenantService.resetKyc] Resetting KYC for ${guestId}`);
+    static async resetKyc(db: Firestore, ownerId: string, guestId: string, performer: PerformerInfo): Promise<void> {
+        console.log(`[TenantService.resetKyc] Resetting KYC for ${guestId} by ${performer.name}`);
+        const now = new Date().toISOString();
         await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).set({
             kycStatus: 'not-started',
             kycRejectReason: null,
             documents: [],
+            updatedAt: now,
+            updatedBy: performer
         }, { merge: true });
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'KYC_RESET',
+            module: 'guests',
+            details: `KYC reset for guest ${guestId}`,
+            targetId: guestId,
+            targetType: 'guest',
+            status: 'success',
+            performedBy: performer
+        });
     }
 
-    /**
-     * Add charge.
-     */
-    static async addCharge(db: Firestore, ownerId: string, guestId: string, charge: { description: string, amount: number }): Promise<LedgerEntry> {
-        console.log(`[TenantService.addCharge] Adding charge to ${guestId}: ${charge.description}`);
+    static async addCharge(db: Firestore, ownerId: string, guestId: string, charge: { description: string, amount: number }, performer: PerformerInfo): Promise<LedgerEntry> {
+        console.log(`[TenantService.addCharge] Adding charge to ${guestId}: ${charge.description} by ${performer.name}`);
+        const now = new Date().toISOString();
         const newCharge: LedgerEntry = {
             id: `charge-${Date.now()}`,
-            date: new Date().toISOString(),
+            date: now,
             type: 'debit',
             description: charge.description,
             amount: charge.amount,
         };
         await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).update({
             ledger: FieldValue.arrayUnion(newCharge),
+            updatedAt: now,
+            updatedBy: performer
+        });
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'PAYMENT_RECORDED', // Re-using for now or could add CHARGE_ADDED
+            module: 'financials',
+            details: `Added charge: ${charge.description} (₹${charge.amount}) to guest ${guestId}`,
+            targetId: guestId,
+            targetType: 'guest',
+            status: 'success',
+            performedBy: performer,
+            metadata: { charge: newCharge }
         });
         return newCharge;
     }
@@ -1234,22 +1352,41 @@ export class TenantService {
     /**
      * Remove charge.
      */
-    static async removeCharge(db: Firestore, ownerId: string, guestId: string, chargeId: string): Promise<void> {
-        console.log(`[TenantService.removeCharge] Removing ${chargeId} from ${guestId}`);
+    static async removeCharge(db: Firestore, ownerId: string, guestId: string, chargeId: string, performer: PerformerInfo): Promise<void> {
+        console.log(`[TenantService.removeCharge] Removing ${chargeId} from ${guestId} by ${performer.name}`);
+        const now = new Date().toISOString();
         const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
         const snap = await guestRef.get();
         if (!snap.exists) throw new Error('Guest not found');
         const guest = snap.data() as Guest;
         const charge = (guest.ledger || []).find(c => c.id === chargeId);
         if (!charge) throw new Error('Charge not found');
-        await guestRef.update({ ledger: FieldValue.arrayRemove(charge) });
+        
+        await guestRef.update({ 
+            ledger: FieldValue.arrayRemove(charge),
+            updatedAt: now,
+            updatedBy: performer
+        });
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'PAYMENT_RECORDED', // Re-using for now
+            module: 'financials',
+            details: `Removed charge: ${charge.description} (₹${charge.amount}) from guest ${guestId}`,
+            targetId: guestId,
+            targetType: 'guest',
+            status: 'success',
+            performedBy: performer,
+            metadata: { charge }
+        });
     }
 
     /**
      * Shared room charge.
      */
-    static async addSharedRoomCharge(db: Firestore, ownerId: string, roomId: string, charge: { description: string, amount: number }): Promise<{ updatedCount: number }> {
-        console.log(`[TenantService.addSharedRoomCharge] Adding ${charge.amount} shared charge to room ${roomId}`);
+    static async addSharedRoomCharge(db: Firestore, ownerId: string, roomId: string, charge: { description: string, amount: number }, performer: PerformerInfo): Promise<{ updatedCount: number }> {
+        console.log(`[TenantService.addSharedRoomCharge] Adding ${charge.amount} shared charge to room ${roomId} by ${performer.name}`);
+        const now = new Date().toISOString();
         const guestsSnap = await db.collection('users_data').doc(ownerId).collection('guests')
             .where('roomId', '==', roomId)
             .where('isVacated', '==', false)
@@ -1262,14 +1399,31 @@ export class TenantService {
         guestsSnap.docs.forEach(doc => {
             const newCharge: LedgerEntry = {
                 id: `charge-${Date.now()}-${doc.id}`,
-                date: new Date().toISOString(),
+                date: now,
                 type: 'debit',
                 description: charge.description,
                 amount: chargePerGuest,
             };
-            batch.update(doc.ref, { ledger: FieldValue.arrayUnion(newCharge) });
+            batch.update(doc.ref, { 
+                ledger: FieldValue.arrayUnion(newCharge),
+                updatedAt: now,
+                updatedBy: performer
+            });
         });
         await batch.commit();
+
+        await ActivityLogsService.logActivity({
+            ownerId,
+            activityType: 'PAYMENT_RECORDED',
+            module: 'financials',
+            details: `Added shared room charge: ${charge.description} (₹${charge.amount} total) to room ${roomId}`,
+            targetId: roomId,
+            targetType: 'room',
+            status: 'success',
+            performedBy: performer,
+            metadata: { charge, guestCount: guestsSnap.docs.length, perGuest: chargePerGuest }
+        });
+
         return { updatedCount: guestsSnap.docs.length };
     }
 
@@ -1385,7 +1539,9 @@ export class TenantService {
                 details: `Complaint ${complaintId} status changed to ${status}. Notification sent.`,
                 targetId: complaintId,
                 targetType: 'complaint',
-                status: 'success'
+                status: 'success',
+                module: 'guests',
+                performedBy: performer
             });
         } catch (err: any) {
             console.warn(`[TenantService.notifyComplaintStatusChange] Failed to send WhatsApp:`, err);
@@ -1396,7 +1552,9 @@ export class TenantService {
                 targetId: complaintId,
                 targetType: 'complaint',
                 status: 'failed',
-                error: err.message
+                error: err.message,
+                module: 'guests',
+                performedBy: performer 
             });
         }
     }

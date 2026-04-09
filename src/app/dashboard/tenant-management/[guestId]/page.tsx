@@ -30,6 +30,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import EditGuestDialog from '@/components/dashboard/dialogs/EditGuestDialog'
 
+import { ActivityLogsList } from "@/components/activity/activity-logs-list"
+
 import type { Guest, Complaint, AdditionalCharge, KycDocumentConfig, SubmittedKycDocument, Payment, LedgerEntry } from "@/lib/types"
 import { ArrowLeft, User, IndianRupee, MessageCircle, ShieldCheck, Clock, Wallet, Home, LogOut, Copy, Calendar, Phone, Mail, Building, BedDouble, Trash2, PlusCircle, FileText, History, Pencil, Loader2, FileUp, ExternalLink, Printer, CheckCircle, XCircle, RefreshCcw, Link as LinkIcon, Key } from "lucide-react"
 import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMonths, isSameDay } from "date-fns"
@@ -124,7 +126,8 @@ export default function GuestProfilePage() {
         selectedGuestForReminder,
         handleOpenReminderDialog,
         isRecordingPayment,
-        setReminderMessage
+        setReminderMessage,
+        isUpdatingGuest
     } = useDashboard();
 
 
@@ -634,7 +637,7 @@ export default function GuestProfilePage() {
                 <Card>
                     <Tabs defaultValue="stay-details">
                         <CardHeader>
-                            <TabsList className="grid w-full grid-cols-3">
+                            <TabsList className="grid w-full grid-cols-4">
                                 <TabsTrigger value="stay-details">
                                     <span className="sm:hidden">Stay</span>
                                     <span className="hidden sm:inline">Stay Details</span>
@@ -646,6 +649,10 @@ export default function GuestProfilePage() {
                                 <TabsTrigger value="complaint-history">
                                     <span className="sm:hidden">Issues</span>
                                     <span className="hidden sm:inline">Complaint History</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="activity">
+                                    <span className="sm:hidden">Activity</span>
+                                    <span className="hidden sm:inline">Activity Log</span>
                                 </TabsTrigger>
                             </TabsList>
                         </CardHeader>
@@ -738,13 +745,18 @@ export default function GuestProfilePage() {
                                     </Table>
                                 )}
                             </TabsContent>
+                            <TabsContent value="activity">
+                                <div className="pt-2">
+                                    <ActivityLogsList module="guests" targetId={guest.id} />
+                                </div>
+                            </TabsContent>
                         </CardContent>
                     </Tabs>
                 </Card>
 
                 {/* Dialogs */}
-                <EditGuestDialog isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guest} {...{ editGuestForm, handleEditGuestSubmit }} />
-                <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} selectedGuestForPayment={selectedGuestForPayment} paymentForm={paymentForm} handlePaymentSubmit={handlePaymentSubmit} />
+                <EditGuestDialog isUpdatingGuest={isUpdatingGuest} isEditGuestDialogOpen={isEditGuestDialogOpen} setIsEditGuestDialogOpen={setIsEditGuestDialogOpen} guestToEdit={guest} {...{ editGuestForm, handleEditGuestSubmit }} />
+                <PaymentDialog isPaymentDialogOpen={isPaymentDialogOpen} setIsPaymentDialogOpen={setIsPaymentDialogOpen} selectedGuestForPayment={selectedGuestForPayment} paymentForm={paymentForm} handlePaymentSubmit={handlePaymentSubmit} isRecordingPayment={isRecordingPayment} />
 
                 <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
                     <DialogContent><DialogHeader><DialogTitle>Send Rent Reminder</DialogTitle><DialogDescription>A reminder message has been generated for {guest.name}. You can copy it or send it directly via WhatsApp.</DialogDescription></DialogHeader><div className="py-4">{isGeneratingReminder ? (<div className="space-y-2"><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" /></div>) : (<Textarea readOnly value={reminderMessage} rows={6} className="bg-muted/50" />)}</div><DialogFooter className="gap-2 sm:justify-end"><Button variant="secondary" onClick={() => { navigator.clipboard.writeText(reminderMessage); toast({ title: "Copied!", description: "Reminder message copied to clipboard." }) }}><Copy className="mr-2 h-4 w-4" /> Copy</Button><a href={`https://wa.me/${guest.phone}?text=${encodeURIComponent(reminderMessage)}`} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto"><Button className="w-full bg-green-500 hover:bg-green-600 text-white"><MessageCircle className="mr-2 h-4 w-4" /> Send on WhatsApp</Button></a></DialogFooter></DialogContent>

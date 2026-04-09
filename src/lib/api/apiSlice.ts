@@ -5,7 +5,7 @@
  * Provides automatic caching, tag-based invalidation, and auto-refetch.
  */
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type { PG, Guest, Complaint, Expense, Staff } from '@/lib/types';
+import type { PG, Guest, Complaint, Expense, Staff, ActivityLog } from '@/lib/types';
 
 // ─── Response Types ────────────────────────────────────────────────────────────
 
@@ -62,6 +62,13 @@ export interface StaffResponse {
     error?: string;
 }
 
+export interface ActivityLogsResponse {
+    success: boolean;
+    logs?: ActivityLog[];
+    nextId?: string | null;
+    error?: string;
+}
+
 
 import { auth as clientAuth } from '@/lib/firebase';
 import { setPgs } from '../slices/pgsSlice';
@@ -83,7 +90,7 @@ export const api = createApi({
             return headers;
         },
     }),
-    tagTypes: ['Properties', 'Tenants', 'Rent', 'Guests', 'Complaints', 'Expenses', 'Staff'],
+    tagTypes: ['Properties', 'Tenants', 'Rent', 'Guests', 'Complaints', 'Expenses', 'Staff', 'ActivityLogs'],
     endpoints: (builder) => ({
 
         // ─── Properties ────────────────────────────────────────────────
@@ -480,6 +487,33 @@ export const api = createApi({
             query: (body) => ({ url: 'api/payments/verify', method: 'POST', body }),
             invalidatesTags: ['Guests', 'Tenants', 'Rent'],
         }),
+
+        // ─── Activity Logs ────────────────────────────────────────────────
+        getActivityLogs: builder.query<ActivityLogsResponse, {
+            module?: string;
+            activityType?: string;
+            targetId?: string;
+            userId?: string;
+            limit?: number;
+            lastId?: string;
+        } | void>({
+            query: (params) => {
+                let url = `api/activity-logs`;
+                if (params) {
+                    const searchParams = new URLSearchParams();
+                    if (params.module) searchParams.append('module', params.module);
+                    if (params.activityType) searchParams.append('activityType', params.activityType);
+                    if (params.targetId) searchParams.append('targetId', params.targetId);
+                    if (params.userId) searchParams.append('userId', params.userId);
+                    if (params.limit) searchParams.append('limit', params.limit.toString());
+                    if (params.lastId) searchParams.append('lastId', params.lastId);
+                    const q = searchParams.toString();
+                    if (q) url += `?${q}`;
+                }
+                return url;
+            },
+            providesTags: ['ActivityLogs'],
+        }),
     }),
 });
 
@@ -525,4 +559,6 @@ export const {
     useGenerateStaffMagicLinkMutation,
     // Verification
     useVerifyPaymentMutation,
+    // Activity Logs
+    useGetActivityLogsQuery,
 } = api;
