@@ -12,8 +12,8 @@
  *   5. Save session, send response
  */
 
-import { sendWhatsAppMessage } from './send-message';
-import { getSession, updateSession, clearSession } from './session-state';
+import { MessageManager, sendWhatsAppMessage } from './send-message';
+import { SessionManager, getSession, updateSession, clearSession } from './session-state';
 import { workflowEngine } from './workflow-engine';
 import { WorkflowContext } from './workflow-types';
 import { getAdminDb } from '../firebaseAdmin';
@@ -81,11 +81,11 @@ export async function handleIncomingMessage(data: {
     console.log(`[Router] From: ${from} | Type: ${messageType} | Msg: "${text}"`);
 
     // Load persisted session
-    let session = await getSession(from);
+    let session = await SessionManager.getSession(from);
 
     // Refresh lastUpdated on every inbound message to accurately track the 24h session window
-    await updateSession(from, session.state, session.data);
-    session = await getSession(from); // Re-load with fresh timestamp
+    await SessionManager.updateSession(from, session.state, session.data);
+    session = await SessionManager.getSession(from); // Re-load with fresh timestamp
 
     // 0. Log incoming message immediately if we know the owner
     if (session.data?.ownerId) {
@@ -106,7 +106,7 @@ export async function handleIncomingMessage(data: {
         await handleAuth(from, text, session);
 
         // After auth, if we now have an ownerId, log the initial message that triggered it
-        const postAuthSession = await getSession(from);
+        const postAuthSession = await SessionManager.getSession(from);
         if (postAuthSession.data?.ownerId) {
             await WhatsAppLogsService.logMessage({
                 ownerId: postAuthSession.data.ownerId,
@@ -128,7 +128,7 @@ export async function handleIncomingMessage(data: {
         const activeTenants = await lookupTenantsByPhone(from);
         if (activeTenants.length === 0) {
             console.log(`[Router] Previously authenticated tenant ${from} is no longer active (vacated). Clearing session...`);
-            await clearSession(from);
+            await SessionManager.clearSession(from);
             await handleAuth(from, 'hi', { state: 'IDLE', data: {}, lastUpdated: Date.now() });
             return;
         }
@@ -380,14 +380,14 @@ async function switchToWorkflow(
 
     // Run onEnter and present the step
     const message = await workflowEngine.presentStep(ctx);
-    await sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
+    await MessageManager.sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
     await persistWorkflowContext(from, session, ctx);
 }
 
 // ─── Session Persistence ──────────────────────────────────────────────────────
 
 async function persistWorkflowContext(from: string, session: any, ctx: WorkflowContext): Promise<void> {
-    await updateSession(from, 'IDLE', {
+    await SessionManager.updateSession(from, 'IDLE', {
         ...session.data,
         workflowContext: ctx,
         workflowId: ctx.workflowId,
@@ -425,18 +425,18 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
         if (allAccounts.length === 1) {
             const acc = allAccounts[0];
             if (acc.type === 'owner') {
-                await updateSession(from, 'IDLE', {
+                await SessionManager.updateSession(from, 'IDLE', {
                     isAuthenticatedOwner: true,
                     ownerName: acc.name,
                     ownerId: acc.id,
                     userRole: (acc.role as string) || 'owner',
                 });
-                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Owner)`, acc.id);
-                await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
+                await MessageManager.sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Owner)`, acc.id);
+                await switchToWorkflow(from, await SessionManager.getSession(from), 'mainMenu', 'showMenu');
             } else {
                 const isOnboarded = await checkTenantIsOnboarded(acc.ownerId, acc.id);
 
-                await updateSession(from, 'IDLE', {
+                await SessionManager.updateSession(from, 'IDLE', {
                     isAuthenticatedTenant: true,
                     tenantName: acc.name,
                     guestId: acc.id,
@@ -445,9 +445,9 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                 });
 
                 if (!isOnboarded) {
-                    await switchToWorkflow(from, await getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
+                    await switchToWorkflow(from, await SessionManager.getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
                 } else {
-                    await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Tenant in ${acc.pgName || 'PG'})`, acc.ownerId, acc.id);
+                    await MessageManager.sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Tenant in ${acc.pgName || 'PG'})`, acc.ownerId, acc.id);
                     await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
                 }
             }
@@ -553,35 +553,35 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     await handleIncomingMessage({ from, msgBody: 'hi', messageType: 'text' });
                 } else {
                     const acc = matchedTenants[0];
-                    await updateSession(from, 'IDLE', {
+                    await SessionManager.updateSession(from, 'IDLE', {
                         isAuthenticatedTenant: true,
                         tenantName: acc.name,
                         guestId: acc.id,
                         ownerId: acc.ownerId,
                         pgId: acc.pgId,
                     });
-                    await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+                    await switchToWorkflow(from, await SessionManager.getSession(from), 'tenantPortal', 'tenantMenu');
                 }
             } else {
-                await sendWhatsAppMessage(
+                await MessageManager.sendWhatsAppMessage(
                     from,
                     `❌ *Access Denied*\n\n` +
                     `We couldn't find a tenant record for your number (*${from.replace(/\D/g, '')}*).\n\n` +
                     `Please ask your PG owner to add your phone number accurately in the RentSutra portal.`
                 );
-                await updateSession(from, 'IDLE');
+                await SessionManager.updateSession(from, 'IDLE');
             }
         } else if (text === '3') {
-            await sendWhatsAppMessage(from, `🆘 *Support*\n\nFor help, email us at: support@rentsutra.app\n\nOr visit: ${process.env.NEXT_PUBLIC_APP_URL}/support\n\nReply *Hi* to go back.`);
-            await updateSession(from, 'IDLE');
+            await MessageManager.sendWhatsAppMessage(from, `🆘 *Support*\n\nFor help, email us at: support@rentsutra.app\n\nOr visit: ${process.env.NEXT_PUBLIC_APP_URL}/support\n\nReply *Hi* to go back.`);
+            await SessionManager.updateSession(from, 'IDLE');
         } else {
-            await sendWhatsAppMessage(from, `Please reply *1* for Owner, *2* for Tenant, or *3* for Support.`);
+            await MessageManager.sendWhatsAppMessage(from, `Please reply *1* for Owner, *2* for Tenant, or *3* for Support.`);
         }
         return;
     }
 
     // Fallback
-    await sendWhatsAppMessage(from, `Reply *Hi* to get started.`);
+    await MessageManager.sendWhatsAppMessage(from, `Reply *Hi* to get started.`);
 }
 
 // ─── Owner Lookup ─────────────────────────────────────────────────────────────

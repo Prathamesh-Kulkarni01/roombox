@@ -17,12 +17,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.5,
     },
-     {
-      url: `${baseUrl}/signup`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
   ] as MetadataRoute.Sitemap
 
   // In the future, if you have a public collection of PGs in Firestore,

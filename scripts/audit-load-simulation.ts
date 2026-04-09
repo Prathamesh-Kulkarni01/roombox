@@ -1,37 +1,46 @@
 import { getAdminDb } from '../src/lib/firebaseAdmin';
 import { handleIncomingMessage } from '../src/lib/whatsapp/smart-router';
-import * as sessionState from '../src/lib/whatsapp/session-state';
-import * as sendMessage from '../src/lib/whatsapp/send-message';
+import { SessionManager } from '../src/lib/whatsapp/session-state';
+import { MessageManager } from '../src/lib/whatsapp/send-message';
+import { WorkflowContext } from '../src/lib/whatsapp/workflow-types';
 
 // --- Mocks ---
 const mockSessions = new Map<string, any>();
 const lastMessages = new Map<string, string[]>();
 let totalMessagesSent = 0;
 
-// Override session state functions for in-memory speed
-(sessionState as any).getSession = async (phone: string) => {
-    return mockSessions.get(phone) || { state: 'IDLE', data: {}, lastUpdated: Date.now() };
+// ── MOCK SESSION STORAGE (In-memory for 100% isolation) ───────────
+const memorySessions: Record<string, any> = {};
+
+SessionManager.getSession = async (phone: string) => {
+    return memorySessions[phone] || { state: 'IDLE', data: {}, lastUpdated: Date.now() };
 };
 
-(sessionState as any).updateSession = async (phone: string, state: string, data: any) => {
-    const current = mockSessions.get(phone) || { state: 'IDLE', data: {}, lastUpdated: Date.now() };
-    mockSessions.set(phone, {
-        state,
-        data: { ...current.data, ...data },
-        lastUpdated: Date.now()
-    });
+SessionManager.updateSession = async (phone: string, state: string, data: any) => {
+    memorySessions[phone] = { state, data: data || {}, lastUpdated: Date.now() };
 };
 
-(sessionState as any).clearSession = async (phone: string) => {
-    mockSessions.delete(phone);
+SessionManager.clearSession = async (phone: string) => {
+    delete memorySessions[phone];
 };
 
-// Override send message function
-(sendMessage as any).sendWhatsAppMessage = async (phone: string, text: string) => {
+// ── MOCK MESSAGE SINK (Track responses for assertions) ─────────────
+const messageLog: { to: string, msg: string }[] = [];
+
+MessageManager.sendWhatsAppMessage = async (to: string, msg: string) => {
+    messageLog.push({ to, msg });
     totalMessagesSent++;
-    if (!lastMessages.has(phone)) lastMessages.set(phone, []);
-    lastMessages.get(phone)!.push(text);
-    return { messaging_product: 'whatsapp', contacts: [], messages: [{ id: `mock-id-${totalMessagesSent}` }] };
+    if (!lastMessages.has(to)) lastMessages.set(to, []);
+    lastMessages.get(to)!.push(msg);
+    return { success: true, messageId: `mock-id-${totalMessagesSent}` } as any;
+};
+
+MessageManager.sendWhatsAppInteractiveMessage = async (to: string, msg: string) => {
+    messageLog.push({ to, msg });
+    totalMessagesSent++;
+    if (!lastMessages.has(to)) lastMessages.set(to, []);
+    lastMessages.get(to)!.push(msg);
+    return { success: true, messageId: `mock-id-${totalMessagesSent}` } as any;
 };
 
 async function setupTestData(db: any) {

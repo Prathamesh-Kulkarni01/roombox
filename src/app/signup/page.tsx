@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,10 @@ const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
 );
 
 export default function SignupPage() {
+  if (process.env.NODE_ENV !== 'development') {
+    notFound();
+  }
+
   const router = useRouter()
   const { toast } = useToast()
   const { isLoading: appLoading, currentUser } = useAppSelector((state) => ({

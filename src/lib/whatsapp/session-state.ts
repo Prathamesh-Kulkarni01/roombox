@@ -117,6 +117,13 @@ export async function clearSession(phoneNumber: string): Promise<void> {
     }
 }
 
+// ── Service Object (allows mocking in tests) ───────────────────────────────
+export const SessionManager = {
+    getSession,
+    updateSession,
+    clearSession
+};
+
 function freshSession(): UserSession {
     return { state: 'IDLE', data: {}, lastUpdated: Date.now() };
 }

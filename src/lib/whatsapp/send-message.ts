@@ -99,7 +99,13 @@ async function sendWhatsAppWithBilling(
                         details: `WhatsApp FAILED: Insufficient Credits (${cost} required) for ${to}`,
                         targetId,
                         status: 'failed',
-                        error: 'Insufficient credits'
+                        error: 'Insufficient credits',
+                        module: 'system',
+                        performedBy:   {
+                            userId: 'system',
+                            name: 'System',
+                            role: 'system'
+                            }
                     });
                     await WhatsAppLogsService.logMessage({
                         ownerId,
@@ -124,7 +130,13 @@ async function sendWhatsAppWithBilling(
                 details: `WhatsApp Billing Service Error for ${to}`,
                 targetId,
                 status: 'failed',
-                error: e.message
+                error: e.message,
+                module: 'system',
+                performedBy:   {
+                    userId: 'system',
+                    name: 'System',
+                    role: 'system'
+                    }
             });
             // In case of billing error, we might still want to try sending if it's critical, 
             // but for now we follow the fail-safe business rule.
@@ -376,3 +388,10 @@ async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries =
 
     return { success: false, error: lastError };
 }
+
+export const MessageManager = {
+    sendWhatsAppMessage,
+    sendWhatsAppInteractiveMessage,
+    sendWhatsAppImageMessage,
+    sendWhatsAppTemplate
+};
