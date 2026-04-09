@@ -1,3 +1,24 @@
+## Version 0.5.0 (4/9/2026, 2:57:39 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 23 +++++++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement multi-tenant Firebase architecture, role-based access control (RBAC), and route protection middleware
+- feat: implement magic link authentication and tenant management dashboard functionality
+- feat: implement centralized TenantService and add staff management dashboard and API routes
+- feat: implement staff management system with magic link invitations and mobile-responsive dashboard navigation
+- feat: implement website builder dashboard with subdomain configuration and dynamic site rendering
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.4.0 (3/30/2026, 4:20:35 PM)
 
 ### 🔄 Semantic Impact Summary
