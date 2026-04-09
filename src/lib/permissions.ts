@@ -175,15 +175,37 @@ export function canAccess(
   if (role === 'admin' || role === 'owner') return true;
   if (!permissions || !feature || !action) return false;
 
-  // Handle case where permissions is already the granular FeaturePermissions (for staff)
-  // or it's the RolePermissions map indexed by role.
-  let featurePerms: FeatureActions | undefined;
+  // Robustly distinguish between RolePermissions (map of roles) and FeaturePermissions (map of features)
+  // FeaturePermissions: { [feature]: { [action]: boolean } }
+  // RolePermissions: { [role]: { [feature]: { [action]: boolean } } }
   
-  if (role && (permissions as any)[role]) {
-      // It's RolePermissions map
+  const firstKey = Object.keys(permissions)[0];
+  if (!firstKey) return false;
+  
+  const firstVal = (permissions as any)[firstKey];
+  if (!firstVal || typeof firstVal !== 'object') return false;
+  
+  // Check if the structure is RolePermissions or FeaturePermissions
+  // We look at the depth: if firstVal's values are booleans, it's FeaturePermissions.
+  // If firstVal's values are objects, it's RolePermissions.
+  const subKeys = Object.keys(firstVal);
+  if (subKeys.length === 0) {
+    // Empty feature set for a role or empty action set for a feature.
+    // If we can't tell, we try both paths safely.
+    if ((permissions as any)[role] && (permissions as any)[role][feature]) {
+       return !!(permissions as any)[role][feature][action];
+    }
+    return !!(permissions as any)[feature]?.[action];
+  }
+
+  const isFeaturePerms = typeof firstVal[subKeys[0]] === 'boolean';
+  
+  let featurePerms: FeatureActions | undefined;
+  if (!isFeaturePerms && (permissions as any)[role]) {
+      // It's RolePermissions map indexed by role
       featurePerms = (permissions as RolePermissions)[role]?.[feature];
   } else {
-      // It's likely FeaturePermissions already
+      // It's already the granular FeaturePermissions for the current user
       featurePerms = (permissions as FeaturePermissions)[feature];
   }
 
@@ -192,15 +214,170 @@ export function canAccess(
 }
 
 /**
+ * Checks if a user has ANY permission within a given feature module.
+ * Used for sidebar/navigation visibility — a module should appear if the user
+ * has any action permission in it, not just 'view'.
+ */
+export function hasAnyPermissionInModule(
+  permissions: RolePermissions | FeaturePermissions | null | undefined,
+  role?: UserRole,
+  feature?: string
+): boolean {
+  if (!role) return false;
+  if (role === 'admin' || role === 'owner') return true;
+  if (!permissions || !feature) return false;
+
+  // For staff users with flat permissions array (stored in user.permissions as "feature:action")
+  // We need to resolve the FeaturePermissions from the RolePermissions or use it directly.
+  const featurePerms = resolveFeatureActions(permissions, role, feature);
+  if (!featurePerms) return false;
+  
+  return Object.values(featurePerms).some(v => v === true);
+}
+
+/**
+ * Internal helper to resolve feature actions from either RolePermissions or FeaturePermissions.
+ */
+function resolveFeatureActions(
+  permissions: RolePermissions | FeaturePermissions | null | undefined,
+  role: UserRole,
+  feature: string
+): FeatureActions | undefined {
+  if (!permissions) return undefined;
+
+  const firstKey = Object.keys(permissions)[0];
+  if (!firstKey) return undefined;
+  
+  const firstVal = (permissions as any)[firstKey];
+  if (!firstVal || typeof firstVal !== 'object') return undefined;
+  
+  const subKeys = Object.keys(firstVal);
+  if (subKeys.length === 0) {
+    if ((permissions as any)[role] && (permissions as any)[role][feature]) {
+       return (permissions as any)[role][feature];
+    }
+    return (permissions as any)[feature];
+  }
+
+  const isFeaturePerms = typeof firstVal[subKeys[0]] === 'boolean';
+  
+  if (!isFeaturePerms && (permissions as any)[role]) {
+      return (permissions as RolePermissions)[role]?.[feature];
+  } else {
+      return (permissions as FeaturePermissions)[feature];
+  }
+}
+
+/**
+ * Validates and auto-fixes permission dependencies before saving.
+ * 
+ * Rule: Any write action (add, edit, delete, sharedCharge, use) on a feature
+ * requires the 'view' action. This function enforces that by auto-granting
+ * 'view' whenever any other action is enabled.
+ * 
+ * NOTE on Properties module: Delete controls on the [pgId] detail page
+ * are only reachable inside "edit mode", which requires `properties:edit`.
+ * This is an intentional UI-level coupling — the delete permission alone
+ * won't show delete buttons on the property detail page without edit.
+ * The property LIST page delete works independently (in the dropdown).
+ * 
+ * @param permissions The FeaturePermissions object to validate.
+ * @returns The validated FeaturePermissions with dependencies auto-resolved.
+ */
+export function validateAndEnforceDependencies(permissions: FeaturePermissions): FeaturePermissions {
+  const result = { ...permissions };
+
+  for (const feature of Object.keys(result)) {
+    const actions = result[feature];
+    if (!actions) continue;
+
+    // Check if any non-view action is enabled
+    const hasAnyWriteAction = Object.entries(actions).some(
+      ([action, enabled]) => action !== 'view' && enabled === true
+    );
+
+    // If any write action exists, 'view' must be enabled
+    if (hasAnyWriteAction && !actions['view']) {
+      result[feature] = { ...actions, view: true };
+    }
+  }
+
+  return result;
+}
+
+/**
  * Checks if a user can view a feature (for navigation/sidebar).
+ * Shows the module if the user has ANY permission in it.
  */
 export function canViewFeature(
   permissions: RolePermissions | FeaturePermissions | null | undefined,
   role: UserRole,
   feature: string
 ): boolean {
-  return canAccess(permissions, role, feature, 'view');
+  return hasAnyPermissionInModule(permissions, role, feature);
 }
+
+/**
+ * Route-to-permission mapping for client-side route protection.
+ * Each dashboard route maps to the minimum permission required to access it.
+ */
+export const ROUTE_PERMISSION_MAP: Record<string, { feature: string; action: string }> = {
+  '/dashboard/pg-management': { feature: 'properties', action: 'view' },
+  '/dashboard/tenant-management': { feature: 'guests', action: 'view' },
+  '/dashboard/rent-passbook': { feature: 'finances', action: 'view' },
+  '/dashboard/expense': { feature: 'finances', action: 'view' },
+  '/dashboard/payouts': { feature: 'finances', action: 'view' },
+  '/dashboard/subscription': { feature: 'finances', action: 'view' },
+  '/dashboard/complaints': { feature: 'complaints', action: 'view' },
+  '/dashboard/food': { feature: 'food', action: 'view' },
+  '/dashboard/staff': { feature: 'staff', action: 'view' },
+  '/dashboard/website': { feature: 'website', action: 'view' },
+  '/dashboard/kyc': { feature: 'kyc', action: 'view' },
+};
+
+/**
+ * API route + method to permission mapping for server-side enforcement.
+ * Format: "METHOD /api/path" or "METHOD /api/path:action" for discriminated unions.
+ */
+export const API_PERMISSION_MAP: Record<string, { feature: string; action: string }> = {
+  // Guests
+  'GET /api/guests': { feature: 'guests', action: 'view' },
+  'POST /api/guests': { feature: 'guests', action: 'add' },
+  'PATCH /api/guests:update': { feature: 'guests', action: 'edit' },
+  'PATCH /api/guests:initiate-exit': { feature: 'guests', action: 'delete' },
+  'PATCH /api/guests:vacate': { feature: 'guests', action: 'delete' },
+  'PATCH /api/guests:kyc-status': { feature: 'kyc', action: 'edit' },
+  'PATCH /api/guests:kyc-submit': { feature: 'kyc', action: 'add' },
+  'PATCH /api/guests:kyc-reset': { feature: 'kyc', action: 'edit' },
+  'PATCH /api/guests:add-charge': { feature: 'properties', action: 'sharedCharge' },
+  'PATCH /api/guests:remove-charge': { feature: 'properties', action: 'sharedCharge' },
+  'PATCH /api/guests:shared-charge': { feature: 'properties', action: 'sharedCharge' },
+  'PATCH /api/guests:record-payment': { feature: 'finances', action: 'add' },
+  'PATCH /api/guests:transfer': { feature: 'guests', action: 'edit' },
+  'DELETE /api/guests': { feature: 'guests', action: 'delete' },
+  // Complaints
+  'GET /api/complaints': { feature: 'complaints', action: 'view' },
+  'POST /api/complaints': { feature: 'complaints', action: 'add' },
+  'PATCH /api/complaints': { feature: 'complaints', action: 'edit' },
+  // Staff
+  'GET /api/staff': { feature: 'staff', action: 'view' },
+  'PATCH /api/staff': { feature: 'staff', action: 'edit' },
+  'DELETE /api/staff': { feature: 'staff', action: 'delete' },
+  // Properties
+  'GET /api/properties': { feature: 'properties', action: 'view' },
+  'POST /api/properties': { feature: 'properties', action: 'add' },
+  'POST /api/properties/bulk-setup': { feature: 'properties', action: 'add' },
+  'PATCH /api/properties': { feature: 'properties', action: 'edit' },
+  'DELETE /api/properties': { feature: 'properties', action: 'delete' },
+  // Rent / Finances
+  'GET /api/rent': { feature: 'finances', action: 'view' },
+  'POST /api/rent': { feature: 'finances', action: 'add' },
+  // Expenses
+  'GET /api/expenses': { feature: 'finances', action: 'view' },
+  'POST /api/expenses': { feature: 'finances', action: 'add' },
+  'PATCH /api/expenses': { feature: 'finances', action: 'add' },
+  'DELETE /api/expenses': { feature: 'finances', action: 'add' },
+};
 
 export type PlanFeatureActions = { [action: string]: boolean };
 export type PlanPermissions = { [feature: string]: PlanFeatureActions };

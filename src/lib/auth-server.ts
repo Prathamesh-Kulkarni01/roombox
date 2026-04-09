@@ -62,6 +62,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
     userId?: string,
     role?: string,
     guestId?: string,
+    permissions?: string[],
     plan?: { id: PlanName; status: SubscriptionStatus },
     error: string | null
 }> {
@@ -97,20 +98,19 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
         }
 
         // If user is staff or tenant, use their assigned ownerId
-        if (userData.role === 'staff' || userData.role === 'tenant') {
-            if (userData.ownerId) {
-                // For staff/tenants, we need to fetch the owner's plan too for enforcement
-                const ownerDoc = await db.collection('users').doc(userData.ownerId).get();
-                const ownerData = ownerDoc.data();
-                return {
-                    ...result,
-                    ownerId: userData.ownerId,
-                    plan: ownerData?.subscription?.planId ? {
-                        id: ownerData.subscription.planId,
-                        status: ownerData.subscription.status
-                    } : { id: 'free', status: 'active' }
-                };
-            }
+        if (userData.ownerId && userData.role !== 'owner') {
+            // For staff/tenants, we need to fetch the owner's plan too for enforcement
+            const ownerDoc = await db.collection('users').doc(userData.ownerId).get();
+            const ownerData = ownerDoc.data();
+            return {
+                ...result,
+                ownerId: userData.ownerId,
+                permissions: userData.permissions || [],
+                plan: ownerData?.subscription?.planId ? {
+                    id: ownerData.subscription.planId,
+                    status: ownerData.subscription.status
+                } : { id: 'free', status: 'active' }
+            };
         }
 
         return { ownerId: null, error: 'Forbidden: No owner context associated with this user' };

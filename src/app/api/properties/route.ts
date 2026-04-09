@@ -3,11 +3,13 @@ import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { PropertyService } from '@/services/propertyService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
+import { enforcePermission } from '@/lib/rbac-middleware';
 
 // GET /api/properties  — list all properties for authenticated owner
 export async function GET(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'properties', 'view', 'GET /api/properties');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const db = await selectOwnerDataAdminDb(ownerId);
@@ -21,9 +23,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/properties — create a new property for authenticated owner
 export async function POST(req: NextRequest) {
-    const ownerResult = await getVerifiedOwnerId(req);
-    const { ownerId, error } = ownerResult;
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'properties', 'add', 'POST /api/properties');
+    if (!result.authorized) return result.response;
+    const { ownerId, plan } = result;
 
     try {
         const body = await req.json();
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
             floorCount: propertyData.floorCount,
             roomsPerFloor: propertyData.roomsPerFloor,
             bedsPerRoom: propertyData.bedsPerRoom,
-            planId: ownerResult.plan?.id
+            planId: plan?.id
         });
 
         // Update owner summary in main app DB
@@ -69,8 +71,9 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/properties?pgId=yyy — delete a property for authenticated owner
 export async function DELETE(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'properties', 'delete', 'DELETE /api/properties');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const pgId = req.nextUrl.searchParams.get('pgId');
@@ -123,8 +126,9 @@ export async function DELETE(req: NextRequest) {
 
 // PATCH /api/properties — update a property
 export async function PATCH(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'properties', 'edit', 'PATCH /api/properties');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();

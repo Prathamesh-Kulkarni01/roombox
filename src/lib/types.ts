@@ -331,7 +331,7 @@ export interface Expense {
   date: string;
 }
 
-export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'other';
+export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'staff' | 'other';
 export type UserRole = 'admin' | 'owner' | 'tenant' | StaffRole | 'unassigned';
 
 export type PlanName = 'free' | 'pro' | 'enterprise';
@@ -433,6 +433,7 @@ export interface User {
   fcmToken?: string | null;
   createdAt?: string; // ISO string for when the user was created
   permissions?: string[]; // For staff users, synchronized from staff document
+  staffId?: string | null; // Pointer to the staff record in the owner's users_data collection
 }
 
 export interface Invite {

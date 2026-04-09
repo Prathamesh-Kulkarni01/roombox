@@ -16,7 +16,10 @@ const firebaseConfig: FirebaseOptions = {
 
 // Function to check if the Firebase config keys have been set
 export const isFirebaseConfigured = () => {
-    return !!firebaseConfig.projectId && firebaseConfig.projectId !== "your-project-id";
+    // In development/test, we might use dummy values
+    const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const hasConfig = !!firebaseConfig.projectId && firebaseConfig.projectId !== "your-project-id";
+    return hasConfig || isDev;
 }
 
 // Initialize Firebase

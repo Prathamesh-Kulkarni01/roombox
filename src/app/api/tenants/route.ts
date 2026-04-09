@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
-import { getVerifiedOwnerId } from '@/lib/auth-server';
-import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
+import { enforcePermission, enforcePermissionForStaff } from '@/lib/rbac-middleware';
+import { badRequest, serverError } from '@/lib/api/apiError';
 
 // GET /api/tenants?[status=pending][&limit=10]
 export async function GET(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'guests', 'view', 'GET /api/tenants');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const status = req.nextUrl.searchParams.get('status') || undefined;
@@ -30,8 +31,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/tenants — onboard a new tenant
 export async function POST(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'guests', 'add', 'POST /api/tenants');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();
@@ -46,7 +48,8 @@ export async function POST(req: NextRequest) {
 
         const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, {
             ...guestData,
-            ownerId
+            ownerId,
+            planId: result.plan?.id
         });
 
         return NextResponse.json({ success: true, guest: newGuest, magicLink }, { status: 201 });
@@ -57,8 +60,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/tenants — update or perform actions on a tenant
 export async function PATCH(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const authResult = await enforcePermission(req, 'guests', 'view', 'PATCH /api/tenants'); // Base check
+    if (!authResult.authorized) return authResult.response;
+    const { ownerId, userId, role, permissions } = authResult;
 
     try {
         const body = await req.json();
@@ -71,11 +75,17 @@ export async function PATCH(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
 
         if (operation === 'vacate') {
+            const permResult = await enforcePermissionForStaff(userId, ownerId, role, permissions, 'guests', 'delete', 'PATCH /api/tenants (vacate)');
+            if (!permResult.authorized) return permResult.response;
+            
             await TenantService.vacateTenant(db, ownerId, guestId);
             return NextResponse.json({ success: true, message: 'Tenant vacated' });
         }
 
         if (operation === 'update') {
+            const permResult = await enforcePermissionForStaff(userId, ownerId, role, permissions, 'guests', 'edit', 'PATCH /api/tenants (update)');
+            if (!permResult.authorized) return permResult.response;
+
             const { updates } = body;
             if (!updates) return badRequest('updates are required for update operation');
             await TenantService.updateTenant(db, ownerId, guestId, updates);

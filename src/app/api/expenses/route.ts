@@ -4,13 +4,14 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
-import { getVerifiedOwnerId } from '@/lib/auth-server';
-import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
+import { enforcePermission } from '@/lib/rbac-middleware';
+import { badRequest, serverError } from '@/lib/api/apiError';
 
 // GET /api/expenses?[pgId=xxx][&category=maintenance]
 export async function GET(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'finances', 'view', 'GET /api/expenses');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     const pgId = req.nextUrl.searchParams.get('pgId') || undefined;
     const category = req.nextUrl.searchParams.get('category') || undefined;
@@ -36,8 +37,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/expenses — create an expense
 export async function POST(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'finances', 'add', 'POST /api/expenses');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();
@@ -72,8 +74,9 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/expenses — delete an expense
 export async function DELETE(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'finances', 'add', 'DELETE /api/expenses');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();

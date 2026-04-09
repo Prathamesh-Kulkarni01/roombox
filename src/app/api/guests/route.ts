@@ -15,6 +15,8 @@ import { TenantService } from '@/services/tenantService';
 import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
 import { badRequest, notFound, serverError, unauthorized } from '@/lib/api/apiError';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { enforcePermission, enforcePermissionForStaff } from '@/lib/rbac-middleware';
+import { API_PERMISSION_MAP } from '@/lib/permissions';
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
 
@@ -97,8 +99,9 @@ const PatchSchema = z.discriminatedUnion('action', [
 
 // GET /api/guests?[pgId=xxx][&vacated=false][&limit=200]
 export async function GET(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'guests', 'view', 'GET /api/guests');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const pgId = req.nextUrl.searchParams.get('pgId') || undefined;
@@ -131,9 +134,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/guests — add a new guest
 export async function POST(req: NextRequest) {
-    const ownerResult = await getVerifiedOwnerId(req);
-    const { ownerId, error } = ownerResult;
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'guests', 'add', 'POST /api/guests');
+    if (!result.authorized) return result.response;
+    const { ownerId, plan } = result;
 
     try {
         const body = await req.json();
@@ -146,7 +149,7 @@ export async function POST(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
         const appDb = await getAdminDb(); // for user/invite linking
 
-        const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId, planId: ownerResult.plan?.id });
+        const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, { ...guestInput, ownerId, planId: plan?.id });
 
         return NextResponse.json({ success: true, guest: newGuest, magicLink }, { status: 201 });
     } catch (error) {
@@ -156,8 +159,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/guests — action-based mutations
 export async function PATCH(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const authResult = await getVerifiedOwnerId(req);
+    const { ownerId, userId, role, permissions, error } = authResult;
+    if (!ownerId || !userId) return unauthorized(error);
 
     try {
         const body = await req.json();
@@ -167,6 +171,17 @@ export async function PATCH(req: NextRequest) {
         }
 
         const data = parsed.data;
+
+        // Resolve required permission from the action discriminator
+        const permKey = `PATCH /api/guests:${data.action}`;
+        const permConfig = API_PERMISSION_MAP[permKey];
+        if (permConfig) {
+            const rbacCheck = await enforcePermissionForStaff(
+                userId, ownerId, role!, permissions, permConfig.feature, permConfig.action, permKey
+            );
+            if (!rbacCheck.authorized) return rbacCheck.response;
+        }
+
         const db = await selectOwnerDataAdminDb(ownerId);
 
         switch (data.action) {
@@ -261,8 +276,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/guests — permanent delete
 export async function DELETE(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'guests', 'delete', 'DELETE /api/guests');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();

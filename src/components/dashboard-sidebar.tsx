@@ -40,7 +40,7 @@ export default function DashboardSidebar() {
       ...group,
       items: group.items.filter(item => {
           if (currentUser.role === 'owner' || currentUser.role === 'admin') return true;
-          if (item.feature === 'core') return true; // Core items are always visible for staff
+          if (item.feature === 'core') return true;
           return canViewFeature(featurePermissions, currentUser.role, item.feature!);
       })
     }))

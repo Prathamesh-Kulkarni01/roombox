@@ -7,11 +7,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
+import { enforcePermission } from '@/lib/rbac-middleware';
 
 // GET /api/staff?[pgId=xxx][&role=manager]
 export async function GET(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'staff', 'view', 'GET /api/staff');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     const pgId = req.nextUrl.searchParams.get('pgId') || undefined;
     const role = req.nextUrl.searchParams.get('role') || undefined;
@@ -36,8 +38,9 @@ export async function GET(req: NextRequest) {
 
 // PATCH /api/staff — update a staff member
 export async function PATCH(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'staff', 'edit', 'PATCH /api/staff');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();
@@ -57,8 +60,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/staff — remove a staff member
 export async function DELETE(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'staff', 'delete', 'DELETE /api/staff');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();

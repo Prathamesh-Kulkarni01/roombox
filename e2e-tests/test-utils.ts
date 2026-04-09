@@ -32,9 +32,18 @@ const SUCCESS_URL_REGEX = /.*(dashboard|tenants\/my-pg|complete-profile)/;
 
 export async function login(page: Page, emailOrPhone: string) {
     console.log(`[Utils] Logging in as ${emailOrPhone}...`);
+    
+    // Detailed monitoring
     page.on('console', msg => {
-        if (msg.type() === 'error') console.log(`[Browser Error] ${msg.text()}`);
+        const text = msg.text();
+        if (msg.type() === 'error') console.log(`[Browser Error] ${text}`);
+        if (text.includes('Firebase') || text.includes('emulator')) console.log(`[Browser Firebase] ${text}`);
     });
+    
+    page.on('requestfailed', request => {
+        console.log(`[Browser Request Failed] ${request.url()}: ${request.failure()?.errorText}`);
+    });
+
     page.on('pageerror', err => {
         console.log(`[Browser PageError] ${err.message}`);
     });

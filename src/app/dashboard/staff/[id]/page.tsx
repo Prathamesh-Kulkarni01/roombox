@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { fetchStaff as fetchStaffAction, updateStaff as updateStaffAction } from '@/lib/slices/staffSlice'
 import { useGenerateStaffMagicLinkMutation } from '@/lib/api/apiSlice'
-import { featurePermissionConfig, parseStaffPermissions } from '@/lib/permissions'
+import { featurePermissionConfig, parseStaffPermissions, validateAndEnforceDependencies } from '@/lib/permissions'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { produce } from "immer"
@@ -77,8 +77,9 @@ export default function StaffProfilePage() {
     const handleSavePermissions = async () => {
         if (!staffMember) return;
         
+        const validated = validateAndEnforceDependencies(selectedPermissions);
         const flatPerms: string[] = [];
-        Object.entries(selectedPermissions).forEach(([feature, actions]) => {
+        Object.entries(validated).forEach(([feature, actions]) => {
             if (actions) {
                 Object.entries(actions as any).forEach(([action, allowed]) => {
                     if (allowed) flatPerms.push(`${feature}:${action}`);
@@ -89,6 +90,9 @@ export default function StaffProfilePage() {
         const updatedStaff = { ...staffMember, permissions: flatPerms };
         await dispatch(updateStaffAction(updatedStaff));
         
+        if (JSON.stringify(validated) !== JSON.stringify(selectedPermissions)) {
+            toast({ title: "Dependencies Auto-Resolved", description: "'View' was auto-granted for modules with write permissions." });
+        }
         toast({ title: "Permissions Updated", description: `Permissions for ${staffMember.name} have been saved.` });
         setIsPermissionsDialogOpen(false);
     }

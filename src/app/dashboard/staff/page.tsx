@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { produce } from "immer"
-import { featurePermissionConfig, parseStaffPermissions } from '@/lib/permissions';
+import { featurePermissionConfig, parseStaffPermissions, validateAndEnforceDependencies } from '@/lib/permissions';
 import type { UserRole } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
@@ -27,6 +27,7 @@ import type { Staff } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { addStaff as addStaffAction, updateStaff as updateStaffAction, deleteStaff as deleteStaffAction, fetchStaff as fetchStaffAction } from '@/lib/slices/staffSlice'
+import { updatePermissions as updateRolePermissionsAction } from '@/lib/slices/permissionsSlice'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { canAccess } from '@/lib/permissions';
@@ -210,15 +211,20 @@ export default function StaffPage() {
 
     const handleSavePermissions = async () => {
         if (roleToEdit) {
+            const validated = validateAndEnforceDependencies(selectedPermissions);
             const nextPermissions = {
                 ...featurePermissions,
-                [roleToEdit]: selectedPermissions
+                [roleToEdit]: validated
             };
-            await savePermissions(nextPermissions);
+            await dispatch(updateRolePermissionsAction(nextPermissions as any)).unwrap();
+            if (JSON.stringify(validated) !== JSON.stringify(selectedPermissions)) {
+                toast({ title: "Dependencies Auto-Resolved", description: "'View' was auto-granted for modules with write permissions." });
+            }
             toast({ title: "Role Updated", description: `Permissions for ${roleToEdit} have been saved.` });
         } else if (staffForPermissions) {
+            const validated = validateAndEnforceDependencies(selectedPermissions);
             const flatPerms: string[] = [];
-            Object.entries(selectedPermissions).forEach(([feature, actions]) => {
+            Object.entries(validated).forEach(([feature, actions]) => {
                 if (actions) {
                     Object.entries(actions as any).forEach(([action, allowed]) => {
                         if (allowed) flatPerms.push(`${feature}:${action}`);
@@ -228,6 +234,9 @@ export default function StaffPage() {
 
             const updatedStaff = { ...staffForPermissions, permissions: flatPerms };
             await dispatch(updateStaffAction(updatedStaff));
+            if (JSON.stringify(validated) !== JSON.stringify(selectedPermissions)) {
+                toast({ title: "Dependencies Auto-Resolved", description: "'View' was auto-granted for modules with write permissions." });
+            }
             toast({ title: "Permissions Updated", description: `Permissions for ${staffForPermissions.name} have been saved.` });
         }
         

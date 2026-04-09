@@ -11,6 +11,8 @@ import notificationsReducer from './slices/notificationsSlice';
 import noticesReducer from './slices/noticesSlice';
 import { api } from './api/apiSlice';
 
+import permissionsReducer from './slices/permissionsSlice';
+
 /**
  * STORE ARCHITECTURE (after RTK Query migration):
  *
@@ -21,11 +23,7 @@ import { api } from './api/apiSlice';
  *  - pgsSlice       → property structural mutations (floor/room/bed edits done locally)
  *  - guestsSlice    → tenant CRUD (Phase 2/3: will migrate to RTK Query)
  *  - complaintsSlice, expensesSlice, staffSlice → Phase 2 migration targets
- *
- * REMOVED from Redux (migrated):
- *  - chargeTemplatesSlice → useChargeTemplatesStore (Zustand + localStorage persist)
- *  - permissionsSlice    → usePermissionsStore (Zustand + localStorage persist)
- *  - kycConfigSlice      → useKycConfigStore (Zustand + localStorage persist)
+ *  - permissionsSlice    → staff role mappings (needed for owner delegation)
  *
  * RTK Query (new):
  *  - api.getProperties   → property list (source of truth for display)
@@ -47,6 +45,7 @@ export const makeStore = () => {
       staff: staffReducer,
       notifications: notificationsReducer,
       notices: noticesReducer,
+      permissions: permissionsReducer,
       // RTK Query API — handles server data fetching with auto-cache & invalidation
       [api.reducerPath]: api.reducer,
     },

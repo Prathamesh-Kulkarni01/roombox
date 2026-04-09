@@ -8,11 +8,13 @@ import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 import { TenantService } from '@/services/tenantService';
+import { enforcePermission } from '@/lib/rbac-middleware';
 
 // GET /api/complaints?[pgId=xxx][&status=open]
 export async function GET(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'complaints', 'view', 'GET /api/complaints');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     const pgId = req.nextUrl.searchParams.get('pgId') || undefined;
     const status = req.nextUrl.searchParams.get('status') || undefined;
@@ -38,8 +40,9 @@ export async function GET(req: NextRequest) {
 
 // PATCH /api/complaints — update complaint status
 export async function PATCH(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'complaints', 'edit', 'PATCH /api/complaints');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();
@@ -65,8 +68,9 @@ export async function PATCH(req: NextRequest) {
 
 // POST /api/complaints — create a complaint
 export async function POST(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'complaints', 'add', 'POST /api/complaints');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();

@@ -34,6 +34,7 @@ import { useToast } from '@/hooks/use-toast'
 import AddPgSheet from '@/components/add-pg-sheet'
 import type { PG, ChargeTemplate } from '@/lib/types'
 import Access from '@/components/ui/PermissionWrapper';
+import { canAccess } from '@/lib/permissions';
 import { useGetPropertiesQuery, useGetGuestsQuery, useDeletePropertyMutation } from '@/lib/api/apiSlice'
 import BulkSetupModal from '@/components/bulk-setup-modal'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -73,6 +74,7 @@ export default function PgManagementPage() {
     const router = useRouter();
     const { toast } = useToast()
     const [isAddPgSheetOpen, setIsAddPgSheetOpen] = useState(false)
+    const canManageCharges = canAccess(featurePermissions, currentUser?.role, 'properties', 'sharedCharge');
     const [pgToDelete, setPgToDelete] = useState<PG | null>(null);
     const [pgForBulkSetup, setPgForBulkSetup] = useState<PG | null>(null);
 
@@ -227,9 +229,9 @@ export default function PgManagementPage() {
         <div className="flex flex-col gap-6">
             <h1 className="text-3xl font-bold flex items-center gap-2"><Building /> PG Management</h1>
             <Tabs defaultValue="properties" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                <TabsList className={cn("grid w-full max-w-[400px]", canManageCharges ? "grid-cols-2" : "grid-cols-1")}>
                     <TabsTrigger value="properties">Your Properties</TabsTrigger>
-                    <TabsTrigger value="templates">Charge Templates</TabsTrigger>
+                    {canManageCharges && <TabsTrigger value="templates">Charge Templates</TabsTrigger>}
                 </TabsList>
 
                 <TabsContent value="properties" className="mt-4">
@@ -334,9 +336,11 @@ export default function PgManagementPage() {
                                                                         <DropdownMenuItem onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}>
                                                                             <Pencil className="mr-2 h-4 w-4" /> Configure
                                                                         </DropdownMenuItem>
-                                                                        <DropdownMenuItem onClick={() => setPgForBulkSetup(pg)}>
-                                                                            <Zap className="mr-2 h-4 w-4" /> Bulk Setup Rooms
-                                                                        </DropdownMenuItem>
+                                                                        <Access feature="properties" action="add">
+                                                                            <DropdownMenuItem onClick={() => setPgForBulkSetup(pg)}>
+                                                                                <Zap className="mr-2 h-4 w-4" /> Bulk Setup Rooms
+                                                                            </DropdownMenuItem>
+                                                                        </Access>
                                                                         <DropdownMenuItem>View Guests</DropdownMenuItem>
                                                                         <Access feature="properties" action="delete">
                                                                             <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
@@ -375,9 +379,11 @@ export default function PgManagementPage() {
                                                                 <DropdownMenuItem onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}>
                                                                     <Pencil className="mr-2 h-4 w-4" /> Configure
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => setPgForBulkSetup(pg)}>
-                                                                    <Zap className="mr-2 h-4 w-4" /> Bulk Setup Rooms
-                                                                </DropdownMenuItem>
+                                                                <Access feature="properties" action="add">
+                                                                    <DropdownMenuItem onClick={() => setPgForBulkSetup(pg)}>
+                                                                        <Zap className="mr-2 h-4 w-4" /> Bulk Setup Rooms
+                                                                    </DropdownMenuItem>
+                                                                </Access>
                                                                 <DropdownMenuItem>View Guests</DropdownMenuItem>
                                                                 <Access feature="properties" action="delete">
                                                                     <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-500/10" onClick={() => setPgToDelete(pg)}>
@@ -426,14 +432,16 @@ export default function PgManagementPage() {
                                         <p className="text-sm text-muted-foreground capitalize">{template.frequency}, {template.calculation} based, cycle on day {template.billingDayOfMonth}</p>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => handleOpenTemplateDialog(template)}><Pencil className="w-4 h-4" /></Button>
-                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTemplate(template.id)}><Trash2 className="w-4 h-4" /></Button>
+                                        {canManageCharges && <Button variant="ghost" size="icon" onClick={() => handleOpenTemplateDialog(template)}><Pencil className="w-4 h-4" /></Button>}
+                                        {canManageCharges && <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteTemplate(template.id)}><Trash2 className="w-4 h-4" /></Button>}
                                     </div>
                                 </div>
                             ))}
-                            <Button variant="outline" className="w-full border-dashed" onClick={() => handleOpenTemplateDialog(null)}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add New Charge Template
-                            </Button>
+                            {canManageCharges && (
+                                <Button variant="outline" className="w-full border-dashed" onClick={() => handleOpenTemplateDialog(null)}>
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Charge Template
+                                </Button>
+                            )}
                         </CardContent>
                     </Card>
                 </TabsContent>

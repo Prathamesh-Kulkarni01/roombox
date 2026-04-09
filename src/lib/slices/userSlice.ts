@@ -15,7 +15,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
 import { setLoading } from './appSlice';
 import { fetchPermissions, updatePermissions } from './permissionsSlice';
-import { isAfter } from 'date-fns';
+import { isAfter, parseISO } from 'date-fns';
 import { planPermissionConfig, type RolePermissions } from '../permissions';
 import { togglePremiumFeature as togglePremiumFeatureAction } from '../actions/userActions';
 import { updatePayoutMode as updatePayoutModeAction } from '../actions/payoutActions';
@@ -61,7 +61,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 const sub = user.subscription;
                 if (!sub || sub.status === 'inactive') return plans.free;
                 const isActive = sub.status === 'active';
-                const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
+                const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(parseISO(sub.trialEndDate), new Date());
                 return (isActive || isTrialing) ? { ...plans.pro } : plans.free;
             };
 
@@ -104,6 +104,9 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 if (tokenResult.claims.guestId) userData.guestId = tokenResult.claims.guestId as string;
                 if (tokenResult.claims.pgId) userData.pgId = tokenResult.claims.pgId as string;
                 if (tokenResult.claims.pgs && Array.isArray(tokenResult.claims.pgs)) userData.pgIds = tokenResult.claims.pgs as string[];
+                if (tokenResult.claims.permissions && Array.isArray(tokenResult.claims.permissions) && (tokenResult.claims.permissions as string[]).length > 0) {
+                    userData.permissions = tokenResult.claims.permissions as string[];
+                }
             }
 
             // --- Handle Invites (only if still unassigned) ---
@@ -345,7 +348,7 @@ const userSlice = createSlice({
     reducers: {
         setCurrentUser: (state, action: PayloadAction<User | null>) => {
             if (action.payload && state.currentUser) {
-                // Merge to preserve authoritative fields from claims that might be missing in Firestore
+                // Merge to preserve authoritative fields from claims that might be missing in Firestore skeleton doc
                 const mergedUser = { ...state.currentUser, ...action.payload };
                 
                 // Explicitly preserve linking IDs and role if they exist in state but not in payload (or are default/unassigned)
@@ -353,7 +356,16 @@ const userSlice = createSlice({
                 if (!action.payload.guestId && state.currentUser.guestId) mergedUser.guestId = state.currentUser.guestId;
                 if (!action.payload.pgId && state.currentUser.pgId) mergedUser.pgId = state.currentUser.pgId;
                 if (!action.payload.pgIds && state.currentUser.pgIds) mergedUser.pgIds = state.currentUser.pgIds;
+                // Preserve claims-based permissions: Firestore skeleton doc often lacks this field
+                if ((!action.payload.permissions || action.payload.permissions.length === 0) && state.currentUser.permissions && state.currentUser.permissions.length > 0) {
+                    mergedUser.permissions = state.currentUser.permissions;
+                }
                 
+                // CRITICAL: Preserve subscription if state has it but payload (likely from a skeleton user doc) doesn't
+                if (!action.payload.subscription && state.currentUser.subscription) {
+                    mergedUser.subscription = state.currentUser.subscription;
+                }
+
                 // Also preserve role if the payload has 'unassigned' but state has a specific role
                 if (action.payload.role === 'unassigned' && state.currentUser.role !== 'unassigned') {
                     mergedUser.role = state.currentUser.role;
@@ -370,7 +382,8 @@ const userSlice = createSlice({
                     state.currentPlan = plans.free;
                 } else {
                     const isActive = sub.status === 'active';
-                    const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
+                    const trialEndDate = sub.trialEndDate;
+                    const isTrialing = sub.status === 'trialing' && trialEndDate && isAfter(parseISO(trialEndDate), new Date());
                     const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
                     state.currentPlan = { ...plans[basePlanId] };
                 }
@@ -395,7 +408,8 @@ const userSlice = createSlice({
                 if (action.payload?.subscription) {
                     const sub = action.payload.subscription;
                     const isActive = sub.status === 'active';
-                    const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(new Date(sub.trialEndDate), new Date());
+                    const trialEndDate = sub.trialEndDate;
+                    const isTrialing = sub.status === 'trialing' && trialEndDate && isAfter(parseISO(trialEndDate), new Date());
                     const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
                     state.currentPlan = { ...plans[basePlanId] };
                 } else if (action.payload?.role === 'unassigned') {

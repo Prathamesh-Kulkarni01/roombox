@@ -62,17 +62,26 @@ export async function POST(req: NextRequest) {
         const auth = await getAdminAuth();
         const phone = magicLinkData.phone;
         const cleanPhoneDigits = phone.replace(/\D/g, '');
+        const cleanPhoneTenDigits = cleanPhoneDigits.slice(-10);
+        const variations = [
+            phone, 
+            cleanPhoneDigits, 
+            `+${cleanPhoneDigits}`,
+            `+91${cleanPhoneTenDigits}`,
+            `91${cleanPhoneTenDigits}`,
+            cleanPhoneTenDigits
+        ];
+        
+        let uid = magicLinkData.guestId || 
+                  magicLinkData.staffId || 
+                  (magicLinkData.role === 'staff' ? `staff-${cleanPhoneTenDigits}` : `phone-${cleanPhoneTenDigits}`);
 
-        // Match existing user by phone variations (centralized logic)
-        const variations = [phone, cleanPhoneDigits, `+${cleanPhoneDigits}`];
-        if (cleanPhoneDigits.length === 10) variations.push(`+91${cleanPhoneDigits}`);
-
-        let uid = magicLinkData.guestId || `phone-${cleanPhoneDigits.slice(-10)}`;
-
+        let userDoc = null;
         for (const v of variations) {
             const snap = await adminDb.collection('users').where('phone', '==', v).limit(1).get();
             if (!snap.empty) {
-                uid = snap.docs[0].id;
+                userDoc = snap.docs[0];
+                uid = userDoc.id;
                 break;
             }
         }
@@ -83,20 +92,34 @@ export async function POST(req: NextRequest) {
             usedAt: Date.now()
         });
 
-        const role = magicLinkData.role || 'tenant';
+        const userRef = adminDb.collection('users').doc(uid);
+        const userDocSnapshot = await userRef.get();
+        
+        // Use the snapshot data for claims if available, otherwise fallback to matching logic
+        const role = magicLinkData.role || userDocSnapshot?.data()?.role || 'tenant';
+        const permissions = userDocSnapshot?.data()?.permissions || {};
+        const pgId = magicLinkData.pgId || userDocSnapshot?.data()?.pgId;
 
-        const customToken = await auth.createCustomToken(uid, {
+        const claims: any = {
             role,
-            guestId: magicLinkData.guestId,
-            staffId: magicLinkData.staffId,
-            ownerId: magicLinkData.ownerId
-        });
+            guestId: magicLinkData.guestId || userDocSnapshot?.data()?.guestId,
+            staffId: magicLinkData.staffId || userDocSnapshot?.data()?.staffId,
+            ownerId: magicLinkData.ownerId || userDocSnapshot?.data()?.ownerId,
+            pgId: pgId
+        };
+
+        if (role !== 'owner' && role !== 'tenant' && role !== 'admin') {
+            claims.permissions = permissions;
+            claims.pgs = userDocSnapshot?.data()?.pgIds || (pgId ? [pgId] : []);
+        }
+
+        const customToken = await auth.createCustomToken(uid, claims);
+        // Also persist claims for future standard logins
+        await auth.setCustomUserClaims(uid, claims);
 
         // Ensure the User doc is updated with current info if it exists
-        const userRef = adminDb.collection('users').doc(uid);
-        const userDoc = await userRef.get();
-        if (userDoc.exists) {
-            const existingData = userDoc.data() || {};
+        if (userDocSnapshot.exists) {
+            const existingData = userDocSnapshot.data() || {};
             await userRef.update({
                 guestId: magicLinkData.guestId || existingData.guestId || null,
                 staffId: magicLinkData.staffId || existingData.staffId || null,

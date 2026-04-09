@@ -37,8 +37,15 @@ export async function POST(req: NextRequest) {
 
         // Find existing user in Firestore to get the UID (which is doc id)
         const cleanPhone = phone.replace(/\D/g, '');
-        const variations = [phone, cleanPhone, `+${cleanPhone}`];
-        if (cleanPhone.length === 10) variations.push(`+91${cleanPhone}`);
+        const cleanPhoneDigits = cleanPhone.slice(-10);
+        const variations = [
+            phone, 
+            cleanPhone, 
+            `+${cleanPhone}`,
+            `+91${cleanPhoneDigits}`,
+            `91${cleanPhoneDigits}`,
+            cleanPhoneDigits
+        ];
 
         let userDoc = null;
         for (const v of variations) {
@@ -88,32 +95,47 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const role = magicLinkData?.role || 'tenant';
+        const role = magicLinkData?.role || userDoc.data()?.role || 'tenant';
         const guestId = magicLinkData?.guestId || userDoc.data()?.guestId || null;
         const staffId = magicLinkData?.staffId || userDoc.data()?.staffId || null;
         const ownerId = magicLinkData?.ownerId || userDoc.data()?.ownerId;
         const pgId = magicLinkData?.pgId || userDoc.data()?.pgId;
+        const permissions = userDoc.data()?.permissions || {};
 
-        // Clear legacy password from Firestore if it exists and update metadata
-        await userDoc.ref.update({
-            password: FieldValue.delete(),
-            guestId,
-            staffId,
-            ownerId,
-            pgId,
+        // 5. Update user metadata & Clear legacy data
+        const userUpdates: any = {
             role,
             status: 'active',
             updatedAt: new Date(),
             schemaVersion: 4 // Latest schema version
-        });
-
-        const claims = {
-            role,
-            guestId,
-            staffId,
-            ownerId,
-            pgId
         };
+
+        if (guestId) userUpdates.guestId = guestId;
+        if (staffId) userUpdates.staffId = staffId;
+        if (ownerId) userUpdates.ownerId = ownerId;
+        if (pgId) userUpdates.pgId = pgId;
+
+        // Clear legacy password from Firestore if it exists
+        if (userDoc.data()?.password) {
+            userUpdates.password = FieldValue.delete();
+        }
+
+        await userDoc.ref.update(userUpdates);
+
+        const claims: any = {
+            role,
+            ownerId,
+            pgId,
+        };
+        
+        if (guestId) claims.guestId = guestId;
+        if (staffId) claims.staffId = staffId;
+        
+        // Handle staff permissions
+        if (role !== 'owner' && role !== 'tenant' && role !== 'admin') {
+            claims.permissions = permissions;
+            claims.pgs = userDoc.data()?.pgIds || (pgId ? [pgId] : []);
+        }
 
         // Set claims PERMANENTLY on the user's Auth record for standard logins on other browsers
         await auth.setCustomUserClaims(uid, claims);

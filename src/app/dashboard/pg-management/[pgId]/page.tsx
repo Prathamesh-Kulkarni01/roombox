@@ -227,13 +227,15 @@ export default function RoomManagementPage() {
                 {pg.floors?.map(floor => (
                   <TabsTrigger key={floor.id} value={floor.id} className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent pb-2 pt-2 px-4 shadow-none bg-transparent hover:text-primary transition-colors text-base font-semibold text-muted-foreground border-b-2 border-transparent">{floor.name}</TabsTrigger>
                 ))}
-                <button
-                  onClick={openAddFloor}
-                  className="rounded-none pb-2 pt-2 px-4 text-base font-semibold text-primary hover:bg-primary/5 transition-colors border-b-2 border-transparent flex items-center gap-1.5 shrink-0"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden xs:inline">Add Floor</span>
-                </button>
+                {canAdd && (
+                  <button
+                    onClick={openAddFloor}
+                    className="rounded-none pb-2 pt-2 px-4 text-base font-semibold text-primary hover:bg-primary/5 transition-colors border-b-2 border-transparent flex items-center gap-1.5 shrink-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden xs:inline">Add Floor</span>
+                  </button>
+                )}
               </TabsList>
             </div>
           </ScrollArea>
@@ -462,8 +464,8 @@ export default function RoomManagementPage() {
                                   {/* Edit mode controls */}
                                   {isEditMode && (
                                     <div className="flex gap-1">
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}><Pencil className="w-4 h-4" /></Button>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-500/10" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}><Trash2 className="w-4 h-4" /></Button>
+                                      {canEdit && <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}><Pencil className="w-4 h-4" /></Button>}
+                                      {canDelete && <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-500/10" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}><Trash2 className="w-4 h-4" /></Button>}
                                     </div>
                                   )}
                                   {/* Tap arrow hint for occupied, non-edit */}
@@ -538,8 +540,8 @@ export default function RoomManagementPage() {
                                 {!isEditMode && getBedStatusBadge(bed)}
                                 {isEditMode && (
                                   <div className="flex gap-0.5">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}><Pencil className="w-3 h-3" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}><Trash2 className="w-3 h-3" /></Button>
+                                    {canEdit && <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => handleOpenBedDialog(bed, room.id, floor.id)}><Pencil className="w-3 h-3" /></Button>}
+                                    {canDelete && <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-500/10" onClick={() => handleDelete('bed', { floorId: floor.id, roomId: room.id, bedId: bed.id, pgId: pg.id })}><Trash2 className="w-3 h-3" /></Button>}
                                   </div>
                                 )}
                               </div>

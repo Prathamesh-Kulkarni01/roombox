@@ -1,3 +1,4 @@
+import { auth } from '@/lib/firebaseAdmin';
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 import { CURRENT_SCHEMA_VERSION, type Staff, type User } from '@/lib/types';
@@ -66,12 +67,28 @@ export class StaffService {
                 phone: standardizedPhone,
                 role: role, // e.g. 'manager', 'cook'
                 ownerId,
+                staffId, // Critical for finding the original staff record
+                pgId, // Critical for knowing which property the staff belongs to
                 status: 'active',
                 permissions: permissions || [],
                 createdAt: new Date().toISOString()
             };
 
             await userRef.set(userUpdate, { merge: true });
+            
+            // Sync custom claims immediately
+            const claims = {
+                role: userUpdate.role,
+                ownerId: userUpdate.ownerId,
+                staffId: userUpdate.staffId,
+                permissions: userUpdate.permissions
+            };
+            try {
+                await auth.setCustomUserClaims(uid, claims);
+                console.log(`[StaffService] Set custom claims for new staff: ${uid}`);
+            } catch (err) {
+                console.error(`[StaffService] Failed to set custom claims for ${uid}:`, err);
+            }
             
             // Link the staff record to the user ID
             await db.collection('users_data').doc(ownerId).collection('staff').doc(staffId).update({
@@ -171,10 +188,29 @@ export class StaffService {
             if (updates.permissions) userUpdate.permissions = updates.permissions;
             if (updates.role) userUpdate.role = updates.role;
             if (updates.name) userUpdate.name = updates.name;
+            if (updates.pgId) userUpdate.pgId = updates.pgId;
             if (updates.isActive !== undefined) userUpdate.status = updates.isActive ? 'active' : 'suspended';
 
             if (Object.keys(userUpdate).length > 0) {
                 await appDb.collection('users').doc(userId).update(userUpdate);
+                
+                // Sync updated claims to Firebase Auth
+                const userDoc = await appDb.collection('users').doc(userId).get();
+                const fullUserData = userDoc.data() as User;
+                
+                const claims = {
+                    role: fullUserData.role,
+                    ownerId: fullUserData.ownerId,
+                    staffId: fullUserData.staffId,
+                    permissions: fullUserData.permissions || []
+                };
+                
+                try {
+                    await auth.setCustomUserClaims(userId, claims);
+                    console.log(`[StaffService] Updated custom claims for: ${userId}`);
+                } catch (err) {
+                    console.error(`[StaffService] Failed to update custom claims for ${userId}:`, err);
+                }
             }
         }
     }

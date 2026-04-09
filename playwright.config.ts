@@ -41,23 +41,27 @@ export default defineConfig({
                 ...devices['Desktop Chrome'],
                 // Individual tests will specify their storageState if needed
             },
-            dependencies: ['setup'],
         },
     ],
 
     /* Run your local dev server before starting the tests */
     webServer: {
         command: 'npm run dev',
-        url: 'http://localhost:9002',
+        url: 'http://127.0.0.1:9002',
         reuseExistingServer: true,
         timeout: 180000,
         env: {
-            FIRESTORE_EMULATOR_HOST: 'localhost:8080',
-            FIREBASE_AUTH_EMULATOR_HOST: 'localhost:9099',
+            FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+            FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
             FIREBASE_PROJECT_ID: 'roombox-test',
             NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'roombox-test',
-            NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: 'localhost:8080',
-            NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: 'localhost:9099',
+            NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+            NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
+            NEXT_PUBLIC_FIREBASE_API_KEY: 'AIzaSyDummyKey_1234567890',
+            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: 'roombox-test.firebaseapp.com',
+            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: 'roombox-test.appspot.com',
+            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '123456789',
+            NEXT_PUBLIC_FIREBASE_APP_ID: '1:123456789:web:abcdef123456',
         }
     },
 });

@@ -195,6 +195,9 @@ const translations = {
     direct_upi_desc: "Guests scan your QR or pay to your UPI. You verify the payment manually.",
     gateway_mode_desc: "Automated settlements directly to your bank account.",
     cash_only_desc: "Record cash or offline payments manually.",
+    trial_ended_title: "Your Trial Has Ended",
+    trial_ended_description: "Please subscribe to a plan to continue managing your properties and access all features.",
+    choose_plan_button: "Choose Your Plan",
   },
   hi: {
     hero_badge: "आधुनिक किराये की संपत्तियों के लिए ऑपरेटिंग सिस्टम",
@@ -393,6 +396,9 @@ const translations = {
     direct_upi_desc: "मेहमान आपके QR को स्कैन करते हैं या सीधे भुगतान करते हैं। आप इसे सत्यापित करते हैं।",
     gateway_mode_desc: "स्वचालित रूप से आपके बैंक खाते में जमा।",
     cash_only_desc: "नकद या ऑफलाइन भुगतान मैन्युअल रूप से दर्ज करें।",
+    trial_ended_title: "आपका ट्रायल समाप्त हो गया है",
+    trial_ended_description: "अपनी संपत्तियों का प्रबंधन जारी रखने और सभी सुविधाओं तक पहुंचने के लिए कृपया एक योजना की सदस्यता लें।",
+    choose_plan_button: "अपनी योजना चुनें",
   },
   mr: {
     hero_badge: "आधुनिक मालमत्ता व्यवस्थापनासाठी ऑपरेटिंग सिस्टिम",
@@ -590,6 +596,9 @@ const translations = {
     direct_upi_desc: "पाहुणे तुमचा QR स्कॅन करतील. तुम्ही पेमेंट मॅन्युअली पडताळू शकता.",
     gateway_mode_desc: "थेट तुमच्या बँक खात्यात स्वयंचलित जमा.",
     cash_only_desc: "नगद किंवा ऑफलाईन पेमेंट मॅन्युअली नोंदवा.",
+    trial_ended_title: "तुमची चाचणी संपली आहे",
+    trial_ended_description: "तुमच्या मालमत्तेचे व्यवस्थापन सुरू ठेवण्यासाठी आणि सर्व वैशिष्ट्यांमध्ये प्रवेश करण्यासाठी कृपया योजनेचे सदस्यत्व घ्या.",
+    choose_plan_button: "तुमची योजना निवडा",
   },
 };
 

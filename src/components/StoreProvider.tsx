@@ -20,9 +20,11 @@ import { setNotifications } from '@/lib/slices/notificationsSlice'
 import { useToast } from '@/hooks/use-toast'
 import { initializeFirebaseMessaging } from '@/lib/firebase-messaging-client'
 import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense, User, UserRole } from '@/lib/types'
-import { setLoading, validateSelectedPg } from '@/lib/slices/appSlice'
-import { useChargeTemplatesStore, usePermissionsStore, useKycConfigStore } from '@/lib/stores/configStores'
-import { initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications'
+import { setLoading, validateSelectedPg } from '@/lib/slices/appSlice';
+import { useChargeTemplatesStore, usePermissionsStore, useKycConfigStore } from '@/lib/stores/configStores';
+import { fetchPermissions, updatePermissions, setPermissions as setReduxPermissions } from '@/lib/slices/permissionsSlice';
+import { parseStaffPermissions } from '@/lib/permissions';
+import { initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications';
 import { useRouter, usePathname } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
@@ -38,6 +40,8 @@ function AuthHandler({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { setTemplates: setChargeTemplatesZustand } = useChargeTemplatesStore();
+  const { setPermissions: setZustandPermissions } = usePermissionsStore();
+  const reduxPermissions = useAppSelector(state => (state as any).permissions?.featurePermissions);
 
   useEffect(() => {
     if (isFirebaseConfigured()) {
@@ -123,8 +127,9 @@ function AuthHandler({ children }: { children: ReactNode }) {
     });
 
     if (currentUser) {
+      console.log(`[StoreProvider] User found: ${currentUser.role} at ${pathname}`);
       const isInviteOrSetPassword = pathname.startsWith('/invite') || pathname.startsWith('/login/set-password');
-      const isLoginPage = pathname === '/login' || pathname === '/signup';
+      const isLoginPage = (pathname.startsWith('/login') && !pathname.startsWith('/login/set-password')) || pathname === '/signup';
       const isAllowedPublicPage = pathname === '/download';
 
       if (currentUser.role === 'tenant' && ((!pathname.startsWith('/tenants') && !isAllowedPublicPage) || isLoginPage || isInviteOrSetPassword)) {
@@ -134,13 +139,36 @@ function AuthHandler({ children }: { children: ReactNode }) {
         console.log(`[StoreProvider] Redirecting ${currentUser.role} to dashboard... (Path: ${pathname})`);
         router.replace('/dashboard');
       } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile' && !isPublicPage) {
+        console.log(`[StoreProvider] Redirecting unassigned user to complete profile...`);
         router.replace('/complete-profile');
       }
     } else if (!isPublicPage) {
       console.log(`[AuthHandler] Restricted page detected: ${pathname}. Redirecting to /login`);
       router.replace('/login');
     }
-  }, [authReady, currentUser, pathname, router]);
+  }, [authReady, currentUser?.id, currentUser?.role, pathname, router]);
+  
+  // Sync permissions to Zustand (the primary source for UI guards)
+  // STRICT RBAC: Staff always uses their explicit permissions array.
+  // Empty permissions = no access. No fallback to role-based defaults.
+  useEffect(() => {
+    if (!currentUser) {
+      setZustandPermissions(null as any);
+      return;
+    }
+
+    const isStaff = currentUser.role !== 'owner' && currentUser.role !== 'admin';
+
+    if (isStaff) {
+      // Staff: always use their explicit permissions. [] = no access.
+      const parsed = parseStaffPermissions(currentUser.permissions || []);
+      console.log("[StoreProvider] Staff permissions:", currentUser.permissions, "→", parsed);
+      setZustandPermissions(parsed);
+    } else if (reduxPermissions) {
+      // Owner/Admin: use the role-based permission map
+      setZustandPermissions(reduxPermissions);
+    }
+  }, [currentUser?.permissions, currentUser?.role, reduxPermissions, setZustandPermissions]);
 
   // Data fetching logic
   useEffect(() => {
@@ -243,9 +271,20 @@ function AuthHandler({ children }: { children: ReactNode }) {
       dispatch(setLoading(false));
     }
 
+    // Force stop loading after 8 seconds to prevent hangs if listeners fail silently
+    const loadingTimeout = setTimeout(() => {
+        if (authReady) {
+            console.warn('[StoreProvider] Loading timeout reached. Forcing setLoading(false)');
+            dispatch(setLoading(false));
+        }
+    }, 8000);
+
     setDataListeners(unsubs);
-    return () => unsubs.forEach(unsub => unsub());
-  }, [currentUser, currentPlan, dispatch, authReady]);
+    return () => {
+        unsubs.forEach(unsub => unsub());
+        clearTimeout(loadingTimeout);
+    };
+  }, [currentUser?.id, currentUser?.role, currentUser?.ownerId, currentPlan, dispatch, authReady]);
 
   if (!authReady) {
     return (

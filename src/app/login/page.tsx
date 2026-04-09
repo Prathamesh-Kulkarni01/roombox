@@ -47,40 +47,35 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [waitingForOtp, setWaitingForOtp] = useState(false)
-  const [tenantLoginMode, setTenantLoginMode] = useState<'otp' | 'password' | 'setup-code'>('password')
+  const [tenantLoginMode, setTenantLoginMode] = useState<'otp' | 'password' | 'setup-code'>('setup-code')
 
   const [activeTab, setActiveTab] = useState('tenant')
 
   const loading = appLoading || isSigningIn;
 
   useEffect(() => {
-    if (!appLoading && currentUser) {
+    // Redirect ASAP once we have a user and their role is known
+    if (currentUser?.role && currentUser.role !== 'unassigned') {
       if (currentUser.role === 'tenant') {
         router.replace('/tenants/my-pg');
       } else if (allowedDashboardRoles.includes(currentUser.role)) {
         router.replace('/dashboard');
-      } else if (currentUser.role === 'unassigned') {
-        router.replace('/complete-profile');
       }
+    } else if (currentUser?.role === 'unassigned') {
+      router.replace('/complete-profile');
     }
-  }, [appLoading, currentUser, router]);
-
-  if (appLoading || currentUser) {
+  }, [currentUser, router]);
+  // Only show a loading state if we are actively signing in or if the app is loading AND we don't have a user yet.
+  // If we have a user, we want the useEffect to trigger the redirect ASAP.
+  if (isSigningIn || (appLoading && !currentUser) || (currentUser && currentUser.role !== 'unassigned')) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="text-center">
-            <Skeleton className="h-7 w-32 mx-auto" />
-            <Skeleton className="h-5 w-48 mx-auto mt-2" />
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Skeleton className="h-5 w-16" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center min-h-[80vh]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground animate-pulse text-sm">
+            {isSigningIn ? 'Signing you in...' : (currentUser ? 'Redirecting...' : 'Getting things ready...')}
+          </p>
+        </div>
       </div>
     );
   }
@@ -142,11 +137,31 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, loginId, tenantPassword);
       toast({ title: 'Welcome Back!', description: "You've been signed in successfully." });
     } catch (error: any) {
+      // Automatic fallback for 6-digit setup codes
+      if (tenantPassword.length === 6 && /^\d+$/.test(tenantPassword)) {
+        console.log("[Login] Password failed, attempting Setup Code verify fallback...");
+        try {
+          const res = await fetch('/api/auth/otp/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, otp: tenantPassword })
+          });
+          const data = await res.json();
+          if (res.ok && data.customToken) {
+            await signInWithCustomToken(auth!, data.customToken);
+            toast({ title: 'Welcome!', description: "Signed in using your Setup Code." });
+            return;
+          }
+        } catch (otpErr) {
+          console.error("OTP Fallback Error:", otpErr);
+        }
+      }
+
       console.error("Tenant Password Auth Error:", error);
       toast({
         variant: "destructive",
         title: "Log In Failed",
-        description: error.message || "Invalid credentials. If you don't have a password, use OTP.",
+        description: error.message?.includes('invalid-credential') ? "Invalid phone/password. If you have a setup code, please use the 'Setup Code' tab." : (error.message || "Invalid credentials."),
       });
     } finally {
       setIsSigningIn(false);

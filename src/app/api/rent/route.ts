@@ -8,11 +8,13 @@ import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, notFound, serverError, unauthorized } from '@/lib/api/apiError';
+import { enforcePermission } from '@/lib/rbac-middleware';
 
 // GET /api/rent?[guestId=yyy] — get monthly rent summary or history for a specific tenant
 export async function GET(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'finances', 'view', 'GET /api/rent');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const guestId = req.nextUrl.searchParams.get('guestId');
@@ -53,8 +55,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/rent/record-payment — record a payment for a tenant
 export async function POST(req: NextRequest) {
-    const { ownerId, error } = await getVerifiedOwnerId(req);
-    if (!ownerId) return unauthorized(error);
+    const result = await enforcePermission(req, 'finances', 'add', 'POST /api/rent');
+    if (!result.authorized) return result.response;
+    const { ownerId } = result;
 
     try {
         const body = await req.json();
