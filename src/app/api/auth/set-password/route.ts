@@ -76,20 +76,23 @@ export async function POST(req: NextRequest) {
                 // If user not found, create it. 
                 // If email already exists but on a different UID, this is a conflict we should handle
                 // However, usually we expect the internal email to be unique to this phone.
-                await auth.createUser({
-                    uid: uid,
-                    email: internalEmail,
-                    phoneNumber: phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone),
-                    password: password,
-                    displayName: userDoc.data().name || 'Tenant'
-                }).catch(async (e) => {
-                    // Final fallback: if uid exists but email mismatch
+                try {
+                    await auth.createUser({
+                        uid: uid,
+                        email: internalEmail,
+                        phoneNumber: phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone),
+                        password: password,
+                        displayName: userDoc.data().name || 'Tenant'
+                    });
+                } catch (e: any) {
                     if (e.code === 'auth/uid-already-exists') {
                         await auth.updateUser(uid, { email: internalEmail, password: password });
+                    } else if (e.code === 'auth/phone-number-already-exists') {
+                        return NextResponse.json({ error: "Phone number is already linked to another account. Please contact support." }, { status: 409 });
                     } else {
                         throw e;
                     }
-                });
+                }
             } else {
                 throw error;
             }

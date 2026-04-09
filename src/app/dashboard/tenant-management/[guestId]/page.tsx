@@ -446,7 +446,7 @@ export default function GuestProfilePage() {
                                             onClick={handleGenerateMagicLink}
                                         >
                                             {isGeneratingMagicLink ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
-                                            {generatedMagicLink ? 'Regenerate Setup Code' : 'Generate Setup Code'}
+                                            {generatedMagicLink ? 'Regenerate Invite Link' : 'Generate Invite Link'}
                                         </Button>
                                     </div>
                                 </Access>
@@ -946,7 +946,7 @@ export default function GuestProfilePage() {
 
                     <div className="p-4 sm:p-6 pt-0 mt-auto">
                         <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold h-12 rounded-xl shadow-lg shadow-green-500/20 group transition-all active:scale-[0.98] overflow-hidden" asChild>
-                            <a href={`https://wa.me/${guest?.phone}?text=${encodeURIComponent(`Hi ${guest?.name}, here is your login setup for ${pg?.name || 'the property'}:\n\n✅ *Setup Code:* ${generatedSetupCode}\n\n🔗 *Or click to login:* ${generatedMagicLink}`)}`} target="_blank" rel="noopener noreferrer">
+                            <a href={`https://wa.me/${guest?.phone}?text=${encodeURIComponent(`Hi ${guest?.name}, here is your login setup for ${pg?.name || 'the property'}:\n\n✅ *Invite Code:* ${generatedSetupCode}\n\n🔗 *Or click to login:* ${generatedMagicLink}`)}`} target="_blank" rel="noopener noreferrer">
                                 <MessageCircle className="mr-2 h-5 w-5 shrink-0 animate-pulse group-hover:animate-none" /> 
                                 <span className="truncate">Share on WhatsApp</span>
                             </a>
