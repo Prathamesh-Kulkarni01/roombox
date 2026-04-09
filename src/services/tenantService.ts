@@ -621,7 +621,7 @@ export class TenantService {
                 ownerId,
                 activityType: 'GUEST_UPDATED',
                 module: 'guests',
-                details: `Updated ${before.name}'s profile: ${changedFields.map(c => c.field).join(', ')}`,
+                details: `Updated ${before.name}'s profile: ${changedFields.join(', ')}`,
                 targetId: guestId,
                 targetType: 'guest',
                 status: 'success',
@@ -1541,7 +1541,7 @@ export class TenantService {
                 targetType: 'complaint',
                 status: 'success',
                 module: 'guests',
-                performedBy: performer
+                performedBy: { userId: ownerId, name: 'System/Owner' }
             });
         } catch (err: any) {
             console.warn(`[TenantService.notifyComplaintStatusChange] Failed to send WhatsApp:`, err);
@@ -1554,7 +1554,7 @@ export class TenantService {
                 status: 'failed',
                 error: err.message,
                 module: 'guests',
-                performedBy: performer 
+                performedBy: { userId: ownerId, name: 'System/Owner' }
             });
         }
     }
