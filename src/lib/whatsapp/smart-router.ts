@@ -12,8 +12,8 @@
  *   5. Save session, send response
  */
 
-import { MessageManager, sendWhatsAppMessage } from './send-message';
-import { SessionManager, getSession, updateSession, clearSession } from './session-state';
+import { MessageManager } from './send-message';
+import { SessionManager } from './session-state';
 import { workflowEngine } from './workflow-engine';
 import { WorkflowContext } from './workflow-types';
 import { getAdminDb } from '../firebaseAdmin';
@@ -157,7 +157,7 @@ export async function handleIncomingMessage(data: {
         const activeOwners = await lookupOwnersByPhone(from);
         if (activeOwners.length === 0) {
             console.log(`[Router] Previously authenticated owner ${from} is no longer active/registered. Clearing session...`);
-            await clearSession(from);
+            await SessionManager.clearSession(from);
             await handleAuth(from, 'hi', { state: 'IDLE', data: {}, lastUpdated: Date.now() });
             return;
         }
@@ -181,12 +181,12 @@ export async function handleIncomingMessage(data: {
                     : activeWorkflowId === 'propertyManagement' ? 'setting up a property'
                         : 'your current task';
 
-                await updateSession(from, 'IDLE', {
+                await SessionManager.updateSession(from, 'IDLE', {
                     ...session.data,
                     _midFlowSwitchPending: true,
                     _midFlowLabel: workflowLabel,
                 });
-                await sendWhatsAppMessage(
+                await MessageManager.sendWhatsAppMessage(
                     from,
                     `🔀 *You're in the middle of ${workflowLabel}.*\n\n` +
                     `Your progress is saved for a few minutes.\n\n` +
@@ -201,20 +201,20 @@ export async function handleIncomingMessage(data: {
 
         // ── Resolve Pending Mid-Flow Switch ──────────────────────────────────
         if (session.data?._midFlowSwitchPending) {
-            await updateSession(from, 'IDLE', {
+            await SessionManager.updateSession(from, 'IDLE', {
                 ...session.data,
                 _midFlowSwitchPending: false,
             });
             if (text.trim() === '1') {
                 // Discard and go to menu
-                await updateSession(from, 'IDLE', {
+                await SessionManager.updateSession(from, 'IDLE', {
                     ...session.data,
                     _midFlowSwitchPending: false,
                     workflowContext: undefined,
                     workflowId: 'mainMenu',
                     currentStep: 'showMenu',
                 });
-                await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
+                await switchToWorkflow(from, await SessionManager.getSession(from), 'mainMenu', 'showMenu');
                 return;
             } else {
                 // Continue — re-present the current step
@@ -231,7 +231,7 @@ export async function handleIncomingMessage(data: {
 
         if (lowerText === 'cancel') {
             await switchToWorkflow(from, session, 'mainMenu', 'showMenu');
-            await sendWhatsAppMessage(from, '❌ Cancelled. Returning to main menu.', session.data.ownerId);
+            await MessageManager.sendWhatsAppMessage(from, '❌ Cancelled. Returning to main menu.', session.data.ownerId);
             return;
         }
 
@@ -266,14 +266,14 @@ async function handleWithWorkflow(
                     // First time expiring — prompt user
                     const tenantName = ctx.data?.tf_name;
                     const label = tenantName ? `adding *${tenantName}*` : 'your previous work';
-                    await updateSession(from, 'IDLE', {
+                    await SessionManager.updateSession(from, 'IDLE', {
                         ...session.data,
                         _resumePending: true,
                         _resumeWorkflowId: workflowId,
                         _resumeStep: currentStep,
                         _resumeCtx: ctx,
                     });
-                    await sendWhatsAppMessage(
+                    await MessageManager.sendWhatsAppMessage(
                         from,
                         `⏸️ *Welcome back!*\n\n` +
                         `Would you like to continue ${label} or start over?\n\n` +
@@ -286,13 +286,13 @@ async function handleWithWorkflow(
                 }
 
                 // They are responding to the resume prompt
-                await updateSession(from, 'IDLE', { ...session.data, _resumePending: false });
+                await SessionManager.updateSession(from, 'IDLE', { ...session.data, _resumePending: false });
                 if (text.trim() === '1' && session.data._resumeCtx) {
                     // Restore and re-present
                     ctx = session.data._resumeCtx as WorkflowContext;
                     ctx.updatedAt = new Date(); // Reset timer
                     const message = await workflowEngine.presentStep(ctx);
-                    await sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
+                    await MessageManager.sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
                     await persistWorkflowContext(from, session, ctx);
                     return;
                 }
@@ -317,7 +317,7 @@ async function handleWithWorkflow(
 
         // Present the step (with onEnter)
         const message = await workflowEngine.presentStep(ctx);
-        await sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
+        await MessageManager.sendWhatsAppMessage(from, message, session.data.ownerId, session.data.guestId);
         await persistWorkflowContext(from, session, ctx);
         return;
     }
@@ -333,7 +333,7 @@ async function handleWithWorkflow(
 
     if (!result.success) {
         // Validation error — repeat current step message
-        await sendWhatsAppMessage(from, result.message || '⚠️ Invalid input. Try again.', session.data.ownerId, session.data.guestId);
+        await MessageManager.sendWhatsAppMessage(from, result.message || '⚠️ Invalid input. Try again.', session.data.ownerId, session.data.guestId);
         return;
     }
 
@@ -346,7 +346,7 @@ async function handleWithWorkflow(
 
     // Send the response message
     if (result.message) {
-        await sendWhatsAppMessage(from, result.message, session.data.ownerId, session.data.guestId);
+        await MessageManager.sendWhatsAppMessage(from, result.message, session.data.ownerId, session.data.guestId);
     }
 
     // Persist updated context
@@ -404,7 +404,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
     // ── IDLE State (Entry greeting & Auto-login) ─────────────────────
     if (state === 'IDLE') {
         if (!['hi', 'hello', 'menu', 'start', 'test'].includes(lowerText)) {
-            await sendWhatsAppMessage(from, `Welcome to RentSutra 🏠\n\nReply *Hi* to get started.`);
+            await MessageManager.sendWhatsAppMessage(from, `Welcome to RentSutra 🏠\n\nReply *Hi* to get started.`);
             return;
         }
 
@@ -448,7 +448,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                     await switchToWorkflow(from, await SessionManager.getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
                 } else {
                     await MessageManager.sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!* (Tenant in ${acc.pgName || 'PG'})`, acc.ownerId, acc.id);
-                    await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+                    await switchToWorkflow(from, await SessionManager.getSession(from), 'tenantPortal', 'tenantMenu');
                 }
             }
             return;
@@ -465,7 +465,7 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                 const acc = tenants[0];
                 const isOnboarded = await checkTenantIsOnboarded(acc.ownerId, acc.id);
 
-                await updateSession(from, 'IDLE', {
+                await SessionManager.updateSession(from, 'IDLE', {
                     isAuthenticatedTenant: true,
                     tenantName: acc.name,
                     guestId: acc.id,
@@ -474,27 +474,27 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
                 });
 
                 if (!isOnboarded) {
-                    await switchToWorkflow(from, await getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
+                    await switchToWorkflow(from, await SessionManager.getSession(from), 'tenantLazyOnboarding', 'welcomeAndName');
                 } else {
-                    await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.ownerId, acc.id);
-                    await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+                    await MessageManager.sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.ownerId, acc.id);
+                    await switchToWorkflow(from, await SessionManager.getSession(from), 'tenantPortal', 'tenantMenu');
                 }
                 return;
             }
 
-            await updateSession(from, 'AWAITING_ACCOUNT_SELECTION', { identifiedAccounts: allAccounts });
+            await SessionManager.updateSession(from, 'AWAITING_ACCOUNT_SELECTION', { identifiedAccounts: allAccounts });
             let menu = `Hi ${allAccounts[0].name}! We found multiple accounts for this number.\n\nPlease select which one to log in to:\n\n`;
             allAccounts.forEach((acc, i) => {
                 const label = acc.type === 'owner' ? `Owner Dashboard` : `Tenant (${acc.pgName || 'PG'})`;
                 menu += `${i + 1}️⃣ ${label}\n`;
             });
-            await sendWhatsAppMessage(from, menu);
+            await MessageManager.sendWhatsAppMessage(from, menu);
             return;
         }
 
         // 3. No Account Found -> Dead End / Support / App Link
-        await updateSession(from, 'IDLE');
-        await sendWhatsAppMessage(
+        await SessionManager.updateSession(from, 'IDLE');
+        await MessageManager.sendWhatsAppMessage(
             from,
             `👋 *Welcome to RentSutra!*\n\n` +
             `It looks like this number isn't registered with us.\n\n` +
@@ -513,27 +513,27 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
         if (index >= 0 && index < accounts.length) {
             const acc = accounts[index];
             if (acc.type === 'owner') {
-                await updateSession(from, 'IDLE', {
+                await SessionManager.updateSession(from, 'IDLE', {
                     isAuthenticatedOwner: true,
                     ownerName: acc.name,
                     ownerId: acc.id,
                     userRole: (acc.role as string) || 'owner',
                 });
-                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.id);
-                await switchToWorkflow(from, await getSession(from), 'mainMenu', 'showMenu');
+                await MessageManager.sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.id);
+                await switchToWorkflow(from, await SessionManager.getSession(from), 'mainMenu', 'showMenu');
             } else {
-                await updateSession(from, 'IDLE', {
+                await SessionManager.updateSession(from, 'IDLE', {
                     isAuthenticatedTenant: true,
                     tenantName: acc.name,
                     guestId: acc.id,
                     ownerId: acc.ownerId,
                     pgId: acc.pgId,
                 });
-                await sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.ownerId, acc.id);
-                await switchToWorkflow(from, await getSession(from), 'tenantPortal', 'tenantMenu');
+                await MessageManager.sendWhatsAppMessage(from, `✅ *Welcome back, ${acc.name}!*`, acc.ownerId, acc.id);
+                await switchToWorkflow(from, await SessionManager.getSession(from), 'tenantPortal', 'tenantMenu');
             }
         } else {
-            await sendWhatsAppMessage(from, `⚠️ Please reply with a valid option (1-${accounts.length}).`);
+            await MessageManager.sendWhatsAppMessage(from, `⚠️ Please reply with a valid option (1-${accounts.length}).`);
         }
         return;
     }
@@ -541,15 +541,15 @@ async function handleAuth(from: string, text: string, session: any): Promise<voi
     // ── Role Selection state (Guest/Unknown) ─────────────────────────
     if (state === 'AWAITING_USER_ROLE') {
         if (text === '1') {
-            await updateSession(from, 'IDLE', { isAuthenticatedOwner: false });
-            await switchToWorkflow(from, await getSession(from), 'ownerRegistration', 'askOwnerName');
+            await SessionManager.updateSession(from, 'IDLE', { isAuthenticatedOwner: false });
+            await switchToWorkflow(from, await SessionManager.getSession(from), 'ownerRegistration', 'askOwnerName');
         } else if (text === '2') {
             // Re-check if they are a tenant now (maybe they were just added)
             const matchedTenants = await lookupTenantsByPhone(from);
             if (matchedTenants.length > 0) {
                 // If miraculously multiple found now, re-route to selection
                 if (matchedTenants.length > 1) {
-                    await updateSession(from, 'AWAITING_ACCOUNT_SELECTION', { identifiedAccounts: matchedTenants.map(t => ({ type: 'tenant', ...t })) });
+                    await SessionManager.updateSession(from, 'AWAITING_ACCOUNT_SELECTION', { identifiedAccounts: matchedTenants.map(t => ({ type: 'tenant', ...t })) });
                     await handleIncomingMessage({ from, msgBody: 'hi', messageType: 'text' });
                 } else {
                     const acc = matchedTenants[0];

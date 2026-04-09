@@ -14,6 +14,7 @@ import { getReminderForGuest } from '../reminder-logic';
 import { checkHierarchy } from './hierarchy-guard';
 import { Guest } from '../types';
 import { parseDateString } from '../utils';
+import { MessageManager } from './send-message';
 
 // ─────────────────────────────────────────────────────────────
 // MAIN MENU WORKFLOW
@@ -109,7 +110,6 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                         .get();
 
                     let sentCount = 0;
-                    const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
                     const now = new Date();
 
                     for (const doc of guestsSnap.docs) {
@@ -127,7 +127,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
                             if (reminder.shouldSend && freshGuest.phone) {
                                 let formattedPhone = freshGuest.phone.replace(/\D/g, '');
                                 if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
-                                await sendWhatsAppMessage(formattedPhone, reminder.body, ctx.ownerId, freshGuest.id);
+                                await MessageManager.sendWhatsAppMessage(formattedPhone, reminder.body, ctx.ownerId, freshGuest.id);
                                 sentCount++;
                             }
                         } catch (e) {
@@ -1565,11 +1565,10 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                         const ownerDoc = await appDb.collection('users').doc(ownerId).get();
                         const ownerData = ownerDoc.data();
                         const ownerPhone = ownerData?.phone || ownerData?.phoneNumber;
-                        if (ownerPhone) {
-                            const { sendWhatsAppMessage } = await import('@/lib/whatsapp/send-message');
+                         if (ownerPhone) {
                             const tenantName = ctx.tenantName || ctx.data.tenantName || 'A tenant';
                             const pgName = ctx.data.pgName || 'your PG';
-                            await sendWhatsAppMessage(ownerPhone,
+                             await MessageManager.sendWhatsAppMessage(ownerPhone,
                                 `🔔 *Move-Out Notice Received*\n\n` +
                                 `Tenant *${tenantName}* from *${pgName}* has submitted a 30-day move-out notice.\n\n` +
                                 `📅 Expected exit: ${exitDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}\n\n` +
