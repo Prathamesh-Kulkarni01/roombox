@@ -30,7 +30,12 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
                 body: JSON.stringify({
                     action: 'add',
                     ownerId: getEffectiveOwnerId(user.currentUser),
-                    data: staffData
+                    data: staffData,
+                    performer: {
+                        userId: user.currentUser.id,
+                        name: user.currentUser.name,
+                        role: user.currentUser.role
+                    }
                 }),
             });
 
@@ -57,7 +62,12 @@ export const updateStaff = createAsyncThunk<Staff, Staff, { state: RootState }>(
                     action: 'update',
                     ownerId: getEffectiveOwnerId(user.currentUser),
                     staffId: updatedStaff.id,
-                    data: updatedStaff
+                    data: updatedStaff,
+                    performer: {
+                        userId: user.currentUser.id,
+                        name: user.currentUser.name,
+                        role: user.currentUser.role
+                    }
                 }),
             });
 
@@ -83,7 +93,12 @@ export const deleteStaff = createAsyncThunk<string, string, { state: RootState }
                 body: JSON.stringify({
                     action: 'delete',
                     ownerId: getEffectiveOwnerId(user.currentUser),
-                    staffId: staffId
+                    staffId: staffId,
+                    performer: {
+                        userId: user.currentUser.id,
+                        name: user.currentUser.name,
+                        role: user.currentUser.role
+                    }
                 }),
             });
 

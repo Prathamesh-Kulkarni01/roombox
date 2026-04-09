@@ -6,11 +6,13 @@ import { auth } from 'firebase-admin';
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { action, staffId, ownerId, data } = body;
+        const { action, staffId, ownerId, data, performer } = body;
 
         if (!action || !ownerId) {
             return NextResponse.json({ error: 'Action and ownerId are required' }, { status: 400 });
         }
+
+        const effectivePerformer = performer || { userId: ownerId, name: 'System', role: 'admin' };
 
         const appDb = await getAdminDb();
         // For simplicity, we assume 'db' is the same as 'appDb' in this project structure,
@@ -20,17 +22,17 @@ export async function POST(req: NextRequest) {
         switch (action) {
             case 'add':
                 if (!data) return NextResponse.json({ error: 'Data is required for add' }, { status: 400 });
-                const newStaff = await StaffService.addStaff(db, appDb, { ...data, ownerId });
+                const newStaff = await StaffService.addStaff(db, appDb, { ...data, ownerId }, effectivePerformer);
                 return NextResponse.json({ success: true, staff: newStaff });
 
             case 'update':
                 if (!staffId || !data) return NextResponse.json({ error: 'staffId and data are required for update' }, { status: 400 });
-                await StaffService.updateStaff(db, appDb, ownerId, staffId, data);
+                await StaffService.updateStaff(db, appDb, ownerId, staffId, data, effectivePerformer);
                 return NextResponse.json({ success: true });
 
             case 'delete':
                 if (!staffId) return NextResponse.json({ error: 'staffId is required for delete' }, { status: 400 });
-                await StaffService.deleteStaff(db, appDb, ownerId, staffId);
+                await StaffService.deleteStaff(db, appDb, ownerId, staffId, effectivePerformer);
                 return NextResponse.json({ success: true });
 
             case 'list':
