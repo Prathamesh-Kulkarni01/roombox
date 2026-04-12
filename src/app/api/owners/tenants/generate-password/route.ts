@@ -80,7 +80,6 @@ export async function POST(request: Request) {
 
         // 3. Update or Create Firebase Auth User
         const uid = userId || `phone-${cleanPhone.slice(-10)}`;
-        const internalEmail = `${cleanPhone.slice(-10)}@roombox.app`;
 
         try {
             await auth.updateUser(uid, {
