@@ -1,3 +1,20 @@
+## Version 0.7.0 (4/9/2026, 7:56:01 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 23 +++++++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement magic link password setup flow and add tenant management detail page
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.6.0 (4/9/2026, 6:44:19 PM)
 
 ### 🔄 Semantic Impact Summary
