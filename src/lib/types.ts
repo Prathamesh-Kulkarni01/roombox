@@ -503,6 +503,18 @@ export interface User {
   createdAt?: string; // ISO string for when the user was created
   permissions?: string[]; // For staff users, synchronized from staff document
   staffId?: string | null; // Pointer to the staff record in the owner's users_data collection
+  activeTenancies?: {
+    guestId: string;
+    pgId: string;
+    ownerId: string;
+    pgName?: string;
+  }[];
+  activeStaffProfiles?: {
+    staffId: string;
+    ownerId: string;
+    role: string;
+    pgIds?: string[];
+  }[];
 }
 
 export interface Invite {

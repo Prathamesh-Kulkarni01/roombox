@@ -118,19 +118,19 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
 
   return (
     <Dialog open={isAddGuestDialogOpen} onOpenChange={setIsAddGuestDialogOpen}>
-      <DialogContent className="sm:max-w-lg p-0 flex flex-col max-h-[90dvh]">
-        <DialogHeader className="p-6 pb-2 flex-shrink-0">
+      <DialogContent className="sm:max-w-lg p-0 flex flex-col max-h-[90vh]">
+        <DialogHeader className="p-4 flex-shrink-0">
           <DialogTitle>Onboard New Guest</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs">
             {selectedBedForGuestAdd
               ? `Add a new guest to Bed ${selectedBedForGuestAdd.bed.name} in Room ${selectedBedForGuestAdd.room.name} at ${selectedBedForGuestAdd.pg.name}.`
               : 'Select a property, room, and bed for the new guest.'
             }
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto px-6 py-2">
+        <div className="flex-1 overflow-y-auto px-4 py-2 border-y">
           <Form {...addGuestForm}>
-            <form onSubmit={addGuestForm.handleSubmit(handleAddGuestSubmit)} className="space-y-4 py-2" id="add-guest-form">
+            <form onSubmit={addGuestForm.handleSubmit(handleAddGuestSubmit)} className="space-y-3 py-2" id="add-guest-form">
 
               {/* ── Bed Selection (only when not pre-selected) ── */}
               {isManualSelection && (
@@ -334,9 +334,9 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
             </form>
           </Form>
         </div>
-        <DialogFooter className="p-6 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 border-t flex-shrink-0">
-          <DialogClose asChild><Button type="button" variant="secondary" className="w-full sm:w-auto" disabled={isAddingGuest}>Cancel</Button></DialogClose>
-          <Button type="submit" form="add-guest-form" className="w-full sm:w-auto" disabled={!canAddGuest || isAddingGuest}>
+        <DialogFooter className="p-4 pt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2 flex-shrink-0">
+          <DialogClose asChild><Button type="button" variant="secondary" className="w-full sm:w-auto h-9" disabled={isAddingGuest}>Cancel</Button></DialogClose>
+          <Button type="submit" form="add-guest-form" className="w-full sm:w-auto h-9" disabled={!canAddGuest || isAddingGuest}>
             {isAddingGuest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Add Guest
           </Button>

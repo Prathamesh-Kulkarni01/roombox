@@ -38,7 +38,7 @@ import { format, addMonths, differenceInDays, parseISO, isAfter, differenceInMon
 import { formatBalanceBreakdown, getBalanceBreakdown } from "@/lib/ledger-utils"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { useInitiateGuestExitMutation, useVacateGuestMutation, useAddGuestChargeMutation, useRemoveGuestChargeMutation, useUpdateKycStatusMutation, useSubmitKycDocumentsMutation, useResetKycMutation } from '@/lib/api/apiSlice'
+import { useInitiateGuestExitMutation, useVacateGuestMutation, useAddGuestChargeMutation, useRemoveGuestChargeMutation, useUpdateKycStatusMutation, useSubmitKycDocumentsMutation, useResetKycMutation, useGenerateTenantMagicLinkMutation, useGenerateTenantPasswordMutation } from '@/lib/api/apiSlice'
 import { useDashboard } from '@/hooks/use-dashboard'
 import { canAccess } from "@/lib/permissions"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
@@ -91,6 +91,8 @@ export default function GuestProfilePage() {
     const [updateKycStatus] = useUpdateKycStatusMutation()
     const [submitKycDocuments] = useSubmitKycDocumentsMutation()
     const [resetKyc] = useResetKycMutation()
+    const [generateMagicLink] = useGenerateTenantMagicLinkMutation()
+    const [generatePassword] = useGenerateTenantPasswordMutation()
 
     const { guests: guestsState, pgs, complaints } = useAppSelector(state => state)
     const { isLoading } = useAppSelector(state => state.app)
@@ -323,24 +325,22 @@ export default function GuestProfilePage() {
         if (!guest || !currentUser) return;
         setIsGeneratingPassword(true);
         try {
-            const response = await fetch('/api/owners/tenants/generate-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ownerId: currentUser.id,
-                    tenantId: guest.id,
-                    phone: guest.phone
-                })
-            });
-            const data = await response.json();
+            const data = await generatePassword({
+                ownerId: currentUser.id,
+                tenantId: guest.id,
+                phone: guest.phone
+            }).unwrap();
+            
             if (data.success) {
                 setGeneratedPassword(data.newPassword);
                 setIsPasswordDialogOpen(true);
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to generate password.' });
             }
         } catch (err: any) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Network error generating password.' });
+            toast({ 
+                variant: 'destructive', 
+                title: 'Error', 
+                description: err.data?.error || 'Failed to generate password.' 
+            });
         } finally {
             setIsGeneratingPassword(false);
         }
@@ -350,21 +350,18 @@ export default function GuestProfilePage() {
         if (!guest || !currentUser) return;
         setIsGeneratingMagicLink(true);
         try {
-            const response = await fetch('/api/owners/tenants/magic-link', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ guestId: guest.id, phone: guest.phone })
-            });
-            const data = await response.json();
+            const data = await generateMagicLink({ guestId: guest.id, phone: guest.phone }).unwrap();
             if (data.success) {
                 setGeneratedMagicLink(data.magicLink);
                 setGeneratedSetupCode(data.inviteCode);
                 setIsMagicLinkDialogOpen(true);
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to generate link', });
             }
         } catch (error: any) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate link', });
+            toast({ 
+                variant: 'destructive', 
+                title: 'Error', 
+                description: error.data?.error || 'Failed to generate link', 
+            });
         } finally {
             setIsGeneratingMagicLink(false);
         }

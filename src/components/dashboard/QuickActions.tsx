@@ -56,6 +56,7 @@ const AddGuestDialog = ({ beds, onSelectBed, open, onOpenChange }: { beds: { pg:
 const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { guests: Guest[], onSelectGuest: (guest: Guest) => void, open: boolean, onOpenChange: (open: boolean) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const guestsWithDues = useMemo(() => {
+        const lowercasedSearch = searchTerm.toLowerCase();
         const withDues = guests.filter(g => !g.isVacated).map(g => {
             const totalDebits = (g.ledger || []).filter(e => e.type === 'debit').reduce((s, e) => s + (e.amount || 0), 0);
             const totalCredits = (g.ledger || []).filter(e => e.type === 'credit').reduce((s, e) => s + (e.amount || 0), 0);
@@ -63,10 +64,23 @@ const CollectRentDialog = ({ guests, onSelectGuest, open, onOpenChange }: { gues
         }).filter(g => g.balance > 0);
 
         if (!searchTerm) return withDues;
-        return withDues.filter(g =>
-            g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (g.pgName || '').toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        return withDues.filter(guest => {
+            const guestAny = guest as any;
+            return (
+                guest.name.toLowerCase().includes(lowercasedSearch) ||
+                guest.phone?.toLowerCase().includes(lowercasedSearch) ||
+                (guest.shortId && (
+                    guest.shortId.toLowerCase().includes(lowercasedSearch) ||
+                    `r${guest.shortId.toLowerCase()}`.includes(lowercasedSearch)
+                )) ||
+                (guest.ledger || []).some(e => e.description.toLowerCase().includes(lowercasedSearch)) ||
+                (guestAny.payments || []).some((p: any) => 
+                    p.utr?.toLowerCase().includes(lowercasedSearch) || 
+                    p.notes?.toLowerCase().includes(lowercasedSearch)
+                ) ||
+                (guest.pgName || '').toLowerCase().includes(lowercasedSearch)
+            );
+        });
     }, [guests, searchTerm]);
 
     return (

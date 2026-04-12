@@ -82,7 +82,14 @@ export default function LoginPage() {
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!auth) {
+      toast({ 
+        title: 'Auth Error', 
+        description: "Authentication service not initialized. Check emulator connection.", 
+        variant: 'destructive' 
+      });
+      return;
+    }
 
     if (!password) {
       toast({
@@ -169,7 +176,15 @@ export default function LoginPage() {
   };
 
   const handleGoogleSignIn = async () => {
-    if (!auth) return;
+    if (!auth) {
+      toast({ 
+        title: 'Auth Error', 
+        description: "Authentication service not initialized. Check emulator connection.", 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     setIsSigningIn(true);
     const provider = new GoogleAuthProvider();
     try {

@@ -1,14 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
 import crypto from 'crypto';
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const { ownerId, tenantId, phone } = body;
+        const { ownerId, error: authError } = await getVerifiedOwnerId(request as any);
+        if (!ownerId) {
+            return NextResponse.json({ success: false, error: authError || 'Unauthorized' }, { status: 401 });
+        }
 
-        if (!ownerId || !tenantId || !phone) {
-            return NextResponse.json({ success: false, error: 'ownerId, tenantId, and phone are required.' }, { status: 400 });
+        const body = await request.json();
+        const { tenantId, phone } = body;
+
+        if (!tenantId || !phone) {
+            return NextResponse.json({ success: false, error: 'tenantId and phone are required.' }, { status: 400 });
         }
 
         const db = await getAdminDb();
@@ -30,7 +36,8 @@ export async function POST(request: Request) {
 
         // 2. Find the user ID
         const cleanPhone = phone.replace(/\D/g, '');
-        const phoneVariations = [phone, cleanPhone, `+91${cleanPhone}`, `91${cleanPhone}`];
+        const standardizedPhone = phone.startsWith('+') ? phone : `+91${cleanPhone}`;
+        const phoneVariations = [phone, cleanPhone, standardizedPhone, `91${cleanPhone}`];
 
         let userId = null;
         for (const v of phoneVariations) {
@@ -49,31 +56,81 @@ export async function POST(request: Request) {
             }
         }
 
+        // 2.1 If not found in Firestore, check Firebase Auth directly to avoid collisions
+        const internalEmail = `${cleanPhone.slice(-10)}@roombox.app`;
+        if (!userId) {
+            try {
+                let authUser = null;
+                try {
+                    authUser = await auth.getUserByPhoneNumber(standardizedPhone);
+                } catch (e) {
+                    try {
+                        authUser = await auth.getUserByEmail(internalEmail);
+                    } catch (e2) {}
+                }
+
+                if (authUser) {
+                    userId = authUser.uid;
+                    console.log(`[GeneratePassword] Found existing Auth user by phone/email: ${userId}`);
+                }
+            } catch (e: any) {
+                // Not in Auth, safe to proceed with skeleton
+            }
+        }
+
         // 3. Update or Create Firebase Auth User
-        const uid = userId || `phone-${cleanPhone}`;
-        const internalEmail = `${cleanPhone}@roombox.app`;
+        const uid = userId || `phone-${cleanPhone.slice(-10)}`;
+        const internalEmail = `${cleanPhone.slice(-10)}@roombox.app`;
 
         try {
             await auth.updateUser(uid, {
                 password: newPassword
             });
             console.log(`[GeneratePassword] Updated Firebase Auth for ${uid}`);
+
+            // Ensure Firestore user doc exists even if it was only in Auth before
+            const userRef = db.collection('users').doc(uid);
+            const userSnap = await userRef.get();
+            if (!userSnap.exists) {
+                await userRef.set({
+                    phone: standardizedPhone,
+                    role: 'tenant',
+                    ownerId: ownerId,
+                    tenantId: tenantId,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                });
+            }
         } catch (e: any) {
             if (e.code === 'auth/user-not-found') {
-                await auth.createUser({
-                    uid,
-                    email: internalEmail,
-                    password: newPassword,
-                    phoneNumber: phone.startsWith('+') ? phone : `+91${cleanPhone}`
-                });
-                console.log(`[GeneratePassword] Created Firebase Auth for ${uid}`);
+                try {
+                    await auth.createUser({
+                        uid,
+                        email: internalEmail,
+                        password: newPassword,
+                        phoneNumber: standardizedPhone
+                    });
+                    console.log(`[GeneratePassword] Created Firebase Auth for ${uid}`);
+                } catch (createErr: any) {
+                    if (createErr.code === 'auth/phone-number-already-exists') {
+                        // This shouldn't happen if getUserByPhoneNumber worked, but for safety:
+                        const existingUser = await auth.getUserByPhoneNumber(standardizedPhone);
+                        await auth.updateUser(existingUser.uid, { password: newPassword });
+                        console.log(`[GeneratePassword] Recovered from phone conflict: updated ${existingUser.uid}`);
+                    } else {
+                        throw createErr;
+                    }
+                }
 
                 // Also ensure a skeleton doc exists in Firestore if we created a new user
-                if (!userId) {
-                    await db.collection('users').doc(uid).set({
-                        phone: phone.startsWith('+') ? phone : `+91${cleanPhone}`,
+                const userRef = db.collection('users').doc(uid);
+                const userSnap = await userRef.get();
+                if (!userSnap.exists) {
+                    await userRef.set({
+                        phone: standardizedPhone,
                         role: 'tenant',
                         ownerId: ownerId,
+                        tenantId: tenantId,
                         createdAt: Date.now(),
                         updatedAt: Date.now()
                     });

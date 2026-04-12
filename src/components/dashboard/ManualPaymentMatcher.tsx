@@ -40,13 +40,19 @@ export default function ManualPaymentMatcher({ guests }: { guests: Guest[] }) {
 
             const guestAny = guest as any;
             const shortId = (guest.shortId || '').toLowerCase();
-            const referenceRegex = new RegExp(`^r${shortId}-`, 'i');
+            const truncatedId = shortId.split('-').pop() || shortId; // Handles both old (ABCD) and new (NAME-ID) formats
             
-            // PRIORITY 1: Exact Reference Match (e.g. R12A-MAR-5000)
-            if (shortId && (normalizedQuery === shortId || normalizedQuery.match(referenceRegex) || normalizedQuery.includes(`r${shortId}`))) {
+            const referenceRegex = new RegExp(`r-.*${truncatedId}`, 'i');
+            
+            // PRIORITY 1: Exact Reference Match (e.g. R-PRATHA-APR-A1B2)
+            if (shortId && (
+                normalizedQuery.includes(shortId) || 
+                (truncatedId.length > 2 && normalizedQuery.includes(truncatedId)) ||
+                normalizedQuery.match(referenceRegex)
+            )) {
                 score = 100;
                 confidence = 'HIGH';
-                reason = 'Exact Reference Match';
+                reason = 'Reference Match (' + shortId.toUpperCase() + ')';
             } 
             // PRIORITY 2: Fuzzy Name / Room Match
             else {
@@ -65,6 +71,27 @@ export default function ManualPaymentMatcher({ guests }: { guests: Guest[] }) {
                 if (isAmountMatch && breakdown.total > 0) {
                     score += 40;
                     reason += 'Amount Match. ';
+                }
+
+                // NEW: Phone Matching
+                if (guest.phone && guest.phone.replace(/\D/g, '').includes(normalizedQuery.replace(/\D/g, '')) && normalizedQuery.length >= 4) {
+                    score += 60;
+                    reason += 'Phone Match. ';
+                }
+
+                // NEW: Ledger Note Matching
+                if ((guest.ledger || []).some(e => e.description.toLowerCase().includes(normalizedQuery))) {
+                    score += 70;
+                    reason += 'Note in Ledger. ';
+                }
+
+                // NEW: Payment Record Matching (UTR / Notes)
+                if ((guestAny.payments || []).some((p: any) => 
+                    p.utr?.toLowerCase().includes(normalizedQuery) || 
+                    p.notes?.toLowerCase().includes(normalizedQuery)
+                )) {
+                    score += 80;
+                    reason += 'UTR/Payment Match. ';
                 }
 
                 if (score >= 80) confidence = 'HIGH';

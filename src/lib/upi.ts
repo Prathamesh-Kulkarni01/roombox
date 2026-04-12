@@ -28,34 +28,37 @@ export function generateUpiLink(config: UpiConfig): string {
     return `upi://pay?${params.toString()}`;
 }
 
-/**
- * Generates the standardized lightweight payment reference ID.
- * Format: R{shortId}-{month}-{amount} 
- * Example: R12A-MAR-5000
+/** 
+ * Generates the descriptive payment reference ID.
+ * Format: R-{NAME}-{MONTH}-{ID}
+ * Example: R-PRATHA-APR-A1B2
  */
-export function generateRentSutraNote(shortId: string, amount: number, month: string): string {
-    const cleanId = shortId ? shortId.substring(0, 4).toUpperCase() : 'XXX';
+export function generateRentSutraNote(shortId: string, amount: number, month: string, guestName?: string): string {
+    const cleanId = shortId ? shortId.toUpperCase() : 'NEW';
     const cleanMonth = month ? month.substring(0, 3).toUpperCase() : 'MTH';
     
-    // R12A-MAR-5000
-    return `R${cleanId}-${cleanMonth}-${amount}`;
+    if (guestName) {
+        // Clean name: alphanumeric only, max 10 chars
+        const cleanName = guestName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
+        return `R-${cleanName}-${cleanMonth}-${cleanId}`;
+    }
+
+    return `R-${cleanMonth}-${cleanId}`;
 }
 
 /**
  * Extracts details from a RentSutra payment note.
  */
 export function parseRentSutraNote(note: string) {
-    if (!note || !note.startsWith('RS|')) return null;
+    if (!note || !note.startsWith('R-')) return null;
     
-    const parts = note.split('|');
-    if (parts.length < 4) return null;
-
-    return {
-        prefix: parts[0],
-        shortId: parts[1],
-        amount: parts[2],
-        month: parts[3],
-        name: parts[4],
-        room: parts[5]
-    };
+    const parts = note.split('-');
+    // Handles formats: R-MONTH-ID or R-NAME-MONTH-ID
+    if (parts.length === 3) {
+        return { month: parts[1], shortId: parts[2] };
+    }
+    if (parts.length === 4) {
+        return { name: parts[1], month: parts[2], shortId: parts[3] };
+    }
+    return null;
 }

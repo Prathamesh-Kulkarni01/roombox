@@ -16,7 +16,7 @@ if (!fs.existsSync(RUN_ID_FILE)) fs.writeFileSync(RUN_ID_FILE, RUN_ID);
 export const TARGET_PG_NAME = `PG ${RUN_ID}`;
 export const TARGET_ROOM_NAME = `101`;
 
-export const OWNER_EMAIL = 'bot_tester_8@roombox.app';
+export const OWNER_EMAIL = 'bot_tester_9@roombox.app';
 export const OWNER_PASSWORD = 'Password123!';
 export const TENANT_EMAIL = 'tenant_tester_8@roombox.app';
 export const TENANT_PASSWORD = 'Password123!';
@@ -33,22 +33,42 @@ const SUCCESS_URL_REGEX = /.*(dashboard|tenants\/my-pg|complete-profile)/;
 export async function login(page: Page, emailOrPhone: string) {
     console.log(`[Utils] Logging in as ${emailOrPhone}...`);
     
-    // Detailed monitoring
-    page.on('console', msg => {
+    // Set up monitoring BEFORE any actions
+    let authErrorDetected = false;
+    const consoleHandler = (msg: any) => {
         const text = msg.text();
+        if (text.includes('auth/user-not-found') || text.includes('auth/wrong-password') || text.includes('auth/invalid-credential')) {
+            console.log(`[Utils] Caught Auth Error in console: ${text}`);
+            authErrorDetected = true;
+        }
         if (msg.type() === 'error') console.log(`[Browser Error] ${text}`);
         if (text.includes('Firebase') || text.includes('emulator')) console.log(`[Browser Firebase] ${text}`);
-    });
+    };
+    page.on('console', consoleHandler);
     
+    // Temporarily disabled to debug goto failure
+    /*
+    await page.route(url => 
+        url.includes('google-analytics') || 
+        url.includes('doubleclick') || 
+        url.includes('facebook') || 
+        url.includes('razorpay') ||
+        url.includes('fonts.googleapis') ||
+        url.includes('fonts.gstatic'), 
+        route => route.abort()
+    ).catch(() => {});
+    */
+
     page.on('requestfailed', request => {
-        console.log(`[Browser Request Failed] ${request.url()}: ${request.failure()?.errorText}`);
+        const url = request.url();
+        console.log(`[Browser Request Failed] ${url}: ${request.failure()?.errorText}`);
     });
 
     page.on('pageerror', err => {
         console.log(`[Browser PageError] ${err.message}`);
     });
 
-    await page.goto('/', { waitUntil: 'load' });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.evaluate(async () => {
         localStorage.clear();
         sessionStorage.clear();
@@ -61,7 +81,7 @@ export async function login(page: Page, emailOrPhone: string) {
     });
     await page.context().clearCookies();
     
-    await page.goto('/login', { waitUntil: 'load' });
+    await page.goto('/login', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1000); 
     
     // Safety check: is the page actually loaded?
@@ -82,12 +102,19 @@ export async function login(page: Page, emailOrPhone: string) {
         
         console.log(`[Utils] Submitting owner login...`);
         const loginBtn = page.getByRole('button', { name: /Log In as Owner/i });
-        await loginBtn.waitFor({ state: 'visible', timeout: 15000 });
+        await expect(loginBtn).toBeEnabled({ timeout: 15_000 });
         
-        const isEnabled = await loginBtn.isEnabled();
-        console.log(`[Utils] Login button enabled: ${isEnabled}`);
-        
+        console.log(`[Utils] Clicking Log In for ${emailOrPhone}...`);
         await loginBtn.click();
+        
+        // After clicking, wait for a navigation OR an error toast
+        const errorToast = page.locator('text=Log In Failed');
+        await Promise.race([
+            page.waitForURL(u => u.pathname.includes('dashboard') || u.pathname.includes('complete-profile'), { timeout: 20_000 }),
+            expect(errorToast).toBeVisible({ timeout: 10_000 })
+        ]).catch(() => {
+            console.log('[Utils] Login attempt timed out or stayed on page.');
+        });
         console.log(`[Utils] Clicked login button.`);
     } else {
         // Tenant/Staff login: phone + password (NOT email — tenants don't self-signup)
@@ -117,16 +144,6 @@ export async function login(page: Page, emailOrPhone: string) {
         await loginBtn.waitFor({ state: 'visible', timeout: 15000 });
         await loginBtn.click();
     }
-
-    // Wait for the URL to change to a success URL
-    let authErrorDetected = false;
-    const consoleHandler = (msg: any) => {
-        const text = msg.text();
-        if (text.includes('auth/user-not-found') || text.includes('auth/wrong-password') || text.includes('auth/invalid-credential')) {
-            authErrorDetected = true;
-        }
-    };
-    page.on('console', consoleHandler);
 
     try {
         console.log(`[Utils] Waiting for success redirection...`);
@@ -184,7 +201,11 @@ export async function login(page: Page, emailOrPhone: string) {
 }
 
 async function handleOnboarding(page: Page, isOwner: boolean) {
-    await page.waitForTimeout(3000);
+    if (page.isClosed()) return;
+    
+    // Use a shorter wait or wait for a specific element instead of a hard 3s
+    await page.waitForTimeout(1000).catch(() => {});
+    if (page.isClosed()) return;
     
     if (page.url().includes('complete-profile')) {
         if (!isOwner) {
@@ -204,8 +225,7 @@ async function handleOnboarding(page: Page, isOwner: boolean) {
 
     if (page.url().includes('/login')) {
         console.warn(`[Utils] Stuck on /login detected. Trying direct navigation...`);
-        await page.goto(isOwner ? '/dashboard' : '/tenants/my-pg');
-        await page.waitForTimeout(2000);
+        await page.goto(isOwner ? '/dashboard' : '/tenants/my-pg').catch(() => {});
     }
 }
 
@@ -219,11 +239,14 @@ async function signup(page: Page, email: string) {
     
     await expect(emailInput).toBeVisible({ timeout: 15_000 });
     console.log(`[Utils] Filling signup form for ${email}...`);
+    await emailInput.scrollIntoViewIfNeeded();
     await emailInput.fill(email);
+    await passInput.scrollIntoViewIfNeeded();
     await passInput.fill(OWNER_PASSWORD);
     
     console.log(`[Utils] Submitting signup...`);
     const signupBtn = page.getByRole('button', { name: /Create Account|Sign Up/i }).first();
+    await signupBtn.scrollIntoViewIfNeeded();
     await signupBtn.click({ force: true });
     
     console.log(`[Utils] Waiting for redirection to complete-profile...`);

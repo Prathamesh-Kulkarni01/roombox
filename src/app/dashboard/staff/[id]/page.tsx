@@ -16,7 +16,7 @@ import { ArrowLeft, User, IndianRupee, Phone, Mail, Building, Pencil, Loader2, S
 import { cn, getEffectiveOwnerId } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { fetchStaff as fetchStaffAction, updateStaff as updateStaffAction } from '@/lib/slices/staffSlice'
-import { useGenerateStaffMagicLinkMutation } from '@/lib/api/apiSlice'
+import { useGenerateStaffMagicLinkMutation, useGenerateStaffPasswordMutation } from '@/lib/api/apiSlice'
 import { featurePermissionConfig, parseStaffPermissions, validateAndEnforceDependencies } from '@/lib/permissions'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -53,6 +53,7 @@ export default function StaffProfilePage() {
     const [isMagicLinkDialogOpen, setIsMagicLinkDialogOpen] = useState(false)
     
     const [generateMagicLink, { isLoading: isGeneratingLink }] = useGenerateStaffMagicLinkMutation()
+    const [generatePassword, { isLoading: isGeneratingPassword }] = useGenerateStaffPasswordMutation()
 
     useEffect(() => {
         const effectiveOwnerId = getEffectiveOwnerId(currentUser);
@@ -118,6 +119,29 @@ export default function StaffProfilePage() {
             }
         } catch (error: any) {
             toast({ title: "Error", description: error.data?.error || "Failed to generate invite", variant: "destructive" });
+        }
+    }
+
+    const handleGeneratePassword = async () => {
+        if (!staffMember) return;
+        
+        try {
+            const result = await generatePassword({ 
+                staffId: staffMember.id, 
+                phone: staffMember.phone 
+            }).unwrap();
+
+            if (result.success && result.newPassword) {
+                toast({ 
+                    title: "Password Generated", 
+                    description: `New password for ${staffMember.name}: ${result.newPassword}. Please share this with them securely.`,
+                    duration: 10000
+                });
+            } else {
+                toast({ title: "Error", description: "Failed to generate password", variant: "destructive" });
+            }
+        } catch (error: any) {
+            toast({ title: "Error", description: error.data?.error || "Failed to generate password", variant: "destructive" });
         }
     }
 
@@ -188,15 +212,26 @@ export default function StaffProfilePage() {
                                 </div>
                             </div>
 
-                            <Button 
-                                variant="outline" 
-                                className="w-full mt-6" 
-                                disabled={isGeneratingLink}
-                                onClick={handleGenerateManualMagicLink}
-                            >
-                                {isGeneratingLink ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LinkIcon className="w-4 h-4 mr-2" />}
-                                {magicLink ? 'Regenerate Magic Link' : 'Generate Magic Link'}
-                            </Button>
+                            <div className="w-full grid grid-cols-2 gap-2 mt-6">
+                                <Button 
+                                    variant="outline" 
+                                    className="px-2 text-xs" 
+                                    disabled={isGeneratingLink}
+                                    onClick={handleGenerateManualMagicLink}
+                                >
+                                    {isGeneratingLink ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <LinkIcon className="w-3 h-3 mr-1" />}
+                                    {magicLink ? 'Invite' : 'Invite'}
+                                </Button>
+                                <Button 
+                                    variant="outline"
+                                    className="px-2 text-xs"
+                                    disabled={isGeneratingPassword}
+                                    onClick={handleGeneratePassword}
+                                >
+                                    {isGeneratingPassword ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ShieldCheck className="w-3 h-3 mr-1" />}
+                                    Password
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

@@ -255,6 +255,7 @@ export async function PATCH(req: NextRequest) {
             }
 
             case 'transfer': {
+                const appDb = await getAdminDb();
                 await TenantService.transferGuest(db, ownerId, data.guestId, {
                     newPgId: data.newPgId,
                     newBedId: data.newBedId,
@@ -264,7 +265,8 @@ export async function PATCH(req: NextRequest) {
                     newDepositAmount: data.newDepositAmount,
                     shouldProrate: data.shouldProrate,
                     prorationAmount: data.prorationAmount,
-                    performer
+                    performer,
+                    appDb
                 });
                 const updated = await db.collection('users_data').doc(ownerId).collection('guests').doc(data.guestId).get();
                 return NextResponse.json({ success: true, guest: { id: updated.id, ...updated.data() } });

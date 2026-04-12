@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
         const paymentId = await PaymentSystemService.createPaymentIntent(db, ownerId, guestId, amount, month);
 
         // Generate Link
-        const note = generateRentSutraNote(shortId, amount, month, guestName, roomName);
+        const note = generateRentSutraNote(shortId, amount, month, guestName);
         const upiLink = generateUpiLink({
             pa: pgData.upiId,
             pn: pgData.payeeName,

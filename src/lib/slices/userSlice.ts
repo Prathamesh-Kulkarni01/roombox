@@ -233,7 +233,8 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                         whatsapp: { enabled: true }
                     },
                     whatsappCredits: 150 // Initial 100 free template messages
-                }
+                },
+                isOnboarded: true,
             };
 
             const userDocRef = doc(db!, 'users', currentUser.id);
@@ -400,8 +401,9 @@ const userSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(initializeUser.pending, (state) => {
-                state.currentUser = null;
-                state.currentPlan = null;
+                // Don't clear user during re-auth — this causes redirect flicker
+                // when signInWithCustomToken fires a new auth event.
+                // User is only cleared on explicit logout via logoutUser.fulfilled.
             })
             .addCase(initializeUser.fulfilled, (state, action) => {
                 state.currentUser = action.payload;

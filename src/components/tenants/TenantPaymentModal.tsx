@@ -237,7 +237,8 @@ export default function TenantPaymentModal({
                                         {generateRentSutraNote(
                                             currentGuest.shortId || 'NEW',
                                             totalDue,
-                                            format(new Date(), 'MMM').toUpperCase()
+                                            format(new Date(), 'MMM').toUpperCase(),
+                                            currentGuest.name
                                         )}
                                     </span>
                                     <Button 
@@ -248,7 +249,8 @@ export default function TenantPaymentModal({
                                             const note = generateRentSutraNote(
                                                 currentGuest.shortId || 'NEW',
                                                 totalDue,
-                                                format(new Date(), 'MMM').toUpperCase()
+                                                format(new Date(), 'MMM').toUpperCase(),
+                                                currentGuest.name
                                             );
                                             navigator.clipboard.writeText(note);
                                             setNoteCopied(true);

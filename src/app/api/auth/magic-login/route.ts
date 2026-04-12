@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, getAdminAuth } from "@/lib/firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 import { serverError, badRequest, unauthorized } from "@/lib/api/apiError";
 
 export async function GET(req: NextRequest) {
@@ -63,11 +64,14 @@ export async function POST(req: NextRequest) {
         const phone = magicLinkData.phone;
         const cleanPhoneDigits = phone.replace(/\D/g, '');
         const cleanPhoneTenDigits = cleanPhoneDigits.slice(-10);
+        const standardizedPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
+        const internalEmail = `${cleanPhoneTenDigits}@roombox.app`;
+
         const variations = [
             phone, 
             cleanPhoneDigits, 
             `+${cleanPhoneDigits}`,
-            `+91${cleanPhoneTenDigits}`,
+            standardizedPhone,
             `91${cleanPhoneTenDigits}`,
             cleanPhoneTenDigits
         ];
@@ -76,6 +80,7 @@ export async function POST(req: NextRequest) {
                   magicLinkData.staffId || 
                   (magicLinkData.role === 'staff' ? `staff-${cleanPhoneTenDigits}` : `phone-${cleanPhoneTenDigits}`);
 
+        // Try to find in Firestore first to get the existing established UID
         let userDoc = null;
         for (const v of variations) {
             const snap = await adminDb.collection('users').where('phone', '==', v).limit(1).get();
@@ -84,6 +89,35 @@ export async function POST(req: NextRequest) {
                 uid = userDoc.id;
                 break;
             }
+        }
+
+        // Try to find in Firebase Auth to ensure we use the actual Auth UID if it exists
+        try {
+            let authUser = null;
+            try {
+                authUser = await auth.getUserByPhoneNumber(standardizedPhone);
+            } catch (e) {
+                try {
+                    authUser = await auth.getUserByEmail(internalEmail);
+                } catch (e2) {}
+            }
+
+            if (authUser && authUser.uid !== uid) {
+                console.warn(`[magic-login] Auth UID mismatch: Firestore=${uid}, Auth=${authUser.uid}. Preferring Auth UID.`);
+                
+                // If we found a different Firestore doc, migrate it
+                if (userDoc) {
+                    const newDocRef = adminDb.collection('users').doc(authUser.uid);
+                    await newDocRef.set({
+                        ...userDoc.data(),
+                        updatedAt: Date.now()
+                    }, { merge: true });
+                }
+                
+                uid = authUser.uid;
+            }
+        } catch (authErr) {
+            console.error('[magic-login] Auth discovery error:', authErr);
         }
 
         // Mark as used immediately to prevent race conditions
@@ -95,10 +129,41 @@ export async function POST(req: NextRequest) {
         const userRef = adminDb.collection('users').doc(uid);
         const userDocSnapshot = await userRef.get();
         
-        // Use the snapshot data for claims if available, otherwise fallback to matching logic
+        // PROMOTE this session to 'Primary' in user doc
+        const promotionUpdates: any = {
+            updatedAt: Date.now()
+        };
+
+        if (magicLinkData.guestId) {
+            promotionUpdates.guestId = magicLinkData.guestId;
+            promotionUpdates.pgId = magicLinkData.pgId;
+            promotionUpdates.ownerId = magicLinkData.ownerId;
+            promotionUpdates.role = 'tenant';
+            
+            promotionUpdates.activeTenancies = FieldValue.arrayUnion({
+                guestId: magicLinkData.guestId,
+                pgId: magicLinkData.pgId,
+                ownerId: magicLinkData.ownerId,
+                pgName: magicLinkData.pgName
+            });
+        }
+
+        if (magicLinkData.staffId) {
+            promotionUpdates.staffId = magicLinkData.staffId;
+            promotionUpdates.ownerId = magicLinkData.ownerId;
+            promotionUpdates.role = magicLinkData.role || 'staff';
+            
+            promotionUpdates.activeStaffProfiles = FieldValue.arrayUnion({
+                staffId: magicLinkData.staffId,
+                ownerId: magicLinkData.ownerId,
+                role: magicLinkData.role || 'staff'
+            });
+        }
+
+        await userRef.update(promotionUpdates);
+
         const role = magicLinkData.role || userDocSnapshot?.data()?.role || 'tenant';
         const permissions = userDocSnapshot?.data()?.permissions || {};
-        const pgId = magicLinkData.pgId || userDocSnapshot?.data()?.pgId;
 
         const claims: any = {
             role,

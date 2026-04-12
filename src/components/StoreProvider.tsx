@@ -133,13 +133,19 @@ function AuthHandler({ children }: { children: ReactNode }) {
     if (currentUser) {
       console.log(`[StoreProvider] User found: ${currentUser.role} at ${pathname}`);
       const isInviteOrSetPassword = pathname.startsWith('/invite') || pathname.startsWith('/login/set-password');
-      const isLoginPage = (pathname.startsWith('/login') && !pathname.startsWith('/login/set-password')) || pathname === '/signup';
+      const isLoginPage = pathname === '/login' || pathname === '/signup';
+      const isMagicLoginPage = pathname.startsWith('/login/magic');
       const isAllowedPublicPage = pathname === '/download';
 
-      if (currentUser.role === 'tenant' && ((!pathname.startsWith('/tenants') && !isAllowedPublicPage) || isLoginPage || isInviteOrSetPassword)) {
+      if (currentUser.role === 'tenant' && (isLoginPage || isMagicLoginPage)) {
+        // Only redirect away from login pages — let set-password and invite pages handle their own flow
+        console.log(`[StoreProvider] Redirecting tenant from login to portal... (Path: ${pathname})`);
+        router.replace('/tenants/my-pg');
+      } else if (currentUser.role === 'tenant' && !pathname.startsWith('/tenants') && !isAllowedPublicPage && !isInviteOrSetPassword && !isPublicPage) {
+        // Redirect tenant from non-tenant, non-public, non-setup pages
         console.log(`[StoreProvider] Redirecting tenant to portal... (Path: ${pathname})`);
         router.replace('/tenants/my-pg');
-      } else if (allowedDashboardRoles.includes(currentUser.role) && ((!pathname.startsWith('/dashboard') && !isPublicPage) || isLoginPage || isInviteOrSetPassword) && !pathname.startsWith('/admin')) {
+      } else if (allowedDashboardRoles.includes(currentUser.role) && ((!pathname.startsWith('/dashboard') && !isPublicPage) || isLoginPage || isMagicLoginPage) && !isInviteOrSetPassword && !pathname.startsWith('/admin')) {
         console.log(`[StoreProvider] Redirecting ${currentUser.role} to dashboard... (Path: ${pathname})`);
         router.replace('/dashboard');
       } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile' && !isPublicPage) {

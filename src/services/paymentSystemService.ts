@@ -20,10 +20,12 @@ export class PaymentSystemService {
         if (!guestSnap.exists) throw new Error('Guest not found');
         
         const guest = guestSnap.data() as Guest;
-        if (guest.shortId) return guest.shortId;
+        if (guest.shortId && !guest.shortId.includes('NEW')) return guest.shortId;
 
-        // Generate a 4-5 char unique ID
-        const shortId = nanoid(5).toUpperCase();
+        // Generate a descriptive ID: NAME-XXX (3 chars of name + 2 random Alphanum)
+        const namePart = (guest.name || 'GUEST').replace(/[^a-zA-Z]/g, '').substring(0, 4).toUpperCase();
+        const shortId = `${namePart}-${nanoid(3).toUpperCase()}`;
+        
         await guestRef.update({ shortId, schemaVersion: CURRENT_SCHEMA_VERSION });
         return shortId;
     }

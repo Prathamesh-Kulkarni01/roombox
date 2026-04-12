@@ -199,7 +199,7 @@ export class TenantService {
                     amountType: 'symbolic',
                     symbolicValue: symbolicRentValue,
                     pgId: pgId
-                });
+                })
                 if (symbolicDepositValue) {
                     initialLedger.push({
                         id: `deposit-${Date.now()}-initial`,
@@ -210,7 +210,7 @@ export class TenantService {
                         amountType: 'symbolic',
                         symbolicValue: symbolicDepositValue,
                         pgId: pgId
-                    });
+                    })
                 }
             } else {
                 if (numericRent > 0) {
@@ -221,7 +221,7 @@ export class TenantService {
                         description: `Rent for Cycle Starting ${format(startOfCycle, 'do MMM')}`,
                         amount: numericRent,
                         pgId: pgId
-                    });
+                    })
                     initialBalance += numericRent;
                 }
 
@@ -233,7 +233,7 @@ export class TenantService {
                         description: `Security Deposit`,
                         amount: numericDeposit,
                         pgId: pgId
-                    });
+                    })
                     initialBalance += numericDeposit;
                 }
             }
@@ -345,7 +345,7 @@ export class TenantService {
             transaction.update(pgRef, pgUpdates);
 
             return guestToCreate;
-        });
+        })
 
         console.log(`[TenantService.onboardTenant] Successfully committed tenant document: ${guestId}`);
 
@@ -381,15 +381,24 @@ export class TenantService {
 
                 if (userDoc) {
                     const userData = userDoc.data();
-                    console.log(`[TenantService.onboardTenant] Found existing user ${userDoc.id}. Linking...`);
-                    await appDb.doc(`users/${userDoc.id}`).update({
+                    console.log(`[TenantService.onboardTenant] Found existing user ${userDoc.id}. Linking with multi-tenancy support...`);
+                    
+                    const tenancyRecord = {
                         guestId,
                         pgId,
                         ownerId,
+                        pgName: pgName || newGuest.pgName
+                    };
+
+                    await appDb.doc(`users/${userDoc.id}`).update({
+                        guestId, // Maintain as 'primary' or 'last-active'
+                        pgId,
+                        ownerId,
                         phone: standardizedPhone,
-                        role: 'tenant', // Explicitly upgrade/restore role to tenant
-                        status: 'active'
-                    }); // Ensure phone and role are synced
+                        role: 'tenant', 
+                        status: 'active',
+                        activeTenancies: FieldValue.arrayUnion(tenancyRecord)
+                    }) 
 
                     // Also ensure Firebase Auth user exists/is updated if we have a password
                     if (phone && (newGuest as any)._defaultPassword) {
@@ -401,7 +410,7 @@ export class TenantService {
                             try {
                                 await auth.updateUser(userDoc.id, {
                                     password: (newGuest as any)._defaultPassword
-                                });
+                                })
                             } catch (e: any) {
                                 if (e.code === 'auth/user-not-found') {
                                     await auth.createUser({
@@ -409,7 +418,7 @@ export class TenantService {
                                         email: internalEmail,
                                         password: (newGuest as any)._defaultPassword,
                                         phoneNumber: standardizedPhone
-                                    });
+                                    })
                                 }
                             }
                         } catch (authErr) {
@@ -429,7 +438,7 @@ export class TenantService {
                                     body: `You have been added as a tenant in ${pgName || newGuest.pgName}.`
                                 },
                                 webpush: { fcmOptions: { link: '/' } }
-                            });
+                            })
                             console.log(`[TenantService.onboardTenant] FCM sent successfully.`);
                         } catch (fcmErr) { console.warn(`[TenantService.onboardTenant] FCM Notify Failed:`, fcmErr); }
                     }
@@ -444,6 +453,13 @@ export class TenantService {
                         const uid = email ? `email-${email.replace(/[@.]/g, '-')}` : `phone-${cleanPhoneDigits.slice(-10)}`;
                         const internalEmail = email || `${cleanPhoneDigits.slice(-10)}@roombox.app`;
 
+                        const tenancyRecord = {
+                            guestId,
+                            pgId,
+                            ownerId,
+                            pgName: pgName || newGuest.pgName
+                        };
+
                         const userPlaceholder: any = {
                             phone: standardizedPhone,
                             role: 'tenant',
@@ -452,7 +468,12 @@ export class TenantService {
                             ownerId,
                             name,
                             createdAt: Date.now(),
+                            activeTenancies: [tenancyRecord]
                         };
+
+                        // Create Firestore user doc FIRST (before Auth) so set-password flow can always find it
+                        await appDb.collection('users').doc(uid).set(userPlaceholder, { merge: true })
+                        console.log(`[TenantService.onboardTenant] User doc created: ${uid}`);
 
                         // Create Firebase Auth User
                         if ((newGuest as any)._defaultPassword) {
@@ -464,23 +485,73 @@ export class TenantService {
                                     email: internalEmail,
                                     password: (newGuest as any)._defaultPassword,
                                     phoneNumber: standardizedPhone
-                                });
+                                })
                                 console.log(`[TenantService.onboardTenant] Firebase Auth user created: ${uid}`);
-                            } catch (authErr) {
-                                console.warn('[TenantService.onboardTenant] Firebase Auth creation failed:', authErr);
+                            } catch (authErr: any) {
+                                if (authErr.code === 'auth/phone-number-already-exists') {
+                                    // Phone registered on another Auth record. Create without phone.
+                                    console.warn('[TenantService.onboardTenant] Phone already in Auth. Creating without phoneNumber...');
+                                    try {
+                                        const { getAdminAuth } = await import('@/lib/firebaseAdmin');
+                                        const auth = await getAdminAuth();
+                                        await auth.createUser({
+                                            uid,
+                                            email: internalEmail,
+                                            password: (newGuest as any)._defaultPassword,
+                                            displayName: name || 'Tenant'
+                                        })
+                                    } catch (retryErr: any) {
+                                        if (retryErr.code === 'auth/uid-already-exists') {
+                                            const { getAdminAuth } = await import('@/lib/firebaseAdmin');
+                                            const auth = await getAdminAuth();
+                                            await auth.updateUser(uid, { password: (newGuest as any)._defaultPassword })
+                                        } else {
+                                            console.error('[TenantService.onboardTenant] Firebase Auth retry failed:', retryErr);
+                                        }
+                                    }
+                                } else if (authErr.code === 'auth/uid-already-exists') {
+                                    const { getAdminAuth } = await import('@/lib/firebaseAdmin');
+                                    const auth = await getAdminAuth();
+                                    await auth.updateUser(uid, { password: (newGuest as any)._defaultPassword })
+                                    console.log(`[TenantService.onboardTenant] Updated existing Auth user: ${uid}`);
+                                } else {
+                                    console.error('[TenantService.onboardTenant] Firebase Auth creation failed:', authErr);
+                                }
                             }
                         }
 
-                        await appDb.collection('users').doc(uid).set(userPlaceholder, { merge: true });
                     }
 
                     if (email) {
                         console.log(`[TenantService.onboardTenant] No user found for ${email}. Creating invite and magic link...`);
-                        await appDb.doc(`invites/${email}`).set({ email, ownerId, role: 'tenant', details: newGuest, createdAt: Date.now() });
+                        await appDb.doc(`invites/${email}`).set({ email, ownerId, role: 'tenant', details: newGuest, createdAt: Date.now() })
                     }
                 }
             } catch (userLinkErr) {
-                console.warn(`[TenantService.onboardTenant] User link/FCM failed:`, userLinkErr);
+                console.error(`[TenantService.onboardTenant] User link/FCM failed:`, userLinkErr);
+                // CRITICAL SAFETY NET: Ensure Firestore 'users' doc exists even if everything else failed.
+                // Without this doc, the set-password flow returns 404 and tenant is locked out.
+                if (phone) {
+                    try {
+                        const cleanPhoneDigits = standardizedPhone.replace(/\D/g, '');
+                        const fallbackUid = email ? `email-${email.replace(/[@.]/g, '-')}` : `phone-${cleanPhoneDigits.slice(-10)}`;
+                        const existingUserDoc = await appDb.collection('users').doc(fallbackUid).get();
+                        if (!existingUserDoc.exists) {
+                            await appDb.collection('users').doc(fallbackUid).set({
+                                phone: standardizedPhone,
+                                role: 'tenant',
+                                guestId,
+                                pgId,
+                                ownerId,
+                                name,
+                                createdAt: Date.now(),
+                            }, { merge: true })
+                            console.log(`[TenantService.onboardTenant] Fallback: user doc created for ${fallbackUid}`);
+                        }
+                    } catch (fallbackErr) {
+                        console.error('[TenantService.onboardTenant] CRITICAL: Failed to create fallback user doc:', fallbackErr);
+                    }
+                }
             }
         }
 
@@ -548,7 +619,7 @@ export class TenantService {
                         status: 'warning',
                         module: 'guests',
                         performedBy: performer || { userId: ownerId, name: 'System/Owner' }
-                    });
+                    })
 
                     const fallbackMsg = `👋 *Welcome to ${pgName || newGuest.pgName}!*\n\nHi ${name}, your host has added you to the portal.\n\nRoom: ${roomName || 'Assigned Room'}\nRent: ₹${newGuest.rentAmount}\n\nAccess your Dashboard here: ${magicLink}`;
                     await import('@/lib/whatsapp/send-message').then(m => m.sendWhatsAppMessage(formattedPhone, fallbackMsg, ownerId, guestId));
@@ -564,7 +635,7 @@ export class TenantService {
                         targetType: 'guest',
                         status: 'success',
                         performedBy: performer || { userId: ownerId, name: 'System/Owner' }
-                    });
+                    })
                 }
             } catch (waErr: any) {
                 console.warn(`[TenantService.onboardTenant] WA Notify Failed:`, waErr);
@@ -631,8 +702,8 @@ export class TenantService {
                     after: { ...before, ...updates },
                     changedFields
                 }
-            });
-        });
+            })
+        })
     }
 
 
@@ -645,10 +716,15 @@ export class TenantService {
         newDepositAmount?: number,
         shouldProrate?: boolean,
         prorationAmount?: number,
-        performer: PerformerInfo
+        performer: PerformerInfo,
+        appDb?: Firestore
     }): Promise<void> {
-        const { newPgId, newBedId, newRoomId, newRoomName, newRentAmount, newDepositAmount, shouldProrate, prorationAmount, performer } = input;
+        const { newPgId, newBedId, newRoomId, newRoomName, newRentAmount, newDepositAmount, shouldProrate, prorationAmount, performer, appDb } = input;
         console.log(`[TenantService.transferGuest] Transferring ${guestId} to pg:${newPgId}, bed:${newBedId} by ${performer.name}`);
+        
+        let guestUserId: string | null = null;
+        let guestName: string = '';
+        let targetPgName: string = '';
 
         const guestRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
 
@@ -657,6 +733,8 @@ export class TenantService {
             const guestSnap = await transaction.get(guestRef);
             if (!guestSnap.exists) throw new Error('Guest not found');
             const guest = guestSnap.data() as Guest;
+            guestUserId = guest.userId || null
+            guestName = guest.name || ''
 
             let oldPgSnap: DocumentSnapshot | null = null;
             if (guest.pgId) {
@@ -673,9 +751,13 @@ export class TenantService {
             }
             // --- ALL READS DONE ---
 
+            if (!newPgSnap.exists) throw new Error('Target property not found');
+            const newPgData = newPgSnap.data()!;
+            targetPgName = newPgData.name
+
             if (guest.bedId === newBedId && guest.pgId === newPgId && newRentAmount === guest.rentAmount && newDepositAmount === guest.depositAmount) {
-                console.log('[TenantService.transferGuest] No changes detected for transfer.');
-                return;
+                console.log('[TenantService.transferGuest] No changes detected for transfer.')
+                return
             }
 
             // 1. Free the old bed
@@ -694,12 +776,8 @@ export class TenantService {
                 transaction.update(oldPgRef, {
                     floors: updatedOldFloors,
                     occupancy: FieldValue.increment(-1)
-                });
+                })
             }
-
-            // 2. Occupy the new bed
-            if (!newPgSnap.exists) throw new Error('Target property not found');
-            const newPgData = newPgSnap.data()!;
 
             let bedFound = false;
             const updatedNewFloors = (newPgData.floors as any[] || []).map(f => ({
@@ -728,7 +806,7 @@ export class TenantService {
             transaction.update(newPgRef, {
                 floors: updatedNewFloors,
                 occupancy: FieldValue.increment(1)
-            });
+            })
 
             // 3. Prepare Ledger Updates for Clarity
             const currentBalance = guest.balance ?? 0;
@@ -754,7 +832,7 @@ export class TenantService {
                     description: `Security Deposit Adjustment (${guest.pgName} -> ${newPgData.name})`,
                     amount: Math.abs(diff),
                     pgId: newPgId
-                });
+                })
                 updatedBalance += diff;
                 updatedDepositAmount = newDepositAmount;
             }
@@ -767,7 +845,7 @@ export class TenantService {
                     description: `Rent adjusted from ₹${guest.rentAmount} to ₹${newRentAmount}`,
                     amount: 0,
                     pgId: newPgId
-                });
+                })
             }
 
             if (shouldProrate && prorationAmount) {
@@ -778,7 +856,7 @@ export class TenantService {
                     description: `Mid-month rent proration (${guest.pgName} -> ${newPgData.name})`,
                     amount: Math.abs(prorationAmount),
                     pgId: newPgId
-                });
+                })
                 updatedBalance += prorationAmount;
             }
 
@@ -820,10 +898,46 @@ export class TenantService {
                     rentAdjusted: newRentAmount !== undefined,
                     depositAdjusted: newDepositAmount !== undefined
                 }
-            });
-        });
+            })
+        })
 
-        console.log(`[TenantService.transferGuest] Successfully transferred ${guestId}`);
+            // 6. Multi-Profile Sync: Update the user's active session if they have a userId
+            if (guestUserId && appDb) {
+                try {
+                    const userRef = appDb.doc(`users/${guestUserId}`);
+                    const userDoc = await userRef.get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data()!;
+                        const currentTenancies = (userData.activeTenancies || []) as any[];
+                        
+                        const updatedTenancies = currentTenancies.map(t => {
+                            if (t.guestId === guestId) {
+                                return {
+                                    ...t,
+                                    pgId: newPgId,
+                                    pgName: targetPgName
+                                };
+                            }
+                            return t;
+                        })
+
+                        const userUpdate: any = {
+                            pgId: newPgId,
+                            pgName: targetPgName,
+                            updatedAt: Date.now()
+                        };
+
+                        if (JSON.stringify(updatedTenancies) !== JSON.stringify(currentTenancies)) {
+                            userUpdate.activeTenancies = updatedTenancies;
+                        }
+
+                        await userRef.update(userUpdate);
+                        console.log(`[TenantService.transferGuest] Updated user session for multi-PG support.`)
+                    }
+                } catch (e) {
+                    console.warn('[TenantService.transferGuest] Could not sync user session:', e)
+                }
+            }
     }
 
     /**
@@ -840,7 +954,7 @@ export class TenantService {
             exitDate: exitDateStr,
             updatedAt: now,
             updatedBy: performer
-        }, { merge: true });
+        }, { merge: true })
         
         await ActivityLogsService.logActivity({
             ownerId,
@@ -852,7 +966,7 @@ export class TenantService {
             status: 'success',
             performedBy: performer,
             changes: [{ field: 'exitDate', before: null, after: exitDateStr }]
-        });
+        })
         
         return { id: guestId, exitDate: exitDateStr };
     }
@@ -925,15 +1039,54 @@ export class TenantService {
         batch.update(pgRef, {
             occupancy: Math.max(0, (pgData.occupancy || 0) - 1),
             ...(updatedFloors ? { floors: updatedFloors } : {}),
-        });
+        })
         await batch.commit();
 
-        // Clear user's active guestId (best-effort)
+        // Multi-Property Aware Vacating: Remove from activeTenancies and promote next session if primary was vacated.
         if (guest.userId && appDb) {
             try {
-                await appDb.doc(`users/${guest.userId}`).set({ guestId: null, pgId: null }, { merge: true });
+                const userRef = appDb.doc(`users/${guest.userId}`);
+                const userDoc = await userRef.get();
+                const userData = userDoc.exists ? userDoc.data() : null;
+
+                if (userData) {
+                    const tenancyToRemove = {
+                        guestId,
+                        pgId: guest.pgId,
+                        ownerId,
+                        pgName: guest.pgName
+                    };
+
+                    // 1. Remove from activeTenancies and add to history
+                    const updates: any = {
+                        activeTenancies: FieldValue.arrayRemove(tenancyToRemove),
+                        guestHistoryIds: FieldValue.arrayUnion(guestId),
+                        updatedAt: Date.now()
+                    };
+
+                    // 2. If the vacated guest was the 'Primary' session, promote another one
+                    if (userData.guestId === guestId) {
+                        const remainingTenancies = (userData.activeTenancies || [])
+                            .filter((t: any) => t.guestId !== guestId);
+                        
+                        if (remainingTenancies.length > 0) {
+                            const next = remainingTenancies[0];
+                            updates.guestId = next.guestId;
+                            updates.pgId = next.pgId;
+                            updates.ownerId = next.ownerId;
+                            console.log(`[TenantService.vacateTenant] Promoting next active tenancy: ${next.guestId}`);
+                        } else {
+                            // No more active tenancies
+                            updates.guestId = null;
+                            updates.pgId = null;
+                            updates.ownerId = null;
+                        }
+                    }
+
+                    await userRef.update(updates);
+                }
             } catch (e) {
-                console.warn('[TenantService.vacateTenant] Could not clear user guestId:', e);
+                console.warn('[TenantService.vacateTenant] Could not update user multi-session data:', e);
             }
         }
 
@@ -989,7 +1142,7 @@ export class TenantService {
             targetType: 'guest',
             status: 'success',
             performedBy: performer
-        });
+        })
         return { guestId, pgId: guest.pgId };
     }
 
@@ -1053,7 +1206,7 @@ export class TenantService {
                 credits.forEach(c => {
                     const val = c.symbolicValue || 'XXX';
                     creditsMap[val] = (creditsMap[val] || 0) + 1;
-                });
+                })
 
                 // Sort debits by date to clear chronologically
                 const sortedDebits = [...debits].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -1073,7 +1226,7 @@ export class TenantService {
                             amountType: 'symbolic',
                             symbolicValue: val,
                             description: `${isDeposit ? 'Deposit' : 'Rent'} Collection (${paymentMode} - Ghost)`
-                        });
+                        })
                     }
                 }
                 
@@ -1100,7 +1253,7 @@ export class TenantService {
                     amountType: 'numeric',
                     method: paymentMode,
                     forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-                });
+                })
             }
 
             const guestWithPayment = {
@@ -1127,7 +1280,7 @@ export class TenantService {
                 // rentStatus is already set correctly by runReconciliationLogic
             };
 
-            txn.set(guestRef, finalGuest, { merge: true });
+            txn.set(guestRef, finalGuest, { merge: true })
 
             // Send WhatsApp Receipt Template (Non-blocking)
             (async () => {
@@ -1183,7 +1336,7 @@ export class TenantService {
                 newBalance,
                 newStatus: finalGuest.rentStatus,
             };
-        });
+        })
 
         console.log(`[TenantService.recordPayment] Payment recorded. New Balance: ${result.newBalance}`);
         
@@ -1197,7 +1350,7 @@ export class TenantService {
             metadata: { amount, paymentMode, notes },
             module: 'guests',
             performedBy: performer
-        });
+        })
         return result;
     }
 
@@ -1230,13 +1383,13 @@ export class TenantService {
                 balance: reconciledGuest.balance,
                 rentStatus: reconciledGuest.rentStatus,
                 symbolicBalance: reconciledGuest.symbolicBalance
-            });
+            })
 
             return {
                 newBalance: reconciledGuest.balance,
                 newStatus: reconciledGuest.rentStatus
             };
-        });
+        })
 
         console.log(`[TenantService.voidPayment] Success. New Balance: ${result.newBalance}`);
         return result;
@@ -1254,7 +1407,7 @@ export class TenantService {
             kycRejectReason: reason || null,
             updatedAt: now,
             updatedBy: performer
-        }, { merge: true });
+        }, { merge: true })
 
         await ActivityLogsService.logActivity({
             ownerId,
@@ -1265,7 +1418,7 @@ export class TenantService {
             targetType: 'guest',
             status: status === 'verified' ? 'success' : 'warning',
             performedBy: performer
-        });
+        })
     }
 
     /**
@@ -1279,7 +1432,7 @@ export class TenantService {
             documents,
             updatedAt: now,
             updatedBy: performer
-        }, { merge: true });
+        }, { merge: true })
 
         await ActivityLogsService.logActivity({
             ownerId,
@@ -1290,7 +1443,7 @@ export class TenantService {
             targetType: 'guest',
             status: 'success',
             performedBy: performer
-        });
+        })
     }
 
     /**
@@ -1305,7 +1458,7 @@ export class TenantService {
             documents: [],
             updatedAt: now,
             updatedBy: performer
-        }, { merge: true });
+        }, { merge: true })
 
         await ActivityLogsService.logActivity({
             ownerId,
@@ -1316,7 +1469,7 @@ export class TenantService {
             targetType: 'guest',
             status: 'success',
             performedBy: performer
-        });
+        })
     }
 
     static async addCharge(db: Firestore, ownerId: string, guestId: string, charge: { description: string, amount: number }, performer: PerformerInfo): Promise<LedgerEntry> {
@@ -1333,7 +1486,7 @@ export class TenantService {
             ledger: FieldValue.arrayUnion(newCharge),
             updatedAt: now,
             updatedBy: performer
-        });
+        })
 
         await ActivityLogsService.logActivity({
             ownerId,
@@ -1345,7 +1498,7 @@ export class TenantService {
             status: 'success',
             performedBy: performer,
             metadata: { charge: newCharge }
-        });
+        })
         return newCharge;
     }
 
@@ -1366,7 +1519,7 @@ export class TenantService {
             ledger: FieldValue.arrayRemove(charge),
             updatedAt: now,
             updatedBy: performer
-        });
+        })
 
         await ActivityLogsService.logActivity({
             ownerId,
@@ -1378,7 +1531,7 @@ export class TenantService {
             status: 'success',
             performedBy: performer,
             metadata: { charge }
-        });
+        })
     }
 
     /**
@@ -1408,8 +1561,8 @@ export class TenantService {
                 ledger: FieldValue.arrayUnion(newCharge),
                 updatedAt: now,
                 updatedBy: performer
-            });
-        });
+            })
+        })
         await batch.commit();
 
         await ActivityLogsService.logActivity({
@@ -1422,7 +1575,7 @@ export class TenantService {
             status: 'success',
             performedBy: performer,
             metadata: { charge, guestCount: guestsSnap.docs.length, perGuest: chargePerGuest }
-        });
+        })
 
         return { updatedCount: guestsSnap.docs.length };
     }
@@ -1438,7 +1591,7 @@ export class TenantService {
             const d = doc.data();
             expected += (d.rentAmount || 0);
             collected += (d.paidAmount || 0);
-        });
+        })
         return { expected, collected, pending: expected - collected };
     }
 
@@ -1464,7 +1617,7 @@ export class TenantService {
         try {
             const { guest: reconciledGuest, cyclesProcessed } = runReconciliationLogic(guest, now);
             if (cyclesProcessed > 0 || JSON.stringify(guest) !== JSON.stringify(reconciledGuest)) {
-                await guestRef.set(reconciledGuest, { merge: true });
+                await guestRef.set(reconciledGuest, { merge: true })
             }
             return { guest: reconciledGuest, cyclesProcessed };
         } catch (err) {
@@ -1542,7 +1695,7 @@ export class TenantService {
                 status: 'success',
                 module: 'guests',
                 performedBy: { userId: ownerId, name: 'System/Owner' }
-            });
+            })
         } catch (err: any) {
             console.warn(`[TenantService.notifyComplaintStatusChange] Failed to send WhatsApp:`, err);
             await ActivityLogsService.logActivity({
@@ -1555,7 +1708,7 @@ export class TenantService {
                 error: err.message,
                 module: 'guests',
                 performedBy: { userId: ownerId, name: 'System/Owner' }
-            });
+            })
         }
     }
 }

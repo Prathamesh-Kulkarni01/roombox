@@ -477,6 +477,28 @@ export const api = createApi({
             query: (body) => ({ url: 'api/owners/staff/magic-link', method: 'POST', body }),
         }),
 
+        generateTenantMagicLink: builder.mutation<{ success: boolean; magicLink: string; inviteCode: string }, {
+            guestId: string;
+            phone: string;
+        }>({
+            query: (body) => ({ url: 'api/owners/tenants/magic-link', method: 'POST', body }),
+        }),
+
+        generateStaffPassword: builder.mutation<{ success: boolean; newPassword: string }, {
+            staffId: string;
+            phone: string;
+        }>({
+            query: (body) => ({ url: 'api/owners/staff/generate-password', method: 'POST', body }),
+        }),
+
+        generateTenantPassword: builder.mutation<{ success: boolean; newPassword: string }, {
+            ownerId: string;
+            tenantId: string;
+            phone: string;
+        }>({
+            query: (body) => ({ url: 'api/owners/tenants/generate-password', method: 'POST', body }),
+        }),
+
         // ─── Verification ────────────────────────────────────────────────
         verifyPayment: builder.mutation<{ success: boolean; guest: Guest }, {
             guestId: string;
@@ -557,8 +579,11 @@ export const {
     useUpdateStaffApiMutation,
     useDeleteStaffApiMutation,
     useGenerateStaffMagicLinkMutation,
+    useGenerateTenantMagicLinkMutation,
+    useGenerateTenantPasswordMutation,
     // Verification
     useVerifyPaymentMutation,
     // Activity Logs
     useGetActivityLogsQuery,
+    useGenerateStaffPasswordMutation,
 } = api;

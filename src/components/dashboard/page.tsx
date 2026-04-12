@@ -154,6 +154,16 @@ export default function DashboardPage() {
 
                 const matchesSearch =
                   guest?.name.toLowerCase().includes(lowercasedSearchTerm) ||
+                  guest?.phone?.toLowerCase().includes(lowercasedSearchTerm) ||
+                  (guest?.shortId && (
+                    guest.shortId.toLowerCase().includes(lowercasedSearchTerm) ||
+                    `r${guest.shortId.toLowerCase()}`.includes(lowercasedSearchTerm)
+                  )) ||
+                  (guest?.ledger || []).some(e => e.description.toLowerCase().includes(lowercasedSearchTerm)) ||
+                  (guest as any)?.payments?.some((p: any) => 
+                    p.utr?.toLowerCase().includes(lowercasedSearchTerm) || 
+                    p.notes?.toLowerCase().includes(lowercasedSearchTerm)
+                  ) ||
                   room.name.toLowerCase().includes(lowercasedSearchTerm) ||
                   bed.name.toLowerCase().includes(lowercasedSearchTerm);
 
