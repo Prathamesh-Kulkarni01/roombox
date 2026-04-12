@@ -1,3 +1,20 @@
+## Version 0.8.0 (4/12/2026, 11:40:52 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 17 +++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: initialize GSD template framework and implement core dashboard and payment services
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.7.0 (4/9/2026, 7:56:01 PM)
 
 ### 🔄 Semantic Impact Summary
