@@ -29,7 +29,7 @@ export const RoleContextSwitcher: React.FC<RoleContextSwitcherProps> = ({ user, 
       <div className="grid gap-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
         {/* Staff Profiles */}
         {staffProfiles.map((p: any, i: number) => (
-          <Card key={`staff-${i}`} className="relative group cursor-pointer hover:border-primary/50 transition-all shadow-sm hover:shadow-md" onClick={() => !isProcessing && onSelect(p.role, p.pgIds?.[0] || p.pgId)}>
+          <Card key={`staff-${i}`} className="relative group cursor-pointer hover:border-primary/50 transition-all shadow-sm hover:shadow-md" onClick={() => !isProcessing && onSelect(p.role, p.pgIds?.[0] || p.pgId || '')}>
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary/20 transition-colors">

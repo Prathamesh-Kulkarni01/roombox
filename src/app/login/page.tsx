@@ -61,7 +61,7 @@ export default function LoginPage() {
       // Check for multi-role
       const hasMultiple = (currentUser.activeTenancies?.length || 0) + (currentUser.activeStaffProfiles?.length || 0) > 1;
       
-      if (hasMultiple && !showSwitcher) {
+      if (hasMultiple && !showSwitcher && stage === 'IDENTITY' && !currentUser.lastActiveContext) {
         setStage('SWITCH_CONTEXT');
         setShowSwitcher(true);
         return;
@@ -167,9 +167,13 @@ export default function LoginPage() {
   const handleContextSelect = async (role: string, pgId: string) => {
     setIsProcessing(true);
     try {
+        const token = await auth?.currentUser?.getIdToken();
         const res = await fetch('/api/auth/switch-context', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
             body: JSON.stringify({ targetRole: role, targetPgId: pgId })
         });
         
@@ -178,8 +182,15 @@ export default function LoginPage() {
             throw new Error(data.error || 'Failed to switch context');
         }
 
-        // Force reload to apply new claims
-        window.location.reload();
+        // Refresh the token to ensure new claims are available
+        await auth?.currentUser?.getIdToken(true);
+        
+        // Redirect based on selected role
+        if (role === 'tenant') {
+            router.replace('/tenants/my-pg');
+        } else {
+            router.replace('/dashboard');
+        }
     } catch (err: any) {
         toast({ variant: 'destructive', title: 'Switch Failed', description: err.message });
         setIsProcessing(false);

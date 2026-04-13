@@ -182,6 +182,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
   // Data fetching logic
   useEffect(() => {
+    let unsubs: Unsubscribe[] = [];
     dataListeners.forEach(unsub => unsub());
     setDataListeners([]);
 
@@ -189,6 +190,23 @@ function AuthHandler({ children }: { children: ReactNode }) {
       if (authReady) dispatch(setLoading(false));
       return;
     }
+
+    // Role-claims sync check: ensure Firestore listeners use the correct token claims
+    // We check if the token has the expected 'role' or 'ownerId' for the current state.
+    const verifyClaims = async () => {
+      if (!auth?.currentUser) return false;
+      const idTokenResult = await auth.currentUser.getIdTokenResult();
+      const tokenRole = idTokenResult.claims.role;
+      const tokenOwnerId = idTokenResult.claims.ownerId;
+      
+      // If mismatch detected, force a refresh
+      if (tokenRole !== currentUser.role || (currentUser.role !== 'owner' && tokenOwnerId !== currentUser.ownerId)) {
+        console.log(`[StoreProvider] Role mismatch (Token: ${tokenRole}, Redux: ${currentUser.role}). Refreshing token...`);
+        await auth.currentUser.getIdToken(true);
+        return true;
+      }
+      return true;
+    };
 
     const ownerIdForFetching = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
     const enterpriseDbId = currentUser.subscription?.enterpriseProject?.databaseId;
@@ -207,6 +225,12 @@ function AuthHandler({ children }: { children: ReactNode }) {
     initializeFirebaseMessaging(currentUser.id);
     (async () => {
       try {
+        const claimsSynced = await verifyClaims();
+        if (!claimsSynced) {
+            console.warn('[StoreProvider] Claims not synced, skipping listener setup this cycle.');
+            return;
+        }
+
         const res = await initPushAndSaveToken(currentUser.id);
         if (res.token) {
           const baseTopics = ['app', `role-${currentUser.role}`];
@@ -214,72 +238,86 @@ function AuthHandler({ children }: { children: ReactNode }) {
           const pgTopics = selectedPgId ? [`pg-${selectedPgId}-tenants`] : [];
           await subscribeToTopic({ token: res.token, topics: [...baseTopics, ...ownerTopics, ...pgTopics], userId: currentUser.id })
         }
-      } catch (e) { console.error('[Push] Init failed:', e); }
+
+        const isDashboardUser = ['owner', 'manager', 'cook', 'cleaner', 'security'].includes(currentUser.role);
+
+        if (isDashboardUser) {
+          const collectionsToSync: { [key: string]: any } = {
+            pgs: setPgs, guests: setGuests, complaints: setComplaints, expenses: setExpenses, staff: setStaff,
+          };
+          const collectionNames = Object.keys(collectionsToSync);
+          let loadedCount = 0;
+
+          if (ownerIdForFetching && ownerIdForFetching !== 'undefined') {
+            const ownerNotifQuery = query(collection(dbInstance, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
+            const unsub = onSnapshot(ownerNotifQuery, snapshot => {
+              const data = snapshot.docs.map(doc => doc.data() as Notification);
+              dispatch(setNotifications(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+            });
+            unsubs.push(unsub);
+            setDataListeners(prev => [...prev, unsub]);
+          }
+
+          collectionNames.forEach(collectionName => {
+            const setDataAction = collectionsToSync[collectionName];
+            const collRef = collection(dbInstance, 'users_data', ownerIdForFetching, collectionName);
+            const unsub = onSnapshot(collRef, snapshot => {
+              let data = snapshot.docs.map(doc => doc.data());
+              if (collectionName === 'pgs' && currentUser.role !== 'owner' && currentUser.pgIds) {
+                data = data.filter(pg => currentUser.pgIds?.includes((pg as PG).id));
+              }
+              if (collectionName === 'pgs') dispatch(validateSelectedPg(data.map(pg => (pg as PG).id)));
+              if (['complaints', 'expenses'].includes(collectionName)) {
+                data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
+              }
+              dispatch(setDataAction(data));
+              if (loadedCount < collectionNames.length) {
+                loadedCount++;
+                if (loadedCount === collectionNames.length) dispatch(setLoading(false));
+              }
+            }, err => {
+              console.error(`Error listening to ${collectionName}:`, err);
+              loadedCount++;
+              if (loadedCount === collectionNames.length) dispatch(setLoading(false));
+            });
+            unsubs.push(unsub);
+            setDataListeners(prev => [...prev, unsub]);
+          });
+        } else if (currentUser.role === 'tenant' && currentUser.ownerId && currentUser.pgId && currentUser.guestId) {
+          const { ownerId, pgId, guestId, id: userId } = currentUser;
+          
+          const unsubPg = onSnapshot(doc(dbInstance, 'users_data', ownerId, 'pgs', pgId), snap => dispatch(setPgs(snap.exists() ? [snap.data() as PG] : [])));
+          const unsubGuest = onSnapshot(doc(dbInstance, 'users_data', ownerId, 'guests', guestId), snap => dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : [])));
+          unsubs.push(unsubPg, unsubGuest);
+          setDataListeners(prev => [...prev, unsubPg, unsubGuest]);
+
+          if (pgId && pgId !== 'undefined') {
+            const unsubComplaints = onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId)), snap => {
+              dispatch(setComplaints(snap.docs.map(d => d.data() as Complaint).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+            });
+            const unsubStaff = onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId)), snap => {
+              dispatch(setStaff(snap.docs.map(d => d.data() as Staff)));
+            });
+            unsubs.push(unsubComplaints, unsubStaff);
+            setDataListeners(prev => [...prev, unsubComplaints, unsubStaff]);
+          }
+          const notificationTargets = [guestId, pgId, userId].filter(t => t && t !== 'undefined');
+          if (notificationTargets.length > 0) {
+            const unsubNotif = onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'notifications'), where('targetId', 'in', notificationTargets)), snap => {
+              dispatch(setNotifications(snap.docs.map(d => d.data() as Notification).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
+            });
+            unsubs.push(unsubNotif);
+            setDataListeners(prev => [...prev, unsubNotif]);
+          }
+          dispatch(setLoading(false));
+        } else {
+          dispatch(setLoading(false));
+        }
+      } catch (e) { 
+        console.error('[StoreProvider] Init failed:', e); 
+        dispatch(setLoading(false));
+      }
     })();
-
-    let unsubs: Unsubscribe[] = [];
-    const isDashboardUser = ['owner', 'manager', 'cook', 'cleaner', 'security'].includes(currentUser.role);
-
-    if (isDashboardUser) {
-      const collectionsToSync: { [key: string]: any } = {
-        pgs: setPgs, guests: setGuests, complaints: setComplaints, expenses: setExpenses, staff: setStaff,
-      };
-      const collectionNames = Object.keys(collectionsToSync);
-      let loadedCount = 0;
-
-      if (ownerIdForFetching && ownerIdForFetching !== 'undefined') {
-        const ownerNotifQuery = query(collection(dbInstance, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
-        unsubs.push(onSnapshot(ownerNotifQuery, snapshot => {
-          const data = snapshot.docs.map(doc => doc.data() as Notification);
-          dispatch(setNotifications(data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-        }));
-      }
-
-      collectionNames.forEach(collectionName => {
-        const setDataAction = collectionsToSync[collectionName];
-        const collRef = collection(dbInstance, 'users_data', ownerIdForFetching, collectionName);
-        unsubs.push(onSnapshot(collRef, snapshot => {
-          let data = snapshot.docs.map(doc => doc.data());
-          if (collectionName === 'pgs' && currentUser.role !== 'owner' && currentUser.pgIds) {
-            data = data.filter(pg => currentUser.pgIds?.includes((pg as PG).id));
-          }
-          if (collectionName === 'pgs') dispatch(validateSelectedPg(data.map(pg => (pg as PG).id)));
-          if (['complaints', 'expenses'].includes(collectionName)) {
-            data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
-          }
-          dispatch(setDataAction(data));
-          if (loadedCount < collectionNames.length) {
-            loadedCount++;
-            if (loadedCount === collectionNames.length) dispatch(setLoading(false));
-          }
-        }, err => {
-          console.error(`Error listening to ${collectionName}:`, err);
-          loadedCount++;
-          if (loadedCount === collectionNames.length) dispatch(setLoading(false));
-        }));
-      });
-    } else if (currentUser.role === 'tenant' && currentUser.ownerId && currentUser.pgId && currentUser.guestId) {
-      const { ownerId, pgId, guestId, id: userId } = currentUser;
-      unsubs.push(onSnapshot(doc(dbInstance, 'users_data', ownerId, 'pgs', pgId), snap => dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []))));
-      unsubs.push(onSnapshot(doc(dbInstance, 'users_data', ownerId, 'guests', guestId), snap => dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : []))));
-      if (pgId && pgId !== 'undefined') {
-        unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'complaints'), where('pgId', '==', pgId)), snap => {
-          dispatch(setComplaints(snap.docs.map(d => d.data() as Complaint).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-        }));
-        unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'staff'), where('pgId', '==', pgId)), snap => {
-          dispatch(setStaff(snap.docs.map(d => d.data() as Staff)));
-        }));
-      }
-      const notificationTargets = [guestId, pgId, userId].filter(t => t && t !== 'undefined');
-      if (notificationTargets.length > 0) {
-        unsubs.push(onSnapshot(query(collection(dbInstance, 'users_data', ownerId, 'notifications'), where('targetId', 'in', notificationTargets)), snap => {
-          dispatch(setNotifications(snap.docs.map(d => d.data() as Notification).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())));
-        }));
-      }
-      dispatch(setLoading(false));
-    } else {
-      dispatch(setLoading(false));
-    }
 
     // Force stop loading after 8 seconds to prevent hangs if listeners fail silently
     const loadingTimeout = setTimeout(() => {
@@ -289,12 +327,12 @@ function AuthHandler({ children }: { children: ReactNode }) {
         }
     }, 8000);
 
-    setDataListeners(unsubs);
+    // Note: setDataListeners is handled inside the async IIFE per-unsub
     return () => {
         unsubs.forEach(unsub => unsub());
         clearTimeout(loadingTimeout);
     };
-  }, [currentUser?.id, currentUser?.role, currentUser?.ownerId, currentPlan, dispatch, authReady]);
+  }, [currentUser?.id, currentUser?.role, currentUser?.pgId, currentUser?.guestId, currentUser?.ownerId, currentPlan, dispatch, authReady]);
 
   if (!authReady) {
     return (

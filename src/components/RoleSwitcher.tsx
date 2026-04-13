@@ -38,9 +38,13 @@ export default function RoleSwitcher() {
   const handleSwitch = async (targetRole: string, pgId?: string) => {
     try {
       setIsSwitching(true);
+      const token = await auth?.currentUser?.getIdToken();
       const response = await fetch('/api/auth/switch-context', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ targetRole, targetPgId: pgId }),
       });
 
