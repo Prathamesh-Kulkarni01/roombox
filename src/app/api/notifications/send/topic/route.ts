@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminMessaging } from '@/lib/firebaseAdmin'
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { unauthorized } from '@/lib/api/apiError';
 
 export async function POST(request: NextRequest) {
 	try {
+		const authResult = await getVerifiedOwnerId(request);
+		if (!authResult.ownerId) {
+			return unauthorized(authResult.error);
+		}
+
 		const { topic, title, body, link } = await request.json()
+
 		if (!topic || !title || !body) {
 			return NextResponse.json({ error: 'topic, title, body required' }, { status: 400 })
 		}
@@ -12,7 +20,7 @@ export async function POST(request: NextRequest) {
 		await messaging.send({
 			topic,
 			notification: { title, body },
-			webpush: link ? { fcm_options: { link } } : undefined
+			webpush: link ? { fcmOptions: { link } } : undefined
 		})
 		return NextResponse.json({ ok: true })
 	} catch (err: any) {

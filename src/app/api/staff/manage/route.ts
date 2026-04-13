@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { StaffService } from '@/services/staffService';
-import { auth } from 'firebase-admin';
+import { enforcePermission } from '@/lib/rbac-middleware';
 
 export async function POST(req: NextRequest) {
+    // Audit check: Use RBAC-aware enforcement for sensitive staff management operations
+    const result = await enforcePermission(req, 'staff', 'edit', 'POST /api/staff/manage', true);
+    if (!result.authorized) return result.response;
+    const { ownerId, userId, name } = result;
+
     try {
         const body = await req.json();
-        const { action, staffId, ownerId, data, performer } = body;
+        const { action, staffId, data, performer } = body;
 
-        if (!action || !ownerId) {
-            return NextResponse.json({ error: 'Action and ownerId are required' }, { status: 400 });
+        if (!action) {
+            return NextResponse.json({ error: 'Action is required' }, { status: 400 });
         }
 
-        const effectivePerformer = performer || { userId: ownerId, name: 'System', role: 'admin' };
+        const effectivePerformer = performer || { userId: userId, name: name || 'System', role: result.role };
+
 
         const appDb = await getAdminDb();
         // For simplicity, we assume 'db' is the same as 'appDb' in this project structure,

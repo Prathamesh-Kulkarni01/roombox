@@ -20,6 +20,7 @@ interface AuthorizedResult {
     name?: string;
     role: string;
     permissions?: string[];
+    pgIds?: string[];
     plan?: { id: string; status: string };
 }
 
@@ -46,34 +47,25 @@ export async function enforcePermission(
     req: NextRequest,
     feature: string,
     action: string,
-    routeLabel?: string
+    routeLabel?: string,
+    isSensitive: boolean = false
 ): Promise<EnforcePermissionResult> {
     const authResult = await getVerifiedOwnerId(req);
-    const { ownerId, userId, name, role, permissions, plan, error } = authResult;
+    const { ownerId, userId, name, role, permissions, plan, error, guestId } = authResult;
 
     if (!ownerId || !userId) {
         return { authorized: false, response: unauthorized(error) };
     }
 
-    // Owners and admins bypass all permission checks
-    if (role === 'owner' || role === 'admin') {
-        return {
-            authorized: true,
-            ownerId,
-            userId,
-            name,
-            role,
-            permissions,
-            plan,
-        };
-    }
-
-    // For staff/tenant users, check granular permissions
+    // --- SCOPE & PERMISSION RESOLUTION ---
+    
+    // 1. Super-roles (Owner/Admin) have implicit "All" permissions but still get scoped
+    const isSuperRole = role === 'owner' || role === 'admin';
     const requiredPerm = `${feature}:${action}`;
-    const hasPermission = Array.isArray(permissions) && permissions.includes(requiredPerm);
+    const hasPermission = isSuperRole || (Array.isArray(permissions) && permissions.includes(requiredPerm));
 
     if (!hasPermission) {
-        // Log the denied access attempt (non-blocking)
+        // Log the denied access attempt
         const route = routeLabel || `${req.method} ${req.nextUrl.pathname}`;
         logAccessDenied({
             staffId: userId,
@@ -90,6 +82,30 @@ export async function enforcePermission(
         };
     }
 
+    // 2. Hybrid Runtime Validation for Sensitive Actions
+    // If the route is marked as sensitive, we bypass the JWT claims and check Firestore directly.
+    if (isSensitive && role !== 'owner') {
+        const db = await (import('./firebaseAdmin').then(m => m.getAdminDb()));
+        const userRef = db.collection('users').doc(userId);
+        const userDoc = await userRef.get();
+        const userData = userDoc.data();
+
+        if (!userDoc.exists || !userData || userData.status === 'suspended') {
+            return { authorized: false, response: forbidden('Account suspended or access revoked. Please re-login.') };
+        }
+
+        // Verify PG scope in real-time
+        if (userData.pgIds && Array.isArray(userData.pgIds)) {
+            const requestedPgId = req.nextUrl.searchParams.get('pgId');
+            if (requestedPgId && !userData.pgIds.includes(requestedPgId)) {
+                return { authorized: false, response: forbidden('Horizontal data leak blocked: Real-time PG check failed.') };
+            }
+        }
+    }
+
+    // 2. Data Scope Enforcement (PG Isolation)
+    // For Owners/Admins, scope is Global. For Staff, it's assigned PGs.
+    // We pass this through so Route Handlers can filter their DB queries.
     return {
         authorized: true,
         ownerId,
@@ -97,13 +113,13 @@ export async function enforcePermission(
         name,
         role: role!,
         permissions,
+        pgIds: authResult.pgIds,
         plan,
     };
 }
 
 /**
  * Convenience wrapper for routes where the action type is determined from the request body.
- * Call getVerifiedOwnerId first, then this after parsing the action discriminator.
  */
 export async function enforcePermissionForStaff(
     userId: string,
@@ -114,13 +130,9 @@ export async function enforcePermissionForStaff(
     action: string,
     routeLabel: string
 ): Promise<{ authorized: true } | { authorized: false; response: NextResponse }> {
-    // Owners and admins bypass
-    if (role === 'owner' || role === 'admin') {
-        return { authorized: true };
-    }
-
+    const isSuperRole = role === 'owner' || role === 'admin';
     const requiredPerm = `${feature}:${action}`;
-    const hasPermission = Array.isArray(permissions) && permissions.includes(requiredPerm);
+    const hasPermission = isSuperRole || (Array.isArray(permissions) && permissions.includes(requiredPerm));
 
     if (!hasPermission) {
         logAccessDenied({

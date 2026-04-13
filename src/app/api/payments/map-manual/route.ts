@@ -1,26 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Transaction } from 'firebase-admin/firestore';
-import { selectOwnerDataAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
+import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { nanoid } from 'nanoid';
 import { PaymentSystemService } from '@/services/paymentSystemService';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
+import { enforcePermission } from '@/lib/rbac-middleware';
 import type { LedgerEntry, Payment } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
     try {
-        const token = req.headers.get('Authorization')?.split('Bearer ')[1];
-        if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const result = await enforcePermission(req, 'finances', 'add', 'POST /api/payments/map-manual', true);
+        if (!result.authorized) return result.response;
+        const { ownerId } = result;
         
-        const auth = await getAdminAuth();
-        const decodedToken = await auth.verifyIdToken(token);
-        const requestOwnerId = decodedToken.uid;
-        
-        const { guestId, amount, noteOrUtr, ownerId } = await req.json();
+        const { guestId, amount, noteOrUtr } = await req.json();
 
-        // Enforce owner check
-        if (requestOwnerId !== ownerId) {
-            return NextResponse.json({ error: 'Unauthorized Owner Action' }, { status: 403 });
-        }
 
         const db = await selectOwnerDataAdminDb(ownerId);
         let finalPaymentId = '';

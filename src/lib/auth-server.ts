@@ -64,6 +64,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
     role?: string,
     guestId?: string,
     permissions?: string[],
+    pgIds?: string[],
     plan?: { id: PlanName; status: SubscriptionStatus },
     error: string | null
 }> {
@@ -108,6 +109,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
                 ...result,
                 ownerId: userData.ownerId,
                 permissions: userData.permissions || [],
+                pgIds: userData.pgIds || (userData.pgId ? [userData.pgId] : []),
                 plan: ownerData?.subscription?.planId ? {
                     id: ownerData.subscription.planId,
                     status: ownerData.subscription.status

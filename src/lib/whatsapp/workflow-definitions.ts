@@ -557,6 +557,7 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
             onEnter: async (ctx) => {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
+                    const performer = { userId: ctx.userId || ctx.userPhone, name: ctx.ownerName || 'WhatsApp User' };
                     await PropertyService.createProperty(db, {
                         ownerId: ctx.ownerId!,
                         name: ctx.data.newPropName,
@@ -566,7 +567,7 @@ export const propertyManagementWorkflow: WorkflowDefinition = {
                         autoSetup: !!ctx.data.newPropFloors,
                         floorCount: ctx.data.newPropFloors,
                         roomsPerFloor: ctx.data.newPropRoomsPerFloor
-                    });
+                    }, performer);
 
                     // Update owner summary in main app DB
                     try {
@@ -759,7 +760,8 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
             onEnter: async (ctx) => {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
-                    await TenantService.updateTenant(db, ctx.ownerId!, ctx.data.selectedTenant?.id, { [ctx.data.editField]: ctx.data.editValue });
+                    const performer = { userId: ctx.userId || ctx.userPhone, name: ctx.ownerName || ctx.tenantName || 'WhatsApp User' };
+                    await TenantService.updateTenant(db, ctx.ownerId!, ctx.data.selectedTenant?.id, { [ctx.data.editField]: ctx.data.editValue }, performer);
 
                     // Update local copy too
                     ctx.data.selectedTenant = { ...ctx.data.selectedTenant, [ctx.data.editField]: ctx.data.editValue };
@@ -816,6 +818,7 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
                         amount: ctx.data.paymentAmount,
                         paymentMode: 'cash',
                         notes: 'Recorded via WhatsApp',
+                        performer: { userId: ctx.userId || ctx.userPhone, name: ctx.ownerName || ctx.tenantName || 'WhatsApp User' }
                     });
                     ctx.data.newBalance = result.newBalance;
                     ctx.data.newStatus = result.newStatus;
@@ -992,7 +995,8 @@ export const tenantManagementWorkflow: WorkflowDefinition = {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
                     const appDb = await getAdminDb();
-                    await TenantService.vacateTenant(db, ctx.ownerId!, ctx.data.selectedTenant?.id, appDb);
+                    const performer = { userId: ctx.userId || ctx.userPhone, name: ctx.ownerName || ctx.tenantName || 'WhatsApp User' };
+                    await TenantService.vacateTenant(db, ctx.ownerId!, ctx.data.selectedTenant?.id, performer, appDb);
                 } catch (e: any) {
                     const isTransient = e?.code === 'unavailable' || e?.code === 14 || /timeout|unavailable|deadline/i.test(e?.message || '');
                     if (isTransient) { ctx.data._dbError = true; } else { ctx.data._error = e.message; }
@@ -1346,6 +1350,7 @@ export const addTenantWorkflow: WorkflowDefinition = {
                 try {
                     const db = await selectOwnerDataAdminDb(ctx.ownerId!);
                     const appDb = await getAdminDb();
+                    const performer = { userId: ctx.userId || ctx.userPhone, name: ctx.ownerName || ctx.tenantName || 'WhatsApp User' };
                     await TenantService.onboardTenant(db, appDb, {
                         ...ctx.data.selectedTenant, // Some data might be here?
                         name: ctx.data.tf_name,
@@ -1362,7 +1367,8 @@ export const addTenantWorkflow: WorkflowDefinition = {
                         dueDate: ctx.data.tf_dueDate,
                         rentCycleUnit: 'months',
                         rentCycleValue: 1,
-                        ownerId: ctx.ownerId!
+                        ownerId: ctx.ownerId!,
+                        performer
                     });
                 } catch (e: any) {
                     const isTransient = e?.code === 'unavailable' || e?.code === 14 || /timeout|unavailable|deadline/i.test(e?.message || '');

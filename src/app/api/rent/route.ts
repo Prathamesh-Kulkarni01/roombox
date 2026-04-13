@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
-import { badRequest, notFound, serverError, unauthorized } from '@/lib/api/apiError';
+import { badRequest, forbidden, notFound, serverError, unauthorized } from '@/lib/api/apiError';
 import { enforcePermission } from '@/lib/rbac-middleware';
 
 // GET /api/rent?[guestId=yyy] — get monthly rent summary or history for a specific tenant
@@ -27,8 +27,17 @@ export async function GET(req: NextRequest) {
             if (!guestDoc.exists) {
                 return notFound('Tenant not found');
             }
-            const guest = { id: guestDoc.id, ...guestDoc.data() };
+            const guestData = guestDoc.data();
+            
+            // SECURITY: Verify the staff member has access to the PG this guest belongs to
+            if (result.pgIds && result.pgIds.length > 0 && guestData?.pgId) {
+                if (!result.pgIds.includes(guestData.pgId)) {
+                    return forbidden('Access denied: You do not have permission to view data for this property');
+                }
+            }
 
+            const guest = { id: guestDoc.id, ...guestData };
+            
             // Fetch ledger entries
             const ledgerSnap = await db.collection('users_data').doc(ownerId).collection('ledger')
                 .where('guestId', '==', guestId)
@@ -41,11 +50,11 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ success: true, guest, ledger });
         }
 
-        // Return overall monthly rent summary
-        const summary = await TenantService.getMonthlyRentSummary(db, ownerId);
+        // Return overall monthly rent summary (filtered by PG scope)
+        const summary = await TenantService.getMonthlyRentSummary(db, ownerId, result.pgIds);
 
-        // Also return pending tenants
-        const pendingTenants = await TenantService.getActiveTenants(db, ownerId, 20, 'pending');
+        // Also return pending tenants (filtered by PG scope)
+        const pendingTenants = await TenantService.getActiveTenants(db, ownerId, 20, 'pending', result.pgIds);
 
         return NextResponse.json({ success: true, summary, pendingTenants });
     } catch (error: any) {
@@ -55,7 +64,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/rent/record-payment — record a payment for a tenant
 export async function POST(req: NextRequest) {
-    const result = await enforcePermission(req, 'finances', 'add', 'POST /api/rent');
+    const result = await enforcePermission(req, 'finances', 'add', 'POST /api/rent', true);
     if (!result.authorized) return result.response;
     const { ownerId } = result;
 
@@ -69,7 +78,8 @@ export async function POST(req: NextRequest) {
 
         const db = await selectOwnerDataAdminDb(ownerId);
         const { ledgerEntry, newBalance, newStatus } = await TenantService.recordPayment(db, {
-            ownerId, guestId, amount, paymentMode, notes
+            ownerId, guestId, amount, paymentMode, notes,
+            performer: { userId: result.userId, name: result.name || 'System', role: result.role }
         });
 
         return NextResponse.json({ success: true, ledgerEntry, newBalance, newStatus });

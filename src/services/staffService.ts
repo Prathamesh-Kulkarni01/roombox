@@ -113,13 +113,15 @@ export class StaffService {
                 pgIds: pgIds || []
             };
 
+            const existingUserSnap = await userRef.get();
+            const existingUserData = existingUserSnap.exists ? existingUserSnap.get('role') : null;
+
             const userUpdate: any = {
                 id: uid,
                 name,
                 phone: standardizedPhone,
-                role: role, 
                 ownerId,
-                staffId, // Maintain as 'primary' or 'last-active'
+                staffId,
                 pgIds: pgIds || [], 
                 pgId: pgIds?.[0] || '', 
                 status: 'active',
@@ -128,8 +130,12 @@ export class StaffService {
                 activeStaffProfiles: FieldValue.arrayUnion(staffProfile)
             };
 
+            // Role Priority: Do not overwrite if user is already an 'owner'
+            if (existingUserData !== 'owner') {
+                userUpdate.role = role;
+            }
+
             // Only set createdAt if it doesn't exist
-            const existingUserSnap = await userRef.get();
             if (!existingUserSnap.exists) {
                 userUpdate.createdAt = new Date().toISOString();
             }

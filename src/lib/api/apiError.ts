@@ -15,6 +15,11 @@ export interface ApiSuccessResponse<T = unknown> {
     data?: T;
 }
 
+/** Return a structured 200 OK Success */
+export function success<T>(data: T): NextResponse<ApiSuccessResponse<T>> {
+    return NextResponse.json({ success: true, ...data });
+}
+
 /** Return a structured 400 Bad Request */
 export function badRequest(message: string): NextResponse<ApiErrorResponse> {
     return NextResponse.json({ success: false, error: message }, { status: 400 });

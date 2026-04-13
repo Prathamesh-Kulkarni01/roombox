@@ -1,20 +1,17 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import type { PWAConfig } from '@/lib/types';
 import { savePWAConfig } from '@/lib/pwa-config';
-import { auth } from '@/lib/firebaseAdmin';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { unauthorized } from '@/lib/api/apiError';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await getVerifiedOwnerId(req);
+    if (!authResult.ownerId) {
+      return unauthorized(authResult.error);
     }
+    const ownerId = authResult.ownerId;
 
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    const ownerId = decodedToken.uid;
 
     const pwaConfig: PWAConfig = await req.json();
 

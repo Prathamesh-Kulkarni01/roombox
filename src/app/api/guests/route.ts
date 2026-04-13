@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { TenantService } from '@/services/tenantService';
 import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
-import { badRequest, notFound, serverError, unauthorized } from '@/lib/api/apiError';
+import { badRequest, forbidden, notFound, serverError, unauthorized } from '@/lib/api/apiError';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { enforcePermission, enforcePermissionForStaff } from '@/lib/rbac-middleware';
 import { API_PERMISSION_MAP } from '@/lib/permissions';
@@ -119,7 +119,25 @@ export async function GET(req: NextRequest) {
         }
 
         let query = collection.limit(limit) as FirebaseFirestore.Query;
-        if (pgId) query = query.where('pgId', '==', pgId);
+        
+        // --- Dynamic Scoping ---
+        if (result.pgIds && result.pgIds.length > 0) {
+            // Priority 1: If user requested a specific PG, check if they have access to it
+            if (pgId) {
+                if (!result.pgIds.includes(pgId)) {
+                    return forbidden('Access denied: You do not have permission to view data for this property');
+                }
+                query = query.where('pgId', '==', pgId);
+            } else {
+                // Priority 2: If no PG requested, restrict to their authorized list
+                // Firestore 'in' query supports up to 30 items.
+                query = query.where('pgId', 'in', result.pgIds.slice(0, 10));
+            }
+        } else if (pgId) {
+            // Owners/Admins (who have no pgIds list) can view any specific PG
+            query = query.where('pgId', '==', pgId);
+        }
+
         if (vacated !== 'true') query = query.where('isVacated', '==', false);
 
 

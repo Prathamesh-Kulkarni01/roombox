@@ -18,11 +18,11 @@ export async function GET(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
 
         if (summary) {
-            const rentSummary = await TenantService.getMonthlyRentSummary(db, ownerId);
+            const rentSummary = await TenantService.getMonthlyRentSummary(db, ownerId, result.pgIds);
             return NextResponse.json({ success: true, summary: rentSummary });
         }
 
-        const tenants = await TenantService.getActiveTenants(db, ownerId, limit, status);
+        const tenants = await TenantService.getActiveTenants(db, ownerId, limit, status, result.pgIds);
         return NextResponse.json({ success: true, tenants });
     } catch (error: any) {
         return serverError(error, 'GET /api/tenants');
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     const authResult = await enforcePermission(req, 'guests', 'view', 'PATCH /api/tenants'); // Base check
     if (!authResult.authorized) return authResult.response;
-    const { ownerId, userId, role, permissions } = authResult;
+    const { ownerId, userId, name, role, permissions } = authResult;
 
     try {
         const body = await req.json();
@@ -78,7 +78,7 @@ export async function PATCH(req: NextRequest) {
             const permResult = await enforcePermissionForStaff(userId, ownerId, role, permissions, 'guests', 'delete', 'PATCH /api/tenants (vacate)');
             if (!permResult.authorized) return permResult.response;
             
-            await TenantService.vacateTenant(db, ownerId, guestId);
+            await TenantService.vacateTenant(db, ownerId, guestId, { userId, name: name || 'Staff' });
             return NextResponse.json({ success: true, message: 'Tenant vacated' });
         }
 
@@ -88,7 +88,7 @@ export async function PATCH(req: NextRequest) {
 
             const { updates } = body;
             if (!updates) return badRequest('updates are required for update operation');
-            await TenantService.updateTenant(db, ownerId, guestId, updates);
+            await TenantService.updateTenant(db, ownerId, guestId, updates, { userId, name: name || 'Staff' });
             return NextResponse.json({ success: true, message: 'Tenant updated' });
         }
 

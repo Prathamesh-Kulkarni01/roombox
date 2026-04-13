@@ -8,6 +8,7 @@ const withPWA = withPWAInit({
   dest: 'public',
   disable: isDev,
   register: true,
+  // @ts-ignore
   skipWaiting: true,
   sw: 'service-worker.js', // This is the main PWA service worker
   extendDefaultRuntimeCaching: true,
@@ -57,6 +58,7 @@ const withPWA = withPWAInit({
       },
     },
     {
+      // @ts-ignore
       urlPattern: ({ request }) => request.mode === 'navigate',
       handler: 'NetworkFirst',
       options: {
@@ -81,6 +83,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // @ts-ignore
   eslint: {
     ignoreDuringBuilds: true,
   },

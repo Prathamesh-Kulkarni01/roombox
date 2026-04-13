@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     try {
         const db = await selectOwnerDataAdminDb(ownerId);
-        const expenses = await ExpenseService.listExpenses(db, ownerId, { pgId, category, limit });
+        const expenses = await ExpenseService.listExpenses(db, ownerId, { pgId, category, limit, pgIds: result.pgIds });
         return NextResponse.json({ success: true, expenses });
     } catch (error: any) {
         return serverError(error, 'GET /api/expenses');
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/expenses — delete an expense
 export async function DELETE(req: NextRequest) {
-    const result = await enforcePermission(req, 'finances', 'add', 'DELETE /api/expenses');
+    const result = await enforcePermission(req, 'finances', 'add', 'DELETE /api/expenses', true);
     if (!result.authorized) return result.response;
     const { ownerId, userId, name } = result;
     const performer = { userId, name: name || 'Unknown User' };

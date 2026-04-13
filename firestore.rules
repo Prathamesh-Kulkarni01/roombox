@@ -30,7 +30,13 @@ service cloud.firestore {
 
     // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read, write: if isAuth() && request.auth.uid == userId;
+      allow read: if isAuth() && request.auth.uid == userId;
+      // Disallow client-side updates to core identity fields (role, permissions, ownerId)
+      // and membership arrays that could be used for privilege escalation via switch-context.
+      allow write: if isAuth() && request.auth.uid == userId && (
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['role', 'permissions', 'ownerId', 'guestId', 'staffId', 'subscription', 'activeTenancies', 'activeStaffProfiles', 'lastActiveContext'])
+      );
     }
 
     // ─── Invites ──────────────────────────────────────────────────────────────
@@ -43,7 +49,12 @@ service cloud.firestore {
     // The app's query always filters by ownerId so only own records come back.
     // For individual document reads, verify ownerId or staff token.
     match /pgs/{pgId} {
-      allow list: if isAuth();
+      allow list: if isAuth() && (
+        request.query.limit <= 100 && (
+          request.query.filters.ownerId == request.auth.uid ||
+          request.auth.token.ownerId != null // Only allow listing if they have an owner context
+        )
+      );
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
         isStaff(pgId)
@@ -57,7 +68,12 @@ service cloud.firestore {
 
     // ─── Guests ───────────────────────────────────────────────────────────────
     match /guests/{guestId} {
-      allow list: if isAuth();
+      allow list: if isAuth() && (
+        request.query.limit <= 500 && (
+          request.query.filters.ownerId == request.auth.uid ||
+          request.auth.token.ownerId != null
+        )
+      );
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
         (isStaff(resource.data.pgId) && (hasPermission('guests', 'view') || request.auth.token.permissions.guests.view == true))

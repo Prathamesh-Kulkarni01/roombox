@@ -47,13 +47,14 @@ export async function POST(req: Request) {
 
         const db = await selectOwnerDataAdminDb(ownerId);
 
+        const performer = { userId: ownerId, name: ownerResult.name || 'Owner' };
         const result = await PropertyService.bulkSetupFloors(db, ownerId, pgId, {
             floors: floorCount,
             roomsPerFloor: roomsCount,
             bedsPerRoom: bedsCount,
             startFloorNumber: startFloorNumber ? Number(startFloorNumber) : 1,
             planId: ownerResult.plan?.id
-        });
+        }, performer);
 
         return NextResponse.json({
             success: true,

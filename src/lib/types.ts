@@ -319,7 +319,7 @@ export interface KycDocument {
 export type RentCycleUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
 
 export interface Guest extends BaseEntity {
-  roomName: any;
+  roomName?: any;
   id: string;
   shortId?: string;
   name: string;
@@ -393,11 +393,13 @@ export interface Complaint extends BaseEntity {
 export interface Expense extends BaseEntity {
   id: string;
   pgId: string;
-  pgName: string;
+  pgName?: string;
+  ownerId: string;
   category: 'food' | 'maintenance' | 'utilities' | 'salary' | 'other';
   description: string;
   amount: number;
   date: string;
+  paymentMode?: string;
 }
 
 export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'staff' | 'other';

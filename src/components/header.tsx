@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import RoleSwitcher from './RoleSwitcher';
 
 
 type NavLink = {
@@ -67,6 +68,11 @@ export default function Header() {
         router.push(`/dashboard/pg-management/${pgId}`);
       }
     }
+
+    // Tenant specific logic: if they switch PG, clarify their guestId in state or just let the dashboard use the new pgId
+    if (isTenantDashboard) {
+        router.push('/tenants/my-pg');
+    }
   }
 
   const handleLogout = () => {
@@ -88,26 +94,41 @@ export default function Header() {
             </div>
             <span className="font-bold text-base md:text-lg font-headline tracking-tighter hidden xs:inline-block">RentSutra</span>
           </Link>
-          {isDashboard && currentUser && (
+          {(isDashboard || isTenantDashboard) && currentUser && (
             isLoading ? (
               <Skeleton className="h-10 w-[120px] sm:w-[180px]" />
-            ) : pgs.length > 0 ? (
+            ) : (pgs.length > 0 || (currentUser.activeTenancies && currentUser.activeTenancies.length > 1)) ? (
               <Select
-                value={selectedPgId || (pgs.length === 1 ? pgs[0].id : 'all')}
+                value={selectedPgId || (isDashboard ? (pgs.length === 1 ? pgs[0].id : 'all') : (currentUser.pgId || ''))}
                 onValueChange={handleValueChange}
               >
-                <SelectTrigger className="glass-dark sm:glass border-0 h-9 md:h-10 w-auto sm:w-[180px] flex-1 min-w-[110px] shadow-inner font-medium text-xs md:text-sm">
+                <SelectTrigger className={cn(
+                  "glass-dark sm:glass border-0 h-9 md:h-10 w-auto flex-1 min-w-[110px] shadow-inner font-medium text-xs md:text-sm",
+                  isDashboard ? "sm:w-[180px]" : "sm:w-[220px]"
+                )}>
                   <SelectValue placeholder="Select Property" />
                 </SelectTrigger>
                 <SelectContent>
-                  {pgs.length > 1 && <SelectItem value="all">All Properties</SelectItem>}
-                  {pgs.map((pg, index) => (
-                    <SelectItem key={`${pg.id}-${index}`} value={pg.id}>
-                      {pg.name}
-                    </SelectItem>
-                  ))}
+                  {isDashboard && pgs.length > 1 && <SelectItem value="all">All Properties</SelectItem>}
+                  {isDashboard ? 
+                    pgs.map((pg, index) => (
+                      <SelectItem key={`${pg.id}-${index}`} value={pg.id}>
+                        {pg.name}
+                      </SelectItem>
+                    )) : 
+                    currentUser.activeTenancies?.map((tenancy: any, index: number) => (
+                      <SelectItem key={`${tenancy.pgId}-${index}`} value={tenancy.pgId}>
+                        {tenancy.pgName || 'Property'}
+                      </SelectItem>
+                    ))
+                  }
                 </SelectContent>
               </Select>
+            ) : (isTenantDashboard && currentUser.activeTenancies?.length === 1) ? (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold">
+                <Building2 className="h-3 w-3" />
+                {currentUser.activeTenancies[0].pgName}
+              </div>
             ) : null
           )}
         </div>
@@ -178,6 +199,7 @@ export default function Header() {
               <DropdownMenuItem onClick={() => setLanguage('mr')}>मराठी (Marathi)</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <RoleSwitcher />
           <ThemeToggle />
           {currentUser && (isDashboard || isTenantDashboard) && <NotificationsPopover />}
           {isLandingPage && (

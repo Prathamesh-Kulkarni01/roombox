@@ -1,28 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 import { PaymentSystemService } from '@/services/paymentSystemService';
+import { enforcePermission } from '@/lib/rbac-middleware';
 
 /**
- * API for owners to verify a claimed UPI payment.
+ * API for owners/staff to verify a claimed UPI payment.
  * Updates status to VERIFIED and reconciles the ledger.
  */
 export async function POST(req: NextRequest) {
     try {
+        const result = await enforcePermission(req, 'finances', 'edit', 'POST /api/payments/verify', true);
+        if (!result.authorized) return result.response;
+        const { ownerId } = result;
+
         const { guestId, paymentId, verifiedAmount } = await req.json();
 
-        if (!guestId || !paymentId) {
-            return NextResponse.json({ success: false, error: 'guestId and paymentId are required.' }, { status: 400 });
-        }
-
-        const auth = await getAdminAuth();
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const idToken = authHeader.split('Bearer ')[1];
-        const decodedToken = await auth.verifyIdToken(idToken);
-        const ownerId = decodedToken.uid;
 
         const db = await getAdminDb();
 

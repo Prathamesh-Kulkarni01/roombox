@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
 // PATCH /api/staff — update a staff member
 export async function PATCH(req: NextRequest) {
-    const result = await enforcePermission(req, 'staff', 'edit', 'PATCH /api/staff');
+    const result = await enforcePermission(req, 'staff', 'edit', 'PATCH /api/staff', true);
     if (!result.authorized) return result.response;
     const { ownerId, userId, name } = result;
     const performer = { userId, name: name || 'Unknown User' };
@@ -62,7 +62,7 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/staff — remove a staff member
 export async function DELETE(req: NextRequest) {
-    const result = await enforcePermission(req, 'staff', 'delete', 'DELETE /api/staff');
+    const result = await enforcePermission(req, 'staff', 'delete', 'DELETE /api/staff', true);
     if (!result.authorized) return result.response;
     const { ownerId, userId, name } = result;
     const performer = { userId, name: name || 'Unknown User' };

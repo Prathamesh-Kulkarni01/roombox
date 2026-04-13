@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadDataUriToStorage } from '@/lib/storage';
-import { auth } from '@/lib/firebaseAdmin';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { unauthorized } from '@/lib/api/apiError';
 
 export async function POST(req: NextRequest) {
     try {
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const authResult = await getVerifiedOwnerId(req);
+        if (!authResult.ownerId) {
+            return unauthorized(authResult.error);
         }
 
-        const token = authHeader.split('Bearer ')[1];
-        const decodedToken = await auth.verifyIdToken(token);
-        if (!decodedToken) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
 
         const { dataUri, folder } = await req.json();
 

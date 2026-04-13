@@ -148,7 +148,7 @@ export default function ExpensePage() {
         const selectedPg = pgs.find(pg => pg.id === data.pgId)
         if (!selectedPg) return
 
-        dispatch(addExpenseAction({ ...data, pgName: selectedPg.name }));
+        dispatch(addExpenseAction({ ...data, pgName: selectedPg.name, ownerId: selectedPg.ownerId || currentUser?.id || '' }));
         const defaultPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : undefined);
         form.reset({
             date: format(new Date(), 'yyyy-MM-dd'),

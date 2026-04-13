@@ -170,12 +170,12 @@ export async function POST(req: NextRequest) {
             guestId: magicLinkData.guestId || userDocSnapshot?.data()?.guestId,
             staffId: magicLinkData.staffId || userDocSnapshot?.data()?.staffId,
             ownerId: magicLinkData.ownerId || userDocSnapshot?.data()?.ownerId,
-            pgId: pgId
+            pgId: magicLinkData.pgId || userDocSnapshot?.data()?.pgId
         };
 
         if (role !== 'owner' && role !== 'tenant' && role !== 'admin') {
             claims.permissions = permissions;
-            claims.pgs = userDocSnapshot?.data()?.pgIds || (pgId ? [pgId] : []);
+            claims.pgs = userDocSnapshot?.data()?.pgIds || (claims.pgId ? [claims.pgId] : []);
         }
 
         const customToken = await auth.createCustomToken(uid, claims);

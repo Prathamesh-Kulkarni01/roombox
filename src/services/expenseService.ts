@@ -21,7 +21,8 @@ export class ExpenseService {
             description,
             amount: Number(amount),
             category,
-            pgId: pgId || null,
+            pgId: pgId || 'all',
+            pgName: input.pgName || 'General',
             date: date || now,
             paymentMode: paymentMode || 'cash',
             createdAt: now,
@@ -76,14 +77,24 @@ export class ExpenseService {
     /**
      * Lists expenses for an owner with optional filters.
      */
-    static async listExpenses(db: Firestore, ownerId: string, filters: { pgId?: string, category?: string, limit?: number } = {}) {
-        const { pgId, category, limit = 100 } = filters;
+    static async listExpenses(db: Firestore, ownerId: string, filters: { pgId?: string, category?: string, limit?: number, pgIds?: string[] } = {}) {
+        const { pgId, category, limit = 100, pgIds } = filters;
         
         let query = db.collection('users_data').doc(ownerId).collection('expenses')
             .orderBy('date', 'desc')
             .limit(limit) as FirebaseFirestore.Query;
 
-        if (pgId) query = query.where('pgId', '==', pgId);
+        if (pgIds && pgIds.length > 0) {
+            if (pgId) {
+                if (!pgIds.includes(pgId)) throw new Error('Access denied to this property');
+                query = query.where('pgId', '==', pgId);
+            } else {
+                query = query.where('pgId', 'in', pgIds.slice(0, 10));
+            }
+        } else if (pgId) {
+            query = query.where('pgId', '==', pgId);
+        }
+
         if (category) query = query.where('category', '==', category);
 
         const snapshot = await query.get();

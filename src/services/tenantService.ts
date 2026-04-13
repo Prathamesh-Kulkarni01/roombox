@@ -390,16 +390,28 @@ export class TenantService {
                         pgName: pgName || newGuest.pgName
                     };
 
-                    await appDb.doc(`users/${userDoc.id}`).update({
-                        guestId, // Maintain as 'primary' or 'last-active'
-                        pgId,
-                        ownerId,
+                    const userUpdate: any = {
                         phone: standardizedPhone,
-                        role: 'tenant', 
                         status: 'active',
+                        updatedAt: Date.now(),
                         activeTenancies: FieldValue.arrayUnion(tenancyRecord)
-                    }) 
+                    };
 
+                    // Role Priority: Only promote to 'tenant' if they are currently 'unassigned'
+                    // Owners and Staff should keep their roles as they are higher priority dashboards.
+                    if (!userData.role || userData.role === 'unassigned') {
+                        userUpdate.role = 'tenant';
+                    }
+
+                    // Only set as primary if no primary exists or if we're forced to switch
+                    // For now, we update these to ensure the NEW invite is the "Active" one as per logic
+                    // But we also store them in a lastActiveContext for clarity.
+                    userUpdate.guestId = guestId;
+                    userUpdate.pgId = pgId;
+                    userUpdate.ownerId = ownerId;
+                    userUpdate.lastActivePgId = pgId;
+
+                    await appDb.doc(`users/${userDoc.id}`).update(userUpdate);
                     // Also ensure Firebase Auth user exists/is updated if we have a password
                     if (phone && (newGuest as any)._defaultPassword) {
                         try {
@@ -466,6 +478,7 @@ export class TenantService {
                             guestId,
                             pgId,
                             ownerId,
+                            lastActivePgId: pgId,
                             name,
                             createdAt: Date.now(),
                             activeTenancies: [tenancyRecord]
@@ -1186,8 +1199,8 @@ export class TenantService {
 
         console.log(`[TenantService.recordPayment] Recording payment (transactional) for ${resolvedGuestId}`);
 
-        const result = await db.runTransaction(async (txn) => {
-            const snap = await txn.get(guestRef);
+        const result = await db.runTransaction(async (transaction) => {
+            const snap = await transaction.get(guestRef);
             if (!snap.exists) throw new Error('Guest not found');
             const guest = snap.data() as Guest;
 
@@ -1206,7 +1219,7 @@ export class TenantService {
                 credits.forEach(c => {
                     const val = c.symbolicValue || 'XXX';
                     creditsMap[val] = (creditsMap[val] || 0) + 1;
-                })
+                });
 
                 // Sort debits by date to clear chronologically
                 const sortedDebits = [...debits].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -1226,7 +1239,7 @@ export class TenantService {
                             amountType: 'symbolic',
                             symbolicValue: val,
                             description: `${isDeposit ? 'Deposit' : 'Rent'} Collection (${paymentMode} - Ghost)`
-                        })
+                        });
                     }
                 }
                 
@@ -1253,7 +1266,7 @@ export class TenantService {
                     amountType: 'numeric',
                     method: paymentMode,
                     forMonth: now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-                })
+                });
             }
 
             const guestWithPayment = {
@@ -1280,7 +1293,7 @@ export class TenantService {
                 // rentStatus is already set correctly by runReconciliationLogic
             };
 
-            txn.set(guestRef, finalGuest, { merge: true })
+            transaction.set(guestRef, finalGuest, { merge: true });
 
             // Send WhatsApp Receipt Template (Non-blocking)
             (async () => {
@@ -1583,8 +1596,14 @@ export class TenantService {
     /**
      * Fetches monthly summary.
      */
-    static async getMonthlyRentSummary(db: Firestore, ownerId: string): Promise<RentSummary> {
-        const guestsSnap = await db.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false).get();
+    static async getMonthlyRentSummary(db: Firestore, ownerId: string, pgIds?: string[]): Promise<RentSummary> {
+        let query = db.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false);
+        
+        if (pgIds && pgIds.length > 0) {
+            query = query.where('pgId', 'in', pgIds.slice(0, 10));
+        }
+
+        const guestsSnap = await query.get();
         let expected = 0;
         let collected = 0;
         guestsSnap.forEach(doc => {
@@ -1598,9 +1617,14 @@ export class TenantService {
     /**
      * Fetches tenants.
      */
-    static async getActiveTenants(db: Firestore, ownerId: string, limit: number = 200, status?: string): Promise<any[]> {
+    static async getActiveTenants(db: Firestore, ownerId: string, limit: number = 200, status?: string, pgIds?: string[]): Promise<any[]> {
         let query = db.collection('users_data').doc(ownerId).collection('guests').where('isVacated', '==', false);
         if (status) query = query.where('paymentStatus', '==', status);
+        if (pgIds && pgIds.length > 0) {
+            // Firestore 'in' query supports up to 30 items in recent versions, but 10 is safest.
+            // For roombox, staff usually have 1-5 PGs.
+            query = query.where('pgId', 'in', pgIds.slice(0, 10));
+        }
         const snap = await query.limit(limit).get();
         return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }

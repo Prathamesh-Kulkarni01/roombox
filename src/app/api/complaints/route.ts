@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
-import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
+import { badRequest, forbidden, serverError, unauthorized } from '@/lib/api/apiError';
 import { TenantService } from '@/services/tenantService';
 import { enforcePermission } from '@/lib/rbac-middleware';
 
@@ -26,7 +26,20 @@ export async function GET(req: NextRequest) {
             .orderBy('date', 'desc')
             .limit(limit) as FirebaseFirestore.Query;
 
-        if (pgId) query = query.where('pgId', '==', pgId);
+        // --- Dynamic Scoping ---
+        if (result.pgIds && result.pgIds.length > 0) {
+            if (pgId) {
+                if (!result.pgIds.includes(pgId)) {
+                    return forbidden('Access denied: You do not have permission to view data for this property');
+                }
+                query = query.where('pgId', '==', pgId);
+            } else {
+                query = query.where('pgId', 'in', result.pgIds.slice(0, 10));
+            }
+        } else if (pgId) {
+            query = query.where('pgId', '==', pgId);
+        }
+
         if (status) query = query.where('status', '==', status);
 
         const snapshot = await query.get();

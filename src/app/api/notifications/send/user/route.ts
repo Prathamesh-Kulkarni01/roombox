@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminDb, getAdminMessaging } from '@/lib/firebaseAdmin'
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { unauthorized } from '@/lib/api/apiError';
 
 export async function POST(request: NextRequest) {
 	try {
+		const authResult = await getVerifiedOwnerId(request);
+		if (!authResult.ownerId) {
+			return unauthorized(authResult.error);
+		}
+
 		const { userId, title, body, link } = await request.json()
 		if (!userId || !title || !body) {
 			return NextResponse.json({ error: 'userId, title, body required' }, { status: 400 })
@@ -17,8 +24,9 @@ export async function POST(request: NextRequest) {
 		await messaging.send({
 			token,
 			notification: { title, body },
-			webpush: link ? { fcm_options: { link } } : undefined
+			webpush: link ? { fcmOptions: { link } } : undefined
 		})
+
 		return NextResponse.json({ ok: true })
 	} catch (err: any) {
 		console.error('Send user error:', err)

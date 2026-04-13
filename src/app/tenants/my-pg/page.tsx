@@ -49,15 +49,19 @@ export default function MyPgPage() {
     const [utr, setUtr] = useState('');
     const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
+    const { selectedPgId } = useAppSelector((state) => state.app);
+    const effectivePgId = selectedPgId || currentUser?.pgId;
+
     const currentGuest = useMemo(() => {
-        if (!currentUser || !currentUser.guestId) return null;
-        return guests.find(g => g.id === currentUser.guestId);
-    }, [currentUser, guests]);
+        if (!currentUser) return null;
+        // Primary search: GuestId from user doc or a guest record that matches the effective PG
+        return guests.find(g => g.id === currentUser.guestId || (effectivePgId && g.pgId === effectivePgId));
+    }, [currentUser, guests, effectivePgId]);
 
     const currentPg = useMemo(() => {
-        if (!currentGuest) return null;
-        return pgs.find(p => p.id === currentGuest.pgId);
-    }, [currentGuest, pgs]);
+        if (!currentGuest && !effectivePgId) return null;
+        return pgs.find(p => p.id === (currentGuest?.pgId || effectivePgId));
+    }, [currentGuest, pgs, effectivePgId]);
 
     const bedDetails = useMemo(() => {
         if (!currentPg || !currentGuest) return { roomName: 'N/A', bedName: 'N/A' };
