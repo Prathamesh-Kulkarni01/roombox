@@ -1,7 +1,8 @@
 import { auth } from '@/lib/firebaseAdmin';
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
-import { CURRENT_SCHEMA_VERSION, type Staff, type User } from '@/lib/types';
+import { CURRENT_SCHEMA_VERSION, type Staff, type User, type PerformerInfo } from '@/lib/types';
+import { ActivityLogsService } from '@/lib/activity-logs-service';
 
 export class StaffService {
     /**
