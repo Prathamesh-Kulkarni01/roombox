@@ -1,3 +1,18 @@
+## Version 0.9.0 (4/12/2026, 11:50:03 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 17 +++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+```
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+- refactor: add API route to generate and set tenant passwords in Firebase Auth
+
+
 ## Version 0.8.0 (4/12/2026, 11:40:52 AM)
 
 ### 🔄 Semantic Impact Summary
