@@ -1,3 +1,22 @@
+## Version 0.10.0 (4/13/2026, 5:42:06 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 15 +++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement secure OTP authentication flow with staff role enforcement and multi-role context switching
+- feat: implement multi-role context switching, RBAC middleware, and automated security audit workflows for API routes.
+- feat: implement service worker for offline support and add staff management service
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.9.0 (4/12/2026, 11:50:03 AM)
 
 ### 🔄 Semantic Impact Summary
