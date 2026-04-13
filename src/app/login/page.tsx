@@ -1,9 +1,10 @@
 /**
- * LOGIN PAGE
+ * LOGIN PAGE (Adaptive Auth)
  * Changes:
- * - Fixed redirect loops by properly checking for auth state.
- * - Added error handling for Firebase login.
- * - Integrated with Playwright for automated auth setup.
+ * - Shifted to Identity-First (Phone entry first).
+ * - Adaptive challenges (Password / OTP / Invite Code).
+ * - Anti-enumeration: Generic loading/error states.
+ * - Unified Staff/Tenant flow.
  */
 'use client'
 
@@ -15,24 +16,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { GoogleAuthProvider, signInWithPopup, sendSignInLinkToEmail, signInWithEmailAndPassword, signInWithCustomToken } from "firebase/auth"
 import { auth } from "@/lib/firebase"
-import { Loader2 } from 'lucide-react'
+import { Loader2, ArrowRight, ChevronLeft, ShieldCheck, Mail, Phone, Lock } from 'lucide-react'
 import { useAppSelector } from '@/lib/hooks'
-import { Skeleton } from '@/components/ui/skeleton'
-import type { UserRole } from '@/lib/types'
+import { signInWithEmailAndPassword, signInWithCustomToken, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
 
-const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
-  <svg role="img" viewBox="0 0 24 24" {...props}>
-    <path
-      fill="currentColor"
-      d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.6 1.98-4.66 1.98-3.56 0-6.47-2.91-6.47-6.47s2.91-6.47 6.47-6.47c1.94 0 3.32.73 4.31 1.76l2.35-2.35C19.05 3.32 16.2 2 12.48 2 7.18 2 3.13 5.96 3.13 11.25s4.05 9.25 9.35 9.25c3.21 0 5.7-1.09 7.6-3.05 2.03-2.03 2.54-5.02 2.54-7.61 0-.61-.05-1.19-.16-1.74z"
-    />
-  </svg>
-);
+type LoginStage = 'IDENTITY' | 'CHALLENGE' | 'SWITCH_CONTEXT';
+type ChallengeType = 'PASSWORD_OR_OTP' | 'INVITE_CODE';
 
-const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin', 'other'];
+import { RoleContextSwitcher } from '@/components/auth/RoleContextSwitcher';
 
 export default function LoginPage() {
   const router = useRouter()
@@ -40,177 +32,98 @@ export default function LoginPage() {
   const appLoading = useAppSelector((state) => state.app.isLoading);
   const currentUser = useAppSelector((state) => state.user.currentUser);
 
-  const [isSigningIn, setIsSigningIn] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [tenantPassword, setTenantPassword] = useState('')
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
-  const [waitingForOtp, setWaitingForOtp] = useState(false)
-  const [tenantLoginMode, setTenantLoginMode] = useState<'otp' | 'password' | 'setup-code'>('setup-code')
+  // Flow State
+  const [stage, setStage] = useState<LoginStage>('IDENTITY');
+  const [challengeType, setChallengeType] = useState<ChallengeType>('PASSWORD_OR_OTP');
+  const [authMethod, setAuthMethod] = useState<'PASSWORD' | 'OTP'>('PASSWORD');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const [activeTab, setActiveTab] = useState('tenant')
+  // Inputs
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [waitingForOtp, setWaitingForOtp] = useState(false);
 
-  const loading = appLoading || isSigningIn;
+  // Profiles for switcher
+  const [showSwitcher, setShowSwitcher] = useState(false);
+
+  // Owner Fallback State
+  const [isOwnerLogin, setIsOwnerLogin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
+
+  const isLoading = appLoading || isProcessing;
 
   useEffect(() => {
-    // Redirect ASAP once we have a user and their role is known
+    if (stage === 'SWITCH_CONTEXT') return; // Don't redirect if we are switching
+
     if (currentUser?.role && currentUser.role !== 'unassigned') {
+      // Check for multi-role
+      const hasMultiple = (currentUser.activeTenancies?.length || 0) + (currentUser.activeStaffProfiles?.length || 0) > 1;
+      
+      if (hasMultiple && !showSwitcher) {
+        setStage('SWITCH_CONTEXT');
+        setShowSwitcher(true);
+        return;
+      }
+
       if (currentUser.role === 'tenant') {
         router.replace('/tenants/my-pg');
-      } else if (allowedDashboardRoles.includes(currentUser.role)) {
+      } else {
         router.replace('/dashboard');
       }
-    } else if (currentUser?.role === 'unassigned') {
-      router.replace('/complete-profile');
     }
-  }, [currentUser, router]);
-  // Only show a loading state if we are actively signing in or if the app is loading AND we don't have a user yet.
-  // If we have a user, we want the useEffect to trigger the redirect ASAP.
-  if (isSigningIn || (appLoading && !currentUser) || (currentUser && currentUser.role !== 'unassigned')) {
-    return (
-      <div className="flex items-center justify-center min-h-[80vh]">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-muted-foreground animate-pulse text-sm">
-            {isSigningIn ? 'Signing you in...' : (currentUser ? 'Redirecting...' : 'Getting things ready...')}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  }, [currentUser, router, stage, showSwitcher]);
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  // --- STEP 1: IDENTITY CHECK ---
+  const handleIdentityCheck = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) {
-      toast({ 
-        title: 'Auth Error', 
-        description: "Authentication service not initialized. Check emulator connection.", 
-        variant: 'destructive' 
-      });
+    if (!phone || phone.length < 10) {
+      toast({ variant: 'destructive', title: 'Invalid Phone', description: 'Please enter a valid 10-digit phone number.' });
       return;
     }
 
-    if (!password) {
-      toast({
-        variant: "destructive",
-        title: "Password Missing",
-        description: "Please enter your password. If you don't have one, please sign up.",
-      });
-      return;
-    }
-
-    setIsSigningIn(true);
+    setIsProcessing(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Welcome Back!', description: "You've been signed in successfully." });
-    } catch (error: any) {
-      console.error("Password Auth Error:", error);
-      toast({
-        variant: "destructive",
-        title: "Log In Failed",
-        description: error.message || "Invalid email or password.",
+      const res = await fetch('/api/auth/check-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
       });
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to check account state');
+
+      setChallengeType(data.method || 'PASSWORD_OR_OTP');
+      setStage('CHALLENGE');
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.message });
     } finally {
-      setIsSigningIn(false);
+      setIsProcessing(false);
     }
   };
 
-  const handleTenantPasswordSignIn = async (e: React.FormEvent) => {
+  // --- STEP 2: PASSWORD SIGN IN ---
+  const handlePasswordSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!password) return;
 
-    if (!tenantPassword) {
-      toast({
-        variant: "destructive",
-        title: "Password Missing",
-        description: "Please enter your password.",
-      });
-      return;
-    }
-
-    setIsSigningIn(true);
+    setIsProcessing(true);
     try {
-      // Logic for staff/tenant: could be email or phone
-      let loginId = phone;
-      if (phone && !phone.includes('@')) {
-        // Map phone to internal email: 1234567890@roombox.app
-        const cleanPhone = phone.replace(/\D/g, '');
-        if (cleanPhone.length >= 10) {
-            loginId = `${cleanPhone.slice(-10)}@roombox.app`;
-        }
-      }
-
-      await signInWithEmailAndPassword(auth, loginId, tenantPassword);
-      toast({ title: 'Welcome Back!', description: "You've been signed in successfully." });
-    } catch (error: any) {
-      // Automatic fallback for 6-digit setup codes
-      if (tenantPassword.length === 6 && /^\d+$/.test(tenantPassword)) {
-        console.log("[Login] Password failed, attempting Setup Code verify fallback...");
-        try {
-          const res = await fetch('/api/auth/otp/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, otp: tenantPassword })
-          });
-          const data = await res.json();
-          if (res.ok && data.customToken) {
-            await signInWithCustomToken(auth!, data.customToken);
-            toast({ title: 'Welcome!', description: "Signed in using your Setup Code." });
-            return;
-          }
-        } catch (otpErr) {
-          console.error("OTP Fallback Error:", otpErr);
-        }
-      }
-
-      console.error("Tenant Password Auth Error:", error);
-      toast({
-        variant: "destructive",
-        title: "Log In Failed",
-        description: error.message?.includes('invalid-credential') ? "Invalid phone/password. If you have a setup code, please use the 'Setup Code' tab." : (error.message || "Invalid credentials."),
-      });
-    } finally {
-      setIsSigningIn(false);
+      const loginId = `${phone.replace(/\D/g, '').slice(-10)}@roombox.app`;
+      await signInWithEmailAndPassword(auth!, loginId, password);
+      // Let useEffect handle redirect/switching
+    } catch (err: any) {
+        let msg = 'Invalid password. Please try again.';
+        if (err.code === 'auth/user-not-found') msg = 'Account not found. Use setup code if new.';
+        toast({ variant: 'destructive', title: 'Login Failed', description: msg });
+        setIsProcessing(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    if (!auth) {
-      toast({ 
-        title: 'Auth Error', 
-        description: "Authentication service not initialized. Check emulator connection.", 
-        variant: 'destructive' 
-      });
-      return;
-    }
-
-    setIsSigningIn(true);
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      toast({ title: 'Welcome!', description: "You've been signed in successfully." });
-    } catch (error: any) {
-      console.error("Google Sign-In Error:", error);
-      if (error.code !== 'auth/popup-closed-by-user') {
-        toast({
-          variant: "destructive",
-          title: "Google Sign-In Failed",
-          description: error.message || "An error occurred.",
-        });
-      }
-    } finally {
-      setIsSigningIn(false);
-    }
-  };
-
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phone) {
-        toast({ variant: "destructive", title: "Error", description: "Phone number is required." });
-        return;
-    }
-    setIsSigningIn(true);
+  // --- STEP 2: OTP / INVITE CODE SIGN IN ---
+  const handleSendOtp = async () => {
+    setIsProcessing(true);
     try {
         const res = await fetch('/api/auth/otp/send', {
             method: 'POST',
@@ -218,213 +131,235 @@ export default function LoginPage() {
             body: JSON.stringify({ phone })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to send OTP');
+        if (!res.ok) throw new Error(data.error);
         
         setWaitingForOtp(true);
-        toast({ title: 'OTP Sent', description: "Please check your phone for the 6-digit code." });
-    } catch (error: any) {
-        toast({ variant: "destructive", title: "Error", description: error.message });
+        toast({ title: 'OTP Sent', description: 'Check your messages for the 6-digit code.' });
+    } catch (err: any) {
+        toast({ variant: 'destructive', title: 'Error', description: err.message });
     } finally {
-        setIsSigningIn(false);
+        setIsProcessing(false);
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp || otp.length !== 6) {
-        toast({ variant: "destructive", title: "Error", description: "Please enter a valid 6-digit OTP." });
-        return;
-    }
-    setIsSigningIn(true);
+    if (otp.length !== 6) return;
+
+    setIsProcessing(true);
     try {
-      const res = await fetch('/api/auth/otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp })
-      });
-      const data = await res.json();
+        const res = await fetch('/api/auth/otp/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, otp })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to verify OTP');
-      }
-
-      await signInWithCustomToken(auth!, data.customToken);
-      toast({ title: 'Welcome!', description: "You've been signed in successfully." });
-    } catch (error: any) {
-      console.error("OTP Verification Error:", error);
-      toast({
-        variant: "destructive",
-        title: "Log In Failed",
-        description: error.message || "Invalid OTP.",
-      });
-    } finally {
-      setIsSigningIn(false);
+        await signInWithCustomToken(auth!, data.customToken);
+    } catch (err: any) {
+        toast({ variant: 'destructive', title: 'Verification Failed', description: err.message });
+        setOtp(''); // Reset on failure
+        setIsProcessing(false);
     }
   };
+
+  const handleContextSelect = async (role: string, pgId: string) => {
+    setIsProcessing(true);
+    try {
+        const res = await fetch('/api/auth/switch-context', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetRole: role, targetPgId: pgId })
+        });
+        
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || 'Failed to switch context');
+        }
+
+        // Force reload to apply new claims
+        window.location.reload();
+    } catch (err: any) {
+        toast({ variant: 'destructive', title: 'Switch Failed', description: err.message });
+        setIsProcessing(false);
+    }
+  };
+
+  // --- OWNER FLOWS ---
+  const handleOwnerLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    try {
+      await signInWithEmailAndPassword(auth!, email, ownerPassword);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Error', description: err.message });
+      setIsProcessing(false);
+    }
+  };
+
+  if (isOwnerLogin) {
+      return (
+          <div className="flex items-center justify-center min-h-[85vh] p-4">
+              <Card className="w-full max-w-sm border-primary/20 shadow-2xl">
+                  <CardHeader className="text-center space-y-1">
+                      <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
+                        <Lock className="w-6 h-6 text-primary" />
+                      </div>
+                      <CardTitle className="text-2xl font-bold">Owner Portal</CardTitle>
+                      <CardDescription>Enter your email to manage properties</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4">
+                      <form onSubmit={handleOwnerLogin} className="grid gap-4">
+                         <div className="grid gap-2">
+                            <Label htmlFor="email">Email Address</Label>
+                            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isLoading} />
+                         </div>
+                         <div className="grid gap-2">
+                            <Label htmlFor="owner-pass">Password</Label>
+                            <Input id="owner-pass" type="password" value={ownerPassword} onChange={e => setOwnerPassword(e.target.value)} required disabled={isLoading} />
+                         </div>
+                         <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                             Log In as Owner
+                         </Button>
+                      </form>
+                      <Button variant="ghost" className="text-xs" onClick={() => setIsOwnerLogin(false)}>
+                          <ChevronLeft className="mr-2 h-4 w-4" /> Back to Resident Login
+                      </Button>
+                  </CardContent>
+              </Card>
+          </div>
+      )
+  }
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl pt-4">Welcome Back</CardTitle>
-          <CardDescription>
-            {activeTab === 'owner' ? 'Log in to manage your properties.' : 'Log in to access your PG dashboard.'}
+    <div className="flex items-center justify-center min-h-[85vh] bg-background p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background">
+      <Card className="w-full max-w-[400px] border-primary/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] backdrop-blur-sm bg-card/95">
+        <CardHeader className="text-center pb-8 pt-8">
+            <div className="mx-auto bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-5 rotate-3 shadow-inner">
+                <ShieldCheck className="w-8 h-8 text-primary" />
+            </div>
+          <CardTitle className="text-3xl font-extrabold tracking-tight">RentSutra</CardTitle>
+          <CardDescription className="text-base">
+            {stage === 'IDENTITY' ? 'Experience your digital PG life' : 
+             stage === 'SWITCH_CONTEXT' ? 'Pick a profile to continue' :
+             'Welcome back, authenticate to continue'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="tenant">Staff / Tenant</TabsTrigger>
-              <TabsTrigger value="owner">Owner</TabsTrigger>
-            </TabsList>
 
-            <TabsContent value="tenant" className="grid gap-4">
-              {tenantLoginMode === 'setup-code' ? (
-                <form onSubmit={handleVerifyOtp} className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="setup-phone">Phone Number</Label>
-                    <Input id="setup-phone" type="tel" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="setup-code">6-Digit Setup Code</Label>
-                    <Input id="setup-code" type="text" placeholder="Enter 6-digit code" required maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} />
-                    <p className="text-[10px] text-muted-foreground italic">Use the setup code provided by your property owner/manager.</p>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={loading || !phone || otp.length !== 6}>
-                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Verify & Log In
-                  </Button>
-
-                  <div className="flex flex-col gap-2">
-                    <Button type="button" variant="link" className="text-xs" onClick={() => setTenantLoginMode('otp')} disabled={loading}>
-                      Login with OTP instead
-                    </Button>
-                  </div>
-                </form>
-              ) : tenantLoginMode === 'otp' ? (
-                !waitingForOtp ? (
-                  <form onSubmit={handleSendOtp} className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input id="phone" type="tel" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
-                      <p className="text-xs text-muted-foreground">We will send a 6-digit OTP to your phone.</p>
-                    </div>
-
-                    <Button type="submit" className="w-full" disabled={loading || !phone}>
-                      {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Send OTP
-                    </Button>
-                    
-                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-                      <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={() => setTenantLoginMode('password')} disabled={loading}>
-                        Password Login
-                      </Button>
-                      <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={() => setTenantLoginMode('setup-code')} disabled={loading}>
-                        Setup Code Login
-                      </Button>
-                    </div>
-                  </form>
-                ) : (
-                  <form onSubmit={handleVerifyOtp} className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="otp">Enter OTP</Label>
-                      <Input id="otp" type="text" placeholder="6-digit code" required maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} disabled={loading} />
-                      <div className="flex justify-between items-center">
-                          <p className="text-xs text-muted-foreground">Sent to {phone}</p>
-                          <button type="button" onClick={() => setWaitingForOtp(false)} className="text-xs font-medium text-primary hover:underline" disabled={loading}>
-                              Change Number
-                          </button>
-                      </div>
-                    </div>
-
-                    <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
-                      {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Verify & Log In
-                    </Button>
-                    
-                    <div className="flex flex-col gap-2 mt-2">
-                        <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={handleSendOtp} disabled={loading}>
-                           Resend OTP
-                        </Button>
-                        <Button type="button" variant="link" className="text-xs h-auto p-0 text-muted-foreground" onClick={() => { setWaitingForOtp(false); setTenantLoginMode('password'); }} disabled={loading}>
-                           Login with Password instead
-                        </Button>
-                    </div>
-                  </form>
-                )
-              ) : (
-                <form onSubmit={handleTenantPasswordSignIn} className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="tenant-phone">Phone Number or Email</Label>
-                    <Input id="tenant-phone" type="text" placeholder="e.g. 9876543210" required value={phone} onChange={(e) => setPhone(e.target.value)} disabled={loading} />
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="tenant-password">Password</Label>
-                    <Input id="tenant-password" type="password" placeholder="Your password" required value={tenantPassword} onChange={(e) => setTenantPassword(e.target.value)} disabled={loading} />
-                    <button type="button" onClick={() => setTenantLoginMode('otp')} className="text-xs font-medium text-primary hover:underline text-left" disabled={loading}>
-                        Forgot password? Login with OTP
-                    </button>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={loading || !phone || !tenantPassword}>
-                    {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Log In
-                  </Button>
-
-                  <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-                    <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={() => setTenantLoginMode('otp')} disabled={loading}>
-                      Login with OTP
-                    </Button>
-                    <Button type="button" variant="link" className="text-xs h-auto p-0" onClick={() => setTenantLoginMode('setup-code')} disabled={loading}>
-                      Use Setup Code
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </TabsContent>
-
-            <TabsContent value="owner" className="grid gap-4">
-              <form onSubmit={handleEmailSignIn} className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
+        <CardContent>
+          {stage === 'IDENTITY' ? (
+            <form onSubmit={handleIdentityCheck} className="grid gap-6">
+              <div className="grid gap-3">
+                <Label htmlFor="phone" className="text-sm font-semibold flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-muted-foreground" /> Phone Number
+                </Label>
+                <div className="relative group">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium border-r pr-3">+91</span>
+                    <Input id="phone" type="tel" placeholder="9876543210" required className="pl-14 h-12 text-lg font-medium tracking-wide focus-visible:ring-primary/20" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0,10))} disabled={isLoading} />
                 </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" placeholder="Your password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
-                </div>
-
-                <Button type="submit" className="w-full" disabled={loading || !email || !password}>
-                  {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Log In as Owner
-                </Button>
-              </form>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">OR</span></div>
+                <p className="text-[11px] text-muted-foreground text-center">Enter the number shared with your property owner.</p>
               </div>
 
-              <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
-                {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
-                Log in with Google
+              <Button type="submit" className="w-full h-12 text-md font-bold group shadow-lg shadow-primary/10" disabled={isLoading || phone.length < 10}>
+                {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                Next <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
-            </TabsContent>
-          </Tabs>
 
-          {activeTab === 'owner' && process.env.NODE_ENV === 'development' && (
-            <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
-                Sign up
-              </Link>
+              <div className="flex flex-col gap-3 mt-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center px-4"><span className="w-full border-t border-border/50" /></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-3 text-muted-foreground font-medium">Restricted Access</span></div>
+                  </div>
+                  <Button type="button" variant="outline" className="h-10 text-xs font-semibold hover:bg-primary/5 hover:text-primary transition-colors" onClick={() => setIsOwnerLogin(true)} disabled={isLoading}>
+                    <Mail className="mr-2 h-4 w-4" /> Property Owner Login
+                  </Button>
+              </div>
+            </form>
+          ) : stage === 'SWITCH_CONTEXT' ? (
+            <RoleContextSwitcher user={currentUser} onSelect={handleContextSelect} isProcessing={isProcessing} />
+          ) : (
+            <div className="grid gap-6">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Phone Number</span>
+                        <span className="text-lg font-bold text-primary">{phone}</span>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-8 text-xs font-bold text-muted-foreground hover:bg-primary/5 hover:text-primary" onClick={() => { setStage('IDENTITY'); setWaitingForOtp(false); setOtp(''); }}>
+                        <ChevronLeft className="w-3 h-3 mr-1" /> Edit
+                    </Button>
+                </div>
+
+                {challengeType === 'INVITE_CODE' ? (
+                   <form onSubmit={handleVerifyCode} className="grid gap-6">
+                        <div className="grid gap-3">
+                            <Label htmlFor="invite-code" className="text-sm font-semibold">Your Invitation Code</Label>
+                            <Input id="invite-code" type="text" placeholder="6-digit code" required maxLength={6} className="h-12 text-center text-2xl font-mono tracking-[0.5em] focus:tracking-[0.8em] transition-all" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} disabled={isLoading} />
+                            <p className="text-[11px] text-muted-foreground italic text-center">This code was shared by your manager for setup.</p>
+                        </div>
+                        <Button type="submit" className="w-full h-12 text-md font-bold shadow-lg" disabled={isLoading || otp.length !== 6}>
+                            {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                            Verify & Join Property
+                        </Button>
+                   </form>
+                ) : (
+                    <>
+                    {authMethod === 'PASSWORD' ? (
+                        <form onSubmit={handlePasswordSignIn} className="grid gap-6">
+                            <div className="grid gap-3">
+                                <Label htmlFor="pass" className="text-sm font-semibold">Password</Label>
+                                <Input id="pass" type="password" placeholder="Enter your password" required className="h-12 focus-visible:ring-primary/20" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
+                                <button type="button" className="text-xs font-bold text-primary hover:underline text-left w-fit" onClick={() => setAuthMethod('OTP')} disabled={isLoading}>Forgot? Use OTP Login</button>
+                            </div>
+                            <Button type="submit" className="w-full h-12 text-md font-bold shadow-lg shadow-primary/10" disabled={isLoading || !password}>
+                                {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                                Sign In
+                            </Button>
+                            <Button variant="link" className="text-xs h-auto p-0 font-semibold" onClick={() => setAuthMethod('OTP')} disabled={isLoading}>I prefer login via OTP</Button>
+                        </form>
+                    ) : (
+                        <div className="grid gap-6">
+                            {!waitingForOtp ? (
+                                <div className="grid gap-4">
+                                     <div className="bg-primary/5 p-4 rounded-xl border border-primary/10">
+                                        <p className="text-xs text-center text-muted-foreground leading-relaxed">Security Check: We will send a 6-digit code via SMS to verify your identity.</p>
+                                     </div>
+                                     <Button onClick={handleSendOtp} className="w-full h-12 text-md font-bold shadow-lg" disabled={isLoading}>
+                                        {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                                        Get One-Time Code
+                                     </Button>
+                                     <Button variant="link" className="text-xs h-auto p-0 font-semibold" onClick={() => setAuthMethod('PASSWORD')} disabled={isLoading}>Back to Password Login</Button>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleVerifyCode} className="grid gap-6">
+                                    <div className="grid gap-3">
+                                        <Label htmlFor="otp-verify" className="text-sm font-semibold">One-Time Code (OTP)</Label>
+                                        <Input id="otp-verify" type="text" placeholder="6-digit code" required maxLength={6} className="h-12 text-center text-2xl font-mono tracking-[0.5em] transition-all" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} disabled={isLoading} />
+                                        <div className="flex justify-between items-center px-1">
+                                            <button type="button" className="text-[11px] font-bold text-muted-foreground hover:text-primary" onClick={handleSendOtp} disabled={isLoading}>Resend Code</button>
+                                            <button type="button" className="text-[11px] font-bold text-primary" onClick={() => setWaitingForOtp(false)} disabled={isLoading}>Change Method</button>
+                                        </div>
+                                    </div>
+                                    <Button type="submit" className="w-full h-12 text-md font-bold shadow-lg" disabled={isLoading || otp.length !== 6}>
+                                        {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                                        Verify & Sign In
+                                    </Button>
+                                </form>
+                            )}
+                        </div>
+                    )}
+                    </>
+                )}
             </div>
           )}
         </CardContent>
       </Card>
+      {/* Background Blobs for Premium Look */}
+      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 blur-[120px] rounded-full -z-10 animate-pulse-slow"></div>
+      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/10 blur-[120px] rounded-full -z-10 animate-pulse-slow delay-1000"></div>
     </div>
   )
 }
+
+

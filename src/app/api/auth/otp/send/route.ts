@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 
+/**
+ * OTP SEND ROUTE
+ * Enhancements:
+ * - Rate Limiting (1 min per phone)
+ * - Anti-Enumeration (Generic responses)
+ * - Staff Safety (OTP blocked for staff except in reset/onboarding)
+ */
 export async function POST(req: NextRequest) {
     try {
-        const { phone } = await req.json();
+        const { phone, isPasswordReset } = await req.json();
 
         if (!phone) {
             return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
@@ -16,7 +23,18 @@ export async function POST(req: NextRequest) {
 
         const appDb = await getAdminDb();
 
-        // 1. Check if a users doc exists with this phone (i.e. owner previously onboarded them)
+        // 1. Rate Limiting Check
+        const existingOtp = await appDb.collection('system_otps').doc(cleanPhone).get();
+        if (existingOtp.exists) {
+            const data = existingOtp.data()!;
+            if (Date.now() - (data.createdAt || 0) < 60000) {
+                return NextResponse.json({ 
+                    error: 'Please wait 60 seconds before requesting another code.' 
+                }, { status: 429 });
+            }
+        }
+
+        // 2. Identity Check (Silent Failure to prevent enumeration)
         const phoneVariations = [cleanPhone, `+91${cleanPhone}`, `91${cleanPhone}`];
         let userDoc = null;
         for (const v of phoneVariations) {
@@ -28,43 +46,59 @@ export async function POST(req: NextRequest) {
         }
 
         if (!userDoc) {
-            // [BLOCKED] Phone not registered by any owner → reject
-            console.log(`[BLOCKED] Unauthorized OTP request for phone ${cleanPhone} — not added by any owner.`);
-            return NextResponse.json({
-                error: 'You are not added to any property. Please contact your property owner to get access.'
-            }, { status: 403 });
+            // Acknowledge request without confirming non-existence
+            console.log(`[OTP] Request for unregistered number: ${cleanPhone}`);
+            return NextResponse.json({ 
+                success: true, 
+                message: 'If the number is registered, you will receive a code shortly.' 
+            });
         }
 
         const userData = userDoc.data();
-        // Only tenants and staff can use OTP login. Owners use email.
-        if (userData.role === 'owner') {
-            return NextResponse.json({ error: 'Owners must log in with email and password.' }, { status: 403 });
+        const role = userData.role || 'tenant';
+
+        // 3. Staff Security Policy
+        // Staff can only use OTP for password resets or initial onboarding (handled by magic_links, but we allow fallback here)
+        if (['staff', 'manager', 'cook', 'cleaner', 'security', 'admin'].includes(role)) {
+            const resetSession = userData.authSessions?.passwordResetActive;
+            if (!resetSession && !isPasswordReset) {
+                console.warn(`[OTP BLOCKED] Staff login via OTP attempted for ${cleanPhone}`);
+                return NextResponse.json({ 
+                    success: true, 
+                    message: 'If the number is registered, you will receive a code shortly.' 
+                });
+            }
         }
 
-        // 2. Generate OTP
+        // 4. Generate & Store OTP
         const isTestNumber = cleanPhone === '9999999999' || cleanPhone === '8888888888';
         const otp = isTestNumber ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+        const expiresAt = Date.now() + 5 * 60 * 1000; // 5 mins
 
-        // 3. Store OTP in Firestore
         await appDb.collection('system_otps').doc(cleanPhone).set({
             otp,
             expiresAt,
             attempts: 0,
-            createdAt: Date.now()
+            createdAt: Date.now(),
+            isReset: !!isPasswordReset
         });
 
-        // 4. "Send" OTP (Mock: Log to console; replace with real SMS in production)
+        // 5. Send OTP (Mock for now; log for production audit)
         if (isTestNumber) {
-            console.log(`[TEST] Used fixed OTP 123456 for ${phone}`);
+            console.log(`[AUTH] TEST OTP: 123456 for ${cleanPhone}`);
         } else {
-            console.log(`[OTP] Sent OTP ${otp} to ${phone}`);
+            // Integration Point: WhatsApp or SMS API
+            console.log(`[AUTH] SEND OTP: ${otp} to ${cleanPhone} (Context: ${isPasswordReset ? 'RESET' : 'LOGIN'})`);
         }
 
-        return NextResponse.json({ success: true, message: 'OTP sent successfully' });
+        return NextResponse.json({ 
+            success: true, 
+            message: 'OTP sent successfully. Valid for 5 minutes.' 
+        });
 
     } catch (error: any) {
         console.error('Send OTP error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
+

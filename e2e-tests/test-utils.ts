@@ -30,243 +30,176 @@ export const TENANT_PHONE = '9876543219'; // matched in backend for stable test 
  */
 const SUCCESS_URL_REGEX = /.*(dashboard|tenants\/my-pg|complete-profile)/;
 
-export async function login(page: Page, emailOrPhone: string) {
-    console.log(`[Utils] Logging in as ${emailOrPhone}...`);
+/**
+ * Identity-First Login Helper
+ * Handles the adaptive flow: Phone -> Challenge -> [Context Switch]
+ */
+export async function login(page: Page, emailOrPhone: string, options: { password?: string, otp?: boolean } = {}) {
+    console.log(`[Utils] Identity-First Login for ${emailOrPhone}...`);
+    const isOwner = emailOrPhone.includes('@');
     
-    // Set up monitoring BEFORE any actions
-    let authErrorDetected = false;
-    const consoleHandler = (msg: any) => {
-        const text = msg.text();
-        if (text.includes('auth/user-not-found') || text.includes('auth/wrong-password') || text.includes('auth/invalid-credential')) {
-            console.log(`[Utils] Caught Auth Error in console: ${text}`);
-            authErrorDetected = true;
-        }
-        if (msg.type() === 'error') console.log(`[Browser Error] ${text}`);
-        if (text.includes('Firebase') || text.includes('emulator')) console.log(`[Browser Firebase] ${text}`);
-    };
-    page.on('console', consoleHandler);
-    
-    // Temporarily disabled to debug goto failure
-    /*
-    await page.route(url => 
-        url.includes('google-analytics') || 
-        url.includes('doubleclick') || 
-        url.includes('facebook') || 
-        url.includes('razorpay') ||
-        url.includes('fonts.googleapis') ||
-        url.includes('fonts.gstatic'), 
-        route => route.abort()
-    ).catch(() => {});
-    */
-
-    page.on('requestfailed', request => {
-        const url = request.url();
-        console.log(`[Browser Request Failed] ${url}: ${request.failure()?.errorText}`);
-    });
-
-    page.on('pageerror', err => {
-        console.log(`[Browser PageError] ${err.message}`);
-    });
-
+    // Clear state
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.evaluate(async () => {
-        localStorage.clear();
-        sessionStorage.clear();
-        if (window.indexedDB && window.indexedDB.databases) {
-            const dbs = await window.indexedDB.databases();
-            for (const db of dbs) {
-                if (db.name) window.indexedDB.deleteDatabase(db.name);
-            }
-        }
-    });
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.context().clearCookies();
     
+    // 1. IDENTITY STAGE
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1000); 
     
-    // Safety check: is the page actually loaded?
-    await expect(page.getByText(/Welcome Back/i)).toBeVisible({ timeout: 15000 });
-    const isOwner = emailOrPhone.includes('bot_tester') || emailOrPhone.includes('@');
-    
+    // Owner Login Fallback
     if (isOwner) {
-        console.log(`[Utils] Owner Flow: Switching to tab...`);
-        const ownerTab = page.getByRole('tab', { name: /Owner/i });
-        await ownerTab.click();
+        console.log(`[Utils] Owner Flow detected...`);
+        const ownerBtn = page.getByRole('button', { name: /Property Owner Login/i });
+        await ownerBtn.click();
         
-        const emailInput = page.locator('#email').first();
-        const passwordInput = page.locator('#password').first();
-        
-        await expect(emailInput).toBeVisible({ timeout: 10_000 });
-        await emailInput.fill(emailOrPhone);
-        await passwordInput.fill(OWNER_PASSWORD);
-        
-        console.log(`[Utils] Submitting owner login...`);
-        const loginBtn = page.getByRole('button', { name: /Log In as Owner/i });
-        await expect(loginBtn).toBeEnabled({ timeout: 15_000 });
-        
-        console.log(`[Utils] Clicking Log In for ${emailOrPhone}...`);
-        await loginBtn.click();
-        
-        // After clicking, wait for a navigation OR an error toast
-        const errorToast = page.locator('text=Log In Failed');
-        await Promise.race([
-            page.waitForURL(u => u.pathname.includes('dashboard') || u.pathname.includes('complete-profile'), { timeout: 20_000 }),
-            expect(errorToast).toBeVisible({ timeout: 10_000 })
-        ]).catch(() => {
-            console.log('[Utils] Login attempt timed out or stayed on page.');
-        });
-        console.log(`[Utils] Clicked login button.`);
+        await page.locator('#email').fill(emailOrPhone);
+        await page.locator('#owner-pass').fill(options.password || OWNER_PASSWORD);
+        await page.getByRole('button', { name: /Log In as Owner/i }).click();
     } else {
-        // Tenant/Staff login: phone + password (NOT email — tenants don't self-signup)
-        console.log(`[Utils] Tenant Flow: Using phone+password mode...`);
-        const tenantTab = page.getByRole('tab', { name: /Staff \/ Tenant/i });
-        await tenantTab.click({ force: true }).catch(() => {});
+        // Resident/Staff Flow
+        console.log(`[Utils] Resident/Staff Flow: Phone entry...`);
+        const cleanPhone = emailOrPhone.replace(/\D/g, '').slice(-10);
+        const phoneInput = page.locator('#phone');
+        await expect(phoneInput).toBeVisible({ timeout: 10000 });
+        await phoneInput.fill(cleanPhone);
+        await page.getByRole('button', { name: 'Next', exact: true }).click();
+
         
-        // Switch to password mode if currently in OTP mode
-        const passModeBtn = page.getByRole('button', { name: /Login with Password instead/i });
-        const isPassModeVisible = await passModeBtn.isVisible().catch(() => false);
-        if (isPassModeVisible) {
-            console.log(`[Utils] Switching to tenant password mode...`);
-            await passModeBtn.click();
+        // 2. CHALLENGE STAGE
+        console.log(`[Utils] Detecting challenge type...`);
+        
+        // Wait for challenge to appear
+        const passwordInput = page.locator('#pass');
+        const inviteInput = page.locator('#invite-code');
+        const otpTrigger = page.getByRole('button', { name: /Get One-Time Code/i });
+        
+        const challenge = await Promise.race([
+            passwordInput.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'PASSWORD'),
+            inviteInput.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'INVITE'),
+            otpTrigger.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'OTP_TRIGGER')
+        ]).catch(() => 'UNKNOWN');
+
+
+        if (challenge === 'PASSWORD') {
+            console.log(`[Utils] Challenge: Password`);
+            if (options.otp) {
+               // User wants OTP but we reached password, check if fallback button exists
+               const switchBtn = page.getByRole('button', { name: 'I prefer login via OTP' });
+               if (await switchBtn.isVisible()) {
+
+                   await switchBtn.click();
+                   return await handleOtpChallenge(page, cleanPhone);
+               }
+            }
+            await passwordInput.fill(options.password || TENANT_PASSWORD);
+            await page.getByRole('button', { name: /Sign In/i, exact: true }).click();
+        } else if (challenge === 'INVITE') {
+            console.log(`[Utils] Challenge: Invitation Code`);
+            const code = await getOtpFromEmulator(cleanPhone);
+            if (!code) throw new Error(`Could not find invite code for ${cleanPhone} in emulator`);
+            await inviteInput.fill(code);
+            await page.getByRole('button', { name: /Verify & Join/i }).click();
+        } else if (challenge === 'OTP_TRIGGER') {
+            return await handleOtpChallenge(page, cleanPhone);
+        } else {
+            throw new Error(`Unrecognized or missing challenge for ${emailOrPhone}`);
         }
-        
-        const phoneInput = page.locator('#tenant-phone').first();
-        const passInput = page.locator('#tenant-password').first();
-        
-        await expect(phoneInput).toBeVisible({ timeout: 10_000 });
-        // If passed a phone number directly, use it; otherwise derive from email format
-        const loginId = emailOrPhone.replace(/\D/g, '').length === 10 ? emailOrPhone : emailOrPhone;
-        await phoneInput.fill(loginId);
-        await passInput.fill(TENANT_PASSWORD);
-        
-        console.log(`[Utils] Submitting tenant login...`);
-        const loginBtn = page.getByRole('button', { name: /^Log In$/i, exact: true });
-        await loginBtn.waitFor({ state: 'visible', timeout: 15000 });
-        await loginBtn.click();
     }
 
+    // 3. POST-CHALLENGE (Redirect or Context Switch)
+    await handlePostLogin(page);
+}
+
+async function handleOtpChallenge(page: Page, phone: string) {
+    console.log(`[Utils] Challenge: OTP for ${phone}`);
+    const getBtn = page.getByRole('button', { name: 'Get One-Time Code', exact: true }).or(page.getByRole('button', { name: /Get One-Time Code/i }));
+    if (await getBtn.isVisible()) {
+        await getBtn.click();
+        console.log(`[Utils] Clicked 'Get One-Time Code'`);
+    } else {
+        console.log(`[Utils] 'Get One-Time Code' button NOT visible, checking for input directly...`);
+    }
+    
+    await page.waitForTimeout(2000); 
+    const code = await getOtpFromEmulator(phone);
+    if (!code) throw new Error(`OTP not found for ${phone} in emulator. Check console for fetch logs.`);
+    
+    const otpInput = page.locator('#otp-verify');
+    await otpInput.fill(code);
+    await page.getByRole('button', { name: 'Verify & Sign In', exact: true }).click();
+    
+    await handlePostLogin(page);
+}
+
+
+async function handlePostLogin(page: Page) {
+    console.log(`[Utils] Waiting for dashboard or switcher...`);
+    
+    // Check for context switcher
+    const switcherHeading = page.getByText(/Select Context|Pick a profile/i);
+    const isSwitcher = await switcherHeading.isVisible({ timeout: 10000 }).catch(() => false);
+    
+    if (isSwitcher) {
+        console.log(`[Utils] Multi-role detected. Selecting first context...`);
+        const firstCard = page.locator('div.grid.gap-4 .cursor-pointer').first();
+        await firstCard.click();
+    }
+    
+    await page.waitForURL(SUCCESS_URL_REGEX, { timeout: 25000 });
+    console.log(`[Utils] Login successful: ${page.url()}`);
+}
+
+/**
+ * Fetches verification codes or invite codes from Firestore Emulator
+ */
+export async function getOtpFromEmulator(phone: string) {
+    const projectId = process.env.FIREBASE_PROJECT_ID || 'roombox-test';
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+    console.log(`[Utils] getOtpFromEmulator: Fetching for ${cleanPhone} (Project: ${projectId})`);
+    
     try {
-        console.log(`[Utils] Waiting for success redirection...`);
-        await page.waitForTimeout(3000);
+        // 1. Try our ROBUST Internal Testing API (Server-side Admin SDK check)
+        const testApiUrl = `/api/auth/otp/test?phone=${cleanPhone}`;
+        console.log(`[Utils] Polling Internal Test API: ${testApiUrl}`);
+        const testRes = await fetch(`http://localhost:9002${testApiUrl}`);
         
-        if (authErrorDetected) {
-            throw new Error('Auth error detected');
+        if (testRes.ok) {
+            const data = await testRes.json();
+            if (data.otp) {
+                console.log(`[Utils] Found OTP via Test API: ${data.otp}`);
+                return data.otp;
+            }
+        } else {
+            console.log(`[Utils] Internal Test API not ready or failed (Status: ${testRes.status})`);
         }
-        
-        const toastVisible = await page.locator('[data-state="open"][role="status"]').isVisible().catch(() => false);
-        if (toastVisible) {
-            const toastText = await page.locator('[data-state="open"][role="status"]').innerText().catch(() => '');
-            console.log(`[Utils] Toast visible: "${toastText}"`);
-            if (toastText.toLowerCase().includes('failed') || toastText.toLowerCase().includes('invalid')) {
-                throw new Error('Auth error from toast');
+
+        // 2. Fallback to Auth Emulator (Standard Firebase SDK verificationCodes)
+        const authUrl = `http://127.0.0.1:9099/emulator/v1/projects/${projectId}/verificationCodes`;
+        console.log(`[Utils] Polling Auth Emulator fallback: ${authUrl}`);
+        const authRes = await fetch(authUrl);
+        if (authRes.ok) {
+            const authData = (await authRes.json()) as any;
+            const codes = authData.verificationCodes || [];
+            const match = codes
+                .filter((c: any) => c.phoneNumber.includes(cleanPhone))
+                .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+            
+            if (match) {
+                console.log(`[Utils] Found Auth Emulator OTP: ${match.code}`);
+                return match.code;
             }
         }
-        
-        await page.waitForURL(SUCCESS_URL_REGEX, { timeout: 25_000 });
-        console.log(`[Utils] Login redirect successful. URL: ${page.url()}`);
-        await handleOnboarding(page, isOwner);
+
+        console.error(`[Utils] No OTP found in Test API or Auth emulator for ${cleanPhone}`);
+        return null;
     } catch (err) {
-        console.warn(`[Utils] Login failed to redirect or caught error. Checking state...`);
-        const ssPath = `test-results/login-fail-${Date.now()}.png`;
-        await page.screenshot({ path: ssPath });
-        
-        const toastError = await page.locator('[role="status"], [role="alert"]').innerText({ timeout: 2000 }).catch(() => '');
-        const inlineError = await page.locator('.text-destructive').innerText({ timeout: 2000 }).catch(() => '');
-        const allErrors = `${inlineError} ${toastError}`.trim();
-        console.log(`[Utils] Detected errors: "${allErrors}", authErrorDetected=${authErrorDetected}`);
-        
-        if (isOwner && (authErrorDetected || allErrors.toLowerCase().includes('not found') || allErrors.toLowerCase().includes('invalid'))) {
-            // Owners can self-signup
-            console.log(`[Utils] Owner account missing. Starting signup flow for ${emailOrPhone}...`);
-            await signup(page, emailOrPhone);
-        } else if (!isOwner) {
-            // Tenants CANNOT self-signup — fail with a clear message
-            throw new Error(
-                `[Utils] Tenant login failed for ${emailOrPhone}. ` +
-                `Tenant accounts must be created by an owner first. ` +
-                `Errors: ${allErrors}`
-            );
-        } else {
-            const currentUrl = page.url();
-            if (SUCCESS_URL_REGEX.test(currentUrl)) {
-                await handleOnboarding(page, isOwner);
-            } else {
-                console.log(`[Utils] Stuck at ${currentUrl}. Forcing dashboard...`);
-                await page.goto('/dashboard');
-                await page.waitForTimeout(3000);
-                await handleOnboarding(page, isOwner);
-            }
-        }
+        console.warn(`[Utils] getOtpFromEmulator failed:`, err);
+        return null;
     }
 }
 
-async function handleOnboarding(page: Page, isOwner: boolean) {
-    if (page.isClosed()) return;
-    
-    // Use a shorter wait or wait for a specific element instead of a hard 3s
-    await page.waitForTimeout(1000).catch(() => {});
-    if (page.isClosed()) return;
-    
-    if (page.url().includes('complete-profile')) {
-        if (!isOwner) {
-            // Tenant should never reach complete-profile since they can't self-assign
-            throw new Error('[Utils] Tenant reached /complete-profile — tenant was not onboarded by an owner.');
-        }
-        console.log(`[Utils] Onboarding: Selecting Owner role`);
-        
-        const btn = page.locator('button').filter({ hasText: /Property Owner/i }).first();
-        await expect(btn).toBeVisible({ timeout: 15_000 });
-        await btn.click();
-        
-        await page.waitForURL('**/dashboard', { timeout: 15_000 }).catch(() => {
-            console.log(`[Utils] Post-onboarding redirect timed out. Current: ${page.url()}`);
-        });
-    }
 
-    if (page.url().includes('/login')) {
-        console.warn(`[Utils] Stuck on /login detected. Trying direct navigation...`);
-        await page.goto(isOwner ? '/dashboard' : '/tenants/my-pg').catch(() => {});
-    }
-}
 
-async function signup(page: Page, email: string) {
-    // Only owners can sign up via the signup page
-    console.log(`[Utils] Navigating to /signup for owner ${email}...`);
-    await page.goto('/signup', { waitUntil: 'domcontentloaded' });
-    
-    const emailInput = page.locator('#email').first();
-    const passInput = page.locator('#password').first();
-    
-    await expect(emailInput).toBeVisible({ timeout: 15_000 });
-    console.log(`[Utils] Filling signup form for ${email}...`);
-    await emailInput.scrollIntoViewIfNeeded();
-    await emailInput.fill(email);
-    await passInput.scrollIntoViewIfNeeded();
-    await passInput.fill(OWNER_PASSWORD);
-    
-    console.log(`[Utils] Submitting signup...`);
-    const signupBtn = page.getByRole('button', { name: /Create Account|Sign Up/i }).first();
-    await signupBtn.scrollIntoViewIfNeeded();
-    await signupBtn.click({ force: true });
-    
-    console.log(`[Utils] Waiting for redirection to complete-profile...`);
-    try {
-        await page.waitForURL('**/complete-profile', { timeout: 20_000 });
-        await handleOnboarding(page, true);
-    } catch (e) {
-        console.log(`[Utils] Signup didn't redirect automatically. URL: ${page.url()}`);
-        const errorText = await page.locator('.text-destructive').innerText({ timeout: 2000 }).catch(() => '');
-        if (errorText.toLowerCase().includes('already in use')) {
-            console.log(`[Utils] Owner account already exists. Forcing dashboard...`);
-            await page.goto('/dashboard');
-            await handleOnboarding(page, true);
-        } else {
-            await page.goto('/complete-profile');
-            await page.waitForTimeout(3000);
-            await handleOnboarding(page, true);
-        }
-    }
-}
 
 export async function selectPgInHeader(page: Page, pgName: string) {
     console.log(`[Utils] Selecting PG: ${pgName}`);
@@ -284,17 +217,8 @@ export async function selectPgInHeader(page: Page, pgName: string) {
 export async function logout(page: Page) {
     console.log(`[Utils] Logging out...`);
     await page.goto('/', { waitUntil: 'load' });
-    await page.evaluate(async () => {
-        localStorage.clear();
-        sessionStorage.clear();
-        if (window.indexedDB && window.indexedDB.databases) {
-            const dbs = await window.indexedDB.databases();
-            for (const db of dbs) {
-                if (db.name) window.indexedDB.deleteDatabase(db.name);
-            }
-        }
-    });
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.context().clearCookies();
     await page.goto('/login', { waitUntil: 'load' });
-    await page.waitForTimeout(1000);
 }
+
