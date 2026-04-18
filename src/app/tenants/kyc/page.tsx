@@ -49,7 +49,8 @@ export default function KycPage() {
     useEffect(() => {
         if (guest?.documents) {
             const initialUris = guest.documents.reduce((acc, doc) => {
-                acc[doc.configId] = doc.url;
+                const key = doc.configId || doc.fieldId;
+                if (key) acc[key] = doc.fileUrl || doc.url || '';
                 return acc;
             }, {} as Record<string, string>);
             setDocumentUris(initialUris);

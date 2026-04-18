@@ -98,6 +98,7 @@ export default function PayoutsPage() {
             const submissionData = { 
                 ...data, 
                 ...kycData,
+                email: currentUser.email || '',
                 name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) 
             };
             
@@ -221,14 +222,14 @@ export default function PayoutsPage() {
                         {(currentUser?.subscription?.payoutMethods || []).map(method => (
                             <div key={method.razorpay_fund_account_id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                                 <div className="flex items-center gap-4">
-                                    {method.type === 'vpa' ? <IndianRupee className="w-5 h-5 text-primary" /> : <Banknote className="w-5 h-5 text-primary" />}
+                                    {method.type === 'upi' ? <IndianRupee className="w-5 h-5 text-primary" /> : <Banknote className="w-5 h-5 text-primary" />}
                                     <div>
                                         <div className="font-semibold flex items-center gap-2">
                                             {method.name}
                                             {method.isPrimary && <Badge>Primary</Badge>}
                                         </div>
                                         <div className="text-sm text-muted-foreground">
-                                            {method.type === 'vpa' ? (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
+                                            {method.type === 'upi' ? (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
                                         </div>
                                     </div>
                                 </div>

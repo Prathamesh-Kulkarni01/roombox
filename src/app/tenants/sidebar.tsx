@@ -8,9 +8,9 @@ import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, LogOut, ShieldC
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Button } from '../ui/button';
-import { Skeleton } from '../ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useMemo } from 'react';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { canViewFeature } from '@/lib/permissions';
