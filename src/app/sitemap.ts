@@ -1,37 +1,29 @@
-import { type MetadataRoute } from 'next'
- 
+import { MetadataRoute } from 'next';
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app'
-  
-  // These are the static, public-facing pages on your site.
-  const staticRoutes = [
-    {
-      url: `${baseUrl}/`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/login`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-  ] as MetadataRoute.Sitemap
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.vercel.app';
 
-  // In the future, if you have a public collection of PGs in Firestore,
-  // you could fetch them and generate dynamic routes like this:
-  /*
-  const { pgs } = await getPublicPgsFromFirestore();
-  const pgRoutes = pgs.map((pg) => ({
-    url: `${baseUrl}/pg/${pg.id}`,
-    lastModified: new Date(), // Or a date from your PG data
-    changeFrequency: 'weekly',
-    priority: 0.8,
+  // Core static pages
+  const staticPages = [
+    '',
+    '/login',
+    '/signup',
+    '/about',
+    '/contact',
+    '/privacy-policy',
+    '/terms-of-service',
+    '/refund-policy',
+    '/changelog',
+  ].map((route) => ({
+    url: `${baseUrl}${route}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: route === '' ? 1 : 0.8,
   }));
-  */
 
-  // For now, we'll just return the static routes.
-  // return [...staticRoutes, ...pgRoutes];
-  return staticRoutes
+  // In a real app, you might fetch dynamic blog routes here
+  // const posts = await getPosts();
+  // const blogPages = posts.map(...)
+
+  return [...staticPages];
 }

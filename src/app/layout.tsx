@@ -12,9 +12,14 @@ import PWAHandler from '@/components/PWAHandler';
 import { Analytics } from "@vercel/analytics/next"
 
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.vercel.app";
 
 export const metadata: Metadata = {
+  title: {
+    default: "RentSutra | Modern PG & Hostel Management Software",
+    template: "%s | RentSutra"
+  },
+  description: "Simplify your rental property management with RentSutra. Automate rent collection, track occupancy, and manage tenants with ease. The all-in-one OS for co-living, PGs, and hostels.",
   metadataBase: new URL(APP_URL),
   manifest: '/manifest.json',
   keywords: [

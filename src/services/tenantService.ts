@@ -74,7 +74,7 @@ export class TenantService {
 
         await appDb.collection('magic_links').doc(token).set(magicLinkData);
 
-        let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.app').replace(/\/+$/, '');
+        let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.vercel.app').replace(/\/+$/, '');
         const magicLink = `${appUrl}/invite/${token}`;
         return { magicLink, inviteCode };
     }

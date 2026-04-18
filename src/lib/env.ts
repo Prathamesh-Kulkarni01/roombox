@@ -15,8 +15,9 @@ export function getEnv(key: string, defaultValue?: string, silent: boolean = fal
 
     const sanitized = value.trim().replace(/^["']|["']$/g, '');
 
-    // Log the first and last 3 chars for debugging (masked)
-    if (!silent) {
+    // Log masked value for debugging only in non-production
+    const isDev = process.env.NODE_ENV === 'development';
+    if (!silent && isDev) {
         if (sanitized.length > 6) {
             console.log(`[getEnv] Loaded ${key}: ${sanitized.substring(0, 3)}...${sanitized.substring(sanitized.length - 3)} (length: ${sanitized.length})`);
         } else if (sanitized.length > 0) {
