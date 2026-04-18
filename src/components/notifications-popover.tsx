@@ -58,7 +58,7 @@ export default function NotificationsPopover() {
               {notifications.map(notification => (
                 <Link
                   key={notification.id}
-                  href={notification.link}
+                  href={notification.link || '#'}
                   onClick={() => handleNotificationClick(notification.id)}
                   className={cn(
                     "block p-3 hover:bg-muted/50 transition-colors",

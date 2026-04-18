@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Guest } from '@/lib/types'
+import { isFeaturePermissions } from '@/lib/permissions'
 import { format } from 'date-fns'
 import Access from '@/components/ui/PermissionWrapper';
 import KycManagementTab from '@/components/dashboard/KycManagementTab';
@@ -209,7 +210,7 @@ export default function GuestManagementPage() {
 
     const canEditGuests = useMemo(() => {
         if (!featurePermissions || !currentUser) return false;
-        return featurePermissions.guests?.edit ?? false;
+        return isFeaturePermissions(featurePermissions) ? featurePermissions.guests?.edit : false;
     }, [featurePermissions, currentUser]);
 
     if (isLoading) {

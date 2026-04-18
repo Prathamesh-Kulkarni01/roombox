@@ -100,7 +100,7 @@ export function FloatingGuide({ onAddProperty, onSetupLayout, onAddGuest }: Floa
             {steps.map((step, index) => (
               <div 
                 key={step.id} 
-                ref={el => stepRefs.current[index] = el}
+                ref={el => { stepRefs.current[index] = el; }}
                 className="flex flex-col gap-3 p-3 border rounded-lg"
               >
                 <div className="flex items-start gap-3">

@@ -13,9 +13,10 @@ import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Users, IndianRupee, Calendar, Loader2 } from "lucide-react"
 import { useAppSelector } from "@/lib/hooks"
+import { useChargeTemplatesStore } from "@/lib/stores/configStores"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, startOfMonth, endOfMonth, subMonths, setDate, addMonths, isValid } from 'date-fns'
-import type { Room, Guest } from "@/lib/types"
+import type { Room, Guest, ChargeTemplate } from "@/lib/types"
 import Access from "@/components/ui/PermissionWrapper"
 
 const sharedChargeSchema = z.object({
@@ -28,7 +29,7 @@ const sharedChargeSchema = z.object({
 type SharedChargeDialogProps = Pick<UseDashboardReturn, 'isSharedChargeDialogOpen' | 'setIsSharedChargeDialogOpen' | 'sharedChargeForm' | 'handleSharedChargeSubmit' | 'roomForSharedCharge' | 'isAddingSharedCharge'>;
 
 export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsSharedChargeDialogOpen, sharedChargeForm, handleSharedChargeSubmit, roomForSharedCharge, isAddingSharedCharge }: SharedChargeDialogProps) {
-    const { chargeTemplates = [] } = useAppSelector(state => state.chargeTemplates);
+    const { templates: chargeTemplates = [] } = useChargeTemplatesStore();
     const { guests } = useAppSelector(state => state.guests);
 
     const getDefaultTab = () => {
@@ -136,7 +137,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                     <Access feature="properties" action="sharedCharge">
                         <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
-                                {visibleTemplates.map(template => (
+                                {visibleTemplates.map((template: ChargeTemplate) => (
                                     <TabsTrigger key={template.id} value={template.id}>{template.name}</TabsTrigger>
                                 ))}
                                 <TabsTrigger value="custom">Custom</TabsTrigger>
@@ -150,7 +151,7 @@ export default function SharedChargeDialog({ isSharedChargeDialogOpen, setIsShar
                                             Billing Cycle: {format(cycleStartDate, 'do MMM')} - {format(cycleEndDate, 'do MMM')}
                                         </div>
                                     )}
-                                    {chargeTemplates.map(template => (
+                                    {chargeTemplates.map((template: ChargeTemplate) => (
                                         <TabsContent key={template.id} value={template.id} forceMount hidden={activeTab !== template.id}>
                                             <div className="space-y-4">
                                                 <FormField control={sharedChargeForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />

@@ -143,6 +143,26 @@ export type FeaturePermissions = { [key: string]: FeatureActions };
 export type RolePermissions = Record<UserRole, FeaturePermissions | null>;
 
 /**
+ * Type guard for FeaturePermissions
+ */
+export function isFeaturePermissions(
+  permissions: RolePermissions | FeaturePermissions | null | undefined
+): permissions is FeaturePermissions {
+  if (!permissions) return false;
+  const firstKey = Object.keys(permissions)[0];
+  if (!firstKey) return false;
+  const firstValue = (permissions as any)[firstKey];
+  // If the first value and its nested value are boolean, it's FeaturePermissions
+  if (firstValue && typeof firstValue === 'object') {
+    const subKeys = Object.keys(firstValue);
+    if (subKeys.length > 0 && typeof firstValue[subKeys[0]] === 'boolean') {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Converts a flat array of "feature:action" strings into a FeaturePermissions object.
  */
 export function parseStaffPermissions(perms: string[]): FeaturePermissions {
@@ -175,38 +195,14 @@ export function canAccess(
   if (role === 'admin' || role === 'owner') return true;
   if (!permissions || !feature || !action) return false;
 
-  // Robustly distinguish between RolePermissions (map of roles) and FeaturePermissions (map of features)
-  // FeaturePermissions: { [feature]: { [action]: boolean } }
-  // RolePermissions: { [role]: { [feature]: { [action]: boolean } } }
-  
-  const firstKey = Object.keys(permissions)[0];
-  if (!firstKey) return false;
-  
-  const firstVal = (permissions as any)[firstKey];
-  if (!firstVal || typeof firstVal !== 'object') return false;
-  
-  // Check if the structure is RolePermissions or FeaturePermissions
-  // We look at the depth: if firstVal's values are booleans, it's FeaturePermissions.
-  // If firstVal's values are objects, it's RolePermissions.
-  const subKeys = Object.keys(firstVal);
-  if (subKeys.length === 0) {
-    // Empty feature set for a role or empty action set for a feature.
-    // If we can't tell, we try both paths safely.
-    if ((permissions as any)[role] && (permissions as any)[role][feature]) {
-       return !!(permissions as any)[role][feature][action];
-    }
-    return !!(permissions as any)[feature]?.[action];
-  }
-
-  const isFeaturePerms = typeof firstVal[subKeys[0]] === 'boolean';
-  
   let featurePerms: FeatureActions | undefined;
-  if (!isFeaturePerms && (permissions as any)[role]) {
-      // It's RolePermissions map indexed by role
-      featurePerms = (permissions as RolePermissions)[role]?.[feature];
-  } else {
-      // It's already the granular FeaturePermissions for the current user
-      featurePerms = (permissions as FeaturePermissions)[feature];
+
+  if (isFeaturePermissions(permissions)) {
+    // It's already the granular FeaturePermissions for the current user
+    featurePerms = permissions[feature];
+  } else if (role in permissions) {
+    // It's RolePermissions map indexed by role
+    featurePerms = (permissions as RolePermissions)[role]?.[feature];
   }
 
   if (!featurePerms) return false;
@@ -245,27 +241,13 @@ function resolveFeatureActions(
 ): FeatureActions | undefined {
   if (!permissions) return undefined;
 
-  const firstKey = Object.keys(permissions)[0];
-  if (!firstKey) return undefined;
-  
-  const firstVal = (permissions as any)[firstKey];
-  if (!firstVal || typeof firstVal !== 'object') return undefined;
-  
-  const subKeys = Object.keys(firstVal);
-  if (subKeys.length === 0) {
-    if ((permissions as any)[role] && (permissions as any)[role][feature]) {
-       return (permissions as any)[role][feature];
-    }
-    return (permissions as any)[feature];
+  if (isFeaturePermissions(permissions)) {
+    return permissions[feature];
+  } else if (role in permissions) {
+    return (permissions as RolePermissions)[role]?.[feature];
   }
 
-  const isFeaturePerms = typeof firstVal[subKeys[0]] === 'boolean';
-  
-  if (!isFeaturePerms && (permissions as any)[role]) {
-      return (permissions as RolePermissions)[role]?.[feature];
-  } else {
-      return (permissions as FeaturePermissions)[feature];
-  }
+  return undefined;
 }
 
 /**

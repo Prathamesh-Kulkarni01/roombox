@@ -256,6 +256,15 @@ function AuthHandler({ children }: { children: ReactNode }) {
             });
             unsubs.push(unsub);
             setDataListeners(prev => [...prev, unsub]);
+
+            // Sync chargeTemplates to Zustand
+            const templatesRef = collection(dbInstance, 'users_data', ownerIdForFetching, 'chargeTemplates');
+            const templatesUnsub = onSnapshot(templatesRef, snapshot => {
+              const data = snapshot.docs.map(doc => doc.data() as ChargeTemplate);
+              setChargeTemplatesZustand(data);
+            });
+            unsubs.push(templatesUnsub);
+            setDataListeners(prev => [...prev, templatesUnsub]);
           }
 
           collectionNames.forEach(collectionName => {

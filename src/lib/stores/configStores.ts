@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { ChargeTemplate, KycFieldConfig } from '@/lib/types';
+import type { ChargeTemplate, KycDocumentConfig } from '@/lib/types';
 import type { RolePermissions, FeaturePermissions } from '@/lib/permissions';
 
 // ─── Charge Templates Store ───────────────────────────────────────────────────
@@ -69,8 +69,8 @@ export const usePermissionsStore = create<PermissionsState>()(
 // ─── KYC Config Store ─────────────────────────────────────────────────────────
 
 interface KycConfigState {
-    kycConfigs: Record<string, KycFieldConfig[]>;
-    saveKycConfig: (pgId: string, config: KycFieldConfig[]) => void;
+    kycConfigs: Record<string, KycDocumentConfig[]>;
+    saveKycConfig: (pgId: string, config: KycDocumentConfig[]) => void;
 }
 
 export const useKycConfigStore = create<KycConfigState>()(

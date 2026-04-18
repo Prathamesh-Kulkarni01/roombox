@@ -301,7 +301,8 @@ export function useDashboard() {
     setIsPaymentDialogOpen(true);
   };
 
-  const handleOpenSharedChargeDialog = (room: Room, guestsInRoom: Guest[]) => {
+  const handleOpenSharedChargeDialog = (room: Room) => {
+    const guestsInRoom = guests.filter(g => g.roomId === room.id && !g.isVacated);
     setRoomForSharedCharge({ room, guests: guestsInRoom });
     setIsSharedChargeDialogOpen(true);
     sharedChargeForm.reset({ description: '', totalAmount: 0 });

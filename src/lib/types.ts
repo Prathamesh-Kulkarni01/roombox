@@ -1,9 +1,9 @@
 export const CURRENT_SCHEMA_VERSION = 7;
 
-export interface KycFieldConfig {
+export interface KycDocumentConfig {
     id: string;
     label: string;
-    type: 'text' | 'file' | 'select' | 'date';
+    type: 'image' | 'pdf' | 'text' | 'file' | 'select' | 'date';
     required: boolean;
     options?: string[];
 }
@@ -83,9 +83,14 @@ export interface ActivityLog {
 
 export interface SubmittedKycDocument {
     fieldId: string;
+    configId?: string; // Legacy/Migration support
+    label?: string;
     value?: string;
     fileUrl?: string;
+    url?: string;     // Legacy/Migration support
     fileName?: string;
+    status: 'pending' | 'approved' | 'rejected';
+    rejectionReason?: string;
     submittedAt: string;
 }
 
@@ -295,20 +300,7 @@ export interface PaymentMethodValidationResult {
 
 export type BedStatus = 'available' | 'occupied' | 'rent-pending' | 'rent-partial' | 'notice-period';
 
-export interface KycDocumentConfig {
-  id: string;
-  label: string;
-  type: 'image' | 'pdf';
-  required: boolean;
-}
-
-export interface SubmittedKycDocument {
-  configId: string;
-  label: string;
-  url: string;
-  status: 'pending' | 'approved' | 'rejected';
-  rejectionReason?: string;
-}
+// Consolidated into previous definitions
 
 export interface KycDocument {
   guestId: string;
