@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useAppSelector } from "@/lib/hooks"
 import { usePermissionsStore } from '@/lib/stores/configStores'
+import { canAccess } from '@/lib/permissions'
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -239,8 +240,7 @@ export default function GuestManagementPage() {
     }, [guests, selectedPgId]);
 
     const canEditGuests = useMemo(() => {
-        if (!featurePermissions || !currentUser) return false;
-        return featurePermissions.guests?.edit ?? false;
+        return canAccess(featurePermissions, currentUser?.role, 'guests', 'edit');
     }, [featurePermissions, currentUser]);
 
     if (isLoading) {

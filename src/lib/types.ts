@@ -517,6 +517,14 @@ export interface User {
     role: string;
     pgIds?: string[];
   }[];
+  isOnboarded?: boolean;
+  lastActiveContext?: {
+    ownerId: string;
+    staffId: string | null;
+    role: string;
+    pgIds: string[];
+    pgId: string;
+  };
 }
 
 export interface Invite {
@@ -537,7 +545,7 @@ export interface SiteConfig {
   faviconUrl?: string;
   themeColor?: string;
   listedPgs: string[];
-  status: 'published' | 'draft' | 'suspended';
+  status?: 'published' | 'draft' | 'suspended';
   heroHeadline?: string;
   heroSubtext?: string;
   aboutTitle?: string;

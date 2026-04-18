@@ -8,7 +8,7 @@ import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canAccess, canPlanAccess, getPlanLimit } from '@/lib/permissions';
 import { Badge } from './badge';
 import SubscriptionDialog from '../dashboard/dialogs/SubscriptionDialog';
-import { Button } from './ui/button';
+import { Button } from './button';
 import { ShieldAlert } from 'lucide-react';
 
 /**
@@ -75,7 +75,7 @@ const Access: React.FC<AccessProps> = ({ feature, action, children, limitKey, cu
 
   const planId = currentPlan?.id;
   const planAllows = canPlanAccess(planId, feature, action);
-  const roleAllows = canAccess(featurePermissions, currentUser?.role, feature, action);
+  const roleAllows = canAccess(featurePermissions as any, currentUser?.role as any, feature, action);
 
   // Limit logic
   let limitReached = false;

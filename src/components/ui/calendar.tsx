@@ -17,7 +17,7 @@ function Calendar({
   ...props
 }: CalendarProps) {
   // Destructure DayPicker-specific props to avoid passing them to the DOM
-  const { initialFocus, mode, selected, onSelect, ...restProps } = props;
+  const { initialFocus, mode, selected, onSelect, ...restProps } = props as any;
 
   return (
     <DayPicker
@@ -62,9 +62,9 @@ function Calendar({
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
       initialFocus={initialFocus}
-      mode={mode}
-      selected={selected}
-      onSelect={onSelect}
+      mode={mode as any}
+      selected={selected as any}
+      onSelect={onSelect as any}
       {...restProps}
     />
   )

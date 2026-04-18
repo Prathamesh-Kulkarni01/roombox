@@ -96,7 +96,10 @@ service cloud.firestore {
 
     // ─── Complaints ───────────────────────────────────────────────────────────
     match /complaints/{complaintId} {
-      allow list: if isAuth();
+      allow list: if isAuth() && (
+        request.query.filters.ownerId == request.auth.uid ||
+        request.auth.token.ownerId != null
+      );
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
         (isStaff(resource.data.pgId) && (hasPermission('complaints', 'view') || request.auth.token.permissions.complaints.view == true))
@@ -109,7 +112,10 @@ service cloud.firestore {
 
     // ─── Expenses / Finances ─────────────────────────────────────────────────
     match /expenses/{expenseId} {
-      allow list: if isAuth();
+      allow list: if isAuth() && (
+        request.query.filters.ownerId == request.auth.uid ||
+        request.auth.token.ownerId != null
+      );
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
         (isStaff(resource.data.pgId) && (hasPermission('finances', 'view') || request.auth.token.permissions.finances.view == true))
@@ -127,7 +133,10 @@ service cloud.firestore {
 
     // ─── Staff ────────────────────────────────────────────────────────────────
     match /staff/{staffId} {
-      allow list: if isAuth();
+      allow list: if isAuth() && (
+        request.query.filters.ownerId == request.auth.uid ||
+        request.auth.token.ownerId != null
+      );
       allow get:  if isAuth() && (
         resource.data.ownerId == request.auth.uid ||
         (isStaff(resource.data.pgId) && (hasPermission('staff', 'view') || request.auth.token.permissions.staff.view == true))
@@ -149,7 +158,10 @@ service cloud.firestore {
 
     // ─── Charge Templates ────────────────────────────────────────────────────
     match /chargeTemplates/{templateId} {
-      allow list: if isAuth();
+      allow list: if isAuth() && (
+        request.query.filters.ownerId == request.auth.uid ||
+        request.auth.token.ownerId != null
+      );
       allow get, update, delete: if isAuth() && resource.data.ownerId == request.auth.uid;
       allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
     }
