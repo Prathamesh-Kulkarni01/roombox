@@ -13,28 +13,38 @@ test.describe('Multi-Role Context Switching', () => {
         
         // 1. Create as Tenant
         await page.goto('/dashboard/tenant-management');
-        await page.getByRole('button', { name: /Add Guest/i }).first().click();
-        await page.locator('input[name="name"]').fill(MUTUAL_NAME);
-        await page.keyboard.press('Tab');
-        await page.keyboard.type(MUTUAL_PHONE);
-        await page.locator('button[role="combobox"]').first().click();
+        await page.getByRole('button', { name: /Add New Guest/i }).first().click();
+        
+        const guestForm = page.locator('[role="dialog"]');
+        await guestForm.getByLabel(/Property/i).click();
         await page.getByRole('option').first().click();
-        await page.locator('input[name="rentAmount"]').fill('5000');
-        await page.getByRole('button', { name: /Add Guest/i }).first().click();
-        await page.waitForTimeout(2000);
+        await guestForm.getByLabel(/Room/i).click();
+        await page.getByRole('option').first().click();
+        await guestForm.getByLabel(/Bed/i).click();
+        await page.getByRole('option').first().click();
+
+        await guestForm.getByLabel(/Full Name/i).fill(MUTUAL_NAME);
+        await guestForm.getByLabel(/Phone Number/i).fill(MUTUAL_PHONE);
+        await guestForm.locator('input[name="rentAmount"]').fill('5000');
+        await guestForm.getByRole('button', { name: /Add Guest/i, exact: true }).click();
+        await expect(guestForm).toBeHidden({ timeout: 15_000 });
 
         // 2. Create as Staff (Same Phone)
         await page.goto('/dashboard/staff');
         await page.getByRole('button', { name: /Add Staff/i }).first().click();
-        await page.getByRole('combobox', { name: /Property/i }).click();
+        const staffForm = page.locator('[role="dialog"]');
+        
+        await staffForm.getByRole('combobox', { name: /Properties/i }).click();
         await page.getByRole('option').first().click();
-        await page.getByLabel(/Full Name/i).fill(MUTUAL_NAME);
-        await page.getByLabel(/Phone Number/i).fill(MUTUAL_PHONE);
-        await page.getByRole('combobox', { name: /Role/i }).click();
+        await page.keyboard.press('Escape'); // Close multi-select
+        
+        await staffForm.getByLabel(/Full Name/i).fill(MUTUAL_NAME);
+        await staffForm.getByLabel(/Phone Number/i).fill(MUTUAL_PHONE);
+        await staffForm.getByRole('combobox', { name: /Role/i }).click();
         await page.getByRole('option', { name: /manager/i }).click();
-        await page.getByLabel(/Salary/i).fill('10000');
-        await page.getByRole('button', { name: /Add Staff/i, exact: true }).click();
-        await page.waitForTimeout(2000);
+        await staffForm.getByLabel(/Salary/i).fill('10000');
+        await staffForm.getByRole('button', { name: /Add Staff/i, exact: true }).click();
+        await expect(staffForm).toBeHidden({ timeout: 15_000 });
 
         await page.close();
         await context.close();

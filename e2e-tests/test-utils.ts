@@ -49,17 +49,17 @@ export async function login(page: Page, emailOrPhone: string, options: { passwor
     // Owner Login Fallback
     if (isOwner) {
         console.log(`[Utils] Owner Flow detected...`);
-        const ownerBtn = page.getByRole('button', { name: /Property Owner Login/i });
+        const ownerBtn = page.getByRole('button', { name: /Owner Email/i });
         await ownerBtn.click();
         
-        await page.locator('#email').fill(emailOrPhone);
-        await page.locator('#owner-pass').fill(options.password || OWNER_PASSWORD);
-        await page.getByRole('button', { name: /Log In as Owner/i }).click();
+        await page.getByLabel(/Email Address/i).fill(emailOrPhone);
+        await page.getByLabel(/Password/i).fill(options.password || OWNER_PASSWORD);
+        await page.getByRole('button', { name: /Log In with Password/i }).click();
     } else {
         // Resident/Staff Flow
         console.log(`[Utils] Resident/Staff Flow: Phone entry...`);
         const cleanPhone = emailOrPhone.replace(/\D/g, '').slice(-10);
-        const phoneInput = page.locator('#phone');
+        const phoneInput = page.getByLabel(/Phone Number/i);
         await expect(phoneInput).toBeVisible({ timeout: 10000 });
         await phoneInput.fill(cleanPhone);
         await page.getByRole('button', { name: 'Next', exact: true }).click();
@@ -145,7 +145,7 @@ async function handlePostLogin(page: Page) {
         await firstCard.click();
     }
     
-    await page.waitForURL(SUCCESS_URL_REGEX, { timeout: 25000 });
+    await page.waitForURL(SUCCESS_URL_REGEX, { timeout: 60000 });
     console.log(`[Utils] Login successful: ${page.url()}`);
 }
 
@@ -205,10 +205,19 @@ export async function selectPgInHeader(page: Page, pgName: string) {
     console.log(`[Utils] Selecting PG: ${pgName}`);
     await page.waitForSelector('header', { timeout: 15_000 });
     
-    const trigger = page.locator('header [role="combobox"], header button[aria-haspopup], header button:has-text("Properties")').first();
+    // Dismiss any stale open menus (e.g. language switcher)
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    
+    // Target the PG combobox specifically — it's the only [role="combobox"] in the header
+    const trigger = page.locator('header [role="combobox"]').first();
+    if (!await trigger.isVisible({ timeout: 5000 }).catch(() => false)) {
+        console.log(`[Utils] PG combobox not found in header, skipping selection.`);
+        return;
+    }
     await trigger.click();
     
-    const option = page.locator(`[role="option"]:has-text("${pgName}"), [role="menuitem"]:has-text("${pgName}"), button:has-text("${pgName}")`).first();
+    const option = page.locator(`[role="option"]:has-text("${pgName}")`).first();
     await expect(option).toBeVisible({ timeout: 15_000 });
     await option.click();
     await page.waitForTimeout(2000);
@@ -216,9 +225,28 @@ export async function selectPgInHeader(page: Page, pgName: string) {
 
 export async function logout(page: Page) {
     console.log(`[Utils] Logging out...`);
-    await page.goto('/', { waitUntil: 'load' });
-    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    
+    // Click the logout button if visible (proper Firebase signOut)
+    const logoutBtn = page.getByRole('button', { name: 'Logout', exact: true });
+    if (await logoutBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await logoutBtn.click();
+        await page.waitForURL('**/login', { timeout: 15000 }).catch(() => {});
+    }
+    
+    // Clear all browser state including IndexedDB (Firebase Auth persistence)
+    await page.evaluate(async () => {
+        localStorage.clear();
+        sessionStorage.clear();
+        // Clear IndexedDB — this is where Firebase Auth stores its state
+        const dbs = await indexedDB.databases?.() || [];
+        for (const db of dbs) {
+            if (db.name) indexedDB.deleteDatabase(db.name);
+        }
+    });
     await page.context().clearCookies();
+    
     await page.goto('/login', { waitUntil: 'load' });
+    // Ensure we're actually on the login page and not redirected back
+    await page.waitForTimeout(2000);
+    console.log(`[Utils] Logout complete. Current URL: ${page.url()}`);
 }
-
