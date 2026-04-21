@@ -53,10 +53,11 @@ export async function POST(req: NextRequest) {
         // Update owner summary in main app DB
         try {
             const appDb = await getAdminDb();
-            const pgsSnap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
+            // Rapidly update owner's summary using count()
+            const pgsCountSnap = await db.collection('users_data').doc(ownerId).collection('pgs').count().get();
             await appDb.doc(`users/${ownerId}`).set({
                 pgSummary: {
-                    totalProperties: pgsSnap.size,
+                    totalProperties: pgsCountSnap.data().count,
                     lastPropertyAdded: new Date().toISOString()
                 }
             }, { merge: true });

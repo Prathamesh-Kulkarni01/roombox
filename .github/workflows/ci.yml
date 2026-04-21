@@ -44,7 +44,7 @@ jobs:
         FIREBASE_PROJECT_ID: "roombox-test"
 
     - name: Run Playwright E2E Tests
-      run: npx playwright test auth-adaptive.spec.ts auth-security.spec.ts --project=setup --project=chromium
+      run: npm run test:smoke
       env:
         CI: true
         FIRESTORE_EMULATOR_HOST: "localhost:8080"

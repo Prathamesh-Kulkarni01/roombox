@@ -23,7 +23,7 @@ import type { Guest, PG, Complaint, Notification, Staff, ChargeTemplate, Expense
 import { setLoading, validateSelectedPg } from '@/lib/slices/appSlice';
 import { useChargeTemplatesStore, usePermissionsStore, useKycConfigStore } from '@/lib/stores/configStores';
 import { fetchPermissions, updatePermissions, setPermissions as setReduxPermissions } from '@/lib/slices/permissionsSlice';
-import { parseStaffPermissions } from '@/lib/permissions';
+import { parseStaffPermissions } from '@/lib/parseStaffPermissions';
 import { initPushAndSaveToken, subscribeToTopic } from '@/lib/notifications';
 import { useRouter, usePathname } from 'next/navigation'
 import { Loader2 } from 'lucide-react'

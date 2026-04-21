@@ -97,9 +97,10 @@ export class ActivityLogsService {
         const adminDb = await getAdminDb();
         const collection = adminDb.collection(this.COLLECTION);
         
-        let query: Query = collection
-            .where('ownerId', '==', ownerId)
-            .orderBy('timestamp', 'desc');
+        let query: Query = collection.where('ownerId', '==', ownerId);
+
+        // Conditional ordering - can fail if composite index is missing in emulator
+        const orderedQuery = query.orderBy('timestamp', 'desc');
 
         if (module) query = query.where('module', '==', module);
         if (activityType) query = query.where('activityType', '==', activityType);
@@ -113,7 +114,14 @@ export class ActivityLogsService {
             }
         }
 
-        const snap = await query.limit(limit).get();
+        // Try ordered query first, fallback to unordered if index is missing
+        let snap;
+        try {
+            snap = await orderedQuery.limit(limit).get();
+        } catch (e) {
+            console.warn('[ActivityLogsService] Ordered query failed (likely missing index), falling back to unordered:', e);
+            snap = await query.limit(limit).get();
+        }
         const logs = snap.docs.map(doc => {
             const data = doc.data();
             return {

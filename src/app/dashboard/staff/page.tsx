@@ -16,7 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { produce } from "immer"
-import { featurePermissionConfig, parseStaffPermissions, validateAndEnforceDependencies } from '@/lib/permissions';
+import { featurePermissionConfig, validateAndEnforceDependencies } from '@/lib/permissions';
+import { parseStaffPermissions } from '@/lib/parseStaffPermissions';
 import type { UserRole } from '@/lib/types';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"

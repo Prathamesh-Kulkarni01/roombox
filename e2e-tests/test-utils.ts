@@ -1,4 +1,3 @@
-import { Page, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -13,141 +12,25 @@ export const RUN_ID = fs.existsSync(RUN_ID_FILE)
 if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
 if (!fs.existsSync(RUN_ID_FILE)) fs.writeFileSync(RUN_ID_FILE, RUN_ID);
 
+// IMPORTANT: All identifiers must be stable across Playwright projects (setup/chromium)
+// and across processes. Do NOT derive from current time-of-day, as it can differ between
+// the `setup` project and the main browser project.
 export const TARGET_PG_NAME = `PG ${RUN_ID}`;
 export const TARGET_ROOM_NAME = `101`;
 
-export const OWNER_EMAIL = 'bot_tester_9@roombox.app';
+export const OWNER_EMAIL = `bot_tester_${RUN_ID}@roombox.app`;
 export const OWNER_PASSWORD = 'Password123!';
-export const TENANT_EMAIL = 'tenant_tester_8@roombox.app';
+export const TENANT_EMAIL = `tenant_tester_${RUN_ID}@roombox.app`;
 export const TENANT_PASSWORD = 'Password123!';
-// The internal phone-based email that the onboardTenant service creates for the test tenant.
-// Format: {10-digit-phone}@roombox.app
-// The tenant account is seeded by the owner via the E2E setup script.
-export const TENANT_PHONE = '9876543219'; // matched in backend for stable test password Password123!
+// 10 digits: prefix + RUN_ID (5 digits)
+export const TENANT_PHONE = `98765${RUN_ID}`;
+export const OWNER_ID = `owner_id_${RUN_ID}`;
 
 /**
- * URLs that indicate successful login/navigation.
+ * Base URL for test server endpoints (OTP test API, etc.)
+ * Must match the Playwright webServer URL/PORT (9003 in playwright.config.ts).
  */
-const SUCCESS_URL_REGEX = /.*(dashboard|tenants\/my-pg|complete-profile)/;
-
-/**
- * Identity-First Login Helper
- * Handles the adaptive flow: Phone -> Challenge -> [Context Switch]
- */
-export async function login(page: Page, emailOrPhone: string, options: { password?: string, otp?: boolean } = {}) {
-    console.log(`[Utils] Identity-First Login for ${emailOrPhone}...`);
-    const isOwner = emailOrPhone.includes('@');
-    
-    // Clear state
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-    await page.context().clearCookies();
-    
-    // 1. IDENTITY STAGE
-    await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    
-    // Owner Login Fallback
-    if (isOwner) {
-        console.log(`[Utils] Owner Flow detected...`);
-        const ownerBtn = page.getByRole('button', { name: /Owner Email/i });
-        await ownerBtn.click();
-        
-        await page.getByLabel(/Email Address/i).fill(emailOrPhone);
-        await page.getByLabel(/Password/i).fill(options.password || OWNER_PASSWORD);
-        await page.getByRole('button', { name: /Log In with Password/i }).click();
-    } else {
-        // Resident/Staff Flow
-        console.log(`[Utils] Resident/Staff Flow: Phone entry...`);
-        const cleanPhone = emailOrPhone.replace(/\D/g, '').slice(-10);
-        const phoneInput = page.getByLabel(/Phone Number/i);
-        await expect(phoneInput).toBeVisible({ timeout: 10000 });
-        await phoneInput.fill(cleanPhone);
-        await page.getByRole('button', { name: 'Next', exact: true }).click();
-
-        
-        // 2. CHALLENGE STAGE
-        console.log(`[Utils] Detecting challenge type...`);
-        
-        // Wait for challenge to appear
-        const passwordInput = page.locator('#pass');
-        const inviteInput = page.locator('#invite-code');
-        const otpTrigger = page.getByRole('button', { name: /Get One-Time Code/i });
-        
-        const challenge = await Promise.race([
-            passwordInput.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'PASSWORD'),
-            inviteInput.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'INVITE'),
-            otpTrigger.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'OTP_TRIGGER')
-        ]).catch(() => 'UNKNOWN');
-
-
-        if (challenge === 'PASSWORD') {
-            console.log(`[Utils] Challenge: Password`);
-            if (options.otp) {
-               // User wants OTP but we reached password, check if fallback button exists
-               const switchBtn = page.getByRole('button', { name: 'I prefer login via OTP' });
-               if (await switchBtn.isVisible()) {
-
-                   await switchBtn.click();
-                   return await handleOtpChallenge(page, cleanPhone);
-               }
-            }
-            await passwordInput.fill(options.password || TENANT_PASSWORD);
-            await page.getByRole('button', { name: /Sign In/i, exact: true }).click();
-        } else if (challenge === 'INVITE') {
-            console.log(`[Utils] Challenge: Invitation Code`);
-            const code = await getOtpFromEmulator(cleanPhone);
-            if (!code) throw new Error(`Could not find invite code for ${cleanPhone} in emulator`);
-            await inviteInput.fill(code);
-            await page.getByRole('button', { name: /Verify & Join/i }).click();
-        } else if (challenge === 'OTP_TRIGGER') {
-            return await handleOtpChallenge(page, cleanPhone);
-        } else {
-            throw new Error(`Unrecognized or missing challenge for ${emailOrPhone}`);
-        }
-    }
-
-    // 3. POST-CHALLENGE (Redirect or Context Switch)
-    await handlePostLogin(page);
-}
-
-async function handleOtpChallenge(page: Page, phone: string) {
-    console.log(`[Utils] Challenge: OTP for ${phone}`);
-    const getBtn = page.getByRole('button', { name: 'Get One-Time Code', exact: true }).or(page.getByRole('button', { name: /Get One-Time Code/i }));
-    if (await getBtn.isVisible()) {
-        await getBtn.click();
-        console.log(`[Utils] Clicked 'Get One-Time Code'`);
-    } else {
-        console.log(`[Utils] 'Get One-Time Code' button NOT visible, checking for input directly...`);
-    }
-    
-    await page.waitForTimeout(2000); 
-    const code = await getOtpFromEmulator(phone);
-    if (!code) throw new Error(`OTP not found for ${phone} in emulator. Check console for fetch logs.`);
-    
-    const otpInput = page.locator('#otp-verify');
-    await otpInput.fill(code);
-    await page.getByRole('button', { name: 'Verify & Sign In', exact: true }).click();
-    
-    await handlePostLogin(page);
-}
-
-
-async function handlePostLogin(page: Page) {
-    console.log(`[Utils] Waiting for dashboard or switcher...`);
-    
-    // Check for context switcher
-    const switcherHeading = page.getByText(/Select Context|Pick a profile/i);
-    const isSwitcher = await switcherHeading.isVisible({ timeout: 10000 }).catch(() => false);
-    
-    if (isSwitcher) {
-        console.log(`[Utils] Multi-role detected. Selecting first context...`);
-        const firstCard = page.locator('div.grid.gap-4 .cursor-pointer').first();
-        await firstCard.click();
-    }
-    
-    await page.waitForURL(SUCCESS_URL_REGEX, { timeout: 60000 });
-    console.log(`[Utils] Login successful: ${page.url()}`);
-}
+export const TEST_BASE_URL = process.env.TEST_BASE_URL || process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:9003';
 
 /**
  * Fetches verification codes or invite codes from Firestore Emulator
@@ -155,98 +38,26 @@ async function handlePostLogin(page: Page) {
 export async function getOtpFromEmulator(phone: string) {
     const projectId = process.env.FIREBASE_PROJECT_ID || 'roombox-test';
     const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-    console.log(`[Utils] getOtpFromEmulator: Fetching for ${cleanPhone} (Project: ${projectId})`);
     
     try {
         // 1. Try our ROBUST Internal Testing API (Server-side Admin SDK check)
         const testApiUrl = `/api/auth/otp/test?phone=${cleanPhone}`;
-        console.log(`[Utils] Polling Internal Test API: ${testApiUrl}`);
-        const testRes = await fetch(`http://localhost:9002${testApiUrl}`);
-        
-        if (testRes.ok) {
-            const data = await testRes.json();
-            if (data.otp) {
-                console.log(`[Utils] Found OTP via Test API: ${data.otp}`);
-                return data.otp;
-            }
-        } else {
-            console.log(`[Utils] Internal Test API not ready or failed (Status: ${testRes.status})`);
+        let retries = 5;
+        while (retries > 0) {
+            try {
+                const testRes = await fetch(`${TEST_BASE_URL}${testApiUrl}`);
+                if (testRes.ok) {
+                    const data = await testRes.json();
+                    if (data.otp) return data.otp;
+                }
+            } catch (ignore) {}
+            retries--;
+            if (retries > 0) await new Promise(r => setTimeout(r, 1500));
         }
 
-        // 2. Fallback to Auth Emulator (Standard Firebase SDK verificationCodes)
-        const authUrl = `http://127.0.0.1:9099/emulator/v1/projects/${projectId}/verificationCodes`;
-        console.log(`[Utils] Polling Auth Emulator fallback: ${authUrl}`);
-        const authRes = await fetch(authUrl);
-        if (authRes.ok) {
-            const authData = (await authRes.json()) as any;
-            const codes = authData.verificationCodes || [];
-            const match = codes
-                .filter((c: any) => c.phoneNumber.includes(cleanPhone))
-                .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-            
-            if (match) {
-                console.log(`[Utils] Found Auth Emulator OTP: ${match.code}`);
-                return match.code;
-            }
-        }
-
-        console.error(`[Utils] No OTP found in Test API or Auth emulator for ${cleanPhone}`);
         return null;
     } catch (err) {
         console.warn(`[Utils] getOtpFromEmulator failed:`, err);
         return null;
     }
-}
-
-
-
-
-export async function selectPgInHeader(page: Page, pgName: string) {
-    console.log(`[Utils] Selecting PG: ${pgName}`);
-    await page.waitForSelector('header', { timeout: 15_000 });
-    
-    // Dismiss any stale open menus (e.g. language switcher)
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-    
-    // Target the PG combobox specifically — it's the only [role="combobox"] in the header
-    const trigger = page.locator('header [role="combobox"]').first();
-    if (!await trigger.isVisible({ timeout: 5000 }).catch(() => false)) {
-        console.log(`[Utils] PG combobox not found in header, skipping selection.`);
-        return;
-    }
-    await trigger.click();
-    
-    const option = page.locator(`[role="option"]:has-text("${pgName}")`).first();
-    await expect(option).toBeVisible({ timeout: 15_000 });
-    await option.click();
-    await page.waitForTimeout(2000);
-}
-
-export async function logout(page: Page) {
-    console.log(`[Utils] Logging out...`);
-    
-    // Click the logout button if visible (proper Firebase signOut)
-    const logoutBtn = page.getByRole('button', { name: 'Logout', exact: true });
-    if (await logoutBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await logoutBtn.click();
-        await page.waitForURL('**/login', { timeout: 15000 }).catch(() => {});
-    }
-    
-    // Clear all browser state including IndexedDB (Firebase Auth persistence)
-    await page.evaluate(async () => {
-        localStorage.clear();
-        sessionStorage.clear();
-        // Clear IndexedDB — this is where Firebase Auth stores its state
-        const dbs = await indexedDB.databases?.() || [];
-        for (const db of dbs) {
-            if (db.name) indexedDB.deleteDatabase(db.name);
-        }
-    });
-    await page.context().clearCookies();
-    
-    await page.goto('/login', { waitUntil: 'load' });
-    // Ensure we're actually on the login page and not redirected back
-    await page.waitForTimeout(2000);
-    console.log(`[Utils] Logout complete. Current URL: ${page.url()}`);
 }

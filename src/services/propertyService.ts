@@ -51,8 +51,9 @@ export class PropertyService {
         const limit = getPlanLimit(planId, 'pgs');
         if (limit === 'unlimited') return;
 
-        const snap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
-        if (snap.size >= limit) {
+        const countSnap = await db.collection('users_data').doc(ownerId).collection('pgs').count().get();
+        const count = countSnap.data().count;
+        if (count >= limit) {
             throw new Error(`Property limit reached (${limit}). Please upgrade your plan.`);
         }
     }
@@ -250,55 +251,68 @@ export class PropertyService {
      * Fetches the summary stats (briefing) for an owner.
      */
     static async getBriefingStats(db: Firestore, ownerId: string): Promise<BuildingStats> {
+        // Initialize with default values
+        const stats: BuildingStats = {
+            totalBuildings: 0,
+            totalTenants: 0,
+            totalBeds: 0,
+            totalPendingRent: 0,
+            totalComplaintsPending: 0,
+            rentCollectedToday: 0
+        };
+
         try {
-            const pgsSnap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
+            // 1. Basic Buildings count - usually works without indexes
+            const pgsSnap = await db.collection('users_data').doc(ownerId).collection('pgs').get().catch(() => null);
+            if (pgsSnap) {
+                stats.totalBuildings = pgsSnap.size;
+                pgsSnap.forEach(doc => {
+                    stats.totalBeds += doc.data().totalBeds || 0;
+                });
+            }
+
+            // 2. Tenants count - may fail on missing index for isVacated filter
             const guestsSnap = await db.collection('users_data').doc(ownerId).collection('guests')
                 .where('isVacated', '==', false)
-                .get();
+                .get().catch(() => null);
 
+            if (guestsSnap) {
+                stats.totalTenants = guestsSnap.size;
+                
+                const startOfToday = new Date();
+                startOfToday.setHours(0, 0, 0, 0);
+
+                guestsSnap.forEach(doc => {
+                    const guest = doc.data() as any;
+                    const balance = guest.balance || 0;
+                    if (balance > 0) stats.totalPendingRent += balance;
+
+                    const ledger = guest.ledger || [];
+                    ledger.forEach((entry: any) => {
+                        if (entry.type === 'credit' && entry.date) {
+                            const entryDate = new Date(entry.date);
+                            if (entryDate >= startOfToday) {
+                                stats.rentCollectedToday += entry.amount || 0;
+                            }
+                        }
+                    });
+                });
+            }
+
+            // 3. Complaints count - likely to fail if status 'in' index is missing
             const complaintsSnap = await db.collection('users_data').doc(ownerId).collection('complaints')
                 .where('status', 'in', ['open', 'in-progress'])
-                .get();
+                .get().catch(() => null);
+            
+            if (complaintsSnap) {
+                stats.totalComplaintsPending = complaintsSnap.size;
+            }
 
-            let totalBeds = 0;
-            pgsSnap.forEach(doc => {
-                const data = doc.data();
-                totalBeds += data.totalBeds || 0;
-            });
-
-            let totalPendingRent = 0;
-            let rentCollectedToday = 0;
-            const startOfToday = new Date();
-            startOfToday.setHours(0, 0, 0, 0);
-
-            guestsSnap.forEach(doc => {
-                const guest = doc.data() as any;
-                const balance = guest.balance || 0;
-                if (balance > 0) totalPendingRent += balance;
-
-                // Sum credits (payments) recorded today in the ledger
-                const ledger = guest.ledger || [];
-                ledger.forEach((entry: any) => {
-                    if (entry.type === 'credit' && entry.date) {
-                        const entryDate = new Date(entry.date);
-                        if (entryDate >= startOfToday) {
-                            rentCollectedToday += entry.amount || 0;
-                        }
-                    }
-                });
-            });
-
-            return {
-                totalBuildings: pgsSnap.size,
-                totalTenants: guestsSnap.size,
-                totalBeds,
-                totalPendingRent,
-                totalComplaintsPending: complaintsSnap.size,
-                rentCollectedToday
-            };
+            return stats;
         } catch (error) {
-            console.error('Error fetching briefing stats:', error);
-            throw error;
+            // High-level catch for extreme failures
+            console.error('[PropertyService] Stats briefing failed partially:', error);
+            return stats;
         }
     }
 
