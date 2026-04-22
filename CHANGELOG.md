@@ -1,3 +1,21 @@
+## Version 0.11.0 (4/13/2026, 6:29:20 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 19 +++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement identity-first adaptive authentication flow with multi-role context switching
+- feat: implement identity-first adaptive authentication page with multi-role context switching
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.10.0 (4/13/2026, 5:42:06 PM)
 
 ### 🔄 Semantic Impact Summary
