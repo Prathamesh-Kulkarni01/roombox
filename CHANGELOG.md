@@ -1,3 +1,27 @@
+## Version 0.12.0 (4/22/2026, 11:27:04 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 18 ++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement comprehensive E2E and integration testing suite with automated workflows, security assertions, and Firestore emulator helpers.
+- feat: add end-to-end authentication setup and multi-role test utilities
+- feat: implement KYC document upload page with camera integration and submission logic
+- feat: implement dashboard hook, state management, and UI components for guest and property administration
+- feat: implement dashboard infrastructure, service layers, and service worker caching support
+- feat: implement service worker caching, tenant management dashboard, and permission-based UI components
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+- integrate: breachme
+- del: Remove obsolete project files
+
+
 ## Version 0.11.0 (4/13/2026, 6:29:20 PM)
 
 ### 🔄 Semantic Impact Summary
