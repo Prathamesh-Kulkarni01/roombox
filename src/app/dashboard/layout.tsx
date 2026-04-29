@@ -81,6 +81,8 @@ export default function DashboardLayout({
       router.replace('/admin/dashboard');
     } else if (currentUser.role === 'unassigned') {
       router.replace('/complete-profile');
+    } else if (currentUser.role === 'owner' && !currentUser.isOnboarded) {
+      router.replace('/complete-profile');
     } else if (currentUser.role === 'tenant') {
       router.replace('/tenants/my-pg');
     } else if (!allowedDashboardRoles.includes(currentUser.role)) {

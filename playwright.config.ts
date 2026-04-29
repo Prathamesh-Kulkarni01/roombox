@@ -64,7 +64,7 @@ export default defineConfig({
             timeout: 240000,
         },
         {
-            command: 'cross-env PORT=9003 NEXT_DIST_DIR=.next-test FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIREBASE_PROJECT_ID=roombox-test npx next dev --turbopack -p 9003',
+            command: 'npx next dev --turbopack -p 9003',
             url: 'http://127.0.0.1:9003',
             reuseExistingServer: true,
             timeout: 300000, // 5 minutes for slow compilation

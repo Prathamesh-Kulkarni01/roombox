@@ -207,6 +207,23 @@ export const updateUserKycDetails = createAsyncThunk<User, BusinessKycDetails, {
     }
 );
 
+export const updateUserProfile = createAsyncThunk<User, { name?: string, phone?: string }, { state: RootState }>(
+    'user/updateProfile',
+    async (profileData, { getState, rejectWithValue }) => {
+        const { currentUser } = (getState() as RootState).user;
+        if (!currentUser) return rejectWithValue('User not found.');
+
+        const userDocRef = doc(db!, 'users', currentUser.id);
+        const update: Partial<User> = {};
+        if (profileData.name) update.name = profileData.name;
+        if (profileData.phone) update.phone = profileData.phone;
+
+        await updateDoc(userDocRef, update);
+        const updatedDoc = await getDoc(userDocRef);
+        return updatedDoc.data() as User;
+    }
+);
+
 export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { state: RootState }>(
     'user/finalizeUserRole',
     async (role, { getState, rejectWithValue }) => {
@@ -234,7 +251,7 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                     },
                     whatsappCredits: 150 // Initial 100 free template messages
                 },
-                isOnboarded: true,
+                isOnboarded: false,
             };
 
             const userDocRef = doc(db!, 'users', currentUser.id);
@@ -246,6 +263,20 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
         // The user is guided to get an invite link.
         // We return the current user state to keep them on the 'unassigned' page.
         return currentUser;
+    }
+);
+
+export const completeOnboarding = createAsyncThunk<User, void, { state: RootState }>(
+    'user/completeOnboarding',
+    async (_, { getState, rejectWithValue }) => {
+        const { currentUser } = (getState() as RootState).user;
+        if (!currentUser) return rejectWithValue('User not found.');
+
+        const userDocRef = doc(db!, 'users', currentUser.id);
+        await updateDoc(userDocRef, { isOnboarded: true });
+
+        const updatedDoc = await getDoc(userDocRef);
+        return updatedDoc.data() as User;
     }
 );
 
@@ -447,6 +478,12 @@ const userSlice = createSlice({
                 state.currentUser = action.payload;
             })
             .addCase(updatePayoutMode.fulfilled, (state, action) => {
+                state.currentUser = action.payload;
+            })
+            .addCase(completeOnboarding.fulfilled, (state, action) => {
+                state.currentUser = action.payload;
+            })
+            .addCase(updateUserProfile.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
             });
     },

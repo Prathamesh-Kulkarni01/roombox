@@ -48,7 +48,8 @@ export async function seedAuthEmulator() {
                 startDate: new Date().toISOString(),
             },
             createdAt: new Date().toISOString(),
-            schemaVersion: 2
+            schemaVersion: 2,
+            isOnboarded: true
         }, { merge: true });
         console.log(`[Seed] Owner Firestore doc updated.`);
     } catch (err) {

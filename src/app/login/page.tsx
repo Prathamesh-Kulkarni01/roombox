@@ -57,7 +57,12 @@ export default function LoginPage() {
   useEffect(() => {
     if (stage === 'SWITCH_CONTEXT') return; // Don't redirect if we are switching
 
-    if (currentUser?.role && currentUser.role !== 'unassigned') {
+    if (currentUser?.role) {
+      if (currentUser.role === 'unassigned') {
+        router.replace('/complete-profile');
+        return;
+      }
+
       // Check for multi-role
       const hasMultiple = (currentUser.activeTenancies?.length || 0) + (currentUser.activeStaffProfiles?.length || 0) > 1;
       
@@ -69,6 +74,8 @@ export default function LoginPage() {
 
       if (currentUser.role === 'tenant') {
         router.replace('/tenants/my-pg');
+      } else if (currentUser.role === 'owner' && !currentUser.isOnboarded) {
+        router.replace('/complete-profile');
       } else {
         router.replace('/dashboard');
       }
@@ -327,6 +334,9 @@ export default function LoginPage() {
                         Owner Google
                       </Button>
                   </div>
+                  <p className="text-center text-[11px] font-medium text-muted-foreground mt-1">
+                      New owner? <Link href="/signup" className="text-primary hover:underline font-bold">Create an account</Link>
+                  </p>
               </div>
             </form>
           ) : stage === 'SWITCH_CONTEXT' ? (

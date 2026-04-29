@@ -31,11 +31,17 @@ service cloud.firestore {
     // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isAuth() && request.auth.uid == userId;
-      // Disallow client-side updates to core identity fields (role, permissions, ownerId)
-      // and membership arrays that could be used for privilege escalation via switch-context.
-      allow write: if isAuth() && request.auth.uid == userId && (
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'permissions', 'ownerId', 'guestId', 'staffId', 'subscription', 'activeTenancies', 'activeStaffProfiles', 'lastActiveContext'])
+      
+      // Allow initial skeleton creation
+      allow create: if isAuth() && request.auth.uid == userId;
+      
+      // Allow profile updates, but protect core identity fields unless finalizing role
+      allow update: if isAuth() && request.auth.uid == userId && (
+        // Case 1: Finalizing role from unassigned to owner
+        (resource.data.role == 'unassigned' && request.resource.data.role == 'owner') ||
+        // Case 2: Standard updates (e.g. name, avatar) - protect core fields
+        (!request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['role', 'permissions', 'ownerId', 'guestId', 'staffId', 'subscription', 'activeTenancies', 'activeStaffProfiles', 'lastActiveContext']))
       );
     }
 

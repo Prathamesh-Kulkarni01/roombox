@@ -118,12 +118,9 @@ function AuthHandler({ children }: { children: ReactNode }) {
     const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin', 'other'];
     const publicPages = [
       '/', '/login', '/login/set-password', '/privacy-policy', '/terms-of-service',
-      '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog', '/invite', '/ledger', '/download', '/changelog'
+      '/contact', '/about', '/refund-policy', '/pay', '/site', '/blog', '/invite', '/ledger', '/download', '/changelog', '/signup'
     ];
 
-    if (process.env.NODE_ENV === 'development') {
-      publicPages.push('/signup');
-    }
 
     const isPublicPage = publicPages.some(p => {
       if (p === '/') return pathname === '/';
@@ -146,17 +143,32 @@ function AuthHandler({ children }: { children: ReactNode }) {
         console.log(`[StoreProvider] Redirecting tenant to portal... (Path: ${pathname})`);
         router.replace('/tenants/my-pg');
       } else if (allowedDashboardRoles.includes(currentUser.role) && ((!pathname.startsWith('/dashboard') && !isPublicPage) || isLoginPage || isMagicLoginPage) && !isInviteOrSetPassword && !pathname.startsWith('/admin')) {
-        console.log(`[StoreProvider] Redirecting ${currentUser.role} to dashboard... (Path: ${pathname})`);
-        router.replace('/dashboard');
+        // STRICT ONBOARDING: Only redirect owners to dashboard if they have completed onboarding
+        // This prevents the redirect loop where the dashboard guard kicks them to /complete-profile 
+        // and this guard kicks them back to /dashboard.
+        const isOwnerNotOnboarded = currentUser.role === 'owner' && !currentUser.isOnboarded;
+        
+        if (isOwnerNotOnboarded) {
+          if (pathname !== '/complete-profile') {
+            console.log(`[StoreProvider] Owner not onboarded. Redirecting to complete profile...`);
+            router.replace('/complete-profile');
+          }
+        } else {
+          console.log(`[StoreProvider] Redirecting ${currentUser.role} to dashboard... (Path: ${pathname})`);
+          router.replace('/dashboard');
+        }
       } else if (currentUser.role === 'unassigned' && pathname !== '/complete-profile' && !isPublicPage) {
         console.log(`[StoreProvider] Redirecting unassigned user to complete profile...`);
+        router.replace('/complete-profile');
+      } else if (currentUser.role === 'owner' && !currentUser.isOnboarded && pathname !== '/complete-profile' && !isPublicPage) {
+        console.log(`[StoreProvider] Owner not onboarded. Redirecting to complete profile...`);
         router.replace('/complete-profile');
       }
     } else if (!isPublicPage) {
       console.log(`[AuthHandler] Restricted page detected: ${pathname}. Redirecting to /login`);
       router.replace('/login');
     }
-  }, [authReady, currentUser?.id, currentUser?.role, pathname, router]);
+  }, [authReady, currentUser?.id, currentUser?.role, currentUser?.isOnboarded, pathname, router]);
   
   // Sync permissions to Zustand (the primary source for UI guards)
   // STRICT RBAC: Staff always uses their explicit permissions array.

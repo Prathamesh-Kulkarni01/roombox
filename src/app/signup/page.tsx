@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, notFound } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from "@/components/ui/button"
@@ -12,8 +12,6 @@ import { GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword } f
 import { auth } from "@/lib/firebase"
 import { Loader2 } from 'lucide-react'
 import { useAppSelector } from '@/lib/hooks'
-import { Skeleton } from '@/components/ui/skeleton'
-import type { UserRole } from '@/lib/types'
 
 const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
   <svg role="img" viewBox="0 0 24 24" {...props}>
@@ -25,14 +23,9 @@ const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
 );
 
 export default function SignupPage() {
-  if (process.env.NODE_ENV !== 'development') {
-    notFound();
-  }
-
   const router = useRouter()
   const { toast } = useToast()
-  const { isLoading: appLoading, currentUser } = useAppSelector((state) => ({
-    isLoading: state.app.isLoading,
+  const { currentUser } = useAppSelector((state) => ({
     currentUser: state.user.currentUser,
   }));
 
@@ -40,39 +33,18 @@ export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const loading = appLoading || isSigningIn;
-
-  const allowedDashboardRoles: UserRole[] = ['owner', 'manager', 'cook', 'cleaner', 'security', 'admin'];
-
+  // Redirect if already logged in and onboarded
   useEffect(() => {
-    if (!appLoading && currentUser) {
-      if (allowedDashboardRoles.includes(currentUser.role)) {
+    if (currentUser) {
+      if (currentUser.role === 'unassigned' || (currentUser.role === 'owner' && !currentUser.isOnboarded)) {
+        router.replace('/complete-profile');
+      } else if (currentUser.role === 'owner') {
         router.replace('/dashboard');
       } else {
-        router.replace('/complete-profile');
+        router.replace('/dashboard');
       }
     }
-  }, [appLoading, currentUser, router, allowedDashboardRoles]);
-
-  if (appLoading || currentUser) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="text-center">
-            <Skeleton className="h-7 w-32 mx-auto" />
-            <Skeleton className="h-5 w-48 mx-auto mt-2" />
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Skeleton className="h-5 w-16" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  }, [currentUser, router]);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +98,7 @@ export default function SignupPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl pt-4">Owner Sign Up</CardTitle>
           <CardDescription>
@@ -137,15 +109,32 @@ export default function SignupPage() {
           <form onSubmit={handleEmailSignUp} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="name@example.com" 
+                required 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                disabled={isSigningIn} 
+              />
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="Min 6 characters" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} minLength={6} />
+              <Input 
+                id="password" 
+                type="password" 
+                placeholder="Min 6 characters" 
+                required 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                disabled={isSigningIn} 
+                minLength={6} 
+              />
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading || !email || !password}>
+            <Button type="submit" className="w-full" disabled={isSigningIn || !email || !password}>
               {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Sign Up
             </Button>
@@ -156,16 +145,16 @@ export default function SignupPage() {
             <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">OR</span></div>
           </div>
 
-          <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
+          <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isSigningIn}>
             {isSigningIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
             Sign Up with Google
           </Button>
 
           <div className="mt-4 text-center text-sm">
             Already have an account?{" "}
-            <Link href="/login" className="underline underline-offset-4 hover:text-primary">
-              Log in
-            </Link>
+            <Button asChild variant="link" className="p-0 h-auto font-normal">
+              <Link href="/login">Log in</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
