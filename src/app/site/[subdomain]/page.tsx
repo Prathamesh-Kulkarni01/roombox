@@ -28,12 +28,12 @@ export async function generateMetadata(
     };
   }
 
-  const APP_URL = process.env.NEXT_PUBLIC_APP_URL || '';
+  const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || '';
 
   return {
     title: config.siteTitle || "Our Properties",
     description: config.aboutDescription || `Welcome to ${config.siteTitle}`,
-    manifest: `${APP_URL}/api/pwa/manifest?subdomain=${subdomain}`,
+    manifest: `${NEXT_PUBLIC_APP_URL}/api/pwa/manifest?subdomain=${subdomain}`,
     icons: {
       icon: config.faviconUrl || '/favicon.ico',
       apple: config.logoUrl || '/apple-touch-icon.png',

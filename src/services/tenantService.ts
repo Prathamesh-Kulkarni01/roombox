@@ -588,7 +588,7 @@ export class TenantService {
                         }
                 }
 
-                let appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/+$/, '');
+                let appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/+$/, '');
                 if (!appUrl) {
                     console.warn('[onboardTenant] NEXT_PUBLIC_APP_URL not found, using root fallback. Magic links may break!');
                 }
@@ -1307,7 +1307,7 @@ export class TenantService {
                     const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
                     const primaryCredit = newCredits[0];
-                    const appUrl = (process.env.APP_URL || 'https://roombox.in');
+                    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
                     const receiptUrl = `${appUrl}/ledger/${primaryCredit.id}`;
 
                     const messageAmount = amountType === 'symbolic' 
@@ -1684,7 +1684,7 @@ export class TenantService {
             if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
 
             const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
-            const appUrl = (process.env.APP_URL || 'https://roombox.in');
+            const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
             const statusUrl = `${appUrl}/complaints/${complaintId}`;
             const title = compData.description || compData.category;
             const updateMessage = status === 'resolved' ? 'Fixed! Contact landlord if issue persists.' : 'We are working on it!';

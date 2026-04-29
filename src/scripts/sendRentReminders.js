@@ -1,7 +1,7 @@
 // import fetch from 'node-fetch';
 
 const CRON_SECRET = process.env.CRON_SECRET;
-const BASE_URL = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/+$/, '');
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/+$/, '');
 const ENDPOINT = '/api/send-rent-reminders';
 
 async function sendRentReminders() {

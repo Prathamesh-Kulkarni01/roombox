@@ -139,7 +139,7 @@ export class PaymentSystemService {
 
                     const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
                     
-                    const appUrl = (process.env.APP_URL || 'https://roombox.in');
+                    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
                     const receiptUrl = `${appUrl}/ledger/${creditId}`;
 
                     // rent_receipt_simple_3: [name, amount, month, receiptUrl]
