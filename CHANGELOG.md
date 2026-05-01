@@ -1,3 +1,26 @@
+## Version 0.13.0 (4/29/2026, 1:35:16 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ e2e-tests/seed-utils.ts                            |   3 +-
+ .../specs/e2e/auth/auth-onboarding-robust.spec.ts  |  97 +++
+ e2e-tests/specs/e2e/auth/auth-signup.spec.ts       |  62 +-
+ firestore.rules                                    |  16 +-
+ playwright.config.ts                               |   2 +-
+ src/app/complete-profile/page.tsx                  | 793 ++++++++++++++++++++-
+ src/app/dashboard/layout.tsx                       |   2 +
+ src/app/login/page.tsx                             |  12 +-
+ src/app/signup/page.tsx                            |  79 +-
+ src/components/StoreProvider.tsx                   |  26 +-
+ src/lib/slices/userSlice.ts                        |  39 +-
+ 11 files changed, 1028 insertions(+), 103 deletions(-)
+
+```
+
+### ✨ Features
+- feat: implement user onboarding flow with property setup wizard and associated e2e tests
+
+
 ## Version 0.12.0 (4/22/2026, 11:27:04 AM)
 
 ### 🔄 Semantic Impact Summary
