@@ -183,7 +183,8 @@ export default function CompleteProfilePage() {
             if (result.success) {
                 showConfetti({ particleCount: 400, spread: 120, duration: 8000 });
                 await dispatch(completeOnboarding()).unwrap();
-                toast({ title: 'Welcome Aboard!', description: "Your property is ready for business."});
+                // Increase delay to allow state propagation before redirect (prevents race conditions in E2E)
+                await new Promise(resolve => setTimeout(resolve, 800));
                 router.push('/dashboard');
             }
         } catch (error: any) {

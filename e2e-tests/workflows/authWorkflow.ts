@@ -6,7 +6,27 @@ import { getOtpFromEmulator } from '../test-utils';
  * Auth Workflow — Manages the multi-stage login adaptive flow.
  */
 export async function loginWorkflow(page: Page, emailOrPhone: string, password?: string, options: { otp?: boolean, autoSelectContext?: boolean } = {}) {
+    const consoleErrors: string[] = [];
+    page.on('console', msg => { 
+        console.log(`[Browser:${msg.type()}] ${msg.text()}`);
+        if (msg.type() === 'error') consoleErrors.push(msg.text()); 
+    });
+
     console.log(`[Workflow:Auth] Initializing handshake for ${emailOrPhone}...`);
+    
+    // Capture network failures
+    page.on('requestfailed', request => {
+        console.error(`[Workflow:Auth] Request Failed: ${request.method()} ${request.url()} - ${request.failure()?.errorText}`);
+    });
+    
+    // Capture response errors
+    page.on('response', async response => {
+        if (response.status() >= 400) {
+            const body = await response.text().catch(() => 'No body');
+            console.error(`[Workflow:Auth] HTTP Error: ${response.status()} ${response.url()}\nBody: ${body}`);
+        }
+    });
+
     const auth = new AuthPage(page);
     await auth.goto();
 
@@ -14,53 +34,63 @@ export async function loginWorkflow(page: Page, emailOrPhone: string, password?:
     console.log(`[Workflow:Auth] Step: Identifying role (isEmail: ${isEmail})`);
 
     if (isEmail) {
-        // OWNER FLOW
         await auth.clickOwnerTab();
         await auth.enterEmail(emailOrPhone);
-        await auth.enterPassword(password || 'Password123!');
-        await auth.clickLogin();
-    } else {
-        // ADAPTIVE FLOW (Staff/Tenant)
-        const cleanPhone = emailOrPhone.replace(/\D/g, '').slice(-10);
-        await auth.enterPhone(cleanPhone);
-        await auth.clickNext();
-
-        // Wait for the transition to the challenge stage
-        await expect(page.getByText(/Welcome back, authenticate to continue|Your Invitation Code/i)).toBeVisible({ timeout: 10000 });
-
-        if (options.otp) {
-            console.log(`[Workflow:Auth] Step: Requesting multi-factor OTP for ${cleanPhone}...`);
-            await auth.clickGetOtp();
-            const code = await getOtpFromEmulator(cleanPhone);
-            if (!code) throw new Error(`OTP Missing for ${cleanPhone}`);
-            await auth.enterOtp(code);
-            await auth.clickLogin(); 
+        if (password) {
+            await auth.enterPassword(password);
+            await auth.clickLogin();
         } else {
-            console.log(`[Workflow:Auth] Step: Entering primary password...`);
-            await auth.enterPassword(password || 'Password123!');
+            // OTP flow for email if requested
+            await auth.clickGetOtp();
+            const otp = await getOtpFromEmulator(emailOrPhone);
+            await auth.enterOtp(otp);
             await auth.clickLogin();
         }
+    } else {
+        // Phone flow
+        await auth.enterPhone(emailOrPhone);
+        await auth.clickGetOtp();
+        const otp = await getOtpFromEmulator(emailOrPhone);
+        await auth.enterOtp(otp);
+        await auth.clickLogin();
     }
 
     // Handle Context Switch Logic
     if (options.autoSelectContext !== false) {
         try {
-            if (await auth.isContextSwitcherVisible()) {
-                console.log('[Workflow:Auth] Selection: Multiple profiles detected. Auto-selecting first...');
-                await auth.selectFirstContext();
-            }
+            console.log('[Workflow:Auth] Waiting for context switcher or dashboard redirection...');
             
-            console.log('[Workflow:Auth] Success: Redirection triggered. Waiting for target URL...');
-            await expect(page).toHaveURL(/dashboard|tenants\/my-pg|complete-profile/, { timeout: 60000 });
+            // Race: either the context switcher appears, OR we get redirected to a valid dashboard-like URL
+            await Promise.race([
+                auth.isContextSwitcherVisible().then(visible => {
+                    if (visible) return 'switcher';
+                    // If not visible, we wait for the URL anyway
+                    return new Promise(() => {}); // never resolve if not visible, let the URL check win
+                }),
+                page.waitForURL(/dashboard|tenants\/my-pg|complete-profile/, { timeout: 15000 }).then(() => 'redirected')
+            ]).then(async (winner) => {
+                if (winner === 'switcher') {
+                    console.log('[Workflow:Auth] Selection: Multiple profiles detected. Auto-selecting first...');
+                    await auth.selectFirstContext();
+                }
+            });
+
+            console.log('[Workflow:Auth] Success: Redirection triggered. Verifying target URL...');
+            await expect(page).toHaveURL(/dashboard|tenants\/my-pg|complete-profile/, { timeout: 15000 });
         } catch (err: any) {
             console.error('[Workflow:Auth] Error: Authentication failed or timed out.');
-            // Check for error messages on page
-            const errorMsg = await page.locator('[role="alert"], .text-red-500, .error-message').first().textContent().catch(() => null);
+            console.error(`[Workflow:Auth] Current URL: ${page.url()}`);
+
+            if (consoleErrors.length > 0) {
+                console.error(`[Workflow:Auth] Browser console errors observed:\n${consoleErrors.join('\n')}`);
+            }
+
+            // Check for sonner toasts or alerts
+            const errorMsg = await page.locator('[role="alert"], [data-sonner-toast], .text-red-500').first().textContent().catch(() => null);
             if (errorMsg) {
                 console.error(`[Workflow:Auth] Detected UI Error: "${errorMsg.trim()}"`);
-            } else {
-                console.error(`[Workflow:Auth] Current URL: ${page.url()}`);
             }
+
             throw err;
         }
     }
@@ -77,3 +107,4 @@ export async function logoutWorkflow(page: Page) {
     await auth.logout();
     console.log('[Workflow:Auth] Success: Logged out and cleared state.');
 }
+

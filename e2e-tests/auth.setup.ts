@@ -15,6 +15,16 @@ setup('Authenticate Both Owner and Tenant', async ({ page }) => {
     // 0. Seed Emulator Users
     await seedAuthEmulator();
 
+    // Block External/Analytics noise (prevents 400 errors in emulator)
+    await page.route('**/*.{google-analytics.com,googletagmanager.com,firebaselogging-pa.googleapis.com}/**', route => route.abort());
+    await page.route('**/firebaseinstallations.googleapis.com/**', route => route.fulfill({ 
+        status: 200, 
+        contentType: 'application/json',
+        body: JSON.stringify({ refreshToken: 'mock-token', authToken: 'mock-token', installationId: 'mock-id' }) 
+    }));
+    await page.route('**/webConfig', route => route.fulfill({ status: 200, body: '{}' }));
+    await page.route('**/checkout.razorpay.com/**', route => route.abort());
+
     const auth = new AuthPage(page);
 
     // 1. Authenticate as Owner

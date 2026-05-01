@@ -370,7 +370,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3">
                         <Avatar className="w-10 h-10 border shadow-sm">
                           <AvatarFallback className="bg-primary/5 text-primary text-sm font-bold">
-                            {guest.name.slice(0, 2).toUpperCase()}
+                            {(guest.name || 'User').slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div>

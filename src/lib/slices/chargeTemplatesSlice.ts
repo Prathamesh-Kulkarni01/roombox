@@ -67,7 +67,10 @@ const chargeTemplatesSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(addChargeTemplate.fulfilled, (state, action) => {
-                state.templates.push(action.payload);
+                const exists = state.templates.some(t => t.id === action.payload.id);
+                if (!exists) {
+                    state.templates.push(action.payload);
+                }
             })
             .addCase(updateChargeTemplate.fulfilled, (state, action) => {
                 const index = state.templates.findIndex(t => t.id === action.payload.id);

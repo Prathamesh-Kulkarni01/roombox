@@ -14,12 +14,16 @@ const firebaseConfig: FirebaseOptions = {
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+export const isEmulator = () => {
+    return !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST || !!process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST;
+}
+
 // Function to check if the Firebase config keys have been set
 export const isFirebaseConfigured = () => {
     // In development/test, we might use dummy values
     const isDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const hasConfig = !!firebaseConfig.projectId && firebaseConfig.projectId !== "your-project-id";
-    return hasConfig || isDev;
+    const hasConfig = !!firebaseConfig.projectId && firebaseConfig.projectId !== "your-project-id" && firebaseConfig.apiKey !== "AIzaSyDummyKey_1234567890";
+    return (hasConfig || isDev);
 }
 
 // Initialize Firebase

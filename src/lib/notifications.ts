@@ -1,6 +1,6 @@
 
 import { getMessaging, getToken, isSupported } from 'firebase/messaging'
-import { app, db, isFirebaseConfigured } from './firebase'
+import { app, db, auth, isFirebaseConfigured, isEmulator } from './firebase'
 import { doc, setDoc } from 'firebase/firestore'
 
 export type InitPushResult = {
@@ -9,7 +9,7 @@ export type InitPushResult = {
 }
 
 export async function initPushAndSaveToken(userId: string): Promise<InitPushResult> {
-	if (!isFirebaseConfigured() || typeof window === 'undefined' || !userId) return {}
+	if (!isFirebaseConfigured() || isEmulator() || typeof window === 'undefined' || !userId) return {}
 	if (!(await isSupported())) return {}
 	if (!app || !db) return {}
 
@@ -34,9 +34,13 @@ export async function initPushAndSaveToken(userId: string): Promise<InitPushResu
 export async function subscribeToTopic({token, topic,topics,userId}: {token: string, topic?: string, topics?: string[], userId?: string}): Promise<boolean> {
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 	try {
+		const idToken = await auth?.currentUser?.getIdToken();
 		const res = await fetch(`${appUrl}/api/notifications/subscribe`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: { 
+				'Content-Type': 'application/json',
+				'Authorization': idToken ? `Bearer ${idToken}` : ''
+			},
 			body: JSON.stringify({ token, topic, topics, userId })
 		})
 		return res.ok
@@ -48,9 +52,13 @@ export async function subscribeToTopic({token, topic,topics,userId}: {token: str
 export async function subscribeToTopics(token: string, topics: string[]): Promise<{ ok: boolean; subscribed?: string[] }> {
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 	try {
+		const idToken = await auth?.currentUser?.getIdToken();
 		const res = await fetch(`${appUrl}/api/notifications/subscribe`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: { 
+				'Content-Type': 'application/json',
+				'Authorization': idToken ? `Bearer ${idToken}` : ''
+			},
 			body: JSON.stringify({ token, topics })
 		})
 		if (!res.ok) return { ok: false }
@@ -66,7 +74,13 @@ export async function getSubscribedTopics(opts: { userId?: string; token?: strin
 	const params = new URLSearchParams()
 	if (opts.userId) params.set('userId', opts.userId)
 	if (opts.token) params.set('token', opts.token)
-	const res = await fetch(`${appUrl}/api/notifications/topics?${params.toString()}`)
+	
+	const idToken = await auth?.currentUser?.getIdToken();
+	const res = await fetch(`${appUrl}/api/notifications/topics?${params.toString()}`, {
+		headers: {
+			'Authorization': idToken ? `Bearer ${idToken}` : ''
+		}
+	})
 	if (!res.ok) return []
 	const data = await res.json().catch(() => ({}))
 	return Array.isArray(data.topics) ? data.topics : []
@@ -75,9 +89,13 @@ export async function getSubscribedTopics(opts: { userId?: string; token?: strin
 export async function sendPushToUser(params: { userId: string; title: string; body: string; link?: string }): Promise<{ ok: boolean; error?: string }>{
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 	try {
+		const idToken = await auth?.currentUser?.getIdToken();
 		const res = await fetch(`${appUrl}/api/notifications/send/user`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: { 
+				'Content-Type': 'application/json',
+				'Authorization': idToken ? `Bearer ${idToken}` : ''
+			},
 			body: JSON.stringify(params)
 		})
 		if (!res.ok) {
@@ -93,9 +111,13 @@ export async function sendPushToUser(params: { userId: string; title: string; bo
 export async function sendPushToTopic(params: { topic: string; title: string; body: string; link?: string }): Promise<{ ok: boolean; error?: string }>{
 	const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 	try {
+		const idToken = await auth?.currentUser?.getIdToken();
 		const res = await fetch(`${appUrl}/api/notifications/send/topic`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: { 
+				'Content-Type': 'application/json',
+				'Authorization': idToken ? `Bearer ${idToken}` : ''
+			},
 			body: JSON.stringify(params)
 		})
 		if (!res.ok) {
@@ -107,3 +129,4 @@ export async function sendPushToTopic(params: { topic: string; title: string; bo
 		return { ok: false, error: err?.message || 'Network error' }
 	}
 } 
+ 

@@ -72,6 +72,7 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
     if (projectId) appOptions.projectId = projectId;
     // Note: Admin SDK currently binds default database to the app; named databases can be handled at Firestore client level if needed.
 
+    console.log(`[FirebaseAdmin] Initializing "${appName}" for project "${appOptions.projectId}" (Emulator: ${!!isEmulator})`);
     const app = initializeApp(appOptions, appName);
     adminApps.set(appName, app);
     return app;

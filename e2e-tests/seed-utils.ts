@@ -7,16 +7,23 @@ import { OWNER_EMAIL, OWNER_ID, OWNER_PASSWORD, TENANT_PHONE, TENANT_PASSWORD } 
 export async function seedAuthEmulator() {
     console.log('[Seed] Ensuring test users exist in Auth Emulator...');
     
-    // Configure for Emulator
-    process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
-    process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-    process.env.FIREBASE_PROJECT_ID = 'roombox-test';
+    // Configure for Emulator - Ensure we are hitting the same hosts as the app
+    // These are typically set in playwright.config.ts or .env
+    process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
+    process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
+    // No hardcoded project ID - use whatever is in the env
 
     const auth = await getAdminAuth();
     const db = await getAdminDb();
 
     // 1. Owner User (Auth)
     try {
+        const existingByEmail = await auth.getUserByEmail(OWNER_EMAIL).catch(() => null);
+        if (existingByEmail && existingByEmail.uid !== OWNER_ID) {
+            console.log(`[Seed] Owner email mismatch detected (${existingByEmail.uid} != ${OWNER_ID}). Deleting old user...`);
+            await auth.deleteUser(existingByEmail.uid);
+        }
+
         await auth.getUser(OWNER_ID);
         console.log(`[Seed] Owner ${OWNER_EMAIL} (${OWNER_ID}) already exists.`);
     } catch (err: any) {
@@ -33,6 +40,8 @@ export async function seedAuthEmulator() {
             console.error('[Seed] Error checking owner auth:', err);
         }
     }
+    // Ensure claims are set (covers both newly created and existing users)
+    await auth.setCustomUserClaims(OWNER_ID, { role: 'owner' });
 
     // 1.1 Owner User (Firestore)
     try {
@@ -76,12 +85,17 @@ export async function seedAuthEmulator() {
             console.error('[Seed] Error checking tenant:', err);
         }
     }
+    if (tenantUid) {
+        // Ensure claims are set (covers both newly created and existing users)
+        await auth.setCustomUserClaims(tenantUid, { role: 'tenant' });
+    }
 
     // 2.1 Tenant User (Firestore)
     // Needed for OTP send route, which checks `users.phone` to avoid enumeration.
     if (tenantUid) {
         try {
             await db.collection('users').doc(tenantUid).set({
+                name: `Tenant ${TENANT_PHONE.slice(-4)}`,
                 role: 'tenant',
                 phone: fullPhone,
                 createdAt: new Date().toISOString(),

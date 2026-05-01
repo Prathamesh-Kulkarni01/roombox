@@ -59,27 +59,42 @@ export class AuthPage extends BasePage {
     async clickGetOtp() {
         console.log('[Page:Auth] clickGetOtp: Entering stage...');
         
-        // 1. If the "Get One-Time Code" button is NOT visible, we MUST switch first
+        // 1. If we are still on the Identity stage (Next button visible), click it
+        const nextBtn = this.page.getByRole('button', { name: /Next/i }).first();
+        if (await nextBtn.isVisible()) {
+            console.log('[Page:Auth] clickGetOtp: Identity stage detected. Clicking Next...');
+            await nextBtn.click();
+            
+            // Wait for stage transition
+            console.log('[Page:Auth] clickGetOtp: Waiting for stage transition...');
+            await this.page.waitForFunction(() => {
+                const text = document.body.innerText;
+                return text.includes('One-Time Code') || text.includes('Password') || text.includes('Invite Code') || !!document.querySelector('#otp-verify, #invite-code, #pass');
+            }, { timeout: 10000 }).catch(e => console.warn('[Page:Auth] Timeout waiting for stage transition:', e.message));
+        }
+
+        // 2. If the "Get One-Time Code" button is NOT visible, we might be in Password mode or Invite mode
         const getBtn = this.page.locator('button').filter({ hasText: /Get One-Time Code/i });
         if (!(await getBtn.isVisible())) {
             const switchBtn = this.page.locator('button').filter({ hasText: /I prefer login via OTP|Forgot\? Use OTP Login/i });
             if (await switchBtn.count() > 0) {
-                console.log('[Page:Auth] clickGetOtp: Switching to OTP mode...');
+                console.log('[Page:Auth] clickGetOtp: Password mode detected. Switching to OTP mode...');
                 await switchBtn.first().click();
             }
         }
 
-        // 2. Locate and click "Get One-Time Code"
+        // 3. Locate and click "Get One-Time Code"
         try {
-            await getBtn.waitFor({ state: 'visible', timeout: 5000 });
-            console.log('[Page:Auth] clickGetOtp: Clicking Get One-Time Code button...');
-            await getBtn.click();
+            if (await getBtn.isVisible()) {
+                console.log('[Page:Auth] clickGetOtp: Clicking Get One-Time Code button...');
+                await getBtn.click();
+            }
             
             // Wait for OTP input
             console.log('[Page:Auth] clickGetOtp: Waiting for OTP/setup-code input...');
             await expect(this.page.locator('#otp-verify, #invite-code').first()).toBeVisible({ timeout: 10000 });
         } catch (e) {
-            console.warn('[Page:Auth] clickGetOtp: "Get One-Time Code" button not visible. Checking if code entry is already active (might be INVITE_CODE stage)...');
+            console.warn('[Page:Auth] clickGetOtp: "Get One-Time Code" button not visible. Checking if code entry is already active...');
             const codeInput = this.page.locator('#otp-verify, #invite-code').first();
             await expect(codeInput).toBeVisible({ timeout: 5000 });
         }
@@ -94,7 +109,12 @@ export class AuthPage extends BasePage {
     // --- CONTEXT SWITCHER ---
     async isContextSwitcherVisible() {
         console.log('[Page:Auth] Checking for multi-profile context switcher...');
-        return await this.page.getByText(/Select Context|Pick a profile/i).isVisible({ timeout: 5000 }).catch(() => false);
+        try {
+            await this.page.getByText(/Select Context|Pick a profile/i).waitFor({ state: 'visible', timeout: 5000 });
+            return true;
+        } catch (e) {
+            return false;
+        }
     }
 
     async selectFirstContext() {

@@ -51,15 +51,24 @@ export async function enforcePermission(
     isSensitive: boolean = false
 ): Promise<EnforcePermissionResult> {
     const authResult = await getVerifiedOwnerId(req);
-    const { ownerId, userId, name, role, permissions, plan, error, guestId } = authResult;
+    const { ownerId, userId, name, role, permissions, plan, status, error } = authResult;
 
     if (!ownerId || !userId) {
         return { authorized: false, response: unauthorized(error) };
     }
 
+    // 0. Status check: Prevent access for suspended or inactive accounts
+    if (status && status !== 'active') {
+        console.warn(`[RBAC] Access blocked for ${status} user: ${userId}`);
+        return { 
+            authorized: false, 
+            response: forbidden(`Account ${status}. Please contact support.`) 
+        };
+    }
+
     // --- SCOPE & PERMISSION RESOLUTION ---
     
-    // 1. Super-roles (Owner/Admin) have implicit "All" permissions but still get scoped
+    // 1. Super-roles (Owner/Admin) have implicit "All" permissions
     const isSuperRole = role === 'owner' || role === 'admin';
     const requiredPerm = `${feature}:${action}`;
     const hasPermission = isSuperRole || (Array.isArray(permissions) && permissions.includes(requiredPerm));
@@ -67,6 +76,8 @@ export async function enforcePermission(
     if (!hasPermission) {
         // Log the denied access attempt
         const route = routeLabel || `${req.method} ${req.nextUrl.pathname}`;
+        console.warn(`[RBAC] Access Denied: User ${userId} missing ${requiredPerm}`);
+        
         logAccessDenied({
             staffId: userId,
             ownerId,
@@ -82,30 +93,31 @@ export async function enforcePermission(
         };
     }
 
-    // 2. Hybrid Runtime Validation for Sensitive Actions
-    // If the route is marked as sensitive, we bypass the JWT claims and check Firestore directly.
-    if (isSensitive && role !== 'owner') {
-        const db = await (import('./firebaseAdmin').then(m => m.getAdminDb()));
-        const userRef = db.collection('users').doc(userId);
-        const userDoc = await userRef.get();
-        const userData = userDoc.data();
-
-        if (!userDoc.exists || !userData || userData.status === 'suspended') {
-            return { authorized: false, response: forbidden('Account suspended or access revoked. Please re-login.') };
-        }
-
-        // Verify PG scope in real-time
-        if (userData.pgIds && Array.isArray(userData.pgIds)) {
-            const requestedPgId = req.nextUrl.searchParams.get('pgId');
-            if (requestedPgId && !userData.pgIds.includes(requestedPgId)) {
-                return { authorized: false, response: forbidden('Horizontal data leak blocked: Real-time PG check failed.') };
-            }
+    // 2. PG Scope Enforcement (Horizontal Isolation)
+    // If a pgId is provided in query or body, we MUST ensure the user has access to it.
+    // Owners bypass this check (they have global access).
+    if (!isSuperRole && authResult.pgIds) {
+        const requestedPgId = req.nextUrl.searchParams.get('pgId');
+        if (requestedPgId && !authResult.pgIds.includes(requestedPgId)) {
+            console.warn(`[RBAC] Horizontal Data Leak Blocked: User ${userId} requested PG ${requestedPgId} but only has access to [${authResult.pgIds.join(', ')}]`);
+            return { 
+                authorized: false, 
+                response: forbidden('Security block: You do not have access to this property group.') 
+            };
         }
     }
 
-    // 2. Data Scope Enforcement (PG Isolation)
-    // For Owners/Admins, scope is Global. For Staff, it's assigned PGs.
-    // We pass this through so Route Handlers can filter their DB queries.
+    // 3. Real-time Re-validation for Sensitive Actions (Bypasses JWT/Cache)
+    if (isSensitive && role !== 'owner') {
+        const db = await (import('./firebaseAdmin').then(m => m.getAdminDb()));
+        const userDoc = await db.collection('users').doc(userId).get();
+        const userData = userDoc.data();
+
+        if (!userDoc.exists || !userData || userData.status !== 'active') {
+            return { authorized: false, response: forbidden('Security re-validation failed. Account may be suspended or modified.') };
+        }
+    }
+
     return {
         authorized: true,
         ownerId,

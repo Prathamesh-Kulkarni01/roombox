@@ -2,13 +2,14 @@ import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
-// Read from default .env file
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+// Read from .env.e2e file for consistent emulator project configuration
+dotenv.config({ path: path.resolve(__dirname, '.env.e2e'), override: true });
 
-// FORCE EMULATOR FOR E2E
-process.env.FIREBASE_PROJECT_ID = 'roombox-test';
-process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-process.env.FIREBASE_AUTH_EMULATOR_HOST = '127.0.0.1:9099';
+// Force 'roombox-test' for E2E tests to ensure we ALWAYS use the emulator project
+const TEST_PROJECT_ID = 'roombox-test';
+process.env.FIREBASE_PROJECT_ID = TEST_PROJECT_ID;
+process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = TEST_PROJECT_ID;
+
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -47,7 +48,7 @@ export default defineConfig({
         // ── Chromium (all tests except specific ones if any) ───────────
         {
             name: 'chromium',
-            dependencies: ['setup'],
+            // dependencies: ['setup'],
             use: {
                 ...devices['Desktop Chrome'],
                 // Individual tests will specify their storageState if needed
@@ -58,7 +59,8 @@ export default defineConfig({
     /* Run your local dev server and emulators before starting the tests */
     webServer: [
         {
-            command: 'npx firebase emulators:start --only firestore,auth --project roombox-test',
+            // Start emulators using the project ID from .env
+            command: `npx firebase emulators:start --only firestore,auth --project ${process.env.FIREBASE_PROJECT_ID || 'roombox-test'}`,
             port: 8080,
             reuseExistingServer: true,
             timeout: 240000,
@@ -67,21 +69,32 @@ export default defineConfig({
             command: 'npx next dev --turbopack -p 9003',
             url: 'http://127.0.0.1:9003',
             reuseExistingServer: true,
-            timeout: 300000, // 5 minutes for slow compilation
+            timeout: 300000,
             env: {
                 PORT: '9003',
                 NEXT_DIST_DIR: '.next-test',
-                FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-                FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-                FIREBASE_PROJECT_ID: 'roombox-test',
-                NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'roombox-test',
-                NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-                NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
+                // Dummy Firebase config for test environment to prevent cloud connections
                 NEXT_PUBLIC_FIREBASE_API_KEY: 'AIzaSyDummyKey_1234567890',
                 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: 'roombox-test.firebaseapp.com',
+                NEXT_PUBLIC_FIREBASE_PROJECT_ID: TEST_PROJECT_ID,
                 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: 'roombox-test.appspot.com',
                 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: '123456789',
                 NEXT_PUBLIC_FIREBASE_APP_ID: '1:123456789:web:abcdef123456',
+                NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: 'G-DUMMY',
+                
+                // Emulator hosts
+                NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+                NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
+                FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+                FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
+                
+                // Project IDs
+                FIREBASE_PROJECT_ID: TEST_PROJECT_ID,
+                NEXT_PUBLIC_FIREBASE_PROJECT_ID: TEST_PROJECT_ID,
+                
+                // App URLs
+                NEXT_PUBLIC_APP_URL: 'http://localhost:9003',
+                NEXT_PUBLIC_SITE_DOMAIN: 'http://localhost:9003',
             }
         }
     ],

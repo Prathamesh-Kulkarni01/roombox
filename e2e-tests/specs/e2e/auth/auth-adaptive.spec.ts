@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { loginWorkflow } from '../../../workflows/authWorkflow';
 import { onboardTenantWorkflow } from '../../../workflows/tenantWorkflow';
-import { wipeOwnerData } from '../../../api/cleanup';
+import { wipeOwnerData, ensurePropertyExists, ensureOwnerExists } from '../../../api/cleanup';
 import { AuthPage } from '../../../pages/AuthPage';
-import { TENANT_PHONE, TENANT_PASSWORD, OWNER_EMAIL, RUN_ID, OWNER_ID } from '../../../test-utils';
+import { TENANT_PHONE, TENANT_PASSWORD, OWNER_EMAIL, OWNER_PASSWORD, RUN_ID, OWNER_ID } from '../../../test-utils';
 
 test.describe('Identity-First Adaptive Auth Flow', () => {
     let authPage: AuthPage;
@@ -26,18 +26,21 @@ test.describe('Identity-First Adaptive Auth Flow', () => {
     });
 
     test('Staff/Resident: Invocation Onboarding Journey', async ({ page }) => {
-        // 1. Owner creates a new invite
-        await loginWorkflow(page, OWNER_EMAIL);
-        
-        // Ensure completely empty property for reliable additions (High-speed API wipe)
+        // 0. Setup data via API (Stable baseline)
+        await ensureOwnerExists(OWNER_ID, OWNER_EMAIL, OWNER_PASSWORD);
         await wipeOwnerData(OWNER_ID);
+        const pgName = `PG ${RUN_ID}`;
+        await ensurePropertyExists(OWNER_ID, pgName);
+
+        // 1. Owner creates a new invite
+        await loginWorkflow(page, OWNER_EMAIL, OWNER_PASSWORD);
         
         const NEW_TENANT_PHONE = `77777${RUN_ID}`;
 
         await onboardTenantWorkflow(page, { 
             name: `Invite Tester ${RUN_ID}`, 
             phone: NEW_TENANT_PHONE, 
-            pgName: `PG ${RUN_ID}`, // Assuming a PG exists from RUN_ID
+            pgName: pgName, 
             rent: '1000' 
         });
         

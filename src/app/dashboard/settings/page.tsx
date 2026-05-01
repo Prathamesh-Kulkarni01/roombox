@@ -30,7 +30,7 @@ export default function SettingsPage() {
                 <CardContent className="flex items-center gap-4">
                     <Avatar className="h-16 w-16">
                         <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                        <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()} </AvatarFallback>
+                        <AvatarFallback>{(currentUser.name || 'User').slice(0, 2).toUpperCase()} </AvatarFallback>
                     </Avatar>
                     <div>
                         <div className="text-lg font-semibold">{currentUser.name}</div>

@@ -238,10 +238,15 @@ const complaintsSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(addComplaint.fulfilled, (state, action) => {
-                state.complaints.unshift(action.payload);
+                if (!state.complaints.find(c => c.id === action.payload.id)) {
+                    state.complaints.unshift(action.payload);
+                }
             })
             .addCase(addOwnerComplaint.fulfilled, (state, action) => {
-                state.complaints.unshift(...action.payload);
+                const newComplaints = action.payload.filter(
+                    newC => !state.complaints.find(existing => existing.id === newC.id)
+                );
+                state.complaints.unshift(...newComplaints);
             })
             .addCase(updateComplaint.fulfilled, (state, action) => {
                 const index = state.complaints.findIndex(c => c.id === action.payload.id);

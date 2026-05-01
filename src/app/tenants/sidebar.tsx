@@ -78,7 +78,7 @@ export default function TenantSidebar() {
         <div className="flex items-center gap-3 mb-4">
             <Avatar className="h-10 w-10">
                 <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                <AvatarFallback>{currentUser.name.slice(0,2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(currentUser.name || 'User').slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div>
                 <p className="font-semibold text-sm truncate">{currentUser.name}</p>

@@ -67,7 +67,7 @@ export default function GuestPopoverContent({ guest, handleOpenPaymentDialog, ha
           </div>
           <div className="flex justify-between">
             <span>Due Date:</span>
-            <span className="font-medium">{format(new Date(guest.dueDate), "do MMM")}</span>
+            <span className="font-medium">{(() => { try { const d = new Date(guest.dueDate); return isNaN(d.getTime()) ? 'N/A' : format(d, "do MMM"); } catch { return 'N/A'; } })()}</span>
           </div>
           {guest.exitDate && !guest.isVacated && (
             <div className="flex justify-between text-blue-600">

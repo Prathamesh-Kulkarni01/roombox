@@ -403,6 +403,11 @@ const userSlice = createSlice({
                     mergedUser.role = state.currentUser.role;
                 }
 
+                // Preserve isOnboarded: true to avoid race conditions with stale Firestore snapshots during transition
+                if (state.currentUser.isOnboarded && !action.payload.isOnboarded) {
+                    mergedUser.isOnboarded = true;
+                }
+
                 state.currentUser = mergedUser;
             } else {
                 state.currentUser = action.payload;

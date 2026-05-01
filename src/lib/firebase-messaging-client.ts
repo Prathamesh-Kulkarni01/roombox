@@ -1,5 +1,5 @@
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { app, db, isFirebaseConfigured } from './firebase';
+import { app, db, isFirebaseConfigured, isEmulator } from './firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 const saveTokenToFirestore = async (userId: string, token: string) => {
@@ -29,7 +29,7 @@ function isLikelyValidVapidKey(v: string): boolean {
 }
 
 export const initializeFirebaseMessaging = async (userId?: string) => {
-    if (!isFirebaseConfigured() || typeof window === 'undefined' || !userId) {
+    if (!isFirebaseConfigured() || isEmulator() || typeof window === 'undefined' || !userId) {
         return;
     }
 

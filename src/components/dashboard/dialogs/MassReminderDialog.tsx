@@ -176,7 +176,7 @@ export default function MassReminderDialog({
                                     />
                                     <Avatar className="h-10 w-10 border">
                                         <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-                                            {guest.name.slice(0, 2).toUpperCase()}
+                                            {(guest.name || 'User').slice(0, 2).toUpperCase()}
                                         </AvatarFallback>
                                     </Avatar>
                                     <div>

@@ -60,7 +60,7 @@ export default function ProfilePage() {
                 <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
                     <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
                     <AvatarFallback className="bg-primary/10 text-primary text-2xl font-black">
-                        {currentUser.name.slice(0, 2).toUpperCase()}
+                        {(currentUser.name || 'User').slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                 </Avatar>
                 <div className="text-center">

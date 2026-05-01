@@ -7,7 +7,7 @@ import { makeStore, type AppStore } from '@/lib/store'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 import { collection, onSnapshot, doc, getDocs, query, where, type Unsubscribe } from 'firebase/firestore'
 import { getApp } from 'firebase/app'
-import { auth, db, isFirebaseConfigured, getDynamicDb, getOwnerClientDb } from '@/lib/firebase'
+import { auth, db, isFirebaseConfigured, getDynamicDb, getOwnerClientDb, isEmulator } from '@/lib/firebase'
 import { getAnalytics, isSupported } from 'firebase/analytics'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { initializeUser, logoutUser, setCurrentUser } from '@/lib/slices/userSlice'
@@ -44,7 +44,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
   const reduxPermissions = useAppSelector(state => (state as any).permissions?.featurePermissions);
 
   useEffect(() => {
-    if (isFirebaseConfigured()) {
+    if (isFirebaseConfigured() && !isEmulator()) {
       isSupported().then(supported => {
         if (supported) {
           getAnalytics(getApp());
@@ -258,7 +258,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
             pgs: setPgs, guests: setGuests, complaints: setComplaints, expenses: setExpenses, staff: setStaff,
           };
           const collectionNames = Object.keys(collectionsToSync);
-          let loadedCount = 0;
+          const loadedCollections = new Set<string>();
 
           if (ownerIdForFetching && ownerIdForFetching !== 'undefined') {
             const ownerNotifQuery = query(collection(dbInstance, 'users_data', ownerIdForFetching, 'notifications'), where('targetId', '==', ownerIdForFetching));
@@ -292,9 +292,10 @@ function AuthHandler({ children }: { children: ReactNode }) {
                 data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());
               }
               dispatch(setDataAction(data));
-              if (loadedCount < collectionNames.length) {
-                loadedCount++;
-                if (loadedCount === collectionNames.length) dispatch(setLoading(false));
+              
+              loadedCollections.add(collectionName);
+              if (loadedCollections.size === collectionNames.length) {
+                dispatch(setLoading(false));
               }
             }, err => {
               console.error(`Error listening to ${collectionName}:`, err);

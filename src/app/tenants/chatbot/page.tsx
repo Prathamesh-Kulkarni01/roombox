@@ -108,7 +108,7 @@ export default function ChatbotPage() {
                                  {msg.role === 'user' && currentUser && (
                                     <Avatar className="h-8 w-8">
                                         <AvatarImage src={currentUser.avatarUrl} />
-                                        <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                        <AvatarFallback>{(currentUser.name || 'User').slice(0, 2).toUpperCase()}</AvatarFallback>
                                     </Avatar>
                                 )}
                             </div>

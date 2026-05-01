@@ -3,6 +3,8 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Guest, KycDocumentConfig } from '../types';
 
+import { auth } from '../firebase';
+
 interface GuestsState {
     guests: Guest[];
     loading: boolean;
@@ -19,9 +21,13 @@ export const updateGuestKyc = createAsyncThunk(
     'guests/updateKyc',
     async (payload: { documents: { config: KycDocumentConfig; dataUri: string }[] }, { rejectWithValue }) => {
         try {
+            const token = await auth?.currentUser?.getIdToken();
             const response = await fetch('/api/guest/kyc', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(payload),
             });
             if (!response.ok) throw new Error('Failed to update KYC');

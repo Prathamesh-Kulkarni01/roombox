@@ -343,6 +343,7 @@ export const API_PERMISSION_MAP: Record<string, { feature: string; action: strin
   'PATCH /api/complaints': { feature: 'complaints', action: 'edit' },
   // Staff
   'GET /api/staff': { feature: 'staff', action: 'view' },
+  'POST /api/staff/manage': { feature: 'staff', action: 'edit' },
   'PATCH /api/staff': { feature: 'staff', action: 'edit' },
   'DELETE /api/staff': { feature: 'staff', action: 'delete' },
   // Properties

@@ -16,23 +16,26 @@ test.describe('Multi-Role Context Switching', () => {
         // Fast SDK provisioning
         await ensureOwnerExists(OWNER_ID, OWNER_EMAIL, OWNER_PASSWORD);
 
+        // We use a phone-based identity for the multi-role user to test OTP flow
+        const MUTUAL_ID = `user-${MUTUAL_PHONE}`;
+        const MUTUAL_EMAIL = `${MUTUAL_PHONE}@roombox.app`;
+
         const context = await browser.newContext();
         const page = await context.newPage();
         
-        // Use new workflow architecture for setup
-        await loginWorkflow(page, OWNER_EMAIL);
-        
-        // High-speed API wipe - SAFE for emulator
+        // High-speed API wipe
         await wipeOwnerData(OWNER_ID);
 
         // Ensure property exists via high-speed provisioning
         const pgId = await ensurePropertyExists(OWNER_ID, UNIQUE_PG_NAME);
         
-        // 1. Create as Tenant (Direct Admin SDK)
-        await ensureTenantExists(OWNER_ID, pgId, OWNER_ID, OWNER_EMAIL);
+        // 1. Create as Tenant
+        console.log(`[Setup] Creating Tenant profile for ${MUTUAL_PHONE}`);
+        await ensureTenantExists(OWNER_ID, pgId, MUTUAL_ID, MUTUAL_PHONE);
 
-        // 2. Create as Staff (Direct Admin SDK)
-        await ensureStaffExists(OWNER_ID, pgId, OWNER_ID, OWNER_EMAIL);
+        // 2. Create as Staff
+        console.log(`[Setup] Creating Staff profile for ${MUTUAL_PHONE}`);
+        await ensureStaffExists(OWNER_ID, pgId, MUTUAL_ID, MUTUAL_PHONE);
 
         await page.close();
         await context.close();

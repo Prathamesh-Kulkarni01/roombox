@@ -41,7 +41,7 @@ test.describe('Authentication - Sign Up Flow', () => {
 
         // Step 2: ROLE step
         console.log('[Auth Signup] Step 2: Selecting Owner role...');
-        await expect(page.getByText(/Design your/i)).toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole('heading', { name: /Design your/i })).toBeVisible({ timeout: 10000 });
         await page.locator('h3:has-text("Owner")').click();
 
         // Step 3: PROFILE step

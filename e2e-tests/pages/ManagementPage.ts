@@ -11,6 +11,7 @@ export class ManagementPage extends BasePage {
     readonly dialog: Locator;
     readonly nameInput: Locator;
     readonly cityInput: Locator;
+    readonly locationInput: Locator;
     readonly submitBtn: Locator;
 
     constructor(page: Page) {
@@ -21,6 +22,7 @@ export class ManagementPage extends BasePage {
         this.dialog = page.getByRole('dialog').filter({ visible: true });
         this.nameInput = this.dialog.locator('input[name="name"]');
         this.cityInput = this.dialog.locator('input[name="city"]');
+        this.locationInput = this.dialog.locator('input[name="location"]');
         this.submitBtn = this.dialog.locator('button[type="submit"]');
     }
 
@@ -29,8 +31,8 @@ export class ManagementPage extends BasePage {
         await this.addPropertyBtn.first().click();
     }
 
-    async fillPropertyBasic(name: string, city: string) {
-        console.log(`[Page:Mgmt] Filling property basics: ${name} (${city})`);
+    async fillPropertyBasic(name: string, city: string, location: string = 'Test Location') {
+        console.log(`[Page:Mgmt] Filling property basics: ${name} (${city}) - ${location}`);
         
         await this.nameInput.click();
         await this.nameInput.fill('');
@@ -39,11 +41,17 @@ export class ManagementPage extends BasePage {
         await this.cityInput.click();
         await this.cityInput.fill('');
         await this.cityInput.type(city, { delay: 100 });
+
+        await this.locationInput.click();
+        await this.locationInput.fill('');
+        await this.locationInput.type(location, { delay: 100 });
     }
 
     async clickSubmit() {
         console.log('[Page:Mgmt] Submitting form...');
         await this.submitBtn.filter({ visible: true }).first().click({ force: true });
+        // Wait for modal to disappear (indicates success)
+        await expect(this.dialog).not.toBeVisible({ timeout: 15000 });
     }
 
     async getPropertyRow(name: string) {
@@ -60,11 +68,14 @@ export class ManagementPage extends BasePage {
         // Open the 'More' menu
         await row.getByRole('button', { name: /Toggle menu/i }).click();
         
-        // Click Configure
-        await this.page.getByRole('menuitem', { name: /Configure/i }).click();
-        
-        // Wait for navigation confirmation
-        await this.page.waitForURL(/.*\/dashboard\/pg-management\/.+/, { timeout: 20000 });
+        // Click Configure and wait for navigation
+        await Promise.all([
+            this.page.waitForURL(/\/dashboard\/pg-management\/.+/, { 
+                waitUntil: 'load',
+                timeout: 30000 
+            }),
+            this.page.getByRole('menuitem', { name: /Configure/i }).click()
+        ]);
     }
 
     async clickEditBuilding() {

@@ -88,7 +88,10 @@ const noticesSlice = createSlice({
                 state.error = action.payload as string;
             })
             .addCase(addNotice.fulfilled, (state, action) => {
-                state.notices.unshift(action.payload);
+                const exists = state.notices.some(n => n.id === action.payload.id);
+                if (!exists) {
+                    state.notices.unshift(action.payload);
+                }
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.notices = [];

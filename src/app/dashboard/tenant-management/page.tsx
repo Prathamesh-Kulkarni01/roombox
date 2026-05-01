@@ -53,6 +53,17 @@ interface GuestListProps {
     canEdit: boolean;
 }
 
+const safeFormatDate = (dateValue: string | undefined | null, fmt: string): string => {
+    if (!dateValue) return 'N/A';
+    try {
+        const d = new Date(dateValue);
+        if (isNaN(d.getTime())) return 'N/A';
+        return format(d, fmt);
+    } catch {
+        return 'N/A';
+    }
+};
+
 const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
     if (guests.length === 0) {
         return <div className="text-center py-10 text-muted-foreground">No guests found.</div>
@@ -102,7 +113,7 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                                         {guest.kycStatus}
                                     </Badge>
                                 </TableCell>
-                                <TableCell>{guest.isVacated ? format(new Date(guest.exitDate!), 'do MMM, yyyy') : format(new Date(guest.dueDate), 'do MMM, yyyy')}</TableCell>
+                                <TableCell>{guest.isVacated ? safeFormatDate(guest.exitDate, 'do MMM, yyyy') : safeFormatDate(guest.dueDate, 'do MMM, yyyy')}</TableCell>
                                 <TableCell>
                                     <Badge variant={guest.isVacated ? 'destructive' : 'default'}>{guest.isVacated ? 'Vacated' : 'Active'}</Badge>
                                 </TableCell>
@@ -180,7 +191,7 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                                 <div className="flex items-center gap-2">
                                     <IndianRupee className="w-4 h-4 text-muted-foreground" />
                                     <div className="flex flex-col">
-                                        <span>{guest.isVacated ? `Exited on ${format(new Date(guest.exitDate!), 'do MMM')}` : `Rent Due: ${format(new Date(guest.dueDate), 'do MMM')}`}</span>
+                                        <span>{guest.isVacated ? `Exited on ${safeFormatDate(guest.exitDate, 'do MMM')}` : `Rent Due: ${safeFormatDate(guest.dueDate, 'do MMM')}`}</span>
                                         {formatBalanceBreakdown(guest) && (
                                             <span className="text-[10px] text-rose-600 font-bold uppercase">
                                                 Due: {formatBalanceBreakdown(guest)}

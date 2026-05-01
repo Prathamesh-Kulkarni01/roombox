@@ -55,9 +55,11 @@ export default function LoginPage() {
   const isLoading = appLoading || isProcessing;
 
   useEffect(() => {
+    console.log("[LoginDebug] useEffect: currentUser.role =", currentUser?.role, "stage =", stage, "showSwitcher =", showSwitcher);
     if (stage === 'SWITCH_CONTEXT') return; // Don't redirect if we are switching
 
     if (currentUser?.role) {
+      console.log("[LoginDebug] Role found:", currentUser.role);
       if (currentUser.role === 'unassigned') {
         router.replace('/complete-profile');
         return;
@@ -65,18 +67,23 @@ export default function LoginPage() {
 
       // Check for multi-role
       const hasMultiple = (currentUser.activeTenancies?.length || 0) + (currentUser.activeStaffProfiles?.length || 0) > 1;
+      console.log("[LoginDebug] hasMultiple:", hasMultiple, "lastActiveContext:", currentUser.lastActiveContext);
       
       if (hasMultiple && !showSwitcher && stage === 'IDENTITY' && !currentUser.lastActiveContext) {
+        console.log("[LoginDebug] Switching to context stage");
         setStage('SWITCH_CONTEXT');
         setShowSwitcher(true);
         return;
       }
 
       if (currentUser.role === 'tenant') {
+        console.log("[LoginDebug] Redirecting to tenant portal...");
         router.replace('/tenants/my-pg');
       } else if (currentUser.role === 'owner' && !currentUser.isOnboarded) {
+        console.log("[LoginDebug] Redirecting to complete-profile (onboarding)...");
         router.replace('/complete-profile');
       } else {
+        console.log("[LoginDebug] Redirecting to dashboard...");
         router.replace('/dashboard');
       }
     }
@@ -118,9 +125,12 @@ export default function LoginPage() {
     setIsProcessing(true);
     try {
       const loginId = `${phone.replace(/\D/g, '').slice(-10)}@roombox.app`;
-      await signInWithEmailAndPassword(auth!, loginId, password);
+      console.log("[LoginDebug] Attempting password sign-in for:", loginId);
+      const userCredential = await signInWithEmailAndPassword(auth!, loginId, password);
+      console.log("[LoginDebug] Sign-in successful for UID:", userCredential.user.uid);
       // Let useEffect handle redirect/switching
     } catch (err: any) {
+        console.error("[LoginDebug] Password sign-in failed:", err.code, err.message, err);
         let msg = 'Invalid password. Please try again.';
         if (err.code === 'auth/user-not-found') msg = 'Account not found. Use setup code if new.';
         toast({ variant: 'destructive', title: 'Login Failed', description: msg });

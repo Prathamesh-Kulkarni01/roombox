@@ -24,9 +24,13 @@ export const addStaff = createAsyncThunk<Staff, NewStaffData, { state: RootState
         if (!user.currentUser) return rejectWithValue('No user');
 
         try {
+            const token = await auth?.currentUser?.getIdToken();
             const response = await fetch('/api/staff/manage', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     action: 'add',
                     ownerId: getEffectiveOwnerId(user.currentUser),
@@ -55,9 +59,13 @@ export const updateStaff = createAsyncThunk<Staff, Staff, { state: RootState }>(
         if (!user.currentUser) return rejectWithValue('No user');
 
         try {
+            const token = await auth?.currentUser?.getIdToken();
             const response = await fetch('/api/staff/manage', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     action: 'update',
                     ownerId: getEffectiveOwnerId(user.currentUser),
@@ -87,9 +95,13 @@ export const deleteStaff = createAsyncThunk<string, string, { state: RootState }
         if (!user.currentUser) return rejectWithValue('No user');
 
         try {
+            const token = await auth?.currentUser?.getIdToken();
             const response = await fetch('/api/staff/manage', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     action: 'delete',
                     ownerId: getEffectiveOwnerId(user.currentUser),
@@ -115,9 +127,13 @@ export const fetchStaff = createAsyncThunk<Staff[], string, { state: RootState }
     'staff/fetchStaff',
     async (ownerId, { rejectWithValue }) => {
         try {
+            const token = await auth?.currentUser?.getIdToken();
             const response = await fetch('/api/staff/manage', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ action: 'list', ownerId }),
             });
             const result = await response.json();
@@ -138,7 +154,11 @@ const staffSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(fetchStaff.fulfilled, (state, action) => { state.staff = action.payload; })
-            .addCase(addStaff.fulfilled, (state, action) => { state.staff.push(action.payload); })
+            .addCase(addStaff.fulfilled, (state, action) => {
+                if (!state.staff.find(s => s.id === action.payload.id)) {
+                    state.staff.push(action.payload);
+                }
+            })
             .addCase(updateStaff.fulfilled, (state, action) => {
                 const index = state.staff.findIndex(s => s.id === action.payload.id);
                 if (index !== -1) { state.staff[index] = action.payload; }

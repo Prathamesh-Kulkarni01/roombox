@@ -11,10 +11,58 @@ export async function onboardTenantWorkflow(page: Page, tenant: { name: string, 
     await page.goto('/dashboard/tenant-management');
 
     // Make idempotent: check if tenant is already onboarded
+    // Wait for either the Add Guest button (normal state) OR the Add Property CTA (no properties state)
+    console.log(`[Workflow:Tenant] Waiting for management page to load...`);
+    
+    // The "Add Property" button on the Tenant Management page is actually a Link inside a Button (empty state fallback)
+    const emptyStateAddPropertyBtn = page.getByRole('link', { name: /Add Property/i }).or(page.getByRole('button', { name: /Add Property/i }));
+    
+    // We wait for either button to appear.
+    console.log(`[Workflow:Tenant] Race: Add Guest vs Add Property...`);
+    await Promise.race([
+        expect(mgmt.addGuestBtn.first()).toBeVisible({ timeout: 15000 }),
+        expect(emptyStateAddPropertyBtn.first()).toBeVisible({ timeout: 15000 })
+    ]).catch((err) => {
+        console.warn(`[Workflow:Tenant] Race finished or timed out. Checking state...`);
+    });
+
+    // If "Add Property" is visible, it means we need to create one first.
+    if (await emptyStateAddPropertyBtn.first().isVisible()) {
+        console.log(`[Workflow:Tenant] No properties detected in UI. Navigating to PG Management via fallback CTA...`);
+        
+        await Promise.all([
+            page.waitForURL(/\/dashboard\/pg-management/),
+            emptyStateAddPropertyBtn.first().click()
+        ]);
+
+        console.log(`[Workflow:Tenant] On PG Management page. Opening Add Property sheet...`);
+        const addPgBtn = page.getByRole('button', { name: /Add (New )?Property/i }).first();
+        await addPgBtn.click();
+        
+        console.log(`[Workflow:Tenant] Filling property details...`);
+        const propDialog = page.getByRole('dialog').or(page.locator('[role="dialog"]')).filter({ hasText: /Property/i }).filter({ visible: true });
+        await propDialog.locator('input[name="name"]').fill(tenant.pgName);
+        await propDialog.locator('input[name="city"]').fill('Test City');
+        await propDialog.locator('input[name="location"]').fill('Test Location');
+        
+        console.log(`[Workflow:Tenant] Submitting property...`);
+        await Promise.all([
+            page.waitForResponse(r => r.url().includes('/api/pgs') && r.request().method() === 'POST'),
+            propDialog.getByRole('button', { name: /Add|Submit|Create/i }).click()
+        ]);
+        
+        console.log(`[Workflow:Tenant] Property created. Navigating back to Tenant Management...`);
+        await Promise.all([
+            page.waitForURL(/\/dashboard\/tenant-management/),
+            page.goto('/dashboard/tenant-management')
+        ]);
+
+        await expect(mgmt.addGuestBtn.first()).toBeVisible({ timeout: 20000 });
+    }
+
+
     console.log(`[Workflow:Tenant] Checking if ${tenant.name} already exists...`);
     const existingTenant = page.getByText(tenant.name).first();
-    // Wait for either the Add Guest button (page ready) or the table/list to appear.
-    await expect(mgmt.addGuestBtn.first()).toBeVisible({ timeout: 20000 });
     if (await existingTenant.isVisible()) {
         console.log(`[Workflow:Tenant] Tenant ${tenant.name} already exists. Skipping onboarding.`);
         return;
@@ -79,18 +127,20 @@ export async function onboardTenantWorkflow(page: Page, tenant: { name: string, 
     await rentInput.type(tenant.rent, { delay: 100 });
     
     console.log('[Workflow:Tenant] Step: Confirming onboarding...');
-    const addBtn = dialog.getByRole('button', { name: /Add Guest/i }).filter({ visible: true });
+    const addBtn = dialog.getByRole('button', { name: /Add Guest|Onboard|Submit/i }).filter({ visible: true }).first();
     await expect(addBtn).toBeEnabled({ timeout: 10000 });
 
     const waitForCreate = page.waitForResponse((r) => {
-        if (!r.url().includes('/api/guests')) return false;
-        if (r.request().method() !== 'POST') return false;
-        return r.status() >= 200 && r.status() < 400;
+        return r.url().includes('/api/guests') && r.request().method() === 'POST';
     }, { timeout: 45000 });
 
-    const res = await Promise.all([waitForCreate, addBtn.click()]).then(([r]) => r);
-    if (!res.ok()) {
-        throw new Error(`[Workflow:Tenant] Guest creation failed (status ${res.status()})`);
+    console.log('[Workflow:Tenant] Clicking Add button...');
+    const [response] = await Promise.all([waitForCreate, addBtn.click()]);
+    console.log(`[Workflow:Tenant] Response received: ${response.status()}`);
+    
+    if (!response.ok()) {
+        const body = await response.text().catch(() => 'No body');
+        throw new Error(`[Workflow:Tenant] Guest creation failed (status ${response.status()}): ${body}`);
     }
 
     // Close dialog if it doesn't auto-dismiss (some flows keep it open).
@@ -108,7 +158,11 @@ export async function onboardTenantWorkflow(page: Page, tenant: { name: string, 
         }
     }
 
+    console.log('[Workflow:Tenant] Waiting for dialog to hide...');
     await expect(dialog).toBeHidden({ timeout: 30000 });
+    
+    console.log(`[Workflow:Tenant] Verifying ${tenant.name} is visible in list...`);
     await expect(page.getByText(tenant.name).first()).toBeVisible({ timeout: 30000 });
+    
     console.log('[Workflow:Tenant] Success: Tenant lifecycle finalized.');
 }

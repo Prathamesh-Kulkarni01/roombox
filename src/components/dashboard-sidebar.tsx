@@ -93,7 +93,7 @@ export default function DashboardSidebar() {
          <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
                 <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                <AvatarFallback>{currentUser.name.slice(0,2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(currentUser.name || 'User').slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className='flex-1'>
                 <p className="font-semibold text-sm truncate">{currentUser.name}</p>

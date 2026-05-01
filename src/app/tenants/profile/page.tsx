@@ -51,7 +51,7 @@ export default function TenantProfilePage() {
                 <CardHeader className="text-center">
                     <Avatar className="w-24 h-24 mx-auto mb-4">
                         <AvatarImage src={currentUser.avatarUrl} />
-                        <AvatarFallback>{currentUser.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>{(currentUser.name || 'User').slice(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <CardTitle className="text-2xl">{currentUser.name}</CardTitle>
                     <CardDescription>Update your profile information.</CardDescription>

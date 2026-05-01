@@ -18,11 +18,19 @@ export async function getUserIdFromRequest(req?: NextRequest, explicitToken?: st
             }
 
             if (authHeader?.startsWith('Bearer ')) {
-                token = authHeader.split('Bearer ')[1];
+                token = authHeader.split('Bearer ')[1].trim();
             }
         }
 
         if (!token) {
+            console.warn('[AuthServer] No token found in request headers');
+            return null;
+        }
+
+        console.log(`[AuthServer] Processing token (len: ${token.length}): ${token.substring(0, 10)}...`);
+
+        if (token === 'undefined' || token === 'null') {
+            console.warn(`[AuthServer] Received literal string "${token}" as token`);
             return null;
         }
 
@@ -37,14 +45,14 @@ export async function getUserIdFromRequest(req?: NextRequest, explicitToken?: st
 
         // 2. Basic JWT format validation (Firebase ID tokens are JWTs: header.payload.signature)
         if (token.split('.').length !== 3) {
-            // Not a valid JWT, skip verifyIdToken to avoid "Decoding Firebase ID token failed" error
+            console.warn('[AuthServer] Token is not a valid 3-part JWT');
             return null;
         }
 
         const decodedToken = await auth.verifyIdToken(token);
         return decodedToken.uid;
-    } catch (error) {
-        console.error('[AuthServer] Error verifying token:', error);
+    } catch (error: any) {
+        console.error('[AuthServer] Error verifying token:', error.message || error);
         return null;
     }
 }
@@ -66,6 +74,8 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
     permissions?: string[],
     pgIds?: string[],
     plan?: { id: PlanName; status: SubscriptionStatus },
+    status?: string,
+    email?: string,
     error: string | null
 }> {
     const userId = await getUserIdFromRequest(req, token);
@@ -74,16 +84,27 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
     try {
         const db = await getAdminDb();
         const userDoc = await db.collection('users').doc(userId).get();
-        if (!userDoc.exists) return { ownerId: null, error: 'Unauthorized: User record not found' };
+        if (!userDoc.exists) {
+            console.warn(`[AuthServer] User record not found in Firestore for UID: ${userId}`);
+            return { ownerId: null, error: 'Unauthorized: User record not found' };
+        }
 
         const userData = userDoc.data();
         if (!userData) return { ownerId: null, error: 'Unauthorized: User data not found' };
 
         // Detail common user info
+        const status = userData.status || 'active';
+        if (status !== 'active') {
+            console.warn(`[AuthServer] Access blocked for ${status} user: ${userId}`);
+            return { ownerId: null, error: `Forbidden: Account ${status}. Please contact support.` };
+        }
+
         const result = {
             userId,
             name: userData.name || userData.email || 'Unknown User',
+            email: userData.email,
             role: userData.role,
+            status: status,
             guestId: userData.guestId,
             error: null as string | null
         };
@@ -93,6 +114,8 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
             return {
                 ...result,
                 ownerId: userId,
+                permissions: userData.permissions || ['all'], // Owners have implicit 'all'
+                pgIds: userData.pgIds || [], // Owners have access to all PGs
                 plan: userData.subscription?.planId ? {
                     id: userData.subscription.planId,
                     status: userData.subscription.status
