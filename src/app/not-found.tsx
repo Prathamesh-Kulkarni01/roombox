@@ -21,7 +21,7 @@ export default function NotFound() {
             Take me Home
           </Link>
         </Button>
-        <Button variant="outline" size="lg" className="flex items-center gap-2" onClick="window.history.back()">
+        <Button variant="outline" size="lg" className="flex items-center gap-2" onClick={() => window.history.back()}>
           <ArrowLeft size={20} />
           Go Back
         </Button>

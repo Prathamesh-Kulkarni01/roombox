@@ -7,8 +7,8 @@
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod, BusinessKycDetails } from '../types';
-import { plans } from '../mock-data';
+import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod, BusinessKycDetails, BillingConfig, WalletInfo } from '../types';
+import { plans, PRICING_CONFIG } from '../mock-data';
 import { auth, db, isFirebaseConfigured, getOwnerClientDb, getDynamicDb } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -60,7 +60,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             const getPlanForUser = (user: User): Plan => {
                 const sub = user.subscription;
                 if (!sub || sub.status === 'inactive') return plans.free;
-                const isActive = sub.status === 'active';
+                const isActive = sub.status === 'active' || sub.status === 'restricted';
                 const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(parseISO(sub.trialEndDate), new Date());
                 return (isActive || isTrialing) ? { ...plans.pro } : plans.free;
             };
@@ -244,12 +244,24 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                     planId: 'pro',
                     status: 'trialing',
                     trialEndDate: trialEndDate.toISOString(),
+                    trialTenantLimit: PRICING_CONFIG.trial.maxTenants,
                     premiumFeatures: {
                         website: { enabled: true },
                         kyc: { enabled: true },
                         whatsapp: { enabled: true }
                     },
                     whatsappCredits: 150 // Initial 100 free template messages
+                },
+                wallet: {
+                    balance: 0,
+                    trialBalance: 0,
+                    rechargeBalance: 0,
+                    dues: 0,
+                },
+                billingConfig: {
+                    planType: 'trial',
+                    baseFee: PRICING_CONFIG.baseFee,
+                    perTenantFee: PRICING_CONFIG.perTenant,
                 },
                 isOnboarded: false,
             };
@@ -338,12 +350,24 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
                 planId: 'pro',
                 status: 'trialing',
                 trialEndDate: trialEndDate.toISOString(),
+                trialTenantLimit: PRICING_CONFIG.trial.maxTenants,
                 premiumFeatures: {
                     website: { enabled: true },
                     kyc: { enabled: true },
                     whatsapp: { enabled: true }
                 },
                 whatsappCredits: 150 // Initial 100 free template messages
+            },
+            wallet: {
+                balance: 0,
+                trialBalance: 0,
+                rechargeBalance: 0,
+                dues: 0,
+            },
+            billingConfig: {
+                planType: 'trial',
+                baseFee: PRICING_CONFIG.baseFee,
+                perTenantFee: PRICING_CONFIG.perTenant,
             }
         };
 
@@ -397,6 +421,13 @@ const userSlice = createSlice({
                 if (!action.payload.subscription && state.currentUser.subscription) {
                     mergedUser.subscription = state.currentUser.subscription;
                 }
+                // Preserve wallet and billing config
+                if (!action.payload.wallet && state.currentUser.wallet) {
+                    mergedUser.wallet = state.currentUser.wallet;
+                }
+                if (!action.payload.billingConfig && state.currentUser.billingConfig) {
+                    mergedUser.billingConfig = state.currentUser.billingConfig;
+                }
 
                 // Also preserve role if the payload has 'unassigned' but state has a specific role
                 if (action.payload.role === 'unassigned' && state.currentUser.role !== 'unassigned') {
@@ -418,7 +449,7 @@ const userSlice = createSlice({
                 if (!sub || sub.status === 'inactive') {
                     state.currentPlan = plans.free;
                 } else {
-                    const isActive = sub.status === 'active';
+                    const isActive = sub.status === 'active' || sub.status === 'restricted';
                     const trialEndDate = sub.trialEndDate;
                     const isTrialing = sub.status === 'trialing' && trialEndDate && isAfter(parseISO(trialEndDate), new Date());
                     const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
@@ -445,7 +476,7 @@ const userSlice = createSlice({
                 state.currentUser = action.payload;
                 if (action.payload?.subscription) {
                     const sub = action.payload.subscription;
-                    const isActive = sub.status === 'active';
+                    const isActive = sub.status === 'active' || sub.status === 'restricted';
                     const trialEndDate = sub.trialEndDate;
                     const isTrialing = sub.status === 'trialing' && trialEndDate && isAfter(parseISO(trialEndDate), new Date());
                     const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';

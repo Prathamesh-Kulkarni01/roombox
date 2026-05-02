@@ -46,7 +46,7 @@ export const ActivityLogsList: React.FC<ActivityLogsListProps> = ({
         // Find if any of the logs are already in the list (to avoid duplicates from caching/refetching)
         setLogs(prev => {
             const existingIds = new Set(prev.map(l => l.id))
-            const newLogs = data.logs.filter(l => !existingIds.has(l.id))
+            const newLogs = data.logs!.filter(l => !existingIds.has(l.id))
             return [...prev, ...newLogs]
         })
       } else {

@@ -299,8 +299,8 @@ function AuthHandler({ children }: { children: ReactNode }) {
               }
             }, err => {
               console.error(`Error listening to ${collectionName}:`, err);
-              loadedCount++;
-              if (loadedCount === collectionNames.length) dispatch(setLoading(false));
+              loadedCollections.add(collectionName);
+              if (loadedCollections.size === collectionNames.length) dispatch(setLoading(false));
             });
             unsubs.push(unsub);
             setDataListeners(prev => [...prev, unsub]);

@@ -157,7 +157,7 @@ export default function DashboardLayout({
       <div className="flex min-h-[calc(100vh-56px)]">
         <DashboardSidebar />
         <div className="flex flex-1 flex-col overflow-auto">
-          <main className="flex-1 p-4 bg-muted/40 pb-20 md:pb-4">
+          <main className="flex-1 p-4 pb-20 md:pb-4 overflow-x-hidden">
             {showTrialBanner && <TrialBanner trialEndDate={currentUser.subscription!.trialEndDate!} />}
             {children}
           </main>

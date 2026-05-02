@@ -1,7 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { addMinutes, addHours, addDays, addWeeks, addMonths, setDate, lastDayOfMonth } from 'date-fns';
-import type { RentCycleUnit } from "./types";
+import { PRICING_CONFIG } from "./constants";
+import type { RentCycleUnit, LowBalanceStage } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -120,3 +121,14 @@ export function getEffectiveOwnerId(user: { id: string; role: string; ownerId?: 
   if (user.role === 'owner' || user.role === 'admin') return user.id;
   return user.ownerId || null;
 }
+
+/**
+ * Categorizes the wallet balance into stages (normal, warning, risk, restricted).
+ */
+export function calculateLowBalanceStage(balance: number): LowBalanceStage {
+  if (isNaN(balance) || balance <= PRICING_CONFIG.lowBalance.restrictedThreshold) return 'restricted';
+  if (balance <= PRICING_CONFIG.lowBalance.riskThreshold) return 'risk';
+  if (balance <= PRICING_CONFIG.lowBalance.warningThreshold) return 'warning';
+  return 'normal';
+}
+

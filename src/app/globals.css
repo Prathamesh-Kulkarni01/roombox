@@ -267,4 +267,29 @@
       /* Even more rounded on mobile */
     }
   }
+
+  /* Premium Card Utility */
+  .premium-card {
+    @apply transition-all duration-500 ease-out;
+  }
+
+  .premium-card:hover {
+    @apply -translate-y-1;
+  }
+
+  /* Shimmer Animation */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+  }
+
 }

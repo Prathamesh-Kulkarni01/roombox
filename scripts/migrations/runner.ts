@@ -247,7 +247,8 @@ async function runMigrations() {
 - **Docs Impacted:** ${totalUpdated} (Scanned: ${totalScanned})
 - **Chain:** ${migrationChain.join(' ➔ ') || 'none'}
             `.trim();
-            require('fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
+            const fs = await import('fs');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
         }
     } finally {
         await lockRef.delete();
@@ -290,7 +291,13 @@ async function rollback() {
     }
 }
 
-if (require.main === module) {
+// Entry point
+const isMain = process.argv[1] && (
+    process.argv[1].endsWith('runner.ts') || 
+    process.argv[1].endsWith('runner.js')
+);
+
+if (isMain) {
     if (process.argv.includes('--rollback')) {
         rollback().then(() => process.exit(0));
     } else {

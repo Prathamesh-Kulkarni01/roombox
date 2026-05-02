@@ -1,5 +1,5 @@
 
-import { calculateAndCreateAddons } from '@/lib/actions/subscriptionActions';
+import { runMonthlyBillingCron } from '@/lib/actions/subscriptionActions';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic'; // Ensures this route is always executed dynamically
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await calculateAndCreateAddons();
+    const result = await runMonthlyBillingCron();
     if (result.success) {
       return NextResponse.json({ success: true, message: `Successfully processed billing for ${result.processedCount} owner(s).` });
     } else {

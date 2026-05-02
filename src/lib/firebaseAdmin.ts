@@ -11,7 +11,7 @@ const adminApps: Map<string, App> = new Map();
 import { getEnv } from './env';
 
 function initializeAdminApp(projectId?: string, databaseId?: string): App {
-  const appName = databaseId || projectId || 'default';
+  const appName = databaseId || projectId || '[DEFAULT]';
 
   // Reuse cached instance if available
   if (adminApps.has(appName)) {
@@ -74,6 +74,8 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
 
     console.log(`[FirebaseAdmin] Initializing "${appName}" for project "${appOptions.projectId}" (Emulator: ${!!isEmulator})`);
     const app = initializeApp(appOptions, appName);
+    const db = getFirestore(app);
+    db.settings({ ignoreUndefinedProperties: true });
     adminApps.set(appName, app);
     return app;
   } catch (error) {

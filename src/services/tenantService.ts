@@ -13,6 +13,7 @@ import { getPlanLimit } from '@/lib/permissions';
 import { parseDateString } from '@/lib/utils';
 import { ActivityLogsService } from '@/lib/activity-logs-service';
 import { getBalanceBreakdown } from '@/lib/ledger-utils';
+import { handleTenantAddition, handleTenantVacation } from '@/lib/actions/walletActions';
 
 export interface Tenant {
     id: string;
@@ -112,7 +113,14 @@ export class TenantService {
             ? (parseDateString(joinDate) || new Date(joinDate))
             : new Date(joinDate || new Date().toISOString());
         
-        await TenantService.checkGuestLimit(db, ownerId, planId);
+        // 1. Fetch Owner's Plan if not provided in input
+        let effectivePlanId = planId;
+        if (!effectivePlanId) {
+            const ownerDoc = await db.collection('users').doc(ownerId).get();
+            effectivePlanId = ownerDoc.data()?.subscription?.planId || 'free';
+        }
+
+        await TenantService.checkGuestLimit(db, ownerId, effectivePlanId);
 
         console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
 
@@ -290,6 +298,10 @@ export class TenantService {
                 isOnboarded: false, // Tenant self-onboarding via WhatsApp not yet complete
             } as unknown as Guest;
 
+            // Wallet Deduction for Tenant Onboarding
+            const deductedAmount = await handleTenantAddition(transaction, ownerId, guestId, name);
+            guestToCreate.onboardingFeeDeducted = deductedAmount;
+
             // Save guest
             const guestDocRef = db.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
             transaction.set(guestDocRef, guestToCreate);
@@ -341,8 +353,6 @@ export class TenantService {
             if (rawDefaultPassword) {
                 (guestToCreate as any)._defaultPassword = rawDefaultPassword;
             }
-
-            transaction.update(pgRef, pgUpdates);
 
             return guestToCreate;
         })
@@ -1034,26 +1044,42 @@ export class TenantService {
             }))
             : undefined;
 
-        const batch = db.batch();
+        await db.runTransaction(async (transaction) => {
+            // --- ALL READS MUST COME FIRST ---
+            const gSnap = await transaction.get(guestRef);
+            const pSnap = await transaction.get(pgRef);
+            if (!gSnap.exists || !pSnap.exists) throw new Error('Guest or PG not found during transaction');
 
-        const guestUpdates: any = {
-            isVacated: true,
-            exitDate: vacatedAt,
-            finalSettlementAmount,
-            updatedAt: vacatedAt,
-            updatedBy: performer
-        };
+            // Wallet Refund if stay < 10 days
+            // This is a READ operation because it calls transaction.get(userRef)
+            await handleTenantVacation(
+                transaction, 
+                ownerId, 
+                guestId, 
+                guest.name, 
+                guest.joinDate || '', 
+                guest.onboardingFeeDeducted || 0
+            );
 
-        if (ledgerUpdates.length > 0) {
-            guestUpdates.ledger = FieldValue.arrayUnion(...ledgerUpdates);
-        }
+            // --- ALL WRITES START HERE ---
+            const gUpdates: any = {
+                isVacated: true,
+                exitDate: vacatedAt,
+                finalSettlementAmount,
+                updatedAt: vacatedAt,
+                updatedBy: performer
+            };
 
-        batch.update(guestRef, guestUpdates);
-        batch.update(pgRef, {
-            occupancy: Math.max(0, (pgData.occupancy || 0) - 1),
-            ...(updatedFloors ? { floors: updatedFloors } : {}),
-        })
-        await batch.commit();
+            if (ledgerUpdates.length > 0) {
+                gUpdates.ledger = FieldValue.arrayUnion(...ledgerUpdates);
+            }
+
+            transaction.update(guestRef, gUpdates);
+            transaction.update(pgRef, {
+                occupancy: Math.max(0, (pgSnap.data()?.occupancy || 0) - 1),
+                ...(updatedFloors ? { floors: updatedFloors } : {}),
+            });
+        });
 
         // Multi-Property Aware Vacating: Remove from activeTenancies and promote next session if primary was vacated.
         if (guest.userId && appDb) {

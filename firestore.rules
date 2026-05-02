@@ -41,8 +41,27 @@ service cloud.firestore {
         (resource.data.role == 'unassigned' && request.resource.data.role == 'owner') ||
         // Case 2: Standard updates (e.g. name, avatar) - protect core fields
         (!request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'permissions', 'ownerId', 'guestId', 'staffId', 'subscription', 'activeTenancies', 'activeStaffProfiles', 'lastActiveContext']))
+          .hasAny(['role', 'permissions', 'ownerId', 'guestId', 'staffId', 'subscription', 'wallet', 'billingConfig', 'activeTenancies', 'activeStaffProfiles', 'lastActiveContext']))
       );
+
+      // ─── Wallet Transactions (read-only for owner, write via admin SDK) ─────
+      match /wallet_transactions/{txnId} {
+        allow read: if isAuth() && request.auth.uid == userId;
+        // Writes are server-side only (admin SDK) for billing integrity
+        allow write: if false;
+      }
+
+      // ─── Tenant Count Snapshots (read-only for owner, write via admin SDK) ──
+      match /tenant_count_snapshots/{snapshotId} {
+        allow read: if isAuth() && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // ─── Monthly Invoices (read-only for owner) ────────────────────────────
+      match /monthly_invoices/{invoiceId} {
+        allow read: if isAuth() && request.auth.uid == userId;
+        allow write: if false;
+      }
     }
 
     // ─── Invites ──────────────────────────────────────────────────────────────

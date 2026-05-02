@@ -52,7 +52,7 @@ export default function KycPage() {
 
     const kycConfigForm = useForm<KycConfigFormValues>({
         resolver: zodResolver(kycConfigSchema),
-        defaultValues: { configs: kycConfigs || [] }
+        defaultValues: { configs: (kycConfigs as any) || [] }
     });
 
     const { fields, append, remove } = useFieldArray({
@@ -61,7 +61,7 @@ export default function KycPage() {
     });
 
     useState(() => {
-        kycConfigForm.reset({ configs: kycConfigs || [] })
+        kycConfigForm.reset({ configs: (kycConfigs as any) || [] })
     });
 
     const handleSaveKycConfig = async (data: KycConfigFormValues) => {

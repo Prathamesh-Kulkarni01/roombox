@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import type { PremiumFeatures, BillingDetails, BillingCycleDetails } from '@/lib/types'
 import { getBillingDetails } from "@/lib/actions/billingActions"
 import { Skeleton } from "@/components/ui/skeleton"
+import { PRICING_CONFIG } from "@/lib/constants"
 
 export default function SubscriptionSettings() {
     const dispatch = useAppDispatch();
@@ -71,7 +72,7 @@ export default function SubscriptionSettings() {
             <h4 className="font-semibold">{title}</h4>
             {cycle.propertyCharge > 0 &&
                 <div className="flex justify-between text-sm">
-                    <span>Properties ({details.propertyCount} × ₹{details.pricingConfig.perProperty})</span>
+                    <span>Properties ({details.propertyCount} × ₹{details.pricingConfig.baseFee})</span>
                     <span>₹{cycle.propertyCharge.toLocaleString('en-IN')}</span>
                 </div>
             }
@@ -117,23 +118,9 @@ export default function SubscriptionSettings() {
                             <div className="flex items-center justify-between p-4 border rounded-xl hover:border-primary/20 transition-colors">
                                 <div className="space-y-1">
                                     <Label htmlFor="website-builder" className="flex items-center gap-2 font-bold text-base tracking-tight"><Globe className="w-5 h-5 text-blue-500"/> Website Builder</Label>
-                                    <p className="text-muted-foreground text-xs font-medium">Get a professional website for your PG. (₹20/month)</p>
+                                    <p className="text-muted-foreground text-xs font-medium">Get a professional website for your PG. (₹{PRICING_CONFIG.premiumFeatures.website.monthlyCharge}/month)</p>
                                 </div>
                                 <Switch id="website-builder" checked={!!currentUser.subscription?.premiumFeatures?.website?.enabled} onCheckedChange={(c) => handleToggleFeature('website', c)} disabled={isSaving}/>
-                            </div>
-                            <div className="flex items-center justify-between p-4 border rounded-xl hover:border-primary/20 transition-colors">
-                                <div className="space-y-1">
-                                    <Label htmlFor="kyc" className="flex items-center gap-2 font-bold text-base tracking-tight"><UserCheck className="w-5 h-5 text-emerald-500"/> Automated KYC</Label>
-                                    <p className="text-muted-foreground text-xs font-medium">AI-powered document verification. (₹50/month)</p>
-                                </div>
-                                <Switch id="kyc" checked={!!currentUser.subscription?.premiumFeatures?.kyc?.enabled} onCheckedChange={(c) => handleToggleFeature('kyc', c)} disabled={isSaving}/>
-                            </div>
-                            <div className="flex items-center justify-between p-4 border rounded-xl hover:border-primary/20 transition-colors">
-                                <div className="space-y-1">
-                                    <Label htmlFor="whatsapp" className="flex items-center gap-2 font-bold text-base tracking-tight"><BotIcon className="w-5 h-5 text-purple-500"/> WhatsApp Automation</Label>
-                                    <p className="text-muted-foreground text-xs font-medium">Automated reminders and notifications. (₹30/tenant/month)</p>
-                                </div>
-                                <Switch id="whatsapp" checked={!!currentUser.subscription?.premiumFeatures?.whatsapp?.enabled} onCheckedChange={(c) => handleToggleFeature('whatsapp', c)} disabled={isSaving}/>
                             </div>
                         </CardContent>
                     </Card>

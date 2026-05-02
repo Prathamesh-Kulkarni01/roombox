@@ -13,9 +13,29 @@ export const defaultMenu: Menu = {
   sunday: { breakfast: 'Puri Sabji', lunch: 'Special Thali (Chef\'s choice)', dinner: 'Noodles, Manchurian' },
 }
 
-export const PRICING_CONFIG = {
-    perProperty: 100, // ₹100 per property per month
-    perTenant: 20, // ₹20 per tenant per month
+import { PRICING_CONFIG } from './constants';
+export { PRICING_CONFIG };
+/* removed old config */
+const OLD_CONFIG_PLACEHOLDER = {
+    baseFee: 200, // ₹200 base fee per month
+    perTenant: 10, // ₹10 per tenant per month
+    // Legacy fields kept for backward compatibility
+    perProperty: 200, // Alias for baseFee
+    yearly: {
+        baseFee: 150, // ₹150/month when paid yearly (25% savings)
+        perTenant: 8, // ₹8/tenant/month when paid yearly
+    },
+    trial: {
+        durationDays: 14,
+        maxTenants: 5,
+        requiresWallet: false,
+    },
+    lowBalance: {
+        warningThreshold: 500, // ₹500 → show warning
+        riskThreshold: 200, // ₹200 → show risk alert
+        restrictedThreshold: 0, // ₹0 → restrict features
+    },
+    rechargeOptions: [500, 1000, 2000],
     premiumFeatures: {
         website: {
             name: 'Website Builder',

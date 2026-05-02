@@ -12,7 +12,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "cypress open",
-    "verify-logic": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8080 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=roombox-test npx ts-node --project scripts/tsconfig.json -r tsconfig-paths/register scripts/verify-system-integrity.ts",
+    "verify-logic": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8080 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=roombox-test npx tsx scripts/verify-system-integrity.ts",
     "migrate": "npx ts-node --project scripts/tsconfig.json -r tsconfig-paths/register scripts/migrations/runner.ts",
     "migrate:local": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8080 FIREBASE_PROJECT_ID=roombox-test npm run migrate",
     "audit:owner": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8080 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=roombox-test npx ts-node --transpile-only --project scripts/tsconfig.json -r tsconfig-paths/register scripts/audit-owner-journey.ts",
@@ -29,8 +29,8 @@
     "test:e2e": "playwright test",
     "test:smoke": "playwright test --grep @smoke --project=chromium",
     "stability-check": "npm run typecheck && npm run lint && npm run test:smoke",
-    "audit": "npm run audit:load && npm run audit:financial && npm run audit:failure && npm run audit:pilot && npm run audit:guests && npm run audit:transfer && npm run audit:launch"
-  },
+    "audit": "npm run audit:load && npm run audit:financial && npm run audit:failure && npm run audit:pilot && npm run audit:guests && npm run audit:transfer && npm run audit:launch",
+    "verify:billing": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8080 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=roombox-test npx tsx scripts/verify-billing-system.ts"  },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.7",
     "@genkit-ai/googleai": "^1.13.0",

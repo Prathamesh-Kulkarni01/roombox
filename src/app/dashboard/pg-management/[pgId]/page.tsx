@@ -169,7 +169,7 @@ export default function RoomManagementPage() {
 
   const permissions = useMemo(() => {
     if (!featurePermissions || !currentUser) return null
-    return featurePermissions.properties
+    return (featurePermissions as any).properties
   }, [featurePermissions, currentUser])
 
   const canAddFloor = useMemo(() => {
@@ -597,7 +597,7 @@ export default function RoomManagementPage() {
           )}
           {activeTab === 'activity' && (
             <div className="p-4">
-              <ActivityLogsList pgId={pg.id} />
+              <ActivityLogsList targetId={pg.id} />
             </div>
           )}
         </div>

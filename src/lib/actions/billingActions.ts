@@ -3,44 +3,145 @@
 
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
-import type { User, PremiumFeatures, BillingDetails, BillingCycleDetails } from '../types'
+import type { User, PremiumFeatures, BillingDetails, BillingCycleDetails, BillingDiscount } from '../types'
 import { getAdminDb } from '../firebaseAdmin'
 import { PRICING_CONFIG } from '../mock-data'
 
 
 /**
+ * Applies a discount to a raw bill amount.
+ * Order: Base + tenant → apply discount → final bill
+ */
+function applyDiscount(baseAmount: number, baseFee: number, tenantCharge: number, discount?: BillingDiscount | null): { discountedAmount: number; discountValue: number } {
+  const safeBaseAmount = isNaN(baseAmount) ? 0 : baseAmount;
+  const safeBaseFee = isNaN(baseFee) ? 0 : baseFee;
+
+  let discountValue = 0;
+  if (discount) {
+    switch (discount.type) {
+      case 'flat':
+        discountValue = Math.min(discount.value, safeBaseAmount);
+        break;
+      case 'percentage':
+        discountValue = Math.round(safeBaseAmount * (discount.value / 100));
+        break;
+      case 'free_base':
+        // Only charge per-tenant, waive base fee
+        discountValue = safeBaseFee;
+        break;
+    }
+  }
+
+  const finalDiscountValue = isNaN(discountValue) ? 0 : discountValue;
+
+  return {
+    discountedAmount: Math.max(0, safeBaseAmount - finalDiscountValue),
+    discountValue: finalDiscountValue,
+  };
+}
+
+/**
+ * Counts unique tenants who were active at any point during the billing month.
+ * Rule: A tenant is counted if they stayed at least 1 day in the billing cycle.
+ */
+export async function getUniqueTenantsForMonth(ownerId: string, monthIso: string): Promise<string[]> {
+  const adminDb = await getAdminDb();
+  const [year, month] = monthIso.split('-').map(Number);
+  const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
+  const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59));
+
+  const guestsSnapshot = await adminDb
+    .collection('users_data')
+    .doc(ownerId)
+    .collection('guests')
+    .get();
+
+  const uniquePhoneNumbers = new Set<string>();
+  const billableTenantIds: string[] = [];
+
+  guestsSnapshot.docs.forEach(doc => {
+    const data = doc.data();
+    const joinDate = new Date(data.moveInDate || data.createdAt || 0);
+    const exitDate = data.isVacated ? new Date(data.exitDate) : null;
+
+    // Logic: Active if joinDate <= endOfMonth AND (exitDate is null OR exitDate >= startOfMonth)
+    const wasActive = joinDate <= endOfMonth && (!exitDate || exitDate >= startOfMonth);
+
+    if (wasActive) {
+      const phone = data.phone || doc.id; // Fallback to doc ID if phone missing
+      if (!uniquePhoneNumbers.has(phone)) {
+        uniquePhoneNumbers.add(phone);
+        billableTenantIds.push(doc.id);
+      }
+    }
+  });
+
+  return billableTenantIds;
+}
+
+/**
  * Calculates the billing details for a given owner for both the current and next cycle.
  */
-export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
+export async function calculateOwnerBill(owner: User, monthIso?: string): Promise<BillingDetails> {
   const adminDb = await getAdminDb();
+  const currentMonth = monthIso || new Date().toISOString().slice(0, 7);
 
-  // Fetch active properties
+  // Fetch unique tenants for the cycle
+  const billableTenantIds = await getUniqueTenantsForMonth(owner.id, currentMonth);
+  const billableTenantCount = billableTenantIds.length;
+
+  // Fetch active properties (still needed for display)
   const pgsSnapshot = await adminDb
     .collection('users_data')
     .doc(owner.id)
     .collection('pgs')
     .get();
-
   const propertyCount = pgsSnapshot.docs.length;
-
-  // Fetch active tenants
-  const guestsSnapshot = await adminDb
-    .collection('users_data')
-    .doc(owner.id)
-    .collection('guests')
-    .where('isVacated', '==', false)
-    .get();
-
-  const billableTenantCount = guestsSnapshot.docs.length;
+  let totalBeds = 0;
+  pgsSnapshot.docs.forEach(doc => {
+    const data = doc.data();
+    let pgBeds = data.totalBeds || 0;
+    
+    // If totalBeds is 0 or missing, calculate from floors and rooms
+    if (pgBeds === 0 && data.floors) {
+      data.floors.forEach((floor: any) => {
+        if (floor.rooms) {
+          floor.rooms.forEach((room: any) => {
+            if (room.beds) {
+              pgBeds += room.beds.length;
+            } else if (room.capacity) {
+              pgBeds += room.capacity;
+            }
+          });
+        }
+      });
+    }
+    totalBeds += pgBeds;
+  });
 
   // Gracefully handle cases where subscription or premiumFeatures might not exist
   const subscription = owner.subscription as Record<string, any> | undefined;
   const premiumFeatures = (subscription?.premiumFeatures || {}) as PremiumFeatures;
-  const isSubscribed = subscription?.status === 'active' || subscription?.status === 'trialing';
+  const isSubscribed = subscription?.status === 'active' || subscription?.status === 'trialing' || subscription?.status === 'restricted';
+
+  // Use owner-specific billing config if set by admin, else defaults
+  const billingConfig = owner.billingConfig;
+  
+  // Per-tenant fee based on plan type
+  let perTenantFee = PRICING_CONFIG.perTenant;
+  if ((billingConfig?.planType as any) === 'yearly') perTenantFee = PRICING_CONFIG.yearly.perTenant;
+  else if ((billingConfig?.planType as any) === 'sixMonth') perTenantFee = PRICING_CONFIG.sixMonth.perTenant;
+  else if (billingConfig?.planType === 'monthly') perTenantFee = PRICING_CONFIG.monthly.perTenant;
+
+  // Admin Override
+  if (billingConfig?.perTenantFee !== undefined) perTenantFee = billingConfig.perTenantFee;
+  
+  const baseFee = billingConfig?.baseFee ?? PRICING_CONFIG.baseFee;
+  const discount = billingConfig?.discount;
 
   const calculateCycleDetails = (features: PremiumFeatures): BillingCycleDetails => {
-    const propertyCharge = isSubscribed ? propertyCount * PRICING_CONFIG.perProperty : 0;
-    const tenantCharge = isSubscribed ? billableTenantCount * PRICING_CONFIG.perTenant : 0;
+    const propertyCharge = isSubscribed ? baseFee : 0;
+    const tenantCharge = isSubscribed ? billableTenantCount * perTenantFee : 0;
 
     let premiumCharge = 0;
     const premiumDetails: BillingCycleDetails['premiumFeaturesDetails'] = {};
@@ -49,15 +150,17 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
       for (const [key, config] of Object.entries(PRICING_CONFIG.premiumFeatures)) {
         const featureKey = key as keyof PremiumFeatures;
         if (features[featureKey]?.enabled) {
-          let charge = 0;
+          const configCharge = config.billingType === 'monthly' 
+            ? (config.monthlyCharge || 0)
+            : (billableTenantCount * (config.perTenantCharge || 0));
+          
+          const charge = isNaN(configCharge) ? 0 : configCharge;
           let description = `${config.name}`;
 
           if (config.billingType === 'monthly') {
-            charge = config.monthlyCharge;
-            description = `${config.name}`;
+            description = config.name;
           } else if (config.billingType === 'per_tenant') {
-            charge = billableTenantCount * config.perTenantCharge;
-            description = `${config.name} (${billableTenantCount} tenants × ₹${config.perTenantCharge})`;
+            description = `${config.name} (${billableTenantCount} tenants × ₹${config.perTenantCharge || 0})`;
           }
 
           premiumCharge += charge;
@@ -66,17 +169,24 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
       }
     }
 
+    const rawTotal = (propertyCharge || 0) + (tenantCharge || 0) + (premiumCharge || 0);
+    const safeRawTotal = isNaN(rawTotal) ? 0 : rawTotal;
+    const { discountedAmount, discountValue } = applyDiscount(safeRawTotal, propertyCharge || 0, tenantCharge || 0, discount);
+
     return {
-      totalAmount: propertyCharge + tenantCharge + premiumCharge,
-      propertyCharge,
+      totalAmount: discountedAmount,
+      propertyCharge, 
       tenantCharge,
+      tenantCount: billableTenantCount,
+      perTenantFee,
       premiumFeaturesCharge: premiumCharge,
       premiumFeaturesDetails: premiumDetails,
+      discountAmount: discountValue,
+      discountDetails: discount || undefined,
     };
   };
 
   const currentCycle = calculateCycleDetails(premiumFeatures);
-  // For estimation, we assume the same state.
   const nextCycleEstimate = calculateCycleDetails(premiumFeatures);
 
   return {
@@ -85,10 +195,13 @@ export async function calculateOwnerBill(owner: User): Promise<BillingDetails> {
     details: {
       propertyCount,
       billableTenantCount,
-      pricingConfig: PRICING_CONFIG,
+      totalBeds,
+      billableTenantNames: [], // Can be populated if needed
+      pricingConfig: PRICING_CONFIG as any,
     }
   };
 }
+
 
 
 export async function getBillingDetails(ownerId: string): Promise<{ success: boolean; data?: BillingDetails; error?: string }> {
@@ -185,64 +298,3 @@ export async function verifySubscriptionPayment(data: {
   }
 }
 
-/**
- * Calculates the total monthly bill and creates a single addon for it on Razorpay.
- */
-export async function calculateAndCreateAddons() {
-  const adminDb = await getAdminDb();
-  console.log('Running monthly billing cron job...');
-  let processedCount = 0;
-  const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID!,
-    key_secret: process.env.RAZORPAY_KEY_SECRET!,
-  });
-
-  try {
-    const ownersSnapshot = await adminDb
-      .collection('users')
-      .where('subscription.status', '==', 'active')
-      .get();
-
-    for (const userDoc of ownersSnapshot.docs) {
-      const owner = { id: userDoc.id, ...userDoc.data() } as User;
-      const subscriptionId = owner.subscription?.razorpay_subscription_id;
-
-      if (!subscriptionId) {
-        console.warn(`Owner ${owner.id} is active but has no Razorpay subscription ID. Skipping.`);
-        continue;
-      }
-
-      const billingDetails = await calculateOwnerBill(owner);
-      const totalAmount = billingDetails.currentCycle.totalAmount;
-
-      if (totalAmount <= 0) {
-        console.log(`Owner ${owner.id} has no charges this month. Skipping.`);
-        continue;
-      }
-
-      const idempotencyKey = `bill-${owner.id}-${new Date().toISOString().slice(0, 7)}`; // e.g., bill-userId-2024-08
-      const itemName = `Monthly Bill for ${new Date().toLocaleString('default', { month: 'long' })}`;
-
-      try {
-        await razorpay.subscriptions.createAddon(subscriptionId, {
-          item: {
-            name: idempotencyKey,
-            amount: totalAmount * 100, // Amount in paisa
-            currency: 'INR',
-            description: itemName,
-          },
-          quantity: 1,
-        });
-        console.log(`Successfully created addon for ${owner.id} of ₹${totalAmount}`);
-        processedCount++;
-      } catch (error: any) {
-        console.error(`Failed to create addon for ${owner.id} (Sub ID: ${subscriptionId}):`, error.error?.description || error.message);
-      }
-    }
-    console.log(`Billing cron job finished. Processed ${processedCount} owner(s).`);
-    return { success: true, processedCount };
-  } catch (error: any) {
-    console.error("Error running billing cron job:", error);
-    return { success: false, error: error.message };
-  }
-}

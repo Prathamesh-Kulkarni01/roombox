@@ -122,6 +122,74 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ success: true, message: 'Recharge processed.' });
             }
 
+            // Check for wallet recharge (billing wallet top-up)
+            if (order.notes?.type === 'wallet_recharge') {
+                const ownerId = order.notes.ownerId;
+                console.log(`[Webhook: Razorpay-Rent] Detected wallet recharge for owner: ${ownerId}`);
+                
+                const amount = (payment.amount || order.amount || 0) / 100;
+
+                if (ownerId && !isNaN(amount) && amount > 0) {
+                    const adminDb = await getAdminDb();
+                    const rechargeRef = adminDb.collection('wallet_recharges').doc(`wallet_${payment.id}`);
+                    
+                    try {
+                        await adminDb.runTransaction(async (transaction) => {
+                            const rechargeDoc = await transaction.get(rechargeRef);
+                            if (rechargeDoc.exists) {
+                                console.log(`[Webhook: Razorpay-Rent] Wallet recharge ${payment.id} already processed. Skipping.`);
+                                return;
+                            }
+
+                            // Import processRecharge inline to credit wallet
+                            const { processRecharge } = await import('@/lib/actions/walletActions');
+                            const { isRazorpayIdUsed } = await import('@/lib/actions/walletActions');
+                            
+                            // Check if client-side verification already credited this payment
+                            const alreadyUsed = await isRazorpayIdUsed(ownerId, payment.id);
+                            if (alreadyUsed) {
+                                console.log(`[Webhook: Razorpay-Rent] Wallet recharge ${payment.id} already credited via client path. Recording.`);
+                                transaction.set(rechargeRef, {
+                                    paymentId: payment.id,
+                                    orderId: order.id,
+                                    ownerId,
+                                    amount,
+                                    status: 'already_credited',
+                                    processedAt: FieldValue.serverTimestamp(),
+                                });
+                                return;
+                            }
+
+                            // Credit the wallet via processRecharge (has its own idempotency)
+                            const result = await processRecharge({
+                                ownerId,
+                                amount,
+                                razorpayPaymentId: payment.id,
+                                description: order.notes.description || `Wallet recharge via webhook (Order: ${order.id})`,
+                            });
+
+                            transaction.set(rechargeRef, {
+                                paymentId: payment.id,
+                                orderId: order.id,
+                                ownerId,
+                                amount,
+                                status: result.success ? 'captured' : 'failed',
+                                processedAt: FieldValue.serverTimestamp(),
+                                newBalance: result.newBalance,
+                            });
+
+                            console.log(`[Webhook: Razorpay-Rent] Wallet recharge result: ${result.success ? 'SUCCESS' : 'FAILED'} - ₹${amount} for ${ownerId}`);
+                        });
+                    } catch (txError: any) {
+                        console.error('[Webhook: Razorpay-Rent] Failed to process wallet recharge:', txError.message);
+                        throw txError;
+                    }
+                } else {
+                    console.warn(`[Webhook: Razorpay-Rent] Invalid wallet recharge data: ownerId=${ownerId}, amount=${amount}`);
+                }
+                return NextResponse.json({ success: true, message: 'Wallet recharge processed.' });
+            }
+
             // Handle rent payment
             const { guestId, ownerId } = order.notes || {};
             const amountPaid = payment.amount / 100;

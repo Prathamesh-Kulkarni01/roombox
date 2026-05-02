@@ -3,7 +3,7 @@ import Access from "@/components/ui/PermissionWrapper";
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { BedDouble, ShieldAlert, Wallet, Clock, IndianRupee } from "lucide-react"
+import { BedDouble, ShieldAlert, Wallet, Clock, IndianRupee, Users } from "lucide-react"
 
 export interface DashboardStats {
   occupancy: { total: number, occupied: number, newThisMonth: number };
@@ -17,6 +17,7 @@ export interface DashboardStats {
     symbolicCollectedToday?: number
   };
   pendingDues: { amount: number, symbolicBalance?: string | null };
+  walletBalance?: number;
 }
 
 interface StatsCardsProps {
@@ -48,10 +49,46 @@ export function PendingDuesCard({ amount, symbolicBalance, onSendReminders }: { 
 
 export default function StatsCards({ stats }: StatsCardsProps) {
   const occPercentage = stats.occupancy.total > 0 ? Math.round((stats.occupancy.occupied / stats.occupancy.total) * 100) : 0;
-  const revPercentage = stats.revenue.expected > 0 ? Math.round((stats.revenue.collected / stats.revenue.expected) * 100) : 0;
+  let revPercentage = stats.revenue.expected > 0 ? Math.round((stats.revenue.collected / stats.revenue.expected) * 100) : 0;
+  if (isNaN(revPercentage)) revPercentage = 0;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Mobile-only Balance & Beds Row */}
+      <div className="grid grid-cols-2 gap-4 lg:hidden">
+        <Card className="glass border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
+          <CardContent className="p-4 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg">
+                <Wallet className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600/70">Wallet</span>
+            </div>
+            <div>
+              <p className="text-xl font-black tracking-tight text-emerald-600">₹{(stats.walletBalance || 0).toLocaleString('en-IN')}</p>
+              <p className="text-[10px] font-bold text-muted-foreground mt-0.5">Balance</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass border-violet-500/20 bg-violet-500/5 overflow-hidden">
+          <CardContent className="p-4 flex flex-col justify-between h-full">
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-1.5 bg-violet-500/10 text-violet-600 rounded-lg">
+                <Users className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-violet-600/70">Beds</span>
+            </div>
+            <div>
+              <p className="text-xl font-black tracking-tight text-violet-600">
+                {stats.occupancy.occupied}
+                <span className="text-xs text-muted-foreground/50 ml-1">/ {stats.occupancy.total}</span>
+              </p>
+              <p className="text-[10px] font-bold text-muted-foreground mt-0.5">Occupancy</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Top Row: Occupancy & Complaints */}
       <div className="grid grid-cols-2 gap-4">
         {/* Occupancy Card */}
@@ -63,12 +100,15 @@ export default function StatsCards({ stats }: StatsCardsProps) {
               </div>
               {stats.occupancy.newThisMonth > 0 && <Badge variant="secondary" className="text-primary bg-primary/10 border-none font-bold text-xs">{`+${stats.occupancy.newThisMonth} New`}</Badge>}
             </CardHeader>
-            <CardContent className="p-4 pt-1">
-              <div className="flex items-baseline gap-1">
-                <h2 className="text-3xl font-extrabold">{stats.occupancy.occupied}</h2>
-                <span className="text-muted-foreground font-semibold">/ {stats.occupancy.total}</span>
+            <CardContent className="p-4 pt-1 space-y-3">
+              <div>
+                <div className="flex items-baseline gap-1">
+                  <h2 className="text-3xl font-extrabold">{stats.occupancy.occupied}</h2>
+                  <span className="text-muted-foreground font-semibold">/ {stats.occupancy.total}</span>
+                </div>
+                <p className="text-sm font-medium text-muted-foreground mt-1">Occupancy ({occPercentage}%)</p>
               </div>
-              <p className="text-sm font-medium text-muted-foreground mt-1">Occupancy ({occPercentage}%)</p>
+              <Progress value={occPercentage} className="h-1.5 bg-primary/10" />
             </CardContent>
           </Card>
         </Access>
@@ -121,7 +161,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
             </div>
             <div className="text-right flex flex-col items-end">
               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-black px-2 py-1 mb-1">
-                {stats.revenue.collectedToday > 0 ? `+ ₹${stats.revenue.collectedToday.toLocaleString('en-IN')}` : ''}
+                {stats.revenue.collectedToday > 0 ? `+ ₹${(stats.revenue.collectedToday || 0).toLocaleString('en-IN')}` : ''}
                 {stats.revenue.collectedToday > 0 && stats.revenue.symbolicCollectedToday ? ' + ' : ''}
                 {stats.revenue.symbolicCollectedToday ? (stats.revenue.symbolicCollectedToday === 1 ? 'XXX' : stats.revenue.symbolicCollectedToday + 'XXX') : (stats.revenue.collectedToday === 0 ? '₹0' : '')}
               </Badge>
@@ -132,7 +172,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{revPercentage}% Efficiency</span>
               <span className="text-xs font-bold text-muted-foreground">
-                {stats.revenue.collected > 0 ? `₹${stats.revenue.collected.toLocaleString('en-IN')}` : ''}
+                {stats.revenue.collected > 0 ? `₹${(stats.revenue.collected || 0).toLocaleString('en-IN')}` : ''}
                 {stats.revenue.collected > 0 && stats.revenue.symbolicCollected ? ' + ' : ''}
                 {stats.revenue.symbolicCollected ? (stats.revenue.symbolicCollected === 1 ? 'XXX' : stats.revenue.symbolicCollected + 'XXX') : (stats.revenue.collected === 0 ? '₹0' : '')} collected
               </span>

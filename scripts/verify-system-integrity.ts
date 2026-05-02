@@ -1,15 +1,6 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════════╗
- * ║          ROOMBOX — SYSTEM INTEGRITY VERIFICATION HARNESS            ║
- * ║                                                                       ║
- * ║  Run against the Firebase Emulator Suite to validate production       ║
- * ║  safety of critical business logic.                                   ║
- * ║                                                                       ║
- * ║  Usage:                                                               ║
- * ║    1. Start emulators: firebase emulators:start                       ║
- * ║    2. Run: npx ts-node --skip-project-check scripts/verify-system-integrity.ts
- * ╚══════════════════════════════════════════════════════════════════════╝
- */
+process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+process.env.FIREBASE_AUTH_EMULATOR_HOST = 'localhost:9099';
+process.env.FIREBASE_STORAGE_EMULATOR_HOST = 'localhost:9199';
 
 import * as admin from 'firebase-admin';
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
@@ -17,16 +8,21 @@ import { produce } from 'immer';
 import { calculateFirstDueDate } from '../src/lib/utils';
 import { getReminderForGuest } from '../src/lib/reminder-logic';
 import { runReconciliationLogic } from '../src/lib/reconciliation';
+import { 
+    processRecharge, debitWallet, estimateBalanceRunway, adminWalletAdjustment 
+} from '../src/lib/actions/walletActions';
+import { PRICING_CONFIG } from '../src/lib/constants';
+import { getAdminDb } from '../src/lib/firebaseAdmin';
 
-// ─── Emulator Config ─────────────────────────────────────────────────────────
+// Set emulator host before anything else
+// We don't initialize admin here, we let getAdminDb handle it
+// to ensure we use the same instances as the actions.
+let db: Firestore;
 
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
-
-if (!admin.apps.length) {
-    admin.initializeApp({ projectId: 'roombox-test' });
+async function initDb() {
+    process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+    db = await getAdminDb();
 }
-
-const db: Firestore = admin.firestore();
 
 // ─── Test State & Utilities ──────────────────────────────────────────────────
 
@@ -109,12 +105,15 @@ const BASE_PG = (overrides: Record<string, any> = {}) => ({
     ...overrides,
 });
 
-async function seedPg(overrides: Record<string, any> = {}): Promise<void> {
-    await db.collection('users_data').doc(TEST_OWNER_ID).collection('pgs').doc(TEST_PG_ID).set(BASE_PG(overrides));
+async function seedPg(overrides: Record<string, any> = {}, parentOwnerId: string = TEST_OWNER_ID): Promise<void> {
+    await db.collection('users_data').doc(parentOwnerId).collection('pgs').doc(TEST_PG_ID).set(BASE_PG(overrides));
 }
 
-async function seedGuest(id: string, overrides: Record<string, any> = {}): Promise<void> {
-    await db.collection('users_data').doc(TEST_OWNER_ID).collection('guests').doc(id).set(BASE_GUEST(id, overrides));
+async function seedGuest(id: string, overrides: Record<string, any> = {}, parentOwnerId: string = TEST_OWNER_ID): Promise<void> {
+    await db.collection('users_data').doc(parentOwnerId).collection('guests').doc(id).set(BASE_GUEST(id, {
+        ownerId: parentOwnerId,
+        ...overrides
+    }));
 }
 
 async function getGuest(id: string): Promise<any> {
@@ -519,6 +518,242 @@ async function testDepositReconciliation(): Promise<void> {
     }
 }
 
+// ─── TEST 6: WALLET SYSTEM (FINANCIAL ENGINE) ───────────────────────────────
+
+async function testWalletSystem(): Promise<void> {
+    const OWNER_ID = `owner-wallet-${Date.now()}`;
+    const userRef = db.collection('users').doc(OWNER_ID);
+
+    try {
+        // 1. Initial State
+        await userRef.set({
+            id: OWNER_ID,
+            name: 'Wallet Test Owner',
+            role: 'owner',
+            wallet: { balance: 0 },
+            subscription: { status: 'active', planId: 'free' },
+            billingConfig: {
+                planType: 'monthly',
+                baseFee: 200,
+                perTenantFee: 10
+            }
+        });
+
+        // 2. Test Recharge
+        const rechargeAmount = 1000;
+        const rResult = await processRecharge({
+            ownerId: OWNER_ID,
+            amount: rechargeAmount,
+            description: 'Test Recharge'
+        });
+        
+        assert(rResult.success === true, 'Recharge should succeed');
+        assert(rResult.newBalance === rechargeAmount, `Balance should be ${rechargeAmount}, got ${rResult.newBalance}`);
+
+        let userSnap = await userRef.get();
+        let userData = userSnap.data();
+        assert(userData?.wallet?.balance === rechargeAmount, 'Firestore balance mismatch after recharge');
+
+        // Check transaction log
+        const txns = await db.collection('users').doc(OWNER_ID).collection('wallet_transactions').get();
+        assert(txns.size === 1, `Expected 1 transaction, got ${txns.size}`);
+        assert(txns.docs[0].data().type === 'recharge', 'Transaction type should be recharge');
+
+        // 3. Test Debit (Normal)
+        const debitAmount = 500;
+        const dResult = await debitWallet({
+            ownerId: OWNER_ID,
+            amount: debitAmount,
+            description: 'Monthly Bill'
+        });
+
+        assert(dResult.success === true, 'Debit should succeed');
+        assert(dResult.newBalance === rechargeAmount - debitAmount, 'Balance mismatch after debit');
+
+        // 4. Test Debit (Restriction Trigger)
+        // Balance is 500. Let's debit 600 to go to -100.
+        const dResult2 = await debitWallet({
+            ownerId: OWNER_ID,
+            amount: 600,
+            description: 'Overshoot Bill'
+        });
+
+        assert(dResult2.success === true, 'Overshoot debit should succeed');
+        assert(dResult2.newBalance === -100, 'Balance should be negative');
+        
+        userSnap = await userRef.get();
+        userData = userSnap.data();
+        assert(userData?.subscription?.status === 'restricted', 'Owner should be restricted when balance < 0');
+
+        // 5. Test Recovery (Recharge clears restriction)
+        await processRecharge({
+            ownerId: OWNER_ID,
+            amount: 200, // New balance: -100 + 200 = 100
+            description: 'Recovery Recharge'
+        });
+
+        userSnap = await userRef.get();
+        userData = userSnap.data();
+        assert(userData?.subscription?.status === 'active', 'Owner should be active after recharging to positive balance');
+        assert(userData?.wallet?.balance === 100, `Balance should be 100, got ${userData?.wallet?.balance}`);
+
+        // 6. Test Runway Estimation
+        // Add some tenants to the data DB
+        await seedGuest(`tenant-1`, { isVacated: false }, OWNER_ID);
+        await seedGuest(`tenant-2`, { isVacated: false }, OWNER_ID);
+
+        // Estimated bill: baseFee(200) + 2 tenants * 10 = 220
+        // Balance: 100
+        // Daily cost: 220 / 30 = 7.33
+        // Days left: 100 / 7.33 = 13.6 -> 13
+        const runway = await estimateBalanceRunway(OWNER_ID);
+        assert(runway.success === true, 'Runway estimation should succeed');
+        assert(runway.monthlyBill === 220, `Monthly bill should be 220, got ${runway.monthlyBill}`);
+        assert(runway.daysLeft === 13, `Runway days should be 13, got ${runway.daysLeft}`);
+
+        // 7. Test Admin Adjustments
+        const adminResult = await adminWalletAdjustment({
+            ownerId: OWNER_ID,
+            type: 'admin_credit',
+            amount: 50,
+            reason: 'Loyalty Bonus',
+            adminId: 'admin-1'
+        });
+        assert(adminResult.success === true, 'Admin adjustment should succeed');
+        assert(adminResult.newBalance === 150, `Balance should be 150, got ${adminResult.newBalance}`);
+
+        pass('Wallet System (Financial Engine)');
+    } catch (err: any) {
+        fail('Wallet System (Financial Engine)', err.message, err.data);
+    } finally {
+        // Cleanup wallet test owner
+        await userRef.delete();
+        const txns = await db.collection('users').doc(OWNER_ID).collection('wallet_transactions').get();
+        const batch = db.batch();
+        txns.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    }
+}
+
+// ─── TEST 7: BILLING CRON (ATOMICITY & TRIAL) ───────────────────────────────
+
+async function testBillingCronAtomic(): Promise<void> {
+    const OWNER_ID = `owner-cron-${Date.now()}`;
+    const userRef = db.collection('users').doc(OWNER_ID);
+    const { runMonthlyBillingCron } = await import('../src/lib/actions/subscriptionActions');
+
+    try {
+        // 1. Setup trialing owner with positive balance
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() - 1); // Expired yesterday
+
+        await userRef.set({
+            id: OWNER_ID,
+            role: 'owner',
+            wallet: { balance: 500 },
+            subscription: { 
+                status: 'trialing', 
+                trialEndDate: trialEndDate.toISOString(),
+                planId: 'pro' 
+            },
+            billingConfig: {
+                baseFee: 200,
+                perTenantFee: 10
+            }
+        });
+
+        // 2. Run Cron
+        const result = await runMonthlyBillingCron();
+        assert(result.success === true, 'Cron should succeed');
+        
+        // 3. Verify Atomicity (Status should be active, balance should be debited, lastBilledAt should be set)
+        const userSnap = await userRef.get();
+        const userData = userSnap.data();
+        
+        assert(userData?.subscription?.status === 'active', `Status should be active, got ${userData?.subscription?.status}`);
+        assert(userData?.wallet?.balance === 300, `Balance should be 300 (500 - 200 base), got ${userData?.wallet?.balance}`);
+        assert(!!userData?.billingConfig?.lastBilledAt, 'lastBilledAt should be set');
+        
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        assert(userData?.billingConfig?.lastBilledAt.startsWith(currentMonth), 'lastBilledAt should be for current month');
+
+        // 4. Verify Idempotency (Running again should NOT debit)
+        const result2 = await runMonthlyBillingCron();
+        const userSnap2 = await userRef.get();
+        const userData2 = userSnap2.data();
+        assert(userData2?.wallet?.balance === 300, 'Balance should NOT change on second run (idempotency)');
+
+        pass('Billing Cron (Atomicity & Trial)');
+    } catch (err: any) {
+        fail('Billing Cron (Atomicity & Trial)', err.message, err.data);
+    } finally {
+        await userRef.delete();
+        const txns = await db.collection('users').doc(OWNER_ID).collection('wallet_transactions').get();
+        const batch = db.batch();
+        txns.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    }
+}
+
+// ─── TEST 8: NEGATIVE BALANCE RESTRICTION ───────────────────────────────────
+
+async function testNegativeBalanceRestriction(): Promise<void> {
+    const OWNER_ID = `owner-neg-${Date.now()}`;
+    const userRef = db.collection('users').doc(OWNER_ID);
+
+    try {
+        // 1. Setup owner with small balance
+        await userRef.set({
+            id: OWNER_ID,
+            role: 'owner',
+            wallet: { balance: 50 },
+            subscription: { status: 'active', planId: 'pro' },
+            billingConfig: { baseFee: 200, perTenantFee: 10 }
+        });
+
+        // 2. Debit more than balance
+        const { debitWallet } = await import('../src/lib/actions/walletActions');
+        const result = await debitWallet({
+            ownerId: OWNER_ID,
+            amount: 200,
+            description: 'Test Large Debit'
+        });
+
+        assert(result.success === true, 'Debit should succeed even if it goes negative');
+        assert(result.newBalance === -150, `Balance should be -150, got ${result.newBalance}`);
+
+        // 3. Verify status changed to restricted
+        const userSnap = await userRef.get();
+        const userData = userSnap.data();
+        assert(userData?.subscription?.status === 'restricted', `Status should be restricted, got ${userData?.subscription?.status}`);
+
+        // 4. Recharge to positive and verify status returns to active (Wait, does recharge handle this?)
+        // I need to check if processRecharge handles status recovery.
+        const { processRecharge } = await import('../src/lib/actions/walletActions');
+        const rechargeResult = await processRecharge({
+            ownerId: OWNER_ID,
+            amount: 500
+        });
+
+        assert(rechargeResult.success === true, 'Recharge should succeed');
+        assert(rechargeResult.newBalance === 350, `Balance should be 350, got ${rechargeResult.newBalance}`);
+
+        const userSnapAfter = await userRef.get();
+        const userDataAfter = userSnapAfter.data();
+        assert(userDataAfter?.subscription?.status === 'active', `Status should be active after recharge, got ${userDataAfter?.subscription?.status}`);
+
+        pass('Negative Balance Restriction & Recovery');
+    } catch (err: any) {
+        fail('Negative Balance Restriction & Recovery', err.message, err.data);
+    } finally {
+        await userRef.delete();
+        const txns = await db.collection('users').doc(OWNER_ID).collection('wallet_transactions').get();
+        const batch = db.batch();
+        txns.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    }
+}
+
 // ─── MAIN RUNNER ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<never> {
@@ -529,11 +764,15 @@ async function main(): Promise<never> {
     console.log(`PG ID:    ${TEST_PG_ID}\n`);
 
     try {
+        await initDb();
         await testWebhookIdempotency();
         await testLedgerAccountingIntegrity();
         await testBedAllocationConcurrency();
         await testWhatsAppReminderIdempotency();
         await testDepositReconciliation();
+        await testWalletSystem();
+        await testBillingCronAtomic();
+        await testNegativeBalanceRestriction();
     } finally {
         console.log('\n─── Cleaning up test data... ───');
         await cleanup();

@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 export interface KycDocumentConfig {
     id: string;
@@ -354,6 +354,8 @@ export interface Guest extends BaseEntity {
   balanceBroughtForward?: number;
   additionalCharges?: AdditionalCharge[];
   rentPaidAmount?: number;
+  onboardingFeeDeducted?: number;
+  joinDate?: string;
 }
 
 export interface AdditionalCharge { // Also deprecated
@@ -419,13 +421,89 @@ export interface Plan {
   hasDedicatedDb?: boolean;
 }
 
-export type SubscriptionStatus = 'trialing' | 'active' | 'inactive' | 'past_due' | 'canceled';
+export type SubscriptionStatus = 'trialing' | 'active' | 'inactive' | 'past_due' | 'canceled' | 'restricted';
 
 export interface PremiumFeatures {
   website?: { enabled: boolean };
-  kyc?: { enabled: boolean };
-  whatsapp?: { enabled: boolean };
 }
+
+// ─── Wallet & Billing System ──────────────────────────────────────────────────
+
+export type BillingPlanType = 'monthly' | 'yearly' | 'trial';
+
+export type WalletTransactionType = 'recharge' | 'debit' | 'refund' | 'admin_credit' | 'admin_debit';
+
+export interface WalletTransaction {
+  id: string;
+  type: WalletTransactionType;
+  walletType: 'trial' | 'recharge' | 'mixed' | 'dues';
+  amount: number;
+  trialDeducted?: number;
+  rechargeDeducted?: number;
+  duesIncurred?: number;
+  balanceAfter: number;
+  description: string;
+  razorpayPaymentId?: string;
+  invoiceMonth?: string; // e.g. '2026-05' for monthly debit
+  createdAt: string; // ISO string
+}
+
+export type DiscountType = 'flat' | 'percentage' | 'free_base';
+
+export interface BillingDiscount {
+  type: DiscountType;
+  value: number; // ₹ amount for flat, % for percentage, ignored for free_base
+  reason?: string;
+  appliedBy?: string; // admin userId
+  appliedAt?: string; // ISO string
+}
+
+export interface BillingConfig {
+  planType: BillingPlanType;
+  baseFee: number; // per-month base fee (default from PRICING_CONFIG)
+  perTenantFee: number; // per-tenant per-month fee
+  discount?: BillingDiscount | null;
+  lastBilledAt?: string; // ISO string
+  nextBillingDate?: string; // ISO string
+}
+
+export interface WalletInfo {
+  balance: number; // Combined balance for legacy display (trial + recharge)
+  trialBalance: number;
+  rechargeBalance: number;
+  dues: number; // Accumulated debt if wallets were insufficient
+  trialExpiresAt?: string; // ISO string
+  lastRechargeAt?: string; // ISO string
+  lastRechargeAmount?: number;
+}
+
+export interface TenantCountSnapshot {
+  id: string;
+  date: string; // ISO date (YYYY-MM-DD)
+  tenantIds: string[];
+  count: number;
+  createdAt: string; // server timestamp ISO
+}
+
+export interface MonthlyInvoice {
+  id: string;
+  month: string; // e.g. '2026-05'
+  baseFee: number;
+  tenantCount: number;
+  tenantCharge: number;
+  premiumCharges: number;
+  discount: number;
+  totalAmount: number;
+  walletDeducted: boolean;
+  createdAt: string; // ISO
+  breakdown: {
+    tenantIds: string[];
+    premiumDetails?: Record<string, { charge: number; description: string }>;
+    discountDetails?: BillingDiscount;
+  };
+}
+
+export type LowBalanceStage = 'normal' | 'warning' | 'risk' | 'restricted';
 
 export interface UserSubscriptionPayment {
   id: string; // Razorpay Payment ID or internal ID
@@ -474,6 +552,7 @@ export interface User {
     payoutMethods?: PaymentMethod[];
     payoutMode?: 'PAYOUT' | 'ROUTE';
     trialEndDate?: string; // ISO string
+    trialTenantLimit?: number; // Max tenants during trial (default 5)
     premiumFeatures?: PremiumFeatures;
     paymentHistory?: UserSubscriptionPayment[];
     kycDetails?: BusinessKycDetails;
@@ -493,6 +572,8 @@ export interface User {
       };
     };
   };
+  wallet?: WalletInfo;
+  billingConfig?: BillingConfig;
   fcmToken?: string | null;
   createdAt?: string; // ISO string for when the user was created
   permissions?: string[]; // For staff users, synchronized from staff document
@@ -564,10 +645,14 @@ export interface ChargeTemplate {
 
 export interface BillingCycleDetails {
   totalAmount: number;
-  propertyCharge: number;
+  propertyCharge: number; // Base fee
   tenantCharge: number;
+  tenantCount?: number;
+  perTenantFee?: number;
   premiumFeaturesCharge: number;
   premiumFeaturesDetails: Record<string, { charge: number; description: string; }>;
+  discountAmount?: number;
+  discountDetails?: BillingDiscount;
 }
 
 export interface BillingDetails {
@@ -576,6 +661,8 @@ export interface BillingDetails {
   details: {
     propertyCount: number;
     billableTenantCount: number;
+    totalBeds: number;
+    billableTenantNames?: string[];
     pricingConfig: typeof import('./mock-data').PRICING_CONFIG;
   };
 }
