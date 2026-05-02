@@ -29,7 +29,8 @@ import {
     Zap,
     Layout,
     Plus,
-    Minus
+    Minus,
+    Camera
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
@@ -50,12 +51,25 @@ import { Select, SelectContent, SelectItem, SelectValue, SelectTrigger } from '@
 import { useCreatePropertyMutation } from '@/lib/api/apiSlice'
 import { useConfetti } from '@/context/confetti-provider'
 import { Progress } from "@/components/ui/progress"
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from "@/lib/utils"
+import { StepIndicator } from './components/StepIndicator'
+import { BuildingPreview } from './components/BuildingPreview'
+import { NavigationFooter } from './components/NavigationFooter'
+import { WhatsAppSupport } from './components/WhatsAppSupport'
+
+const stepVariants = {
+  initial: { opacity: 0, x: 20 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -20 },
+  transition: { duration: 0.3 }
+}
+
 
 const pgSchema = z.object({
   // Owner Profile
   ownerName: z.string().min(2, "Name is required."),
-  ownerPhone: z.string().min(10, "Valid 10-digit phone number is required for WhatsApp setup."),
+  ownerPhone: z.string().length(10, "Valid 10-digit phone number is required."),
   
   // Property Basics
   name: z.string().min(3, "Property name must be at least 3 characters."),
@@ -66,11 +80,13 @@ const pgSchema = z.object({
   floorCount: z.coerce.number().min(1).max(10).default(1),
   roomsPerFloor: z.coerce.number().min(1).max(20).default(4),
   bedsPerRoom: z.coerce.number().min(1).max(10).default(2),
+  amenities: z.array(z.string()).default([]),
+  images: z.array(z.string()).default([]),
 })
 
 type PgFormValues = z.infer<typeof pgSchema>
 
-type OnboardingStep = 'ROLE' | 'PROFILE' | 'BASICS' | 'LAYOUT' | 'REVIEW'
+type OnboardingStep = 'OWNER_DETAILS' | 'PG_DETAILS' | 'LAYOUT_CONFIG' | 'REVIEW_FINAL'
 
 export default function CompleteProfilePage() {
     const router = useRouter()
@@ -79,11 +95,10 @@ export default function CompleteProfilePage() {
     const { showConfetti } = useConfetti();
     const { currentUser } = useAppSelector(state => state.user)
     const [createProperty, { isLoading: isCreating }] = useCreatePropertyMutation();
+    const [uploadingImage, setUploadingImage] = useState(false);
     
     const [loadingRole, setLoadingRole] = useState<'owner' | null>(null)
-    const [activeStep, setActiveStep] = useState<OnboardingStep>(
-        currentUser?.role === 'owner' ? 'PROFILE' : 'ROLE'
-    )
+    const [activeStep, setActiveStep] = useState<OnboardingStep>('OWNER_DETAILS')
 
     const form = useForm<PgFormValues>({
         resolver: zodResolver(pgSchema),
@@ -98,6 +113,8 @@ export default function CompleteProfilePage() {
             floorCount: 1,
             roomsPerFloor: 4,
             bedsPerRoom: 2,
+            amenities: [],
+            images: [],
         },
     })
 
@@ -105,11 +122,10 @@ export default function CompleteProfilePage() {
 
     const progressValue = useMemo(() => {
         switch(activeStep) {
-            case 'ROLE': return 20;
-            case 'PROFILE': return 40;
-            case 'BASICS': return 60;
-            case 'LAYOUT': return 80;
-            case 'REVIEW': return 100;
+            case 'OWNER_DETAILS': return 25;
+            case 'PG_DETAILS': return 50;
+            case 'LAYOUT_CONFIG': return 75;
+            case 'REVIEW_FINAL': return 100;
             default: return 0;
         }
     }, [activeStep]);
@@ -124,7 +140,7 @@ export default function CompleteProfilePage() {
         setLoadingRole('owner')
         try {
             await dispatch(finalizeUserRole('owner')).unwrap();
-            setActiveStep('PROFILE')
+            setActiveStep('OWNER_DETAILS')
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Setup Failed', description: error.message || 'Could not set up your account.' });
         } finally {
@@ -140,7 +156,7 @@ export default function CompleteProfilePage() {
                     name: currentValues.ownerName, 
                     phone: currentValues.ownerPhone 
                 })).unwrap();
-                setActiveStep('BASICS');
+                setActiveStep('PG_DETAILS');
             } catch (error: any) {
                 toast({ variant: 'destructive', title: 'Profile Update Failed', description: error.message });
             }
@@ -149,7 +165,7 @@ export default function CompleteProfilePage() {
 
     const validateBasics = async () => {
         const result = await form.trigger(['name', 'city', 'location', 'gender']);
-        if (result) setActiveStep('LAYOUT');
+        if (result) setActiveStep('LAYOUT_CONFIG');
     }
 
     const applyPreset = (floors: number, rooms: number, beds: number) => {
@@ -161,7 +177,7 @@ export default function CompleteProfilePage() {
 
     const validateLayout = async () => {
         const result = await form.trigger(['floorCount', 'roomsPerFloor', 'bedsPerRoom']);
-        if (result) setActiveStep('REVIEW');
+        if (result) setActiveStep('REVIEW_FINAL');
     }
 
     const onPropertySubmit = async (data: PgFormValues) => {
@@ -173,11 +189,13 @@ export default function CompleteProfilePage() {
                 name: data.name,
                 location: data.location,
                 city: data.city,
-                gender: data.gender === 'co-ed' ? 'co-living' : data.gender as any,
+                gender: data.gender === 'co-ed' ? 'co-ed' : data.gender as any,
                 autoSetup: data.autoSetup,
                 floorCount: data.floorCount,
                 roomsPerFloor: data.roomsPerFloor,
-                bedsPerRoom: data.bedsPerRoom
+                bedsPerRoom: data.bedsPerRoom,
+                amenities: data.amenities,
+                images: data.images
             }).unwrap();
 
             if (result.success) {
@@ -192,85 +210,11 @@ export default function CompleteProfilePage() {
         }
     }
 
-    // Visual Preview Components
-    const BuildingPreview = () => {
-        const { floorCount, roomsPerFloor, bedsPerRoom } = currentValues;
-        
-        return (
-            <div className="mt-4 border rounded-3xl bg-gradient-to-br from-primary/5 via-background to-primary/5 p-8 overflow-hidden relative group shadow-inner">
-                <div className="absolute top-6 right-6 bg-primary/20 backdrop-blur-md border border-primary/20 px-4 py-1.5 rounded-full flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Live Blueprint</span>
-                </div>
 
-                <div className="flex flex-col-reverse gap-4 items-center">
-                    {Array.from({ length: Math.min(Number(floorCount), 4) }).map((_, fIdx) => (
-                        <div 
-                            key={fIdx} 
-                            className="flex gap-3 p-4 rounded-2xl border border-primary/10 bg-background/80 backdrop-blur-xl w-full max-w-md shadow-lg transition-all hover:scale-[1.02] hover:border-primary/30"
-                            style={{ 
-                                animation: 'slideUp 0.5s ease-out forwards',
-                                animationDelay: `${fIdx * 100}ms`
-                             }}
-                        >
-                            <div className="flex flex-col items-center justify-center gap-1 w-12 h-12 rounded-xl bg-primary/10 border border-primary/10 shrink-0">
-                                <span className="text-[10px] font-black text-primary/60 leading-none">FLR</span>
-                                <span className="text-lg font-black text-primary leading-none">{fIdx + 1}</span>
-                            </div>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 flex-1">
-                                {Array.from({ length: Math.min(Number(roomsPerFloor), 6) }).map((_, rIdx) => (
-                                    <div key={rIdx} className="aspect-square rounded-lg bg-primary/5 border border-primary/10 flex flex-col items-center justify-center gap-1 group/room hover:bg-primary/10 transition-colors">
-                                        <Home className="w-3 h-3 text-primary/40 group-hover/room:text-primary transition-colors" />
-                                        <div className="flex flex-wrap justify-center gap-0.5 px-1">
-                                            {Array.from({ length: Math.min(Number(bedsPerRoom), 4) }).map((_, bIdx) => (
-                                                <div key={bIdx} className="w-1.5 h-1.5 rounded-full bg-primary/30 shadow-[0_0_5px_rgba(var(--primary),0.2)]" />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                                {Number(roomsPerFloor) > 6 && (
-                                    <div className="aspect-square rounded-lg border border-dashed border-primary/20 flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                                        +{Number(roomsPerFloor) - 6}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                    {Number(floorCount) > 4 && (
-                        <div className="text-xs text-primary/40 font-bold tracking-widest uppercase py-2 animate-pulse">
-                            + {Number(floorCount) - 4} Additional Floors
-                        </div>
-                    )}
-                </div>
 
-                <div className="mt-8 pt-6 border-t border-primary/10 flex justify-between px-4">
-                    <div className="text-center">
-                        <div className="text-2xl font-black text-primary leading-none">{Number(floorCount)}</div>
-                        <div className="text-[10px] uppercase text-muted-foreground font-black tracking-widest mt-1">Levels</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-black text-primary leading-none">{Number(floorCount) * Number(roomsPerFloor)}</div>
-                        <div className="text-[10px] uppercase text-muted-foreground font-black tracking-widest mt-1">Suites</div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-black text-primary leading-none">{Number(floorCount) * Number(roomsPerFloor) * Number(bedsPerRoom)}</div>
-                        <div className="text-[10px] uppercase text-muted-foreground font-black tracking-widest mt-1">Total Capacity</div>
-                    </div>
-                </div>
-
-                <style jsx>{`
-                    @keyframes slideUp {
-                        from { opacity: 0; transform: translateY(20px); }
-                        to { opacity: 1; transform: translateY(0); }
-                    }
-                `}</style>
-            </div>
-        )
-    }
-
+    
     return (
-        <div className="min-h-screen bg-background selection:bg-primary/10 flex flex-col">
-            {/* Nav Progress */}
+        <div className="min-h-screen bg-background selection:bg-primary/10 flex flex-col pb-safe">
             <div className="sticky top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-2xl border-b border-primary/5">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -284,19 +228,18 @@ export default function CompleteProfilePage() {
                     </div>
                     
                     <div className="hidden md:flex items-center gap-10">
-                        <StepIndicator active={activeStep === 'ROLE'} completed={activeStep !== 'ROLE'} label="Identity" index={1} />
+                        <StepIndicator active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'LAYOUT_CONFIG', 'REVIEW_FINAL'].includes(activeStep)} label="Owner" index={1} />
                         <div className="w-8 h-[2px] bg-muted/20" />
-                        <StepIndicator active={activeStep === 'PROFILE'} completed={['BASICS', 'LAYOUT', 'REVIEW'].includes(activeStep)} label="Owner Profile" index={2} />
+                        <StepIndicator active={activeStep === 'PG_DETAILS'} completed={['LAYOUT_CONFIG', 'REVIEW_FINAL'].includes(activeStep)} label="Property" index={2} />
                         <div className="w-8 h-[2px] bg-muted/20" />
-                        <StepIndicator active={activeStep === 'BASICS'} completed={['LAYOUT', 'REVIEW'].includes(activeStep)} label="Business" index={3} />
+                        <StepIndicator active={activeStep === 'LAYOUT_CONFIG'} completed={activeStep === 'REVIEW_FINAL'} label="Layout" index={3} />
                         <div className="w-8 h-[2px] bg-muted/20" />
-                        <StepIndicator active={activeStep === 'LAYOUT'} completed={activeStep === 'REVIEW'} label="Architecture" index={4} />
-                        <div className="w-8 h-[2px] bg-muted/20" />
-                        <StepIndicator active={activeStep === 'REVIEW'} completed={false} label="Ignition" index={5} />
+                        <StepIndicator active={activeStep === 'REVIEW_FINAL'} completed={false} label="Review" index={4} />
                     </div>
 
-                    <div className="w-24 md:hidden">
-                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="flex items-center gap-3">
+                        <WhatsAppSupport />
+                        <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden md:hidden">
                             <div className="h-full bg-primary transition-all duration-500" style={{ width: `${progressValue}%` }} />
                         </div>
                     </div>
@@ -307,440 +250,589 @@ export default function CompleteProfilePage() {
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onPropertySubmit)} className="w-full max-w-4xl">
                         
-                        {/* STEP 1: ROLE SELECTION */}
-                        {activeStep === 'ROLE' && (
-                            <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                                <div className="text-center space-y-6 mb-16">
-                                    <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-xs font-black uppercase tracking-[0.2em] animate-bounce">
-                                        <Trophy className="w-4 h-4" /> Start Your Journey
-                                    </div>
-                                    <h1 className="text-5xl md:text-7xl font-black tracking-tight text-foreground leading-[1.1]">
-                                        Design your <br />
-                                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/40">Real Estate future.</span>
-                                    </h1>
-                                    <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-medium">
-                                        Choose your path below. Most owners manage multiple properties and hundreds of tenants on RentSutra.
-                                    </p>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-                                    <div 
-                                        className={cn(
-                                            "relative overflow-hidden cursor-pointer group transition-all duration-500 rounded-[2.5rem] border-2 p-8",
-                                            loadingRole === 'owner' ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "border-primary/10 bg-card hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/5"
-                                        )}
-                                        onClick={handleOwnerSetup}
-                                    >
-                                        <div className="relative z-10 flex flex-col h-full">
-                                            <div className="w-16 h-16 rounded-[1.5rem] bg-primary flex items-center justify-center mb-8 shadow-xl shadow-primary/20 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
-                                                {loadingRole === 'owner' ? <Loader2 className="w-8 h-8 text-primary-foreground animate-spin" /> : <Building2 className="w-8 h-8 text-primary-foreground" />}
-                                            </div>
-                                            <h3 className="text-3xl font-black mb-3">Owner</h3>
-                                            <p className="text-muted-foreground font-medium mb-8 flex-1">
-                                                Complete suite for managing rooms, finances, staff and automated tenant billing.
-                                            </p>
-                                            <div className="flex items-center gap-2 text-primary font-black uppercase tracking-widest text-xs">
-                                                Launch Setup <ChevronRight className="w-4 h-4" />
-                                            </div>
+                        <AnimatePresence mode="wait">
+                            {/* STEP 1: OWNER DETAILS (previously STEP 2) */}
+                            {activeStep === 'OWNER_DETAILS' && (
+                                <motion.div 
+                                    key="owner"
+                                    variants={stepVariants}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                    className="w-full max-w-2xl mx-auto pb-40 px-4"
+                                >
+                                    <div className="space-y-4 mb-12 text-center">
+                                        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                            Phase 01 / 04
                                         </div>
-                                        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-primary/5 rounded-full blur-[100px] group-hover:bg-primary/20 transition-all duration-700" />
+                                        <h2 className="text-4xl md:text-5xl font-black">Owner Profile</h2>
+                                        <p className="text-muted-foreground text-lg font-medium">Let's set up your personal management profile.</p>
                                     </div>
 
-                                    <div className="relative overflow-hidden rounded-[2.5rem] border-2 border-dashed border-muted-foreground/20 p-8 opacity-60 hover:opacity-100 transition-all duration-500 grayscale hover:grayscale-0">
-                                        <div className="flex flex-col h-full">
-                                            <div className="w-16 h-16 rounded-[1.5rem] bg-muted flex items-center justify-center mb-8">
-                                                <Users className="w-8 h-8 text-muted-foreground" />
-                                            </div>
-                                            <h3 className="text-3xl font-black mb-3 text-muted-foreground">Tenant</h3>
-                                            <p className="text-sm text-muted-foreground font-medium mb-8 flex-1 leading-relaxed">
-                                                Access requires an invitation from your property owner. Check your WhatsApp/SMS for the link.
-                                            </p>
-                                            <div className="flex items-center gap-2 text-muted-foreground font-black uppercase tracking-widest text-xs">
-                                                How it works <Info className="w-4 h-4" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* STEP 2: PROFILE DETAILS */}
-                        {activeStep === 'PROFILE' && (
-                            <div className="animate-in fade-in slide-in-from-right-12 duration-700 max-w-2xl mx-auto w-full pb-32 md:pb-0">
-                                <div className="space-y-4 mb-12 text-center">
-                                    <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
-                                        Phase 01 / 04
-                                    </div>
-                                    <h2 className="text-4xl md:text-5xl font-black">About You</h2>
-                                    <p className="text-muted-foreground text-lg font-medium px-4">Let's set up your owner profile.</p>
-                                </div>
-
-                                <Card className="border-primary/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] rounded-[2rem] overflow-hidden">
-                                    <CardContent className="pt-6 md:pt-10 px-6 md:px-10 pb-6 md:pb-2 space-y-8">
-                                        <FormField
-                                            control={form.control}
-                                            name="ownerName"
-                                            render={({ field }) => (
-                                                <FormItem className="space-y-3">
-                                                    <FormLabel className="text-sm font-black uppercase tracking-widest text-muted-foreground">Full Name</FormLabel>
-                                                    <FormControl>
-                                                        <div className="relative group">
-                                                            <UserCircle className="absolute left-4 top-4 w-6 h-6 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                                                            <Input placeholder="e.g. John Doe" className="h-14 pl-12 text-xl font-bold bg-muted/30 border-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary rounded-2xl" {...field} />
-                                                        </div>
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
-                                        <FormField
-                                            control={form.control}
-                                            name="ownerPhone"
-                                            render={({ field }) => (
-                                                <FormItem className="space-y-3">
-                                                    <FormLabel className="text-sm font-black uppercase tracking-widest text-muted-foreground">WhatsApp / Phone Number</FormLabel>
-                                                    <FormControl>
-                                                        <div className="relative group">
-                                                            <Phone className="absolute left-4 top-4 w-5 h-5 text-muted-foreground group-focus-within:text-primary" />
-                                                            <Input 
-                                                                placeholder="e.g. 9876543210" 
-                                                                className="h-14 pl-12 font-bold bg-muted/30 border-none rounded-2xl" 
-                                                                maxLength={10}
-                                                                {...field}
-                                                                onChange={(e) => {
-                                                                    const val = e.target.value.replace(/\D/g, '');
-                                                                    field.onChange(val);
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </CardContent>
-                                    <CardFooter className="bg-background/95 backdrop-blur-xl md:bg-muted/10 flex justify-between p-4 md:p-10 pt-4 md:pt-8 fixed bottom-0 left-0 right-0 md:static border-t border-border/50 md:border-none z-50 pb-6 md:pb-8">
-                                        <Button variant="ghost" type="button" onClick={() => setActiveStep('ROLE')} className="font-bold uppercase tracking-widest text-xs hidden md:flex">Back</Button>
-                                        <Button type="button" onClick={validateProfile} size="lg" className="w-full md:w-auto px-10 h-14 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-                                            Continue <ChevronRight className="w-5 h-5" />
-                                        </Button>
-                                    </CardFooter>
-                                </Card>
-                            </div>
-                        )}
-
-                        {/* STEP 3: PROPERTY BASICS */}
-                        {activeStep === 'BASICS' && (
-                            <div className="animate-in fade-in slide-in-from-right-12 duration-700 max-w-2xl mx-auto w-full pb-32 md:pb-0">
-                                <div className="space-y-4 mb-12 text-center">
-                                    <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
-                                        Phase 02 / 04
-                                    </div>
-                                    <h2 className="text-4xl md:text-5xl font-black">Identity & Presence</h2>
-                                    <p className="text-muted-foreground text-lg font-medium px-4">How should the world (and your tenants) see your property?</p>
-                                </div>
-
-                                <Card className="border-primary/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] rounded-[2rem] overflow-hidden">
-                                    <CardContent className="pt-6 md:pt-10 px-6 md:px-10 pb-6 md:pb-2 space-y-8">
-                                        <FormField
-                                            control={form.control}
-                                            name="name"
-                                            render={({ field }) => (
-                                                <FormItem className="space-y-3">
-                                                    <FormLabel className="text-sm font-black uppercase tracking-widest text-muted-foreground">The Brand Name</FormLabel>
-                                                    <FormControl>
-                                                        <div className="relative group">
-                                                            <Building className="absolute left-4 top-4 w-6 h-6 text-muted-foreground transition-colors group-focus-within:text-primary" />
-                                                            <Input placeholder="e.g., Skyview Luxury Residency" className="h-14 pl-12 text-xl font-bold bg-muted/30 border-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary rounded-2xl" {...field} />
-                                                        </div>
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                                    <Card className="border-primary/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden bg-card/50 backdrop-blur-md">
+                                        <CardContent className="pt-10 px-6 md:px-10 pb-8 space-y-8">
                                             <FormField
                                                 control={form.control}
-                                                name="city"
+                                                name="ownerName"
                                                 render={({ field }) => (
                                                     <FormItem className="space-y-3">
-                                                        <FormLabel className="text-sm font-black uppercase tracking-widest text-muted-foreground">Global City</FormLabel>
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                                                            <UserCircle className="w-3 h-3" /> Full Legal Name
+                                                        </FormLabel>
                                                         <FormControl>
                                                             <div className="relative group">
-                                                                <Globe className="absolute left-4 top-4 w-5 h-5 text-muted-foreground group-focus-within:text-primary" />
-                                                                <Input placeholder="e.g. Pune" className="h-14 pl-12 font-bold bg-muted/30 border-none rounded-2xl" {...field} />
+                                                                <Input 
+                                                                    placeholder="e.g. John Doe" 
+                                                                    className="h-16 px-6 text-xl font-black bg-muted/40 border border-primary/5 rounded-2xl focus-visible:ring-2 focus-visible:ring-primary transition-all placeholder:text-muted-foreground/30 tracking-wider" 
+                                                                    {...field} 
+                                                                />
                                                             </div>
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
+
                                             <FormField
                                                 control={form.control}
-                                                name="gender"
+                                                name="ownerPhone"
                                                 render={({ field }) => (
                                                     <FormItem className="space-y-3">
-                                                        <FormLabel className="text-sm font-black uppercase tracking-widest text-muted-foreground">Demographics</FormLabel>
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                            <FormControl>
-                                                                <SelectTrigger className="h-14 font-bold bg-muted/30 border-none rounded-2xl px-6">
-                                                                    <SelectValue placeholder="Gender" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent className="rounded-2xl border-primary/10">
-                                                                <SelectItem value="co-ed" className="font-bold py-3">Co-living / All</SelectItem>
-                                                                <SelectItem value="male" className="font-bold py-3">Male Exclusive</SelectItem>
-                                                                <SelectItem value="female" className="font-bold py-3">Female Exclusive</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                                                            <Phone className="w-3 h-3" /> WhatsApp Connection
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <div className="relative group">
+                                                                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-xl font-black text-primary/40 group-focus-within:text-primary transition-colors">+91</div>
+                                                                <Input 
+                                                                    placeholder="98765 43210" 
+                                                                    className="h-16 pl-24 pr-6 text-xl font-black bg-muted/40 border-2 border-primary/5 focus:border-primary/20 rounded-2xl focus-visible:ring-0 transition-all placeholder:text-muted-foreground/20 tracking-widest" 
+                                                                    maxLength={10}
+                                                                    {...field}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value.replace(/\D/g, '');
+                                                                        field.onChange(val);
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
-                                        </div>
-
-                                        <FormField
-                                            control={form.control}
-                                            name="location"
-                                            render={({ field }) => (
-                                                <FormItem className="space-y-3">
-                                                    <FormLabel className="text-sm font-black uppercase tracking-widest text-muted-foreground">Micro-Location / Landmark</FormLabel>
-                                                    <FormControl>
-                                                        <div className="relative group">
-                                                            <MapPin className="absolute left-4 top-4 w-5 h-5 text-muted-foreground group-focus-within:text-primary" />
-                                                            <Input placeholder="e.g. Opposite Phoenix Mall, Viman Nagar" className="h-14 pl-12 font-bold bg-muted/30 border-none rounded-2xl" {...field} />
-                                                        </div>
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </CardContent>
-                                    <CardFooter className="bg-background/95 backdrop-blur-xl md:bg-muted/10 flex justify-between p-4 md:p-10 pt-4 md:pt-8 fixed bottom-0 left-0 right-0 md:static border-t border-border/50 md:border-none z-50 pb-6 md:pb-8">
-                                        <Button variant="ghost" type="button" onClick={() => setActiveStep('PROFILE')} className="font-bold uppercase tracking-widest text-xs hidden md:flex">Back</Button>
-                                        <Button type="button" onClick={validateBasics} size="lg" className="w-full md:w-auto px-10 h-14 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-                                            Configure Layout <ChevronRight className="w-5 h-5" />
-                                        </Button>
-                                    </CardFooter>
-                                </Card>
-                            </div>
-                        )}
-
-                        {/* STEP 4: SMART LAYOUT */}
-                        {activeStep === 'LAYOUT' && (
-                            <div className="animate-in fade-in slide-in-from-right-12 duration-700 w-full pb-32 md:pb-0">
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-                                    <div className="lg:col-span-5 space-y-10 px-4 md:px-0">
-                                        <div className="space-y-4">
-                                            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">
-                                                Phase 03 / 04
-                                            </div>
-                                            <h2 className="text-4xl font-black tracking-tight">Smart Architecture</h2>
-                                            <p className="text-muted-foreground font-medium leading-relaxed">
-                                                RentSutra automatically generates your entire building structure. Adjust the sliders or use a preset.
-                                            </p>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quick Config Presets</p>
-                                            <div className="flex flex-wrap gap-2">
-                                                <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(2, 4, 2)} className="rounded-xl font-bold gap-2">
-                                                    <Building className="w-4 h-4" /> Small PG
-                                                </Button>
-                                                <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(4, 6, 2)} className="rounded-xl font-bold gap-2">
-                                                    <Layout className="w-4 h-4" /> Large Hostel
-                                                </Button>
-                                                <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(1, 4, 1)} className="rounded-xl font-bold gap-2">
-                                                    <Home className="w-4 h-4" /> Apartment
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-8">
-                                            <div className="space-y-6">
-                                                <FormField
-                                                    control={form.control}
-                                                    name="floorCount"
-                                                    render={({ field }) => (
-                                                        <FormItem className="space-y-4">
-                                                            <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Floor Volume</FormLabel>
-                                                            <FormControl>
-                                                                <div className="flex items-center justify-between gap-4 bg-muted/30 p-2 rounded-2xl border border-border/50">
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-xl shrink-0 hover:bg-background shadow-sm" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
-                                                                        <Minus className="w-5 h-5" />
-                                                                    </Button>
-                                                                    <div className="flex-1 text-center text-3xl font-black text-primary select-none">{field.value}</div>
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-xl shrink-0 hover:bg-background shadow-sm" onClick={() => field.onChange(Math.min(10, field.value + 1))}>
-                                                                        <Plus className="w-5 h-5" />
-                                                                    </Button>
-                                                                </div>
-                                                            </FormControl>
-                                                        </FormItem>
-                                                    )}
-                                                />
-
-                                                <FormField
-                                                    control={form.control}
-                                                    name="roomsPerFloor"
-                                                    render={({ field }) => (
-                                                        <FormItem className="space-y-4">
-                                                            <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Rooms per Level</FormLabel>
-                                                            <FormControl>
-                                                                <div className="flex items-center justify-between gap-4 bg-muted/30 p-2 rounded-2xl border border-border/50">
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-xl shrink-0 hover:bg-background shadow-sm" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
-                                                                        <Minus className="w-5 h-5" />
-                                                                    </Button>
-                                                                    <div className="flex-1 text-center text-3xl font-black text-primary select-none">{field.value}</div>
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-xl shrink-0 hover:bg-background shadow-sm" onClick={() => field.onChange(Math.min(20, field.value + 1))}>
-                                                                        <Plus className="w-5 h-5" />
-                                                                    </Button>
-                                                                </div>
-                                                            </FormControl>
-                                                        </FormItem>
-                                                    )}
-                                                />
-
-                                                <FormField
-                                                    control={form.control}
-                                                    name="bedsPerRoom"
-                                                    render={({ field }) => (
-                                                        <FormItem className="space-y-4">
-                                                            <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Bed Count / Room</FormLabel>
-                                                            <FormControl>
-                                                                <div className="flex items-center justify-between gap-4 bg-muted/30 p-2 rounded-2xl border border-border/50">
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-xl shrink-0 hover:bg-background shadow-sm" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
-                                                                        <Minus className="w-5 h-5" />
-                                                                    </Button>
-                                                                    <div className="flex-1 text-center text-3xl font-black text-primary select-none">{field.value}</div>
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-xl shrink-0 hover:bg-background shadow-sm" onClick={() => field.onChange(Math.min(10, field.value + 1))}>
-                                                                        <Plus className="w-5 h-5" />
-                                                                    </Button>
-                                                                </div>
-                                                            </FormControl>
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-
-                                            <div className="bg-background/95 backdrop-blur-xl md:bg-transparent flex justify-between p-4 md:p-0 fixed bottom-0 left-0 right-0 md:static border-t border-border/50 md:border-none z-50 pb-6 md:pb-0 md:pt-10">
-                                                <Button variant="ghost" type="button" onClick={() => setActiveStep('BASICS')} className="font-bold uppercase tracking-widest text-xs hidden md:flex">Back</Button>
-                                                <Button type="button" onClick={validateLayout} size="lg" className="w-full md:w-auto px-10 h-14 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
-                                                    Final Review <ChevronRight className="w-5 h-5" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="lg:col-span-7 px-4 md:px-0">
-                                        <BuildingPreview />
-                                        <div className="mt-8 p-6 rounded-[2rem] bg-card border border-primary/10 flex gap-4 shadow-xl shadow-primary/5">
-                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                                                <Info className="w-5 h-5 text-primary" />
-                                            </div>
-                                            <p className="text-sm text-muted-foreground leading-relaxed font-medium">
-                                                <strong className="text-foreground block mb-1">Scale as you Grow</strong>
-                                                This setup creates a standardized layout. You can granularly customize specific rooms, naming, and pricing from your property settings after launch.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* STEP 5: REVIEW & LAUNCH */}
-                        {activeStep === 'REVIEW' && (
-                            <div className="animate-in zoom-in-95 duration-700 max-w-2xl mx-auto w-full pb-32 md:pb-0">
-                                <div className="text-center space-y-6 mb-12 px-4 md:px-0">
-                                    <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-tr from-primary to-primary/60 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-primary/30 animate-pulse rotate-6">
-                                        <CheckCircle2 className="w-14 h-14 text-primary-foreground" />
-                                    </div>
-                                    <h2 className="text-5xl font-black tracking-tight">Systems Check.</h2>
-                                    <p className="text-muted-foreground text-xl font-medium leading-relaxed">Everything is ready for your property launch. <br className="hidden md:block" />Finalize the details below.</p>
-                                </div>
-
-                                <Card className="border-none shadow-[0_40px_100px_-20px_rgba(0,0,0,0.15)] rounded-[2rem] md:rounded-[3rem] relative overflow-hidden bg-card mx-4 md:mx-0">
-                                    <div className="absolute top-0 right-0 p-12 opacity-5 scale-150 rotate-12 pointer-events-none hidden md:block">
-                                        <Building className="w-64 h-64" />
-                                    </div>
+                                        </CardContent>
+                                    </Card>
                                     
-                                    <CardContent className="pt-8 md:pt-12 px-6 md:px-12 pb-4 relative z-10 space-y-10">
-                                        <div className="space-y-8">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-3">Operating As</p>
-                                                    <h3 className="text-4xl font-black tracking-tighter text-primary">{currentValues.name}</h3>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-3">Stationed In</p>
-                                                    <div className="flex items-center justify-end gap-2 text-xl font-black">
-                                                        <MapPin className="w-5 h-5 text-primary" />
-                                                        {currentValues.city}
-                                                    </div>
-                                                </div>
+                                </motion.div>
+                            )}
+
+                            {/* STEP 3: PG DETAILS */}
+                            {activeStep === 'PG_DETAILS' && (
+                                <motion.div 
+                                    key="pg"
+                                    variants={stepVariants}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                    className="w-full max-w-3xl mx-auto pb-40 px-4"
+                                >
+                                    <div className="space-y-4 mb-12 text-center">
+                                        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                            Phase 02 / 04
+                                        </div>
+                                        <h2 className="text-4xl md:text-5xl font-black">Property Blueprint</h2>
+                                        <p className="text-muted-foreground text-lg font-medium">Define your property's identity and location.</p>
+                                    </div>
+
+                                    <Card className="border-primary/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden bg-card/50 backdrop-blur-md">
+                                        <CardContent className="pt-10 px-6 md:px-10 pb-8 space-y-10">
+                                            <FormField
+                                                control={form.control}
+                                                name="name"
+                                                render={({ field }) => (
+                                                    <FormItem className="space-y-3">
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Property Name</FormLabel>
+                                                        <FormControl>
+                                                            <div className="relative group">
+                                                                <Building className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                                                <Input placeholder="e.g., Skyview Luxury Residency" className="h-16 pl-16 pr-6 text-xl font-bold bg-muted/20 border-none rounded-2xl" {...field} />
+                                                            </div>
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="city"
+                                                    render={({ field }) => (
+                                                        <FormItem className="space-y-3">
+                                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">City</FormLabel>
+                                                            <FormControl>
+                                                                <div className="relative group">
+                                                                    <Globe className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary" />
+                                                                    <Input placeholder="e.g. Pune" className="h-16 pl-14 pr-6 text-lg font-bold bg-muted/20 border-none rounded-2xl" {...field} />
+                                                                </div>
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="gender"
+                                                    render={({ field }) => (
+                                                        <FormItem className="space-y-3">
+                                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Type</FormLabel>
+                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger className="h-16 font-bold bg-muted/20 border-none rounded-2xl px-6 text-lg">
+                                                                        <SelectValue placeholder="Gender" />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent className="rounded-2xl border-primary/10">
+                                                                    <SelectItem value="co-ed" className="font-bold py-3">Co-living / All</SelectItem>
+                                                                    <SelectItem value="male" className="font-bold py-3">Male Exclusive</SelectItem>
+                                                                    <SelectItem value="female" className="font-bold py-3">Female Exclusive</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
                                             </div>
 
-                                            <div className="grid grid-cols-3 gap-2 md:gap-6">
-                                                <div className="p-4 md:p-6 rounded-2xl md:rounded-[2rem] bg-muted/40 text-center border border-primary/5 transition-transform hover:scale-105">
-                                                    <p className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 md:mb-2">Structure</p>
-                                                    <p className="text-3xl font-black text-primary leading-none">{currentValues.floorCount}</p>
-                                                    <p className="text-[10px] font-bold text-muted-foreground mt-1">Floors</p>
-                                                </div>
-                                                <div className="p-4 md:p-6 rounded-2xl md:rounded-[2rem] bg-muted/40 text-center border border-primary/5 transition-transform hover:scale-105">
-                                                    <p className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 md:mb-2">Inventory</p>
-                                                    <p className="text-3xl font-black text-primary leading-none">{Number(currentValues.floorCount) * Number(currentValues.roomsPerFloor)}</p>
-                                                    <p className="text-[10px] font-bold text-muted-foreground mt-1">Rooms</p>
-                                                </div>
-                                                <div className="p-4 md:p-6 rounded-2xl md:rounded-[2rem] bg-muted/40 text-center border border-primary/5 transition-transform hover:scale-105">
-                                                    <p className="text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 md:mb-2">Beds</p>
-                                                    <p className="text-3xl font-black text-primary leading-none">{Number(currentValues.floorCount) * Number(currentValues.roomsPerFloor) * Number(currentValues.bedsPerRoom)}</p>
-                                                    <p className="text-[10px] font-bold text-muted-foreground mt-1">Units</p>
-                                                </div>
-                                            </div>
+                                            <FormField
+                                                control={form.control}
+                                                name="location"
+                                                render={({ field }) => (
+                                                    <FormItem className="space-y-3">
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Address / Landmark</FormLabel>
+                                                        <FormControl>
+                                                            <div className="relative group">
+                                                                <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary" />
+                                                                <Input placeholder="e.g. Viman Nagar, near Phoenix Mall" className="h-16 pl-14 pr-6 text-lg font-bold bg-muted/20 border-none rounded-2xl" {...field} />
+                                                            </div>
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
 
-                                            <div className="flex items-center gap-4 p-6 rounded-[2rem] border-2 border-primary/5 bg-primary/5">
-                                                <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                                                    <Globe className="w-5 h-5 text-primary" />
+                                            <FormField
+                                                control={form.control}
+                                                name="amenities"
+                                                render={({ field }) => (
+                                                    <FormItem className="space-y-4">
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Amenities</FormLabel>
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                                            {[
+                                                                { id: 'wifi', icon: Globe, label: 'WiFi' },
+                                                                { id: 'ac', icon: Zap, label: 'A/C' },
+                                                                { id: 'food', icon: Users, label: 'Food' },
+                                                                { id: 'laundry', icon: Sparkles, label: 'Laundry' },
+                                                                { id: 'parking', icon: Building, label: 'Parking' },
+                                                                { id: 'power-backup', icon: Zap, label: 'Power' },
+                                                            ].map((item) => (
+                                                                <motion.div 
+                                                                    key={item.id}
+                                                                    whileTap={{ scale: 0.95 }}
+                                                                    onClick={() => {
+                                                                        const current = field.value || [];
+                                                                        if (current.includes(item.id)) {
+                                                                            field.onChange(current.filter(i => i !== item.id));
+                                                                        } else {
+                                                                            field.onChange([...current, item.id]);
+                                                                        }
+                                                                    }}
+                                                                    className={cn(
+                                                                        "flex items-center gap-3 px-4 py-4 rounded-2xl border-2 transition-all cursor-pointer select-none",
+                                                                        field.value?.includes(item.id) 
+                                                                            ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20" 
+                                                                            : "bg-muted/20 border-transparent text-muted-foreground hover:bg-muted/30"
+                                                                    )}
+                                                                >
+                                                                    <item.icon className="w-4 h-4 shrink-0" />
+                                                                    <span className="text-xs font-black uppercase tracking-wider">{item.label}</span>
+                                                                </motion.div>
+                                                            ))}
+                                                        </div>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+
+                                            <FormField
+                                                control={form.control}
+                                                name="images"
+                                                render={({ field }) => (
+                                                    <FormItem className="space-y-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Cover Image (Optional)</FormLabel>
+                                                            {field.value.length > 0 ? (
+                                                                <Button 
+                                                                    type="button" 
+                                                                    variant="ghost" 
+                                                                    size="sm" 
+                                                                    onClick={() => field.onChange([])}
+                                                                    className="text-[10px] font-black uppercase text-destructive hover:bg-destructive/5"
+                                                                >
+                                                                    Remove
+                                                                </Button>
+                                                            ) : (
+                                                                <div className="text-[10px] font-black uppercase text-primary/60">Can skip for now</div>
+                                                            )}
+                                                        </div>
+                                                        <div 
+                                                            className={cn(
+                                                                "relative h-48 rounded-3xl border-2 border-dashed transition-all flex flex-col items-center justify-center overflow-hidden",
+                                                                field.value.length > 0 
+                                                                    ? "border-primary/20 bg-primary/5 shadow-inner" 
+                                                                    : "border-muted-foreground/20 bg-muted/20 hover:bg-muted/30 group"
+                                                            )}
+                                                        >
+                                                            {field.value.length > 0 ? (
+                                                                <>
+                                                                    <img src={field.value[0]} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+                                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                                                    <div className="relative z-10 flex flex-col items-center gap-2 bg-background/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/20 shadow-xl">
+                                                                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                                                                        <span className="text-[10px] font-black uppercase tracking-wider">Image Ready</span>
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                                                                    <div className="w-16 h-16 rounded-2xl bg-background flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                                                        {uploadingImage ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <Camera className="w-8 h-8" />}
+                                                                    </div>
+                                                                    <div className="text-center">
+                                                                        <p className="text-sm font-black text-foreground">Upload Property Photo</p>
+                                                                        <p className="text-[10px] font-medium opacity-60 mt-1">First impressions matter. Use a clear facade.</p>
+                                                                    </div>
+                                                                    <Input 
+                                                                        type="file" 
+                                                                        accept="image/*" 
+                                                                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                                                                        onChange={async (e) => {
+                                                                            const file = e.target.files?.[0];
+                                                                            if (file) {
+                                                                                setUploadingImage(true);
+                                                                                const reader = new FileReader();
+                                                                                reader.onloadend = () => {
+                                                                                    field.onChange([reader.result as string]);
+                                                                                    setUploadingImage(false);
+                                                                                };
+                                                                                reader.readAsDataURL(file);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </CardContent>
+                                    </Card>
+
+                                </motion.div>
+                            )}
+
+                            {/* STEP 4: SMART LAYOUT */}
+                            {activeStep === 'LAYOUT_CONFIG' && (
+                                <motion.div 
+                                    key="layout"
+                                    variants={stepVariants}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                    className="w-full pb-40 px-4"
+                                >
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start max-w-6xl mx-auto">
+                                        <div className="lg:col-span-5 space-y-10">
+                                            <div className="space-y-4">
+                                                <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
+                                                    Phase 03 / 04
                                                 </div>
-                                                <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">
-                                                    Located at {currentValues.location}
+                                                <h2 className="text-4xl md:text-5xl font-black tracking-tight">Smart Setup</h2>
+                                                <p className="text-muted-foreground font-medium leading-relaxed text-lg">
+                                                    Our engine will auto-generate your building structure based on these metrics.
                                                 </p>
                                             </div>
+
+                                            <div className="space-y-4">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Choose a Template</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(2, 4, 2)} className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] gap-2 border-2 px-6 hover:bg-primary/5 hover:border-primary/20 transition-all">
+                                                        <Building className="w-4 h-4" /> Small PG
+                                                    </Button>
+                                                    <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(4, 6, 2)} className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] gap-2 border-2 px-6 hover:bg-primary/5 hover:border-primary/20 transition-all">
+                                                        <Layout className="w-4 h-4" /> Hostel
+                                                    </Button>
+                                                    <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(1, 4, 1)} className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] gap-2 border-2 px-6 hover:bg-primary/5 hover:border-primary/20 transition-all">
+                                                        <Home className="w-4 h-4" /> Apartment
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-8">
+                                                <div className="space-y-10 p-8 rounded-[2.5rem] bg-card/50 backdrop-blur-md border border-primary/10 shadow-xl shadow-primary/5">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="floorCount"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-4">
+                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Total Floors</FormLabel>
+                                                                <FormControl>
+                                                                    <div className="flex items-center justify-between gap-6 bg-muted/20 p-2 rounded-2xl border border-primary/5">
+                                                                        <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
+                                                                            <Minus className="w-6 h-6" />
+                                                                        </Button>
+                                                                        <div className="flex-1 text-center text-4xl font-black text-primary">{field.value}</div>
+                                                                        <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.min(10, field.value + 1))}>
+                                                                            <Plus className="w-6 h-6" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="roomsPerFloor"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-4">
+                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Rooms Per Floor</FormLabel>
+                                                                <FormControl>
+                                                                    <div className="flex items-center justify-between gap-6 bg-muted/20 p-2 rounded-2xl border border-primary/5">
+                                                                        <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
+                                                                            <Minus className="w-6 h-6" />
+                                                                        </Button>
+                                                                        <div className="flex-1 text-center text-4xl font-black text-primary">{field.value}</div>
+                                                                        <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.min(20, field.value + 1))}>
+                                                                            <Plus className="w-6 h-6" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="bedsPerRoom"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-4">
+                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Beds Per Room</FormLabel>
+                                                                <FormControl>
+                                                                    <div className="flex items-center justify-between gap-6 bg-muted/20 p-2 rounded-2xl border border-primary/5">
+                                                                        <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
+                                                                            <Minus className="w-6 h-6" />
+                                                                        </Button>
+                                                                        <div className="flex-1 text-center text-4xl font-black text-primary">{field.value}</div>
+                                                                        <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.min(10, field.value + 1))}>
+                                                                            <Plus className="w-6 h-6" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="pt-6 space-y-4 bg-background/95 backdrop-blur-xl md:bg-transparent p-4 md:p-0 fixed bottom-0 left-0 right-0 md:static border-t border-border/50 md:border-none z-50 pb-6 md:pb-0">
-                                            <Button 
-                                                type="submit" 
-                                                size="lg" 
-                                                className="w-full h-16 md:h-20 rounded-2xl md:rounded-[2rem] text-xl md:text-2xl font-black tracking-tight shadow-[0_20px_50px_-10px_rgba(var(--primary),0.5)] transition-all hover:scale-[1.03] active:scale-[0.97] group"
-                                                disabled={isCreating}
-                                            >
-                                                {isCreating ? (
-                                                    <div className="flex items-center gap-4">
-                                                        <Loader2 className="h-6 w-6 md:h-8 md:w-8 animate-spin" />
-                                                        <span className="uppercase tracking-[0.2em] text-xs md:text-sm">Synchronizing Systems...</span>
+                                        <div className="lg:col-span-7">
+                                            <div className="sticky top-24 space-y-8">
+                                                <motion.div 
+                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    transition={{ duration: 0.5 }}
+                                                >
+                                                    <BuildingPreview 
+                                                        floorCount={currentValues.floorCount}
+                                                        roomsPerFloor={currentValues.roomsPerFloor}
+                                                        bedsPerRoom={currentValues.bedsPerRoom}
+                                                    />
+                                                </motion.div>
+                                                
+                                                <div className="p-8 rounded-[2.5rem] bg-card/50 backdrop-blur-md border border-primary/10 flex gap-6 shadow-xl shadow-primary/5">
+                                                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                                                        <Sparkles className="w-7 h-7 text-primary" />
                                                     </div>
-                                                ) : (
-                                                    <div className="flex items-center justify-center gap-3 md:gap-4">
-                                                        <Rocket className="w-6 h-6 md:w-8 md:h-8 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                                                        <span>LAUNCH DASHBOARD</span>
+                                                    <div className="space-y-2">
+                                                        <h4 className="text-sm font-black uppercase tracking-widest text-foreground">Intelligent Generation</h4>
+                                                        <p className="text-sm text-muted-foreground leading-relaxed font-medium">
+                                                            RentSutra handles the heavy lifting. This structure will be instantly ready for guest onboarding and rent collection.
+                                                        </p>
                                                     </div>
-                                                )}
-                                            </Button>
-
-                                            <Button variant="ghost" type="button" className="w-full h-12 rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] text-muted-foreground hidden md:flex" onClick={() => setActiveStep('LAYOUT')}>
-                                                Recalibrate Layout
-                                            </Button>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                    </div>
+                                </motion.div>
+                            )}
 
-                                <div className="mt-12 text-center text-muted-foreground/40 font-black text-[10px] uppercase tracking-[0.5em]">
-                                    RentSutra Property Engine v4.0 • Secure Cloud
-                                </div>
-                            </div>
-                        )}
+                            {/* STEP 5: REVIEW & LAUNCH */}
+                            {activeStep === 'REVIEW_FINAL' && (
+                                <motion.div key="review" {...stepVariants} className="w-full max-w-4xl mx-auto pb-40">
+                                    <div className="text-center space-y-6 mb-12">
+                                        <motion.div 
+                                            initial={{ rotate: -10, scale: 0.9, opacity: 0 }}
+                                            animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                                            className="inline-flex items-center gap-3 bg-emerald-500/10 text-emerald-600 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-emerald-500/20 shadow-lg shadow-emerald-500/5"
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            Configuration Verified
+                                        </motion.div>
+                                        <div className="space-y-4">
+                                            <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/50">
+                                                Final Review
+                                            </h2>
+                                            <p className="text-muted-foreground text-lg font-medium max-w-xl mx-auto">
+                                                Please verify your property configuration before we deploy your management system.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-8">
+                                        {/* Main Config Sheet */}
+                                        <Card className="border-none shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] rounded-[3rem] bg-card/50 backdrop-blur-3xl overflow-hidden border border-primary/5">
+                                            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
+                                            <CardContent className="p-8 md:p-12 space-y-12">
+                                                {/* Header Info */}
+                                                <div className="grid md:grid-cols-2 gap-12 border-b border-primary/5 pb-12">
+                                                    <div className="space-y-6">
+                                                        <div className="space-y-2">
+                                                            <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Property Identity</p>
+                                                            <h3 className="text-4xl font-black tracking-tight">{currentValues.name}</h3>
+                                                            <div className="flex items-center gap-2 text-muted-foreground font-bold">
+                                                                <MapPin className="w-4 h-4" />
+                                                                <span>{currentValues.location}, {currentValues.city}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-3">
+                                                            <div className="px-4 py-1.5 rounded-xl bg-muted/50 text-[10px] font-black uppercase tracking-widest border border-primary/5">
+                                                                {currentValues.gender} Only
+                                                            </div>
+                                                            <div className="px-4 py-1.5 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/10">
+                                                                Verified Listing
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-6 md:border-l md:border-primary/5 md:pl-12">
+                                                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Manager Profile</p>
+                                                        <div className="flex items-center gap-4 p-4 rounded-3xl bg-muted/30 border border-primary/5">
+                                                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10">
+                                                                <UserCircle className="w-8 h-8 text-primary" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-lg font-black leading-none mb-1">{currentValues.ownerName}</p>
+                                                                <div className="flex items-center gap-2 text-muted-foreground font-bold text-sm">
+                                                                    <Phone className="w-3 h-3" />
+                                                                    <span>+91 {currentValues.ownerPhone}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Infrastructure Stats */}
+                                                <div className="space-y-6">
+                                                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Infrastructure Specs</p>
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                        {[
+                                                            { label: 'Floors', value: currentValues.floorCount, icon: Building2 },
+                                                            { label: 'Units/Floor', value: currentValues.roomsPerFloor, icon: Home },
+                                                            { label: 'Beds/Unit', value: currentValues.bedsPerRoom, icon: Bed },
+                                                            { label: 'Capacity', value: Number(currentValues.floorCount) * Number(currentValues.roomsPerFloor) * Number(currentValues.bedsPerRoom), icon: Users, highlight: true }
+                                                        ].map((stat, i) => (
+                                                            <div key={i} className={cn(
+                                                                "p-6 rounded-[2rem] border transition-all group",
+                                                                stat.highlight ? "bg-primary text-primary-foreground border-primary shadow-xl shadow-primary/20" : "bg-muted/30 border-primary/5 hover:border-primary/20"
+                                                            )}>
+                                                                <stat.icon className={cn("w-5 h-5 mb-4 opacity-50", stat.highlight && "opacity-100")} />
+                                                                <p className="text-4xl font-black tracking-tight mb-1">{stat.value}</p>
+                                                                <p className={cn("text-[10px] font-black uppercase tracking-widest opacity-60", stat.highlight && "opacity-80")}>{stat.label}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Services */}
+                                                <div className="space-y-6">
+                                                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Integrated Services</p>
+                                                    <div className="flex flex-wrap gap-3">
+                                                        {currentValues.amenities.length > 0 ? currentValues.amenities.map((amenity) => (
+                                                            <div key={amenity} className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-muted/40 border border-primary/5 text-foreground text-[10px] font-black uppercase tracking-wider group hover:bg-primary/10 hover:border-primary/20 transition-all">
+                                                                <Check className="w-3.5 h-3.5 text-primary" /> {amenity}
+                                                            </div>
+                                                        )) : (
+                                                            <p className="text-sm text-muted-foreground font-medium italic">No additional services selected</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Action Card */}
+                                        <div className="p-8 md:p-12 rounded-[3rem] bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-2xl shadow-emerald-500/30 relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-700" />
+                                            <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
+                                                <div className="space-y-4 text-center md:text-left">
+                                                    <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mx-auto md:mx-0">
+                                                        <Trophy className="w-8 h-8 text-white" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-2xl font-black tracking-tight">Ready for Deployment</h4>
+                                                        <p className="text-white/80 font-medium max-w-md">
+                                                            Click the deploy button below to launch your property management system and start adding tenants instantly.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-50 vertical-text hidden md:block">
+                                                    RentSutra v4.0
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-12 text-center text-muted-foreground/30 font-black text-[10px] uppercase tracking-[0.6em] pb-12">
+                                        Enterprise Cloud Deployment Engine • RentSutra Systems
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* PERSISTENT BOTTOM NAVIGATION */}
+                        <NavigationFooter 
+                            onNext={
+                                activeStep === 'OWNER_DETAILS' ? validateProfile :
+                                activeStep === 'PG_DETAILS' ? validateBasics :
+                                activeStep === 'LAYOUT_CONFIG' ? validateLayout :
+                                form.handleSubmit(onPropertySubmit)
+                            }
+                            onBack={
+                                activeStep === 'PG_DETAILS' ? () => setActiveStep('OWNER_DETAILS') :
+                                activeStep === 'LAYOUT_CONFIG' ? () => setActiveStep('PG_DETAILS') :
+                                activeStep === 'REVIEW_FINAL' ? () => setActiveStep('LAYOUT_CONFIG') :
+                                undefined
+                            }
+                            showBack={activeStep !== 'OWNER_DETAILS'}
+                            nextLabel={
+                                activeStep === 'OWNER_DETAILS' ? "Next Step" :
+                                activeStep === 'PG_DETAILS' ? "Continue" :
+                                activeStep === 'LAYOUT_CONFIG' ? "Review Build" :
+                                "Deploy System"
+                            }
+                            isFinal={activeStep === 'REVIEW_FINAL'}
+                            isLoading={isCreating}
+                        />
                     </form>
                 </Form>
             </main>
@@ -748,46 +840,4 @@ export default function CompleteProfilePage() {
     )
 }
 
-function OnboardingAssistant({ title, message }: { title: string, message: string }) {
-    return (
-        <div className="mt-8 p-6 rounded-[2rem] bg-primary/5 border border-primary/10 flex gap-4 shadow-xl shadow-primary/5 animate-in slide-in-from-bottom-4 duration-1000">
-            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
-                <Sparkles className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div className="space-y-1">
-                <h4 className="font-black text-sm uppercase tracking-widest text-primary flex items-center gap-2">
-                    RentSutra Assistant <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                </h4>
-                <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                    <strong className="text-foreground">{title}:</strong> {message}
-                </p>
-            </div>
-        </div>
-    )
-}
 
-function StepIndicator({ active, completed, label, index }: { active: boolean, completed: boolean, label: string, index: number }) {
-    return (
-        <div className={cn(
-            "flex items-center gap-4 transition-all duration-500",
-            active ? "opacity-100 scale-110" : "opacity-30"
-        )}>
-            <div className={cn(
-                "w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black border-2 transition-all duration-500 shadow-lg shadow-transparent",
-                completed ? "bg-primary border-primary text-primary-foreground rotate-[15deg]" : 
-                active ? "border-primary text-primary shadow-primary/10 -rotate-3" : "border-muted-foreground/30 text-muted-foreground"
-            )}>
-                {completed ? <Check className="w-6 h-6 -rotate-[15deg]" /> : index}
-            </div>
-            <div className="flex flex-col">
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground leading-none mb-1">Step 0{index}</span>
-                <span className={cn(
-                    "text-sm font-black tracking-tight leading-none",
-                    active ? "text-foreground" : "text-muted-foreground"
-                )}>
-                    {label}
-                </span>
-            </div>
-        </div>
-    )
-}

@@ -4,6 +4,7 @@ import { PropertyService } from '@/services/propertyService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 import { enforcePermission } from '@/lib/rbac-middleware';
+import { uploadDataUriToStorage } from '@/lib/storage';
 
 // GET /api/properties  — list all properties for authenticated owner
 export async function GET(req: NextRequest) {
@@ -37,6 +38,20 @@ export async function POST(req: NextRequest) {
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
+        
+        // Handle image uploads if any
+        let imageUrls: string[] = [];
+        if (propertyData.images && Array.isArray(propertyData.images)) {
+            imageUrls = await Promise.all(
+                propertyData.images.map(async (dataUri: string) => {
+                    if (dataUri.startsWith('data:')) {
+                        return await uploadDataUriToStorage(dataUri, `properties/${ownerId}`);
+                    }
+                    return dataUri;
+                })
+            );
+        }
+
         const newPg = await PropertyService.createProperty(db, {
             ownerId,
             name: propertyData.name,
@@ -47,6 +62,8 @@ export async function POST(req: NextRequest) {
             floorCount: propertyData.floorCount,
             roomsPerFloor: propertyData.roomsPerFloor,
             bedsPerRoom: propertyData.bedsPerRoom,
+            amenities: propertyData.amenities,
+            images: imageUrls,
             planId: plan?.id
         }, performer);
 

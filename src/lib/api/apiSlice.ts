@@ -112,11 +112,13 @@ export const api = createApi({
             name: string;
             location: string;
             city: string;
-            gender: 'boys' | 'girls' | 'unisex';
+            gender: 'male' | 'female' | 'co-ed';
             autoSetup?: boolean;
             floorCount?: number;
             roomsPerFloor?: number;
             bedsPerRoom?: number;
+            amenities?: string[];
+            images?: string[];
         }>({
             query: (body) => ({ url: 'api/properties', method: 'POST', body }),
             invalidatesTags: ['Properties'],

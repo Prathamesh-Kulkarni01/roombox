@@ -37,6 +37,8 @@ export interface CreatePropertyInput {
     floorCount?: number;
     roomsPerFloor?: number;
     bedsPerRoom?: number;
+    amenities?: string[];
+    images?: string[];
 }
 
 import { getPlanLimit } from '@/lib/permissions';
@@ -75,7 +77,7 @@ export class PropertyService {
      * Handles floor/room generation if requested.
      */
     static async createProperty(db: Firestore, input: CreatePropertyInput & { planId?: string }, performer: PerformerInfo): Promise<any> {
-        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, bedsPerRoom = 1, planId = 'free' } = input;
+        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, bedsPerRoom = 1, amenities = [], images = [], planId = 'free' } = input;
 
         // 1. Check PG Limit
         await PropertyService.checkPgLimit(db, ownerId, planId);
@@ -127,8 +129,8 @@ export class PropertyService {
             name,
             location,
             city: city || 'Unknown',
-            gender: gender || 'unisex',
-            images: [],
+            gender: gender || 'co-ed',
+            images: images || [],
             rating: 0,
             occupancy: 0,
             totalBeds: floorCount * roomsPerFloor * bedsPerRoom || 0,
@@ -136,7 +138,7 @@ export class PropertyService {
             rules: [],
             contact: '',
             priceRange: { min: 0, max: 0 },
-            amenities: ['wifi'],
+            amenities: amenities.length > 0 ? amenities : ['wifi'],
             floors: initialFloors,
             isActive: true,
             createdAt: new Date().toISOString(),
