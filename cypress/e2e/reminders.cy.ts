@@ -24,8 +24,11 @@ describe('Robust Rent Reminder Tests', () => {
     billingAnchorDay: 15,
     noticePeriodDays: 30,
     kycStatus: 'pending',
+    ledger: [],
+    paymentHistory: [],
+    balance: 0,
     ...overrides,
-  });
+  } as Guest);
 
   const REMINDER_WINDOW = 3; // last 3 units
 

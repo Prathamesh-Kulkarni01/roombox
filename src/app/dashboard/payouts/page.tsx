@@ -50,14 +50,14 @@ const kycSchema = z.object({
 });
 
 const payoutAccountSchema = z.object({
-    payoutMethod: z.enum(['bank_account', 'vpa']),
+    payoutMethod: z.enum(['bank_account', 'upi']),
     name: z.string().optional(),
     account_number: z.string().min(5).regex(/^\d+$/).optional(),
     ifsc: z.string().length(11).regex(/^[A-Z]{4}0[A-Z0-9]{6}$/).optional(),
-    vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/).optional(),
+    upi: z.string().regex(/^[\w.-]+@[\w.-]+$/).optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') return !!data.name && !!data.account_number && !!data.ifsc;
-    if (data.payoutMethod === 'vpa') return !!data.vpa;
+    if (data.payoutMethod === 'upi') return !!data.upi;
     return false;
 }, { message: 'Please fill all required fields.', path: ['payoutMethod'] });
 
@@ -101,7 +101,7 @@ export default function PaymentsBillingPage() {
         }
     }, [currentUser?.subscription?.kycDetails, kycForm]);
 
-    const payoutForm = useForm<PayoutAccountFormValues>({ resolver: zodResolver(payoutAccountSchema), defaultValues: { payoutMethod: 'vpa' } });
+    const payoutForm = useForm<PayoutAccountFormValues>({ resolver: zodResolver(payoutAccountSchema), defaultValues: { payoutMethod: 'upi' } });
     const payoutMethod = payoutForm.watch('payoutMethod');
 
     const handlePayoutAccountSubmit = async (data: PayoutAccountFormValues) => {
@@ -127,7 +127,7 @@ export default function PaymentsBillingPage() {
         startSavingTransition(() => {
             (async () => {
                 const isFirstAccount = (currentUser?.subscription?.payoutMethods || []).length === 0;
-                const submissionData = { ...data, ...kycData, name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) };
+                const submissionData = { ...data, ...kycData, name: data.name || (data.payoutMethod === 'upi' ? data.upi! : kycData.legal_business_name) };
                 try {
                     const token = await auth?.currentUser?.getIdToken();
                     const result = await addPayoutMethod(submissionData, token);
@@ -139,7 +139,7 @@ export default function PaymentsBillingPage() {
                             setShowConfetti(true);
                             setTimeout(() => setShowConfetti(false), 5000);
                         }
-                        payoutForm.reset({ payoutMethod: 'vpa', vpa: '', account_number: '', ifsc: '', name: '' });
+                        payoutForm.reset({ payoutMethod: 'upi', upi: '', account_number: '', ifsc: '', name: '' });
                     } else {
                         const errorMsg = (result as any).error || 'Failed to add payout account.';
                         toast({ variant: 'destructive', title: 'Error', description: errorMsg });
@@ -505,7 +505,7 @@ export default function PaymentsBillingPage() {
                                                                     {method.isPrimary && <Badge className="bg-emerald-500 text-white hover:bg-emerald-500 border-none text-[0.6rem] h-4.5 font-black uppercase tracking-tighter">Primary</Badge>}
                                                                 </div>
                                                                 <div className="text-xs text-muted-foreground font-mono mt-0.5 tracking-tight group-hover:text-foreground transition-colors">
-                                                                    {method.type === 'upi' ? (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
+                                                                    {method.type === 'upi' ? (method as UpiPaymentMethod).upiAddress || (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -581,8 +581,8 @@ export default function PaymentsBillingPage() {
                                         <FormControl>
                                             <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <RadioGroupItem value="vpa" id="vpa" className="peer sr-only" />
-                                                    <label htmlFor="vpa" className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/[0.03] [&:has([data-state=checked])]:border-primary transition-all cursor-pointer shadow-sm group">
+                                                    <RadioGroupItem value="upi" id="upi" className="peer sr-only" />
+                                                    <label htmlFor="upi" className="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/[0.03] [&:has([data-state=checked])]:border-primary transition-all cursor-pointer shadow-sm group">
                                                         <IndianRupee className="h-8 w-8 text-muted-foreground group-hover:text-primary transition-colors" />
                                                         <span className="text-sm font-bold tracking-tight">UPI / VPA</span>
                                                     </label>
@@ -611,8 +611,8 @@ export default function PaymentsBillingPage() {
                                         </div>
                                     </div>
                                 )}
-                                {payoutMethod === 'vpa' && (
-                                    <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
+                                {payoutMethod === 'upi' && (
+                                    <FormField control={payoutForm.control} name="upi" render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="font-bold">UPI ID Address</FormLabel>
                                             <FormControl><Input placeholder="user@okhdfcbank" className="lowercase rounded-xl h-12 font-mono" {...field} onChange={(e) => field.onChange(e.target.value.trim().toLowerCase())} /></FormControl>

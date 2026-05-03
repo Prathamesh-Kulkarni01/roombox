@@ -36,13 +36,13 @@ async function createSecondaryDatabaseIfPossible(
 			scopes: ['https://www.googleapis.com/auth/datastore'],
 		});
 		const client = await auth.getClient();
-		const firestoreAdmin = google.firestore({ version: 'v1', auth: client });
+		const firestoreAdmin = google.firestore({ version: 'v1', auth: client as any });
 
 		// Attempt to create the database
-		await firestoreAdmin.projects.databases.create({
+		await (firestoreAdmin.projects.databases.create as any)({
 			parent: `projects/${projectId}`,
+			databaseId,
 			requestBody: {
-				databaseId,
 				locationId,
 				type: 'FIRESTORE_NATIVE',
 			},

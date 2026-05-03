@@ -1,7 +1,7 @@
 import { Page, expect } from '@playwright/test';
 
 export class BasePage {
-    constructor(protected page: Page) {}
+    constructor(public page: Page) {}
 
     /**
      * Common Header: Select a Property

@@ -5,9 +5,9 @@ import { getSiteData } from '@/lib/actions/siteActions';
 
 export async function GET(
   request: Request,
-  { params }: { params: { subdomain: string } }
+  { params }: { params: Promise<{ subdomain: string }> }
 ) {
-  const subdomain = params.subdomain;
+  const { subdomain } = await params;
   
   if (!subdomain) {
     return new NextResponse('Not Found', { status: 404 });

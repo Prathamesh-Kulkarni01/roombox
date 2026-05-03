@@ -29,6 +29,10 @@ export default function AdminDashboardPage() {
     const fetchData = async () => {
         try {
             setLoading(true);
+            if (!db) {
+                console.error("Firestore not initialized");
+                return;
+            }
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
             
@@ -85,6 +89,7 @@ export default function AdminDashboardPage() {
     
     const handleUserStatusUpdate = async (userId: string, status: 'active' | 'suspended') => {
         try {
+            if (!db) return;
             const userRef = doc(db, "users", userId);
             await updateDoc(userRef, { status });
             toast({ title: "Success", description: `User status updated to ${status}.`});
@@ -96,6 +101,7 @@ export default function AdminDashboardPage() {
 
     const handlePropertyStatusUpdate = async (pg: PG, status: 'active' | 'rejected') => {
         try {
+            if (!db) return;
             const pgRef = doc(db, "users_data", pg.ownerId, "pgs", pg.id);
             await updateDoc(pgRef, { status });
             toast({ title: "Success", description: `Property status updated to ${status}.`});

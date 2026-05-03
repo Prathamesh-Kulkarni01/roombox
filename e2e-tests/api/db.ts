@@ -1,4 +1,5 @@
 import { getAdminDb } from '../../src/lib/firebaseAdmin';
+import { Guest, PG } from '../../src/lib/types';
 
 /**
  * High-Signal DB Assertions
@@ -8,7 +9,7 @@ export class DbHelper {
     /**
      * Get a property by its name (unique per test run)
      */
-    async getPropertyByName(ownerId: string, name: string) {
+    async getPropertyByName(ownerId: string, name: string): Promise<(PG & { id: string }) | null> {
         const db = await getAdminDb();
         const snapshot = await db.collection('users_data')
             .doc(ownerId)
@@ -18,13 +19,13 @@ export class DbHelper {
             .get();
         
         if (snapshot.empty) return null;
-        return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as PG & { id: string };
     }
 
     /**
      * Get a tenant by phone number
      */
-    async getGuestByPhone(ownerId: string, phone: string) {
+    async getGuestByPhone(ownerId: string, phone: string): Promise<(Guest & { id: string }) | null> {
         const db = await getAdminDb();
         const cleanDigits = phone.replace(/\D/g, '').slice(-10);
         const variants = Array.from(new Set([
@@ -52,7 +53,7 @@ export class DbHelper {
         }
         
         if (snapshot.empty) return null;
-        return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Guest & { id: string };
     }
 
     /**

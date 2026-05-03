@@ -6,15 +6,15 @@ import { getSiteData } from '@/lib/actions/siteActions';
 import SitePageClient from '@/components/site-page-client';
 
 type Props = {
-  params: { subdomain: string };
-  searchParams: { [key: string]: string | string[] | undefined };
+  params: Promise<{ subdomain: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 export async function generateMetadata(
   { params }: Props,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const subdomain = params.subdomain;
+  const { subdomain } = await params;
   if (!subdomain) {
     return {};
   }
@@ -43,13 +43,15 @@ export async function generateMetadata(
 }
 
 export default async function SitePage({ params, searchParams }: Props) {
-  const isPreview = searchParams?.preview === 'true';
-  const siteData = await getSiteData(params.subdomain, isPreview);
+  const { subdomain } = await params;
+  const resolvedSearchParams = await searchParams;
+  const isPreview = resolvedSearchParams?.preview === 'true';
+  const siteData = await getSiteData(subdomain, isPreview);
 
   if (!siteData || !siteData.siteConfig) {
     notFound();
   }
 
   // Pass the server-fetched data to the client component
-  return <SitePageClient initialData={siteData} subdomain={params.subdomain} />;
+  return <SitePageClient initialData={siteData} subdomain={subdomain} />;
 }

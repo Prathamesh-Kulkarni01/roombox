@@ -186,6 +186,7 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
 
 const NoticeBoardView = () => {
     const { guests } = useAppSelector(state => state.guests);
+    const { pgs } = useAppSelector(state => state.pgs);
     const { selectedPgId } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
     const { toast } = useToast();

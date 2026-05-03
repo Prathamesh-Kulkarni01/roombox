@@ -109,6 +109,7 @@ export default function BillingWidget() {
 
   const planLabels: Record<BillingPlanType, string> = {
     monthly: 'Monthly',
+    sixMonth: '6 Months',
     yearly: 'Yearly',
     trial: 'Trial',
   }

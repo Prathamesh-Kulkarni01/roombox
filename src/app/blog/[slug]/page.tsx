@@ -4,7 +4,7 @@ import { trainingGuides } from '@/lib/blog-data';
 import { Metadata, ResolvingMetadata } from 'next';
 
 type Props = {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 export async function generateStaticParams() {
@@ -17,7 +17,8 @@ export async function generateMetadata(
   { params }: Props,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const guide = trainingGuides.find(guide => guide.slug === params.slug);
+  const { slug } = await params;
+  const guide = trainingGuides.find(guide => guide.slug === slug);
 
   if (!guide) {
     return {
@@ -31,8 +32,9 @@ export async function generateMetadata(
   }
 }
 
-export default function BlogPage({ params }: Props) {
-  const guide = trainingGuides.find(guide => guide.slug === params.slug);
+export default async function BlogPage({ params }: Props) {
+  const { slug } = await params;
+  const guide = trainingGuides.find(guide => guide.slug === slug);
 
   if (!guide) {
     notFound();

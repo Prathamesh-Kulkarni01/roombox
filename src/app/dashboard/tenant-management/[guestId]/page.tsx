@@ -75,7 +75,7 @@ const complaintStatusColors: Record<Complaint['status'], string> = {
     resolved: "bg-green-100 text-green-800",
 }
 
-const isImageUrl = (url: string) => /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
+const isImageUrl = (url?: string) => url ? /\.(jpg|jpeg|png|webp|gif)$/i.test(url) : false;
 
 
 export default function GuestProfilePage() {
@@ -155,7 +155,9 @@ export default function GuestProfilePage() {
     useEffect(() => {
         if (guest?.documents) {
             const initialUris = guest.documents.reduce((acc, doc) => {
-                acc[doc.configId] = doc.url;
+                if (doc.configId && doc.url) {
+                    acc[doc.configId] = doc.url;
+                }
                 return acc;
             }, {} as Record<string, string>);
             setDocumentUris(initialUris);
@@ -328,7 +330,7 @@ export default function GuestProfilePage() {
             const data = await generatePassword({
                 ownerId: currentUser.id,
                 tenantId: guest.id,
-                phone: guest.phone
+                phone: guest.phone || ''
             }).unwrap();
             
             if (data.success) {
@@ -350,7 +352,7 @@ export default function GuestProfilePage() {
         if (!guest || !currentUser) return;
         setIsGeneratingMagicLink(true);
         try {
-            const data = await generateMagicLink({ guestId: guest.id, phone: guest.phone }).unwrap();
+            const data = await generateMagicLink({ guestId: guest.id, phone: guest.phone || '' }).unwrap();
             if (data.success) {
                 setGeneratedMagicLink(data.magicLink);
                 setGeneratedSetupCode(data.inviteCode);
@@ -551,7 +553,7 @@ export default function GuestProfilePage() {
                                                         <Label>{doc.label}</Label>
                                                         <div className="w-full aspect-video rounded-md border-2 flex items-center justify-center relative bg-muted/40 overflow-hidden group-hover:ring-2 ring-primary transition-all">
                                                             {isDocImageUrl ? (
-                                                                <img src={doc.url} alt={`${doc.label} Preview`} className="w-full h-full object-contain" />
+                                                                <img src={doc.url || ''} alt={`${doc.label || 'Document'} Preview`} className="w-full h-full object-contain" />
                                                             ) : (
                                                                 <div className="flex flex-col items-center gap-2 text-muted-foreground"><FileText className="w-10 h-10" /><span className="text-xs">Click to view PDF</span></div>
                                                             )}
@@ -605,7 +607,7 @@ export default function GuestProfilePage() {
                             {selectedDoc && (
                                 isImageUrl(selectedDoc.url) ? (
                                     <div className="relative w-full h-full">
-                                        <Image src={selectedDoc.url} alt={`Preview of ${selectedDoc.label}`} layout="fill" objectFit="contain" />
+                                        <Image src={selectedDoc.url || ''} alt={`Preview of ${selectedDoc.label || 'Document'}`} layout="fill" objectFit="contain" />
                                         <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 opacity-15">
                                             {Array.from({ length: 9 }).map((_, i) => (
                                                 <div key={i} className="flex items-center justify-center">

@@ -75,10 +75,11 @@ export async function GET(req: NextRequest) {
     // Optionally: create secondary Firestore DB if requested and not default
     if (databaseId !== '(default)') {
       try {
-        const firestoreAdmin = google.firestore({ version: 'v1', auth: oauth2Client });
-        await firestoreAdmin.projects.databases.create({
+        const firestoreAdmin = google.firestore({ version: 'v1', auth: oauth2Client as any });
+        await (firestoreAdmin.projects.databases.create as any)({
           parent: `projects/${projectId}`,
-          requestBody: { databaseId, locationId: 'nam5', type: 'FIRESTORE_NATIVE' },
+          databaseId,
+          requestBody: { locationId: 'nam5', type: 'FIRESTORE_NATIVE' },
         });
       } catch (e: any) {
         // ignore already exists; capture other errors

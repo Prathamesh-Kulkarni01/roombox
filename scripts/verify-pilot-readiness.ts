@@ -79,7 +79,8 @@ async function runVerification() {
         guestId: guest.id,
         amount: 5000,
         paymentMode: 'cash',
-        notes: 'Initial Payment'
+        notes: 'Initial Payment',
+        performer: { userId: 'system-pilot', name: 'Pilot Verification Script' }
     });
     console.log(`✅ Payment recorded. New Balance: ${paymentResult.newBalance}`);
 
@@ -105,7 +106,8 @@ async function runVerification() {
         guestId: guest.id,
         amount: 3000,
         paymentMode: 'upi',
-        notes: 'Validated Payment'
+        notes: 'Validated Payment',
+        performer: { userId: 'system-pilot', name: 'Pilot Verification Script' }
     });
 
     const stats = await PropertyService.getBriefingStats(db, ownerId);

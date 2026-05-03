@@ -36,6 +36,16 @@ export const PRICING_CONFIG = {
             name: 'Website Builder',
             monthlyCharge: 0, // Flat monthly fee
             billingType: 'monthly' as const,
+        },
+        kyc: {
+            name: 'Automated KYC',
+            monthlyCharge: 0, // Flat monthly fee
+            billingType: 'monthly' as const,
+        },
+        whatsapp: {
+            name: 'WhatsApp Automation',
+            perTenantCharge: 0, // Per-tenant charge
+            billingType: 'per_tenant' as const,
         }
     }
 };

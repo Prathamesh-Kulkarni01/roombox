@@ -79,7 +79,8 @@ async function runAudit() {
         planId: 'pro'
     };
 
-    const { guest: ghostGuest } = await TenantService.onboardTenant(db, appDb, ghostTenantInput);
+    const performer = { userId: 'system', name: 'Launch Auditor' };
+    const { guest: ghostGuest } = await TenantService.onboardTenant(db, appDb, ghostTenantInput, performer);
     report('Ghost Guest IDs created', !!ghostGuest.id);
     report('Ghost Guest amountType is symbolic', ghostGuest.amountType === 'symbolic', ghostGuest.amountType);
     report('Ghost Guest Balance is 0', ghostGuest.balance === 0, ghostGuest.balance);
@@ -99,7 +100,8 @@ async function runAudit() {
         amountType: 'symbolic',
         symbolicValue: '1 UNIT',
         paymentMode: 'cash',
-        notes: 'Rent Payment'
+        notes: 'Rent Payment',
+        performer
     });
     
     // Pay for Deposit (to make it fully paid)
@@ -110,7 +112,8 @@ async function runAudit() {
         amountType: 'symbolic',
         symbolicValue: '1 UNIT',
         paymentMode: 'cash',
-        notes: 'Deposit Payment'
+        notes: 'Deposit Payment',
+        performer
     });
     
     report('Ghost Payment status became paid', paymentRes.newStatus === 'paid', paymentRes.newStatus);
@@ -139,7 +142,7 @@ async function runAudit() {
         dueDate: '10',
         planId: 'pro'
     };
-    const { guest: numericGuest } = await TenantService.onboardTenant(db, appDb, numericTenantInput);
+    const { guest: numericGuest } = await TenantService.onboardTenant(db, appDb, numericTenantInput, performer);
     report('Numeric Guest onboarded, balance = 15000', numericGuest.balance === 15000, numericGuest.balance);
 
     const numericPayment = await TenantService.recordPayment(db, {
@@ -147,7 +150,8 @@ async function runAudit() {
         guestId: numericGuest.id,
         amount: 10000,
         paymentMode: 'cash',
-        notes: 'Rent via Cash'
+        notes: 'Rent via Cash',
+        performer
     });
     report('Numeric Payment balance is 5000', numericPayment.newBalance === 5000, numericPayment.newBalance);
     report('Numeric Payment status is partial', numericPayment.newStatus === 'partial', numericPayment.newStatus);

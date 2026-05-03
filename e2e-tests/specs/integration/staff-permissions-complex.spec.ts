@@ -49,7 +49,7 @@ test.describe('Complex Permission Matrix', () => {
 
         // 3. Verify as Staff
         console.log('[RBAC Matrix] Step 3: Verifying Accountant profile in a fresh context...');
-        const staffCtx = await context.browser().newContext();
+        const staffCtx = await context.browser()!.newContext();
         const staffPage = await staffCtx.newPage();
         
         await staffPage.goto('/login');

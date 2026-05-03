@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
 
         const db = await getAdminDb();
 
+        let guestData: any;
         await db.runTransaction(async (txn: any) => {
             // 2. Duplicate UTR check using global registry for the owner
             const utrRef = db.collection('users_data').doc(ownerId).collection('utrs').doc(utr);
@@ -60,8 +61,8 @@ export async function POST(req: NextRequest) {
             const guestSnap = await txn.get(guestRef);
             if (!guestSnap.exists) throw new Error('Guest not found');
             
-            const guest = guestSnap.data()!;
-            const paymentHistory = guest.paymentHistory || [];
+            guestData = guestSnap.data()!;
+            const paymentHistory = guestData.paymentHistory || [];
             const paymentIndex = paymentHistory.findIndex((p: any) => p.id === paymentId);
             
             if (paymentIndex === -1) throw new Error('Payment intent not found');
@@ -92,11 +93,17 @@ export async function POST(req: NextRequest) {
 
         await ActivityLogsService.logActivity({
             ownerId,
+            module: 'financials',
             activityType: 'PAYMENT_CLAIMED',
             details: `Tenant ${guestId} claimed payment ${paymentId} with UTR ${utr}`,
             targetId: paymentId,
             targetType: 'payment',
-            status: 'success'
+            status: 'success',
+            performedBy: {
+                userId: guestId,
+                name: guestData?.name || 'Tenant',
+                role: 'tenant'
+            }
         });
 
         return NextResponse.json({ success: true });

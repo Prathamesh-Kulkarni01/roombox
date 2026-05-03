@@ -38,17 +38,17 @@ const kycSchema = z.object({
 });
 
 const payoutAccountSchema = z.object({
-  payoutMethod: z.enum(['bank_account', 'vpa']),
+  payoutMethod: z.enum(['bank_account', 'upi']),
   name: z.string().optional(),
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
-  vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
+  upi: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
     }
-    if (data.payoutMethod === 'vpa') {
-        return !!data.vpa;
+    if (data.payoutMethod === 'upi') {
+        return !!data.upi;
     }
     return false;
 }, {
@@ -79,7 +79,7 @@ export default function PayoutsPage() {
 
     const payoutForm = useForm<PayoutAccountFormValues>({
         resolver: zodResolver(payoutAccountSchema),
-        defaultValues: { payoutMethod: 'vpa' }
+        defaultValues: { payoutMethod: 'upi' }
     });
 
     const payoutMethod = payoutForm.watch('payoutMethod');
@@ -99,7 +99,7 @@ export default function PayoutsPage() {
                 ...data, 
                 ...kycData,
                 email: currentUser.email || '',
-                name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : kycData.legal_business_name) 
+                name: data.name || (data.payoutMethod === 'upi' ? data.upi! : kycData.legal_business_name) 
             };
             
             try {
@@ -108,7 +108,7 @@ export default function PayoutsPage() {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Linked!', description: 'Your new payout account has been successfully added.' });
                     setIsPayoutDialogOpen(false);
-                    payoutForm.reset({ payoutMethod: 'vpa' });
+                    payoutForm.reset({ payoutMethod: 'upi' });
                 }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Failed to Link Account', description: e.message || 'An unexpected error occurred.' });
@@ -266,7 +266,7 @@ export default function PayoutsPage() {
                                     <FormItem className="space-y-3">
                                         <FormControl>
                                             <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
-                                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="vpa" id="vpa" /></FormControl><FormLabel htmlFor="vpa" className="font-normal">UPI ID</FormLabel></FormItem>
+                                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><FormLabel htmlFor="upi" className="font-normal">UPI ID</FormLabel></FormItem>
                                                 <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="bank_account" id="bank_account" /></FormControl><FormLabel htmlFor="bank_account" className="font-normal">Bank Account</FormLabel></FormItem>
                                             </RadioGroup>
                                         </FormControl>
@@ -283,8 +283,8 @@ export default function PayoutsPage() {
                                     <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="Enter IFSC code" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 </div>
                             )}
-                            {payoutMethod === 'vpa' && (
-                                <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
+                            {payoutMethod === 'upi' && (
+                                <FormField control={payoutForm.control} name="upi" render={({ field }) => (
                                     <FormItem><FormLabel>UPI ID (VPA)</FormLabel><FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} onChange={(e) => field.onChange(e.target.value.trim().toLowerCase())} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             )}

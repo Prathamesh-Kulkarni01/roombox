@@ -107,7 +107,7 @@ export default function ProfilePage() {
                             variant="ghost" 
                             size="icon" 
                             className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => copyToClipboard(currentUser.phone, "Phone Number")}
+                            onClick={() => copyToClipboard(currentUser.phone || '', "Phone Number")}
                         >
                             <Copy className="w-4 h-4" />
                         </Button>

@@ -287,7 +287,8 @@ export interface BankPaymentMethod extends PaymentMethodBase {
 
 export interface UpiPaymentMethod extends PaymentMethodBase {
   type: 'upi';
-  vpaAddress: string;
+  upiAddress: string;
+  vpaAddress?: string; // Legacy
 }
 
 export type PaymentMethod = BankPaymentMethod | UpiPaymentMethod;
@@ -425,11 +426,13 @@ export type SubscriptionStatus = 'trialing' | 'active' | 'inactive' | 'past_due'
 
 export interface PremiumFeatures {
   website?: { enabled: boolean };
+  whatsapp?: { enabled: boolean };
+  kyc?: { enabled: boolean };
 }
 
 // ─── Wallet & Billing System ──────────────────────────────────────────────────
 
-export type BillingPlanType = 'monthly' | 'yearly' | 'trial';
+export type BillingPlanType = 'monthly' | 'sixMonth' | 'yearly' | 'trial';
 
 export type WalletTransactionType = 'recharge' | 'debit' | 'refund' | 'admin_credit' | 'admin_debit';
 

@@ -41,6 +41,7 @@ async function runAudit() {
     try {
         // --- 1. Property Creation (Bulk Setup) ---
         console.log('\n--- Phase 1: Property Setup ---');
+        const performer = { userId: 'system', name: 'Owner Auditor' };
         const pg = await PropertyService.createProperty(db, {
             ownerId: TEST_OWNER_ID,
             name: 'Audit Grand Heights',
@@ -48,7 +49,7 @@ async function runAudit() {
             city: 'Gurgaon',
             gender: 'unisex',
             autoSetup: false // We'll do bulk setup manually
-        });
+        }, performer);
         console.log(`✅ Property Created: ${pg.name} (${pg.id})`);
 
         const hierarchy = await PropertyService.bulkSetupFloors(db, TEST_OWNER_ID, pg.id, {
@@ -56,7 +57,7 @@ async function runAudit() {
             roomsPerFloor: 2,
             bedsPerRoom: 1,
             startFloorNumber: 1
-        });
+        }, performer);
         console.log(`✅ Hierarchy Built: ${hierarchy.floorsCreated} Floors, ${hierarchy.roomsCreated} Rooms, ${hierarchy.bedsCreated} Beds`);
 
         const updatedPgSnap = await db.collection('users_data').doc(TEST_OWNER_ID).collection('pgs').doc(pg.id).get();
@@ -85,7 +86,7 @@ async function runAudit() {
             rentCycleValue: 1
         };
 
-        const { guest } = await TenantService.onboardTenant(db, db, tenantInput);
+        const { guest } = await TenantService.onboardTenant(db, db, tenantInput, performer);
         console.log(`✅ Tenant Onboarded: ${guest.name} (${guest.id})`);
 
         // Final verify PG occupancy
@@ -125,7 +126,8 @@ async function runAudit() {
             guestId: guest.id,
             amount: 5000,
             paymentMode: 'UPI',
-            notes: 'Partial rent'
+            notes: 'Partial rent',
+            performer
         });
         console.log(`✅ Partial Payment Recorded: ₹5,000. New Balance: ₹${payRes.newBalance} (Status: ${payRes.guest.rentStatus})`);
         if (payRes.guest.rentStatus !== 'partial') throw new Error(`Rent status should be partial, got ${payRes.guest.rentStatus}`);

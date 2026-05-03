@@ -57,7 +57,8 @@ async function runTests() {
         newRoomName: '102',
         newBedId: `b3-${env.pgId1}`,
         newRentAmount: 12000,
-        newDepositAmount: 20000
+        newDepositAmount: 20000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g1 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId1).get()).data();
     record('S1: Balance followed guest', g1?.balance === 5000, { actual: g1?.balance });
@@ -79,7 +80,8 @@ async function runTests() {
         newRoomName: '101',
         newBedId: `b1-${env.pgId2}`,
         newRentAmount: 10000,
-        newDepositAmount: 15000
+        newDepositAmount: 15000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g2 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId2).get()).data();
     record('S2: Deposit Delta applied', g2?.balance === 5000, { actual: g2?.balance });
@@ -105,7 +107,8 @@ async function runTests() {
         newRoomName: '102',
         newBedId: `b3-${env.pgId1}`,
         newRentAmount: 15000,
-        newDepositAmount: 10000
+        newDepositAmount: 10000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g3 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId3).get()).data();
     record('S3: Move documented', g3?.ledger.some((l: any) => l.description.includes('TRANSFER: Moved from')));
@@ -126,7 +129,8 @@ async function runTests() {
         newRoomName: '102',
         newBedId: `b3-${env.pgId2}`,
         newRentAmount: 8000,
-        newDepositAmount: 15000
+        newDepositAmount: 15000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g4 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId4).get()).data();
     record('S4: Deposit Credit applied', g4?.balance === -5000, { actual: g4?.balance });
@@ -147,7 +151,8 @@ async function runTests() {
         newRoomName: '102',
         newBedId: `b3-${env.pgId1}`,
         newRentAmount: 5000,
-        newDepositAmount: 5000
+        newDepositAmount: 5000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g5 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId5).get()).data();
     record('S5: Credit stayed active', g5?.balance === -2000, { actual: g5?.balance });
@@ -168,7 +173,8 @@ async function runTests() {
         newRoomName: '102',
         newBedId: `b3-${env.pgId1}`,
         newRentAmount: 10000,
-        newDepositAmount: 10000
+        newDepositAmount: 10000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g6 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId6).get()).data();
     record('S6: Ledger count (Memo only)', g6?.ledger.length === 1);
@@ -197,7 +203,8 @@ async function runTests() {
     try {
         await TenantService.transferGuest(db, env.ownerId, guestId7a, {
             newPgId: env.pgId1, newRoomId: 'r2', newRoomName: '102', newBedId: `b3-${env.pgId1}`, 
-            newRentAmount: 10000, newDepositAmount: 10000
+            newRentAmount: 10000, newDepositAmount: 10000,
+            performer: { userId: 'system-audit', name: 'System Audit Script' }
         });
         record('S7: Conflict detection failed', false);
     } catch (e: any) {
@@ -216,7 +223,8 @@ async function runTests() {
     });
     await TenantService.transferGuest(db, env.ownerId, guestId8, {
         newPgId: env.pgId1, newRoomId: 'r2', newRoomName: '102', newBedId: `b3-${env.pgId1}`, 
-        newRentAmount: 10000, newDepositAmount: 0 // Refund whole deposit
+        newRentAmount: 10000, newDepositAmount: 0, // Refund whole deposit
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g8 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId8).get()).data();
     record('S8: Balance is -10000 (Refund)', g8?.balance === -10000, { actual: g8?.balance });
@@ -234,7 +242,8 @@ async function runTests() {
     });
     await TenantService.transferGuest(db, env.ownerId, guestId9, {
         newPgId: env.pgId2, newRoomId: 'r1', newRoomName: '101', newBedId: `b1-${env.pgId2}`, 
-        newRentAmount: 12000, newDepositAmount: 15000
+        newRentAmount: 12000, newDepositAmount: 15000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g9 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId9).get()).data();
     // 2400 (old balance) + 5000 (deposit delta) = 7400
@@ -252,7 +261,8 @@ async function runTests() {
     });
     await TenantService.transferGuest(db, env.ownerId, guestId10, {
         newPgId: env.pgId2, newRoomId: 'r1', newRoomName: '101', newBedId: `b1-${env.pgId2}`, 
-        newRentAmount: 12000, newDepositAmount: 20000
+        newRentAmount: 12000, newDepositAmount: 20000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     
     // Check old bed is vacant
@@ -285,7 +295,8 @@ async function runTests() {
         newRentAmount: 10000,
         newDepositAmount: 5000,
         shouldProrate: true,
-        prorationAmount: 2000
+        prorationAmount: 2000,
+        performer: { userId: 'system-audit', name: 'System Audit Script' }
     });
     const g11 = (await db.collection('users_data').doc(env.ownerId).collection('guests').doc(guestId11).get()).data();
     record('S11: Proration charge applied', g11?.balance === 2000, { actual: g11?.balance });

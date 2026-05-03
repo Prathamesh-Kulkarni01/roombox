@@ -32,8 +32,8 @@ test.describe('Core Business Journey (High-Signal E2E) @smoke', () => {
         // IMPORTANT: We verify BUSINESS logic, not just "Success" text
         const guestDoc = await db.getGuestByPhone(OWNER_ID, tenantData.phone);
         expect(guestDoc).not.toBeNull();
-        expect(guestDoc?.name).toBe(tenantData.name);
-        expect(Number(guestDoc?.rentAmount)).toBe(5000);
+        expect(guestDoc!.name).toBe(tenantData.name);
+        expect(Number(guestDoc!.rentAmount)).toBe(5000);
 
         console.log('✅ Core Journey Verified: UI flows synced to DB.');
     });

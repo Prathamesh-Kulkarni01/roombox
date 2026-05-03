@@ -39,7 +39,7 @@ import { useGetPropertiesQuery, useGetGuestsQuery, useDeletePropertyMutation } f
 import BulkSetupModal from '@/components/bulk-setup-modal'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -262,8 +262,8 @@ export default function PgManagementPage() {
                                                 </div>
                                             </TooltipTrigger>
                                             {(() => {
-                                                const planLimit = currentPlan?.id ? (currentPlan.id === 'free' || currentPlan.id === 'starter' ? 1 : 'unlimited') : 0;
-                                                return (pgs.length >= 1 && (currentPlan?.id === 'free' || currentPlan?.id === 'starter')) ? (
+                                                const planLimit = currentPlan?.id ? (currentPlan.id === 'free' ? 1 : 'unlimited') : 0;
+                                                return (pgs.length >= 1 && (currentPlan?.id === 'free')) ? (
                                                     <TooltipContent>
                                                         <p>You can only add 1 property on the {currentPlan?.name} plan. <Link href='/dashboard/settings' className='text-primary underline'>Upgrade to Pro</Link> to add more.</p>
                                                     </TooltipContent>

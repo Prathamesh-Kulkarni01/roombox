@@ -65,7 +65,7 @@ test.describe('WhatsApp Bot Integration (Parallel-Safe)', () => {
         // Assertion: Verified at the source
         const prop = await db.getPropertyByName(context.ownerId, propName);
         expect(prop).not.toBeNull();
-        expect(prop?.totalBeds).toBe(10);
+        expect(prop!.totalBeds).toBe(10);
         console.log(`✅ Bot Integration: Property ${propName} created and verified in Firestore.`);
     });
 

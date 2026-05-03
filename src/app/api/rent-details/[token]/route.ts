@@ -4,10 +4,8 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 import jwt from 'jsonwebtoken';
 import type { Guest, LedgerEntry } from '@/lib/types';
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> | { token: string } }) {
-    // Next.js 15 requires awaiting params
-    const resolvedParams = await Promise.resolve(params);
-    const token = resolvedParams.token;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    const { token } = await params;
     const secret = process.env.JWT_SECRET;
 
     if (!secret) {

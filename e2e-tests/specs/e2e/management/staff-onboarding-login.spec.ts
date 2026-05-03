@@ -52,7 +52,7 @@ test.describe('Staff Onboarding & Security Login', () => {
 
         // 4. TEST SETUP CODE LOGIN
         console.log('[Staff Security] Step 4: Verifying 6-Digit Setup Code login...');
-        const codeContext = await context.browser().newContext();
+        const codeContext = await context.browser()!.newContext();
         const codePage = await codeContext.newPage();
         
         await codePage.goto('/login');

@@ -18,7 +18,7 @@ export async function onboardStaffWorkflow(page: Page, staff: { name: string, ph
         return;
     }
 
-    await mgmt.page.getByRole('button', { name: /Add Staff/i }).first().click();
+    await page.getByRole('button', { name: /Add Staff/i }).first().click();
     
     const dialog = page.getByRole('dialog');
     await dialog.waitFor({ state: 'visible' });

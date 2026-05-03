@@ -1,5 +1,5 @@
 
-import { ensureOwnerExists, ensurePropertyExists, wipeOwnerData } from './e2e-tests/api/cleanup';
+import { ensureOwnerExists, ensurePropertyExists, wipeOwnerData } from '../e2e-tests/api/cleanup';
 import * as dotenv from 'dotenv';
 import path from 'path';
 

@@ -1,5 +1,5 @@
 
-
+import { produce } from "immer";
 import { runReconciliationLogic } from "../../src/lib/reconciliation";
 import type { Guest, LedgerEntry } from "../../src/lib/types";
 import {
@@ -43,8 +43,11 @@ const createMockGuest = (overrides: Partial<Guest>): Guest => ({
   ],
   kycStatus: "verified",
   noticePeriodDays: 30,
+  paymentHistory: [],
+  balance: 100,
+  amountType: 'numeric',
   ...overrides,
-});
+}) as Guest;
 
 const calculateBalance = (ledger: LedgerEntry[]): number => {
   return ledger.reduce((balance, entry) => {

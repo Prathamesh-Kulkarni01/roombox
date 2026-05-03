@@ -28,14 +28,16 @@ async function runConcurrencyTest(db: any) {
     const guest = guestDoc.data() as any;
 
     try {
+        const performer = { userId: 'system', name: 'System Auditor' };
+
         console.log('Triggering 5 simultaneous payments of ₹2000...');
         // Execute 5 payments concurrently
         await Promise.all([
-            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'A' }),
-            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'B' }),
-            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'C' }),
-            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'D' }),
-            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'E' })
+            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'A', performer }),
+            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'B', performer }),
+            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'C', performer }),
+            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'D', performer }),
+            TenantService.recordPayment(db, { ownerId, guest: { ...guest }, amount: 2000, notes: 'E', performer })
         ]);
 
         const finalSnap = await ref.get();

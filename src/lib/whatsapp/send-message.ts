@@ -273,7 +273,7 @@ export async function sendWhatsAppTemplate(
     ownerId: string,
     languageCodeOrComponents: string | any[] = 'en_US',
     headerValuesOrOwnerId: any[] | string = [],
-    bodyValues: any[] = [],
+    bodyValues: any[] | any = [],
     buttonValues: any[] = [],
     targetId?: string
 ) {

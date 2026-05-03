@@ -24,16 +24,16 @@ import { Badge } from '@/components/ui/badge';
 import { Banknote, Check, IndianRupee, Loader2, MoreVertical, PlusCircle, Trash2 } from 'lucide-react';
 
 const payoutAccountSchema = z.object({
-  payoutMethod: z.enum(['bank_account', 'vpa']),
+  payoutMethod: z.enum(['bank_account', 'upi']),
   name: z.string().min(1, "Name is required for bank accounts."),
   account_number: z.string().min(5, "Account number is required.").regex(/^\d+$/, "Account number must contain only digits.").optional(),
   ifsc: z.string().length(11, "IFSC code must be 11 characters.").regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code format.").optional(),
-  vpa: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
+  upi: z.string().regex(/^[\w.-]+@[\w.-]+$/, "Invalid UPI ID format.").optional(),
 }).refine(data => {
     if (data.payoutMethod === 'bank_account') {
         return !!data.name && !!data.account_number && !!data.ifsc;
     }
-    return true; // For VPA, these bank-specific fields are not needed.
+    return true; // For UPI, these bank-specific fields are not needed.
 }, {
     message: 'Bank account requires Name, Account Number, and IFSC.',
     path: ['account_number'],
@@ -52,7 +52,7 @@ export default function PayoutsPage() {
 
     const payoutForm = useForm<PayoutAccountFormValues>({
         resolver: zodResolver(payoutAccountSchema),
-        defaultValues: { payoutMethod: 'vpa' }
+        defaultValues: { payoutMethod: 'upi' }
     });
 
     const payoutMethod = payoutForm.watch('payoutMethod');
@@ -61,17 +61,22 @@ export default function PayoutsPage() {
         startSavingTransition(async () => {
             if (!currentUser) return;
             try {
-                // For 'vpa', the name field is not strictly needed for the API but good for display
-                const submissionData = { ...data, name: data.name || (data.payoutMethod === 'vpa' ? data.vpa! : '') };
+                // For 'upi', the name field is not strictly needed for the API but good for display
+                const submissionData: any = { 
+                    ...data, 
+                    name: data.name || (data.payoutMethod === 'upi' ? data.upi! : ''),
+                    email: currentUser.email,
+                    phone: currentUser.phone
+                };
 
                 const result = await addPayoutMethod(submissionData);
                 if (result.success && result.updatedUser) {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Linked!', description: 'Your new payout account has been successfully added.' });
                     setIsPayoutDialogOpen(false);
-                    payoutForm.reset({ payoutMethod: 'vpa' });
+                    payoutForm.reset({ payoutMethod: 'upi' });
                 } else {
-                    throw new Error(result.error || 'Failed to link account.');
+                    throw new Error('Failed to link account.');
                 }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Failed to Link Account', description: e?.message || 'An unexpected error occurred.' });
@@ -88,7 +93,7 @@ export default function PayoutsPage() {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Primary Account Updated' });
                 } else {
-                    throw new Error(result.error);
+                    throw new Error('Failed to update primary account');
                 }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Update Failed', description: e.message });
@@ -105,7 +110,7 @@ export default function PayoutsPage() {
                     dispatch(setCurrentUser(result.updatedUser));
                     toast({ title: 'Account Unlinked' });
                 } else {
-                    throw new Error(result.error);
+                    throw new Error('Failed to unlink account');
                 }
             } catch (e: any) {
                 toast({ variant: 'destructive', title: 'Unlink Failed', description: e.message });
@@ -132,14 +137,14 @@ export default function PayoutsPage() {
                         {(currentUser?.subscription?.payoutMethods || []).map(method => (
                             <div key={method.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                                 <div className="flex items-center gap-4">
-                                    {method.type === 'vpa' ? <IndianRupee className="w-5 h-5 text-primary" /> : <Banknote className="w-5 h-5 text-primary" />}
+                                    {method.type === 'upi' ? <IndianRupee className="w-5 h-5 text-primary" /> : <Banknote className="w-5 h-5 text-primary" />}
                                     <div>
                                         <div className="font-semibold flex items-center gap-2">
                                             {method.name}
                                             {method.isPrimary && <Badge>Primary</Badge>}
                                         </div>
                                         <div className="text-sm text-muted-foreground">
-                                            {method.type === 'vpa' ? (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
+                                            {method.type === 'upi' ? (method as UpiPaymentMethod).upiAddress || (method as UpiPaymentMethod).vpaAddress : `A/C: ...${(method as BankPaymentMethod).accountNumberLast4}`}
                                         </div>
                                     </div>
                                 </div>
@@ -176,7 +181,7 @@ export default function PayoutsPage() {
                                     <FormItem className="space-y-3">
                                         <FormControl>
                                             <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
-                                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="vpa" id="vpa" /></FormControl><FormLabel htmlFor="vpa" className="font-normal">UPI ID</FormLabel></FormItem>
+                                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="upi" id="upi" /></FormControl><FormLabel htmlFor="upi" className="font-normal">UPI ID</FormLabel></FormItem>
                                                 <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="bank_account" id="bank_account" /></FormControl><FormLabel htmlFor="bank_account" className="font-normal">Bank Account</FormLabel></FormItem>
                                             </RadioGroup>
                                         </FormControl>
@@ -194,8 +199,8 @@ export default function PayoutsPage() {
                                     <FormField control={payoutForm.control} name="ifsc" render={({ field }) => (<FormItem><FormLabel>IFSC Code</FormLabel><FormControl><Input placeholder="Enter IFSC code" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 </div>
                             )}
-                            {payoutMethod === 'vpa' && (
-                                <FormField control={payoutForm.control} name="vpa" render={({ field }) => (
+                            {payoutMethod === 'upi' && (
+                                <FormField control={payoutForm.control} name="upi" render={({ field }) => (
                                     <FormItem><FormLabel>UPI ID (VPA)</FormLabel><FormControl><Input placeholder="your-upi-id@okhdfcbank" {...field} onChange={(e) => field.onChange(e.target.value.trim().toLowerCase())} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             )}

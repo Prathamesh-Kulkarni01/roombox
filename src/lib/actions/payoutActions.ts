@@ -10,11 +10,11 @@ import axios from 'axios';
 
 // ----------------- SCHEMA -----------------
 const payoutAccountSchema = z.object({
-  payoutMethod: z.enum(['bank_account', 'vpa']),
+  payoutMethod: z.enum(['bank_account', 'upi']),
   name: z.string().optional(),
   account_number: z.string().optional(),
   ifsc: z.string().optional(),
-  vpa: z.string().optional(),
+  upi: z.string().optional(),
 
   legal_business_name: z.string().optional(),
   business_type: z.enum([
@@ -31,8 +31,8 @@ const payoutAccountSchema = z.object({
   state: z.string().optional(),
   postal_code: z.string().optional(),
 }).refine(data => 
-  data.payoutMethod === 'vpa' 
-    ? !!data.vpa 
+  data.payoutMethod === 'upi' 
+    ? !!data.upi 
     : !!(data.name && data.account_number && data.ifsc), {
   message: "Required payout fields are missing for selected payout method"
 });
@@ -216,12 +216,12 @@ async function createStakeholder(accountId: string, owner: User, details: z.infe
 }
 
 async function createFundAccount(contactId: string, details: z.infer<typeof payoutAccountSchema>) {
-  const isVpa = details.payoutMethod === 'vpa';
+  const isVpa = details.payoutMethod === 'upi';
   const payload: any = {
     account_type: isVpa ? 'vpa' : 'bank_account',
     contact_id: contactId,
     ...(isVpa
-      ? { vpa: { address: details.vpa } }
+      ? { vpa: { address: details.upi } }
       : { bank_account: { name: details.name, ifsc: details.ifsc, account_number: details.account_number } }),
   };
 
@@ -283,12 +283,12 @@ export async function addPayoutMethod(data: z.infer<typeof payoutAccountSchema>,
       const newMethod: PaymentMethod = {
         id: fundAccount.id,
         razorpay_fund_account_id: fundAccount.id,
-        name: data.name || data.vpa!,
+        name: data.name || data.upi!,
         isActive: fundAccount.active,
         isPrimary,
         createdAt: new Date().toISOString(),
-        ...(data.payoutMethod === 'vpa'
-          ? { type: 'upi', vpaAddress: data.vpa! }
+        ...(data.payoutMethod === 'upi'
+          ? { type: 'upi', upiAddress: data.upi!, vpaAddress: data.upi! }
           : {
               type: 'bank_account',
               accountNumber: data.account_number!,

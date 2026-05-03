@@ -90,7 +90,6 @@ export default defineConfig({
                 
                 // Project IDs
                 FIREBASE_PROJECT_ID: TEST_PROJECT_ID,
-                NEXT_PUBLIC_FIREBASE_PROJECT_ID: TEST_PROJECT_ID,
                 
                 // App URLs
                 NEXT_PUBLIC_APP_URL: 'http://localhost:9003',
