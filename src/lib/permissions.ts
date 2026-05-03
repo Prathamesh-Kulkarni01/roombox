@@ -309,7 +309,7 @@ export const ROUTE_PERMISSION_MAP: Record<string, { feature: string; action: str
   '/dashboard/rent-passbook': { feature: 'finances', action: 'view' },
   '/dashboard/expense': { feature: 'finances', action: 'view' },
   '/dashboard/payouts': { feature: 'finances', action: 'view' },
-  '/dashboard/subscription': { feature: 'finances', action: 'view' },
+  '/dashboard/wallet': { feature: 'finances', action: 'view' },
   '/dashboard/complaints': { feature: 'complaints', action: 'view' },
   '/dashboard/food': { feature: 'food', action: 'view' },
   '/dashboard/staff': { feature: 'staff', action: 'view' },

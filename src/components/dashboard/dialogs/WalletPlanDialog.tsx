@@ -14,13 +14,15 @@ import { createRazorpaySubscription, verifySubscriptionPayment } from '@/lib/act
 import { initializeUser } from '@/lib/slices/userSlice';
 import { auth } from '@/lib/firebase';
 import { PRICING_CONFIG } from '@/lib/constants';
+import { useTranslation } from '@/context/language-context';
 
-interface SubscriptionDialogProps {
+interface WalletPlanDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogProps) {
+export default function WalletPlanDialog({ open, onOpenChange }: WalletPlanDialogProps) {
+  const { t } = useTranslation();
   const { currentUser } = useAppSelector(state => state.user);
   const dispatch = useAppDispatch();
   const { toast } = useToast();
@@ -28,10 +30,10 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
   const [selectedTier, setSelectedTier] = useState<BillingPlanType>(currentUser?.billingConfig?.planType || 'monthly');
 
   const commitmentTiers = useMemo(() => [
-    { id: 'monthly' as BillingPlanType, label: 'Monthly', price: PRICING_CONFIG.monthly.perTenant, savings: 'Standard Rate' },
-    { id: 'sixMonth' as BillingPlanType, label: '6-Month', price: PRICING_CONFIG.sixMonth.perTenant, savings: '33% Savings', popular: true },
-    { id: 'yearly' as BillingPlanType, label: 'Yearly', price: PRICING_CONFIG.yearly.perTenant, savings: '66% Savings' },
-  ], []);
+    { id: 'monthly' as BillingPlanType, label: t('plan_monthly' as any) || 'Monthly', price: PRICING_CONFIG.monthly.perTenant, savings: t('standard_rate') },
+    { id: 'sixMonth' as BillingPlanType, label: t('plan_six_month' as any) || '6-Month', price: PRICING_CONFIG.sixMonth.perTenant, savings: t('saving_33' as any) || '33% Savings', popular: true },
+    { id: 'yearly' as BillingPlanType, label: t('plan_yearly' as any) || 'Yearly', price: PRICING_CONFIG.yearly.perTenant, savings: t('saving_66' as any) || '66% Savings' },
+  ], [t]);
 
   const tenantCount = currentUser?.wallet?.activeTenantCount || 0;
   const standardPrice = PRICING_CONFIG.monthly.perTenant;
@@ -87,7 +89,7 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
             await updateCommitmentTier(currentUser.id, selectedTier);
             
             dispatch(initializeUser(auth.currentUser));
-            toast({ title: 'Success!', description: `Subscription activated with ${selectedTier} commitment!` });
+            toast({ title: 'Success!', description: `Plan activated with ${selectedTier} commitment!` });
             onOpenChange(false);
           } else {
             toast({ variant: 'destructive', title: 'Payment Failed', description: verificationResult.error || 'Payment verification failed.' });
@@ -118,10 +120,10 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
             <div className="p-2.5 bg-white/20 rounded-2xl backdrop-blur-md ring-1 ring-white/30">
                 <Star className="w-6 h-6 fill-white text-white" />
             </div>
-            <DialogTitle className="text-3xl font-black tracking-tight">Pricing Efficiency</DialogTitle>
+            <DialogTitle className="text-3xl font-black tracking-tight">{t('pricing_efficiency_title')}</DialogTitle>
           </div>
           <DialogDescription className="text-indigo-100 font-medium text-lg max-w-md relative z-10 leading-snug">
-            Commit to a longer period to lock in lower per-tenant rates and maximize your margins.
+            {t('pricing_efficiency_desc')}
           </DialogDescription>
         </DialogHeader>
 
@@ -130,9 +132,9 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
             <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 rounded-[1.5rem] p-5 flex gap-4 items-start shadow-sm">
               <ShieldAlert className="w-6 h-6 shrink-0 mt-0.5" />
               <div>
-                <p className="font-black uppercase tracking-widest text-[10px] mb-1">Trial Period Active</p>
+                <p className="font-black uppercase tracking-widest text-[10px] mb-1">{t('trial_active_title')}</p>
                 <p className="text-sm font-semibold leading-relaxed">
-                  You have <strong className="text-amber-700 font-black">₹{PRICING_CONFIG.trial.credit}</strong> trial credit. Activate a commitment tier below to set your long-term rates. Credits will be used first!
+                  You have <strong className="text-amber-700 font-black">₹{PRICING_CONFIG.trial.credit}</strong> trial credit. {t('trial_active_desc')}
                 </p>
               </div>
             </div>
@@ -153,7 +155,7 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
                 {tier.popular && (
                   <div className="absolute top-0 right-0">
                     <div className="bg-indigo-600 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-[1.2rem] uppercase tracking-tighter shadow-lg">
-                      Best Value
+                      {t('best_value')}
                     </div>
                   </div>
                 )}
@@ -169,16 +171,16 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
                 <CardContent>
                   <div className="mb-6">
                     <span className="text-4xl font-black tracking-tighter">₹{tier.price}</span>
-                    <span className="text-xs text-muted-foreground font-bold opacity-60"> / tenant</span>
+                    <span className="text-xs text-muted-foreground font-bold opacity-60"> / {t('per_tenant')}</span>
                   </div>
                   <ul className="space-y-2.5">
                     <li className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground/70">
                       <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Unlimited Features</span>
+                      <span>{t('unlimited_features')}</span>
                     </li>
                     <li className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground/70">
                       <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>₹{PRICING_CONFIG.baseFee} Base Fee</span>
+                      <span>{t('base_fee_label', { amount: PRICING_CONFIG.baseFee })}</span>
                     </li>
                   </ul>
                 </CardContent>
@@ -198,30 +200,30 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
                         <Users className="w-5 h-5" />
                     </div>
                     <div>
-                        <h4 className="font-black text-xs uppercase tracking-[0.2em] text-indigo-600/80">Efficiency Calculator</h4>
-                        <p className="text-sm font-bold text-muted-foreground">Based on your {tenantCount} active tenants</p>
+                        <h4 className="font-black text-xs uppercase tracking-[0.2em] text-indigo-600/80">{t('efficiency_calculator_title')}</h4>
+                        <p className="text-sm font-bold text-muted-foreground">{t('efficiency_calculator_desc', { count: tenantCount })}</p>
                     </div>
                 </div>
                 {monthlySavings > 0 && (
                     <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2 animate-bounce-subtle">
                         <Sparkles className="w-3 h-3 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Saving ₹{monthlySavings}/mo</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{t('saving_per_mo', { amount: monthlySavings })}</span>
                     </div>
                 )}
             </div>
 
             <div className="grid grid-cols-2 gap-8 relative">
                 <div className="space-y-1">
-                    <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">Standard Monthly</p>
+                    <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">{t('standard_monthly')}</p>
                     <p className="text-2xl font-black text-muted-foreground/40 italic line-through decoration-red-500/30 decoration-4">
                         ₹{((standardPrice * tenantCount) + PRICING_CONFIG.baseFee).toLocaleString('en-IN')}
                     </p>
                 </div>
                 <div className="space-y-1 text-right">
-                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Your Optimized Rate</p>
+                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{t('optimized_rate')}</p>
                     <p className="text-4xl font-black text-indigo-600 tracking-tighter">
                         ₹{totalMonthlyCost.toLocaleString('en-IN')}
-                        <span className="text-sm font-bold text-muted-foreground ml-1">/mo</span>
+                        <span className="text-sm font-bold text-muted-foreground ml-1">/{t('month')}</span>
                     </p>
                 </div>
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20">
@@ -236,9 +238,9 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
                         <Check className="w-5 h-5" />
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs font-black uppercase tracking-widest">Scale Profitably</p>
+                        <p className="text-xs font-black uppercase tracking-widest">{t('scale_profitably_title')}</p>
                         <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">
-                            As your occupancy grows, your per-tenant cost drops significantly with higher commitment.
+                            {t('scale_profitably_desc')}
                         </p>
                     </div>
                 </div>
@@ -247,9 +249,9 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
                         <Check className="w-5 h-5" />
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs font-black uppercase tracking-widest">Zero Artificial Caps</p>
+                        <p className="text-xs font-black uppercase tracking-widest">{t('zero_caps_title')}</p>
                         <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">
-                            We never limit your growth. All tiers include full access to staff, complaints, and AI tools.
+                            {t('zero_caps_desc')}
                         </p>
                     </div>
                 </div>
@@ -262,8 +264,8 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
                 <IndianRupee className="w-6 h-6" />
             </div>
             <div className="text-left">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Base Platform Fee</p>
-                <p className="text-2xl font-black tracking-tight">₹{PRICING_CONFIG.baseFee} <span className="text-sm font-bold text-muted-foreground opacity-40">/ month</span></p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">{t('base_platform_fee')}</p>
+                <p className="text-2xl font-black tracking-tight">₹{PRICING_CONFIG.baseFee} <span className="text-sm font-bold text-muted-foreground opacity-40">/ {t('month')}</span></p>
             </div>
           </div>
           <Button 
@@ -276,7 +278,7 @@ export default function SubscriptionDialog({ open, onOpenChange }: SubscriptionD
                 <Loader2 className="mr-2 h-6 w-6 animate-spin"/>
               ) : (
                 <>
-                    {isTrialing ? 'ACTIVATE COMMITMENT' : 'UPDATE TIER'}
+                    {isTrialing ? t('activate_commitment') : t('update_tier')}
                     <ArrowRight className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform" />
                 </>
               )}

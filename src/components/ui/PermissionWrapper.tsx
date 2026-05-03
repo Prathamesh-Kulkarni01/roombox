@@ -7,7 +7,7 @@ import { useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canAccess, canPlanAccess, getPlanLimit } from '@/lib/permissions';
 import { Badge } from './badge';
-import SubscriptionDialog from '../dashboard/dialogs/SubscriptionDialog';
+import WalletPlanDialog from '../dashboard/dialogs/WalletPlanDialog';
 import { Button } from './button';
 import { ShieldAlert } from 'lucide-react';
 
@@ -31,7 +31,7 @@ const GatedWrapper = ({ children, tooltipText }: { children: React.ReactNode, to
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
     return (
         <>
-            <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+            <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
             <div 
                 className="relative inline-block cursor-pointer"
                 onClick={(e) => {

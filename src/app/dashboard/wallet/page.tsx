@@ -12,8 +12,8 @@ import {
     Lock, Calendar, ZapOff, Activity
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
-import RechargeDialog from '@/components/billing/RechargeDialog'
+import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog'
+import RechargeDialog from '@/components/wallet/RechargeDialog'
 import { togglePremiumFeature } from "@/lib/slices/userSlice"
 import { useToast } from "@/hooks/use-toast"
 import { Switch } from "@/components/ui/switch"
@@ -30,7 +30,7 @@ import { calculateLowBalanceStage, cn } from "@/lib/utils"
 import { PRICING_CONFIG } from "@/lib/constants"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export default function SubscriptionPage() {
+export default function WalletPage() {
     const dispatch = useAppDispatch();
     const { toast } = useToast();
     const { currentUser, currentPlan } = useAppSelector((state) => state.user);
@@ -141,11 +141,11 @@ export default function SubscriptionPage() {
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-4">
                 <div className="space-y-1">
                     <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
-                        <CreditCard className="w-10 h-10 text-primary" />
-                        Billing & Usage
+                        <Wallet className="w-10 h-10 text-primary" />
+                        Wallet
                     </h1>
                     <p className="text-muted-foreground font-medium flex items-center gap-2">
-                        Transparent, usage-based billing for <Badge variant="secondary" className="font-bold">RentSutra</Badge>
+                        Manage your balance, add credits, and track usage
                     </p>
                 </div>
                 
@@ -167,7 +167,7 @@ export default function SubscriptionPage() {
                 </div>
             </div>
 
-            <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+            <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
             <RechargeDialog 
                 open={isRechargeOpen} 
                 onOpenChange={setIsRechargeOpen}
@@ -176,6 +176,137 @@ export default function SubscriptionPage() {
             />
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                {/* ─── Top Level Financial Cards (Now at top for mobile) ──── */}
+                <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Wallet Card - PRIMARY ACTION */}
+                    <Card className="border-primary/20 shadow-2xl shadow-primary/10 bg-gradient-to-br from-primary/[0.04] via-transparent to-primary/[0.02] rounded-3xl overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <Wallet className="w-24 h-24 rotate-12" />
+                        </div>
+                        <CardHeader className="pb-3 border-b border-border/50 bg-white/50 dark:bg-zinc-900/50 p-6 backdrop-blur-sm">
+                            <CardTitle className="flex items-center gap-2 text-xl font-black">
+                                <Wallet className="text-emerald-500 w-6 h-6" /> Available Balance
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6 p-6 relative z-10">
+                            <div className="text-center py-2">
+                                <div className="flex items-center justify-center gap-1">
+                                    <span className="text-2xl font-black text-muted-foreground/50 self-start mt-1">₹</span>
+                                    <p className={cn(
+                                        "text-6xl font-black tracking-tighter leading-none",
+                                        walletBalance <= 0 ? 'text-red-600' :
+                                        walletBalance <= PRICING_CONFIG.lowBalance.riskThreshold ? 'text-amber-600' :
+                                        'text-emerald-600'
+                                    )}>
+                                        {(walletBalance || 0).toLocaleString('en-IN')}
+                                    </p>
+                                </div>
+                                <div className="mt-4 inline-flex items-center gap-2 bg-white/80 dark:bg-zinc-900/80 px-4 py-2 rounded-2xl border shadow-sm">
+                                    <Calendar className="w-4 h-4 text-primary" />
+                                    <p className="text-xs font-black uppercase tracking-widest">
+                                        {isTrialing ? 'Unlimited during trial' : `~${daysLeft} Days Runway`}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button 
+                                className="w-full font-black py-7 text-lg rounded-2xl shadow-xl shadow-primary/25 bg-primary text-primary-foreground transform active:scale-[0.97] transition-all hover:brightness-110"
+                                onClick={() => setIsRechargeOpen(true)}
+                            >
+                                <Plus className="w-6 h-6 mr-2" /> ADD CREDITS
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Plan Status Card */}
+                    <Card className="border-indigo-500/20 rounded-3xl shadow-xl shadow-indigo-500/5 overflow-hidden bg-white dark:bg-zinc-950">
+                        <CardContent className="p-0 h-full flex flex-col">
+                            <div className="p-6 bg-indigo-600 text-white space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Current Tier</p>
+                                        <h3 className="text-2xl font-black">{planLabels[planType]}</h3>
+                                    </div>
+                                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                                        <Target className="w-6 h-6" />
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 border-0 text-white font-black text-[10px] uppercase">
+                                        ₹{baseFee} Base
+                                    </Badge>
+                                    <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 border-0 text-white font-black text-[10px] uppercase">
+                                        ₹{perTenantFee}/Tenant
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            <div className="p-6 space-y-6 flex-1 flex flex-col justify-between">
+                                <div className="space-y-4">
+                                    {planType === 'monthly' && (
+                                        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-2">
+                                            <div className="flex items-center gap-2 text-amber-600">
+                                                <TrendingDown className="w-4 h-4" />
+                                                <p className="text-xs font-black uppercase tracking-widest">Efficiency Tip</p>
+                                            </div>
+                                            <p className="text-[10px] font-medium text-amber-700/80 leading-relaxed">
+                                                Switching to <strong>Annual Pro</strong> could save you ₹{((PRICING_CONFIG.monthly.perTenant - PRICING_CONFIG.yearly.perTenant) * (billingDetails?.details.billableTenantCount || 0)).toLocaleString('en-IN')} / month.
+                                            </p>
+                                        </div>
+                                    )}
+                                    {planType === 'trial' && (
+                                        <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 space-y-2">
+                                            <div className="flex items-center gap-2 text-indigo-600">
+                                                <Sparkles className="w-4 h-4" />
+                                                <p className="text-xs font-black uppercase tracking-widest">Trial Active</p>
+                                            </div>
+                                            <p className="text-[10px] font-medium text-indigo-700/80 leading-relaxed">
+                                                Enjoy full access to all features. Upgrade anytime to lock in pro rates.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <Button 
+                                    className="w-full rounded-2xl font-black py-6 shadow-lg shadow-indigo-600/10 transition-all hover:translate-y-[-1px]"
+                                    onClick={() => setIsSubDialogOpen(true)}
+                                    variant={planType === 'yearly' ? 'outline' : 'default'}
+                                >
+                                    {planType === 'trial' ? 'ACTIVATE FULL PLAN' : 'UPGRADE PLAN'} <ArrowRight className="w-4 h-4 ml-2" />
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* How it works (Desktop only or as 3rd card) */}
+                    <Card className="border-border/40 rounded-3xl shadow-sm overflow-hidden bg-muted/20 border-dashed hidden lg:block">
+                        <CardContent className="p-6 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-900 flex items-center justify-center text-muted-foreground border shadow-sm">
+                                    <Info className="w-4 h-4" />
+                                </div>
+                                <h4 className="font-black text-[10px] uppercase tracking-widest">Billing Rules</h4>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black uppercase tracking-tight">Auto-Deduction</p>
+                                    <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
+                                        Charges are deducted daily at midnight. No manual bills to pay.
+                                    </p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black uppercase tracking-tight">Fair Usage</p>
+                                    <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
+                                        You are only charged for active tenants. Empty beds are free.
+                                    </p>
+                                </div>
+                                <div className="pt-2">
+                                    <Button variant="link" className="p-0 h-auto text-[10px] font-black uppercase text-primary">View Detailed FAQ</Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
                 {/* ─── Main Content Column ──── */}
                 <div className="lg:col-span-2 space-y-8">
                     
@@ -358,7 +489,7 @@ export default function SubscriptionPage() {
                     {/* History Table */}
                     <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden">
                         <CardHeader className="bg-muted/30 border-b border-border/40 p-6">
-                            <CardTitle className="flex items-center gap-2 text-xl font-black"><History className="text-muted-foreground w-5 h-5"/> Transaction History</CardTitle>
+                            <CardTitle className="flex items-center gap-2 text-xl font-black"><History className="text-muted-foreground w-5 h-5"/> Payment History</CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
                             <Table>
@@ -415,140 +546,6 @@ export default function SubscriptionPage() {
                     </Card>
                 </div>
 
-                {/* ─── Sidebar Column ──── */}
-                <div className="space-y-6 lg:sticky lg:top-24">
-                    
-                    {/* Wallet Card */}
-                    <Card className="border-primary/20 shadow-2xl shadow-primary/10 bg-gradient-to-br from-primary/[0.04] via-transparent to-primary/[0.02] rounded-3xl overflow-hidden relative group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <Wallet className="w-24 h-24 rotate-12" />
-                        </div>
-                        <CardHeader className="pb-3 border-b border-border/50 bg-white/50 dark:bg-zinc-900/50 p-6 backdrop-blur-sm">
-                            <CardTitle className="flex items-center gap-2 text-xl font-black">
-                                <Wallet className="text-emerald-500 w-6 h-6" /> Your Wallet
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6 p-6 relative z-10">
-                            <div className="text-center py-4">
-                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Available Balance</p>
-                                <div className="flex items-center justify-center gap-1">
-                                    <span className="text-2xl font-black text-muted-foreground/50 self-start mt-1">₹</span>
-                                    <p className={cn(
-                                        "text-6xl font-black tracking-tighter leading-none",
-                                        walletBalance <= 0 ? 'text-red-600' :
-                                        walletBalance <= PRICING_CONFIG.lowBalance.riskThreshold ? 'text-amber-600' :
-                                        'text-emerald-600'
-                                    )}>
-                                        {(walletBalance || 0).toLocaleString('en-IN')}
-                                    </p>
-                                </div>
-                                <div className="mt-6 inline-flex items-center gap-2 bg-white/80 dark:bg-zinc-900/80 px-4 py-2 rounded-2xl border shadow-sm">
-                                    <Calendar className="w-4 h-4 text-primary" />
-                                    <p className="text-xs font-black uppercase tracking-widest">
-                                        {isTrialing ? 'Unlimited during trial' : `~${daysLeft} Days Runway`}
-                                    </p>
-                                </div>
-                            </div>
-                            <Button 
-                                className="w-full font-black py-7 text-lg rounded-2xl shadow-xl shadow-primary/25 bg-primary text-primary-foreground transform active:scale-[0.97] transition-all hover:brightness-110"
-                                onClick={() => setIsRechargeOpen(true)}
-                            >
-                                <Plus className="w-6 h-6 mr-2" /> ADD CREDITS
-                            </Button>
-                        </CardContent>
-                    </Card>
-
-                    {/* Plan Optimizer Card */}
-                    <Card className="border-indigo-500/20 rounded-3xl shadow-xl shadow-indigo-500/5 overflow-hidden bg-white dark:bg-zinc-950">
-                        <CardContent className="p-0">
-                            <div className="p-6 bg-indigo-600 text-white space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Current Tier</p>
-                                        <h3 className="text-2xl font-black">{planLabels[planType]}</h3>
-                                    </div>
-                                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                                        <Target className="w-6 h-6" />
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 border-0 text-white font-black text-[10px] uppercase">
-                                        ₹{baseFee} Base
-                                    </Badge>
-                                    <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 border-0 text-white font-black text-[10px] uppercase">
-                                        ₹{perTenantFee}/Tenant
-                                    </Badge>
-                                </div>
-                            </div>
-
-                            <div className="p-6 space-y-6">
-                                {planType === 'monthly' && (
-                                    <div className="space-y-4">
-                                        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-3">
-                                            <div className="flex items-center gap-2 text-amber-600">
-                                                <TrendingDown className="w-4 h-4" />
-                                                <p className="text-xs font-black uppercase tracking-widest">Efficiency Alert</p>
-                                            </div>
-                                            <p className="text-xs font-medium text-amber-700/80 leading-relaxed">
-                                                Switching to <strong>Annual Pro</strong> will cut your per-tenant cost from ₹{PRICING_CONFIG.monthly.perTenant} to <strong>₹{PRICING_CONFIG.yearly.perTenant}</strong>.
-                                            </p>
-                                            <div className="pt-2">
-                                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Est. Monthly Saving</p>
-                                                <p className="text-xl font-black text-amber-700">₹{( (PRICING_CONFIG.monthly.perTenant - PRICING_CONFIG.yearly.perTenant) * (billingDetails?.details.billableTenantCount || 0) ).toLocaleString('en-IN')}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {planType === 'yearly' && (
-                                    <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-2">
-                                        <div className="flex items-center gap-2 text-emerald-600">
-                                            <Check className="w-4 h-4" />
-                                            <p className="text-xs font-black uppercase tracking-widest">Max Efficiency</p>
-                                        </div>
-                                        <p className="text-xs font-medium text-emerald-700/80 leading-relaxed">
-                                            You are already on our best rate. You are saving <strong>₹20/tenant</strong> every single month!
-                                        </p>
-                                    </div>
-                                )}
-
-                                <Button 
-                                    className="w-full rounded-2xl font-black py-6 shadow-lg shadow-indigo-600/10 transition-all hover:translate-y-[-1px]"
-                                    onClick={() => setIsSubDialogOpen(true)}
-                                    variant={planType === 'yearly' ? 'outline' : 'default'}
-                                >
-                                    {planType === 'trial' ? 'ACTIVATE FULL PLAN' : 'CHANGE COMMITMENT'} <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Billing Logic FAQ */}
-                    <Card className="border-border/40 rounded-3xl shadow-sm overflow-hidden bg-muted/20 border-dashed">
-                        <CardContent className="p-6 space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-900 flex items-center justify-center text-muted-foreground border shadow-sm">
-                                    <Info className="w-4 h-4" />
-                                </div>
-                                <h4 className="font-black text-[10px] uppercase tracking-widest">How it works</h4>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-black uppercase tracking-tight">Wallet Deduction</p>
-                                    <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
-                                        Daily charges (Base Fee/30 + Usage/30) are calculated and deducted automatically from your wallet at midnight.
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-black uppercase tracking-tight">Active Tenant</p>
-                                    <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
-                                        You are only charged for "Active" tenants in the system. Empty beds are 100% free.
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
             </div>
         </div>
     )

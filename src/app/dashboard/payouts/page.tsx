@@ -238,8 +238,8 @@ export default function PaymentsBillingPage() {
             {/* Unified Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4 md:px-0 border-b pb-8">
                 <div className="space-y-1">
-                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">Payments & Billing</h1>
-                    <p className="text-muted-foreground text-base md:text-lg font-medium max-w-2xl">Manage your payment methods and settlement accounts.</p>
+                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">Payouts & Settlement</h1>
+                    <p className="text-muted-foreground text-base md:text-lg font-medium max-w-2xl">Manage your payout methods and settlement history.</p>
                 </div>
                 <div className="hidden md:flex flex-col items-end">
                     <div className="group relative inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-emerald-500/5 text-emerald-700 border border-emerald-200/50 shadow-sm transition-all hover:bg-emerald-500/10 hover:border-emerald-500/30">
@@ -430,7 +430,7 @@ export default function PaymentsBillingPage() {
                                                                 <FormItem>
                                                                     <FormLabel className="font-bold">Settlement Notification Email</FormLabel>
                                                                     <FormControl><Input placeholder="payouts@example.com" className="rounded-xl h-12" {...field} /></FormControl>
-                                                                    <TooltipProvider><Tooltip><TooltipTrigger asChild><p className="text-[0.65rem] text-muted-foreground flex items-center gap-1 mt-1.5 cursor-help font-medium"><Info className="w-3.5 h-3.5"/> Important security note</p></TooltipTrigger><TooltipContent className="max-w-xs p-3 rounded-xl shadow-xl"><p className="text-xs font-medium">Use an email dedicated for billing notifications to keep your payout records organized.</p></TooltipContent></Tooltip></TooltipProvider>
+                                                                    <TooltipProvider><Tooltip><TooltipTrigger asChild><p className="text-[0.65rem] text-muted-foreground flex items-center gap-1 mt-1.5 cursor-help font-medium"><Info className="w-3.5 h-3.5"/> Important security note</p></TooltipTrigger><TooltipContent className="max-w-xs p-3 rounded-xl shadow-xl"><p className="text-xs font-medium">Use an email dedicated for settlement notifications to keep your records organized.</p></TooltipContent></Tooltip></TooltipProvider>
                                                                     <FormMessage />
                                                                 </FormItem>
                                                             )}/>

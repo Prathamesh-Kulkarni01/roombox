@@ -32,14 +32,24 @@ const pwaConfigSchema = z.object({
   shortName: z.string().min(2).max(12),
   themeColor: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/),
   backgroundColor: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/),
-  logo: z.string().url().optional().or(z.literal('')),
+  logo: z.string().optional().or(z.literal('')),
   subdomain: z.string().min(3).max(20).regex(/^[a-z0-9-]+$/).optional().or(z.literal('')),
 });
+
+const PRESET_ICON_SVGS: Record<string, string> = {
+  home: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'%3E%3C/path%3E%3Cpolyline points='9 22 9 12 15 12 15 22'%3E%3C/polyline%3E%3C/svg%3E`,
+  building: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='2' width='16' height='20' rx='2' ry='2'%3E%3C/rect%3E%3Cpath d='M9 22v-4h6v4'%3E%3C/path%3E%3Cpath d='M8 6h.01'%3E%3C/path%3E%3Cpath d='M16 6h.01'%3E%3C/path%3E%3Cpath d='M8 10h.01'%3E%3C/path%3E%3Cpath d='M16 10h.01'%3E%3C/path%3E%3Cpath d='M8 14h.01'%3E%3C/path%3E%3Cpath d='M16 14h.01'%3E%3C/path%3E%3C/svg%3E`,
+  'building-2': `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18'%3E%3C/path%3E%3Cpath d='M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2'%3E%3C/path%3E%3Cpath d='M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2'%3E%3C/path%3E%3Cpath d='M10 6h4'%3E%3C/path%3E%3Cpath d='M10 10h4'%3E%3C/path%3E%3Cpath d='M10 14h4'%3E%3C/path%3E%3Cpath d='M10 18h4'%3E%3C/path%3E%3C/svg%3E`,
+  shield: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'%3E%3C/path%3E%3C/svg%3E`,
+  key: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21 2-2 2'%3E%3C/path%3E%3Ccircle cx='7' cy='17' r='5'%3E%3C/circle%3E%3Cpath d='M12 12 22 2'%3E%3C/path%3E%3Cpath d='m18 7 3 3'%3E%3C/path%3E%3Cpath d='m16 5 3 3'%3E%3C/path%3E%3C/svg%3E`,
+  user: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'%3E%3C/path%3E%3Ccircle cx='12' cy='7' r='4'%3E%3C/circle%3E%3C/svg%3E`,
+};
 
 export function PWASettings() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'home' | 'splash' | 'dashboard'>('dashboard');
 
   const form = useForm<PWAConfig>({
     resolver: zodResolver(pwaConfigSchema),
@@ -241,7 +251,7 @@ export function PWASettings() {
                         <FormControl>
                           <div className="flex items-center shadow-sm rounded-md overflow-hidden border">
                             <span className="bg-slate-100 px-4 py-3 text-sm font-medium text-slate-600 border-r isolate whitespace-nowrap">
-                              rentsutra.com/app/
+                              {appUrl.replace(/^https?:\/\//, '')}/app/
                             </span>
                             <Input {...field} placeholder="your-pg" className="border-0 h-12 rounded-none focus-visible:ring-0 bg-slate-50" />
                           </div>
@@ -350,14 +360,14 @@ export function PWASettings() {
                             key={item.id}
                             type="button"
                             variant="outline"
-                            className="h-24 flex flex-col gap-2 items-center justify-center border-slate-200 hover:border-primary hover:bg-primary/5 bg-white shadow-sm"
+                            className={`h-24 flex flex-col gap-2 items-center justify-center border-slate-200 hover:border-primary hover:bg-primary/5 bg-white shadow-sm transition-all ${form.watch('logo') === PRESET_ICON_SVGS[item.id] ? 'border-primary ring-2 ring-primary/20 bg-primary/[0.02]' : ''}`}
                             onClick={() => {
-                              toast({ title: "Icon Selected", description: "You've selected a preset icon." });
-                              // We would ideally set the SVG or a preset image URL here
+                              form.setValue('logo', PRESET_ICON_SVGS[item.id]);
+                              toast({ title: "Icon Selected", description: `Selected the ${item.label} icon.` });
                             }}
                           >
-                            <div className="bg-slate-100 p-3 rounded-full">
-                              <item.icon className="w-6 h-6 text-slate-700" />
+                            <div className="p-3 rounded-full transition-colors" style={{ backgroundColor: form.watch('logo') === PRESET_ICON_SVGS[item.id] ? form.watch('themeColor') : '#f1f5f9' }}>
+                              <item.icon className={`w-6 h-6 ${form.watch('logo') === PRESET_ICON_SVGS[item.id] ? 'text-white' : 'text-slate-700'}`} />
                             </div>
                             <span className="text-xs font-semibold text-slate-600">{item.label}</span>
                           </Button>
@@ -392,60 +402,151 @@ export function PWASettings() {
             <p className="text-sm text-slate-500">See exactly what your tenants will see</p>
           </div>
 
-          <div className="flex justify-center">
+          <div className="flex justify-center flex-col items-center gap-6">
             {/* Minimalist Phone Mockup */}
-            <div className="relative w-[300px] h-[620px] bg-slate-900 rounded-[3.5rem] p-3 shadow-2xl">
+            <div className="relative w-[300px] h-[620px] bg-slate-900 rounded-[3.5rem] p-3 shadow-2xl ring-8 ring-slate-800/50">
+              {/* Notch */}
               <div className="absolute top-0 inset-x-0 h-7 flex justify-center items-center z-20">
                 <div className="w-24 h-5 bg-black rounded-b-2xl"></div>
               </div>
 
               <div className="relative w-full h-full bg-white rounded-[2.5rem] overflow-hidden flex flex-col items-center text-center">
-
-                {/* Background "Splashes" */}
-                <div
-                  className="absolute inset-x-0 top-0 h-2/3 transition-colors duration-500 ease-in-out"
-                  style={{ backgroundColor: themeColorValue + '15' }}
-                >
-                  <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-white to-transparent" />
-                </div>
-
-                <div className="z-10 w-full px-6 pt-24 animate-in fade-in duration-700">
-                  <div
-                    className="w-28 h-28 mx-auto rounded-[2rem] shadow-xl border-4 border-white mb-6 flex items-center justify-center overflow-hidden transition-all duration-500 bg-white"
-                  >
-                    {logoValue ? (
-                      <img src={logoValue} alt="App Logo" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center" style={{ backgroundColor: themeColorValue }}>
-                        <Building2 className="w-12 h-12 text-white" />
+                
+                {/* Mode: Home Screen */}
+                {previewMode === 'home' && (
+                  <div className="absolute inset-0 bg-[#f8fafc] p-6 pt-12 animate-in fade-in duration-500">
+                    <div className="grid grid-cols-4 gap-4 mt-8">
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-14 h-14 rounded-2xl bg-white shadow-md border flex items-center justify-center overflow-hidden">
+                           {logoValue ? (
+                            <img src={logoValue} alt="App Icon" className="w-full h-full object-cover" style={{ backgroundColor: themeColorValue }} />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: themeColorValue }}>
+                              <Building2 className="w-8 h-8 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-medium text-slate-600 truncate w-full text-center">
+                          {form.watch('shortName') || 'RoomBox'}
+                        </span>
                       </div>
-                    )}
-                  </div>
-
-                  <h4 className="text-2xl font-bold tracking-tight text-slate-900 mb-2 truncate px-2">{nameValue || 'Your App Name'}</h4>
-                  <p className="text-sm text-slate-500 font-medium">A Premium Stay Experience</p>
-
-                  <div className="mt-12 space-y-4 w-full px-2">
-                    <div className="h-12 w-full rounded-2xl flex items-center justify-center text-white font-bold shadow-lg transition-colors duration-500 text-base"
-                      style={{ backgroundColor: themeColorValue }}
-                    >
-                      Login to Dashboard
+                      {[1,2,3,4,5,6,7].map(i => (
+                        <div key={i} className="flex flex-col items-center gap-1 opacity-20">
+                          <div className="w-14 h-14 rounded-2xl bg-slate-200" />
+                          <div className="w-10 h-2 bg-slate-200 rounded-full" />
+                        </div>
+                      ))}
                     </div>
-                    <div className="h-4 w-1/2 mx-auto rounded-full bg-slate-100" />
                   </div>
-                </div>
+                )}
 
-                {/* Bottom Bar Mockup */}
-                <div className="absolute bottom-6 inset-x-6">
-                  <div className="flex justify-around items-center bg-white shadow-[0_0_20px_rgba(0,0,0,0.05)] p-4 rounded-2xl border border-slate-100">
-                    <div className="w-6 h-6 rounded-md bg-slate-200" />
-                    <div className="w-6 h-6 rounded-md bg-slate-200" />
-                    <div className="w-6 h-6 rounded-md" style={{ backgroundColor: themeColorValue }} />
-                    <div className="w-6 h-6 rounded-md bg-slate-200" />
+                {/* Mode: Splash Screen */}
+                {previewMode === 'splash' && (
+                  <div 
+                    className="absolute inset-0 flex flex-col items-center justify-center animate-in zoom-in-95 fade-in duration-500"
+                    style={{ backgroundColor: form.watch('backgroundColor') || '#ffffff' }}
+                  >
+                    <div className="w-32 h-32 rounded-[2.5rem] shadow-2xl mb-6 flex items-center justify-center overflow-hidden border-4 border-white bg-white">
+                      {logoValue ? (
+                        <img src={logoValue} alt="App Logo" className="w-full h-full object-cover" style={{ backgroundColor: themeColorValue }} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: themeColorValue }}>
+                          <Building2 className="w-16 h-16 text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <h4 className="text-xl font-black tracking-tight" style={{ color: themeColorValue }}>{nameValue}</h4>
+                    <div className="absolute bottom-12 flex flex-col items-center gap-4">
+                      <Loader2 className="w-6 h-6 animate-spin" style={{ color: themeColorValue }} />
+                      <p className="text-[10px] uppercase font-black tracking-[0.2em] opacity-40">Powered by RoomBox</p>
+                    </div>
                   </div>
-                  <div className="w-1/3 h-1 bg-slate-300 mx-auto mt-4 rounded-full" />
-                </div>
+                )}
+
+                {/* Mode: Dashboard */}
+                {previewMode === 'dashboard' && (
+                  <>
+                    {/* Background "Splashes" */}
+                    <div
+                      className="absolute inset-x-0 top-0 h-2/3 transition-colors duration-500 ease-in-out"
+                      style={{ backgroundColor: themeColorValue + '15' }}
+                    >
+                      <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-white to-transparent" />
+                    </div>
+
+                    <div className="z-10 w-full px-6 pt-24 animate-in slide-in-from-bottom-4 fade-in duration-700">
+                      <div
+                        className="w-28 h-28 mx-auto rounded-[2rem] shadow-xl border-4 border-white mb-6 flex items-center justify-center overflow-hidden transition-all duration-500 bg-white"
+                      >
+                        {logoValue ? (
+                          <img src={logoValue} alt="App Logo" className="w-full h-full object-cover" style={{ backgroundColor: themeColorValue }} />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center" style={{ backgroundColor: themeColorValue }}>
+                            <Building2 className="w-12 h-12 text-white" />
+                          </div>
+                        )}
+                      </div>
+
+                      <h4 className="text-2xl font-bold tracking-tight text-slate-900 mb-2 truncate px-2">{nameValue || 'Your App Name'}</h4>
+                      <p className="text-sm text-slate-500 font-medium">A Premium Stay Experience</p>
+
+                      <div className="mt-12 space-y-4 w-full px-2">
+                        <div className="h-12 w-full rounded-2xl flex items-center justify-center text-white font-bold shadow-lg transition-colors duration-500 text-base"
+                          style={{ backgroundColor: themeColorValue }}
+                        >
+                          Login to Dashboard
+                        </div>
+                        <div className="space-y-3 mt-8">
+                          <div className="h-2 w-full rounded-full bg-slate-100" />
+                          <div className="h-2 w-3/4 mx-auto rounded-full bg-slate-100" />
+                          <div className="h-2 w-1/2 mx-auto rounded-full bg-slate-100" />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Bottom Bar Mockup (Always shown except Splash) */}
+                {previewMode !== 'splash' && (
+                  <div className="absolute bottom-6 inset-x-6">
+                    <div className="flex justify-around items-center bg-white/80 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.05)] p-4 rounded-2xl border border-slate-100">
+                      <div className="w-6 h-6 rounded-md bg-slate-200" />
+                      <div className="w-6 h-6 rounded-md bg-slate-200" />
+                      <div className="w-6 h-6 rounded-md" style={{ backgroundColor: themeColorValue }} />
+                      <div className="w-6 h-6 rounded-md bg-slate-200" />
+                    </div>
+                    <div className="w-1/3 h-1 bg-slate-300 mx-auto mt-4 rounded-full" />
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Preview Controls */}
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl border shadow-inner">
+               <Button 
+                variant={previewMode === 'home' ? 'white' : 'ghost'} 
+                size="sm" 
+                className={`rounded-xl px-4 ${previewMode === 'home' ? 'bg-white shadow-sm' : ''}`}
+                onClick={() => setPreviewMode('home')}
+               >
+                 Icon
+               </Button>
+               <Button 
+                variant={previewMode === 'splash' ? 'white' : 'ghost'} 
+                size="sm" 
+                className={`rounded-xl px-4 ${previewMode === 'splash' ? 'bg-white shadow-sm' : ''}`}
+                onClick={() => setPreviewMode('splash')}
+               >
+                 Splash
+               </Button>
+               <Button 
+                variant={previewMode === 'dashboard' ? 'white' : 'ghost'} 
+                size="sm" 
+                className={`rounded-xl px-4 ${previewMode === 'dashboard' ? 'bg-white shadow-sm' : ''}`}
+                onClick={() => setPreviewMode('dashboard')}
+               >
+                 App UI
+               </Button>
             </div>
           </div>
         </div>

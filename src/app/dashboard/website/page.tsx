@@ -25,7 +25,7 @@ import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, updateSiteStat
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
+import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog'
 import { uploadDataUriToStorage } from '@/lib/storage'
 import { FileUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -269,7 +269,7 @@ export default function WebsiteBuilderPage() {
     if (currentPlan && !currentPlan.hasWebsiteBuilder) {
         return (
             <>
-                <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+                <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
                 <Card>
                     <CardHeader>
                         <CardTitle>App & Website Builder</CardTitle>

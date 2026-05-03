@@ -61,7 +61,7 @@ export default defineConfig({
         {
             // Start emulators using the project ID from .env
             command: `npx firebase emulators:start --only firestore,auth --project ${process.env.FIREBASE_PROJECT_ID || 'roombox-test'}`,
-            port: 8080,
+            port: 8081,
             reuseExistingServer: true,
             timeout: 240000,
         },
@@ -83,9 +83,9 @@ export default defineConfig({
                 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: 'G-DUMMY',
                 
                 // Emulator hosts
-                NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+                NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8081',
                 NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-                FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+                FIRESTORE_EMULATOR_HOST: '127.0.0.1:8081',
                 FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
                 
                 // Project IDs

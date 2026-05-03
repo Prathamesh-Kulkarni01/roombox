@@ -27,8 +27,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Image from 'next/image';
 
 const formSchema = z.object({
-  upiId: z.string().optional(),
-  payeeName: z.string().optional(),
+  upiId: z.string().optional().refine((val) => !val || /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(val), {
+    message: "Invalid UPI ID format (e.g. name@bank)",
+  }),
+  payeeName: z.string().optional().refine((val) => !val || val.length >= 3, {
+    message: "Payee name must be at least 3 characters",
+  }),
 });
 
 interface PaymentSettingsProps {
@@ -51,6 +55,7 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    mode: "onChange",
     defaultValues: {
       upiId: selectedPg?.upiId || '',
       payeeName: selectedPg?.payeeName || '',
@@ -110,19 +115,23 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
   const watchPayeeName = form.watch('payeeName');
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
         if (activePgId && selectedPg) {
+            const currentValues = form.getValues();
             const hasChanged = 
-                watchUpiId !== (selectedPg.upiId || '') || 
-                watchPayeeName !== (selectedPg.payeeName || '');
+                currentValues.upiId !== (selectedPg.upiId || '') || 
+                currentValues.payeeName !== (selectedPg.payeeName || '');
             
             if (hasChanged) {
-                saveSettings({ upiId: watchUpiId, payeeName: watchPayeeName });
+                const isValid = await form.trigger();
+                if (isValid) {
+                    saveSettings(currentValues);
+                }
             }
         }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [watchUpiId, watchPayeeName, activePgId, selectedPg]);
+  }, [watchUpiId, watchPayeeName, activePgId, selectedPg, form]);
 
   const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -216,11 +225,11 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
 
       <Form {...form}>
         <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
-            <Card className="border-emerald-500/20 shadow-2xl rounded-[2.5rem] overflow-hidden bg-emerald-500/[0.02] backdrop-blur-sm relative">
+            <Card className="border-emerald-500/20 shadow-2xl rounded-[2.5rem] overflow-hidden bg-emerald-500/[0.02] backdrop-blur-sm relative transition-all duration-500">
                 {(isSaving || isUploading || isUpdating) && (
-                    <div className="absolute top-4 right-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full animate-pulse z-20">
+                    <div className="absolute top-6 right-6 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white bg-emerald-600 px-4 py-2 rounded-full shadow-lg shadow-emerald-600/20 animate-in fade-in slide-in-from-top-2 z-20">
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        Saving...
+                        Syncing Changes
                     </div>
                 )}
               <CardHeader className="p-6 md:p-10 border-b bg-emerald-500/[0.05]">
@@ -257,9 +266,28 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
                       <FormItem>
                         <FormLabel className="font-black text-[0.65rem] uppercase tracking-[0.2em] text-emerald-600/70 mb-2 block">UPI Address (VPA)</FormLabel>
                         <FormControl>
-                          <Input placeholder="ashish@okaxis" className="h-16 rounded-2xl border-emerald-500/20 bg-emerald-500/[0.02] shadow-sm text-lg font-mono lowercase px-6 focus:ring-emerald-500/20 focus:border-emerald-500" {...field} />
+                          <div className="relative">
+                            <Input 
+                              placeholder="ashish@okaxis" 
+                              className={`h-16 rounded-2xl border-emerald-500/20 bg-emerald-500/[0.02] shadow-sm text-lg font-mono lowercase px-6 pr-12 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all ${
+                                form.formState.errors.upiId ? 'border-red-500/50 bg-red-500/[0.02]' : 
+                                field.value && !form.formState.errors.upiId ? 'border-emerald-500 bg-emerald-500/[0.05]' : ''
+                              }`} 
+                              {...field} 
+                            />
+                            {field.value && !form.formState.errors.upiId && (
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-500 animate-in zoom-in">
+                                <CheckCircle2 className="w-6 h-6" />
+                              </div>
+                            )}
+                            {form.formState.errors.upiId && (
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500 animate-in shake-1">
+                                <ShieldCheck className="w-6 h-6 rotate-180" />
+                              </div>
+                            )}
+                          </div>
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="font-bold text-xs" />
                       </FormItem>
                     )}
                   />
@@ -276,6 +304,18 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
                           fill
                           className="object-contain p-4 group-hover:scale-110 transition-transform duration-500"
                         />
+                      ) : watchUpiId ? (
+                        <div className="relative w-full h-full p-4 group-hover:scale-105 transition-transform duration-500">
+                            <Image
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${watchUpiId}&pn=${encodeURIComponent(watchPayeeName || 'Rent Payment')}&cu=INR`}
+                                alt="Generated QR"
+                                fill
+                                className="object-contain p-2"
+                            />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-emerald-600/10 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="bg-emerald-600 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest">Auto-Generated</span>
+                            </div>
+                        </div>
                       ) : (
                         <div className="flex flex-col items-center gap-3 opacity-30 group-hover:opacity-50 transition-opacity">
                             <QrCode className="h-16 w-16 text-emerald-600" />
@@ -285,7 +325,7 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
                       
                       <label className="absolute inset-0 bg-emerald-600/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white backdrop-blur-md">
                         <Upload className="h-8 w-8 mb-2" />
-                        <span className="text-[0.6rem] font-black uppercase tracking-widest">Change Photo</span>
+                        <span className="text-[0.6rem] font-black uppercase tracking-widest">{qrPreview ? 'Change Photo' : 'Upload QR'}</span>
                         <input
                           type="file"
                           className="hidden"

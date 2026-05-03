@@ -32,7 +32,7 @@ import { updatePermissions as updateRolePermissionsAction } from '@/lib/slices/p
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { canAccess } from '@/lib/permissions';
-import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
+import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog'
 import { useToast } from "@/hooks/use-toast"
 import MultiSelect from '@/components/dashboard/add-room/MultiSelect'
 
@@ -296,7 +296,7 @@ export default function StaffPage() {
     if (!currentPlan?.hasStaffManagement) {
         return (
             <>
-                <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+                <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
                 <Card>
                     <CardHeader>
                         <CardTitle>Staff Management</CardTitle>

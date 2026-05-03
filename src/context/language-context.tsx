@@ -10,7 +10,7 @@ type TranslationKey = keyof typeof translations.en;
 interface LanguageContextType {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: TranslationKey, ...args: any[]) => string;
+  t: (key: TranslationKey, params?: Record<string, any> | any[]) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -30,14 +30,20 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('language', lang);
   };
 
-  const t = (key: TranslationKey, ...args: any[]): string => {
+  const t = (key: TranslationKey, params?: Record<string, any> | any[]): string => {
     const langDict = translations[language] || translations.en;
     let text = (langDict as any)[key] || (translations.en as any)[key] || String(key);
 
-    if (args.length > 0) {
-      args.forEach((arg, index) => {
-        text = text.replace(`{${index}}`, arg);
-      });
+    if (params) {
+      if (Array.isArray(params)) {
+        params.forEach((arg, index) => {
+          text = text.replace(`{${index}}`, String(arg));
+        });
+      } else {
+        Object.entries(params).forEach(([k, v]) => {
+          text = text.replace(new RegExp(`{${k}}`, 'g'), String(v));
+        });
+      }
     }
 
     return text;

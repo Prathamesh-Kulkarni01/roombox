@@ -1,5 +1,5 @@
 
-import { Home, Building, Users, UserCircle, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, Globe, BookUser, CreditCard, BookOpen, IndianRupee, ShieldCheck, MessageCircle } from 'lucide-react';
+import { Home, Building, Users, UserCircle, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, Globe, BookUser, CreditCard, BookOpen, IndianRupee, ShieldCheck, MessageCircle, Receipt } from 'lucide-react';
 
 export interface NavItem {
     href: string;
@@ -17,6 +17,15 @@ export interface NavGroup {
 
 export const allNavItems: NavGroup[] = [
   {
+    title: "nav_group_financial",
+    items: [
+        { href: '/dashboard/wallet', label: 'nav_wallet', icon: Wallet, feature: 'billing', description: 'nav_wallet_desc' },
+        { href: '/dashboard/payouts', label: 'nav_billing', icon: CreditCard, feature: 'payouts', description: 'nav_billing_desc' },
+        { href: '/dashboard/rent-passbook', label: 'nav_rentbook', icon: BookUser, feature: 'finances', description: 'nav_rentbook_desc' },
+        { href: '/dashboard/expense', label: 'nav_expenses', icon: Receipt, feature: 'finances', description: 'nav_expenses_desc' },
+    ]
+  },
+  {
     title: "nav_group_core",
     items: [
         { href: '/dashboard', label: 'nav_dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav', description: 'nav_dashboard_desc' },
@@ -24,15 +33,6 @@ export const allNavItems: NavGroup[] = [
         { href: '/dashboard/tenant-management', label: 'nav_guests', icon: Users, feature: 'guests', description: 'nav_guests_desc' },
         { href: '/dashboard/kyc', label: 'nav_kyc', icon: ShieldCheck, feature: 'kyc', description: 'nav_kyc_desc' },
         { href: '/dashboard/staff', label: 'nav_staff', icon: Contact, feature: 'staff', description: 'nav_staff_desc' },
-    ]
-  },
-  {
-    title: "nav_group_financial",
-    items: [
-        { href: '/dashboard/rent-passbook', label: 'nav_rentbook', icon: BookUser, feature: 'finances', description: 'nav_rentbook_desc' },
-        { href: '/dashboard/expense', label: 'nav_expenses', icon: Wallet, feature: 'finances', description: 'nav_expenses_desc' },
-        { href: '/dashboard/payouts', label: 'nav_payouts', icon: IndianRupee, feature: 'payouts', description: 'nav_payouts_desc' },
-        { href: '/dashboard/subscription', label: 'nav_billing', icon: CreditCard, feature: 'billing', description: 'nav_billing_desc' },
     ]
   },
   {

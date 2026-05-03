@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut, AlertCircle, BarChart, Plus, Loader2, Smartphone, Check } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
+import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog';
 import { useAppSelector } from '@/lib/hooks';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -260,7 +260,7 @@ export default function WhatsAppPage() {
     if (currentPlan && !currentPlan.hasAutomatedWhatsapp) {
         return (
             <>
-                <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
+                <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
                 <Card>
                     <CardHeader>
                         <CardTitle>WhatsApp Automation</CardTitle>
