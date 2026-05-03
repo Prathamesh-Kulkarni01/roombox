@@ -7,7 +7,8 @@ import { PRICING_CONFIG } from '../constants'
 import { getVerifiedOwnerIdFromHeaders } from '../auth-server'
 import type { 
   WalletTransaction, WalletTransactionType, LowBalanceStage, 
-  BillingConfig, WalletInfo, User, PremiumFeatures, BillingDiscount
+  BillingConfig, WalletInfo, User, PremiumFeatures, BillingDiscount,
+  BillingLedgerEntry, LedgerEntryType
 } from '../types'
 import { FieldValue } from 'firebase-admin/firestore'
 
@@ -32,7 +33,7 @@ export async function getWalletBalance(ownerId: string): Promise<{ success: bool
 
 /**
  * Initializes a new owner with trial credit.
- * Rule: ₹500 trial credit, expires in 30 days.
+ * Rule: ₹500 trial credit, expires in 90 days.
  */
 export async function initializeOwnerTrial(ownerId: string): Promise<void> {
   const adminDb = await getAdminDb();
@@ -40,30 +41,43 @@ export async function initializeOwnerTrial(ownerId: string): Promise<void> {
   const trialExpiresAt = new Date();
   trialExpiresAt.setDate(trialExpiresAt.getDate() + PRICING_CONFIG.trial.durationDays);
 
-  await userRef.update({
-    'wallet.trialBalance': PRICING_CONFIG.trial.credit,
-    'wallet.rechargeBalance': 0,
-    'wallet.balance': PRICING_CONFIG.trial.credit,
-    'wallet.dues': 0,
-    'wallet.trialExpiresAt': trialExpiresAt.toISOString(),
-    'subscription.status': 'trialing',
-    'subscription.trialEndDate': trialExpiresAt.toISOString(),
-  });
+  await adminDb.runTransaction(async (transaction) => {
+    transaction.update(userRef, {
+      'wallet.trialBalance': PRICING_CONFIG.trial.credit,
+      'wallet.rechargeBalance': 0,
+      'wallet.balance': PRICING_CONFIG.trial.credit,
+      'wallet.dues': 0,
+      'wallet.trialExpiresAt': trialExpiresAt.toISOString(),
+      'subscription.status': 'trialing',
+      'subscription.trialEndDate': trialExpiresAt.toISOString(),
+    });
 
-  // Log trial credit transaction
-  const txnRef = userRef.collection('wallet_transactions').doc();
-  const txn: Omit<WalletTransaction, 'id'> & { id: string } = {
-    id: txnRef.id,
-    type: 'admin_credit',
-    walletType: 'trial',
-    amount: PRICING_CONFIG.trial.credit,
-    trialDeducted: 0,
-    rechargeDeducted: 0,
-    balanceAfter: PRICING_CONFIG.trial.credit,
-    description: `Trial credit of ₹${PRICING_CONFIG.trial.credit} assigned (Valid for ${PRICING_CONFIG.trial.durationDays} days)`,
-    createdAt: new Date().toISOString(),
-  };
-  await txnRef.set(txn);
+    // Log trial credit transaction
+    const txnRef = userRef.collection('wallet_transactions').doc();
+    const txn: Omit<WalletTransaction, 'id'> & { id: string } = {
+      id: txnRef.id,
+      type: 'admin_credit',
+      walletType: 'trial',
+      amount: PRICING_CONFIG.trial.credit,
+      trialDeducted: 0,
+      rechargeDeducted: 0,
+      balanceAfter: PRICING_CONFIG.trial.credit,
+      description: `Trial credit of ₹${PRICING_CONFIG.trial.credit} assigned (Valid for ${PRICING_CONFIG.trial.durationDays} days)`,
+      createdAt: new Date().toISOString(),
+    };
+    transaction.set(txnRef, txn);
+
+    // Add Ledger Entry for Trial Credit
+    await addBillingLedgerEntry(transaction, ownerId, {
+      type: 'TRIAL_CREDIT',
+      amount: PRICING_CONFIG.trial.credit,
+      description: `Initial trial credit (Valid for ${PRICING_CONFIG.trial.durationDays} days)`,
+      month: new Date().toISOString().slice(0, 7),
+      metadata: {
+        transactionId: txnRef.id,
+      }
+    });
+  });
 }
 
 /**
@@ -145,6 +159,17 @@ export async function processRecharge(data: {
       };
       transaction.set(txnRef, txn);
 
+      // Add Ledger Entry for Recharge
+      await addBillingLedgerEntry(transaction, ownerId, {
+        type: 'RECHARGE',
+        amount,
+        description: description || `Wallet recharge of ₹${amount}`,
+        month: new Date().toISOString().slice(0, 7),
+        metadata: {
+          transactionId: txnRef.id,
+        }
+      });
+
       return combinedBalance;
     });
 
@@ -153,6 +178,32 @@ export async function processRecharge(data: {
     console.error('Error processing recharge:', error);
     return { success: false, error: error.message };
   }
+}
+
+// ─── Ledger Helper ───────────────────────────────────────────────────────────
+
+/**
+ * Adds an entry to the billing ledger for audit purposes.
+ * To be used WITHIN a Firestore transaction.
+ */
+export async function addBillingLedgerEntry(
+  transaction: FirebaseFirestore.Transaction,
+  ownerId: string,
+  data: Omit<BillingLedgerEntry, 'id' | 'ownerId' | 'createdAt'>
+): Promise<string> {
+  const adminDb = (transaction as any)._firestore || (transaction as any).database; // Internal access to firestore instance if needed, but better to use userRef
+  // Actually, we need the userRef to get the collection
+  const ledgerRef = adminDb.collection('users').doc(ownerId).collection('billing_ledger').doc();
+  
+  const entry: BillingLedgerEntry = {
+    id: ledgerRef.id,
+    ownerId,
+    ...data,
+    createdAt: new Date().toISOString(),
+  };
+
+  transaction.set(ledgerRef, entry);
+  return ledgerRef.id;
 }
 
 // ─── Razorpay Payment Verification & Credit ──────────────────────────────────
@@ -328,6 +379,21 @@ export async function debitWallet(data: {
       };
       transaction.set(txnRef, txn);
 
+      // The caller (e.g. generateMonthlyInvoice) is responsible for adding 
+      // specific ledger entries (BASE_FEE, TENANT_USAGE) before/after this debit.
+      // However, if this is a manual or generic debit, we should at least log the adjustment.
+      if (!invoiceMonth) {
+         await addBillingLedgerEntry(transaction, ownerId, {
+           type: 'ADJUSTMENT',
+           amount: -amount, // Negative for debit in ledger
+           description: description,
+           month: new Date().toISOString().slice(0, 7),
+           metadata: {
+             transactionId: txnRef.id,
+           }
+         });
+      }
+
       return newCombinedBalance;
     });
 
@@ -397,7 +463,15 @@ export async function estimateBalanceRunway(ownerId: string): Promise<{
 
     // Calculate monthly bill
     const baseFee = billingConfig?.baseFee ?? PRICING_CONFIG.baseFee;
-    const perTenantFee = billingConfig?.perTenantFee ?? PRICING_CONFIG.perTenant;
+    // Per-tenant fee based on plan type
+    let perTenantFee = PRICING_CONFIG.monthly.perTenant;
+    if (billingConfig?.planType === 'yearly') perTenantFee = PRICING_CONFIG.yearly.perTenant;
+    else if (billingConfig?.planType === 'sixMonth') perTenantFee = PRICING_CONFIG.sixMonth.perTenant;
+    else if (billingConfig?.planType === 'monthly') perTenantFee = PRICING_CONFIG.monthly.perTenant;
+
+    // Admin Override
+    if (billingConfig?.perTenantFee !== undefined) perTenantFee = billingConfig.perTenantFee;
+
     let monthlyBill = baseFee + (tenantCount * perTenantFee);
 
     // Apply discount if exists
@@ -496,6 +570,19 @@ export async function adminWalletAdjustment(data: {
         createdAt: new Date().toISOString(),
       };
       transaction.set(txnRef, txn);
+
+      // Add Ledger Entry for Admin Adjustment
+      await addBillingLedgerEntry(transaction, ownerId, {
+        type: 'ADJUSTMENT',
+        amount: type === 'admin_credit' ? amount : -amount,
+        description: `${type === 'admin_credit' ? 'Credit' : 'Debit'} by admin: ${reason}`,
+        month: new Date().toISOString().slice(0, 7),
+        metadata: {
+          transactionId: txnRef.id,
+          adjustmentReason: reason,
+          performedBy: adminId,
+        }
+      });
 
       return newBalance;
     });

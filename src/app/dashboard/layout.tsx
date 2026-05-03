@@ -110,7 +110,7 @@ export default function DashboardLayout({
   }
 
   const isOwner = currentUser?.role === 'owner';
-  const showSubscriptionGate = isOwner && currentPlan && currentPlan.id === 'free' && currentUser.subscription?.status !== 'active' && currentUser.subscription?.status !== 'trialing' && pathname !== '/dashboard/settings';
+  const showSubscriptionGate = isOwner && currentPlan && currentPlan.id === 'trial' && currentUser.subscription?.status !== 'active' && currentUser.subscription?.status !== 'trialing' && pathname !== '/dashboard/settings';
 
   if (showSubscriptionGate) {
     return (

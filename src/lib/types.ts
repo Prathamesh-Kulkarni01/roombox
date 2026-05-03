@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 export interface KycDocumentConfig {
     id: string;
@@ -400,7 +400,7 @@ export interface Expense extends BaseEntity {
 export type StaffRole = 'manager' | 'cleaner' | 'cook' | 'security' | 'staff' | 'other';
 export type UserRole = 'admin' | 'owner' | 'tenant' | StaffRole | 'unassigned';
 
-export type PlanName = 'free' | 'pro' | 'enterprise';
+export type PlanName = 'trial' | 'monthly' | 'sixMonth' | 'yearly' | 'enterprise';
 
 export interface Plan {
   id: PlanName;
@@ -436,6 +436,28 @@ export type BillingPlanType = 'monthly' | 'sixMonth' | 'yearly' | 'trial';
 
 export type WalletTransactionType = 'recharge' | 'debit' | 'refund' | 'admin_credit' | 'admin_debit';
 
+export type LedgerEntryType = 'BASE_FEE' | 'TENANT_USAGE' | 'PREMIUM_FEATURE' | 'DISCOUNT' | 'ADJUSTMENT' | 'RECHARGE' | 'TRIAL_CREDIT';
+
+export interface BillingLedgerEntry {
+  id: string;
+  ownerId: string;
+  type: LedgerEntryType;
+  amount: number;
+  description: string;
+  month: string; // YYYY-MM
+  metadata: {
+    tenantCount?: number;
+    tenantIds?: string[];
+    featureId?: string;
+    planId?: string;
+    discountId?: string;
+    transactionId?: string; // Link to WalletTransaction if applicable
+    adjustmentReason?: string;
+    performedBy?: string; // admin userId
+  };
+  createdAt: string; // ISO string
+}
+
 export interface WalletTransaction {
   id: string;
   type: WalletTransactionType;
@@ -449,6 +471,7 @@ export interface WalletTransaction {
   razorpayPaymentId?: string;
   invoiceMonth?: string; // e.g. '2026-05' for monthly debit
   createdAt: string; // ISO string
+  status?: 'success' | 'failed' | 'pending';
 }
 
 export type DiscountType = 'flat' | 'percentage' | 'free_base';
@@ -476,6 +499,7 @@ export interface WalletInfo {
   rechargeBalance: number;
   dues: number; // Accumulated debt if wallets were insufficient
   trialExpiresAt?: string; // ISO string
+  activeTenantCount?: number;
   lastRechargeAt?: string; // ISO string
   lastRechargeAmount?: number;
 }
@@ -498,11 +522,13 @@ export interface MonthlyInvoice {
   discount: number;
   totalAmount: number;
   walletDeducted: boolean;
+  status: 'draft' | 'paid' | 'due' | 'void';
   createdAt: string; // ISO
   breakdown: {
     tenantIds: string[];
     premiumDetails?: Record<string, { charge: number; description: string }>;
     discountDetails?: BillingDiscount;
+    ledgerIds?: string[]; // IDs of BillingLedgerEntry records
   };
 }
 
@@ -560,6 +586,7 @@ export interface User {
     paymentHistory?: UserSubscriptionPayment[];
     kycDetails?: BusinessKycDetails;
     whatsappCredits?: number;
+    trialCreditUsed?: number;
     whatsappSettings?: Record<string, { tenant: boolean, owner: boolean }>;
     enterpriseProject?: {
       projectId: string;
@@ -666,7 +693,8 @@ export interface BillingDetails {
     billableTenantCount: number;
     totalBeds: number;
     billableTenantNames?: string[];
-    pricingConfig: typeof import('./mock-data').PRICING_CONFIG;
+    billableTenantIds: string[];
+    pricingConfig: typeof import('./constants').PRICING_CONFIG;
   };
 }
 

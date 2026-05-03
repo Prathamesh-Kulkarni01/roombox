@@ -44,7 +44,7 @@ export async function up(db: admin.firestore.Firestore, isDryRun: boolean = fals
         updates['billingConfig'] = {
           planType: isTrialing ? 'trial' : (isActive ? 'monthly' : 'monthly'),
           baseFee: PRICING_CONFIG.baseFee,
-          perTenantFee: PRICING_CONFIG.perTenant,
+          perTenantFee: PRICING_CONFIG.monthly.perTenant,
           discount: null,
           lastBilledAt: null,
           nextBillingDate: null,

@@ -8,7 +8,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod, BusinessKycDetails, BillingConfig, WalletInfo } from '../types';
-import { plans, PRICING_CONFIG } from '../mock-data';
+import { plans, PRICING_CONFIG } from '../constants';
 import { auth, db, isFirebaseConfigured, getOwnerClientDb, getDynamicDb } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -59,10 +59,12 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
 
             const getPlanForUser = (user: User): Plan => {
                 const sub = user.subscription;
-                if (!sub || sub.status === 'inactive') return plans.free;
+                if (!sub || sub.status === 'inactive') return plans.trial;
                 const isActive = sub.status === 'active' || sub.status === 'restricted';
                 const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(parseISO(sub.trialEndDate), new Date());
-                return (isActive || isTrialing) ? { ...plans.pro } : plans.free;
+                
+                if (sub.planId && plans[sub.planId]) return plans[sub.planId];
+                return (isActive || isTrialing) ? plans.monthly : plans.trial;
             };
 
             if (!userDoc.exists()) {
@@ -234,23 +236,22 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
 
         if (role === 'owner') {
             const trialEndDate = new Date();
-            trialEndDate.setDate(trialEndDate.getDate() + 15);
+            trialEndDate.setDate(trialEndDate.getDate() + PRICING_CONFIG.trial.durationDays);
 
             const updatedUser: User = {
                 ...currentUser,
                 role: 'owner',
                 status: 'active', // Owners are active by default now
                 subscription: {
-                    planId: 'pro',
+                    planId: 'trial',
                     status: 'trialing',
                     trialEndDate: trialEndDate.toISOString(),
-                    trialTenantLimit: PRICING_CONFIG.trial.maxTenants,
                     premiumFeatures: {
                         website: { enabled: true },
                         kyc: { enabled: true },
                         whatsapp: { enabled: true }
                     },
-                    whatsappCredits: 150 // Initial 100 free template messages
+                    whatsappCredits: PRICING_CONFIG.trial.includedWhatsappCredits
                 },
                 wallet: {
                     balance: 0,
@@ -261,7 +262,7 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                 billingConfig: {
                     planType: 'trial',
                     baseFee: PRICING_CONFIG.baseFee,
-                    perTenantFee: PRICING_CONFIG.perTenant,
+                    perTenantFee: PRICING_CONFIG.monthly.perTenant,
                 },
                 isOnboarded: false,
             };
@@ -293,9 +294,9 @@ export const completeOnboarding = createAsyncThunk<User, void, { state: RootStat
 );
 
 
-export const togglePremiumFeature = createAsyncThunk(
+export const togglePremiumFeature = createAsyncThunk<{ feature: keyof PremiumFeatures, enabled: boolean, updatedUser: User }, { feature: keyof PremiumFeatures, enabled: boolean }, { state: RootState }>(
     'user/togglePremiumFeature',
-    async ({ feature, enabled }: { feature: keyof PremiumFeatures, enabled: boolean }, { getState, rejectWithValue }) => {
+    async ({ feature, enabled }, { getState, rejectWithValue }) => {
         const { currentUser } = (getState() as RootState).user;
         if (!currentUser) return rejectWithValue('User not found.');
 
@@ -340,23 +341,22 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
 
         const { guestId, ownerId, ...restOfUser } = currentUser;
         const trialEndDate = new Date();
-        trialEndDate.setDate(trialEndDate.getDate() + 15);
+        trialEndDate.setDate(trialEndDate.getDate() + PRICING_CONFIG.trial.durationDays);
         const updatedUser: User = {
             ...restOfUser,
             role: 'owner',
             status: 'pending_approval',
             guestId: null,
             subscription: {
-                planId: 'pro',
+                planId: 'trial',
                 status: 'trialing',
                 trialEndDate: trialEndDate.toISOString(),
-                trialTenantLimit: PRICING_CONFIG.trial.maxTenants,
                 premiumFeatures: {
                     website: { enabled: true },
                     kyc: { enabled: true },
                     whatsapp: { enabled: true }
                 },
-                whatsappCredits: 150 // Initial 100 free template messages
+                whatsappCredits: PRICING_CONFIG.trial.includedWhatsappCredits
             },
             wallet: {
                 balance: 0,
@@ -367,7 +367,7 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
             billingConfig: {
                 planType: 'trial',
                 baseFee: PRICING_CONFIG.baseFee,
-                perTenantFee: PRICING_CONFIG.perTenant,
+                perTenantFee: PRICING_CONFIG.monthly.perTenant,
             }
         };
 
@@ -447,12 +447,12 @@ const userSlice = createSlice({
             if (state.currentUser) {
                 const sub = state.currentUser.subscription;
                 if (!sub || sub.status === 'inactive') {
-                    state.currentPlan = plans.free;
+                    state.currentPlan = plans.trial;
                 } else {
                     const isActive = sub.status === 'active' || sub.status === 'restricted';
                     const trialEndDate = sub.trialEndDate;
                     const isTrialing = sub.status === 'trialing' && trialEndDate && isAfter(parseISO(trialEndDate), new Date());
-                    const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
+                    const basePlanId: PlanName = sub.planId || ((isActive || isTrialing) ? 'monthly' : 'trial');
                     state.currentPlan = { ...plans[basePlanId] };
                 }
             } else {
@@ -479,13 +479,13 @@ const userSlice = createSlice({
                     const isActive = sub.status === 'active' || sub.status === 'restricted';
                     const trialEndDate = sub.trialEndDate;
                     const isTrialing = sub.status === 'trialing' && trialEndDate && isAfter(parseISO(trialEndDate), new Date());
-                    const basePlanId = (isActive || isTrialing) ? 'pro' : 'free';
+                    const basePlanId: PlanName = sub.planId || ((isActive || isTrialing) ? 'monthly' : 'trial');
                     state.currentPlan = { ...plans[basePlanId] };
                 } else if (action.payload?.role === 'unassigned') {
-                    state.currentPlan = plans.free; // Assign a temporary plan
+                    state.currentPlan = plans.trial; // Assign a temporary plan
                 }
                 else {
-                    state.currentPlan = plans.free;
+                    state.currentPlan = plans.trial;
                 }
             })
             .addCase(initializeUser.rejected, (state, action) => {
@@ -507,7 +507,7 @@ const userSlice = createSlice({
             .addCase(finalizeUserRole.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
                 if (action.payload.role === 'owner') {
-                    state.currentPlan = plans.pro; // Trial plan is a variant of pro
+                    state.currentPlan = plans.monthly; // Trial plan is a variant of pro logic
                 }
             })
             .addCase(updateUserKycDetails.fulfilled, (state, action) => {

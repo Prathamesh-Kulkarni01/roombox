@@ -21,7 +21,7 @@ import {
   Zap
 } from 'lucide-react'
 import { useAppSelector } from '@/lib/hooks'
-import { PRICING_CONFIG } from '@/lib/mock-data'
+import { PRICING_CONFIG } from '@/lib/constants'
 import { estimateBalanceRunway } from '@/lib/actions/walletActions'
 import { calculateLowBalanceStage } from '@/lib/utils'
 import { getBillingDetails } from '@/lib/actions/billingActions'
@@ -114,7 +114,7 @@ export default function BillingWidget() {
     trial: 'Trial',
   }
 
-  const perTenantFee = data.currentCycleDetails?.perTenantFee ?? PRICING_CONFIG.perTenant
+  const perTenantFee = data.currentCycleDetails?.perTenantFee ?? PRICING_CONFIG.monthly.perTenant
   const trialProgress = (data.activeTenants / data.trialTenantLimit) * 100
 
   return (

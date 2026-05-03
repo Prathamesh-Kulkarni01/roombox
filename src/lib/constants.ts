@@ -1,7 +1,14 @@
-/**
- * Logic-only constants to avoid importing UI libraries (like lucide-react) 
- * in server-side scripts or migrations.
- */
+import type { Menu, Plan, PlanName } from './types';
+
+export const defaultMenu: Menu = {
+  monday: { breakfast: 'Poha, Tea', lunch: 'Roti, Mixed Veg, Dal Tadka, Rice', dinner: 'Paneer Butter Masala, Roti, Salad' },
+  tuesday: { breakfast: 'Upma, Coffee', lunch: 'Roti, Aloo Gobi, Dal Fry, Rice', dinner: 'Chole, Bhature, Onion Salad' },
+  wednesday: { breakfast: 'Idli Sambar', lunch: 'Roti, Rajma, Jeera Rice', dinner: 'Veg Pulao, Raita, Papad' },
+  thursday: { breakfast: 'Aloo Paratha, Curd', lunch: 'Roti, Bhindi Masala, Dal Makhani, Rice', dinner: 'Kadhi Pakoda, Rice, Roti' },
+  friday: { breakfast: 'Masala Dosa', lunch: 'Roti, Lauki Sabzi, Chana Dal, Rice', dinner: 'Veg Biryani, Raita' },
+  saturday: { breakfast: 'Bread Omelette', lunch: 'Roti, Baingan Bharta, Arhar Dal, Rice', dinner: 'Pav Bhaji' },
+  sunday: { breakfast: 'Puri Sabji', lunch: 'Special Thali (Chef\'s choice)', dinner: 'Noodles, Manchurian' },
+}
 
 export const PRICING_CONFIG = {
     baseFee: 200, // ₹200 base fee per month
@@ -14,12 +21,11 @@ export const PRICING_CONFIG = {
     yearly: {
         perTenant: 10, // ₹10 per tenant per month
     },
-    perTenant: 30, // Default per-tenant fee (monthly)
     trial: {
         credit: 500,
-        durationDays: 30,
-        maxTenants: 100, // Effectively unlimited within the credit
-        includedWhatsappCredits: 150
+        durationDays: 90,
+        includedWhatsappCredits: 150,
+        maxTenants: 10
     },
     lowBalance: {
         warningThreshold: 200, // ₹200 → show warning
@@ -27,25 +33,118 @@ export const PRICING_CONFIG = {
         restrictedThreshold: 0, // ₹0 → restrict features
     },
     rechargeOptions: [
-        { amount: 500, label: 'Starter', bestFor: 'Small PG' },
-        { amount: 1000, label: 'Growth', bestFor: 'Medium PG', popular: true },
-        { amount: 2000, label: 'Business', bestFor: 'Large PG' },
+        { amount: 500, label: 'Standard', description: 'Basic recharge' },
+        { amount: 1000, label: 'Value', description: 'Best for small PGs', popular: true },
+        { amount: 2000, label: 'Growth', description: 'Best for scaling' },
     ],
     premiumFeatures: {
         website: {
             name: 'Website Builder',
-            monthlyCharge: 0, // Flat monthly fee
-            billingType: 'monthly' as const,
-        },
-        kyc: {
-            name: 'Automated KYC',
-            monthlyCharge: 0, // Flat monthly fee
+            monthlyCharge: 50, // Flat monthly fee
             billingType: 'monthly' as const,
         },
         whatsapp: {
             name: 'WhatsApp Automation',
-            perTenantCharge: 0, // Per-tenant charge
+            perTenantCharge: 10, // Per-tenant charge
             billingType: 'per_tenant' as const,
         }
     }
+};
+
+export const plans: Record<PlanName, Plan> = {
+  trial: {
+    id: 'trial',
+    name: '90-Day Trial',
+    price: 0,
+    pricePeriod: '/month',
+    description: "Experience all features for 90 days. No credit card required.",
+    pgLimit: 1,
+    floorLimit: 'unlimited',
+    hasComplaints: true,
+    hasStaffManagement: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasKycVerification: true,
+    hasAutomatedWhatsapp: true,
+    hasMarketplace: false,
+    hasCloudSync: true,
+    hasWebsiteBuilder: true,
+    hasDedicatedDb: false,
+  },
+  monthly: {
+    id: 'monthly',
+    name: 'Pay-as-you-go',
+    price: 200,
+    pricePeriod: '/month base',
+    description: "Flexible monthly billing. Best for small-to-medium PGs.",
+    pgLimit: 'unlimited',
+    floorLimit: 'unlimited',
+    hasComplaints: true,
+    hasStaffManagement: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasKycVerification: true,
+    hasAutomatedWhatsapp: true,
+    hasMarketplace: false,
+    hasCloudSync: true,
+    hasWebsiteBuilder: true,
+    hasDedicatedDb: false,
+  },
+  sixMonth: {
+    id: 'sixMonth',
+    name: 'Saver (6-Months)',
+    price: 200,
+    pricePeriod: '/month base',
+    description: "Save more with 6-month commitment. Priority support included.",
+    pgLimit: 'unlimited',
+    floorLimit: 'unlimited',
+    hasComplaints: true,
+    hasStaffManagement: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasKycVerification: true,
+    hasAutomatedWhatsapp: true,
+    hasMarketplace: false,
+    hasCloudSync: true,
+    hasWebsiteBuilder: true,
+    hasDedicatedDb: false,
+  },
+  yearly: {
+    id: 'yearly',
+    name: 'Yearly Plan',
+    price: 200,
+    pricePeriod: '/month base',
+    description: "Best value for long-term growth. Dedicated account manager.",
+    pgLimit: 'unlimited',
+    floorLimit: 'unlimited',
+    hasComplaints: true,
+    hasStaffManagement: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasKycVerification: true,
+    hasAutomatedWhatsapp: true,
+    hasMarketplace: false,
+    hasCloudSync: true,
+    hasWebsiteBuilder: true,
+    hasDedicatedDb: false,
+  },
+  enterprise: {
+    id: 'enterprise',
+    name: 'Enterprise',
+    price: 'Custom',
+    pricePeriod: '/year',
+    description: "For large chains requiring data isolation and premium support.",
+    pgLimit: 'unlimited',
+    floorLimit: 'unlimited',
+    hasComplaints: true,
+    hasStaffManagement: true,
+    hasAiRentReminders: true,
+    hasSeoGenerator: true,
+    hasKycVerification: true,
+    hasAutomatedWhatsapp: true,
+    hasMarketplace: true,
+    hasCloudSync: true,
+    hasWebsiteBuilder: true,
+    hasDedicatedDb: true,
+  }
 };

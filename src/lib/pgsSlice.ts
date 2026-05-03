@@ -4,7 +4,7 @@ import type { PG, Floor, Room, Bed } from './types';
 import { db, isFirebaseConfigured } from './firebase';
 import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
 import { produce } from 'immer';
-import { defaultMenu } from './mock-data';
+import { defaultMenu } from './constants';
 import { RootState } from './store';
 import { addGuest, updateGuest } from './guestsSlice';
 

@@ -369,7 +369,7 @@ export type PlanPermissions = { [feature: string]: PlanFeatureActions };
  * Matrix of allowed actions per feature for each plan
  */
 export const planPermissionConfig: Record<string, PlanPermissions> = {
-  free: {
+  pro: { // 'pro' represents any active subscription or trial
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
@@ -377,18 +377,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     food: { view: true, edit: true },
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
-    seo: { use: false },
-    kyc: { view: true, edit: true, add: true },
-  },
-  pro: { // 'pro' now represents any active subscription
-    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
-    guests: { view: true, add: true, edit: true, delete: true },
-    finances: { view: true, add: true },
-    complaints: { view: true, edit: true, add: true },
-    food: { view: true, edit: true },
-    staff: { view: true, add: true, edit: true, delete: true },
-    website: { view: true, edit: true },
-    seo: { use: true },
+    seo: { use: true }, // Unlocked by default in the new model (or gated as add-on in UI)
     kyc: { view: true, edit: true, add: true },
   },
 };
@@ -397,8 +386,8 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
  * Plan limits (e.g., max number of PGs per plan)
  */
 export const planLimitsConfig: Record<string, { pgs: number | 'unlimited', floors: number | 'unlimited', guests: number | 'unlimited' }> = {
-  free: { pgs: 10, floors: 15, guests: 100 },
   pro: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
+  trial: { pgs: 1, floors: 'unlimited', guests: 5 },
 };
 
 /**

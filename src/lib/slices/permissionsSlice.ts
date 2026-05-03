@@ -5,7 +5,6 @@ import type { Plan, UserRole } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
-import { allNavItems } from '../mock-data';
 import { featurePermissionConfig, type FeaturePermissions, RolePermissions } from '../permissions';
 
 // This maps a UserRole to a full set of feature permissions
@@ -93,7 +92,7 @@ export const fetchPermissions = createAsyncThunk<RolePermissions, { ownerId: str
                 const defaultPermissions = getDefaultPermissions(plan);
                 // Only save to DB if it's a paying customer to avoid writing on every free user's first load.
                 // Owner on free plan will just use these defaults in-memory.
-                if (plan.id !== 'free' && user.currentUser?.role === 'owner') {
+                if (plan.id !== 'trial' && user.currentUser?.role === 'owner') {
                     await setDoc(docRef, defaultPermissions).catch(e => console.warn('[fetchPermissions] Set defaults failed:', e));
                 }
                 return defaultPermissions;

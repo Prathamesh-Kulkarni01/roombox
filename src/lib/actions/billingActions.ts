@@ -3,9 +3,13 @@
 
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
-import type { User, PremiumFeatures, BillingDetails, BillingCycleDetails, BillingDiscount } from '../types'
+import type { 
+  User, PremiumFeatures, BillingDetails, BillingCycleDetails, BillingDiscount,
+  MonthlyInvoice, BillingLedgerEntry, BillingPlanType
+} from '../types'
 import { getAdminDb } from '../firebaseAdmin'
-import { PRICING_CONFIG } from '../mock-data'
+import { PRICING_CONFIG } from '../constants'
+import { debitWallet, addBillingLedgerEntry } from './walletActions'
 
 
 /**
@@ -128,10 +132,12 @@ export async function calculateOwnerBill(owner: User, monthIso?: string): Promis
   const billingConfig = owner.billingConfig;
   
   // Per-tenant fee based on plan type
-  let perTenantFee = PRICING_CONFIG.perTenant;
-  if ((billingConfig?.planType as any) === 'yearly') perTenantFee = PRICING_CONFIG.yearly.perTenant;
-  else if ((billingConfig?.planType as any) === 'sixMonth') perTenantFee = PRICING_CONFIG.sixMonth.perTenant;
+  let perTenantFee = PRICING_CONFIG.monthly.perTenant;
+  if (billingConfig?.planType === 'yearly') perTenantFee = PRICING_CONFIG.yearly.perTenant;
+  else if (billingConfig?.planType === 'sixMonth') perTenantFee = PRICING_CONFIG.sixMonth.perTenant;
   else if (billingConfig?.planType === 'monthly') perTenantFee = PRICING_CONFIG.monthly.perTenant;
+  else if (billingConfig?.planType === 'trial') perTenantFee = PRICING_CONFIG.monthly.perTenant; // Trial uses monthly rates if credit runs out
+  else if (billingConfig?.planType === 'enterprise') perTenantFee = 0; // Enterprise usually has custom flat pricing or per-tenant logic handled via overrides
 
   // Admin Override
   if (billingConfig?.perTenantFee !== undefined) perTenantFee = billingConfig.perTenantFee;
@@ -196,6 +202,7 @@ export async function calculateOwnerBill(owner: User, monthIso?: string): Promis
       propertyCount,
       billableTenantCount,
       totalBeds,
+      billableTenantIds,
       billableTenantNames: [], // Can be populated if needed
       pricingConfig: PRICING_CONFIG as any,
     }
@@ -298,3 +305,235 @@ export async function verifySubscriptionPayment(data: {
   }
 }
 
+/**
+ * Updates the user's commitment tier and per-tenant rate.
+ */
+export async function updateCommitmentTier(ownerId: string, planType: BillingPlanType) {
+    try {
+        const adminDb = await getAdminDb();
+        const userRef = adminDb.collection('users').doc(ownerId);
+        
+        // Per-tenant fee based on plan type from PRICING_CONFIG
+        let perTenantFee = PRICING_CONFIG.monthly.perTenant;
+        if (planType === 'yearly') perTenantFee = PRICING_CONFIG.yearly.perTenant;
+        else if (planType === 'sixMonth') perTenantFee = PRICING_CONFIG.sixMonth.perTenant;
+        else if (planType === 'monthly') perTenantFee = PRICING_CONFIG.monthly.perTenant;
+
+        await userRef.update({
+            'billingConfig.planType': planType,
+            'billingConfig.perTenantFee': perTenantFee,
+            'subscription.planId': 'pro' // Ensure it's marked as pro (usage-based)
+        });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error updating commitment tier:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Generates the final monthly invoice, deducts from wallet, and records ledger entries.
+ * This creates the "Immutable Snapshot" for the billing cycle.
+ */
+export async function generateMonthlyInvoice(ownerId: string, monthIso: string): Promise<{ success: boolean; invoiceId?: string; error?: string }> {
+  try {
+    const adminDb = await getAdminDb();
+    const userRef = adminDb.collection('users').doc(ownerId);
+    
+    // 1. Check if invoice already exists (Idempotency)
+    const existingInvoice = await userRef.collection('monthly_invoices').doc(monthIso).get();
+    if (existingInvoice.exists) {
+      return { success: false, error: `Invoice for ${monthIso} already exists.` };
+    }
+
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists) throw new Error('Owner not found.');
+      const owner = { ...userDoc.data(), id: userDoc.id } as User;
+
+      // 2. Calculate Bill
+      const billingData = await calculateOwnerBill(owner, monthIso);
+      const cycle = billingData.currentCycle;
+
+      // 3. Record Ledger Entries
+      const ledgerEntryIds: string[] = [];
+
+      // Base Fee
+      if (cycle.propertyCharge > 0) {
+        ledgerEntryIds.push(await addBillingLedgerEntry(transaction, ownerId, {
+          type: 'BASE_FEE',
+          amount: -cycle.propertyCharge,
+          description: 'Base platform fee',
+          month: monthIso,
+          metadata: { planId: owner.billingConfig?.planType || 'monthly' }
+        }));
+      }
+
+      // Tenant Usage
+      if (cycle.tenantCharge > 0) {
+        ledgerEntryIds.push(await addBillingLedgerEntry(transaction, ownerId, {
+          type: 'TENANT_USAGE',
+          amount: -cycle.tenantCharge,
+          description: `Usage for ${cycle.tenantCount} active tenants`,
+          month: monthIso,
+          metadata: { 
+            tenantCount: cycle.tenantCount,
+            tenantIds: billingData.details.billableTenantIds || []
+          }
+        }));
+      }
+
+      // Premium Features
+      for (const [key, details] of Object.entries(cycle.premiumFeaturesDetails || {})) {
+        if (details.charge > 0) {
+          ledgerEntryIds.push(await addBillingLedgerEntry(transaction, ownerId, {
+            type: 'PREMIUM_FEATURE',
+            amount: -details.charge,
+            description: details.description,
+            month: monthIso,
+            metadata: { featureId: key }
+          }));
+        }
+      }
+
+      // Discounts
+      const discountAmount = cycle.discountAmount ?? 0;
+      if (discountAmount > 0) {
+        ledgerEntryIds.push(await addBillingLedgerEntry(transaction, ownerId, {
+          type: 'DISCOUNT',
+          amount: discountAmount, // Positive because it's a credit to the bill
+          description: cycle.discountDetails?.reason || 'Monthly discount',
+          month: monthIso,
+          metadata: { discountId: cycle.discountDetails?.type }
+        }));
+      }
+
+      // 4. Deduct from Wallet
+      const wallet = owner.wallet || { trialBalance: 0, rechargeBalance: 0, balance: 0, dues: 0 };
+      let remainingToDeduct = cycle.totalAmount;
+      let trialDeducted = 0;
+      let rechargeDeducted = 0;
+      let duesIncurred = 0;
+
+      if (wallet.trialBalance > 0) {
+        const canDeduct = Math.min(wallet.trialBalance, remainingToDeduct);
+        trialDeducted = canDeduct;
+        remainingToDeduct -= canDeduct;
+      }
+      if (remainingToDeduct > 0 && wallet.rechargeBalance > 0) {
+        const canDeduct = Math.min(wallet.rechargeBalance, remainingToDeduct);
+        rechargeDeducted = canDeduct;
+        remainingToDeduct -= canDeduct;
+      }
+      if (remainingToDeduct > 0) {
+        duesIncurred = remainingToDeduct;
+        remainingToDeduct = 0;
+      }
+
+      const newTrialBalance = (wallet.trialBalance ?? 0) - trialDeducted;
+      const newRechargeBalance = (wallet.rechargeBalance ?? 0) - rechargeDeducted;
+      const newDues = (wallet.dues ?? 0) + duesIncurred;
+      const newCombinedBalance = newTrialBalance + newRechargeBalance;
+
+      transaction.update(userRef, {
+        'wallet.trialBalance': newTrialBalance,
+        'wallet.rechargeBalance': newRechargeBalance,
+        'wallet.balance': newCombinedBalance,
+        'wallet.dues': newDues,
+        'billingConfig.lastBilledAt': new Date().toISOString(),
+      });
+
+      // Wallet Transaction log
+      const txnRef = userRef.collection('wallet_transactions').doc();
+      const txn = {
+        id: txnRef.id,
+        type: 'debit',
+        walletType: trialDeducted > 0 && rechargeDeducted > 0 ? 'mixed' : (trialDeducted > 0 ? 'trial' : 'recharge'),
+        amount: cycle.totalAmount,
+        trialDeducted,
+        rechargeDeducted,
+        duesIncurred,
+        balanceAfter: newCombinedBalance,
+        description: `Monthly billing for ${monthIso}`,
+        invoiceMonth: monthIso,
+        createdAt: new Date().toISOString(),
+      };
+      transaction.set(txnRef, txn);
+
+      // 5. Create Immutable Invoice Snapshot
+      const invoiceRef = userRef.collection('monthly_invoices').doc(monthIso);
+      const invoice: MonthlyInvoice = {
+        id: monthIso,
+        month: monthIso,
+        baseFee: cycle.propertyCharge,
+        tenantCount: cycle.tenantCount ?? 0,
+        tenantCharge: cycle.tenantCharge,
+        premiumCharges: cycle.premiumFeaturesCharge,
+        discount: cycle.discountAmount ?? 0,
+        totalAmount: cycle.totalAmount,
+        walletDeducted: true,
+        status: newDues > 0 ? 'due' : 'paid',
+        createdAt: new Date().toISOString(),
+        breakdown: {
+          tenantIds: billingData.details.billableTenantIds || [],
+          premiumDetails: cycle.premiumFeaturesDetails,
+          discountDetails: cycle.discountDetails || undefined,
+          ledgerIds: ledgerEntryIds,
+        },
+      };
+      transaction.set(invoiceRef, invoice);
+
+      return { invoiceId: monthIso };
+    });
+
+    return { success: true, invoiceId: result.invoiceId };
+  } catch (error: any) {
+    console.error('Error generating monthly invoice:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Retrieves all monthly invoices for an owner.
+ */
+export async function getMonthlyInvoices(ownerId: string): Promise<{ success: boolean; data?: MonthlyInvoice[]; error?: string }> {
+  try {
+    const adminDb = await getAdminDb();
+    const invoicesSnapshot = await adminDb
+      .collection('users')
+      .doc(ownerId)
+      .collection('monthly_invoices')
+      .orderBy('month', 'desc')
+      .get();
+
+    const invoices = invoicesSnapshot.docs.map(doc => doc.data() as MonthlyInvoice);
+    return { success: true, data: invoices };
+  } catch (error: any) {
+    console.error('Error fetching monthly invoices:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Retrieves ledger entries for a specific invoice.
+ */
+export async function getInvoiceLedger(ownerId: string, invoiceId: string): Promise<{ success: boolean; data?: BillingLedgerEntry[]; error?: string }> {
+  try {
+    const adminDb = await getAdminDb();
+    // We can either filter by month or by IDs stored in the invoice
+    const ledgerSnapshot = await adminDb
+      .collection('users')
+      .doc(ownerId)
+      .collection('billing_ledger')
+      .where('month', '==', invoiceId)
+      .orderBy('createdAt', 'asc')
+      .get();
+
+    const ledger = ledgerSnapshot.docs.map(doc => doc.data() as BillingLedgerEntry);
+    return { success: true, data: ledger };
+  } catch (error: any) {
+    console.error('Error fetching invoice ledger:', error);
+    return { success: false, error: error.message };
+  }
+}

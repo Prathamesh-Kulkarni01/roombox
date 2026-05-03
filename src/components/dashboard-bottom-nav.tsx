@@ -13,7 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { allNavItems } from '@/lib/mock-data';
+import { allNavItems } from '@/lib/navigation';
 import { useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores';
 import { canViewFeature } from '@/lib/permissions';

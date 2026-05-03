@@ -5,7 +5,12 @@ import React, { useState, useTransition, useEffect } from "react"
 import { useAppSelector, useAppDispatch } from "@/lib/hooks"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CreditCard, History, Sparkles, Receipt, ShieldAlert, ArrowRight, Wallet, Users, Plus, Zap } from "lucide-react"
+import { 
+    CreditCard, History, Sparkles, Receipt, ShieldAlert, 
+    ArrowRight, Wallet, Users, Plus, Zap, Check, Info, 
+    TrendingDown, Target, HelpCircle, ArrowUpRight,
+    Lock, Calendar, ZapOff, Activity
+} from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog'
 import RechargeDialog from '@/components/billing/RechargeDialog'
@@ -17,11 +22,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format, parseISO } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { PremiumFeatures, BillingDetails, WalletTransaction, BillingPlanType } from '@/lib/types'
 import { getBillingDetails } from "@/lib/actions/billingActions"
 import { getWalletTransactions, estimateBalanceRunway } from "@/lib/actions/walletActions"
-import { calculateLowBalanceStage } from "@/lib/utils"
-import { PRICING_CONFIG } from "@/lib/mock-data"
+import { calculateLowBalanceStage, cn } from "@/lib/utils"
+import { PRICING_CONFIG } from "@/lib/constants"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function SubscriptionPage() {
@@ -41,24 +47,29 @@ export default function SubscriptionPage() {
             if (!currentUser?.id) return;
             setIsLoadingBill(true);
 
-            const [billingResult, txnResult, runwayResult] = await Promise.all([
-                getBillingDetails(currentUser.id),
-                getWalletTransactions(currentUser.id, 5),
-                estimateBalanceRunway(currentUser.id),
-            ]);
+            try {
+                const [billingResult, txnResult, runwayResult] = await Promise.all([
+                    getBillingDetails(currentUser.id),
+                    getWalletTransactions(currentUser.id, 5),
+                    estimateBalanceRunway(currentUser.id),
+                ]);
 
-            if (billingResult.success && billingResult.data) {
-                setBillingDetails(billingResult.data);
+                if (billingResult.success && billingResult.data) {
+                    setBillingDetails(billingResult.data);
+                }
+                if (txnResult.success && txnResult.transactions) {
+                    setWalletTxns(txnResult.transactions);
+                }
+                if (runwayResult.success) {
+                    const daysLeftVal = runwayResult.daysLeft;
+                    const dl = isNaN(daysLeftVal as number) ? 999 : (daysLeftVal ?? 999);
+                    setDaysLeft(dl);
+                }
+            } catch (error) {
+                console.error("Failed to fetch billing data:", error);
+            } finally {
+                setIsLoadingBill(false);
             }
-            if (txnResult.success && txnResult.transactions) {
-                setWalletTxns(txnResult.transactions);
-            }
-            if (runwayResult.success) {
-                const daysLeftVal = runwayResult.daysLeft;
-                const daysLeft = isNaN(daysLeftVal as number) ? 999 : (daysLeftVal ?? 999);
-                setDaysLeft(daysLeft);
-            }
-            setIsLoadingBill(false);
         };
         
         if (currentUser?.id) {
@@ -73,7 +84,11 @@ export default function SubscriptionPage() {
         startTransition(async () => {
             const resultAction = await dispatch(togglePremiumFeature({ feature, enabled }));
             if (togglePremiumFeature.fulfilled.match(resultAction)) {
-                 toast({ title: "Feature Updated", description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${resultAction.payload.feature}. Changes will apply on your next bill.` });
+                 toast({ 
+                    title: "Feature Updated", 
+                    description: `Successfully ${enabled ? 'enabled' : 'disabled'} ${resultAction.payload.feature}. Changes will reflect in your cycle summary.` 
+                 });
+                 // Refresh billing details to show updated itemization
                  if (currentUser?.id) {
                     const result = await getBillingDetails(currentUser.id);
                     if (result.success && result.data) {
@@ -81,7 +96,11 @@ export default function SubscriptionPage() {
                     }
                  }
             } else {
-                 toast({ variant: 'destructive', title: 'Update Failed', description: resultAction.payload as string || "An unknown error occurred" });
+                 toast({ 
+                    variant: 'destructive', 
+                    title: 'Update Failed', 
+                    description: resultAction.payload as string || "An unknown error occurred" 
+                 });
             }
         });
     };
@@ -89,31 +108,63 @@ export default function SubscriptionPage() {
     const walletBalance = currentUser.wallet?.balance ?? 0;
     const lowBalanceStage = calculateLowBalanceStage(walletBalance);
     const isTrialing = currentUser.subscription?.status === 'trialing';
+    
+    // Trial Calculations
+    const trialCreditUsed = currentUser.subscription?.trialCreditUsed ?? 0;
+    const trialCreditTotal = PRICING_CONFIG.trial.credit;
+    const trialProgress = Math.min((trialCreditUsed / trialCreditTotal) * 100, 100);
+
     const planType: BillingPlanType = currentUser.billingConfig?.planType ?? (isTrialing ? 'trial' : 'monthly');
-    const perTenantFee = currentUser.billingConfig?.perTenantFee ?? PRICING_CONFIG.perTenant;
+    const perTenantFee = currentUser.billingConfig?.perTenantFee ?? (
+        planType === 'yearly' ? PRICING_CONFIG.yearly.perTenant : 
+        planType === 'sixMonth' ? PRICING_CONFIG.sixMonth.perTenant : 
+        PRICING_CONFIG.monthly.perTenant
+    );
     const baseFee = currentUser.billingConfig?.baseFee ?? PRICING_CONFIG.baseFee;
 
     const planLabels: Record<BillingPlanType, string> = {
-        monthly: 'Monthly Plan',
-        sixMonth: '6-Month Plan',
-        yearly: 'Yearly Plan',
-        trial: 'Trial Period',
+        monthly: 'Pay-As-You-Go',
+        sixMonth: '6-Month Saver',
+        yearly: 'Annual Pro',
+        trial: 'Free Trial',
     };
 
     const featureDescriptions: Record<string, string> = {
-        website: "Create a public website to attract more tenants.",
-        kyc: "Automate identity verification for new guests.",
-        whatsapp: "Auto-send rent reminders and receipts."
+        website: "Your own property website to capture leads directly.",
+        kyc: "Instant identity verification for all your tenants.",
+        whatsapp: "Automated rent reminders & receipts via WhatsApp."
     };
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex flex-col gap-1 mb-8">
-                <h1 className="text-3xl font-black tracking-tight flex items-center gap-3">
-                    <CreditCard className="w-8 h-8 text-primary" />
-                    Billing & Subscription
-                </h1>
-                <p className="text-muted-foreground font-medium">Manage your wallet, plan, and billing details.</p>
+        <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in duration-700">
+            {/* Header section with Stats */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-4">
+                <div className="space-y-1">
+                    <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
+                        <CreditCard className="w-10 h-10 text-primary" />
+                        Billing & Usage
+                    </h1>
+                    <p className="text-muted-foreground font-medium flex items-center gap-2">
+                        Transparent, usage-based billing for <Badge variant="secondary" className="font-bold">RentSutra</Badge>
+                    </p>
+                </div>
+                
+                <div className="flex items-center gap-3 bg-muted/30 p-2 rounded-2xl border border-border/50">
+                    <div className="px-4 py-2 text-center">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</p>
+                        <Badge className={cn(
+                            "mt-1 font-black px-3 py-0.5 uppercase text-[10px]",
+                            isTrialing ? "bg-indigo-600" : "bg-emerald-600"
+                        )}>
+                            {isTrialing ? 'In Trial' : 'Active'}
+                        </Badge>
+                    </div>
+                    <div className="w-px h-8 bg-border/50" />
+                    <div className="px-4 py-2 text-center">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Current Plan</p>
+                        <p className="font-black text-sm uppercase">{planLabels[planType]}</p>
+                    </div>
+                </div>
             </div>
 
             <SubscriptionDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
@@ -125,145 +176,235 @@ export default function SubscriptionPage() {
             />
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                {/* ─── Mobile Specific Header (Visible only on Mobile) ──── */}
-                <div className="lg:hidden space-y-4">
-                    <div className="grid grid-cols-1 gap-3">
-                        <Card className={`relative overflow-hidden glass bg-indigo-500/[0.02] dark:bg-indigo-500/[0.05] border-indigo-500/20 rounded-3xl shadow-native ${
-                            lowBalanceStage === 'restricted' ? 'border-red-500/30 bg-red-50/30' : ''
-                        }`}>
-                            <CardContent className="p-5 relative z-10 space-y-6">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm text-emerald-600">
-                                            <Wallet className="w-6 h-6" />
+                {/* ─── Main Content Column ──── */}
+                <div className="lg:col-span-2 space-y-8">
+                    
+                    {/* Trial Progress Card */}
+                    {isTrialing && (
+                        <Card className="relative overflow-hidden border-indigo-500/20 bg-indigo-500/[0.02] rounded-3xl shadow-lg shadow-indigo-500/5">
+                            <CardContent className="p-6">
+                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="w-5 h-5 text-indigo-600" />
+                                            <h3 className="text-xl font-black">Trial Credit Status</h3>
                                         </div>
-                                        <div>
-                                            <p className="text-2xl font-black tracking-tighter text-emerald-600">₹{(walletBalance || 0).toLocaleString('en-IN')}</p>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-black text-[10px]">
-                                                    {isTrialing ? 'Trial' : `~${daysLeft} days`}
-                                                </Badge>
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Balance</span>
-                                            </div>
-                                        </div>
+                                        <p className="text-sm text-muted-foreground font-medium">You have ₹{trialCreditTotal} free credit to explore all premium features.</p>
                                     </div>
-                                    
-                                    <div className="text-right">
-                                        <p className="text-2xl font-black tracking-tighter text-indigo-600">
-                                            {billingDetails?.details.billableTenantCount || 0}
-                                            <span className="text-sm text-muted-foreground/50 ml-1 font-bold">/ {billingDetails?.details.totalBeds || 0}</span>
-                                        </p>
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Occupancy</span>
+                                    <div className="text-left md:text-right">
+                                        <p className="text-2xl font-black text-indigo-600">₹{(trialCreditTotal - trialCreditUsed).toLocaleString('en-IN')}</p>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Remaining Credit</p>
                                     </div>
                                 </div>
-
                                 <div className="space-y-2">
-                                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-indigo-600/70">
-                                        <span>Capacity Utilization</span>
-                                        <span>{Math.round(((billingDetails?.details.billableTenantCount || 0) / (billingDetails?.details.totalBeds || 1)) * 100)}%</span>
+                                    <div className="flex justify-between text-xs font-black uppercase tracking-widest text-indigo-600/70">
+                                        <span>Used: ₹{trialCreditUsed}</span>
+                                        <span>{Math.round(trialProgress)}%</span>
                                     </div>
-                                    <Progress 
-                                        value={((billingDetails?.details.billableTenantCount || 0) / (billingDetails?.details.totalBeds || 1)) * 100} 
-                                        className="h-2 bg-indigo-100 dark:bg-indigo-950/30"
-                                    />
+                                    <Progress value={trialProgress} className="h-3 bg-indigo-100 dark:bg-indigo-950/30" />
+                                </div>
+                                <div className="mt-6 flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-indigo-500/10">
+                                    <Info className="w-5 h-5 text-indigo-600 shrink-0" />
+                                    <p className="text-xs font-medium leading-relaxed text-muted-foreground">
+                                        Once your trial credit is exhausted or 90 days pass, the system will switch to your wallet balance. Add money now to ensure zero service interruption.
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>
-                    </div>
+                    )}
 
-                    <Button 
-                        className="w-full font-black py-6 text-lg rounded-2xl shadow-xl shadow-primary/20 bg-primary text-primary-foreground"
-                        onClick={() => setIsRechargeOpen(true)}
-                    >
-                        <Plus className="w-6 h-6 mr-2" /> RECHARGE NOW
-                    </Button>
-                </div>
-
-                {/* ─── Main Content Column ──── */}
-                <div className="lg:col-span-2 space-y-6">
-
-
-          <section id="features">
-            <div className="flex items-center gap-2 mb-4 px-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <h2 className="text-lg font-black tracking-tight uppercase">Optional Add-ons</h2>
-                <p className="text-xs text-muted-foreground font-medium">Boost your property with these extra features. Charges are automatically added to your next recharge.</p>
-              </div>
-            </div>
-            <Card className="glass-card overflow-hidden border-indigo-500/20">
-              <div className="p-4 space-y-4">
-                {Object.entries(PRICING_CONFIG.premiumFeatures).map(([key, feature]: [string, any]) => {
-                  const isEnabled = currentUser.subscription?.premiumFeatures?.[key as keyof PremiumFeatures]?.enabled || false;
-                  return (
-                    <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl bg-indigo-500/[0.03] border border-indigo-500/10 gap-4">
-                      <div className="flex items-center gap-4">
-                         <div className={`p-4 rounded-2xl shadow-sm transition-colors ${isEnabled ? 'bg-indigo-600 text-white shadow-indigo-500/30' : 'bg-white dark:bg-zinc-900 text-indigo-600'}`}>
-                          <Zap className="w-6 h-6" />
+                    {/* Features Grid */}
+                    <section id="features">
+                        <div className="flex items-center justify-between mb-4 px-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                    <Zap className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-black tracking-tight uppercase">Premium Add-ons</h2>
+                                    <p className="text-xs text-muted-foreground font-medium">Toggle features to boost your business efficiency.</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-base font-black">{feature.name}</p>
-                            {isEnabled && <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-black px-2 uppercase">Active</Badge>}
-                          </div>
-                          <p className="text-sm text-muted-foreground font-medium leading-tight max-w-md">
-                            {featureDescriptions[key] || "Advanced automation tool for your property."}
-                          </p>
-                          <p className="text-xs font-black text-indigo-600 tracking-wide pt-1">
-                            {feature.billingType === 'monthly' ? `₹${feature.monthlyCharge} Flat / Month` : `₹${feature.perTenantCharge} / Bed / Month`}
-                          </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {Object.entries(PRICING_CONFIG.premiumFeatures).map(([key, feature]: [string, any]) => {
+                                const isEnabled = currentUser.subscription?.premiumFeatures?.[key as keyof PremiumFeatures]?.enabled || false;
+                                return (
+                                    <Card key={key} className={cn(
+                                        "group transition-all duration-300 border-border/50 hover:border-primary/30 rounded-2xl overflow-hidden",
+                                        isEnabled ? "bg-primary/[0.02] border-primary/20" : "bg-card"
+                                    )}>
+                                        <CardContent className="p-5 space-y-4">
+                                            <div className="flex justify-between items-start">
+                                                <div className={cn(
+                                                    "p-3 rounded-xl transition-colors",
+                                                    isEnabled ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-muted text-muted-foreground"
+                                                )}>
+                                                    <Zap className="w-5 h-5" />
+                                                </div>
+                                                <Switch 
+                                                    checked={isEnabled}
+                                                    onCheckedChange={(checked) => handleToggleFeature(key as keyof PremiumFeatures, checked)}
+                                                    disabled={isSaving}
+                                                    className="data-[state=checked]:bg-primary"
+                                                />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-black text-base">{feature.name}</h4>
+                                                    {isEnabled && <Badge className="bg-primary/10 text-primary border-primary/20 text-[9px] font-black uppercase">Active</Badge>}
+                                                </div>
+                                                <p className="text-xs text-muted-foreground font-medium mt-1 leading-relaxed">
+                                                    {featureDescriptions[key] || "Enhance your property management with advanced tools."}
+                                                </p>
+                                            </div>
+                                            <div className="pt-2 border-t border-border/50 flex justify-between items-center">
+                                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Pricing</p>
+                                                <p className="text-xs font-black text-primary">
+                                                    {feature.billingType === 'monthly' ? `₹${feature.monthlyCharge} / Month` : `₹${feature.perTenantCharge} / Bed / Month`}
+                                                </p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between sm:justify-end gap-3 bg-white/50 dark:bg-black/20 p-3 rounded-xl sm:bg-transparent sm:p-0">
-                        <Label htmlFor={`feature-${key}`} className="text-xs font-black uppercase tracking-wider sm:hidden">
-                          {isEnabled ? 'Turn Off' : 'Turn On'}
-                        </Label>
-                        <Switch 
-                          id={`feature-${key}`}
-                          checked={isEnabled}
-                          onCheckedChange={(checked) => handleToggleFeature(key as keyof PremiumFeatures, checked)}
-                          disabled={isSaving}
-                          className="data-[state=checked]:bg-indigo-600"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </section>
+                    </section>
 
-                     {/* Payment History */}
-                    <Card className="border-border/40 shadow-sm rounded-2xl overflow-hidden">
-                        <CardHeader className="bg-muted/30">
-                            <CardTitle className="flex items-center gap-2 text-xl"><History className="text-muted-foreground"/> Payment History</CardTitle>
+                    {/* Itemized Cycle Summary */}
+                    <Card className="border-border/40 shadow-sm overflow-hidden rounded-3xl bg-zinc-500/[0.01] border-dashed">
+                        <CardHeader className="p-6 border-b border-border/40 bg-muted/10">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <CardTitle className="flex items-center gap-2 text-xl font-black">
+                                    <Receipt className="text-primary w-6 h-6" /> Cycle Forecast
+                                </CardTitle>
+                                {billingDetails && (
+                                    <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-4 py-2 rounded-xl border shadow-sm">
+                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Est. Monthly Total</p>
+                                        <p className="text-xl font-black text-primary">
+                                            ₹{(billingDetails.currentCycle.totalAmount || 0).toLocaleString('en-IN')}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            {isLoadingBill ? (
+                                <div className="space-y-4">
+                                    <Skeleton className="h-12 w-full rounded-xl" />
+                                    <Skeleton className="h-12 w-full rounded-xl" />
+                                </div>
+                            ) : billingDetails ? (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-border/50 shadow-sm">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Platform Base</span>
+                                                <span className="text-xs font-black">Fixed</span>
+                                            </div>
+                                            <div className="flex justify-between items-end">
+                                                <p className="text-sm font-bold">Standard Access</p>
+                                                <p className="text-lg font-black italic tracking-tighter">₹{(baseFee || 0).toLocaleString('en-IN')}</p>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-border/50 shadow-sm">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Usage Billing</span>
+                                                <span className="text-xs font-black text-primary">{billingDetails.details.billableTenantCount || 0} Tenants</span>
+                                            </div>
+                                            <div className="flex justify-between items-end">
+                                                <p className="text-sm font-bold">₹{perTenantFee}/tenant</p>
+                                                <p className="text-lg font-black italic tracking-tighter">₹{(billingDetails.currentCycle.tenantCharge || 0).toLocaleString('en-IN')}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {Object.keys(billingDetails.currentCycle.premiumFeaturesDetails || {}).length > 0 && (
+                                        <div className="pt-4 space-y-3">
+                                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Active Add-ons</p>
+                                            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-border/50 divide-y divide-border/50">
+                                                {Object.entries(billingDetails.currentCycle.premiumFeaturesDetails || {}).map(([key, feature]) => (
+                                                    <div key={key} className="flex justify-between items-center p-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-2 h-2 rounded-full bg-primary" />
+                                                            <span className="text-sm font-medium">{feature.description}</span>
+                                                        </div>
+                                                        <span className="font-black text-sm italic">₹{(feature.charge || 0).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {billingDetails.currentCycle.discountAmount && billingDetails.currentCycle.discountAmount > 0 && (
+                                        <div className="flex justify-between items-center p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-600">
+                                            <div className="flex items-center gap-3">
+                                                <Sparkles className="w-4 h-4" />
+                                                <span className="text-sm font-black uppercase tracking-widest">Applied Savings</span>
+                                            </div>
+                                            <span className="font-black text-sm">-₹{(billingDetails.currentCycle.discountAmount || 0).toLocaleString('en-IN')}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                                    <ShieldAlert className="w-12 h-12 opacity-20 mb-4" />
+                                    <p className="font-bold italic">Forecasting unavailable</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* History Table */}
+                    <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden">
+                        <CardHeader className="bg-muted/30 border-b border-border/40 p-6">
+                            <CardTitle className="flex items-center gap-2 text-xl font-black"><History className="text-muted-foreground w-5 h-5"/> Transaction History</CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="hover:bg-transparent bg-muted/20">
-                                        <TableHead className="px-6 h-12 font-bold uppercase text-[0.7rem] tracking-wider">Date</TableHead>
-                                        <TableHead className="px-6 h-12 font-bold uppercase text-[0.7rem] tracking-wider">Amount</TableHead>
-                                        <TableHead className="px-6 h-12 font-bold uppercase text-[0.7rem] tracking-wider">Status</TableHead>
-                                        <TableHead className="text-right px-6 h-12 font-bold uppercase text-[0.7rem] tracking-wider">Invoice</TableHead>
+                                    <TableRow className="hover:bg-transparent bg-muted/20 border-b border-border/40">
+                                        <TableHead className="px-6 h-12 font-black uppercase text-[0.65rem] tracking-widest text-muted-foreground">Date</TableHead>
+                                        <TableHead className="px-6 h-12 font-black uppercase text-[0.65rem] tracking-widest text-muted-foreground">Amount</TableHead>
+                                        <TableHead className="px-6 h-12 font-black uppercase text-[0.65rem] tracking-widest text-muted-foreground">Type</TableHead>
+                                        <TableHead className="text-right px-6 h-12 font-black uppercase text-[0.65rem] tracking-widest text-muted-foreground">Status</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {(currentUser.subscription?.paymentHistory || []).length > 0 ? currentUser.subscription?.paymentHistory?.map(payment => (
-                                        <TableRow key={payment.id} className="hover:bg-muted/20 transition-colors">
-                                            <TableCell className="px-6 py-4 font-medium text-muted-foreground">{format(parseISO(payment.date), 'do MMM, yyyy')}</TableCell>
-                                            <TableCell className="px-6 py-4 font-bold text-foreground italic tracking-tighter text-lg">₹{(payment.amount || 0).toLocaleString('en-IN')}</TableCell>
-                                            <TableCell className="px-6 py-4"><Badge variant={payment.status === 'paid' ? 'default' : 'destructive'} className="rounded-full px-4 py-1 font-bold text-[0.65rem] uppercase tracking-widest">{payment.status}</Badge></TableCell>
-                                            <TableCell className="text-right px-6 py-4"><Button variant="secondary" size="sm" className="font-bold hover:bg-primary hover:text-primary-foreground transform active:scale-95 transition-all">Download</Button></TableCell>
+                                    {walletTxns.length > 0 ? walletTxns.map(txn => (
+                                        <TableRow key={txn.id} className="hover:bg-muted/20 transition-colors border-b border-border/40 last:border-0">
+                                            <TableCell className="px-6 py-5">
+                                                <p className="font-bold text-sm">{format(typeof txn.createdAt === 'string' ? parseISO(txn.createdAt) : txn.createdAt as any, 'do MMM, yyyy')}</p>
+                                                <p className="text-[10px] text-muted-foreground font-medium">{format(typeof txn.createdAt === 'string' ? parseISO(txn.createdAt) : txn.createdAt as any, 'HH:mm')}</p>
+                                            </TableCell>
+                                            <TableCell className="px-6 py-5">
+                                                <p className={cn(
+                                                    "font-black text-lg italic tracking-tighter",
+                                                    (txn.type === 'recharge' || txn.type === 'admin_credit' || txn.type === 'refund') ? "text-emerald-600" : "text-foreground"
+                                                )}>
+                                                    {(txn.type === 'recharge' || txn.type === 'admin_credit' || txn.type === 'refund') ? '+' : '-'}₹{(txn.amount || 0).toLocaleString('en-IN')}
+                                                </p>
+                                            </TableCell>
+                                            <TableCell className="px-6 py-5">
+                                                <Badge variant="outline" className="rounded-full px-3 py-0.5 font-bold text-[0.65rem] uppercase tracking-widest">
+                                                    {txn.description || txn.type}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right px-6 py-5">
+                                                <Badge className={cn(
+                                                    "rounded-full px-3 py-0.5 font-black text-[0.65rem] uppercase tracking-widest",
+                                                    (txn.status || 'success') === 'success' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
+                                                )}>
+                                                    {txn.status || 'success'}
+                                                </Badge>
+                                            </TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow>
                                             <TableCell colSpan={4} className="text-center h-48 text-muted-foreground font-medium italic">
                                                 <div className="flex flex-col items-center gap-3">
-                                                    <CreditCard className="w-10 h-10 opacity-20" />
-                                                    No payment history found.
+                                                    <Activity className="w-10 h-10 opacity-10" />
+                                                    No transactions recorded yet.
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -272,113 +413,144 @@ export default function SubscriptionPage() {
                             </Table>
                         </CardContent>
                     </Card>
-
-                    <Card className="border-border/40 shadow-sm overflow-hidden rounded-2xl bg-blue-500/[0.02] border-blue-500/10">
-                        <CardHeader className="p-6 flex flex-row items-center justify-between space-y-0">
-                            <CardTitle className="flex items-center gap-2 text-xl font-bold">
-                                <Receipt className="text-blue-500 w-6 h-6" /> Cycle Summary
-                            </CardTitle>
-                            {billingDetails && (
-                                <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                                    ₹{(billingDetails.currentCycle.totalAmount || 0).toLocaleString('en-IN')}
-                                </p>
-                            )}
-                        </CardHeader>
-                        <CardContent className="px-6 pb-6 pt-0">
-                            {isLoadingBill ? (
-                                <Skeleton className="h-8 w-full rounded-xl" />
-                            ) : billingDetails ? (
-                                <details className="group">
-                                    <summary className="list-none cursor-pointer">
-                                        <div className="flex items-center gap-2 text-xs font-bold text-blue-600/60 uppercase tracking-widest hover:text-blue-600 transition-colors">
-                                            <span>View Itemized Breakdown</span>
-                                            <ArrowRight className="w-3 h-3 group-open:rotate-90 transition-transform" />
-                                        </div>
-                                    </summary>
-                                    <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                        <div className="flex justify-between items-center text-sm py-1">
-                                            <span className="text-muted-foreground">Base Platform Fee</span>
-                                            <span className="font-bold">₹{(baseFee || 0).toLocaleString('en-IN')}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm py-1">
-                                            <span className="text-muted-foreground">Active Tenants ({billingDetails.details.billableTenantCount || 0})</span>
-                                            <span className="font-bold">₹{(billingDetails.currentCycle.tenantCharge || 0).toLocaleString('en-IN')}</span>
-                                        </div>
-                                        {Object.entries(billingDetails.currentCycle.premiumFeaturesDetails || {}).map(([key, feature]) => (
-                                            <div key={key} className="flex justify-between items-center text-sm py-1">
-                                                <span className="text-muted-foreground truncate">{feature.description}</span>
-                                                <span className="font-bold">₹{(feature.charge || 0).toLocaleString('en-IN')}</span>
-                                            </div>
-                                        ))}
-                                        {billingDetails.currentCycle.discountAmount && billingDetails.currentCycle.discountAmount > 0 && (
-                                            <div className="flex justify-between items-center text-sm py-1 text-emerald-600">
-                                                <span>Applied Discount</span>
-                                                <span className="font-bold">-₹{(billingDetails.currentCycle.discountAmount || 0).toLocaleString('en-IN')}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </details>
-                            ) : (
-                                <p className="text-muted-foreground italic text-center py-2 text-sm">Could not load details.</p>
-                            )}
-                        </CardContent>
-                    </Card>
                 </div>
 
                 {/* ─── Sidebar Column ──── */}
-                <div className="space-y-6">
-                    <Card className="hidden lg:block sticky top-24 border-primary/20 shadow-2xl shadow-primary/10 bg-gradient-to-br from-primary/[0.03] via-transparent to-primary/[0.01] rounded-3xl overflow-hidden">
-                        <CardHeader className="pb-3 bg-muted/10 border-b border-border/50 p-6">
-                            <CardTitle className="flex items-center gap-2 text-xl font-bold">
-                                <Wallet className="text-emerald-500 w-6 h-6" /> Wallet & Balance
+                <div className="space-y-6 lg:sticky lg:top-24">
+                    
+                    {/* Wallet Card */}
+                    <Card className="border-primary/20 shadow-2xl shadow-primary/10 bg-gradient-to-br from-primary/[0.04] via-transparent to-primary/[0.02] rounded-3xl overflow-hidden relative group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <Wallet className="w-24 h-24 rotate-12" />
+                        </div>
+                        <CardHeader className="pb-3 border-b border-border/50 bg-white/50 dark:bg-zinc-900/50 p-6 backdrop-blur-sm">
+                            <CardTitle className="flex items-center gap-2 text-xl font-black">
+                                <Wallet className="text-emerald-500 w-6 h-6" /> Your Wallet
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-6 p-6">
-                            <div className="text-center">
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Available Balance</p>
-                                <p className={`text-5xl font-black tracking-tight ${
-                                    walletBalance <= 0 ? 'text-red-600 dark:text-red-400' :
-                                    walletBalance <= PRICING_CONFIG.lowBalance.riskThreshold ? 'text-amber-600 dark:text-amber-400' :
-                                    'text-foreground'
-                                }`}>
-                                    ₹{(walletBalance || 0).toLocaleString('en-IN')}
-                                </p>
-                                <p className="text-xs text-muted-foreground font-medium mt-3 px-2">
-                                    {isTrialing ? '💎 No charges during trial' : `~${daysLeft} days of usage left`}
-                                </p>
+                        <CardContent className="space-y-6 p-6 relative z-10">
+                            <div className="text-center py-4">
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Available Balance</p>
+                                <div className="flex items-center justify-center gap-1">
+                                    <span className="text-2xl font-black text-muted-foreground/50 self-start mt-1">₹</span>
+                                    <p className={cn(
+                                        "text-6xl font-black tracking-tighter leading-none",
+                                        walletBalance <= 0 ? 'text-red-600' :
+                                        walletBalance <= PRICING_CONFIG.lowBalance.riskThreshold ? 'text-amber-600' :
+                                        'text-emerald-600'
+                                    )}>
+                                        {(walletBalance || 0).toLocaleString('en-IN')}
+                                    </p>
+                                </div>
+                                <div className="mt-6 inline-flex items-center gap-2 bg-white/80 dark:bg-zinc-900/80 px-4 py-2 rounded-2xl border shadow-sm">
+                                    <Calendar className="w-4 h-4 text-primary" />
+                                    <p className="text-xs font-black uppercase tracking-widest">
+                                        {isTrialing ? 'Unlimited during trial' : `~${daysLeft} Days Runway`}
+                                    </p>
+                                </div>
                             </div>
                             <Button 
-                                className="w-full font-black py-6 text-lg rounded-2xl shadow-xl shadow-primary/20 transform active:scale-[0.98] transition-all hover:brightness-110"
+                                className="w-full font-black py-7 text-lg rounded-2xl shadow-xl shadow-primary/25 bg-primary text-primary-foreground transform active:scale-[0.97] transition-all hover:brightness-110"
                                 onClick={() => setIsRechargeOpen(true)}
                             >
-                                <Plus className="w-6 h-6 mr-2" /> RECHARGE
+                                <Plus className="w-6 h-6 mr-2" /> ADD CREDITS
                             </Button>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-border/40 rounded-2xl shadow-sm overflow-hidden">
-                        <CardContent className="p-6 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold">Current Plan</span>
+                    {/* Plan Optimizer Card */}
+                    <Card className="border-indigo-500/20 rounded-3xl shadow-xl shadow-indigo-500/5 overflow-hidden bg-white dark:bg-zinc-950">
+                        <CardContent className="p-0">
+                            <div className="p-6 bg-indigo-600 text-white space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Current Tier</p>
+                                        <h3 className="text-2xl font-black">{planLabels[planType]}</h3>
+                                    </div>
+                                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                                        <Target className="w-6 h-6" />
+                                    </div>
                                 </div>
-                                <Badge className="rounded-full px-3 py-1 font-bold text-[0.65rem] uppercase tracking-widest">
-                                    {planLabels[planType] || 'Plan'}
-                                </Badge>
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 border-0 text-white font-black text-[10px] uppercase">
+                                        ₹{baseFee} Base
+                                    </Badge>
+                                    <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 border-0 text-white font-black text-[10px] uppercase">
+                                        ₹{perTenantFee}/Tenant
+                                    </Badge>
+                                </div>
                             </div>
-                            <Button 
-                                variant="outline" 
-                                className="w-full rounded-xl font-bold border-border/60"
-                                onClick={() => setIsSubDialogOpen(true)}
-                            >
-                                {planType === 'trial' ? 'Upgrade Plan' : 'Change Plan'} <ArrowRight className="w-4 h-4 ml-2" />
-                            </Button>
+
+                            <div className="p-6 space-y-6">
+                                {planType === 'monthly' && (
+                                    <div className="space-y-4">
+                                        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-3">
+                                            <div className="flex items-center gap-2 text-amber-600">
+                                                <TrendingDown className="w-4 h-4" />
+                                                <p className="text-xs font-black uppercase tracking-widest">Efficiency Alert</p>
+                                            </div>
+                                            <p className="text-xs font-medium text-amber-700/80 leading-relaxed">
+                                                Switching to <strong>Annual Pro</strong> will cut your per-tenant cost from ₹{PRICING_CONFIG.monthly.perTenant} to <strong>₹{PRICING_CONFIG.yearly.perTenant}</strong>.
+                                            </p>
+                                            <div className="pt-2">
+                                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Est. Monthly Saving</p>
+                                                <p className="text-xl font-black text-amber-700">₹{( (PRICING_CONFIG.monthly.perTenant - PRICING_CONFIG.yearly.perTenant) * (billingDetails?.details.billableTenantCount || 0) ).toLocaleString('en-IN')}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {planType === 'yearly' && (
+                                    <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 space-y-2">
+                                        <div className="flex items-center gap-2 text-emerald-600">
+                                            <Check className="w-4 h-4" />
+                                            <p className="text-xs font-black uppercase tracking-widest">Max Efficiency</p>
+                                        </div>
+                                        <p className="text-xs font-medium text-emerald-700/80 leading-relaxed">
+                                            You are already on our best rate. You are saving <strong>₹20/tenant</strong> every single month!
+                                        </p>
+                                    </div>
+                                )}
+
+                                <Button 
+                                    className="w-full rounded-2xl font-black py-6 shadow-lg shadow-indigo-600/10 transition-all hover:translate-y-[-1px]"
+                                    onClick={() => setIsSubDialogOpen(true)}
+                                    variant={planType === 'yearly' ? 'outline' : 'default'}
+                                >
+                                    {planType === 'trial' ? 'ACTIVATE FULL PLAN' : 'CHANGE COMMITMENT'} <ArrowRight className="w-4 h-4 ml-2" />
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
 
-
+                    {/* Billing Logic FAQ */}
+                    <Card className="border-border/40 rounded-3xl shadow-sm overflow-hidden bg-muted/20 border-dashed">
+                        <CardContent className="p-6 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-900 flex items-center justify-center text-muted-foreground border shadow-sm">
+                                    <Info className="w-4 h-4" />
+                                </div>
+                                <h4 className="font-black text-[10px] uppercase tracking-widest">How it works</h4>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black uppercase tracking-tight">Wallet Deduction</p>
+                                    <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
+                                        Daily charges (Base Fee/30 + Usage/30) are calculated and deducted automatically from your wallet at midnight.
+                                    </p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black uppercase tracking-tight">Active Tenant</p>
+                                    <p className="text-[10px] font-medium text-muted-foreground leading-relaxed">
+                                        You are only charged for "Active" tenants in the system. Empty beds are 100% free.
+                                    </p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>
     )
 }
+

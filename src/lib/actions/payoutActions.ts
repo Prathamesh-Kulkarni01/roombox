@@ -313,7 +313,7 @@ export async function addPayoutMethod(data: z.infer<typeof payoutAccountSchema>,
           razorpay_contact_id: contactId,
           razorpay_account_id: accountId, 
           payoutMethods: [...existingMethods, newMethod],
-          planId: owner.subscription?.planId || 'free',
+          planId: owner.subscription?.planId || 'trial',
           status: owner.subscription?.status || 'active',
         },
       };

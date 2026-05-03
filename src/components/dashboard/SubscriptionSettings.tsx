@@ -14,10 +14,11 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { format, parseISO } from "date-fns"
 import { Badge } from "@/components/ui/badge"
-import type { PremiumFeatures, BillingDetails, BillingCycleDetails } from '@/lib/types'
-import { getBillingDetails } from "@/lib/actions/billingActions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PRICING_CONFIG } from "@/lib/constants"
+import { getBillingDetails, getMonthlyInvoices } from "@/lib/actions/billingActions"
+import UsageBreakdownDialog from "@/components/billing/UsageBreakdownDialog"
+import type { MonthlyInvoice, BillingDetails, PremiumFeatures, BillingCycleDetails } from "@/lib/types"
 
 export default function SubscriptionSettings() {
     const dispatch = useAppDispatch();
@@ -27,22 +28,38 @@ export default function SubscriptionSettings() {
     const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
     const [billingDetails, setBillingDetails] = useState<BillingDetails | null>(null);
     const [isLoadingBill, setIsLoadingBill] = useState(true);
+    const [invoices, setInvoices] = useState<MonthlyInvoice[]>([]);
+    const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
+    const [selectedInvoice, setSelectedInvoice] = useState<MonthlyInvoice | null>(null);
+    const [isBreakdownOpen, setIsBreakdownOpen] = useState(false);
 
     useEffect(() => {
-        const fetchBillingDetails = async () => {
+        const fetchBillingData = async () => {
             if (!currentUser) return;
             setIsLoadingBill(true);
-            const result = await getBillingDetails(currentUser.id);
-            if (result.success && result.data) {
-                setBillingDetails(result.data);
+            setIsLoadingInvoices(true);
+            
+            const [billingResult, invoicesResult] = await Promise.all([
+                getBillingDetails(currentUser.id),
+                getMonthlyInvoices(currentUser.id)
+            ]);
+
+            if (billingResult.success && billingResult.data) {
+                setBillingDetails(billingResult.data);
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: 'Could not load billing details.' });
             }
+
+            if (invoicesResult.success && invoicesResult.data) {
+                setInvoices(invoicesResult.data);
+            }
+
             setIsLoadingBill(false);
+            setIsLoadingInvoices(false);
         };
         
         if (currentUser?.id) {
-            fetchBillingDetails();
+            fetchBillingData();
         }
     }, [currentUser?.id, toast]);
 
@@ -72,13 +89,13 @@ export default function SubscriptionSettings() {
             <h4 className="font-semibold">{title}</h4>
             {cycle.propertyCharge > 0 &&
                 <div className="flex justify-between text-sm">
-                    <span>Properties ({details.propertyCount} × ₹{details.pricingConfig.baseFee})</span>
+                    <span>Platform Base Fee</span>
                     <span>₹{cycle.propertyCharge.toLocaleString('en-IN')}</span>
                 </div>
             }
              {cycle.tenantCharge > 0 &&
                 <div className="flex justify-between text-sm">
-                    <span>Tenants ({details.billableTenantCount} × ₹{details.pricingConfig.perTenant})</span>
+                    <span>Tenants ({details.billableTenantCount} × ₹{cycle.perTenantFee})</span>
                     <span>₹{cycle.tenantCharge.toLocaleString('en-IN')}</span>
                 </div>
              }
@@ -127,29 +144,59 @@ export default function SubscriptionSettings() {
 
                     <Card className="border-border/40 shadow-sm">
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-xl"><History className="text-muted-foreground"/> Payment History</CardTitle>
+                            <CardTitle className="flex items-center gap-2 text-xl"><History className="text-muted-foreground"/> Billing History</CardTitle>
+                            <CardDescription>Review your monthly invoices and granular usage breakdowns.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <Table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
-                                        <TableHead>Date</TableHead>
+                                        <TableHead>Month</TableHead>
                                         <TableHead>Amount</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead className="text-right whitespace-nowrap">Invoice</TableHead>
+                                        <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {(currentUser.subscription?.paymentHistory || []).length > 0 ? currentUser.subscription?.paymentHistory?.map(payment => (
-                                        <TableRow key={payment.id}>
-                                            <TableCell className="font-medium">{format(parseISO(payment.date), 'do MMM, yyyy')}</TableCell>
-                                            <TableCell className="font-bold text-foreground">₹{payment.amount.toLocaleString('en-IN')}</TableCell>
-                                            <TableCell><Badge variant={payment.status === 'paid' ? 'default' : 'destructive'} className="rounded-full px-3">{payment.status}</Badge></TableCell>
-                                            <TableCell className="text-right"><Button variant="link" size="sm" className="font-bold">View</Button></TableCell>
+                                    {isLoadingInvoices ? (
+                                        [...Array(3)].map((_, i) => (
+                                            <TableRow key={i}>
+                                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                                <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                                <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                                                <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : invoices.length > 0 ? invoices.map(invoice => (
+                                        <TableRow key={invoice.id}>
+                                            <TableCell className="font-medium">
+                                                {format(parseISO(`${invoice.month}-01`), 'MMMM yyyy')}
+                                            </TableCell>
+                                            <TableCell className="font-bold text-foreground">₹{invoice.totalAmount.toLocaleString('en-IN')}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={invoice.status === 'paid' ? 'default' : 'secondary'} className="rounded-full px-3 uppercase text-[0.6rem] font-bold">
+                                                    {invoice.status.replace('_', ' ')}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="font-bold rounded-xl h-8 text-xs hover:bg-primary hover:text-white transition-all"
+                                                    onClick={() => {
+                                                        setSelectedInvoice(invoice);
+                                                        setIsBreakdownOpen(true);
+                                                    }}
+                                                >
+                                                    View Details
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     )) : (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">No payment history found.</TableCell>
+                                            <TableCell colSpan={4} className="text-center h-24 text-muted-foreground font-medium italic">
+                                                No billing history found.
+                                            </TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
@@ -189,6 +236,13 @@ export default function SubscriptionSettings() {
                     </Card>
                  </div>
             </div>
+
+            <UsageBreakdownDialog 
+                ownerId={currentUser.id}
+                invoice={selectedInvoice}
+                open={isBreakdownOpen}
+                onOpenChange={setIsBreakdownOpen}
+            />
         </div>
     )
 }

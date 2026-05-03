@@ -262,8 +262,8 @@ export default function PgManagementPage() {
                                                 </div>
                                             </TooltipTrigger>
                                             {(() => {
-                                                const planLimit = currentPlan?.id ? (currentPlan.id === 'free' ? 1 : 'unlimited') : 0;
-                                                return (pgs.length >= 1 && (currentPlan?.id === 'free')) ? (
+                                                const planLimit = currentPlan?.pgLimit ?? 0;
+                                                return (pgs.length >= 1 && (currentPlan?.id === 'trial')) ? (
                                                     <TooltipContent>
                                                         <p>You can only add 1 property on the {currentPlan?.name} plan. <Link href='/dashboard/settings' className='text-primary underline'>Upgrade to Pro</Link> to add more.</p>
                                                     </TooltipContent>

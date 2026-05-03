@@ -80,7 +80,10 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
     return app;
   } catch (error) {
     console.error('Error initializing Firebase Admin SDK:', error);
-    throw new Error('Failed to initialize Firebase Admin SDK. Check your service account key.');
+    if (error instanceof Error) {
+      console.error(error.stack);
+    }
+    throw error; // Rethrow original error for better debugging
   }
 };
 
