@@ -37,11 +37,11 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     if (params) {
       if (Array.isArray(params)) {
         params.forEach((arg, index) => {
-          text = text.replace(`{${index}}`, String(arg));
+          text = text.split(`{${index}}`).join(String(arg));
         });
       } else {
         Object.entries(params).forEach(([k, v]) => {
-          text = text.replace(new RegExp(`{${k}}`, 'g'), String(v));
+          text = text.split(`{${k}}`).join(String(v));
         });
       }
     }
