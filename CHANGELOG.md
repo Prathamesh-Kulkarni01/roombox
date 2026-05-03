@@ -1,3 +1,21 @@
+## Version 0.14.0 (5/1/2026, 1:06:41 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 23 +++++++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement centralized TenantService and automated rent reminder workflows
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+- chore: stabilize e2e auth tests, fix duplicate state entries, and enforce auth headers
+
+
 ## Version 0.13.0 (4/29/2026, 1:35:16 PM)
 
 ### 🔄 Semantic Impact Summary
