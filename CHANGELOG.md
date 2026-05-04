@@ -1,3 +1,21 @@
+## Version 0.21.0 (5/4/2026, 1:27:18 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 17 +++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement mobile-responsive dashboard navigation and supporting service modules
+- feat: implement dynamic role-based navigation system with accessible hooks, localized configuration, and responsive UI components
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.20.0 (5/4/2026, 12:33:22 PM)
 
 ### 🔄 Semantic Impact Summary
