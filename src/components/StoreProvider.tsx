@@ -54,11 +54,6 @@ import {
   usePermissionsStore,
   useKycConfigStore,
 } from "@/lib/stores/configStores";
-import {
-  fetchPermissions,
-  updatePermissions,
-  setPermissions as setReduxPermissions,
-} from "@/lib/slices/permissionsSlice";
 import { parseStaffPermissions } from "@/lib/parseStaffPermissions";
 import { initPushAndSaveToken, subscribeToTopic } from "@/lib/notifications";
 import { useRouter, usePathname } from "next/navigation";
