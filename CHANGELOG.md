@@ -1,3 +1,21 @@
+## Version 0.18.0 (5/4/2026, 6:59:28 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 18 ++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement domain models, tenant KYC page, and base dashboard layout
+- feat: add magic link endpoints for tenants and staff, Razorpay payout integration, and invite acceptance flow with StoreProvider support
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.17.0 (5/4/2026, 6:27:44 AM)
 
 ### 🔄 Semantic Impact Summary
