@@ -131,7 +131,7 @@ export default function Header() {
       const pendingKyc = filteredGuests.filter(g => !g.isVacated && g.kycStatus === 'pending').length;
       return pendingKyc > 0 ? { label: `${pendingKyc} Pending`, variant: 'warning' as const } : null;
     }
-    if (href === '/dashboard/pg-management') {
+    if (href === '/dashboard/pg-management' || href.startsWith('/dashboard/pg-management/')) {
       const totalRooms = (filteredPgs || []).reduce((acc, p) => acc + (p?.totalRooms || 0), 0);
       return totalRooms > 0 ? { label: `${totalRooms} Units`, variant: 'muted' as const } : null;
     }
@@ -376,6 +376,7 @@ export default function Header() {
                           const groupStyles: Record<string, { color: string, bg: string, icon: any, label: string }> = {
                             'nav_group_financial': { color: 'text-emerald-600', bg: 'bg-emerald-500/10', icon: CreditCard, label: 'Financials' },
                             'nav_group_core': { color: 'text-blue-600', bg: 'bg-blue-500/10', icon: LayoutDashboard, label: 'Management' },
+                            'nav_group_property': { color: 'text-indigo-600', bg: 'bg-indigo-500/10', icon: Building, label: 'Property' },
                             'nav_group_operations': { color: 'text-amber-600', bg: 'bg-amber-500/10', icon: UtensilsCrossed, label: 'Operations' },
                             'nav_group_growth': { color: 'text-violet-600', bg: 'bg-violet-500/10', icon: Sparkles, label: 'Growth' },
                           };

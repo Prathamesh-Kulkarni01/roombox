@@ -37,7 +37,7 @@ export function useAccessibleNav() {
     // If owner has no properties, guide them to create one (Dashboard, PG Management, Core, Training)
     if (hasNoProperties) {
       return item.href === '/dashboard' || 
-             item.href === '/dashboard/pg-management' || 
+             item.href.startsWith('/dashboard/pg-management') || 
              item.feature === 'core' ||
              item.href === '/dashboard/training';
     }
@@ -63,10 +63,24 @@ export function useAccessibleNav() {
     return !!item.feature && canViewFeature(featurePermissions, currentUser.role, item.feature);
   };
 
+  const { selectedPgId } = useAppSelector((state) => state.app);
+  
   const accessibleNavGroups = allNavItems
     .map(group => ({
       ...group,
-      items: group.items.filter(isItemAccessible)
+      items: group.items
+        .filter(isItemAccessible)
+        .map(item => {
+          // If we have a selected property, direct 'Rooms' link to that property's management page
+          if (item.href === '/dashboard/pg-management/rooms') {
+            const targetPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : null);
+            return {
+              ...item,
+              href: targetPgId ? `/dashboard/pg-management/${targetPgId}` : '/dashboard/pg-management'
+            };
+          }
+          return item;
+        })
     }))
     .filter(group => group.items.length > 0);
 

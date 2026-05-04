@@ -1,5 +1,5 @@
 
-import { Home, Building, Users, UserCircle, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, Globe, BookUser, CreditCard, BookOpen, IndianRupee, ShieldCheck, MessageCircle, Receipt } from 'lucide-react';
+import { Home, Building, Users, UserCircle, UtensilsCrossed, Wallet, Settings, MessageSquareWarning, Contact, Globe, BookUser, CreditCard, BookOpen, IndianRupee, ShieldCheck, MessageCircle, Receipt, BedDouble } from 'lucide-react';
 
 export interface NavItem {
     href: string;
@@ -29,10 +29,16 @@ export const allNavItems: NavGroup[] = [
     title: "nav_group_core",
     items: [
         { href: '/dashboard', label: 'nav_dashboard', icon: Home, feature: 'properties', tourId: 'dashboard-nav', description: 'nav_dashboard_desc' },
-        { href: '/dashboard/pg-management', label: 'nav_properties', icon: Building, feature: 'properties', tourId: 'pg-management-nav', description: 'nav_properties_desc' },
         { href: '/dashboard/tenant-management', label: 'nav_guests', icon: Users, feature: 'guests', description: 'nav_guests_desc' },
         { href: '/dashboard/kyc', label: 'nav_kyc', icon: ShieldCheck, feature: 'kyc', description: 'nav_kyc_desc' },
         { href: '/dashboard/staff', label: 'nav_staff', icon: Contact, feature: 'staff', description: 'nav_staff_desc' },
+    ]
+  },
+  {
+    title: "nav_group_property",
+    items: [
+        { href: '/dashboard/pg-management/rooms', label: 'manage_rooms_short', icon: BedDouble, feature: 'properties', tourId: 'rooms-nav', description: 'manage_rooms_desc' },
+        { href: '/dashboard/pg-management', label: 'nav_properties', icon: Building, feature: 'properties', tourId: 'properties-nav', description: 'nav_properties_desc' },
     ]
   },
   {

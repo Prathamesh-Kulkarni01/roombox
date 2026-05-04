@@ -39,15 +39,17 @@ export default function DashboardSidebar() {
               {index > 0 && <Separator className="my-2" />}
                <h4 className="px-3 py-2 text-xs font-semibold text-muted-foreground">{t(group.title as any)}</h4>
                {group.items.map(item => (
-                   <Link
-                      key={item.href}
-                      href={item.href}
-                      data-tour={item.tourId}
-                      className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground/80 transition-all hover:text-primary hover:bg-muted',
-                        (pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))) && 'bg-muted text-primary'
-                      )}
-                    >
+                    <Link
+                       key={item.href}
+                       href={item.href}
+                       data-tour={item.tourId}
+                       className={cn(
+                         'flex items-center gap-3 rounded-lg px-3 py-2 text-foreground/80 transition-all hover:text-primary hover:bg-muted',
+                         (item.href === '/dashboard' || item.href === '/dashboard/pg-management' 
+                           ? pathname === item.href 
+                           : (pathname === item.href || pathname.startsWith(item.href))) && 'bg-muted text-primary'
+                       )}
+                     >
                       <item.icon className="h-4 w-4" />
                       {t(item.label as any)}
                     </Link>
