@@ -1,3 +1,21 @@
+## Version 0.17.0 (5/4/2026, 6:27:44 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 17 +++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement user state management slice and property service layer for Firebase integration
+- feat: implement core dashboard components, error handling, state management, and service integration for property management.
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.16.0 (5/4/2026, 3:45:59 AM)
 
 ### 🔄 Semantic Impact Summary
