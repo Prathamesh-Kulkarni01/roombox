@@ -1,3 +1,20 @@
+## Version 0.22.0 (5/4/2026, 2:44:07 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 18 ++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement dashboard management hooks and UI architecture with guest, property, and payment modules
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.21.0 (5/4/2026, 1:27:18 PM)
 
 ### 🔄 Semantic Impact Summary
