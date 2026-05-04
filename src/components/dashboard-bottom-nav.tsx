@@ -140,16 +140,16 @@ export default function DashboardBottomNav() {
       feature: "properties",
     },
     {
-      href: "/dashboard/pg-management",
-      label: "nav_properties",
-      icon: Building,
-      feature: "properties",
-    },
-    {
       href: "/dashboard/rent-passbook",
       label: "nav_rentbook_short",
       icon: BookUser,
       feature: "finances",
+    },
+    {
+      href: "/dashboard/complaints",
+      label: "nav_complaints_short",
+      icon: MessageSquareWarning,
+      feature: "complaints",
     },
   ];
 
@@ -192,8 +192,9 @@ export default function DashboardBottomNav() {
       <nav className="grid grid-cols-5 h-16 items-center px-1">
         {visibleItems.map((item) => {
           const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
+            item.href === "/dashboard" ||
+            item.href === "/dashboard/pg-management"
+              ? pathname === item.href
               : pathname.startsWith(item.href);
           return (
             <Link

@@ -119,7 +119,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
                 plan: userData.subscription?.planId ? {
                     id: userData.subscription.planId,
                     status: userData.subscription.status
-                } : { id: 'free', status: 'active' } // Default to free if no subscription info
+                } : { id: 'trial', status: 'active' } // Default to trial if no subscription info
             };
         }
 
@@ -136,7 +136,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
                 plan: ownerData?.subscription?.planId ? {
                     id: ownerData.subscription.planId,
                     status: ownerData.subscription.status
-                } : { id: 'free', status: 'active' }
+                } : { id: 'trial', status: 'active' }
             };
         }
 

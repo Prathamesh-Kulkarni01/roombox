@@ -32,6 +32,18 @@ const initialState: UserState = {
     currentPlan: null,
 };
 
+// Helper: Resolve plan from user subscription
+const getPlanForUser = (user: User | null): Plan => {
+    if (!user) return plans.trial;
+    const sub = user.subscription;
+    if (!sub || sub.status === 'inactive') return plans.trial;
+    const isActive = sub.status === 'active' || sub.status === 'restricted';
+    const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(parseISO(sub.trialEndDate), new Date());
+    
+    if (sub.planId && plans[sub.planId]) return plans[sub.planId];
+    return (isActive || isTrialing) ? plans.monthly : plans.trial;
+};
+
 // Async Thunks
 export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: any; state: RootState }>(
     'user/initializeUser',
@@ -57,15 +69,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 userDoc = await getDoc(userDocRef);
             }
 
-            const getPlanForUser = (user: User): Plan => {
-                const sub = user.subscription;
-                if (!sub || sub.status === 'inactive') return plans.trial;
-                const isActive = sub.status === 'active' || sub.status === 'restricted';
-                const isTrialing = sub.status === 'trialing' && sub.trialEndDate && isAfter(parseISO(sub.trialEndDate), new Date());
-                
-                if (sub.planId && plans[sub.planId]) return plans[sub.planId];
-                return (isActive || isTrialing) ? plans.monthly : plans.trial;
-            };
+
 
             if (!userDoc.exists()) {
                 console.log(`[initializeUser] Creating new skeleton user doc for ${firebaseUser.uid}`);
@@ -448,20 +452,7 @@ const userSlice = createSlice({
                 state.currentUser = action.payload;
             }
 
-            if (state.currentUser) {
-                const sub = state.currentUser.subscription;
-                if (!sub || sub.status === 'inactive') {
-                    state.currentPlan = plans.trial;
-                } else {
-                    const isActive = sub.status === 'active' || sub.status === 'restricted';
-                    const trialEndDate = sub.trialEndDate;
-                    const isTrialing = sub.status === 'trialing' && trialEndDate && isAfter(parseISO(trialEndDate), new Date());
-                    const basePlanId: PlanName = sub.planId || ((isActive || isTrialing) ? 'monthly' : 'trial');
-                    state.currentPlan = { ...plans[basePlanId] };
-                }
-            } else {
-                state.currentPlan = null;
-            }
+            state.currentPlan = getPlanForUser(state.currentUser);
         },
         updateUserPlan: (state, action: PayloadAction<PlanName>) => {
             if (state.currentUser) {
@@ -478,19 +469,7 @@ const userSlice = createSlice({
             })
             .addCase(initializeUser.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
-                if (action.payload?.subscription) {
-                    const sub = action.payload.subscription;
-                    const isActive = sub.status === 'active' || sub.status === 'restricted';
-                    const trialEndDate = sub.trialEndDate;
-                    const isTrialing = sub.status === 'trialing' && trialEndDate && isAfter(parseISO(trialEndDate), new Date());
-                    const basePlanId: PlanName = sub.planId || ((isActive || isTrialing) ? 'monthly' : 'trial');
-                    state.currentPlan = { ...plans[basePlanId] };
-                } else if (action.payload?.role === 'unassigned') {
-                    state.currentPlan = plans.trial; // Assign a temporary plan
-                }
-                else {
-                    state.currentPlan = plans.trial;
-                }
+                state.currentPlan = getPlanForUser(action.payload);
             })
             .addCase(initializeUser.rejected, (state, action) => {
                 console.error("Initialize user rejected:", action.payload);

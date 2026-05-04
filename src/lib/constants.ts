@@ -145,5 +145,5 @@ export const plans: Record<PlanName, Plan> = {
     hasCloudSync: true,
     hasWebsiteBuilder: true,
     hasDedicatedDb: true,
-  }
+  },
 };

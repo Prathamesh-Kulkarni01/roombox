@@ -394,7 +394,9 @@ export default function Header() {
                               <div className="grid grid-cols-1 gap-1.5">
                                 {accessibleItems.map((item) => {
                                   const insight = getInsightForHref(item.href);
-                                  const isActive = pathname === item.href;
+                                  const isActive = item.href === '/dashboard' || item.href === '/dashboard/pg-management' 
+                                    ? pathname === item.href 
+                                    : (pathname === item.href || pathname.startsWith(item.href));
                                   
                                   // Special case for Wallet item to look more prominent
                                   const isWallet = item.href === '/dashboard/wallet';

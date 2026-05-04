@@ -76,7 +76,7 @@ export class PropertyService {
      * Handles floor/room generation if requested.
      */
     static async createProperty(db: Firestore, input: CreatePropertyInput & { planId?: string }, performer: PerformerInfo): Promise<any> {
-        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, bedsPerRoom = 1, amenities = [], images = [], planId = 'free' } = input;
+        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, bedsPerRoom = 1, amenities = [], images = [], planId = 'trial' } = input;
 
         // 1. Check PG Limit
         await PropertyService.checkPgLimit(db, ownerId, planId);
