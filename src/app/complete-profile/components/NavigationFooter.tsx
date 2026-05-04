@@ -6,11 +6,12 @@ import { motion } from 'framer-motion'
 
 interface NavigationFooterProps {
     onBack?: () => void
-    onNext: () => void
+    onNext?: () => void
     nextLabel?: string
     isNextDisabled?: boolean
     isLoading?: boolean
     showBack?: boolean
+    showNext?: boolean
     isFinal?: boolean
 }
 
@@ -21,6 +22,7 @@ export function NavigationFooter({
     isNextDisabled = false,
     isLoading = false,
     showBack = true,
+    showNext = true,
     isFinal = false
 }: NavigationFooterProps) {
     return (
@@ -39,26 +41,29 @@ export function NavigationFooter({
                     <div className="w-24 md:w-32" />
                 )}
 
-                <Button 
-                    type="button" 
-                    onClick={onNext} 
-                    disabled={isNextDisabled || isLoading}
-                    size="lg" 
-                    className={`
-                        ${isFinal ? 'w-full md:w-auto px-12' : 'w-full md:w-auto px-10'} 
-                        h-14 md:h-16 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-xl 
-                        ${isFinal ? 'shadow-primary/40 bg-primary' : 'shadow-primary/20'} 
-                        hover:scale-[1.02] active:scale-95 transition-all
-                    `}
-                >
-                    {isLoading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : isFinal ? (
-                        <>DEPLOY SYSTEM <Rocket className="w-5 h-5" /></>
-                    ) : (
-                        <>{nextLabel} <ChevronRight className="w-5 h-5" /></>
-                    )}
-                </Button>
+                {showNext && onNext && (
+                    <Button 
+                        type="button" 
+                        onClick={onNext} 
+                        disabled={isNextDisabled || isLoading}
+                        size="lg" 
+                        className={`
+                            ${isFinal ? 'w-full md:w-auto px-12' : 'w-full md:w-auto px-10'} 
+                            h-14 md:h-16 rounded-2xl font-black uppercase tracking-widest text-xs gap-3 shadow-xl 
+                            ${isFinal ? 'shadow-primary/40 bg-primary' : 'shadow-primary/20'} 
+                            hover:scale-[1.02] active:scale-95 transition-all
+                        `}
+                    >
+                        {isLoading ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : isFinal ? (
+                            <>DEPLOY SYSTEM <Rocket className="w-5 h-5" /></>
+                        ) : (
+                            <>{nextLabel} <ChevronRight className="w-5 h-5" /></>
+                        )}
+                    </Button>
+                )}
+                {!showNext && <div className="w-24 md:w-32" />}
             </div>
         </div>
     )

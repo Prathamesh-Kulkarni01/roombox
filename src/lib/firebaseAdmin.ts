@@ -69,7 +69,11 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
     } else {
       throw new Error('Missing Firebase Admin credentials. Please set FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, and FIREBASE_PROJECT_ID.');
     }
-    if (projectId) appOptions.projectId = projectId;
+    if (projectId) {
+      appOptions.projectId = projectId;
+    } else {
+      appOptions.projectId = fbProjectId || 'roombox-f7bff'; // Default fallback
+    }
     // Note: Admin SDK currently binds default database to the app; named databases can be handled at Firestore client level if needed.
 
     console.log(`[FirebaseAdmin] Initializing "${appName}" for project "${appOptions.projectId}" (Emulator: ${!!isEmulator})`);

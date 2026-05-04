@@ -86,7 +86,7 @@ const pgSchema = z.object({
 
 type PgFormValues = z.infer<typeof pgSchema>
 
-type OnboardingStep = 'OWNER_DETAILS' | 'PG_DETAILS' | 'LAYOUT_CONFIG' | 'REVIEW_FINAL'
+type OnboardingStep = 'ROLE_SELECTION' | 'OWNER_DETAILS' | 'PG_DETAILS' | 'LAYOUT_CONFIG' | 'REVIEW_FINAL'
 
 export default function CompleteProfilePage() {
     const router = useRouter()
@@ -98,7 +98,9 @@ export default function CompleteProfilePage() {
     const [uploadingImage, setUploadingImage] = useState(false);
     
     const [loadingRole, setLoadingRole] = useState<'owner' | null>(null)
-    const [activeStep, setActiveStep] = useState<OnboardingStep>('OWNER_DETAILS')
+    const [activeStep, setActiveStep] = useState<OnboardingStep>(
+        currentUser?.role === 'unassigned' ? 'ROLE_SELECTION' : 'OWNER_DETAILS'
+    )
 
     const form = useForm<PgFormValues>({
         resolver: zodResolver(pgSchema),
@@ -120,9 +122,24 @@ export default function CompleteProfilePage() {
 
     const currentValues = form.watch();
 
+    // Sync state once user is loaded
+    useEffect(() => {
+        if (currentUser) {
+            if (currentUser.role === 'unassigned' && activeStep === 'OWNER_DETAILS') {
+                setActiveStep('ROLE_SELECTION');
+            }
+            form.reset({
+                ...form.getValues(),
+                ownerName: form.getValues().ownerName || currentUser.name || '',
+                ownerPhone: form.getValues().ownerPhone || currentUser.phone || '',
+            });
+        }
+    }, [currentUser]);
+
     const progressValue = useMemo(() => {
         switch(activeStep) {
-            case 'OWNER_DETAILS': return 25;
+            case 'ROLE_SELECTION': return 10;
+            case 'OWNER_DETAILS': return 30;
             case 'PG_DETAILS': return 50;
             case 'LAYOUT_CONFIG': return 75;
             case 'REVIEW_FINAL': return 100;
@@ -227,15 +244,17 @@ export default function CompleteProfilePage() {
                         </div>
                     </div>
                     
-                    <div className="hidden md:flex items-center gap-10">
-                        <StepIndicator active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'LAYOUT_CONFIG', 'REVIEW_FINAL'].includes(activeStep)} label="Owner" index={1} />
-                        <div className="w-8 h-[2px] bg-muted/20" />
-                        <StepIndicator active={activeStep === 'PG_DETAILS'} completed={['LAYOUT_CONFIG', 'REVIEW_FINAL'].includes(activeStep)} label="Property" index={2} />
-                        <div className="w-8 h-[2px] bg-muted/20" />
-                        <StepIndicator active={activeStep === 'LAYOUT_CONFIG'} completed={activeStep === 'REVIEW_FINAL'} label="Layout" index={3} />
-                        <div className="w-8 h-[2px] bg-muted/20" />
-                        <StepIndicator active={activeStep === 'REVIEW_FINAL'} completed={false} label="Review" index={4} />
-                    </div>
+                    {activeStep !== 'ROLE_SELECTION' && (
+                        <div className="hidden md:flex items-center gap-10">
+                            <StepIndicator active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'LAYOUT_CONFIG', 'REVIEW_FINAL'].includes(activeStep)} label="Owner" index={1} />
+                            <div className="w-8 h-[2px] bg-muted/20" />
+                            <StepIndicator active={activeStep === 'PG_DETAILS'} completed={['LAYOUT_CONFIG', 'REVIEW_FINAL'].includes(activeStep)} label="Property" index={2} />
+                            <div className="w-8 h-[2px] bg-muted/20" />
+                            <StepIndicator active={activeStep === 'LAYOUT_CONFIG'} completed={activeStep === 'REVIEW_FINAL'} label="Layout" index={3} />
+                            <div className="w-8 h-[2px] bg-muted/20" />
+                            <StepIndicator active={activeStep === 'REVIEW_FINAL'} completed={false} label="Review" index={4} />
+                        </div>
+                    )}
 
                     <div className="flex items-center gap-3">
                         <WhatsAppSupport />
@@ -251,6 +270,89 @@ export default function CompleteProfilePage() {
                     <form onSubmit={form.handleSubmit(onPropertySubmit)} className="w-full max-w-4xl">
                         
                         <AnimatePresence mode="wait">
+                            {/* STEP 0: ROLE SELECTION */}
+                            {activeStep === 'ROLE_SELECTION' && (
+                                <motion.div
+                                    key="role-selection"
+                                    variants={stepVariants}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                    className="w-full max-w-4xl mx-auto px-4 text-center space-y-12"
+                                >
+                                    <div className="space-y-6">
+                                        <motion.div 
+                                            initial={{ scale: 0.5, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="w-24 h-24 rounded-[2.5rem] bg-gradient-to-tr from-primary to-primary/60 flex items-center justify-center shadow-2xl shadow-primary/30 mx-auto rotate-6"
+                                        >
+                                            <Sparkles className="w-12 h-12 text-primary-foreground -rotate-6" />
+                                        </motion.div>
+                                        <div className="space-y-2">
+                                            <h2 className="text-5xl md:text-6xl font-black tracking-tighter">Welcome to RentSutra</h2>
+                                            <p className="text-muted-foreground text-xl font-medium max-w-xl mx-auto">
+                                                To personalize your experience, please select how you'll be using the platform.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+                                        <Card 
+                                            onClick={handleOwnerSetup}
+                                            className={cn(
+                                                "relative group cursor-pointer border-2 transition-all duration-500 rounded-[3rem] overflow-hidden",
+                                                loadingRole === 'owner' ? "border-primary bg-primary/5" : "border-primary/5 hover:border-primary/20 bg-card/50 hover:bg-card hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.1)]"
+                                            )}
+                                        >
+                                            <CardContent className="p-10 space-y-8">
+                                                <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                                                    {loadingRole === 'owner' ? (
+                                                        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                                                    ) : (
+                                                        <Building2 className="w-10 h-10 text-primary" />
+                                                    )}
+                                                </div>
+                                                <div className="space-y-3 text-left">
+                                                    <h3 className="text-3xl font-black tracking-tight">Property Owner</h3>
+                                                    <p className="text-muted-foreground font-medium leading-relaxed">
+                                                        Manage multiple properties, collect rent automatically, and track expenses.
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center justify-between pt-4 border-t border-primary/5">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Get Started</span>
+                                                    <ChevronRight className="w-5 h-5 text-primary group-hover:translate-x-2 transition-transform" />
+                                                </div>
+                                            </CardContent>
+                                            {loadingRole === 'owner' && (
+                                                <div className="absolute inset-0 bg-background/20 backdrop-blur-[2px] flex items-center justify-center" />
+                                            )}
+                                        </Card>
+
+                                        <Card className="relative opacity-60 border-dashed border-2 border-muted-foreground/20 rounded-[3rem] bg-muted/5">
+                                            <CardContent className="p-10 space-y-8">
+                                                <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center">
+                                                    <Users className="w-10 h-10 text-muted-foreground" />
+                                                </div>
+                                                <div className="space-y-3 text-left">
+                                                    <h3 className="text-3xl font-black tracking-tight text-muted-foreground">Guest / Tenant</h3>
+                                                    <p className="text-muted-foreground font-medium leading-relaxed">
+                                                        Access through owner invite to pay rent, raise complaints, and view receipts.
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center justify-between pt-4 border-t border-muted-foreground/5">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Coming Soon</span>
+                                                    <Info className="w-4 h-4" />
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+
+                                    <div className="pt-12 text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground/40">
+                                        Secure Enterprise Infrastructure • Powered by RentSutra
+                                    </div>
+                                </motion.div>
+                            )}
+
                             {/* STEP 1: OWNER DETAILS (previously STEP 2) */}
                             {activeStep === 'OWNER_DETAILS' && (
                                 <motion.div 
@@ -812,6 +914,7 @@ export default function CompleteProfilePage() {
                         {/* PERSISTENT BOTTOM NAVIGATION */}
                         <NavigationFooter 
                             onNext={
+                                activeStep === 'ROLE_SELECTION' ? undefined :
                                 activeStep === 'OWNER_DETAILS' ? validateProfile :
                                 activeStep === 'PG_DETAILS' ? validateBasics :
                                 activeStep === 'LAYOUT_CONFIG' ? validateLayout :
@@ -823,7 +926,8 @@ export default function CompleteProfilePage() {
                                 activeStep === 'REVIEW_FINAL' ? () => setActiveStep('LAYOUT_CONFIG') :
                                 undefined
                             }
-                            showBack={activeStep !== 'OWNER_DETAILS'}
+                            showBack={activeStep !== 'OWNER_DETAILS' && activeStep !== 'ROLE_SELECTION'}
+                            showNext={activeStep !== 'ROLE_SELECTION'}
                             nextLabel={
                                 activeStep === 'OWNER_DETAILS' ? "Next Step" :
                                 activeStep === 'PG_DETAILS' ? "Continue" :
