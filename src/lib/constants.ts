@@ -22,7 +22,7 @@ export const PRICING_CONFIG = {
         perTenant: 10, // ₹10 per tenant per month
     },
     trial: {
-        credit: 500,
+        credit: 60,
         durationDays: 90,
         includedWhatsappCredits: 150,
     },
