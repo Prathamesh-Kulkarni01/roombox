@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { unauthorized, badRequest, notFound } from '@/lib/api/apiError';
 
 export async function POST(request: NextRequest) {
     try {
         const { ownerId, error } = await getVerifiedOwnerId(request);
-        if (!ownerId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        if (!ownerId) return unauthorized(error);
 
         const body = await request.json();
         const { staffId, phone } = body;
 
         if (!staffId || !phone) {
-            return NextResponse.json({ success: false, error: 'staffId and phone are required.' }, { status: 400 });
+            return badRequest('staffId and phone are required.');
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
@@ -21,10 +22,10 @@ export async function POST(request: NextRequest) {
         // Fetch Staff Data
         const staffDoc = await db.collection('users_data').doc(ownerId).collection('staff').doc(staffId).get();
         if (!staffDoc.exists) {
-            return NextResponse.json({ success: false, error: 'Staff member not found.' }, { status: 404 });
+            return notFound('Staff member not found.');
         }
         const staffData = staffDoc.data()!;
-        const pgName = staffData.pgName || 'RentSutra';
+        const pgName = staffData.pgName || 'Roombox';
 
         // Generate Magic Link for STAFF role
         const { magicLink, inviteCode } = await TenantService.generateMagicLink(appDb, staffId, phone, ownerId, pgName, 'staff');

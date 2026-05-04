@@ -284,9 +284,26 @@ function AuthHandler({ children }: { children: ReactNode }) {
             const collRef = collection(dbInstance, 'users_data', ownerIdForFetching, collectionName);
             const unsub = onSnapshot(collRef, snapshot => {
               let data = snapshot.docs.map(doc => doc.data());
-              if (collectionName === 'pgs' && currentUser.role !== 'owner' && currentUser.pgIds) {
-                data = data.filter(pg => currentUser.pgIds?.includes((pg as PG).id));
+
+              // For non-owners (staff), restrict data to their assigned PGs only
+              const isStaffRole = currentUser.role !== 'owner' && currentUser.role !== 'admin';
+              const assignedPgIds = currentUser.pgIds;
+
+              if (isStaffRole && assignedPgIds && assignedPgIds.length > 0) {
+                if (collectionName === 'pgs') {
+                  data = data.filter(pg => assignedPgIds.includes((pg as PG).id));
+                } else if (collectionName === 'guests') {
+                  data = data.filter(g => assignedPgIds.includes((g as any).pgId));
+                } else if (collectionName === 'complaints') {
+                  data = data.filter(c => assignedPgIds.includes((c as any).pgId));
+                } else if (collectionName === 'expenses') {
+                  data = data.filter(e => assignedPgIds.includes((e as any).pgId));
+                } else if (collectionName === 'staff') {
+                  // Show all staff so they can see colleagues — but this could be tightened if needed
+                  data = data.filter(s => ((s as any).pgIds || []).some((id: string) => assignedPgIds.includes(id)));
+                }
               }
+
               if (collectionName === 'pgs') dispatch(validateSelectedPg(data.map(pg => (pg as PG).id)));
               if (['complaints', 'expenses'].includes(collectionName)) {
                 data.sort((a, b) => new Date((b as any).date).getTime() - new Date((a as any).date).getTime());

@@ -93,7 +93,7 @@ export default function InvitePage() {
                         Welcome to {pgName}
                     </CardTitle>
                     <CardDescription className="text-lg">
-                        Your host has invited you to join the digital community on RentSutra.
+                        Your host has invited you to join the digital community on Roombox.
                     </CardDescription>
                 </CardHeader>
 

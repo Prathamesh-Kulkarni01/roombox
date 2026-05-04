@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { unauthorized, badRequest, notFound } from '@/lib/api/apiError';
 
 export async function POST(request: NextRequest) {
     try {
         const { ownerId, error } = await getVerifiedOwnerId(request);
-        if (!ownerId) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        if (!ownerId) return unauthorized(error);
 
         const body = await request.json();
         const { guestId, phone } = body;
 
         if (!guestId || !phone) {
-            return NextResponse.json({ success: false, error: 'guestId and phone are required.' }, { status: 400 });
+            return badRequest('guestId and phone are required.');
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
@@ -21,10 +22,10 @@ export async function POST(request: NextRequest) {
         // Fetch Guest Data to get PG name
         const guestDoc = await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
         if (!guestDoc.exists) {
-            return NextResponse.json({ success: false, error: 'Guest not found.' }, { status: 404 });
+            return notFound('Guest not found.');
         }
         const guestData = guestDoc.data()!;
-        const pgName = guestData.pgName || 'RentSutra';
+        const pgName = guestData.pgName || 'Roombox';
 
         // Generate Magic Link
         const { magicLink, inviteCode } = await TenantService.generateMagicLink(appDb, guestId, phone, ownerId, pgName);

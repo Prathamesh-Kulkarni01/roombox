@@ -3,6 +3,7 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import Razorpay from "razorpay";
 import { User } from '@/lib/types';
+import { unauthorized, badRequest, notFound, serverError } from '@/lib/api/apiError';
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
@@ -20,25 +21,25 @@ export async function POST(req: NextRequest) {
     const { ownerId: verifiedOwnerId, error: authError } = await getVerifiedOwnerId(req);
     
     if (!verifiedOwnerId) {
-      return NextResponse.json({ error: authError || "Unauthorized" }, { status: 401 });
+      return unauthorized(authError);
     }
 
     const body = await req.json();
     const { accountDetails } = body;
 
     if (!accountDetails) {
-      return NextResponse.json({ error: "Missing accountDetails" }, { status: 400 });
+      return badRequest('Missing accountDetails');
     }
 
     if (!["bank_account", "vpa"].includes(accountDetails.payoutMethod)) {
-      return NextResponse.json({ error: "Invalid payout method" }, { status: 400 });
+      return badRequest('Invalid payout method');
     }
 
     const db = await getAdminDb();
     const ownerDoc = await db.collection('users').doc(verifiedOwnerId).get();
     
     if (!ownerDoc.exists) {
-      return NextResponse.json({ error: "Owner not found" }, { status: 404 });
+      return notFound('Owner not found');
     }
 
     const owner = ownerDoc.data() as User;
