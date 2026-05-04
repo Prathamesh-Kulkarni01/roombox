@@ -7,6 +7,7 @@ import type { User } from '../types'
 import { getAdminDb } from '../firebaseAdmin'
 import { calculateOwnerBill } from './billingActions'
 import { getVerifiedOwnerIdFromHeaders } from '../auth-server'
+import { PRICING_CONFIG } from '../constants'
 
 let razorpayInstance: any = null;
 function getRazorpay() {
@@ -22,84 +23,94 @@ function getRazorpay() {
   return razorpayInstance;
 }
 
-// A fixed plan ID for the base subscription on Razorpay.
-// This plan should be created manually in your Razorpay dashboard with ₹0 cost.
-const BASE_PLAN_ID = process.env.RAZORPAY_BASE_PLAN_ID || 'plan_base_monthly';
-
 /**
- * Creates a base subscription for the authenticated user on Razorpay.
- * This subscription has a ₹0 cost and serves as the anchor for monthly addons.
+ * Creates a Razorpay order for a wallet recharge.
  */
-export async function createRazorpaySubscription(token?: string) {
+export async function createRazorpayOrder(amount: number, token?: string) {
   try {
     const { ownerId: userId, error: authError } = await getVerifiedOwnerIdFromHeaders(token);
     if (!userId) return { success: false, error: authError || 'Unauthorized' };
 
-    // Check if the base plan exists on Razorpay
-    try {
-       await getRazorpay().plans.fetch(BASE_PLAN_ID);
-    } catch(fetchError: any) {
-        if (fetchError.statusCode === 404) {
-            console.error(`FATAL: Razorpay plan with ID "${BASE_PLAN_ID}" not found. Please create it in your Razorpay dashboard.`);
-            return { success: false, error: 'Base subscription plan is not configured.' };
-        }
-        throw fetchError;
+    if (amount < 1) {
+      return { success: false, error: 'Invalid recharge amount.' };
     }
-      
-    const subscription = await getRazorpay().subscriptions.create({
-      plan_id: BASE_PLAN_ID,
-      customer_notify: 1,
-      quantity: 1,
-      total_count: 120, // Keep it long-running, e.g., 10 years
+
+    const order = await getRazorpay().orders.create({
+      amount: amount * 100, // Razorpay expects amount in paise
+      currency: 'INR',
+      receipt: `recharge_${userId}_${Date.now()}`,
       notes: {
         userId: userId,
-        type: 'base_subscription'
+        type: 'wallet_recharge',
+        amount: amount
       },
     });
 
-    return { success: true, subscription };
+    return { success: true, order };
   } catch (error: any) {
-    console.error('Razorpay base subscription creation failed:', error);
-    return { success: false, error: 'Could not create base subscription on payment gateway.' };
+    console.error('Razorpay order creation failed:', error);
+    return { success: false, error: 'Could not create payment order.' };
   }
 }
 
 /**
- * Verifies the initial base subscription payment and updates the user record.
+ * Verifies a Razorpay payment for a wallet recharge.
  */
-export async function verifySubscriptionPayment(data: {
+export async function verifyPayment(data: {
+  razorpay_order_id: string
   razorpay_payment_id: string
-  razorpay_subscription_id: string
   razorpay_signature: string
 }, token?: string) {
-  const { razorpay_subscription_id, razorpay_payment_id, razorpay_signature } = data;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = data;
   
   try {
     const { ownerId: userId, error: authError } = await getVerifiedOwnerIdFromHeaders(token);
     if (!userId) return { success: false, error: authError || 'Unauthorized' };
 
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
     const generated_signature = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
-      .update(razorpay_payment_id + '|' + razorpay_subscription_id)
+      .update(body)
       .digest('hex');
 
     if (generated_signature !== razorpay_signature) {
       return { success: false, error: 'Payment verification failed. Signature mismatch.' };
     }
 
-    // Signature is valid, update user's subscription in Firestore using Admin SDK
+    // Signature is valid, fetch the order to get the amount
+    const order = await getRazorpay().orders.fetch(razorpay_order_id);
+    const amount = order.amount / 100; // Convert back from paise
+
+    // Process the recharge in our wallet system
+    const { processRecharge } = await import('./walletActions');
+    const rechargeResult = await processRecharge({
+      ownerId: userId,
+      amount: amount,
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id,
+      provider: 'razorpay'
+    });
+
+    if (!rechargeResult.success) {
+      return { success: false, error: rechargeResult.error || 'Failed to credit wallet.' };
+    }
+
+    // Update user's subscription status if it was restricted
     const adminDb = await getAdminDb();
     const userDocRef = adminDb.collection('users').doc(userId);
-    await userDocRef.update({
-        'subscription.status': 'active',
-        'subscription.planId': 'pro',
-        'subscription.razorpay_subscription_id': razorpay_subscription_id,
-        'subscription.razorpay_payment_id': razorpay_payment_id, // For the initial setup
-    });
+    const userDoc = await userDocRef.get();
+    const userData = userDoc.data() as User;
+
+    if (userData.subscription?.status === 'restricted') {
+        await userDocRef.update({
+            'subscription.status': 'active'
+        });
+    }
+
     return { success: true };
   } catch (error) {
-    console.error("Error updating user subscription:", error);
-    return { success: false, error: 'Failed to update subscription status in our system.' };
+    console.error("Error verifying payment:", error);
+    return { success: false, error: 'Failed to verify payment.' };
   }
 }
 

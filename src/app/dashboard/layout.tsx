@@ -21,35 +21,7 @@ import { useRouteGuard } from '@/hooks/useRouteGuard';
 
 
 
-const SubscriptionGate = () => (
-  <div className="flex items-center justify-center h-full">
-    <div className="text-center p-8 bg-card rounded-lg border max-w-lg">
-      <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-      <h2 className="mt-4 text-2xl font-semibold">Your Trial Has Ended</h2>
-      <p className="mt-2 text-muted-foreground">
-        Please subscribe to a plan to continue managing your properties and access all features.
-      </p>
-      <Button className="mt-6" asChild>
-        <Link href="/dashboard/settings">Choose Your Plan</Link>
-      </Button>
-    </div>
-  </div>
-);
 
-const TrialBanner = ({ trialEndDate }: { trialEndDate: string }) => {
-  const daysLeft = differenceInDays(parseISO(trialEndDate), new Date());
-  return (
-    <div className="bg-accent text-accent-foreground p-3 text-center text-sm font-medium mb-6 rounded-lg">
-      <p>
-        <Star className="w-4 h-4 inline-block mr-2" />
-        You are on a Pro trial. {daysLeft > 0 ? `You have ${daysLeft} day(s) left.` : 'Your trial ends today.'}
-        <Button variant="link" asChild className="text-accent-foreground h-auto p-0 pl-2 underline">
-          <Link href="/dashboard/settings">Upgrade Now</Link>
-        </Button>
-      </p>
-    </div>
-  );
-};
 
 
 export default function DashboardLayout({
@@ -110,9 +82,6 @@ export default function DashboardLayout({
   }
 
   const isOwner = currentUser?.role === 'owner';
-  const showSubscriptionGate = isOwner && currentPlan && currentPlan.id === 'trial' && currentUser.subscription?.status !== 'active' && currentUser.subscription?.status !== 'trialing' && pathname !== '/dashboard/settings';
-
-  const showTrialBanner = currentUser?.subscription?.status === 'trialing' && currentUser.subscription?.trialEndDate && isAfter(parseISO(currentUser.subscription.trialEndDate), new Date());
 
   return (
     <>
@@ -120,36 +89,7 @@ export default function DashboardLayout({
         <DashboardSidebar />
         <div className="flex flex-1 flex-col overflow-auto">
           <main className="flex-1 p-4 pb-20 md:pb-4 overflow-x-hidden">
-            {showTrialBanner && <TrialBanner trialEndDate={currentUser.subscription!.trialEndDate!} />}
-            
-            {showSubscriptionGate ? (
-              <div className="flex-1 flex items-center justify-center p-6 min-h-[70vh]">
-                <Card className="max-w-md w-full p-8 text-center space-y-6 shadow-xl border-t-4 border-t-primary">
-                  <div className="flex justify-center">
-                    <div className="p-4 bg-primary/10 rounded-full">
-                      <Crown className="h-12 w-12 text-primary animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <h1 className="text-3xl font-bold font-headline">{t('trial_ended_title')}</h1>
-                    <p className="text-muted-foreground">{t('trial_ended_description')}</p>
-                  </div>
-                  
-                  <div className="pt-4 flex flex-col gap-3">
-                    <Button asChild size="lg" className="w-full font-semibold shadow-lg shadow-primary/20">
-                      <Link href="/dashboard/settings?tab=subscription">
-                        {t('choose_plan_button')}
-                      </Link>
-                    </Button>
-                    <Button variant="outline" onClick={() => dispatch(logoutUser())} className="w-full">
-                      {t('logout')}
-                    </Button>
-                  </div>
-                </Card>
-              </div>
-            ) : (
-              children
-            )}
+            {children}
           </main>
         </div>
         <DashboardBottomNav />

@@ -369,7 +369,7 @@ export type PlanPermissions = { [feature: string]: PlanFeatureActions };
  * Matrix of allowed actions per feature for each plan
  */
 export const planPermissionConfig: Record<string, PlanPermissions> = {
-  pro: { // 'pro' represents any active subscription or trial
+  pro: { 
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
@@ -377,7 +377,51 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     food: { view: true, edit: true },
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
-    seo: { use: true }, // Unlocked by default in the new model (or gated as add-on in UI)
+    seo: { use: true },
+    kyc: { view: true, edit: true, add: true },
+  },
+  trial: { 
+    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
+    guests: { view: true, add: true, edit: true, delete: true },
+    finances: { view: true, add: true },
+    complaints: { view: true, edit: true, add: true },
+    food: { view: true, edit: true },
+    staff: { view: true, add: true, edit: true, delete: true },
+    website: { view: true, edit: true },
+    seo: { use: true },
+    kyc: { view: true, edit: true, add: true },
+  },
+  monthly: { 
+    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
+    guests: { view: true, add: true, edit: true, delete: true },
+    finances: { view: true, add: true },
+    complaints: { view: true, edit: true, add: true },
+    food: { view: true, edit: true },
+    staff: { view: true, add: true, edit: true, delete: true },
+    website: { view: true, edit: true },
+    seo: { use: true },
+    kyc: { view: true, edit: true, add: true },
+  },
+  sixMonth: { 
+    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
+    guests: { view: true, add: true, edit: true, delete: true },
+    finances: { view: true, add: true },
+    complaints: { view: true, edit: true, add: true },
+    food: { view: true, edit: true },
+    staff: { view: true, add: true, edit: true, delete: true },
+    website: { view: true, edit: true },
+    seo: { use: true },
+    kyc: { view: true, edit: true, add: true },
+  },
+  yearly: { 
+    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
+    guests: { view: true, add: true, edit: true, delete: true },
+    finances: { view: true, add: true },
+    complaints: { view: true, edit: true, add: true },
+    food: { view: true, edit: true },
+    staff: { view: true, add: true, edit: true, delete: true },
+    website: { view: true, edit: true },
+    seo: { use: true },
     kyc: { view: true, edit: true, add: true },
   },
 };
@@ -387,7 +431,10 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
  */
 export const planLimitsConfig: Record<string, { pgs: number | 'unlimited', floors: number | 'unlimited', guests: number | 'unlimited' }> = {
   pro: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
-  trial: { pgs: 1, floors: 'unlimited', guests: 5 },
+  trial: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
+  monthly: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
+  sixMonth: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
+  yearly: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
 };
 
 /**

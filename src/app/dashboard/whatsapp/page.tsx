@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { IndianRupee, MessageCircle, Info, Settings, History, Wallet, User, Bell, FileText, CheckCircle, UserPlus, LogOut, AlertCircle, BarChart, Plus, Loader2, Smartphone, Check } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog';
+
 import { useAppSelector } from '@/lib/hooks';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -54,7 +54,7 @@ const notificationEvents = [
 export default function WhatsAppPage() {
     const { currentUser, currentPlan } = useAppSelector(state => state.user);
     const dispatch = useDispatch();
-    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
+
     const [isRecharging, setIsRecharging] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
@@ -259,22 +259,19 @@ export default function WhatsAppPage() {
 
     if (currentPlan && !currentPlan.hasAutomatedWhatsapp) {
         return (
-            <>
-                <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
-                <Card>
-                    <CardHeader>
-                        <CardTitle>WhatsApp Automation</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
-                            <MessageCircle className="mx-auto h-12 w-12 text-primary" />
-                            <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                            <p className="mt-2 text-muted-foreground max-w-sm">WhatsApp Automation is a premium feature. Please upgrade your plan to automate your communications.</p>
-                            <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </>
+            <Card>
+                <CardHeader>
+                    <CardTitle>WhatsApp Automation</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                        <MessageCircle className="mx-auto h-12 w-12 text-primary" />
+                        <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                        <p className="mt-2 text-muted-foreground max-w-sm">WhatsApp Automation is a premium feature. Please recharge your wallet to automate your communications.</p>
+                        <Button className="mt-4" onClick={() => window.location.href = '/dashboard/wallet'}>Go to Wallet</Button>
+                    </div>
+                </CardContent>
+            </Card>
         )
     }
 

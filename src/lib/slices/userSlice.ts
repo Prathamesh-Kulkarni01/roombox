@@ -254,8 +254,8 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                     whatsappCredits: PRICING_CONFIG.trial.includedWhatsappCredits
                 },
                 wallet: {
-                    balance: 0,
-                    trialBalance: 0,
+                    balance: PRICING_CONFIG.trial.credit,
+                    trialBalance: PRICING_CONFIG.trial.credit,
                     rechargeBalance: 0,
                     dues: 0,
                 },
@@ -363,8 +363,8 @@ export const disassociateAndCreateOwnerAccount = createAsyncThunk<User, void, { 
                 whatsappCredits: PRICING_CONFIG.trial.includedWhatsappCredits
             },
             wallet: {
-                balance: 0,
-                trialBalance: 0,
+                balance: PRICING_CONFIG.trial.credit,
+                trialBalance: PRICING_CONFIG.trial.credit,
                 rechargeBalance: 0,
                 dues: 0,
             },

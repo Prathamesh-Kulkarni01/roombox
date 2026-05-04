@@ -25,7 +25,7 @@ import { saveSiteConfig, getSiteConfigForOwner, deleteSiteConfig, updateSiteStat
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog'
+
 import { uploadDataUriToStorage } from '@/lib/storage'
 import { FileUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -81,7 +81,7 @@ export default function WebsiteBuilderPage() {
     const [viewMode, setViewMode] = useState<'loading' | 'ready'>('loading');
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
+
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
 
@@ -268,22 +268,21 @@ export default function WebsiteBuilderPage() {
 
     if (currentPlan && !currentPlan.hasWebsiteBuilder) {
         return (
-            <>
-                <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
-                <Card>
-                    <CardHeader>
-                        <CardTitle>App & Website Builder</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
-                            <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
-                            <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                            <p className="mt-2 text-muted-foreground max-w-sm">The Website Builder is a premium feature. Please upgrade your plan to create a public website for your properties.</p>
-                            <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </>
+            <Card>
+                <CardHeader>
+                    <CardTitle>App & Website Builder</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
+                        <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
+                        <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
+                        <p className="mt-2 text-muted-foreground max-w-sm">The Website Builder is a premium feature. Please recharge your wallet to access this feature.</p>
+                        <Button className="mt-4" asChild>
+                            <Link href="/dashboard/wallet">Go to Wallet</Link>
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
         )
     }
 

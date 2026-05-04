@@ -32,7 +32,6 @@ import { updatePermissions as updateRolePermissionsAction } from '@/lib/slices/p
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { canAccess } from '@/lib/permissions';
-import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog'
 import { useToast } from "@/hooks/use-toast"
 import MultiSelect from '@/components/dashboard/add-room/MultiSelect'
 
@@ -122,7 +121,6 @@ export default function StaffPage() {
     const { featurePermissions, updatePermissions: savePermissions } = usePermissionsStore();
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null)
-    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false)
 
     // Permissions State
     const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
@@ -296,7 +294,6 @@ export default function StaffPage() {
     if (!currentPlan?.hasStaffManagement) {
         return (
             <>
-                <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
                 <Card>
                     <CardHeader>
                         <CardTitle>Staff Management</CardTitle>
@@ -305,8 +302,8 @@ export default function StaffPage() {
                         <div className="flex flex-col items-center justify-center text-center p-8 bg-muted/50 rounded-lg border">
                             <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
                             <h2 className="mt-4 text-xl font-semibold">Feature Not Available</h2>
-                            <p className="mt-2 text-muted-foreground max-w-sm">Staff Management is a premium feature. Please upgrade your plan to add and manage your team.</p>
-                            <Button className="mt-4" onClick={() => setIsSubDialogOpen(true)}>Upgrade Plan</Button>
+                            <p className="mt-2 text-muted-foreground max-w-sm">Staff Management is a premium feature. Please visit your wallet to manage your plan.</p>
+                            <Button className="mt-4" onClick={() => router.push('/dashboard/wallet')}>Go to Wallet</Button>
                         </div>
                     </CardContent>
                 </Card>

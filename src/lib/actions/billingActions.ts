@@ -10,6 +10,7 @@ import type {
 import { getAdminDb } from '../firebaseAdmin'
 import { PRICING_CONFIG } from '../constants'
 import { debitWallet, addBillingLedgerEntry } from './walletActions'
+import { getVerifiedOwnerIdFromHeaders } from '../auth-server'
 
 
 /**
@@ -238,13 +239,17 @@ export async function createRazorpaySubscription(userId: string) {
     key_secret: process.env.RAZORPAY_KEY_SECRET!,
   });
   try {
-    const BASE_PLAN_ID = process.env.RAZORPAY_BASE_PLAN_ID || 'plan_base_monthly';
+    const BASE_PLAN_ID = process.env.RAZORPAY_BASE_PLAN_ID;
+    if (!BASE_PLAN_ID) {
+        console.error('FATAL: RAZORPAY_BASE_PLAN_ID is not set in environment variables.');
+        return { success: false, error: 'Payment configuration error.' };
+    }
     // Check if the base plan exists on Razorpay
     try {
       await razorpay.plans.fetch(BASE_PLAN_ID);
     } catch (fetchError: any) {
       if (fetchError.statusCode === 404) {
-        console.error(`FATAL: Razorpay plan with ID "${BASE_PLAN_ID}" not found. Please create it in your Razorpay dashboard.`);
+        console.error(`FATAL: Razorpay plan with ID "${BASE_PLAN_ID}" not found.`);
         return { success: false, error: 'Base subscription plan is not configured.' };
       }
       throw fetchError;
@@ -308,8 +313,13 @@ export async function verifySubscriptionPayment(data: {
 /**
  * Updates the user's commitment tier and per-tenant rate.
  */
-export async function updateCommitmentTier(ownerId: string, planType: BillingPlanType) {
+export async function updateCommitmentTier(ownerId: string, planType: BillingPlanType, token?: string) {
     try {
+        const { ownerId: verifiedOwnerId, error: authError } = await getVerifiedOwnerIdFromHeaders(token);
+        if (!verifiedOwnerId || (verifiedOwnerId !== ownerId)) {
+            return { success: false, error: authError || 'Unauthorized' };
+        }
+
         const adminDb = await getAdminDb();
         const userRef = adminDb.collection('users').doc(ownerId);
         

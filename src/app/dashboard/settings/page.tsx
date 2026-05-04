@@ -36,10 +36,7 @@ export default function SettingsPage() {
                         <div className="text-lg font-semibold">{currentUser.name}</div>
                         <div className="text-muted-foreground">{currentUser.email}</div>
                         <div className="text-sm text-muted-foreground capitalize">
-                            {currentUser.role} -
-                            <span className="font-medium text-primary">
-                                {currentUser.subscription?.status === 'trialing' ? ` Pro Trial` : ` ${currentPlan.name} Plan`}
-                            </span>
+                            {currentUser.role} - <span className="font-medium text-primary">{currentPlan.name} Plan</span>
                         </div>
                     </div>
                 </CardContent>

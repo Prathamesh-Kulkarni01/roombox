@@ -203,7 +203,8 @@ export default function RechargeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden bg-background/80 backdrop-blur-2xl">
+      <DialogContent className="sm:max-w-md w-[95vw] max-h-[90vh] rounded-[2rem] sm:rounded-[2.5rem] border-none shadow-2xl p-0 flex flex-col bg-background/90 backdrop-blur-2xl overflow-hidden">
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
         <AnimatePresence mode="wait">
           {showSuccess ? (
             /* ─── Success State ──────────────────────── */
@@ -212,7 +213,7 @@ export default function RechargeDialog({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.1 }}
-              className="p-10 text-center space-y-8 relative overflow-hidden"
+              className="p-6 sm:p-10 text-center space-y-6 sm:space-y-8 relative overflow-hidden"
             >
               <Confetti
                 width={400}
@@ -251,7 +252,7 @@ export default function RechargeDialog({
 
               <Button 
                 onClick={handleClose} 
-                className="w-full rounded-2xl py-8 font-black text-lg bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-600/20"
+                className="w-full rounded-2xl py-6 sm:py-8 font-black text-lg bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-600/20"
               >
                 Awesome
               </Button>
@@ -263,25 +264,25 @@ export default function RechargeDialog({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex flex-col h-full"
+              className="flex flex-col"
             >
-              <DialogHeader className="p-8 pb-4">
+              <DialogHeader className="p-4 sm:p-8 pb-2">
                 <div className="flex items-center gap-4 mb-2">
                   <div className="p-3 bg-primary/10 rounded-[1.2rem] ring-4 ring-primary/5">
                     <Wallet className="w-6 h-6 text-primary" />
                   </div>
                   <div>
                     <DialogTitle className="text-2xl font-black tracking-tight">Wallet Recharge</DialogTitle>
-                    <DialogDescription className="text-xs font-bold text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1.5 mt-1">
+                    <DialogDescription className="text-[0.6rem] sm:text-xs font-bold text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1.5 mt-0.5">
                       Current: <span className="text-foreground">₹{(currentUser?.wallet?.balance ?? 0).toLocaleString('en-IN')}</span>
                     </DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
 
-              <div className="px-8 pb-8 space-y-6">
+              <div className="px-5 sm:px-8 pb-6 space-y-3 sm:space-y-6">
                 {/* ─── Hero Headline ─────────────────────────── */}
-                <div className="text-center space-y-1 py-2">
+                <div className="text-center space-y-0.5 py-1">
                   <h2 className="text-xl font-black tracking-tight leading-tight">
                     Recharge for <span className="text-primary">{bedCount} Beds</span>
                   </h2>
@@ -291,33 +292,33 @@ export default function RechargeDialog({
                 </div>
 
                 {/* ─── Prominent Bed Counter ──────────────── */}
-                <div className="relative overflow-hidden p-6 rounded-[2.5rem] bg-gradient-to-br from-primary/[0.08] to-violet-500/[0.08] border border-primary/20 shadow-xl shadow-primary/5 group transition-all hover:shadow-primary/10">
-                  <div className="absolute top-4 right-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                <div className="relative overflow-hidden p-4 sm:p-6 rounded-[1.8rem] sm:rounded-[2.5rem] bg-gradient-to-br from-primary/[0.08] to-primary/[0.02] border border-primary/20 shadow-xl shadow-primary/5 group transition-all hover:shadow-primary/10">
+                  <div className="absolute top-2 right-4 opacity-10 group-hover:opacity-20 transition-opacity hidden sm:block">
                     <Users className="w-16 h-16 text-primary" />
                   </div>
                   
-                  <p className="text-[0.65rem] font-black text-primary/60 uppercase tracking-[0.2em] mb-4 text-center">Beds to cover</p>
+                  <p className="text-[0.6rem] font-black text-primary/60 uppercase tracking-[0.2em] mb-3 text-center">Beds to cover</p>
                   
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1">
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="w-14 h-14 rounded-2xl bg-background shadow-lg hover:bg-red-500/10 hover:text-red-500 transition-all border border-border/40 active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-background shadow-lg hover:bg-red-500/10 hover:text-red-500 transition-all border border-border/40 active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
                       onClick={() => setBedCount(Math.max(0, bedCount - 1))}
                       disabled={bedCount <= 0}
                     >
                       <Minus className="w-6 h-6" />
                     </Button>
                     
-                    <div className="flex flex-col items-center">
-                      <span className="text-5xl font-black tracking-tighter text-primary">{bedCount}</span>
+                    <div className="flex flex-col items-center min-w-[4rem]">
+                      <span className="text-4xl sm:text-5xl font-black tracking-tighter text-primary">{bedCount}</span>
                       <span className="text-[0.6rem] font-black text-muted-foreground uppercase tracking-widest mt-1">Total Beds</span>
                     </div>
 
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="w-14 h-14 rounded-2xl bg-background shadow-lg hover:bg-emerald-500/10 hover:text-emerald-500 transition-all border border-border/40 active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-background shadow-lg hover:bg-primary/10 hover:text-primary transition-all border border-border/40 active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
                       onClick={() => setBedCount(Math.min(maxBedCount, bedCount + 1))}
                       disabled={bedCount >= maxBedCount}
                     >
@@ -327,9 +328,9 @@ export default function RechargeDialog({
                 </div>
 
                 {/* ─── Plan Selector ────────────────────────── */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <p className="text-[0.65rem] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Choose Billing Plan</p>
-                  <div className="grid grid-cols-3 gap-2 p-1.5 rounded-[2rem] bg-muted/40 border border-border/40 shadow-inner">
+                  <div className="grid grid-cols-3 gap-1.5 p-1.5 rounded-[1.8rem] sm:rounded-[2rem] bg-muted/40 border border-border/40 shadow-inner">
                     {(['monthly', 'sixMonth', 'yearly'] as const).map((plan) => {
                       const isActive = selectedPlan === plan;
                       const planPrice = PRICING_CONFIG[plan].perTenant;
@@ -353,6 +354,11 @@ export default function RechargeDialog({
                           <span className="text-[0.6rem] font-black uppercase tracking-wider mb-1">{planLabel}</span>
                           <span className="text-lg font-black tracking-tighter">₹{planPrice}</span>
                           <span className="text-[0.5rem] font-bold opacity-60 uppercase tracking-tighter">/bed/mo</span>
+                          {plan === 'sixMonth' && (
+                            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-primary rounded-full shadow-lg z-20">
+                              <span className="text-[0.45rem] font-black text-white uppercase tracking-tighter whitespace-nowrap">Best Value</span>
+                            </div>
+                          )}
                           {isActive && (
                             <motion.div 
                               layoutId="activePlan"
@@ -372,31 +378,31 @@ export default function RechargeDialog({
                 </div>
 
                 {/* ─── Transparency Breakdown ───────────────── */}
-                <div className="space-y-4 p-6 rounded-[2rem] bg-primary/5 border border-primary/10">
+                <div className="space-y-2 sm:space-y-4 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] bg-primary/5 border border-primary/10">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[0.65rem] font-black text-muted-foreground uppercase tracking-widest">Monthly Cost</p>
                       <div className="flex items-baseline gap-1">
-                        <span className="text-lg font-black text-foreground">₹{monthlyCost.toLocaleString('en-IN')}</span>
-                        <span className="text-[0.6rem] font-bold text-muted-foreground uppercase tracking-tighter">/ month</span>
+                        <span className="text-base sm:text-lg font-black text-foreground">₹{monthlyCost.toLocaleString('en-IN')}</span>
+                        <span className="text-[0.55rem] font-bold text-muted-foreground uppercase tracking-tighter">/ month</span>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-[0.65rem] font-black text-primary uppercase tracking-widest">Total Payable</p>
-                      <p className="text-3xl font-black tracking-tighter text-primary">₹{calculatedTotal.toLocaleString('en-IN')}</p>
+                      <p className="text-2xl sm:text-3xl font-black tracking-tighter text-primary">₹{calculatedTotal.toLocaleString('en-IN')}</p>
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-primary/10 flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between text-[0.65rem] font-bold">
-                      <span className="text-muted-foreground italic capitalize">Base Fee (Inc. Add-ons)</span>
-                      <span className="text-foreground">₹{effectiveBaseFee} / month</span>
+                  <div className="pt-2 border-t border-primary/10 flex flex-col gap-1">
+                    <div className="flex items-center justify-between text-[0.6rem] sm:text-[0.65rem] font-bold">
+                      <span className="text-muted-foreground italic capitalize">Base Fee</span>
+                      <span className="text-foreground">₹{effectiveBaseFee}/mo</span>
                     </div>
-                    <div className="flex items-center justify-between text-[0.65rem] font-bold">
-                      <span className="text-muted-foreground italic">{bedCount} Beds @ ₹{effectivePerTenantFee} (Inc. Add-ons)</span>
-                      <span className="text-foreground">₹{bedCount * effectivePerTenantFee} / month</span>
+                    <div className="flex items-center justify-between text-[0.6rem] sm:text-[0.65rem] font-bold">
+                      <span className="text-muted-foreground italic">{bedCount} Beds @ ₹{effectivePerTenantFee}</span>
+                      <span className="text-foreground">₹{bedCount * effectivePerTenantFee}/mo</span>
                     </div>
-                    <div className="flex items-center justify-between text-[0.65rem] font-bold mt-1">
+                    <div className="flex items-center justify-between text-[0.6rem] sm:text-[0.65rem] font-bold mt-0.5">
                       <span className="text-muted-foreground italic">Billing Cycle</span>
                       <span className="text-primary font-black uppercase tracking-tighter">× {monthsCount} Months</span>
                     </div>
@@ -461,7 +467,7 @@ export default function RechargeDialog({
                   <Button
                     onClick={handleRecharge}
                     disabled={effectiveAmount <= 0 || isProcessing}
-                    className="w-full py-9 rounded-[2rem] font-black text-xl shadow-2xl shadow-primary/20 transform transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 relative overflow-hidden group"
+                    className="w-full py-5 sm:py-9 rounded-[1.5rem] sm:rounded-[2rem] font-black text-lg sm:text-xl shadow-2xl shadow-primary/20 transform transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 relative overflow-hidden group"
                   >
                     {isProcessing ? (
                       <span className="flex items-center gap-3">
@@ -476,16 +482,17 @@ export default function RechargeDialog({
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
                   </Button>
 
-                  <div className="flex items-center justify-center gap-6 text-[0.6rem] font-black text-muted-foreground/30 uppercase tracking-[0.2em]">
-                    <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5" /> Secure</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/10" />
-                    <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Razorpay</span>
+                  <div className="flex items-center justify-center gap-4 text-[0.55rem] font-black text-muted-foreground/30 uppercase tracking-[0.2em]">
+                    <span className="flex items-center gap-1"><ShieldCheck className="w-3 h-3 text-primary" /> Secure</span>
+                    <span className="w-1 h-1 rounded-full bg-muted-foreground/10" />
+                    <span className="flex items-center gap-1"><CreditCard className="w-3 h-3" /> Razorpay</span>
                   </div>
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+        </div>
       </DialogContent>
     </Dialog>
   )

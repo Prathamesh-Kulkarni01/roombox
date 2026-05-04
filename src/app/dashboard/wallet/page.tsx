@@ -12,7 +12,6 @@ import {
     Lock, Calendar, ZapOff, Activity
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog'
 import RechargeDialog from '@/components/wallet/RechargeDialog'
 import { togglePremiumFeature } from "@/lib/slices/userSlice"
 import { useToast } from "@/hooks/use-toast"
@@ -35,7 +34,6 @@ export default function WalletPage() {
     const { toast } = useToast();
     const { currentUser, currentPlan } = useAppSelector((state) => state.user);
     const [isSaving, startTransition] = useTransition();
-    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
     const [isRechargeOpen, setIsRechargeOpen] = useState(false);
     const [billingDetails, setBillingDetails] = useState<BillingDetails | null>(null);
     const [walletTxns, setWalletTxns] = useState<WalletTransaction[]>([]);
@@ -107,14 +105,7 @@ export default function WalletPage() {
 
     const walletBalance = currentUser.wallet?.balance ?? 0;
     const lowBalanceStage = calculateLowBalanceStage(walletBalance);
-    const isTrialing = currentUser.subscription?.status === 'trialing';
-    
-    // Trial Calculations
-    const trialCreditUsed = currentUser.subscription?.trialCreditUsed ?? 0;
-    const trialCreditTotal = PRICING_CONFIG.trial.credit;
-    const trialProgress = Math.min((trialCreditUsed / trialCreditTotal) * 100, 100);
-
-    const planType: BillingPlanType = currentUser.billingConfig?.planType ?? (isTrialing ? 'trial' : 'monthly');
+    const planType: BillingPlanType = currentUser.billingConfig?.planType ?? 'monthly';
     const perTenantFee = currentUser.billingConfig?.perTenantFee ?? (
         planType === 'yearly' ? PRICING_CONFIG.yearly.perTenant : 
         planType === 'sixMonth' ? PRICING_CONFIG.sixMonth.perTenant : 
@@ -152,11 +143,8 @@ export default function WalletPage() {
                 <div className="flex items-center gap-3 bg-muted/30 p-2 rounded-2xl border border-border/50">
                     <div className="px-4 py-2 text-center">
                         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</p>
-                        <Badge className={cn(
-                            "mt-1 font-black px-3 py-0.5 uppercase text-[10px]",
-                            isTrialing ? "bg-indigo-600" : "bg-emerald-600"
-                        )}>
-                            {isTrialing ? 'In Trial' : 'Active'}
+                        <Badge className="mt-1 font-black px-3 py-0.5 uppercase text-[10px] bg-emerald-600">
+                            Active
                         </Badge>
                     </div>
                     <div className="w-px h-8 bg-border/50" />
@@ -167,7 +155,6 @@ export default function WalletPage() {
                 </div>
             </div>
 
-            <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
             <RechargeDialog 
                 open={isRechargeOpen} 
                 onOpenChange={setIsRechargeOpen}
@@ -177,13 +164,13 @@ export default function WalletPage() {
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 {/* ─── Top Level Financial Cards (Now at top for mobile) ──── */}
-                <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Wallet Card - PRIMARY ACTION */}
                     <Card className="border-primary/20 shadow-2xl shadow-primary/10 bg-gradient-to-br from-primary/[0.04] via-transparent to-primary/[0.02] rounded-3xl overflow-hidden relative group">
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <Wallet className="w-24 h-24 rotate-12" />
                         </div>
-                        <CardHeader className="pb-3 border-b border-border/50 bg-white/50 dark:bg-zinc-900/50 p-6 backdrop-blur-sm">
+                        <CardHeader className="pb-3 border-b border-border/50 bg-card/50 p-6 backdrop-blur-sm">
                             <CardTitle className="flex items-center gap-2 text-xl font-black">
                                 <Wallet className="text-emerald-500 w-6 h-6" /> Available Balance
                             </CardTitle>
@@ -201,10 +188,10 @@ export default function WalletPage() {
                                         {(walletBalance || 0).toLocaleString('en-IN')}
                                     </p>
                                 </div>
-                                <div className="mt-4 inline-flex items-center gap-2 bg-white/80 dark:bg-zinc-900/80 px-4 py-2 rounded-2xl border shadow-sm">
+                                <div className="mt-4 inline-flex items-center gap-2 bg-card/80 px-4 py-2 rounded-2xl border shadow-sm">
                                     <Calendar className="w-4 h-4 text-primary" />
                                     <p className="text-xs font-black uppercase tracking-widest">
-                                        {isTrialing ? 'Unlimited during trial' : `~${daysLeft} Days Runway`}
+                                        {`~${daysLeft} Days Runway`}
                                     </p>
                                 </div>
                             </div>
@@ -217,71 +204,12 @@ export default function WalletPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Plan Status Card */}
-                    <Card className="border-indigo-500/20 rounded-3xl shadow-xl shadow-indigo-500/5 overflow-hidden bg-white dark:bg-zinc-950">
-                        <CardContent className="p-0 h-full flex flex-col">
-                            <div className="p-6 bg-indigo-600 text-white space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Current Tier</p>
-                                        <h3 className="text-2xl font-black">{planLabels[planType]}</h3>
-                                    </div>
-                                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
-                                        <Target className="w-6 h-6" />
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 border-0 text-white font-black text-[10px] uppercase">
-                                        ₹{baseFee} Base
-                                    </Badge>
-                                    <Badge variant="secondary" className="bg-white/20 hover:bg-white/30 border-0 text-white font-black text-[10px] uppercase">
-                                        ₹{perTenantFee}/Tenant
-                                    </Badge>
-                                </div>
-                            </div>
-
-                            <div className="p-6 space-y-6 flex-1 flex flex-col justify-between">
-                                <div className="space-y-4">
-                                    {planType === 'monthly' && (
-                                        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-2">
-                                            <div className="flex items-center gap-2 text-amber-600">
-                                                <TrendingDown className="w-4 h-4" />
-                                                <p className="text-xs font-black uppercase tracking-widest">Efficiency Tip</p>
-                                            </div>
-                                            <p className="text-[10px] font-medium text-amber-700/80 leading-relaxed">
-                                                Switching to <strong>Annual Pro</strong> could save you ₹{((PRICING_CONFIG.monthly.perTenant - PRICING_CONFIG.yearly.perTenant) * (billingDetails?.details.billableTenantCount || 0)).toLocaleString('en-IN')} / month.
-                                            </p>
-                                        </div>
-                                    )}
-                                    {planType === 'trial' && (
-                                        <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 space-y-2">
-                                            <div className="flex items-center gap-2 text-indigo-600">
-                                                <Sparkles className="w-4 h-4" />
-                                                <p className="text-xs font-black uppercase tracking-widest">Trial Active</p>
-                                            </div>
-                                            <p className="text-[10px] font-medium text-indigo-700/80 leading-relaxed">
-                                                Enjoy full access to all features. Upgrade anytime to lock in pro rates.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <Button 
-                                    className="w-full rounded-2xl font-black py-6 shadow-lg shadow-indigo-600/10 transition-all hover:translate-y-[-1px]"
-                                    onClick={() => setIsSubDialogOpen(true)}
-                                    variant={planType === 'yearly' ? 'outline' : 'default'}
-                                >
-                                    {planType === 'trial' ? 'ACTIVATE FULL PLAN' : 'UPGRADE PLAN'} <ArrowRight className="w-4 h-4 ml-2" />
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
 
                     {/* How it works (Desktop only or as 3rd card) */}
                     <Card className="border-border/40 rounded-3xl shadow-sm overflow-hidden bg-muted/20 border-dashed hidden lg:block">
                         <CardContent className="p-6 space-y-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-900 flex items-center justify-center text-muted-foreground border shadow-sm">
+                                <div className="w-8 h-8 rounded-lg bg-card flex items-center justify-center text-muted-foreground border shadow-sm">
                                     <Info className="w-4 h-4" />
                                 </div>
                                 <h4 className="font-black text-[10px] uppercase tracking-widest">Billing Rules</h4>
@@ -310,39 +238,7 @@ export default function WalletPage() {
                 {/* ─── Main Content Column ──── */}
                 <div className="lg:col-span-2 space-y-8">
                     
-                    {/* Trial Progress Card */}
-                    {isTrialing && (
-                        <Card className="relative overflow-hidden border-indigo-500/20 bg-indigo-500/[0.02] rounded-3xl shadow-lg shadow-indigo-500/5">
-                            <CardContent className="p-6">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <Sparkles className="w-5 h-5 text-indigo-600" />
-                                            <h3 className="text-xl font-black">Trial Credit Status</h3>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground font-medium">You have ₹{trialCreditTotal} free credit to explore all premium features.</p>
-                                    </div>
-                                    <div className="text-left md:text-right">
-                                        <p className="text-2xl font-black text-indigo-600">₹{(trialCreditTotal - trialCreditUsed).toLocaleString('en-IN')}</p>
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Remaining Credit</p>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs font-black uppercase tracking-widest text-indigo-600/70">
-                                        <span>Used: ₹{trialCreditUsed}</span>
-                                        <span>{Math.round(trialProgress)}%</span>
-                                    </div>
-                                    <Progress value={trialProgress} className="h-3 bg-indigo-100 dark:bg-indigo-950/30" />
-                                </div>
-                                <div className="mt-6 flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-indigo-500/10">
-                                    <Info className="w-5 h-5 text-indigo-600 shrink-0" />
-                                    <p className="text-xs font-medium leading-relaxed text-muted-foreground">
-                                        Once your trial credit is exhausted or 90 days pass, the system will switch to your wallet balance. Add money now to ensure zero service interruption.
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+
 
                     {/* Features Grid */}
                     <section id="features">
@@ -410,7 +306,7 @@ export default function WalletPage() {
                                     <Receipt className="text-primary w-6 h-6" /> Cycle Forecast
                                 </CardTitle>
                                 {billingDetails && (
-                                    <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 px-4 py-2 rounded-xl border shadow-sm">
+                                    <div className="flex items-center gap-3 bg-card px-4 py-2 rounded-xl border shadow-sm">
                                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Est. Monthly Total</p>
                                         <p className="text-xl font-black text-primary">
                                             ₹{(billingDetails.currentCycle.totalAmount || 0).toLocaleString('en-IN')}
@@ -428,7 +324,7 @@ export default function WalletPage() {
                             ) : billingDetails ? (
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-border/50 shadow-sm">
+                                        <div className="p-4 rounded-2xl bg-card border border-border/50 shadow-sm">
                                             <div className="flex justify-between items-center mb-1">
                                                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Platform Base</span>
                                                 <span className="text-xs font-black">Fixed</span>
@@ -438,7 +334,7 @@ export default function WalletPage() {
                                                 <p className="text-lg font-black italic tracking-tighter">₹{(baseFee || 0).toLocaleString('en-IN')}</p>
                                             </div>
                                         </div>
-                                        <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-border/50 shadow-sm">
+                                        <div className="p-4 rounded-2xl bg-card border border-border/50 shadow-sm">
                                             <div className="flex justify-between items-center mb-1">
                                                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Usage Billing</span>
                                                 <span className="text-xs font-black text-primary">{billingDetails.details.billableTenantCount || 0} Tenants</span>
@@ -453,7 +349,7 @@ export default function WalletPage() {
                                     {Object.keys(billingDetails.currentCycle.premiumFeaturesDetails || {}).length > 0 && (
                                         <div className="pt-4 space-y-3">
                                             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Active Add-ons</p>
-                                            <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-border/50 divide-y divide-border/50">
+                                            <div className="bg-card rounded-2xl border border-border/50 divide-y divide-border/50">
                                                 {Object.entries(billingDetails.currentCycle.premiumFeaturesDetails || {}).map(([key, feature]) => (
                                                     <div key={key} className="flex justify-between items-center p-4">
                                                         <div className="flex items-center gap-3">

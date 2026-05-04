@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Star, Users, Smartphone, TrendingUp, Zap, Globe, Phone, MapPin, IndianRupee, Building2, UserCheck, Clock, MessageSquare, BarChart3, Bot, LayoutTemplate, UserPlus, FileCog, ArrowRight, BrainCircuit, Download, WalletCards, LayoutList, FilePieChart, UserRoundCog, X, UtensilsCrossed, BookUser, Contact, Wallet, History, Paintbrush, Target, Banknote, GitBranch, Share2, Calendar, ArrowLeftRight, CheckCircle, Pencil, User as UserIcon, BedDouble, Lock, Server, Plus } from "lucide-react";
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import WalletPlanDialog from '@/components/dashboard/dialogs/WalletPlanDialog';
 import InstallPWA from '@/components/install-pwa';
 import type { User as UserType } from '@/lib/types';
 import { useTranslation } from '@/context/language-context';
@@ -30,13 +29,12 @@ const Index = () => {
     const router = useRouter();
     const { t } = useTranslation();
     const { currentUser } = useAppSelector((state) => state.user);
-    const [isSubDialogOpen, setIsSubDialogOpen] = useState(false);
   
     const handleChoosePlan = () => {
       if (!currentUser) {
         router.push('/login');
       } else {
-        setIsSubDialogOpen(true);
+        router.push('/dashboard/wallet');
       }
     };
   
@@ -172,7 +170,6 @@ const Index = () => {
 
   return (
     <>
-      <WalletPlanDialog open={isSubDialogOpen} onOpenChange={setIsSubDialogOpen} />
       <div className="min-h-screen bg-background">
         {/* Hero Section */}
         <section className="relative overflow-hidden py-20 lg:py-32">
