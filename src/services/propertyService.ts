@@ -42,7 +42,7 @@ export interface CreatePropertyInput {
 }
 
 import { getPlanLimit } from '@/lib/permissions';
-import { CURRENT_SCHEMA_VERSION, PerformerInfo } from '@/lib/types';
+import { CURRENT_SCHEMA_VERSION, PerformerInfo, PG } from '@/lib/types';
 import { ActivityLogsService } from '@/lib/activity-logs-service';
 
 export class PropertyService {
@@ -178,6 +178,7 @@ export class PropertyService {
         const now = new Date().toISOString();
         const fullUpdates = {
             ...updates,
+            schemaVersion: CURRENT_SCHEMA_VERSION, // Always upgrade on update
             updatedAt: now,
             updatedBy: performer
         };
@@ -326,12 +327,19 @@ export class PropertyService {
             const pgsSnap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
 
             const pgs: Building[] = [];
-            pgsSnap.forEach(docSnap => {
-                const data = docSnap.data();
+            for (const docSnap of pgsSnap.docs) {
+                let data = docSnap.data() as PG;
+                
+                // Lazy Migration: Rule 7
+                if ((data.schemaVersion || 0) < CURRENT_SCHEMA_VERSION) {
+                    console.log(`[PropertyService] Lazy migrating ${docSnap.id} from v${data.schemaVersion || 0} to v${CURRENT_SCHEMA_VERSION}`);
+                    data = await PropertyService.migrateToLatest(db, ownerId, docSnap.id, data);
+                }
+
                 pgs.push({
                     // Spread all data first so no stored field is lost
                     ...data,
-                    // Then enforce defaults for critical fields
+                    // Then enforce defaults for critical fields (Rule 5)
                     id: docSnap.id,
                     name: data.name || 'Unnamed Property',
                     occupancy: data.occupancy || 0,
@@ -350,7 +358,7 @@ export class PropertyService {
                     gender: data.gender || '',
                     priceRange: data.priceRange || { min: 0, max: 0 },
                 });
-            });
+            }
 
             return pgs;
         } catch (error) {
@@ -436,6 +444,7 @@ export class PropertyService {
             floors: allFloors,
             totalRooms,
             totalBeds,
+            schemaVersion: CURRENT_SCHEMA_VERSION, // Upgrade version
             updatedAt: new Date().toISOString(),
             updatedBy: performer
         });
@@ -457,5 +466,56 @@ export class PropertyService {
             roomsCreated: newFloors.reduce((a, f) => a + f.rooms.length, 0),
             bedsCreated: newFloors.reduce((a, f) => a + f.rooms.reduce((ra: number, rm: any) => ra + rm.beds.length, 0), 0),
         };
+    }
+
+    /**
+     * Performs a lazy migration on a property document.
+     */
+    static async migrateToLatest(db: Firestore, ownerId: string, pgId: string, data: any): Promise<PG> {
+        const migratedData = { ...data };
+        const oldVersion = data.schemaVersion || 0;
+
+        // Apply incremental changes based on versions
+        if (oldVersion < 4) {
+            migratedData.paymentMode = migratedData.paymentMode || 'CASH_ONLY';
+            migratedData.online_payment_enabled = migratedData.online_payment_enabled ?? false;
+        }
+        
+        if (oldVersion < 7) {
+            migratedData.createdAt = migratedData.createdAt || new Date().toISOString();
+            migratedData.updatedAt = migratedData.updatedAt || new Date().toISOString();
+        }
+
+        // Always set current version
+        migratedData.schemaVersion = CURRENT_SCHEMA_VERSION;
+        migratedData.updatedAt = new Date().toISOString();
+
+        // Persist the migration
+        await db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId).update({
+            paymentMode: migratedData.paymentMode || 'CASH_ONLY',
+            online_payment_enabled: migratedData.online_payment_enabled ?? false,
+            schemaVersion: CURRENT_SCHEMA_VERSION,
+            updatedAt: migratedData.updatedAt
+        });
+
+        return migratedData as PG;
+    }
+
+    /**
+     * Synchronizes the property summary for an owner.
+     */
+    static async syncPgSummary(db: Firestore, appDb: Firestore, ownerId: string): Promise<number> {
+        console.log(`[PropertyService.syncPgSummary] Reconciling counts for owner: ${ownerId}`);
+        const pgsSnap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
+        const count = pgsSnap.size;
+
+        await appDb.doc(`users/${ownerId}`).set({
+            pgSummary: {
+                totalProperties: count,
+                lastUpdated: new Date().toISOString()
+            }
+        }, { merge: true });
+
+        return count;
     }
 }

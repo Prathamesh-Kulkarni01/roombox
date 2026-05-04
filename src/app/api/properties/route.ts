@@ -67,17 +67,10 @@ export async function POST(req: NextRequest) {
             planId: plan?.id
         }, performer);
 
-        // Update owner summary in main app DB
+        // Update owner summary in main app DB using centralized logic
         try {
             const appDb = await getAdminDb();
-            // Rapidly update owner's summary using count()
-            const pgsCountSnap = await db.collection('users_data').doc(ownerId).collection('pgs').count().get();
-            await appDb.doc(`users/${ownerId}`).set({
-                pgSummary: {
-                    totalProperties: pgsCountSnap.data().count,
-                    lastPropertyAdded: new Date().toISOString()
-                }
-            }, { merge: true });
+            await PropertyService.syncPgSummary(db, appDb, ownerId);
         } catch (summaryErr) {
             console.warn('Could not update owner summary:', summaryErr);
         }
@@ -103,16 +96,10 @@ export async function DELETE(req: NextRequest) {
 
         await PropertyService.deleteProperty(db, ownerId, pgId, performer);
 
-        // Update owner summary
+        // Update owner summary using centralized logic
         try {
             const appDb = await getAdminDb();
-            const pgsSnap = await db.collection('users_data').doc(ownerId).collection('pgs').get();
-            await appDb.doc(`users/${ownerId}`).set({
-                pgSummary: {
-                    totalProperties: pgsSnap.size,
-                    lastUpdated: new Date().toISOString()
-                }
-            }, { merge: true });
+            await PropertyService.syncPgSummary(db, appDb, ownerId);
         } catch (summaryErr) {
             console.warn('Could not update owner summary after delete:', summaryErr);
         }

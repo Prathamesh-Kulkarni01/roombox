@@ -265,6 +265,7 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                     perTenantFee: PRICING_CONFIG.monthly.perTenant,
                 },
                 isOnboarded: false,
+                schemaVersion: CURRENT_SCHEMA_VERSION,
             };
 
             const userDocRef = doc(db!, 'users', currentUser.id);
@@ -286,7 +287,10 @@ export const completeOnboarding = createAsyncThunk<User, void, { state: RootStat
         if (!currentUser) return rejectWithValue('User not found.');
 
         const userDocRef = doc(db!, 'users', currentUser.id);
-        await updateDoc(userDocRef, { isOnboarded: true });
+        await updateDoc(userDocRef, { 
+            isOnboarded: true,
+            schemaVersion: CURRENT_SCHEMA_VERSION 
+        });
 
         const updatedDoc = await getDoc(userDocRef);
         return updatedDoc.data() as User;

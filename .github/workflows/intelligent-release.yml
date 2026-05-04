@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
 
       - name: Install Dependencies
@@ -37,7 +37,7 @@ jobs:
       - name: Check System Integrity
         run: npm run verify-logic
         env:
-          FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
+          FIRESTORE_EMULATOR_HOST: "127.0.0.1:8081"
           FIREBASE_PROJECT_ID: "roombox-test"
 
       - name: Dry-Run Production Migration (Safety Check)
@@ -63,7 +63,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
 
       - name: Install Dependencies
@@ -101,7 +101,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: "npm"
 
       - name: Install Dependencies
