@@ -54,7 +54,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, getCurrentPlan } from "@/lib/utils";
 import { useAppSelector } from "@/lib/hooks";
 import {
   usePermissionsStore,
@@ -125,7 +125,7 @@ const chargeTemplateSchema = z.object({
 type ChargeTemplateFormValues = z.infer<typeof chargeTemplateSchema>;
 
 export default function PgManagementPage() {
-  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
+  const { currentUser } = useAppSelector((state) => state.user);
   const { featurePermissions } = usePermissionsStore();
   const router = useRouter();
   const { toast } = useToast();
@@ -233,7 +233,7 @@ export default function PgManagementPage() {
   const pgs = pgsData?.buildings || [];
   const guests = guestsData?.guests || [];
   const isLoading = isLoadingPgs || isLoadingGuests;
-  console.log({ currentPlan });
+  const currentPlan = getCurrentPlan(currentUser);
   const canAddPg =
     !currentPlan ||
     currentPlan.pgLimit === "unlimited" ||
@@ -382,7 +382,8 @@ export default function PgManagementPage() {
                       {!canAddPg && (
                         <TooltipContent>
                           <p>
-                            You have reached the {currentPlan?.pgLimit} property limit for your current plan.{" "}
+                            You have reached the {currentPlan?.pgLimit} property
+                            limit for your current plan.{" "}
                             <Link
                               href="/dashboard/billing"
                               className="text-primary underline"

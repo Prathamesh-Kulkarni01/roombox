@@ -100,7 +100,7 @@ export function useDashboard() {
 
   const { pgs } = useAppSelector((state) => state.pgs);
   const { featurePermissions } = usePermissionsStore();
-  const { currentPlan, currentUser } = useAppSelector(state => state.user)
+  const {  currentUser } = useAppSelector(state => state.user)
   const [isTransitioningRoom, startRoomTransition] = useTransition();
   const { showConfetti } = useConfetti();
   const { isLoading: isLoadingGuests } = useGetGuestsQuery(undefined, {

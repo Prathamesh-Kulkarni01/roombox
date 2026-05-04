@@ -4,6 +4,7 @@ import type { ChargeTemplate } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { RootState } from '../store';
+import { getCurrentPlan } from '../utils';
 
 interface ChargeTemplatesState {
     templates: ChargeTemplate[];
@@ -19,7 +20,7 @@ export const addChargeTemplate = createAsyncThunk<ChargeTemplate, Omit<ChargeTem
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
         const newTemplate: ChargeTemplate = { ...newTemplateData, id: `tmpl-${Date.now()}` };
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (getCurrentPlan(user.currentUser)?.hasCloudSync && isFirebaseConfigured()) {
             const selectedDb = selectOwnerDataDb(user.currentUser);
             const docRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'chargeTemplates', newTemplate.id);
             await setDoc(docRef, newTemplate);
@@ -33,7 +34,7 @@ export const updateChargeTemplate = createAsyncThunk<ChargeTemplate, ChargeTempl
     async (updatedTemplate, { getState, rejectWithValue }) => {
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (getCurrentPlan(user.currentUser)?.hasCloudSync && isFirebaseConfigured()) {
             const selectedDb = selectOwnerDataDb(user.currentUser);
             const docRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'chargeTemplates', updatedTemplate.id);
             await setDoc(docRef, updatedTemplate, { merge: true });
@@ -47,7 +48,7 @@ export const deleteChargeTemplate = createAsyncThunk<string, string, { state: Ro
     async (templateId, { getState, rejectWithValue }) => {
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (getCurrentPlan(user.currentUser)?.hasCloudSync && isFirebaseConfigured()) {
             const selectedDb = selectOwnerDataDb(user.currentUser);
             const docRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'chargeTemplates', templateId);
             await deleteDoc(docRef);

@@ -24,12 +24,10 @@ import { sanitizeObjectForFirebase } from '../utils';
 
 interface UserState {
     currentUser: User | null;
-    currentPlan: Plan | null;
 }
 
 const initialState: UserState = {
     currentUser: null,
-    currentPlan: null,
 };
 
 // Helper: Resolve plan from user subscription
@@ -452,13 +450,8 @@ const userSlice = createSlice({
                 state.currentUser = action.payload;
             }
 
-            state.currentPlan = getPlanForUser(state.currentUser);
         },
-        updateUserPlan: (state, action: PayloadAction<PlanName>) => {
-            if (state.currentUser) {
-                state.currentPlan = plans[action.payload];
-            }
-        }
+        
     },
     extraReducers: (builder) => {
         builder
@@ -469,29 +462,23 @@ const userSlice = createSlice({
             })
             .addCase(initializeUser.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
-                state.currentPlan = getPlanForUser(action.payload);
             })
             .addCase(initializeUser.rejected, (state, action) => {
                 console.error("Initialize user rejected:", action.payload);
                 state.currentUser = null;
-                state.currentPlan = null;
             })
             .addCase(togglePremiumFeature.fulfilled, (state, action) => {
                 state.currentUser = action.payload.updatedUser;
             })
             .addCase(logoutUser.fulfilled, (state) => {
                 state.currentUser = null;
-                state.currentPlan = null;
+              
             })
             .addCase(disassociateAndCreateOwnerAccount.fulfilled, (state) => {
                 state.currentUser = null;
-                state.currentPlan = null;
             })
             .addCase(finalizeUserRole.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
-                if (action.payload.role === 'owner') {
-                    state.currentPlan = plans.monthly; // Trial plan is a variant of pro logic
-                }
             })
             .addCase(updateUserKycDetails.fulfilled, (state, action) => {
                 state.currentUser = action.payload;
@@ -508,5 +495,5 @@ const userSlice = createSlice({
     },
 });
 
-export const { setCurrentUser, updateUserPlan } = userSlice.actions;
+export const { setCurrentUser } = userSlice.actions;
 export default userSlice.reducer;

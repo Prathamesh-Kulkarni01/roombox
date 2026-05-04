@@ -3,13 +3,15 @@ import { useAppSelector } from '@/lib/hooks';
 import { usePermissionsStore } from '@/lib/stores/configStores';
 import { allNavItems, type NavItem } from '@/lib/navigation';
 import { canViewFeature } from '@/lib/permissions';
+import { getCurrentPlan } from '../utils';
 
 /**
  * Hook to manage navigation visibility based on user role, subscription state, and property status.
  * Standardizes access logic across Sidebar, Mobile Header, and Bottom Nav.
  */
 export function useAccessibleNav() {
-  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
+  const { currentUser } = useAppSelector((state) => state.user);
+  const currentPlan = getCurrentPlan(currentUser);
   const { pgs } = useAppSelector((state) => state.pgs);
   const { featurePermissions } = usePermissionsStore();
 

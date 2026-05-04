@@ -6,6 +6,7 @@ import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, setDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { createAndSendNotification } from '../actions/notificationActions';
+import { getCurrentPlan } from '../utils';
 
 interface ComplaintsState {
     complaints: Complaint[];
@@ -202,7 +203,7 @@ export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: R
         const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
         if (!ownerId) return rejectWithValue('Owner not found');
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (getCurrentPlan(user.currentUser)?.hasCloudSync && isFirebaseConfigured()) {
             const selectedDb = selectOwnerDataDb(user.currentUser);
             const docRef = doc(selectedDb!, 'users_data', ownerId, 'complaints', updatedComplaint.id);
             await setDoc(docRef, updatedComplaint, { merge: true });

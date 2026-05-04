@@ -4,6 +4,7 @@ import type { Expense } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
+import { getCurrentPlan } from '../utils';
 
 interface ExpensesState {
     expenses: Expense[];
@@ -23,7 +24,7 @@ export const addExpense = createAsyncThunk<Expense, NewExpenseData, { state: Roo
 
         const newExpense: Expense = { id: `exp-${Date.now()}`, ...expenseData };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured()) {
+        if (getCurrentPlan(user.currentUser)?.hasCloudSync && isFirebaseConfigured()) {
             const selectedDb = selectOwnerDataDb(user.currentUser);
             const docRef = doc(selectedDb!, 'users_data', user.currentUser.id, 'expenses', newExpense.id);
             await setDoc(docRef, newExpense);

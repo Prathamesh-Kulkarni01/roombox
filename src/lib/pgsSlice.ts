@@ -7,6 +7,7 @@ import { produce } from 'immer';
 import { defaultMenu } from './constants';
 import { RootState } from './store';
 import { addGuest, updateGuest } from './guestsSlice';
+import { getCurrentPlan } from './utils';
 
 interface PgsState {
     pgs: PG[];
@@ -58,7 +59,7 @@ export const addPg = createAsyncThunk<PG, NewPgData, { state: RootState }>(
             menu: (defaultMenu as any) 
         };
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
+        if (getCurrentPlan(user.currentUser)?.hasCloudSync && isFirebaseConfigured() && db) {
             const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', newPg.id);
             await setDoc(docRef, newPg);
         }
@@ -72,7 +73,7 @@ export const updatePg = createAsyncThunk<PG, PG, { state: RootState }>(
         const { user } = getState();
         if (!user.currentUser) return rejectWithValue('No user');
 
-        if (user.currentPlan?.hasCloudSync && isFirebaseConfigured() && db) {
+        if (getCurrentPlan(user.currentUser)?.hasCloudSync && isFirebaseConfigured() && db) {
             const docRef = doc(db, 'users_data', user.currentUser.id, 'pgs', updatedPg.id);
             await setDoc(docRef, updatedPg, { merge: true });
         }

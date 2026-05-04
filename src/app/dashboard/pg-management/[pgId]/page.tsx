@@ -25,7 +25,7 @@ import BedActionSheet from '@/components/dashboard/BedActionSheet'
 import QuickAddSheet from '@/components/dashboard/QuickAddSheet'
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
-import { cn } from '@/lib/utils'
+import { cn, getCurrentPlan } from '@/lib/utils'
 import { useGetGuestsQuery } from '@/lib/api/apiSlice'
 import type { Guest } from '@/lib/types'
 import { Building, BedDouble, PlusCircle, Trash2, Pencil, Plus, CheckCircle, UserPlus, Search, List, Grid, Filter, MoreHorizontal, History } from 'lucide-react'
@@ -81,7 +81,8 @@ export default function RoomManagementPage() {
   const router = useRouter()
   const params = useParams()
   const { pgs } = useAppSelector(state => state.pgs)
-  const { currentUser, currentPlan } = useAppSelector(state => state.user)
+  const { currentUser } = useAppSelector(state => state.user)
+  const currentPlan = getCurrentPlan(currentUser);
   const { featurePermissions } = usePermissionsStore()
   const pgId = params.pgId as string
   const { toast } = useToast()

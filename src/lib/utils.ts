@@ -1,8 +1,8 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { addMinutes, addHours, addDays, addWeeks, addMonths, setDate, lastDayOfMonth } from 'date-fns';
-import { PRICING_CONFIG } from "./constants";
-import type { RentCycleUnit, LowBalanceStage } from "./types";
+import { plans, PRICING_CONFIG } from "./constants";
+import type { RentCycleUnit, LowBalanceStage, User } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -132,3 +132,12 @@ export function calculateLowBalanceStage(balance: number): LowBalanceStage {
   return 'normal';
 }
 
+
+export const getCurrentPlan = (currentUser: User | null) => {
+    if (!currentUser || !currentUser.subscription) {
+        return plans['trial'];
+    }
+
+    const plan= plans[currentUser.subscription.planId]
+    return plan
+}
