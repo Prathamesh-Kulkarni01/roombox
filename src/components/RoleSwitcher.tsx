@@ -14,11 +14,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserCircle, SwitchCamera, Loader2 } from 'lucide-react';
+import { UserCircle, SwitchCamera, Loader2, ChevronRight } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { initializeUser } from '@/lib/slices/userSlice';
+import { cn } from '@/lib/utils';
 
-export default function RoleSwitcher() {
+interface RoleSwitcherProps {
+  variant?: 'default' | 'ghost' | 'list';
+}
+
+export default function RoleSwitcher({ variant = 'default' }: RoleSwitcherProps) {
   const { currentUser } = useAppSelector((state) => state.user);
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -32,8 +37,6 @@ export default function RoleSwitcher() {
 
   // Only show if user has at least two distinct role types they can switch between
   const canSwitch = (isOwner && hasTenancies) || (hasStaffProfiles && hasTenancies) || (isOwner && hasStaffProfiles);
-
-  if (!canSwitch) return null;
 
   const handleSwitch = async (targetRole: string, pgId?: string) => {
     try {
@@ -65,12 +68,78 @@ export default function RoleSwitcher() {
       }
       
       router.refresh();
+      // Force a reload to ensure all contexts are clean
+      window.location.reload();
     } catch (error) {
       console.error('Error switching role:', error);
     } finally {
       setIsSwitching(false);
     }
   };
+
+  if (variant === 'list') {
+    return (
+      <div className="space-y-2 w-full">
+        {isOwner && (
+          <Button 
+            variant={currentUser.role === 'owner' ? "default" : "outline"}
+            className={cn(
+              "w-full justify-start h-12 rounded-2xl gap-3 px-4 transition-all",
+              currentUser.role === 'owner' ? "shadow-md shadow-primary/20" : "bg-muted/10 border-border/40"
+            )}
+            onClick={() => currentUser.role !== 'owner' && handleSwitch('owner')}
+            disabled={isSwitching || currentUser.role === 'owner'}
+          >
+             <span className="text-lg">👑</span>
+             <span className="font-bold text-sm">Owner Dashboard</span>
+             {currentUser.role === 'owner' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />}
+          </Button>
+        )}
+
+        {currentUser.activeStaffProfiles?.map((profile: any) => (
+          <Button 
+            key={profile.staffId}
+            variant={currentUser.role === profile.role ? "default" : "outline"}
+            className={cn(
+              "w-full justify-start h-12 rounded-2xl gap-3 px-4 transition-all",
+              currentUser.role === profile.role ? "shadow-md shadow-primary/20" : "bg-muted/10 border-border/40"
+            )}
+            onClick={() => currentUser.role !== profile.role && handleSwitch(profile.role, profile.pgIds?.[0])}
+            disabled={isSwitching || currentUser.role === profile.role}
+          >
+             <span className="text-lg">🛠️</span>
+             <span className="font-bold text-sm capitalize">{profile.role} View</span>
+             {currentUser.role === profile.role && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />}
+          </Button>
+        ))}
+
+        {currentUser.activeTenancies?.map((tenancy: any) => (
+          <Button 
+            key={tenancy.guestId}
+            variant={currentUser.role === 'tenant' && currentUser.pgId === tenancy.pgId ? "default" : "outline"}
+            className={cn(
+              "w-full justify-start h-12 rounded-2xl gap-3 px-4 transition-all",
+              currentUser.role === 'tenant' && currentUser.pgId === tenancy.pgId ? "shadow-md shadow-primary/20" : "bg-muted/10 border-border/40"
+            )}
+            onClick={() => !(currentUser.role === 'tenant' && currentUser.pgId === tenancy.pgId) && handleSwitch('tenant', tenancy.pgId)}
+            disabled={isSwitching || (currentUser.role === 'tenant' && currentUser.pgId === tenancy.pgId)}
+          >
+             <span className="text-lg">🏠</span>
+             <span className="font-bold text-sm truncate max-w-[150px]">{tenancy.pgName || 'Tenant'} View</span>
+             {currentUser.role === 'tenant' && currentUser.pgId === tenancy.pgId && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />}
+          </Button>
+        ))}
+      </div>
+    );
+  }
+
+  if (!canSwitch) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/30 border border-border/40 text-muted-foreground text-xs font-bold uppercase tracking-wider">
+        {currentUser.role}
+      </div>
+    );
+  }
 
   return (
     <DropdownMenu>

@@ -136,6 +136,7 @@ const nextConfig: NextConfig = {
       }
     ],
   },
+  turbopack: {},
   webpack: (config, { dev, isServer }) => {
     // This is required to make next-pwa work with turbopack
     if (dev && !isServer) {

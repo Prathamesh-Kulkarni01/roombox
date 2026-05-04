@@ -2,9 +2,10 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { AlertTriangle, RefreshCcw, Home, ArrowLeft } from "lucide-react";
+import { AlertTriangle, RefreshCcw, Home, ArrowLeft, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 type ErrorProps = {
   error: Error & { digest?: string };
@@ -13,6 +14,7 @@ type ErrorProps = {
 
 export default function Error({ error, reset }: ErrorProps) {
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production") {
@@ -64,14 +66,56 @@ export default function Error({ error, reset }: ErrorProps) {
         </Button>
       </div>
 
+      {/* Copy Error Option */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          const errorText = `Message: ${error.message}${error.digest ? `\nDigest: ${error.digest}` : ""}${error.stack ? `\n\nStack: ${error.stack}` : ""}`;
+          navigator.clipboard.writeText(errorText);
+          toast({
+            title: "Error copied to clipboard",
+            description: "You can now share this with the support team.",
+          });
+        }}
+        className="mt-6 h-8 gap-1.5 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
+      >
+        <Copy size={12} />
+        Copy Error
+      </Button>
+
       {/* Dev Error Details */}
       {process.env.NODE_ENV === "development" && (
-        <div className="mt-12 max-w-2xl overflow-auto rounded-lg bg-muted p-4 text-left text-xs font-mono">
-          <p className="mb-2 font-bold text-destructive underline">
-            Error Detail (Dev Only):
-          </p>
-          <pre>{error.message}</pre>
-          {error.stack && <pre className="mt-2 opacity-50">{error.stack}</pre>}
+        <div className="mt-12 w-full max-w-2xl overflow-hidden rounded-lg border bg-muted/50 text-left text-xs font-mono">
+          <div className="flex items-center justify-between border-b bg-muted/80 px-4 py-2">
+            <p className="font-bold text-destructive">Error Detail (Dev Only):</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-2 px-2 text-[10px] uppercase tracking-wider hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => {
+                const errorText = `Message: ${error.message}\n\nStack: ${error.stack || "No stack trace available"}`;
+                navigator.clipboard.writeText(errorText);
+                toast({
+                  title: "Error copied to clipboard",
+                  description: "You can now share this with the development team.",
+                });
+              }}
+            >
+              <Copy size={12} />
+              Copy Error
+            </Button>
+          </div>
+          <div className="max-h-[300px] overflow-auto p-4">
+            <pre className="whitespace-pre-wrap break-all font-bold text-destructive">
+              {error.message}
+            </pre>
+            {error.stack && (
+              <pre className="mt-2 whitespace-pre-wrap break-all opacity-50">
+                {error.stack}
+              </pre>
+            )}
+          </div>
         </div>
       )}
     </div>

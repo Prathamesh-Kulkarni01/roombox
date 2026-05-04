@@ -66,9 +66,7 @@ export default defineConfig({
             timeout: 240000,
         },
         {
-            command: process.env.CI 
-                ? 'npx next dev -p 9003' 
-                : 'npx next dev --turbopack -p 9003',
+            command: 'npx next dev --turbopack -p 9003',
             url: 'http://127.0.0.1:9003',
             reuseExistingServer: !process.env.CI,
             timeout: 600000, // 10 minutes for slow CI build
