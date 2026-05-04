@@ -7,7 +7,7 @@
 'use client'
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { User, Plan, PlanName, UserRole, Guest, Staff, Invite, PremiumFeatures, PaymentMethod, BusinessKycDetails, BillingConfig, WalletInfo } from '../types';
+import { CURRENT_SCHEMA_VERSION, type User, type Plan, type PlanName, type UserRole, type Guest, type Staff, type Invite, type PremiumFeatures, type PaymentMethod, type BusinessKycDetails, type BillingConfig, type WalletInfo } from '../types';
 import { plans, PRICING_CONFIG } from '../constants';
 import { auth, db, isFirebaseConfigured, getOwnerClientDb, getDynamicDb } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -250,7 +250,7 @@ export const finalizeUserRole = createAsyncThunk<User, 'owner' | 'tenant', { sta
                         website: { enabled: true },
                         kyc: { enabled: true },
                         whatsapp: { enabled: true }
-                    },
+                    },  
                     whatsappCredits: PRICING_CONFIG.trial.includedWhatsappCredits
                 },
                 wallet: {

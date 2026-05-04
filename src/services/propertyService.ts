@@ -1,4 +1,7 @@
 import { Firestore } from 'firebase-admin/firestore';
+import { getPlanLimit } from '@/lib/permissions';
+import { CURRENT_SCHEMA_VERSION, PerformerInfo, PG } from '@/lib/types';
+import { ActivityLogsService } from '@/lib/activity-logs-service';
 
 export interface BuildingStats {
     totalBuildings: number;
@@ -40,10 +43,6 @@ export interface CreatePropertyInput {
     amenities?: string[];
     images?: string[];
 }
-
-import { getPlanLimit } from '@/lib/permissions';
-import { CURRENT_SCHEMA_VERSION, PerformerInfo, PG } from '@/lib/types';
-import { ActivityLogsService } from '@/lib/activity-logs-service';
 
 export class PropertyService {
     /**
