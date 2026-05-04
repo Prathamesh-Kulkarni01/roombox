@@ -1,6 +1,6 @@
 {
   "name": "rentsutra",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
@@ -31,7 +31,8 @@
     "test:smoke": "playwright test --grep @smoke --project=chromium",
     "stability-check": "npm run typecheck && npm run lint && npm run test:smoke",
     "audit": "npm run audit:load && npm run audit:financial && npm run audit:failure && npm run audit:pilot && npm run audit:guests && npm run audit:transfer && npm run audit:launch",
-    "verify:billing": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8081 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=roombox-test npx tsx scripts/verify-billing-system.ts"  },
+    "verify:billing": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8081 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=roombox-test npx tsx scripts/verify-billing-system.ts"
+  },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.7",
     "@genkit-ai/googleai": "^1.13.0",

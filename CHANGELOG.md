@@ -1,3 +1,28 @@
+## Version 0.15.0 (5/3/2026, 6:28:50 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ scripts/verify-system-integrity.ts | 151 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 151 insertions(+)
+
+```
+
+### ✨ Features
+- feat: add script to verify system schema integrity and detect orphaned records
+- feat: implement landing page with feature showcase and savings calculator support
+- feat: implement landing page with feature showcase and add translation utilities
+- feat: implement comprehensive billing and wallet ledger system
+- feat: implement administrative dashboards, billing constants, payouts, and automated testing suite
+- feat: implement wallet system with subscription gating, billing automation, and KYC management features
+- feat: implement property management API and build profile completion onboarding components
+
+### 📝 Other Commits
+- chore: update package-lock.json dependencies
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+- feat(dashboard): enhance payment settings validation UI and fix smoke test ports
+- cleanup: remove temporary scratch files and verification scripts
+
+
 ## Version 0.14.0 (5/1/2026, 1:06:41 PM)
 
 ### 🔄 Semantic Impact Summary
