@@ -1,3 +1,20 @@
+## Version 0.16.0 (5/4/2026, 3:45:59 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 25 +++++++++++++++++++++++++
+ package.json |  5 +++--
+ 2 files changed, 28 insertions(+), 2 deletions(-)
+
+```
+
+### ✨ Features
+- feat: implement property service with CRUD operations, plan-based limits, and activity logging
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.15.0 (5/3/2026, 6:28:50 PM)
 
 ### 🔄 Semantic Impact Summary
