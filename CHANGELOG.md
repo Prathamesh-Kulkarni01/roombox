@@ -1,3 +1,21 @@
+## Version 0.19.0 (5/4/2026, 8:18:56 AM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 18 ++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement RBAC middleware, route guarding, and dashboard layout authorization for improved security and access control
+- feat: add role selection step to onboarding and fix firebase admin initialization
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.18.0 (5/4/2026, 6:59:28 AM)
 
 ### 🔄 Semantic Impact Summary
