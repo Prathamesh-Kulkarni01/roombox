@@ -94,7 +94,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
 
         // Detail common user info
         const status = userData.status || 'active';
-        if (status !== 'active') {
+        if (status === 'suspended' || status === 'rejected') {
             console.warn(`[AuthServer] Access blocked for ${status} user: ${userId}`);
             return { ownerId: null, error: `Forbidden: Account ${status}. Please contact support.` };
         }

@@ -22,8 +22,8 @@ import { trainingGuides } from '@/lib/blog-data';
 import { useTranslation } from '@/context/language-context';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { allNavItems } from '@/lib/navigation';
-import { canViewFeature } from '@/lib/permissions';
 import { usePermissionsStore } from '@/lib/stores/configStores';
+import { useAccessibleNav } from '@/lib/hooks/use-accessible-nav';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,9 +68,16 @@ export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { pgs } = useAppSelector((state) => state.pgs);
+  const { 
+    accessibleNavGroups, 
+    isItemAccessible, 
+    isTrialEnded, 
+    hasNoProperties, 
+    currentUser, 
+    currentPlan,
+    pgs
+  } = useAccessibleNav();
   const { selectedPgId, isLoading } = useAppSelector((state) => state.app);
-  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
   const isCustomDbConnected = !!currentUser?.subscription?.enterpriseProject?.projectId;
   const { language, setLanguage, t } = useTranslation();
   const { setTheme } = useTheme();
@@ -100,8 +107,11 @@ export default function Header() {
   const { staff = [] } = useAppSelector((state) => state.staff || {});
   const { expenses = [] } = useAppSelector((state) => state.expenses || {});
 
+
+
   const getInsightForHref = (href: string) => {
     if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'admin' && currentUser.role !== 'manager')) return null;
+    if (isTrialEnded || hasNoProperties) return null;
     
     const filteredGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
     const filteredComplaints = selectedPgId ? complaints.filter(c => c.pgId === selectedPgId) : complaints;
@@ -357,13 +367,8 @@ export default function Header() {
                     {/* 4. Navigation Links */}
                     {(isDashboard || isTenantDashboard) && (
                       <div className="space-y-10">
-                        {allNavItems.map((group) => {
-                          const accessibleItems = group.items.filter(item => {
-                            return currentUser?.role === 'owner' || 
-                              currentUser?.role === 'admin' || 
-                              item.feature === 'core' || 
-                              canViewFeature(usePermissionsStore.getState().featurePermissions, currentUser?.role as any, item.feature!);
-                          });
+                        {accessibleNavGroups.map((group) => {
+                          const accessibleItems = group.items;
 
                           if (accessibleItems.length === 0) return null;
 
@@ -697,12 +702,7 @@ export default function Header() {
           <CommandEmpty>No results found.</CommandEmpty>
           
           <CommandGroup heading="Navigation">
-            {allNavItems.flatMap(group => group.items).filter(item => {
-              return currentUser?.role === 'owner' || 
-                currentUser?.role === 'admin' || 
-                item.feature === 'core' || 
-                canViewFeature(usePermissionsStore.getState().featurePermissions, currentUser?.role as any, item.feature!);
-            }).map((item) => {
+            {accessibleNavGroups.flatMap(group => group.items).map((item) => {
               const insight = getInsightForHref(item.href);
               return (
                 <CommandItem

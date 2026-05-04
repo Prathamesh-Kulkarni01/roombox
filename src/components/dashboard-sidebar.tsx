@@ -10,42 +10,22 @@ import { Button } from './ui/button';
 import { allNavItems, type NavItem } from '@/lib/navigation';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
-import { usePermissionsStore } from '@/lib/stores/configStores';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { LogOut, Shield, BookOpen, BookUser, UserCircle } from 'lucide-react';
-import type { RolePermissions } from '@/lib/permissions';
-import type { UserRole } from '@/lib/types';
-import { canViewFeature } from '@/lib/permissions';
 import { useTranslation } from '@/context/language-context';
+import { useAccessibleNav } from '@/lib/hooks/use-accessible-nav';
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
-  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
-  const { featurePermissions } = usePermissionsStore();
   const { t } = useTranslation();
+  const { 
+    currentUser, 
+    currentPlan, 
+    accessibleNavGroups 
+  } = useAccessibleNav();
   
-  if (!currentUser || !currentPlan) {
-    return (
-        <aside className="w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground hidden md:flex">
-             <div className="flex-1 flex flex-col gap-y-2 p-4">
-                <h2 className="text-xl font-bold text-primary font-headline">Owner Dashboard</h2>
-             </div>
-        </aside>
-    );
-  }
-  
-  const accessibleNavGroups = allNavItems
-    .map(group => ({
-      ...group,
-      items: group.items.filter(item => {
-          if (currentUser.role === 'owner' || currentUser.role === 'admin') return true;
-          if (item.feature === 'core') return true;
-          return canViewFeature(featurePermissions, currentUser.role, item.feature!);
-      })
-    }))
-    .filter(group => group.items.length > 0);
-
+  if (!currentUser) return null;
 
   return (
     <aside className="w-64 flex-col border-r bg-card hidden md:flex">
@@ -95,9 +75,11 @@ export default function DashboardSidebar() {
                 <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
                 <AvatarFallback>{(currentUser.name || 'User').slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <div className='flex-1'>
+            <div className='flex-1 min-w-0'>
                 <p className="font-semibold text-sm truncate">{currentUser.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{currentUser.role} ({currentPlan.name})</p>
+                <p className="text-xs text-muted-foreground capitalize truncate">
+                  {currentUser.role} {currentPlan ? `(${currentPlan.name})` : ''}
+                </p>
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -122,3 +104,4 @@ export default function DashboardSidebar() {
     </aside>
   );
 }
+

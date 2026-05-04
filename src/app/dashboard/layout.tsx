@@ -112,44 +112,6 @@ export default function DashboardLayout({
   const isOwner = currentUser?.role === 'owner';
   const showSubscriptionGate = isOwner && currentPlan && currentPlan.id === 'trial' && currentUser.subscription?.status !== 'active' && currentUser.subscription?.status !== 'trialing' && pathname !== '/dashboard/settings';
 
-  if (showSubscriptionGate) {
-    return (
-      <div className="flex flex-col h-screen">
-        <Header />
-        <div className="flex-1 flex items-center justify-center p-6 bg-muted/30">
-          <Card className="max-w-md w-full p-8 text-center space-y-6 shadow-xl border-t-4 border-t-primary">
-            <div className="flex justify-center">
-              <div className="p-4 bg-primary/10 rounded-full">
-                <Crown className="h-12 w-12 text-primary animate-pulse" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold font-headline">{t('trial_ended_title')}</h1>
-              <p className="text-muted-foreground">{t('trial_ended_description')}</p>
-            </div>
-            
-            <div className="pt-4 flex flex-col gap-3">
-              {isOwner ? (
-                <Button asChild size="lg" className="w-full font-semibold shadow-lg shadow-primary/20">
-                  <Link href="/dashboard/settings?tab=subscription">
-                    {t('choose_plan_button')}
-                  </Link>
-                </Button>
-              ) : (
-                <p className="text-sm text-amber-600 font-medium bg-amber-50 p-3 rounded-lg border border-amber-100">
-                  Please contact the owner to renew the subscription.
-                </p>
-              )}
-              <Button variant="outline" onClick={() => dispatch(logoutUser())} className="w-full">
-                {t('logout')}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   const showTrialBanner = currentUser?.subscription?.status === 'trialing' && currentUser.subscription?.trialEndDate && isAfter(parseISO(currentUser.subscription.trialEndDate), new Date());
 
   return (
@@ -159,13 +121,41 @@ export default function DashboardLayout({
         <div className="flex flex-1 flex-col overflow-auto">
           <main className="flex-1 p-4 pb-20 md:pb-4 overflow-x-hidden">
             {showTrialBanner && <TrialBanner trialEndDate={currentUser.subscription!.trialEndDate!} />}
-            {children}
+            
+            {showSubscriptionGate ? (
+              <div className="flex-1 flex items-center justify-center p-6 min-h-[70vh]">
+                <Card className="max-w-md w-full p-8 text-center space-y-6 shadow-xl border-t-4 border-t-primary">
+                  <div className="flex justify-center">
+                    <div className="p-4 bg-primary/10 rounded-full">
+                      <Crown className="h-12 w-12 text-primary animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <h1 className="text-3xl font-bold font-headline">{t('trial_ended_title')}</h1>
+                    <p className="text-muted-foreground">{t('trial_ended_description')}</p>
+                  </div>
+                  
+                  <div className="pt-4 flex flex-col gap-3">
+                    <Button asChild size="lg" className="w-full font-semibold shadow-lg shadow-primary/20">
+                      <Link href="/dashboard/settings?tab=subscription">
+                        {t('choose_plan_button')}
+                      </Link>
+                    </Button>
+                    <Button variant="outline" onClick={() => dispatch(logoutUser())} className="w-full">
+                      {t('logout')}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            ) : (
+              children
+            )}
           </main>
         </div>
         <DashboardBottomNav />
       </div>
       <InstallForceOverlay />
     </>
-
-  )
+  );
 }
+

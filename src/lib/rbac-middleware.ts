@@ -57,8 +57,8 @@ export async function enforcePermission(
         return { authorized: false, response: unauthorized(error) };
     }
 
-    // 0. Status check: Prevent access for suspended or inactive accounts
-    if (status && status !== 'active') {
+    // 0. Status check: Prevent access for suspended or rejected accounts
+    if (status === 'suspended' || status === 'rejected') {
         console.warn(`[RBAC] Access blocked for ${status} user: ${userId}`);
         return { 
             authorized: false, 

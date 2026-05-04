@@ -15,12 +15,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { allNavItems } from '@/lib/navigation';
-import { useAppSelector } from '@/lib/hooks'
-import { usePermissionsStore } from '@/lib/stores/configStores';
-import { canViewFeature } from '@/lib/permissions';
+import { useAppSelector, useAppDispatch } from '@/lib/hooks'
+import { useAccessibleNav } from '@/lib/hooks/use-accessible-nav';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/context/language-context';
-import { useAppDispatch } from '@/lib/hooks';
 import { logoutUser } from '@/lib/slices/userSlice';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
@@ -29,26 +27,27 @@ import { Separator } from './ui/separator';
 export default function DashboardBottomNav() {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
-  const { currentUser, currentPlan } = useAppSelector((state) => state.user);
-  const { featurePermissions } = usePermissionsStore();
+  const { accessibleNavGroups, isItemAccessible, isTrialEnded, hasNoProperties, currentUser, currentPlan } = useAccessibleNav();
   const { complaints = [] } = useAppSelector((state) => state.complaints || {});
   const { guests = [] } = useAppSelector((state) => state.guests || {});
-  const { pgs: pgsList = [] } = useAppSelector((state) => state.pgs || {});
   const { selectedPgId } = useAppSelector((state) => state.app || {});
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const { t } = useTranslation();
 
   const unreadComplaints = complaints.filter(c => c.status === 'open').length;
 
-  if (!currentUser || !currentPlan) return null;
+  if (!currentUser) return null;
+
+
 
   const getInsight = (href: string) => {
-    if (!currentUser) return undefined;
+    if (!currentUser || isTrialEnded || hasNoProperties) return undefined;
     
     const filteredGuests = selectedPgId ? guests.filter(g => g.pgId === selectedPgId) : guests;
     const filteredComplaints = selectedPgId ? complaints.filter(c => c.pgId === selectedPgId) : complaints;
+    const { pgs: pgsList = [] } = useAppSelector((state) => state.pgs || {});
     const filteredPgs = selectedPgId ? pgsList.filter(p => p.id === selectedPgId) : pgsList;
-
+// ... (rest of getInsight stays same)
     if (href === '/dashboard/tenant-management') {
       const activeCount = (filteredGuests || []).filter(g => g && !g.isVacated).length;
       return activeCount > 0 ? { label: String(activeCount), variant: 'default' as const } : undefined;
@@ -79,23 +78,23 @@ export default function DashboardBottomNav() {
     { href: '/dashboard/complaints', label: 'nav_complaints_short', icon: MessageSquareWarning, feature: 'complaints' },
   ];
 
-  const mainNavWithInsights = mainNavItems.map(item => ({
-    ...item,
-    insight: getInsight(item.href)
-  }));
+  const visibleItems = mainNavItems
+    .filter(item => isItemAccessible(item as any))
+    .map(item => ({
+      ...item,
+      insight: getInsight(item.href)
+    }));
 
-  const accessibleMoreNavGroups = allNavItems
+  const visibleHrefs = visibleItems.map(i => i.href);
+  const accessibleMoreNavGroups = accessibleNavGroups
     .map(group => ({
       ...group,
-      items: group.items.filter(item =>
-        !mainNavItems.some(mainItem => mainItem.href === item.href) &&
-        item.href !== '/dashboard' &&
-        (item.feature === 'core' || canViewFeature(featurePermissions, currentUser.role, item.feature!))
+      items: group.items.filter(item => 
+        !visibleHrefs.includes(item.href) && item.href !== '/dashboard'
       )
     }))
     .filter(group => group.items.length > 0);
 
-  const visibleItems = mainNavWithInsights.filter(item => item.feature === 'core' || (typeof item.feature === 'string' && canViewFeature(featurePermissions, currentUser.role, item.feature)));
 
   const handleLinkClick = () => {
     setIsSheetOpen(false);
