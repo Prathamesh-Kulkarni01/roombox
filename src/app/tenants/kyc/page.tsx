@@ -17,7 +17,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, CheckCircle, FileUp, Loader2, RefreshCw, XCircle, FileText, ShieldAlert, Video, VideoOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import SubscriptionDialog from '@/components/dashboard/dialogs/SubscriptionDialog';
 import type { KycDocumentConfig, SubmittedKycDocument } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 

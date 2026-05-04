@@ -154,7 +154,7 @@ const Index = () => {
   ];
 
    const secondaryFeatures = [
-        { icon: LayoutList, title: t('landing_features_property_title', 'Property Layout'), description: t('landing_features_property_desc', 'Create a digital twin of your property with floors, rooms, and beds.') },
+        { icon: LayoutList, title: t('landing_features_property_title'), description: t('landing_features_property_desc') },
         { icon: UserPlus, title: t('landing_features_onboarding_title'), description: t('landing_features_onboarding_desc') },
         { icon: BookUser, title: t('landing_features_passbook_title'), description: t('landing_features_passbook_desc') },
         { icon: Wallet, title: t('landing_features_expenses_title'), description: t('landing_features_expenses_desc') },
@@ -638,11 +638,11 @@ const Index = () => {
                                         <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs shrink-0">
                                             0{i}
                                         </span>
-                                        {t(`faq_q${i}`)}
+                                        {t(`faq_q${i}` as any)}
                                     </span>
                                 </AccordionTrigger>
                                 <AccordionContent className="text-muted-foreground pb-6 pl-12">
-                                    {t(`faq_a${i}`)}
+                                    {t(`faq_a${i}` as any)}
                                 </AccordionContent>
                             </AccordionItem>
                         ))}

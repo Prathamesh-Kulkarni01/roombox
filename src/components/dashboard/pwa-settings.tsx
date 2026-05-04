@@ -524,7 +524,7 @@ export function PWASettings() {
             {/* Preview Controls */}
             <div className="flex bg-slate-100 p-1.5 rounded-2xl border shadow-inner">
                <Button 
-                variant={previewMode === 'home' ? 'white' : 'ghost'} 
+                variant={previewMode === 'home' ? 'default' : 'ghost'} 
                 size="sm" 
                 className={`rounded-xl px-4 ${previewMode === 'home' ? 'bg-white shadow-sm' : ''}`}
                 onClick={() => setPreviewMode('home')}
@@ -532,7 +532,7 @@ export function PWASettings() {
                  Icon
                </Button>
                <Button 
-                variant={previewMode === 'splash' ? 'white' : 'ghost'} 
+                variant={previewMode === 'splash' ? 'default' : 'ghost'} 
                 size="sm" 
                 className={`rounded-xl px-4 ${previewMode === 'splash' ? 'bg-white shadow-sm' : ''}`}
                 onClick={() => setPreviewMode('splash')}
@@ -540,7 +540,7 @@ export function PWASettings() {
                  Splash
                </Button>
                <Button 
-                variant={previewMode === 'dashboard' ? 'white' : 'ghost'} 
+                variant={previewMode === 'dashboard' ? 'default' : 'ghost'} 
                 size="sm" 
                 className={`rounded-xl px-4 ${previewMode === 'dashboard' ? 'bg-white shadow-sm' : ''}`}
                 onClick={() => setPreviewMode('dashboard')}

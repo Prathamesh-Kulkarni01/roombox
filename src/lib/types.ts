@@ -621,6 +621,7 @@ export interface User {
     pgIds?: string[];
   }[];
   isOnboarded?: boolean;
+  schemaVersion?: number;
   lastActiveContext?: {
     ownerId: string;
     staffId: string | null;

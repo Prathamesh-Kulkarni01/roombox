@@ -772,7 +772,7 @@ export default function Header() {
                     <div className="flex flex-col">
                       <span className="font-bold">{guest.name}</span>
                       <span className="text-[10px] text-muted-foreground">
-                        {pgs.find(p => p.id === guest.pgId)?.name} • Room {guest.roomNumber || 'N/A'}
+                        {pgs.find(p => p.id === guest.pgId)?.name} • Room {guest.roomName || 'N/A'}
                       </span>
                     </div>
                   </CommandItem>

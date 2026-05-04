@@ -98,6 +98,8 @@ const translations = {
     calculator_base_fee_disclaimer: "* Includes ₹{baseFee} base platform fee. Commitment tiers lock in lower per-tenant rates as you grow.",
 
     // Landing Page Features
+    landing_features_property_title: "Property Layout",
+    landing_features_property_desc: "Create a digital twin of your property with floors, rooms, and beds.",
     landing_features_onboarding_title: "Guest Onboarding",
     landing_features_onboarding_desc: "Easily add new tenants and manage their entire lifecycle.",
     landing_features_passbook_title: "Rent Passbook",
@@ -462,6 +464,8 @@ const translations = {
     calculator_base_fee_disclaimer: "* इसमें ₹{baseFee} आधार प्लेटफ़ॉर्म शुल्क शामिल है। जैसे-जैसे आप बढ़ते हैं, कम प्रति-किरायेदार दरें लॉक होती जाती हैं।",
 
     // Landing Page Features
+    landing_features_property_title: "संपत्ति लेआउट",
+    landing_features_property_desc: "अपनी संपत्ति का एक डिजिटल प्रतिरूप बनाएं, जिसमें फ्लोर, कमरे और बेड शामिल हों।",
     landing_features_onboarding_title: "अतिथि ऑनबोर्डिंग",
     landing_features_onboarding_desc: "आसानी से नए किरायेदारों को जोड़ें और उनके पूरे जीवनचक्र का प्रबंधन करें।",
     landing_features_passbook_title: "किराया पासबुक",
