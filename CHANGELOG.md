@@ -1,3 +1,20 @@
+## Version 0.20.0 (5/4/2026, 12:33:22 PM)
+
+### 🔄 Semantic Impact Summary
+```
+ CHANGELOG.md | 18 ++++++++++++++++++
+ package.json |  2 +-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+```
+
+### ✨ Features
+- feat: implement subscription billing system with Razorpay integration and wallet recharge dialog
+
+### 📝 Other Commits
+- Merge branch 'master' of https://github.com/Prathamesh-Kulkarni01/roombox
+
+
 ## Version 0.19.0 (5/4/2026, 8:18:56 AM)
 
 ### 🔄 Semantic Impact Summary
