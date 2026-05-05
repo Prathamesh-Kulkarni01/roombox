@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
 
                             const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
-                            const appUrl = (process.env.APP_URL || 'https://roombox.in');
+                            const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
                             const payUrl = `${appUrl}/pay/${guest.id}`;
                             const dueDateObj = new Date(guest.dueDate);
                             const monthLabel = dueDateObj.toLocaleDateString('en-IN', { month: 'long' });
