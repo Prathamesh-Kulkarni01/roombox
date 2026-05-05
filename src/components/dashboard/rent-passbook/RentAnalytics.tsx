@@ -30,7 +30,8 @@ export default function RentAnalytics({ guests, pgs }: RentAnalyticsProps) {
 
         guests.forEach(guest => {
             (guest.paymentHistory || []).forEach(payment => {
-                const paymentDate = parseISO(payment.date);
+                const dateStr = payment.date || payment.createdAt || new Date().toISOString();
+                const paymentDate = parseISO(dateStr);
                 const monthKey = format(paymentDate, 'MMM yy');
                 const monthData = data.find(d => d.month === monthKey);
                 if (monthData) {
@@ -67,11 +68,11 @@ export default function RentAnalytics({ guests, pgs }: RentAnalyticsProps) {
             }, 0);
             
         const ytdCollection = guests.flatMap(g => g.paymentHistory || [])
-            .filter(p => getYear(parseISO(p.date)) === getYear(new Date()))
+            .filter(p => getYear(parseISO(p.date || p.createdAt || new Date().toISOString())) === getYear(new Date()))
             .reduce((sum, p) => sum + (p.amount || 0), 0);
 
         const symbolicCollectedYTD = guests.flatMap(g => g.paymentHistory || [])
-            .filter(p => p.amountType === 'symbolic' && getYear(parseISO(p.date)) === getYear(new Date()))
+            .filter(p => p.amountType === 'symbolic' && getYear(parseISO(p.date || p.createdAt || new Date().toISOString())) === getYear(new Date()))
             .length;
 
         return {

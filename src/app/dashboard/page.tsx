@@ -22,45 +22,36 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Sparkles, Sun, Moon, CloudSun } from "lucide-react"
 import Access from '@/components/ui/PermissionWrapper';
 import { useToast } from "@/hooks/use-toast"
-import {
-  useGetPropertiesQuery,
-  useGetGuestsQuery,
-  useGetComplaintsQuery
-} from "@/lib/api/apiSlice"
 import type { PG, Guest, Complaint } from "@/lib/types"
 import { formatBalanceBreakdown, getBalanceBreakdown } from "@/lib/ledger-utils"
 import { sendMassPaymentReminders } from "@/lib/actions/notificationActions"
 
 export default function DashboardPage() {
-  const { currentUser } = useAppSelector(state => state.user);
-  const { selectedPgId } = useAppSelector(state => state.app);
-  const router = useRouter();
-  const { toast } = useToast();
-
-  // RTK Query hooks
-  const { data: pgsData, isLoading: isLoadingPgs } = useGetPropertiesQuery(undefined, {
-    skip: !currentUser?.id
-  });
-  const { data: guestsData, isLoading: isLoadingGuests } = useGetGuestsQuery(undefined, {
-    skip: !currentUser?.id
-  });
-  const { data: complaintsData, isLoading: isLoadingComplaints } = useGetComplaintsQuery(undefined, {
-    skip: !currentUser?.id
-  });
-
-  const pgs = pgsData?.buildings || [];
-  const guests = guestsData?.guests || [];
-  const complaints = complaintsData?.complaints || [];
-  const isLoading = isLoadingPgs || isLoadingGuests || isLoadingComplaints;
-
   const {
+    currentUser,
+    selectedPgId,
     isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit,
     handleOpenAddGuestDialog,
     handleOpenPaymentDialog,
     isAddingGuest,
     isRecordingPayment,
+    pgs,
+    guests,
+    complaints,
+    isLoadingPgs,
+    isLoadingGuests,
+    isLoadingComplaints,
+    isAppLoading,
+    initialDataLoaded,
+    featurePermissions
   } = useDashboard();
+
+  const router = useRouter();
+  const { toast } = useToast();
+
+  // Loading state moved to useDashboard return
+  const isLoading = !initialDataLoaded || isAppLoading;
 
   const [isMassReminderDialogOpen, setIsMassReminderDialogOpen] = React.useState(false);
   const [guestsForReminder, setGuestsForReminder] = React.useState<any[]>([]);

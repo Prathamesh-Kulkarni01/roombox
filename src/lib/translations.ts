@@ -235,8 +235,6 @@ const translations = {
     nav_food_desc: "Plan weekly meals.",
 
     nav_group_growth: "Growth & Settings",
-    manage_rooms: "Manage Rooms",
-    manage_rooms_short: "Rooms",
     nav_app_website: "My Brand",
     nav_app_website_desc: "Manage your public website & brand.",
     nav_whatsapp: "WhatsApp",
@@ -441,6 +439,8 @@ const translations = {
     commitment_none: "No Commitment",
     pay_per_tenant_label: "You pay per tenant",
     choose_your_rate_label: "Choose your rate",
+    limit_reached: "Limit Reached",
+    tenant_limit_reached_desc: "You have reached the limit of {tenants} tenants for your current plan. Please upgrade to add more guests.",
   },
   hi: {
     hero_badge: "आधुनिक किराये की संपत्तियों के लिए ऑपरेटिंग सिस्टम",
@@ -657,6 +657,8 @@ const translations = {
     nav_kyc_desc: "किरायेदार के दस्तावेजों का सत्यापन करें।",
     nav_staff: "कर्मचारी",
     nav_staff_desc: "अपनी टीम का प्रबंधन करें।",
+    limit_reached: "सीमा समाप्त",
+    tenant_limit_reached_desc: "आप अपनी वर्तमान योजना के लिए {tenants} किरायेदारों की सीमा तक पहुँच गए हैं। अधिक मेहमानों को जोड़ने के लिए कृपया अपग्रेड करें।",
 
     nav_group_financial: "वित्तीय",
     nav_rentbook: "रेंटबुक",
@@ -675,8 +677,6 @@ const translations = {
     nav_food_desc: "साप्ताहिक भोजन की योजना बनाएं।",
 
     nav_group_growth: "विकास और सेटिंग्स",
-    manage_rooms: "कमरे",
-    manage_rooms_short: "कमरे",
     nav_app_website: "ऐप और वेबसाइट",
     nav_app_website_desc: "अपने सार्वजनिक ब्रांड का प्रबंधन करें।",
     nav_whatsapp: "WhatsApp",
@@ -1303,6 +1303,8 @@ const translations = {
     choose_your_rate_label: "तुमचा दर निवडा",
     billing_daily_explanation: "तुमच्या सक्रिय भाडेकरूंच्या संख्येनुसार तुमचे वॉलेट दररोज डेबिट केले जाते.",
     suggested_coverage_label: "१ महिन्याच्या कव्हरेजसाठी शिफारस केलेले",
+    limit_reached: "मर्यादा गाठली",
+    tenant_limit_reached_desc: "तुम्ही तुमच्या सध्याच्या प्लॅनसाठी {tenants} भाडेकरूंच्या मर्यादेपर्यंत पोहोचला आहात. अधिक पाहुणे जोडण्यासाठी कृपया अपग्रेड करा.",
   },
 };
 

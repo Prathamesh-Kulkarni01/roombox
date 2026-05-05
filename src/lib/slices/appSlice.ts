@@ -3,6 +3,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface AppState {
     isLoading: boolean;
+    initialDataLoaded: boolean;
     selectedPgId: string | null;
     mockDate: string | null; // For time travel debugging
 }
@@ -19,6 +20,7 @@ const getInitialSelectedPgId = (): string | null => {
 
 const initialState: AppState = {
     isLoading: true,
+    initialDataLoaded: false,
     selectedPgId: getInitialSelectedPgId(),
     mockDate: null,
 };
@@ -29,6 +31,9 @@ const appSlice = createSlice({
     reducers: {
         setLoading: (state, action: PayloadAction<boolean>) => {
             state.isLoading = action.payload;
+        },
+        setInitialDataLoaded: (state, action: PayloadAction<boolean>) => {
+            state.initialDataLoaded = action.payload;
         },
         setSelectedPgId: (state, action: PayloadAction<string | null>) => {
             state.selectedPgId = action.payload;
@@ -74,5 +79,5 @@ const appSlice = createSlice({
     }
 });
 
-export const { setLoading, setSelectedPgId, setMockDate, validateSelectedPg } = appSlice.actions;
+export const { setLoading, setInitialDataLoaded, setSelectedPgId, setMockDate, validateSelectedPg } = appSlice.actions;
 export default appSlice.reducer;

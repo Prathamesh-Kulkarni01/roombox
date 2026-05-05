@@ -3,230 +3,111 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Complaint } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
-import { doc, setDoc, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { RootState } from '../store';
 import { createAndSendNotification } from '../actions/notificationActions';
 import { getCurrentPlan } from '../utils';
 
 interface ComplaintsState {
     complaints: Complaint[];
+    optimisticComplaints: Record<string, Complaint>;
 }
 
 const initialState: ComplaintsState = {
     complaints: [],
+    optimisticComplaints: {},
 };
 
-// For tenants raising a complaint
-export type NewTenantComplaintData = Omit<Complaint, 'id' | 'date' | 'status' | 'guestName' | 'guestId' | 'pgId' | 'pgName'>;
-export const addComplaint = createAsyncThunk<Complaint, NewTenantComplaintData, { state: RootState }>(
+export const addComplaint = createAsyncThunk<Complaint, Complaint, { state: RootState }>(
     'complaints/addComplaint',
-    async (newComplaintData, { getState, rejectWithValue, dispatch }) => {
-        const { user, guests } = getState();
-        const currentGuest = guests.guests.find(g => g.id === user.currentUser?.guestId);
-        const ownerId = user.currentUser?.ownerId;
+    async (complaint, { getState, rejectWithValue }) => {
+        const { user } = getState();
+        const ownerId = user.currentUser?.role === 'owner' ? user.currentUser.id : user.currentUser?.ownerId;
 
-        if (!user.currentUser || !currentGuest || !ownerId) {
-            return rejectWithValue('User or guest data is incomplete');
-        }
+        if (!ownerId) return rejectWithValue('Owner ID not found.');
 
-        // Image URLs are already uploaded URLs at this point
-        const newComplaint: Complaint = {
-            ...newComplaintData,
-            id: `cmp-${Date.now()}`,
-            date: new Date().toISOString(),
-            status: 'open',
-            guestId: currentGuest.id,
-            guestName: currentGuest.name,
-            pgId: currentGuest.pgId,
-            pgName: currentGuest.pgName,
-            isPublic: newComplaintData.isPublic ?? true,
-        };
-
-        if (isFirebaseConfigured()) {
-            const selectedDb = selectOwnerDataDb(user.currentUser);
-            const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
-            await setDoc(docRef, newComplaint);
-        }
-
-        await createAndSendNotification({
-            ownerId: ownerId,
-            notification: {
-                type: 'new-complaint',
-                title: `New Complaint: ${newComplaint.category}`,
-                message: `${newComplaint.guestName} reported: "${newComplaint.description.substring(0, 100)}${newComplaint.description.length > 100 ? '...' : ''}"`,
-                link: `/dashboard/complaints`,
-                targetId: ownerId, // Send to the owner
+        try {
+            if (isFirebaseConfigured()) {
+                const selectedDb = selectOwnerDataDb(user.currentUser);
+                if (!selectedDb) throw new Error('DB not available');
+                const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', complaint.id);
+                await setDoc(docRef, complaint);
             }
-        });
-
-        if (currentGuest.userId) {
-            await createAndSendNotification({
-                ownerId,
-                notification: {
-                    type: 'new-complaint-confirmation',
-                    title: 'Complaint Logged',
-                    message: `We have received your complaint about "${newComplaint.category}". The manager has been notified.`,
-                    link: '/tenants/complaints',
-                    targetId: currentGuest.userId
-                }
-            });
+            return complaint;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
         }
-
-        return newComplaint;
     }
 );
 
-// For owners raising a complaint, now supports multiple entities
-export type NewOwnerComplaintData = {
-    pgIds: string[];
-    targetType: 'general' | 'specific';
-    roomIds?: string[];
-    guestIds?: string[];
-    category: 'maintenance' | 'cleanliness' | 'wifi' | 'food' | 'other';
-    description: string;
-    imageUrls?: string[];
-    isPublic: boolean;
-};
-
-export const addOwnerComplaint = createAsyncThunk<Complaint[], NewOwnerComplaintData, { state: RootState }>(
+export const addOwnerComplaint = createAsyncThunk<Complaint[], Complaint[], { state: RootState }>(
     'complaints/addOwnerComplaint',
-    async (complaintData, { getState, rejectWithValue }) => {
-        const { user, guests, pgs } = getState();
+    async (complaints, { getState, rejectWithValue }) => {
+        const { user } = getState();
         const ownerId = user.currentUser?.id;
+        if (!ownerId || user.currentUser?.role !== 'owner') return rejectWithValue('Only owners can use this.');
 
-        if (!user.currentUser || !ownerId || user.currentUser.role !== 'owner') {
-            return rejectWithValue('Only owners can perform this action.');
-        }
-
-        const selectedDb = selectOwnerDataDb(user.currentUser);
-        const batch = writeBatch(selectedDb);
-        const createdComplaints: Complaint[] = [];
-
-        const createComplaintObject = (
-            pgId: string,
-            guestId: string | null,
-            roomId: string | null,
-            floorId: string | null
-        ): Complaint => {
-            const guestName = guestId ? (guests.guests.find(g => g.id === guestId)?.name || 'Unknown Guest') : 'Owner Reported';
-            const pgName = pgs.pgs.find(p => p.id === pgId)?.name || 'Unknown PG';
-
-            return {
-                id: `cmp-${Date.now()}-${Math.random()}`,
-                date: new Date().toISOString(),
-                status: 'open',
-                pgId,
-                pgName,
-                guestId,
-                guestName,
-                roomId: roomId || undefined,
-                floorId: floorId || undefined,
-                category: complaintData.category,
-                description: complaintData.description,
-                imageUrls: complaintData.imageUrls,
-                isPublic: complaintData.isPublic,
-            };
-        };
-
-        if (complaintData.targetType === 'general') {
-            for (const pgId of complaintData.pgIds) {
-                const newComplaint = createComplaintObject(pgId, null, null, null);
-                const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
-                batch.set(docRef, newComplaint);
-                createdComplaints.push(newComplaint);
+        try {
+            if (isFirebaseConfigured()) {
+                const selectedDb = selectOwnerDataDb(user.currentUser);
+                if (!selectedDb) throw new Error('DB not available');
+                const batch = writeBatch(selectedDb);
+                complaints.forEach(c => {
+                    const ref = doc(selectedDb, 'users_data', ownerId, 'complaints', c.id);
+                    batch.set(ref, c);
+                });
+                await batch.commit();
             }
-        } else { // 'specific'
-            const handledGuests = new Set<string>();
-
-            // Handle specific guests first
-            if (complaintData.guestIds && complaintData.guestIds.length > 0) {
-                for (const guestId of complaintData.guestIds) {
-                    const guest = guests.guests.find(g => g.id === guestId);
-                    if (guest && complaintData.pgIds.includes(guest.pgId)) {
-                        const pg = pgs.pgs.find(p => p.id === guest.pgId);
-                        const room = pg?.floors?.flatMap(f => f.rooms).find(r => r.beds.some(b => b.guestId === guest.id));
-                        const floor = pg?.floors?.find(f => f.id === room?.floorId);
-
-                        const newComplaint = createComplaintObject(guest.pgId, guestId, room?.id || null, floor?.id || null);
-                        const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
-                        batch.set(docRef, newComplaint);
-                        createdComplaints.push(newComplaint);
-                        handledGuests.add(guestId);
-                    }
-                }
-            }
-
-            // Handle specific rooms, but only for guests not already covered
-            if (complaintData.roomIds && complaintData.roomIds.length > 0) {
-                for (const roomId of complaintData.roomIds) {
-                    const pg = pgs.pgs.find(p => p.floors?.some(f => f.rooms.some(r => r.id === roomId)));
-                    const floor = pg?.floors?.find(f => f.rooms.some(r => r.id === roomId));
-
-                    if (pg && complaintData.pgIds.includes(pg.id)) {
-                        const guestsInRoom = guests.guests.filter(g => g.roomId === roomId && !g.isVacated && !handledGuests.has(g.id));
-                        if (guestsInRoom.length > 0) {
-                            for (const guest of guestsInRoom) {
-                                const newComplaint = createComplaintObject(pg.id, guest.id, roomId, floor?.id || null);
-                                const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
-                                batch.set(docRef, newComplaint);
-                                createdComplaints.push(newComplaint);
-                                handledGuests.add(guest.id);
-                            }
-                        } else {
-                            // Room-specific complaint with no active guest
-                            const newComplaint = createComplaintObject(pg.id, null, roomId, floor?.id || null);
-                            const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', newComplaint.id);
-                            batch.set(docRef, newComplaint);
-                            createdComplaints.push(newComplaint);
-                        }
-                    }
-                }
-            }
+            return complaints;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
         }
-
-        if (createdComplaints.length === 0) {
-            return rejectWithValue("No valid targets found for the complaint.");
-        }
-
-        await batch.commit();
-
-        return createdComplaints;
     }
 );
-
 
 export const updateComplaint = createAsyncThunk<Complaint, Complaint, { state: RootState }>(
     'complaints/updateComplaint',
-    async (updatedComplaint, { getState, rejectWithValue }) => {
+    async (complaint, { getState, rejectWithValue }) => {
         const { user } = getState();
-        if (!user.currentUser) return rejectWithValue('No user');
-        const ownerId = user.currentUser.role === 'owner' ? user.currentUser.id : user.currentUser.ownerId;
-        if (!ownerId) return rejectWithValue('Owner not found');
+        const ownerId = user.currentUser?.role === 'owner' ? user.currentUser.id : user.currentUser?.ownerId;
 
-        if (getCurrentPlan(user.currentUser)?.hasCloudSync && isFirebaseConfigured()) {
-            const selectedDb = selectOwnerDataDb(user.currentUser);
-            const docRef = doc(selectedDb!, 'users_data', ownerId, 'complaints', updatedComplaint.id);
-            await setDoc(docRef, updatedComplaint, { merge: true });
+        if (!ownerId) return rejectWithValue('Owner ID not found.');
+
+        try {
+            if (isFirebaseConfigured()) {
+                const selectedDb = selectOwnerDataDb(user.currentUser);
+                if (!selectedDb) throw new Error('DB not available');
+                const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', complaint.id);
+                await setDoc(docRef, complaint, { merge: true });
+            }
+            return complaint;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
         }
-
-        // Send notification to tenant if status changes
-        if (updatedComplaint.guestId && user.currentUser.role === 'owner') {
-            await createAndSendNotification({
-                ownerId: ownerId,
-                notification: {
-                    type: 'complaint-update',
-                    title: `Your complaint status is now "${updatedComplaint.status}"`,
-                    message: `Your issue about "${updatedComplaint.category}" has been updated.`,
-                    link: '/tenants/complaints',
-                    targetId: updatedComplaint.guestId,
-                }
-            });
-        }
-
-        return updatedComplaint;
     }
 );
 
+export const deleteComplaint = createAsyncThunk<string, string, { state: RootState }>(
+    'complaints/deleteComplaint',
+    async (complaintId, { getState, rejectWithValue }) => {
+        const { user } = getState();
+        const ownerId = user.currentUser?.role === 'owner' ? user.currentUser.id : user.currentUser?.ownerId;
+
+        if (!ownerId) return rejectWithValue('Owner ID not found.');
+
+        try {
+            if (isFirebaseConfigured()) {
+                const selectedDb = selectOwnerDataDb(user.currentUser);
+                if (!selectedDb) throw new Error('DB not available');
+                const docRef = doc(selectedDb, 'users_data', ownerId, 'complaints', complaintId);
+                await deleteDoc(docRef);
+            }
+            return complaintId;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
 
 const complaintsSlice = createSlice({
     name: 'complaints',
@@ -234,6 +115,22 @@ const complaintsSlice = createSlice({
     reducers: {
         setComplaints: (state, action: PayloadAction<Complaint[]>) => {
             state.complaints = action.payload.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+            // Reconciliation
+            action.payload.forEach(complaint => {
+                const optComplaint = state.optimisticComplaints[complaint.id];
+                if (optComplaint) {
+                    if (!optComplaint.updatedAt || (complaint.updatedAt && complaint.updatedAt >= optComplaint.updatedAt)) {
+                        delete state.optimisticComplaints[complaint.id];
+                    }
+                }
+            });
+        },
+        setOptimisticComplaint: (state, action: PayloadAction<Complaint>) => {
+            state.optimisticComplaints[action.payload.id] = action.payload;
+        },
+        removeOptimisticComplaint: (state, action: PayloadAction<string>) => {
+            delete state.optimisticComplaints[action.payload];
         },
     },
     extraReducers: (builder) => {
@@ -245,7 +142,7 @@ const complaintsSlice = createSlice({
             })
             .addCase(addOwnerComplaint.fulfilled, (state, action) => {
                 const newComplaints = action.payload.filter(
-                    newC => !state.complaints.find(existing => existing.id === newC.id)
+                    (newC: Complaint) => !state.complaints.find(existing => existing.id === newC.id)
                 );
                 state.complaints.unshift(...newComplaints);
             })
@@ -255,11 +152,15 @@ const complaintsSlice = createSlice({
                     state.complaints[index] = action.payload;
                 }
             })
+            .addCase(deleteComplaint.fulfilled, (state, action) => {
+                state.complaints = state.complaints.filter(c => c.id !== action.payload);
+            })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.complaints = [];
+                state.optimisticComplaints = {};
             });
     },
 });
 
-export const { setComplaints } = complaintsSlice.actions;
+export const { setComplaints, setOptimisticComplaint, removeOptimisticComplaint } = complaintsSlice.actions;
 export default complaintsSlice.reducer;

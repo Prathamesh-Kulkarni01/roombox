@@ -114,7 +114,18 @@ export default function TenantComplaintsPage() {
             toast({ title: "Error", description: "Could not identify current guest.", variant: "destructive"})
             return;
         }
-        const resultAction = await dispatch(addComplaintAction(data))
+        const newComplaint: Complaint = {
+            id: `comp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            guestId: currentUser.guestId || null,
+            guestName: currentGuest.name,
+            pgId: currentGuest.pgId,
+            status: 'open',
+            date: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            ...data
+        }
+        const resultAction = await dispatch(addComplaintAction(newComplaint))
 
         if(addComplaintAction.fulfilled.match(resultAction)){
             const newComplaint = resultAction.payload;

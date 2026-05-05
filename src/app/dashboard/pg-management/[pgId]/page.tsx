@@ -56,7 +56,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn, getCurrentPlan } from "@/lib/utils";
-import { useGetGuestsQuery } from "@/lib/api/apiSlice";
 import type { Guest } from "@/lib/types";
 import {
   Building,
@@ -128,37 +127,9 @@ const STATUS_STYLES = {
 export default function RoomManagementPage() {
   const router = useRouter();
   const params = useParams();
-  const { pgs } = useAppSelector((state) => state.pgs);
-  const { currentUser } = useAppSelector((state) => state.user);
-  const currentPlan = getCurrentPlan(currentUser);
-  const { featurePermissions } = usePermissionsStore();
-  const pgId = params.pgId as string;
-  const { toast } = useToast();
-
-  const { data: guestsData } = useGetGuestsQuery(
-    { pgId },
-    { skip: !currentUser },
-  );
-  const guests = guestsData?.guests || [];
-
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [activeTab, setActiveTab] = useState("all");
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<
-    "all" | "available" | "due" | "paid"
-  >("all");
-
-  // Bottom sheet state
-  const [bedSheetGuestId, setBedSheetGuestId] = useState<string | null>(null);
-  const bedSheetGuest = useMemo(() => {
-    if (!bedSheetGuestId) return null;
-    return guests.find((g) => g.id === bedSheetGuestId) || null;
-  }, [bedSheetGuestId, guests]);
-
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-
   const {
+    currentUser,
+    featurePermissions,
     isRoomDialogOpen,
     setIsRoomDialogOpen,
     roomToEdit,
@@ -230,7 +201,31 @@ export default function RoomManagementPage() {
     handleOpenTransferDialog,
     handleTransferGuestSubmit,
     isTransferringGuest,
+    pgs,
+    guests,
+    isLoadingPgs,
   } = useDashboard();
+
+  const currentPlan = getCurrentPlan(currentUser);
+  const pgId = params.pgId as string;
+  const { toast } = useToast();
+
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [activeTab, setActiveTab] = useState("all");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "available" | "due" | "paid"
+  >("all");
+
+  // Bottom sheet state
+  const [bedSheetGuestId, setBedSheetGuestId] = useState<string | null>(null);
+  const bedSheetGuest = useMemo(() => {
+    if (!bedSheetGuestId) return null;
+    return guests.find((g) => g.id === bedSheetGuestId) || null;
+  }, [bedSheetGuestId, guests]);
+
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
   const pg = useMemo(() => pgs.find((p) => p.id === pgId), [pgs, pgId]);
 
@@ -298,6 +293,18 @@ export default function RoomManagementPage() {
   }, [pg, permissions]);
 
   if (!pg) {
+    if (isLoadingPgs) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full space-y-4">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="space-y-2 text-center">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-60" />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <Building className="mx-auto h-16 w-16 text-muted-foreground" />
@@ -1447,7 +1454,7 @@ export default function RoomManagementPage() {
                       depositAmount - currentBalance;
 
                     return (
-                      <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-md border text-sm text-foreground">
+                      <div className="bg-muted/40 p-4 rounded-xl border border-border/50 text-sm text-foreground backdrop-blur-sm">
                         <div className="flex justify-between py-1">
                           <span className="text-muted-foreground">
                             Security Deposit:
@@ -1470,9 +1477,9 @@ export default function RoomManagementPage() {
                           <span
                             className={cn(
                               finalSettlementAmount > 0
-                                ? "text-green-600"
+                                ? "text-emerald-600 dark:text-emerald-400"
                                 : finalSettlementAmount < 0
-                                  ? "text-red-600"
+                                  ? "text-rose-600 dark:text-rose-400"
                                   : "",
                             )}
                           >

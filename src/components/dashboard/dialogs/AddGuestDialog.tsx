@@ -30,8 +30,7 @@ const rentCycleOptions: { value: RentCycleUnit, label: string }[] = [
 
 export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit, isAddingGuest }: AddGuestDialogProps) {
   const { currentUser } = useAppSelector((state) => state.user);
-  const { data: pgsData } = useGetPropertiesQuery(undefined, { skip: !currentUser?.id });
-  const pgs = pgsData?.buildings || [];
+  const { pgs } = useAppSelector((state) => state.pgs);
   const { featurePermissions } = usePermissionsStore();
   const canAddGuest = canAccess(featurePermissions, currentUser?.role, 'guests', 'add');
 

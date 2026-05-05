@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShieldAlert, Send, PlusCircle, Image as ImageIcon, XCircle, Users, Home, Building as BuildingIcon } from "lucide-react"
+import { ShieldAlert, Send, PlusCircle, Image as ImageIcon, XCircle, Users, Home, Building as BuildingIcon, Trash2, Eye } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Complaint } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -21,8 +21,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { addOwnerComplaint, updateComplaint } from '@/lib/slices/complaintsSlice'
-import { addNotice, fetchNotices } from '@/lib/slices/noticesSlice'
+import { addOwnerComplaint, updateComplaint, deleteComplaint } from '@/lib/slices/complaintsSlice'
+import { addNotice, fetchNotices, deleteNotice } from '@/lib/slices/noticesSlice'
 import { canAccess } from '@/lib/permissions'
 import Access from '@/components/ui/PermissionWrapper'
 import { useToast } from '@/hooks/use-toast'
@@ -63,6 +63,9 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
     const { pgs } = useAppSelector(state => state.pgs);
     const { selectedPgId } = useAppSelector(state => state.app);
     const { currentUser } = useAppSelector(state => state.user);
+    const { toast } = useToast();
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
 
     const filteredComplaints = useMemo(() => {
         if (!selectedPgId) return complaints;
@@ -75,6 +78,21 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
             dispatch(updateComplaint({ ...complaintToUpdate, status: newStatus }))
         }
     }
+
+    const handleDeleteComplaint = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this complaint? This action cannot be undone.")) return;
+        try {
+            await dispatch(deleteComplaint(id)).unwrap();
+            toast({ title: "Complaint Deleted", description: "The complaint has been removed." });
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Delete Failed", description: error.message });
+        }
+    };
+
+    const handleViewDetails = (complaint: Complaint) => {
+        setSelectedComplaint(complaint);
+        setIsDetailsOpen(true);
+    };
 
     return (
         <Card>
@@ -105,6 +123,7 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
                                         <TableHead>Reported By</TableHead>
                                         <TableHead className="w-[30%]">Description</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -117,7 +136,7 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
                                                 {complaint.roomId && <div>Room: {pgs.flatMap(p => p.floors || []).flatMap(f => f.rooms).find(r => r.id === complaint.roomId)?.name}</div>}
                                             </TableCell>
                                             <TableCell>{complaint.guestName}</TableCell>
-                                            <TableCell className="truncate">{complaint.description}</TableCell>
+                                            <TableCell className="max-w-[200px] truncate">{complaint.description}</TableCell>
                                             <TableCell>
                                                 <Access feature="complaints" action="edit">
                                                     <Select value={complaint.status} onValueChange={(value) => handleStatusChange(complaint.id, value as Complaint['status'])}>
@@ -137,6 +156,18 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
                                                     </Select>
                                                 </Access>
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button variant="ghost" size="icon" onClick={() => handleViewDetails(complaint)}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    <Access feature="complaints" action="delete">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteComplaint(complaint.id)}>
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </Access>
+                                                </div>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -151,9 +182,18 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
                                             <p className="font-bold">{complaint.guestName}</p>
                                             <p className="text-sm text-muted-foreground">{complaint.pgName || pgs.find(p => p.id === complaint.pgId)?.name}</p>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">{formatDistanceToNow(new Date(complaint.date), { addSuffix: true })}</p>
+                                        <div className="flex gap-1">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewDetails(complaint)}>
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                            <Access feature="complaints" action="delete">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteComplaint(complaint.id)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </Access>
+                                        </div>
                                     </div>
-                                    <p className="text-sm">{complaint.description}</p>
+                                    <p className="text-sm line-clamp-2">{complaint.description}</p>
                                     <div className="flex justify-between items-center text-sm">
                                         <Badge variant="outline" className="capitalize">{complaint.category}</Badge>
                                         <Access feature="complaints" action="edit">
@@ -177,6 +217,57 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
                                 </div>
                             ))}
                         </div>
+                        
+                        {/* Complaint Details Dialog */}
+                        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+                            <DialogContent className="max-w-3xl">
+                                <DialogHeader>
+                                    <DialogTitle>Complaint Details</DialogTitle>
+                                    <DialogDescription>
+                                        Reported by {selectedComplaint?.guestName} on {selectedComplaint && new Date(selectedComplaint.date).toLocaleDateString()}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                {selectedComplaint && (
+                                    <div className="space-y-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-muted-foreground">Category</h4>
+                                                <p className="capitalize">{selectedComplaint.category}</p>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-muted-foreground">Status</h4>
+                                                <Badge className={cn("mt-1", statusColors[selectedComplaint.status])}>
+                                                    {selectedComplaint.status}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-muted-foreground">Property</h4>
+                                            <p>{selectedComplaint.pgName || pgs.find(p => p.id === selectedComplaint.pgId)?.name}</p>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-semibold text-muted-foreground">Description</h4>
+                                            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{selectedComplaint.description}</p>
+                                        </div>
+                                        {selectedComplaint.imageUrls && selectedComplaint.imageUrls.length > 0 && (
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-muted-foreground mb-2">Attachments</h4>
+                                                <div className="flex gap-4 overflow-x-auto pb-2">
+                                                    {selectedComplaint.imageUrls.map((url, i) => (
+                                                        <div key={i} className="relative w-48 h-48 flex-shrink-0">
+                                                            <Image src={url} alt="Attachment" layout="fill" objectFit="cover" className="rounded-md border" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <DialogFooter>
+                                    <Button onClick={() => setIsDetailsOpen(false)}>Close</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </>
                 )}
             </CardContent>
@@ -191,6 +282,8 @@ const NoticeBoardView = () => {
     const { currentUser } = useAppSelector(state => state.user);
     const { toast } = useToast();
     const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
+    const [selectedNotice, setSelectedNotice] = useState<any>(null);
+    const [isNoticeDetailsOpen, setIsNoticeDetailsOpen] = useState(false);
 
     const form = useForm<NoticeFormValues>({
         resolver: zodResolver(noticeSchema),
@@ -254,6 +347,21 @@ const NoticeBoardView = () => {
         dispatch(fetchNotices());
     }, [dispatch]);
 
+    const handleDeleteNotice = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this notice?")) return;
+        try {
+            await dispatch(deleteNotice(id)).unwrap();
+            toast({ title: "Notice Deleted", description: "The notice has been removed from history." });
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Delete Failed", description: error.message });
+        }
+    };
+
+    const handleViewNotice = (notice: any) => {
+        setSelectedNotice(notice);
+        setIsNoticeDetailsOpen(true);
+    };
+
     return (
         <div className="space-y-6">
             <Dialog open={isNoticeDialogOpen} onOpenChange={setIsNoticeDialogOpen}>
@@ -265,11 +373,13 @@ const NoticeBoardView = () => {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="text-center">
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Send className="mr-2 h-4 w-4" /> Create a New Notice
-                            </Button>
-                        </DialogTrigger>
+                        <Access feature="complaints" action="add">
+                            <DialogTrigger asChild>
+                                <Button>
+                                    <Send className="mr-2 h-4 w-4" /> Create a New Notice
+                                </Button>
+                            </DialogTrigger>
+                        </Access>
                     </CardContent>
                 </Card>
 
@@ -320,6 +430,7 @@ const NoticeBoardView = () => {
                                         <TableHead>Property</TableHead>
                                         <TableHead>Title</TableHead>
                                         <TableHead>Targets</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -329,6 +440,18 @@ const NoticeBoardView = () => {
                                             <TableCell>{notice.pgName}</TableCell>
                                             <TableCell className="font-medium">{notice.title}</TableCell>
                                             <TableCell>{notice.targetCount}</TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button variant="ghost" size="icon" onClick={() => handleViewNotice(notice)}>
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    <Access feature="complaints" action="delete">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteNotice(notice.id)}>
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </Access>
+                                                </div>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -337,6 +460,37 @@ const NoticeBoardView = () => {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Notice Details Dialog */}
+            <Dialog open={isNoticeDetailsOpen} onOpenChange={setIsNoticeDetailsOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Notice Content</DialogTitle>
+                        <DialogDescription>
+                            Sent on {selectedNotice && new Date(selectedNotice.date).toLocaleDateString()} to {selectedNotice?.targetCount} guests.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedNotice && (
+                        <div className="space-y-4">
+                            <div>
+                                <h4 className="text-sm font-semibold text-muted-foreground">Title</h4>
+                                <p className="font-medium">{selectedNotice.title}</p>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-semibold text-muted-foreground">Message</h4>
+                                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{selectedNotice.message}</p>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-semibold text-muted-foreground">Property</h4>
+                                <p>{selectedNotice.pgName}</p>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button onClick={() => setIsNoticeDetailsOpen(false)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
@@ -424,12 +578,22 @@ export default function ComplaintsDashboardPage() {
                 );
             }
 
-            const submissionData = {
-                ...data,
+            const complaintsToCreate: Complaint[] = data.pgIds.map(pgId => ({
+                id: `comp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                guestId: null,
+                guestName: "Owner Reported",
+                pgId: pgId,
+                status: 'open',
+                date: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                category: data.category,
+                description: data.description,
+                isPublic: data.isPublic,
                 imageUrls: uploadedImageUrls,
-            };
+            }));
 
-            const resultAction = await dispatch(addOwnerComplaint(submissionData));
+            const resultAction = await dispatch(addOwnerComplaint(complaintsToCreate));
 
             if (addOwnerComplaint.fulfilled.match(resultAction)) {
                 toast({ title: 'Complaint(s) Logged', description: 'The new issue has been added to the board.' });

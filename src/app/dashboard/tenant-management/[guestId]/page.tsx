@@ -633,9 +633,9 @@ export default function GuestProfilePage() {
               <CardContent className="pt-6 flex flex-col items-center text-center">
                 <Avatar className="w-24 h-24 mb-4">
                   <AvatarImage
-                    src={`https://placehold.co/100x100.png?text=${guest.name.charAt(0)}`}
+                    src={`https://placehold.co/100x100.png?text=${guest.name?.charAt(0) || 'G'}`}
                   />
-                  <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>{guest.name?.charAt(0) || 'G'}</AvatarFallback>
                 </Avatar>
                 <h2 className="text-xl font-semibold">{guest.name}</h2>
                 <div className="text-sm text-muted-foreground space-y-2 mt-2">
@@ -662,7 +662,7 @@ export default function GuestProfilePage() {
                       kycStatusColors[guest.kycStatus],
                     )}
                   >
-                    {guest.kycStatus.replace("-", " ")}
+                    {(guest.kycStatus || 'not-started').replace("-", " ")}
                   </Badge>
                 </div>
                 <Access feature="guests" action="edit">
@@ -1105,7 +1105,7 @@ export default function GuestProfilePage() {
                       {guest.paymentHistory.map((payment) => (
                         <TableRow key={payment.id}>
                           <TableCell>
-                            {format(parseISO(payment.date), "dd MMM, yyyy")}
+                            {format(parseISO(payment.date || payment.createdAt || new Date().toISOString()), "dd MMM, yyyy")}
                           </TableCell>
                           <TableCell>{payment.forMonth}</TableCell>
                           <TableCell className="capitalize">
@@ -1475,16 +1475,20 @@ export default function GuestProfilePage() {
                   const finalSettlementAmount = depositAmount - currentBalance;
 
                   return (
-                    <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-md border text-sm text-foreground">
-                      <div className="flex justify-between py-1 text-muted-foreground">
-                        <span>Security Deposit:</span>
-                        <span className="font-medium text-foreground">
+                    <div className="bg-muted/40 p-4 rounded-xl border border-border/50 text-sm text-foreground backdrop-blur-sm">
+                      <div className="flex justify-between py-1">
+                        <span className="text-muted-foreground">
+                          Security Deposit:
+                        </span>
+                        <span className="font-medium">
                           ₹{depositAmount.toLocaleString("en-IN")}
                         </span>
                       </div>
-                      <div className="flex justify-between py-1 text-muted-foreground">
-                        <span>Unpaid Balance (Dues):</span>
-                        <span className="font-medium text-foreground">
+                      <div className="flex justify-between py-1">
+                        <span className="text-muted-foreground">
+                          Unpaid Balance (Dues):
+                        </span>
+                        <span className="font-medium">
                           ₹{currentBalance.toLocaleString("en-IN")}
                         </span>
                       </div>
@@ -1494,16 +1498,20 @@ export default function GuestProfilePage() {
                         <span
                           className={cn(
                             finalSettlementAmount > 0
-                              ? "text-green-600"
+                              ? "text-emerald-600 dark:text-emerald-400"
                               : finalSettlementAmount < 0
-                                ? "text-red-600"
+                                ? "text-rose-600 dark:text-rose-400"
                                 : "",
                           )}
                         >
                           {finalSettlementAmount > 0
-                            ? `Refund ₹${finalSettlementAmount.toLocaleString("en-IN")}`
+                            ? `Refund ₹${finalSettlementAmount.toLocaleString(
+                                "en-IN",
+                              )}`
                             : finalSettlementAmount < 0
-                              ? `Owes ₹${Math.abs(finalSettlementAmount).toLocaleString("en-IN")}`
+                              ? `Owes ₹${Math.abs(
+                                  finalSettlementAmount,
+                                ).toLocaleString("en-IN")}`
                               : `₹0`}
                         </span>
                       </div>

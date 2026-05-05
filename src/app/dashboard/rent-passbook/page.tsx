@@ -144,7 +144,7 @@ const PendingDuesTable = ({ guests, pgs, filters, onCollectRent, onSendReminder 
     );
 };
 
-const PayoutStatusBadge = ({ payment }: { payment: Payment }) => {
+const PayoutStatusBadge = ({ payment }: { payment: any }) => {
     const [open, setOpen] = useState(false);
 
     if (!payment) {
@@ -246,7 +246,7 @@ const PrintableReport = React.forwardRef(({ payments, pgName, dateRange, totalCo
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {payments.length > 0 ? payments.map((p: Payment) => (
+                    {payments.length > 0 ? payments.map((p: any) => (
                         <TableRow key={p.id}>
                             <TableCell>{format(parseISO(p.date || p.createdAt || new Date().toISOString()), 'dd MMM, yyyy')}</TableCell>
                             <TableCell className="font-medium">{(p as any).guestName}</TableCell>

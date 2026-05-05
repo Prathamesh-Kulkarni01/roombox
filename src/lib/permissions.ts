@@ -37,7 +37,7 @@ export interface PermissionAction {
 export interface FeatureConfig {
   featureId: string;
   featureName: string;
-  icon: any;
+  icon: React.ElementType;
   actions: PermissionAction[];
 }
 
@@ -81,7 +81,8 @@ export const featurePermissionConfig: FeatureConfig[] = [
     actions: [
       { id: 'view', label: "View Complaints" },
       { id: 'edit', label: "Update Complaint Status" },
-      { id: 'add', label: "Raise a new complaint" }
+      { id: 'add', label: "Raise a new complaint" },
+      { id: 'delete', label: "Delete complaints or notices" }
     ]
   },
   {
@@ -151,11 +152,12 @@ export function isFeaturePermissions(
   if (!permissions) return false;
   const firstKey = Object.keys(permissions)[0];
   if (!firstKey) return false;
-  const firstValue = (permissions as any)[firstKey];
+  const firstValue = (permissions as Record<string, unknown>)[firstKey];
   // If the first value and its nested value are boolean, it's FeaturePermissions
-  if (firstValue && typeof firstValue === 'object') {
-    const subKeys = Object.keys(firstValue);
-    if (subKeys.length > 0 && typeof firstValue[subKeys[0]] === 'boolean') {
+  if (firstValue && typeof firstValue === 'object' && firstValue !== null) {
+    const subValue = firstValue as Record<string, unknown>;
+    const subKeys = Object.keys(subValue);
+    if (subKeys.length > 0 && typeof subValue[subKeys[0]] === 'boolean') {
       return true;
     }
   }
@@ -369,22 +371,22 @@ export type PlanPermissions = { [feature: string]: PlanFeatureActions };
  * Matrix of allowed actions per feature for each plan
  */
 export const planPermissionConfig: Record<string, PlanPermissions> = {
-  pro: { 
-    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
+  free: {
+    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: false },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
-    complaints: { view: true, edit: true, add: true },
-    food: { view: true, edit: true },
-    staff: { view: true, add: true, edit: true, delete: true },
-    website: { view: true, edit: true },
-    seo: { use: true },
-    kyc: { view: true, edit: true, add: true },
+    complaints: { view: true, edit: true, add: true, delete: true },
+    food: { view: true, edit: false },
+    staff: { view: true, add: false, edit: false, delete: false },
+    website: { view: true, edit: false },
+    seo: { use: false },
+    kyc: { view: true, edit: false, add: false },
   },
   trial: { 
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
-    complaints: { view: true, edit: true, add: true },
+    complaints: { view: true, edit: true, add: true, delete: true },
     food: { view: true, edit: true },
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
@@ -395,7 +397,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
-    complaints: { view: true, edit: true, add: true },
+    complaints: { view: true, edit: true, add: true, delete: true },
     food: { view: true, edit: true },
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
@@ -406,7 +408,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
-    complaints: { view: true, edit: true, add: true },
+    complaints: { view: true, edit: true, add: true, delete: true },
     food: { view: true, edit: true },
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
@@ -417,7 +419,18 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
     properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
     guests: { view: true, add: true, edit: true, delete: true },
     finances: { view: true, add: true },
-    complaints: { view: true, edit: true, add: true },
+    complaints: { view: true, edit: true, add: true, delete: true },
+    food: { view: true, edit: true },
+    staff: { view: true, add: true, edit: true, delete: true },
+    website: { view: true, edit: true },
+    seo: { use: true },
+    kyc: { view: true, edit: true, add: true },
+  },
+  enterprise: { 
+    properties: { view: true, add: true, edit: true, delete: true, sharedCharge: true },
+    guests: { view: true, add: true, edit: true, delete: true },
+    finances: { view: true, add: true },
+    complaints: { view: true, edit: true, add: true, delete: true },
     food: { view: true, edit: true },
     staff: { view: true, add: true, edit: true, delete: true },
     website: { view: true, edit: true },
@@ -430,11 +443,12 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
  * Plan limits (e.g., max number of PGs per plan)
  */
 export const planLimitsConfig: Record<string, { pgs: number | 'unlimited', floors: number | 'unlimited', guests: number | 'unlimited' }> = {
-  pro: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
+  free: { pgs: 1, floors: 1, guests: 10 },
   trial: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
   monthly: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
   sixMonth: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
   yearly: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
+  enterprise: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
 };
 
 /**

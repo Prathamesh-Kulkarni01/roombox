@@ -7,10 +7,11 @@
  */
 import { Firestore, FieldValue, DocumentSnapshot } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
+import { format } from 'date-fns';
 import { runReconciliationLogic } from '@/lib/reconciliation';
-import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument, type PerformerInfo } from '@/lib/types';
+import { CURRENT_SCHEMA_VERSION, type Guest, type PG, type LedgerEntry, type SubmittedKycDocument, type PerformerInfo, type MagicLinkData, type OnboardTenantInput, type Bed, type AppUser, type TenancyRecord } from '@/lib/types';
 import { getPlanLimit } from '@/lib/permissions';
-import { parseDateString } from '@/lib/utils';
+import { parseDateString, calculateFirstDueDate } from '@/lib/utils';
 import { ActivityLogsService } from '@/lib/activity-logs-service';
 import { getBalanceBreakdown } from '@/lib/ledger-utils';
 import { handleTenantAddition, handleTenantVacation } from '@/lib/actions/walletActions';
@@ -55,7 +56,7 @@ export class TenantService {
         const token = crypto.randomBytes(32).toString('hex');
         const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-        const magicLinkData: any = {
+        const magicLinkData: MagicLinkData = {
             token,
             inviteCode,
             phone,
@@ -75,7 +76,7 @@ export class TenantService {
 
         await appDb.collection('magic_links').doc(token).set(magicLinkData);
 
-        let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.vercel.app').replace(/\/+$/, '');
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.vercel.app').replace(/\/+$/, '');
         const magicLink = `${appUrl}/invite/${token}`;
         return { magicLink, inviteCode };
     }
@@ -84,7 +85,7 @@ export class TenantService {
      * Onboards a new tenant with centralized logic.
      * Handles Firestore updates, bed assignment, user linking/invites, and welcome notifications.
      */
-    static async onboardTenant(db: Firestore, appDb: Firestore, input: any, performer?: PerformerInfo): Promise<{ guest: Guest, magicLink?: string }> {
+    static async onboardTenant(db: Firestore, appDb: Firestore, input: OnboardTenantInput, performer?: PerformerInfo): Promise<{ guest: Guest, magicLink?: string }> {
         const {
             ownerId,
             name,
@@ -108,7 +109,6 @@ export class TenantService {
         let magicLinkResult: string | undefined;
         let welcomeImage: string = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?fm=jpg&w=800&q=80';
 
-        const { format } = require('date-fns');
         const startOfCycle = (joinDate && typeof joinDate === 'string')
             ? (parseDateString(joinDate) || new Date(joinDate))
             : new Date(joinDate || new Date().toISOString());
@@ -120,7 +120,7 @@ export class TenantService {
             effectivePlanId = ownerDoc.data()?.subscription?.planId || 'free';
         }
 
-        await TenantService.checkGuestLimit(db, ownerId, effectivePlanId);
+        await TenantService.checkGuestLimit(db, ownerId, effectivePlanId ?? 'free');
 
         console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
 
@@ -142,7 +142,7 @@ export class TenantService {
                 console.error(`[TenantService.onboardTenant] Property not found: ${pgId}`);
                 throw new Error('Property not found');
             }
-            const pgData = pgDoc.data()!;
+            const pgData = pgDoc.data() as PG;
             welcomeImage = pgData.images?.[0] || welcomeImage;
             // Ensure Unsplash images have fm=jpg for Meta API compatibility if not already present
             if (welcomeImage.includes('unsplash.com') && !welcomeImage.includes('fm=jpg')) {
@@ -150,12 +150,12 @@ export class TenantService {
             }
 
             // Verify room and bed exist
-            let targetBed: any = null;
+            let targetBed: Bed | null = null;
             if (pgData.floors && bedId && bedId !== 'N/A') {
-                for (const floor of pgData.floors as any[]) {
-                    for (const room of floor.rooms as any[]) {
+                for (const floor of pgData.floors) {
+                    for (const room of floor.rooms) {
                         if (room.beds) {
-                            const bed = (room.beds as any[]).find((b: any) => b && b.id === bedId);
+                            const bed = room.beds.find((b) => b && b.id === bedId);
                             if (bed) {
                                 targetBed = bed;
                                 break;
@@ -175,8 +175,6 @@ export class TenantService {
 
             // Pre-calculate the anchor day and next due date so we fast-forward the first cycle
             // since we are manually billing it right now.
-            const { calculateFirstDueDate } = require('@/lib/utils');
-
             // startOfCycle moved to top of function for scope sharing
 
             if (isNaN(startOfCycle.getTime())) {
@@ -307,14 +305,15 @@ export class TenantService {
             transaction.set(guestDocRef, guestToCreate);
 
             // Update PG occupancy & Bed assignment
-            const pgUpdates: any = { occupancy: FieldValue.increment(1) };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const pgUpdates: Record<string, any> = { occupancy: FieldValue.increment(1) };
             if (bedId && bedId !== 'N/A' && pgData.floors) {
                 console.log(`[TenantService.onboardTenant] Marking bed ${bedId} as occupied`);
-                pgUpdates.floors = (pgData.floors as any[]).map((floor: any) => ({
+                pgUpdates.floors = pgData.floors.map((floor) => ({
                     ...floor,
-                    rooms: floor.rooms.map((room: any) => ({
+                    rooms: floor.rooms.map((room) => ({
                         ...room,
-                        beds: room.beds.map((bed: any) =>
+                        beds: room.beds.map((bed) =>
                             bed.id === bedId ? { ...bed, guestId } : bed
                         ),
                     })),
@@ -333,17 +332,9 @@ export class TenantService {
                     // Generate a random 6-character alphanumeric password
                     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
                     let randomPassword = '';
-                    try {
-                        const crypto = require('crypto');
-                        const randomBytes = crypto.randomBytes(6);
-                        for (let i = 0; i < 6; i++) {
-                            randomPassword += chars[randomBytes[i] % chars.length];
-                        }
-                    } catch {
-                        // Fallback if crypto isn't available
-                        for (let i = 0; i < 6; i++) {
-                            randomPassword += chars.charAt(Math.floor(Math.random() * chars.length));
-                        }
+                    const randomBytes = crypto.randomBytes(6);
+                    for (let i = 0; i < 6; i++) {
+                        randomPassword += chars[randomBytes[i] % chars.length];
                     }
                     rawDefaultPassword = randomPassword;
                 }
@@ -393,14 +384,15 @@ export class TenantService {
                     const userData = userDoc.data();
                     console.log(`[TenantService.onboardTenant] Found existing user ${userDoc.id}. Linking with multi-tenancy support...`);
                     
-                    const tenancyRecord = {
+                    const tenancyRecord: TenancyRecord = {
                         guestId,
                         pgId,
                         ownerId,
                         pgName: pgName || newGuest.pgName
                     };
 
-                    const userUpdate: any = {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const userUpdate: Record<string, any> = {
                         phone: standardizedPhone,
                         status: 'active',
                         updatedAt: Date.now(),
@@ -475,14 +467,14 @@ export class TenantService {
                         const uid = email ? `email-${email.replace(/[@.]/g, '-')}` : `phone-${cleanPhoneDigits.slice(-10)}`;
                         const internalEmail = email || `${cleanPhoneDigits.slice(-10)}@roombox.app`;
 
-                        const tenancyRecord = {
+                        const tenancyRecord: TenancyRecord = {
                             guestId,
                             pgId,
                             ownerId,
                             pgName: pgName || newGuest.pgName
                         };
 
-                        const userPlaceholder: any = {
+                        const userPlaceholder: Omit<AppUser, 'id'> = {
                             phone: standardizedPhone,
                             role: 'tenant',
                             guestId,
@@ -491,6 +483,7 @@ export class TenantService {
                             lastActivePgId: pgId,
                             name,
                             createdAt: Date.now(),
+                            status: 'active',
                             activeTenancies: [tenancyRecord]
                         };
 
@@ -1004,11 +997,18 @@ export class TenantService {
         if (!snap.exists) throw new Error(`Guest not found: ${guestId}`);
 
         const guest = snap.data() as Guest;
-        const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(guest.pgId);
-        const pgSnap = await pgRef.get();
-        if (!pgSnap.exists) throw new Error(`PG not found: ${guest.pgId}`);
+        const pgId = guest.pgId;
+        let pgRef = null;
+        let pgSnap = null;
+        let pgData = null;
 
-        const pgData = pgSnap.data()!;
+        if (pgId) {
+            pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
+            pgSnap = await pgRef.get();
+            if (pgSnap.exists) {
+                pgData = pgSnap.data();
+            }
+        }
         const vacatedAt = new Date().toISOString();
 
         // Perform Deposit Reconciliation
@@ -1032,7 +1032,7 @@ export class TenantService {
         const ledgerUpdates: any[] = [];
 
         // Free the bed in floors data
-        const updatedFloors = pgData.floors
+        const updatedFloors = (pgData && pgData.floors)
             ? (pgData.floors as any[]).map((floor: any) => ({
                 ...floor,
                 rooms: floor.rooms.map((room: any) => ({
@@ -1047,8 +1047,11 @@ export class TenantService {
         await db.runTransaction(async (transaction) => {
             // --- ALL READS MUST COME FIRST ---
             const gSnap = await transaction.get(guestRef);
-            const pSnap = await transaction.get(pgRef);
-            if (!gSnap.exists || !pSnap.exists) throw new Error('Guest or PG not found during transaction');
+            const pSnap = pgRef ? await transaction.get(pgRef) : null;
+            if (!gSnap.exists) throw new Error('Guest not found during transaction');
+            if (pgRef && (!pSnap || !pSnap.exists)) {
+                console.warn(`[vacateTenant] PG ${pgId} not found during transaction, skipping PG update.`);
+            }
 
             // Wallet Refund if stay < 10 days
             // This is a READ operation because it calls transaction.get(userRef)
@@ -1075,10 +1078,13 @@ export class TenantService {
             }
 
             transaction.update(guestRef, gUpdates);
-            transaction.update(pgRef, {
-                occupancy: Math.max(0, (pgSnap.data()?.occupancy || 0) - 1),
-                ...(updatedFloors ? { floors: updatedFloors } : {}),
-            });
+            
+            if (pgRef && pSnap && pSnap.exists) {
+                transaction.update(pgRef, {
+                    occupancy: Math.max(0, (pSnap.data()?.occupancy || 0) - 1),
+                    ...(updatedFloors ? { floors: updatedFloors } : {}),
+                });
+            }
         });
 
         // Multi-Property Aware Vacating: Remove from activeTenancies and promote next session if primary was vacated.
@@ -1182,7 +1188,7 @@ export class TenantService {
             status: 'success',
             performedBy: performer
         })
-        return { guestId, pgId: guest.pgId };
+        return { guestId, pgId: guest.pgId || '' };
     }
 
     /**

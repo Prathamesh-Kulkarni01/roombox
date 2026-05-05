@@ -6,6 +6,7 @@ import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
 import Razorpay from 'razorpay';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const WEBHOOK_SECRET = process.env.RAZORPAYX_WEBHOOK_SECRET || process.env.RAZORPAY_WEBHOOK_SECRET;
 
@@ -54,19 +55,36 @@ export async function POST(req: NextRequest) {
 
         const adminDb = await getAdminDb();
         
-        // Find the ownerId for this guest. Since we don't have ownerId in notes (my bad in previous turn), 
-        // we might need to search or better, I should have added it.
-        // Let's search for the guest by ID across all users_data. 
-        // Actually, searching is expensive. I'll check if I can get ownerId from payout.account_number or something.
-        // Better: I'll update the previous code to include ownerId in notes if I can, but for now I'll assume I need to find it.
+        // --- 1. IDEMPOTENCY CHECK ---
+        const eventRef = adminDb.collection('processed_webhook_events').doc(event.id);
+        const eventDoc = await eventRef.get();
+        if (eventDoc.exists) {
+            console.log(`[Webhook: Razorpay-Payouts] Event ${event.id} already processed. Skipping.`);
+            return NextResponse.json({ success: true });
+        }
+
+        // --- 2. OWNER & GUEST LOOKUP ---
+        let ownerId = payout.notes?.ownerId;
         
-        // OPTIMIZATION: In a real app, you'd include ownerId in the payout notes. 
-        // Since I'm hardening, I'll add ownerId to the notes in the next step of route.ts.
-        // For now, let's try to find the owner by checking the payout's contact or reference_id if possible.
-        
-        // Actually, let's look for the guest in the most likely place or wait... 
-        // I can use the payout.notes.ownerId if I add it.
-        const ownerId = payout.notes.ownerId;
+        if (!ownerId && payout.fund_account_id) {
+            console.log(`[Webhook: Razorpay-Payouts] ownerId missing in notes. Searching by fund_account_id: ${payout.fund_account_id}`);
+            const ownerQuery = await adminDb.collection('users')
+                .where('subscription.payoutMethods', 'array-contains', { razorpay_fund_account_id: payout.fund_account_id })
+                .limit(1)
+                .get();
+            
+            if (!ownerQuery.empty) {
+                ownerId = ownerQuery.docs[0].id;
+                console.log(`[Webhook: Razorpay-Payouts] Found owner via fund_account_id: ${ownerId}`);
+            }
+        }
+
+        if (!ownerId) {
+            console.error('[Webhook: Razorpay-Payouts] Could not determine ownerId. Cannot process.');
+            // Still mark as processed so we don't keep failing on a "ghost" payout
+            await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'error', error: 'Missing ownerId' });
+            return NextResponse.json({ success: true });
+        }
         if (!ownerId) {
             console.error('[Webhook: Razorpay-Payouts] Missing ownerId in payout notes. Cannot process.');
             return NextResponse.json({ success: true }); // Still return 200 to Razorpay
@@ -94,11 +112,14 @@ export async function POST(req: NextRequest) {
                         const p = draft.find(prev => prev.id === paymentId);
                         if (p) {
                             p.payoutStatus = 'SETTLED';
+                            p.payoutProcessedAt = new Date().toISOString();
                         }
                     });
 
                     transaction.update(guestDocRef, { paymentHistory: updatedPaymentHistory });
                 });
+                
+                await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'success', event: event.event });
                 console.log(`[Webhook: Razorpay-Payouts] Payment ${paymentId} marked as SETTLED.`);
                 break;
             }
@@ -107,76 +128,75 @@ export async function POST(req: NextRequest) {
             case 'payout.rejected':
             case 'payout.reversed': {
                 const failureReason = payout.failure_reason || event.event;
-                console.warn(`[Webhook: Razorpay-Payouts] Payout failed for payment ${paymentId}. Reason: ${failureReason}. Triggering refund.`);
+                console.warn(`[Webhook: Razorpay-Payouts] Payout failed for payment ${paymentId}. Reason: ${failureReason}. Triggering reversal.`);
 
-                await dataDb.runTransaction(async (transaction) => {
+                // 1. ATOMIC: Revert Ledger & Mark Status
+                const result = await dataDb.runTransaction(async (transaction) => {
                     const guestDoc = await transaction.get(guestDocRef);
-                    if (!guestDoc.exists) return;
+                    if (!guestDoc.exists) return null;
 
                     const guest = guestDoc.data() as Guest;
                     const paymentEntry = guest.paymentHistory?.find(p => p.id === paymentId);
                     
                     if (!paymentEntry || paymentEntry.payoutStatus === 'REFUNDED' || paymentEntry.payoutStatus === 'REFUND_PENDING') {
                         console.log(`[Webhook: Razorpay-Payouts] Refund already in progress or completed for ${paymentId}.`);
-                        return;
+                        return { skip: true };
                     }
 
-                    // 1. Update status to PAYOUT_FAILED
-                    const updatedHistory = produce(guest.paymentHistory || [], draft => {
-                        const p = draft.find(prev => prev.id === paymentId);
-                        if (p) {
-                            p.payoutStatus = 'PAYOUT_FAILED';
-                            p.payoutFailureReason = failureReason;
+                    const amountToRevert = paymentEntry.amount || 0;
+
+                    const updatedGuest = produce(guest, draft => {
+                        const pIndex = draft.paymentHistory?.findIndex(p => p.id === paymentId);
+                        if (pIndex !== undefined && pIndex !== -1) {
+                            draft.paymentHistory![pIndex].payoutStatus = 'REFUND_PENDING';
+                            draft.paymentHistory![pIndex].payoutFailureReason = failureReason;
+                            draft.paymentHistory![pIndex].notes = `Refund Initiated due to payout failure: ${failureReason}`;
+                        }
+
+                        // Add debit to net out the previous credit
+                        draft.ledger.push({
+                            id: `revert-${paymentId}`,
+                            date: new Date().toISOString(),
+                            type: 'debit',
+                            description: `Revert: Payout failed (${failureReason})`,
+                            amount: amountToRevert
+                        });
+
+                        // Recalculate balance
+                        const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+                        const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+                        draft.balance = totalDebits - totalCredits;
+
+                        // Update rent status if balance became positive
+                        if (draft.balance > 0) {
+                            draft.rentStatus = draft.balance >= draft.rentAmount ? 'unpaid' : 'partial';
                         }
                     });
 
-                    transaction.update(guestDocRef, { paymentHistory: updatedHistory });
+                    transaction.set(guestDocRef, updatedGuest);
+                    return { success: true, guestName: guest.name };
                 });
 
-                // 2. Trigger Refund (Safe Flow)
-                // We don't need to check status again since the webhook *is* the failure status
+                if (result?.skip) {
+                    await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'skipped', reason: 'Already refunded' });
+                    break;
+                }
+
+                // 2. Trigger Refund (External API Call)
                 try {
                     console.log(`[Webhook: Razorpay-Payouts] Initiating automatic refund for failed payout ${payout.id}...`);
                     await razorpay.payments.refund(paymentId, {
                         notes: {
                             reason: "Payout failed: " + failureReason,
-                            payoutId: payout.id
+                            payoutId: payout.id,
+                            ownerId,
+                            guestId,
+                            type: 'rent_refund'
                         }
                     });
 
-                    // 3. Revert Ledger
-                    await dataDb.runTransaction(async (revertTx) => {
-                        const latestGuestDoc = await revertTx.get(guestDocRef);
-                        if (!latestGuestDoc.exists) return;
-                        
-                        const guestCurrent = latestGuestDoc.data() as Guest;
-                        const updatedGuest = produce(guestCurrent, draft => {
-                            const pIndex = draft.paymentHistory?.findIndex(p => p.id === paymentId);
-                            const pEntry = draft.paymentHistory?.[pIndex ?? -1];
-                            
-                            if (pIndex !== undefined && pIndex !== -1) {
-                                draft.paymentHistory![pIndex].payoutStatus = 'REFUND_PENDING';
-                                draft.paymentHistory![pIndex].notes = `Refund Initiated due to payout failure: ${failureReason}`;
-                            }
-
-                            draft.ledger.push({
-                                id: `revert-${paymentId}`,
-                                date: new Date().toISOString(),
-                                type: 'debit',
-                                description: `Revert: Payout failed (${failureReason})`,
-                                amount: pEntry?.amount || 0
-                            });
-
-                            const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-                            const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-                            draft.balance = totalDebits - totalCredits;
-                            if (draft.balance > 0) {
-                                draft.rentStatus = draft.balance >= draft.rentAmount ? 'unpaid' : 'partial';
-                            }
-                        });
-
-                        revertTx.set(guestDocRef, updatedGuest);
-                    });
+                    // 3. Mark Event as Success
+                    await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'success', event: event.event });
 
                     // 4. Notify Owner
                     await createAndSendNotification({
@@ -184,14 +204,14 @@ export async function POST(req: NextRequest) {
                         notification: { 
                             type: 'payout-failed', 
                             title: 'Payout Failed & Refunded', 
-                            message: `The settlement of ₹${payout.amount / 100} failed (${failureReason}). The tenant has been automatically refunded.`, 
+                            message: `The settlement for ${result?.guestName || 'a guest'} failed (${failureReason}). The tenant has been automatically refunded.`, 
                             targetId: ownerId 
                         }
                     });
 
                 } catch (refundError: any) {
                     const errorMsg = refundError.message || "Unknown error";
-                    console.error(`[Webhook: Razorpay-Payouts] CRITICAL: Refund failed for payment ${paymentId}:`, errorMsg);
+                    console.error(`[Webhook: Razorpay-Payouts] CRITICAL: Refund API failed for payment ${paymentId}:`, errorMsg);
                     
                     // Log to central alerts collection
                     await adminDb.collection('payment_alerts').add({
@@ -205,9 +225,17 @@ export async function POST(req: NextRequest) {
                         severity: 'CRITICAL'
                     });
 
-                    // Update state to FAILED for manual intervention
+                    // Mark event with error for monitoring
+                    await eventRef.set({ 
+                        processedAt: FieldValue.serverTimestamp(), 
+                        status: 'error', 
+                        event: event.event,
+                        error: errorMsg 
+                    });
+
+                    // Update state to FAILED for manual intervention (since refund failed)
                     await guestDocRef.update({
-                        paymentHistory: produce((await guestDocRef.get()).data()?.paymentHistory || [], (draft: any) => {
+                        'paymentHistory': produce((await guestDocRef.get()).data()?.paymentHistory || [], (draft: any) => {
                             const p = draft.find((prev: any) => prev.id === paymentId);
                             if (p) p.payoutStatus = 'FAILED';
                         })

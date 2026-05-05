@@ -137,6 +137,7 @@ export const api = createApi({
             updates: Partial<PG>;
         }>({
             query: (body) => ({ url: 'api/properties', method: 'PATCH', body }),
+            invalidatesTags: ['Properties'],
             async onQueryStarted({ pgId, updates }, { dispatch, queryFulfilled }) {
                 const patchResult = dispatch(
                     api.util.updateQueryData('getProperties', undefined, (draft) => {
@@ -152,7 +153,6 @@ export const api = createApi({
                     patchResult.undo();
                 }
             },
-            invalidatesTags: ['Properties'],
         }),
 
         // ─── Tenants (via /api/tenants) ─────────────────────────────────
@@ -175,7 +175,7 @@ export const api = createApi({
             guestData: Partial<Guest>;
         }>({
             query: (body) => ({ url: 'api/tenants', method: 'POST', body }),
-            invalidatesTags: ['Tenants', 'Properties', 'Guests'],
+            invalidatesTags: ['Tenants', 'Guests', 'Properties'],
         }),
 
         // ─── Guests (via /api/guests — full client-side data) ───────────
@@ -204,24 +204,14 @@ export const api = createApi({
             updates: Partial<Guest>;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'update' } }),
-            async onQueryStarted({ guestId, updates }, { dispatch, queryFulfilled }) {
-                const patchResult = dispatch(
-                    api.util.updateQueryData('getGuests', undefined, (draft) => {
-                        const guest = draft.guests?.find((g) => g.id === guestId);
-                        if (guest) {
-                            Object.assign(guest, updates);
-                        }
-                    })
-                );
-                try {
-                    await queryFulfilled;
-                } catch {
-                    patchResult.undo();
-                }
-            },
-            invalidatesTags: ['Guests', 'Tenants'],
+            invalidatesTags: ['Guests'],
         }),
-
+        deleteGuest: builder.mutation<{ success: boolean; guestId: string }, {
+            guestId: string;
+        }>({
+            query: (body) => ({ url: 'api/guests', method: 'DELETE', body }),
+            invalidatesTags: ['Guests', 'Properties'],
+        }),
         transferGuest: builder.mutation<{ success: boolean; guest: Guest }, {
             guestId: string;
             newPgId: string;
@@ -239,34 +229,8 @@ export const api = createApi({
 
         addGuest: builder.mutation<{ success: boolean; guest: Guest }, any>({
             query: (body) => ({ url: 'api/guests', method: 'POST', body }),
-            async onQueryStarted({ bedId, pgId, name }, { dispatch, queryFulfilled }) {
-                // Optimistic update for Properties (mark bed as occupied with a temporary guest state)
-                if (bedId && pgId) {
-                    const propertyPatch = dispatch(
-                        api.util.updateQueryData('getProperties', undefined, (draft) => {
-                            const pg = draft.buildings?.find(p => p.id === pgId);
-                            if (pg) {
-                                pg.floors?.forEach(floor => {
-                                    floor.rooms.forEach(room => {
-                                        const bed = room.beds.find(b => b.id === bedId);
-                                        if (bed) {
-                                            bed.guestId = 'temp-id-while-loading';
-                                        }
-                                    });
-                                });
-                            }
-                        })
-                    );
-                    try {
-                        await queryFulfilled;
-                    } catch {
-                        propertyPatch.undo();
-                    }
-                }
-            },
-            invalidatesTags: ['Guests', 'Tenants', 'Properties'],
+            invalidatesTags: ['Guests', 'Properties'],
         }),
-
         initiateGuestExit: builder.mutation<{ success: boolean; exitDate: string }, {
             guestId: string;
             noticePeriodDays?: number;
@@ -280,6 +244,7 @@ export const api = createApi({
             sendWhatsApp?: boolean;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'vacate' } }),
+            invalidatesTags: ['Guests', 'Properties'],
             async onQueryStarted({ guestId }, { dispatch, queryFulfilled }) {
                 // Optimistic update for Guests list
                 const guestPatch = dispatch(
@@ -315,7 +280,6 @@ export const api = createApi({
                     propertyPatch.undo();
                 }
             },
-            invalidatesTags: ['Guests', 'Tenants', 'Properties'],
         }),
 
         updateKycStatus: builder.mutation<{ success: boolean; kycStatus: string }, {
@@ -324,7 +288,6 @@ export const api = createApi({
             reason?: string;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'kyc-status' } }),
-            invalidatesTags: ['Guests'],
         }),
 
         submitKycDocuments: builder.mutation<{ success: boolean; kycStatus: string }, {
@@ -332,14 +295,12 @@ export const api = createApi({
             documents: any[];
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'kyc-submit' } }),
-            invalidatesTags: ['Guests'],
         }),
 
         resetKyc: builder.mutation<{ success: boolean; kycStatus: string }, {
             guestId: string;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'kyc-reset' } }),
-            invalidatesTags: ['Guests'],
         }),
 
         addGuestCharge: builder.mutation<{ success: boolean; charge: any }, {
@@ -348,7 +309,7 @@ export const api = createApi({
             amount: number;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'add-charge' } }),
-            invalidatesTags: ['Guests', 'Tenants'],
+            invalidatesTags: ['Guests', 'Rent'],
         }),
 
         removeGuestCharge: builder.mutation<{ success: boolean; guestId: string; chargeId: string }, {
@@ -356,7 +317,7 @@ export const api = createApi({
             chargeId: string;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'remove-charge' } }),
-            invalidatesTags: ['Guests', 'Tenants'],
+            invalidatesTags: ['Guests', 'Rent'],
         }),
 
         addSharedRoomCharge: builder.mutation<{ success: boolean; updatedCount: number }, {
@@ -365,7 +326,7 @@ export const api = createApi({
             amount: number;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'shared-charge' } }),
-            invalidatesTags: ['Guests', 'Tenants'],
+            invalidatesTags: ['Guests', 'Rent'],
         }),
 
         recordGuestPayment: builder.mutation<{ success: boolean; guest: Guest }, {
@@ -376,7 +337,7 @@ export const api = createApi({
             method: 'cash' | 'upi' | 'in-app' | 'direct_upi' | 'gateway';
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'record-payment' } }),
-            invalidatesTags: ['Guests', 'Tenants', 'Rent'],
+            invalidatesTags: ['Guests', 'Rent'],
         }),
 
         // ─── Rent & Payments ─────────────────────────────────────────────
@@ -399,7 +360,7 @@ export const api = createApi({
             notes?: string;
         }>({
             query: (body) => ({ url: 'api/rent', method: 'POST', body }),
-            invalidatesTags: ['Rent', 'Tenants', 'Guests'],
+            invalidatesTags: ['Guests', 'Rent'],
         }),
 
         // ─── Complaints ──────────────────────────────────────────────────
@@ -418,7 +379,6 @@ export const api = createApi({
             updates: Partial<Complaint>;
         }>({
             query: (body) => ({ url: 'api/complaints', method: 'PATCH', body }),
-            invalidatesTags: ['Complaints'],
         }),
 
         // ─── Expenses ────────────────────────────────────────────────────
@@ -436,14 +396,12 @@ export const api = createApi({
             expense: Partial<Expense>;
         }>({
             query: (body) => ({ url: 'api/expenses', method: 'POST', body }),
-            invalidatesTags: ['Expenses'],
         }),
 
         deleteExpense: builder.mutation<{ success: boolean; expenseId: string }, {
             expenseId: string;
         }>({
             query: (body) => ({ url: 'api/expenses', method: 'DELETE', body }),
-            invalidatesTags: ['Expenses'],
         }),
 
         // ─── Staff ───────────────────────────────────────────────────────
@@ -462,14 +420,12 @@ export const api = createApi({
             updates: Partial<Staff>;
         }>({
             query: (body) => ({ url: 'api/staff', method: 'PATCH', body }),
-            invalidatesTags: ['Staff'],
         }),
 
         deleteStaffApi: builder.mutation<{ success: boolean; staffId: string }, {
             staffId: string;
         }>({
             query: (body) => ({ url: 'api/staff', method: 'DELETE', body }),
-            invalidatesTags: ['Staff'],
         }),
 
         generateStaffMagicLink: builder.mutation<{ success: boolean; magicLink: string; inviteCode: string }, {
@@ -509,7 +465,6 @@ export const api = createApi({
             notes?: string;
         }>({
             query: (body) => ({ url: 'api/payments/verify', method: 'POST', body }),
-            invalidatesTags: ['Guests', 'Tenants', 'Rent'],
         }),
 
         // ─── Activity Logs ────────────────────────────────────────────────
@@ -554,6 +509,7 @@ export const {
     // Guests (via /api/guests)
     useGetGuestsQuery,
     useUpdateGuestMutation,
+    useDeleteGuestMutation,
     useTransferGuestMutation,
     useAddGuestMutation,
     useInitiateGuestExitMutation,

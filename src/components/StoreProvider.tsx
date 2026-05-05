@@ -49,7 +49,7 @@ import type {
   User,
   UserRole,
 } from "@/lib/types";
-import { setLoading, validateSelectedPg } from "@/lib/slices/appSlice";
+import { setLoading, setInitialDataLoaded, validateSelectedPg } from "@/lib/slices/appSlice";
 import {
   useChargeTemplatesStore,
   usePermissionsStore,
@@ -519,14 +519,14 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
             const unsub = onSnapshot(
               finalQuery,
-              (snapshot) => {
-                let data = snapshot.docs.map((doc) => doc.data());
+              (snapshot: any) => {
+                let data = snapshot.docs.map((doc: any) => doc.data());
 
                 if (collectionName === "pgs")
-                  dispatch(validateSelectedPg(data.map((pg) => (pg as PG).id)));
+                  dispatch(validateSelectedPg(data.map((pg: any) => (pg as PG).id)));
                 if (["complaints", "expenses"].includes(collectionName)) {
                   data.sort(
-                    (a, b) =>
+                    (a: any, b: any) =>
                       new Date((b as any).date).getTime() -
                       new Date((a as any).date).getTime(),
                   );
@@ -536,13 +536,16 @@ function AuthHandler({ children }: { children: ReactNode }) {
                 loadedCollections.add(collectionName);
                 if (loadedCollections.size === collectionNames.length) {
                   dispatch(setLoading(false));
+                  dispatch(setInitialDataLoaded(true));
                 }
               },
-              (err) => {
+              (err: any) => {
                 console.error(`Error listening to ${collectionName}:`, err);
                 loadedCollections.add(collectionName);
-                if (loadedCollections.size === collectionNames.length)
+                if (loadedCollections.size === collectionNames.length) {
                   dispatch(setLoading(false));
+                  dispatch(setInitialDataLoaded(true));
+                }
               },
             );
             unsubs.push(unsub);
@@ -628,12 +631,15 @@ function AuthHandler({ children }: { children: ReactNode }) {
             setDataListeners((prev) => [...prev, unsubNotif]);
           }
           dispatch(setLoading(false));
+          dispatch(setInitialDataLoaded(true));
         } else {
           dispatch(setLoading(false));
+          dispatch(setInitialDataLoaded(true));
         }
       } catch (e) {
         console.error("[StoreProvider] Init failed:", e);
         dispatch(setLoading(false));
+        dispatch(setInitialDataLoaded(true));
       }
     })();
 
@@ -644,6 +650,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
           "[StoreProvider] Loading timeout reached. Forcing setLoading(false)",
         );
         dispatch(setLoading(false));
+        dispatch(setInitialDataLoaded(true));
       }
     }, 8000);
 

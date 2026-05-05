@@ -109,8 +109,8 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge className={cn("capitalize border-transparent", kycStatusColors[guest.kycStatus])}>
-                                        {guest.kycStatus}
+                                    <Badge className={cn("capitalize border-transparent", kycStatusColors[guest.kycStatus || 'not-started'])}>
+                                        {(guest.kycStatus || 'not-started').replace('-', ' ')}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>{guest.isVacated ? safeFormatDate(guest.exitDate, 'do MMM, yyyy') : safeFormatDate(guest.dueDate, 'do MMM, yyyy')}</TableCell>
@@ -152,8 +152,8 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                         <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
                                 <Avatar>
-                                    <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name.charAt(0)}`} />
-                                    <AvatarFallback>{guest.name.charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name?.charAt(0) || 'G'}`} />
+                                    <AvatarFallback>{guest.name?.charAt(0) || 'G'}</AvatarFallback>
                                 </Avatar>
                                 <div>
                                     <p className="font-bold">
@@ -201,7 +201,7 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                    <span>KYC: <span className={cn("capitalize font-medium", kycStatusColors[guest.kycStatus]?.replace('bg-', 'text-'))}>{guest.kycStatus.replace('-', ' ')}</span></span>
+                                    <span>KYC: <span className={cn("capitalize font-medium", kycStatusColors[guest.kycStatus || 'not-started']?.replace('bg-', 'text-'))}>{(guest.kycStatus || 'not-started').replace('-', ' ')}</span></span>
                                 </div>
                             </div>
                             <Badge className={cn("capitalize border-transparent", guest.isVacated ? 'bg-destructive' : rentStatusColors[guest.rentStatus])}>
@@ -216,17 +216,19 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
 }
 
 export default function GuestManagementPage() {
-    const { guests } = useAppSelector(state => state.guests);
-    const { pgs } = useAppSelector(state => state.pgs);
-    const { isLoading, selectedPgId } = useAppSelector(state => state.app);
-    const { currentUser } = useAppSelector(state => state.user);
-    const { featurePermissions } = usePermissionsStore();
-
     const dashboard = useDashboard();
-    const {
-        addGuestForm, handleAddGuestSubmit,
+    const { 
+        guests, 
+        pgs, 
+        isAppLoading: isLoading, 
+        initialDataLoaded,
+        selectedPgId, 
+        currentUser,
+        addGuestForm, 
+        handleAddGuestSubmit,
         handleOpenEditGuestDialog,
-        handleOpenGeneralAddGuestDialog
+        handleOpenGeneralAddGuestDialog,
+        featurePermissions
     } = dashboard;
 
     const [isCsvUploaderOpen, setIsCsvUploaderOpen] = useState(false);

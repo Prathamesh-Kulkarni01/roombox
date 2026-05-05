@@ -143,14 +143,14 @@ export class StaffService {
             await userRef.set(userUpdate, { merge: true });
             
             // Sync custom claims immediately
-            const pgIds = userUpdate.pgIds || [];
+            const currentPgIds = userUpdate.pgIds || [];
             const claims = {
                 role: userUpdate.role,
                 ownerId: userUpdate.ownerId,
                 staffId: userUpdate.staffId,
                 permissions: userUpdate.permissions,
-                pgs: pgIds,
-                pgIdsHash: [...pgIds].sort().join(',')
+                pgs: currentPgIds,
+                pgIdsHash: [...currentPgIds].sort().join(',')
             };
             try {
                 await auth.setCustomUserClaims(uid, claims);

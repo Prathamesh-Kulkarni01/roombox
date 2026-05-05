@@ -3,6 +3,7 @@ import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { unauthorized, serverError } from '@/lib/api/apiError';
+import { type BulkImportRow } from '@/lib/types';
 
 /**
  * POST /api/tenants/bulk-import
@@ -97,23 +98,23 @@ export async function POST(req: NextRequest) {
 
 // ─── CSV Parser ───────────────────────────────────────────────────────────────
 
-function parseCsv(text: string): Record<string, string>[] {
+function parseCsv(text: string): BulkImportRow[] {
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) return [];
 
     // Normalize headers: lowercase, remove spaces/special chars
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
 
-    const rows: Record<string, string>[] = [];
+    const rows: BulkImportRow[] = [];
     for (let i = 1; i < lines.length; i++) {
         const values = splitCsvLine(lines[i]);
         if (values.every(v => !v.trim())) continue; // skip blank lines
 
-        const row: Record<string, string> = {};
+        const row: any = {};
         headers.forEach((h, idx) => {
             row[h] = values[idx]?.trim() || '';
         });
-        rows.push(row);
+        rows.push(row as BulkImportRow);
     }
     return rows;
 }

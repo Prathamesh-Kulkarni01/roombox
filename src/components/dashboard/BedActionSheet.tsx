@@ -131,7 +131,7 @@ export default function BedActionSheet({
         >
           <Avatar className="h-14 w-14 text-lg border-2 border-border">
             <AvatarFallback className="text-xl font-bold">
-              {guest.name.charAt(0).toUpperCase()}
+              {guest.name?.charAt(0).toUpperCase() || "G"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">

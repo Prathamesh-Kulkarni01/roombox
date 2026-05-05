@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { useTranslation } from '@/context/language-context';
 import { useAppSelector } from '@/lib/hooks';
 import { auth } from '@/lib/firebase';
-import { useGetPropertiesQuery, useUpdatePropertyMutation } from '@/lib/api/apiSlice';
+import { useDashboard } from '@/hooks/use-dashboard';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, QrCode, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -42,16 +42,14 @@ interface PaymentSettingsProps {
 export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { selectedPgId } = useAppSelector((state) => state.app);
-  const { data: pgsData, isLoading: isLoadingPgs } = useGetPropertiesQuery();
-  const [updateProperty, { isLoading: isUpdating }] = useUpdatePropertyMutation();
+  const { pgs, isLoadingPgs, updateProperty, isUpdatingProperty: isUpdating, selectedPgId } = useDashboard();
   
   const [activePgId, setActivePgId] = useState<string | null>(selectedPgId);
   const [qrPreview, setQrPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const selectedPg = pgsData?.buildings?.find(p => p.id === activePgId);
+  const selectedPg = pgs?.find(p => p.id === activePgId);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,10 +71,10 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
   }, [selectedPg, form]);
 
   useEffect(() => {
-    if (pgsData?.buildings?.length && !activePgId) {
-      setActivePgId(pgsData.buildings[0].id);
+    if (pgs?.length && !activePgId) {
+      setActivePgId(pgs[0].id);
     }
-  }, [pgsData, activePgId]);
+  }, [pgs, activePgId]);
 
   const saveSettings = async (values: z.infer<typeof formSchema>, newQrUrl?: string) => {
     if (!activePgId) return;
@@ -207,13 +205,13 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
           <h3 className="text-xl font-black tracking-tight text-foreground">Select Property</h3>
           <p className="text-[0.65rem] text-primary/70 font-black uppercase tracking-[0.15em]">Configure settings per PG</p>
         </div>
-        {pgsData?.buildings && pgsData.buildings.length > 0 && (
+        {pgs && pgs.length > 0 && (
           <Select value={activePgId || ''} onValueChange={setActivePgId}>
             <SelectTrigger className="w-full md:w-[260px] h-12 bg-white rounded-xl border-blue-200 shadow-sm font-bold text-blue-900">
               <SelectValue placeholder="Select Property" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
-              {pgsData.buildings.map((pg) => (
+              {pgs.map((pg) => (
                 <SelectItem key={pg.id} value={pg.id} className="font-medium">
                   {pg.name}
                 </SelectItem>

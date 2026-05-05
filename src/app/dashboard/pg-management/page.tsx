@@ -66,11 +66,7 @@ import AddPgSheet from "@/components/add-pg-sheet";
 import type { PG, ChargeTemplate } from "@/lib/types";
 import Access from "@/components/ui/PermissionWrapper";
 import { canAccess } from "@/lib/permissions";
-import {
-  useGetPropertiesQuery,
-  useGetGuestsQuery,
-  useDeletePropertyMutation,
-} from "@/lib/api/apiSlice";
+import { useDashboard } from "@/hooks/use-dashboard";
 import BulkSetupModal from "@/components/bulk-setup-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -139,21 +135,17 @@ export default function PgManagementPage() {
   const [pgToDelete, setPgToDelete] = useState<PG | null>(null);
   const [pgForBulkSetup, setPgForBulkSetup] = useState<PG | null>(null);
 
-  // RTK Query hooks
   const {
-    data: pgsData,
-    isLoading: isLoadingPgs,
-    refetch: refetchPgs,
-  } = useGetPropertiesQuery(undefined, {
-    skip: !currentUser?.id,
-  });
-  const { data: guestsData, isLoading: isLoadingGuests } = useGetGuestsQuery(
-    undefined,
-    {
-      skip: !currentUser?.id,
-    },
-  );
-  const [deleteProperty] = useDeletePropertyMutation();
+    pgs,
+    guests,
+    isLoadingPgs,
+    isLoadingGuests,
+    isUpdatingProperty,
+    isAppLoading,
+    initialDataLoaded,
+    refetchPgs,
+    deleteProperty,
+  } = useDashboard();
 
   const {
     templates: chargeTemplates,
@@ -230,9 +222,7 @@ export default function PgManagementPage() {
     }
   };
 
-  const pgs = pgsData?.buildings || [];
-  const guests = guestsData?.guests || [];
-  const isLoading = isLoadingPgs || isLoadingGuests;
+  const isLoading = isAppLoading || !initialDataLoaded;
   const currentPlan = getCurrentPlan(currentUser);
   const canAddPg =
     !currentPlan ||

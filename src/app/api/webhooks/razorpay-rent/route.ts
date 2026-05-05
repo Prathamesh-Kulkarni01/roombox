@@ -44,6 +44,16 @@ export async function POST(req: NextRequest) {
         const event = JSON.parse(body);
         console.log(`[Webhook: Razorpay-Rent] Received event: ${event.event} (ID: ${event.id})`);
 
+        const adminDb = await getAdminDb();
+        
+        // --- 1. EVENT IDEMPOTENCY CHECK ---
+        const eventRef = adminDb.collection('processed_webhook_events').doc(event.id);
+        const eventDoc = await eventRef.get();
+        if (eventDoc.exists) {
+            console.log(`[Webhook: Razorpay-Rent] Event ${event.id} already processed. Skipping.`);
+            return NextResponse.json({ success: true });
+        }
+
         if (event.event === 'order.paid' || event.event === 'payment.captured') {
             const order = event.payload.order?.entity || { id: event.payload.payment.entity.order_id, notes: event.payload.payment.entity.notes };
             const payment = event.payload.payment?.entity;
@@ -111,6 +121,7 @@ export async function POST(req: NextRequest) {
                                 newCredits: newCredits
                             });
                         });
+                        await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'success', type: 'whatsapp_recharge' });
                         console.log(`[Webhook: Razorpay-Rent] Successfully credited ₹${credits} to owner ${ownerId}'s wallet. Payment ID: ${payment.id}`);
                     } catch (txError: any) {
                         console.error('[Webhook: Razorpay-Rent] Failed to process recharge transaction:', txError.message);
@@ -180,6 +191,7 @@ export async function POST(req: NextRequest) {
 
                             console.log(`[Webhook: Razorpay-Rent] Wallet recharge result: ${result.success ? 'SUCCESS' : 'FAILED'} - ₹${amount} for ${ownerId}`);
                         });
+                        await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'success', type: 'wallet_recharge' });
                     } catch (txError: any) {
                         console.error('[Webhook: Razorpay-Rent] Failed to process wallet recharge:', txError.message);
                         throw txError;
@@ -197,10 +209,11 @@ export async function POST(req: NextRequest) {
 
             if (!guestId || !ownerId) {
                 console.warn('[Webhook: Razorpay-Rent] Missing guestId or ownerId in metadata.');
+                await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'skipped', reason: 'Missing metadata' });
                 return NextResponse.json({ success: true, message: 'Webhook processed, but no action taken due to missing metadata.' });
             }
 
-            const adminDb = await getAdminDb();
+            // const adminDb = await getAdminDb(); // Already initialized above
             const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
             if (!ownerDoc.exists) {
                 console.error(`Webhook handler: Owner with ID ${ownerId} not found.`);
@@ -338,7 +351,7 @@ export async function POST(req: NextRequest) {
                         
                         // Update payment history to reflect ROUTE settlement
                         const guestData = transactionResult.guestData as Guest;
-                        const paymentIndex = guestData.paymentHistory?.findIndex((p: Payment) => p.id === payment.id);
+                        const paymentIndex = guestData.paymentHistory?.findIndex((p) => p.id === payment.id);
                         if (paymentIndex !== undefined && paymentIndex !== -1) {
                             const updatedPaymentHistory = [...(guestData.paymentHistory || [])];
                             updatedPaymentHistory[paymentIndex] = {
@@ -353,7 +366,7 @@ export async function POST(req: NextRequest) {
 
                     // --- PAYOUT MODE (Manual via RazorpayX) ---
                     const guestDataAfterTx = transactionResult.guestData as Guest;
-                    const paymentRecord = guestDataAfterTx.paymentHistory?.find((p: Payment) => p.id === payment.id);
+                    const paymentRecord = guestDataAfterTx.paymentHistory?.find((p) => p.id === payment.id);
                     const snapshot = paymentRecord?.payoutSnapshot;
 
                     if (snapshot?.fund_account_id) {
@@ -387,7 +400,7 @@ export async function POST(req: NextRequest) {
                         
                         // Update the guest's payment record with the payoutId and PENDING status
                         const guestData = transactionResult.guestData as Guest;
-                        const paymentIndex = guestData.paymentHistory?.findIndex((p: Payment) => p.id === payment.id);
+                        const paymentIndex = guestData.paymentHistory?.findIndex((p) => p.id === payment.id);
                         if (paymentIndex !== undefined && paymentIndex !== -1) {
                             const updatedPaymentHistory = [...(guestData.paymentHistory || [])];
                             updatedPaymentHistory[paymentIndex] = {
@@ -412,7 +425,7 @@ export async function POST(req: NextRequest) {
                             
                             // Update status to PAYOUT_PENDING or SETTLED based on what we found
                             const guestData = transactionResult.guestData as Guest;
-                            const paymentIndex = guestData.paymentHistory?.findIndex((p: Payment) => p.id === payment.id);
+                            const paymentIndex = guestData.paymentHistory?.findIndex((p) => p.id === payment.id);
                             if (paymentIndex !== undefined && paymentIndex !== -1) {
                                 const updatedPaymentHistory = [...(guestData.paymentHistory || [])];
                                 updatedPaymentHistory[paymentIndex] = {
@@ -503,6 +516,7 @@ export async function POST(req: NextRequest) {
                 }
             }
 
+            await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'success', type: 'rent_payment' });
             console.log(`Successfully updated rent payment for guest ${guestId}.`);
         }
 
@@ -554,6 +568,7 @@ export async function POST(req: NextRequest) {
                     });
                 }
             }
+            await eventRef.set({ processedAt: FieldValue.serverTimestamp(), status: 'success', type: 'refund_processed' });
             return NextResponse.json({ success: true });
         }
 

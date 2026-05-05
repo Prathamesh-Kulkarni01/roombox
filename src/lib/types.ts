@@ -20,6 +20,7 @@ export interface BaseEntity {
     updatedAt?: string; // ISO String
     updatedBy?: PerformerInfo;
     schemaVersion?: number;
+    pending?: boolean; // For optimistic UI tracking
 }
 
 export type ActivityType = 
@@ -57,8 +58,8 @@ export type ActivityType =
 
 export interface ActivityChange {
     field: string;
-    before: any;
-    after: any;
+    before: unknown;
+    after: unknown;
 }
 
 export interface ActivityLog {
@@ -72,12 +73,12 @@ export interface ActivityLog {
     status: 'success' | 'failed' | 'warning' | 'danger';
     performedBy: PerformerInfo;
     changes?: {
-        before?: any;
-        after?: any;
+        before?: unknown;
+        after?: unknown;
         changedFields?: string[];
     } | ActivityChange[]; // Support both formats during transition
     error?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     timestamp: any; // Firestore Timestamp or Date
 }
 
@@ -94,13 +95,93 @@ export interface SubmittedKycDocument {
     submittedAt: string;
 }
 
-export interface BusinessKycDetails {
+export interface BusinessKycBasicDetails {
     gstin?: string;
     pan?: string;
     businessName?: string;
     address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
 }
 
+export interface MagicLinkData {
+    token: string;
+    inviteCode: string;
+    phone: string;
+    ownerId: string;
+    role: string;
+    pgName: string;
+    createdAt: number;
+    expiresAt: number;
+    used: boolean;
+    staffId?: string;
+    guestId?: string;
+}
+
+export type RentCycleUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
+
+export interface OnboardTenantInput {
+    ownerId: string;
+    name: string;
+    phone: string;
+    email?: string;
+    pgId: string;
+    pgName?: string;
+    bedId?: string;
+    roomId?: string;
+    roomName?: string;
+    rentAmount: number;
+    deposit?: number;
+    joinDate?: string;
+    dueDate?: string;
+    rentCycleUnit?: RentCycleUnit;
+    rentCycleValue?: number;
+    planId?: string;
+    amountType?: 'numeric' | 'symbolic';
+    symbolicRentValue?: string;
+    symbolicDepositValue?: string;
+}
+
+export interface TenancyRecord {
+    guestId: string;
+    pgId: string;
+    ownerId: string;
+    pgName: string;
+}
+
+export interface AppUser {
+    id: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    role: 'owner' | 'staff' | 'tenant' | 'unassigned';
+    status: 'active' | 'inactive' | 'pending';
+    createdAt: number;
+    updatedAt?: number;
+    guestId?: string;
+    pgId?: string;
+    ownerId?: string;
+    lastActivePgId?: string;
+    activeTenancies?: TenancyRecord[];
+    fcmToken?: string;
+}
+
+export interface BulkImportRow {
+    name: string;
+    phone: string;
+    rent: string | number;
+    deposit?: string | number;
+    pgid: string;
+    pgname?: string;
+    roomnumber?: string;
+    joindate?: string;
+    email?: string;
+    bedid?: string;
+    roomid?: string;
+    roomname?: string;
+    duedate?: string;
+}
 
 export interface PWAConfig {
   name: string;
@@ -309,10 +390,46 @@ export interface KycDocument {
   photoUrl: string;
 }
 
-export type RentCycleUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
+export interface PaymentHistoryItem {
+  id: string;
+  date?: string;
+  createdAt?: string;  // Gateway payments use createdAt
+  amount: number;
+  amountType?: 'numeric' | 'symbolic';
+  symbolicValue?: string;
+  method: string;
+  forMonth?: string;
+  // Full Payment fields (written by webhook and UPI flows)
+  month?: string;
+  type?: 'credit' | 'debit';
+  status?: 'INITIATED' | 'CLAIMED_PAID' | 'VERIFIED' | 'REJECTED' | 'pending';
+  notes?: string;
+  utr?: string;
+  screenshotUrl?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  claimedAt?: string;
+  payoutStatus?: string;
+  payoutFailureReason?: string;
+  payoutId?: string;
+  payoutTo?: string;
+  payoutMode?: 'PAYOUT' | 'ROUTE';
+  payoutSnapshot?: {
+    fund_account_id?: string;
+    vpa?: string;
+    mode: 'PAYOUT' | 'ROUTE';
+    account_id?: string;
+    payout_type?: string;
+  };
+  matchConfidence?: 'HIGH' | 'PARTIAL' | 'UNMATCHED';
+  referenceId?: string;
+  discrepancies?: string[];
+  payoutProcessedAt?: string;
+}
+
 
 export interface Guest extends BaseEntity {
-  roomName?: any;
+  roomName?: string;
   id: string;
   shortId?: string;
   name: string;
@@ -340,9 +457,10 @@ export interface Guest extends BaseEntity {
   timezone?: string;
   userId?: string | null; // Link to the user account
   isVacated: boolean; // True if the guest has permanently left the PG
+  status?: 'active' | 'inactive' | 'vacated';
   ledger: LedgerEntry[];
   documents?: SubmittedKycDocument[];
-  paymentHistory: any[]; // History of payments recorded
+  paymentHistory: PaymentHistoryItem[]; // History of payments recorded
   payments?: Payment[]; // For tracking manual/offline payment submissions
   lastPaymentDate?: string;
   finalSettlementAmount?: number;
@@ -410,6 +528,7 @@ export interface Plan {
   description: string;
   pgLimit: number | 'unlimited';
   floorLimit?: number | 'unlimited';
+  tenantLimit?: number | 'unlimited';
   hasStaffManagement: boolean;
   hasComplaints: boolean;
   hasAiRentReminders: boolean;

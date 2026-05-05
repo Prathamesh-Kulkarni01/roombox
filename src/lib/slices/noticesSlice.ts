@@ -2,7 +2,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import type { Notice } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
-import { collection, doc, getDocs, setDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { RootState } from '../store';
 
 interface NoticesState {
@@ -65,6 +65,29 @@ export const addNotice = createAsyncThunk<Notice, Notice, { state: RootState }>(
     }
 );
 
+export const deleteNotice = createAsyncThunk<string, string, { state: RootState }>(
+    'notices/deleteNotice',
+    async (noticeId, { getState, rejectWithValue }) => {
+        const { user } = getState();
+        const ownerId = user.currentUser?.id;
+
+        if (!user.currentUser || !ownerId || user.currentUser.role !== 'owner') {
+            return rejectWithValue('Only owners can delete notices.');
+        }
+
+        try {
+            if (isFirebaseConfigured()) {
+                const selectedDb = selectOwnerDataDb(user.currentUser);
+                const docRef = doc(selectedDb, 'users_data', ownerId, 'notices', noticeId);
+                await deleteDoc(docRef);
+            }
+            return noticeId;
+        } catch (error: any) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
+
 const noticesSlice = createSlice({
     name: 'notices',
     initialState,
@@ -92,6 +115,9 @@ const noticesSlice = createSlice({
                 if (!exists) {
                     state.notices.unshift(action.payload);
                 }
+            })
+            .addCase(deleteNotice.fulfilled, (state, action) => {
+                state.notices = state.notices.filter(n => n.id !== action.payload);
             })
             .addCase('user/logoutUser/fulfilled', (state) => {
                 state.notices = [];

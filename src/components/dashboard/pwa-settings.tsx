@@ -186,11 +186,11 @@ export function PWASettings() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <div className="lg:col-span-7 space-y-6">
-        <Card className="border-0 shadow-sm overflow-hidden bg-white">
-          <CardHeader className="bg-slate-50 border-b px-8 py-6">
+        <Card className="border-border/40 shadow-sm overflow-hidden bg-card">
+          <CardHeader className="bg-muted/50 border-b border-border/50 px-8 py-6">
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle className="text-2xl font-bold text-slate-900">Brand Your App</CardTitle>
+                <CardTitle className="text-2xl font-bold">Brand Your App</CardTitle>
                 <CardDescription className="text-base mt-2">
                   Customize how the app looks when your tenants install it on their phones.
                 </CardDescription>
@@ -203,7 +203,7 @@ export function PWASettings() {
 
                 {/* Step 1: App Details */}
                 <div className="space-y-6">
-                  <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-800 border-b pb-2">
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-foreground border-b border-border/50 pb-2">
                     <Type className="w-5 h-5 text-primary" />
                     1. App Details
                   </h3>
@@ -216,7 +216,7 @@ export function PWASettings() {
                         <FormItem>
                           <FormLabel className="text-base">Full App Name</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="e.g. Skyline Residency" className="h-12 bg-slate-50" />
+                            <Input {...field} placeholder="e.g. Skyline Residency" className="h-12 bg-muted/30 border-border/50" />
                           </FormControl>
                           <FormDescription>Displayed when app is opened.</FormDescription>
                           <FormMessage />
@@ -231,7 +231,7 @@ export function PWASettings() {
                         <FormItem>
                           <FormLabel className="text-base">HomeScreen Icon Name</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="e.g. Skyline" maxLength={12} className="h-12 bg-slate-50" />
+                            <Input {...field} placeholder="e.g. Skyline" maxLength={12} className="h-12 bg-muted/30 border-border/50" />
                           </FormControl>
                           <FormDescription>Short name under the app icon.</FormDescription>
                           <FormMessage />
@@ -249,11 +249,11 @@ export function PWASettings() {
                           Your App Link
                         </FormLabel>
                         <FormControl>
-                          <div className="flex items-center shadow-sm rounded-md overflow-hidden border">
-                            <span className="bg-slate-100 px-4 py-3 text-sm font-medium text-slate-600 border-r isolate whitespace-nowrap">
+                          <div className="flex items-center shadow-sm rounded-md overflow-hidden border border-border/50">
+                            <span className="bg-muted px-4 py-3 text-sm font-medium text-muted-foreground border-r border-border/50 isolate whitespace-nowrap">
                               {appUrl.replace(/^https?:\/\//, '')}/app/
                             </span>
-                            <Input {...field} placeholder="your-pg" className="border-0 h-12 rounded-none focus-visible:ring-0 bg-slate-50" />
+                            <Input {...field} placeholder="your-pg" className="border-0 h-12 rounded-none focus-visible:ring-0 bg-muted/30" />
                           </div>
                         </FormControl>
                         <FormDescription>The link you will share with your tenants to access the app.</FormDescription>
@@ -265,7 +265,7 @@ export function PWASettings() {
 
                 {/* Step 2: Brand Colors */}
                 <div className="space-y-6">
-                  <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-800 border-b pb-2">
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-foreground border-b border-border/50 pb-2">
                     <Palette className="w-5 h-5 text-primary" />
                     2. Brand Colors
                   </h3>
@@ -279,10 +279,10 @@ export function PWASettings() {
                           <FormLabel className="text-base">Main Brand Color</FormLabel>
                           <FormControl>
                             <div className="flex gap-3 items-center">
-                              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-slate-200 shadow-sm shrink-0 cursor-pointer">
+                              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-border shadow-sm shrink-0 cursor-pointer">
                                 <input {...field} type="color" className="absolute -top-4 -left-4 w-24 h-24 cursor-pointer" />
                               </div>
-                              <Input value={field.value} onChange={field.onChange} className="h-12 bg-slate-50 uppercase font-mono text-sm" />
+                              <Input value={field.value} onChange={field.onChange} className="h-12 bg-muted/30 border-border/50 uppercase font-mono text-sm" />
                             </div>
                           </FormControl>
                           <FormDescription>Used for buttons and headers.</FormDescription>
@@ -299,10 +299,10 @@ export function PWASettings() {
                           <FormLabel className="text-base">Loading Screen Color</FormLabel>
                           <FormControl>
                             <div className="flex gap-3 items-center">
-                              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-slate-200 shadow-sm shrink-0 cursor-pointer">
+                              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-border shadow-sm shrink-0 cursor-pointer">
                                 <input {...field} type="color" className="absolute -top-4 -left-4 w-24 h-24 cursor-pointer" />
                               </div>
-                              <Input value={field.value} onChange={field.onChange} className="h-12 bg-slate-50 uppercase font-mono text-sm" />
+                              <Input value={field.value} onChange={field.onChange} className="h-12 bg-muted/30 border-border/50 uppercase font-mono text-sm" />
                             </div>
                           </FormControl>
                           <FormDescription>Background color while opening.</FormDescription>
@@ -315,20 +315,20 @@ export function PWASettings() {
 
                 {/* Step 3: App Logo */}
                 <div className="space-y-6">
-                  <h3 className="text-lg font-semibold flex items-center gap-2 text-slate-800 border-b pb-2">
+                  <h3 className="text-lg font-semibold flex items-center gap-2 text-foreground border-b border-border/50 pb-2">
                     <ImageIcon className="w-5 h-5 text-primary" />
                     3. App Logo
                   </h3>
 
                   <Tabs defaultValue="upload" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 h-12 bg-slate-100 p-1 rounded-xl mb-4">
-                      <TabsTrigger value="upload" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Upload Your Logo</TabsTrigger>
-                      <TabsTrigger value="library" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Choose Preset Icon</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-2 h-12 bg-muted p-1 rounded-xl mb-4">
+                      <TabsTrigger value="upload" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Upload Your Logo</TabsTrigger>
+                      <TabsTrigger value="library" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Choose Preset Icon</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="upload" className="space-y-4">
                       <div className="flex items-center justify-center w-full">
-                        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+                        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-border/50 rounded-xl cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors">
                           <div className="flex flex-col items-center justify-center pt-5 pb-6">
                             {isUploading ? (
                               <div className="flex flex-col items-center gap-3">
@@ -337,7 +337,7 @@ export function PWASettings() {
                               </div>
                             ) : (
                               <>
-                                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
+                                <div className="w-14 h-14 bg-card rounded-full flex items-center justify-center shadow-sm mb-3 border border-border/50">
                                   <Upload className="w-6 h-6 text-primary" />
                                 </div>
                                 <p className="text-base font-medium text-slate-700">Click to upload image</p>
@@ -360,7 +360,7 @@ export function PWASettings() {
                             key={item.id}
                             type="button"
                             variant="outline"
-                            className={`h-24 flex flex-col gap-2 items-center justify-center border-slate-200 hover:border-primary hover:bg-primary/5 bg-white shadow-sm transition-all ${form.watch('logo') === PRESET_ICON_SVGS[item.id] ? 'border-primary ring-2 ring-primary/20 bg-primary/[0.02]' : ''}`}
+                            className={`h-24 flex flex-col gap-2 items-center justify-center border-border/50 hover:border-primary hover:bg-primary/5 bg-card shadow-sm transition-all ${form.watch('logo') === PRESET_ICON_SVGS[item.id] ? 'border-primary ring-2 ring-primary/20 bg-primary/[0.02]' : ''}`}
                             onClick={() => {
                               form.setValue('logo', PRESET_ICON_SVGS[item.id]);
                               toast({ title: "Icon Selected", description: `Selected the ${item.label} icon.` });
@@ -509,11 +509,11 @@ export function PWASettings() {
                 {/* Bottom Bar Mockup (Always shown except Splash) */}
                 {previewMode !== 'splash' && (
                   <div className="absolute bottom-6 inset-x-6">
-                    <div className="flex justify-around items-center bg-white/80 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.05)] p-4 rounded-2xl border border-slate-100">
-                      <div className="w-6 h-6 rounded-md bg-slate-200" />
-                      <div className="w-6 h-6 rounded-md bg-slate-200" />
+                    <div className="flex justify-around items-center bg-card/80 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] p-4 rounded-2xl border border-border/50">
+                      <div className="w-6 h-6 rounded-md bg-muted" />
+                      <div className="w-6 h-6 rounded-md bg-muted" />
                       <div className="w-6 h-6 rounded-md" style={{ backgroundColor: themeColorValue }} />
-                      <div className="w-6 h-6 rounded-md bg-slate-200" />
+                      <div className="w-6 h-6 rounded-md bg-muted" />
                     </div>
                     <div className="w-1/3 h-1 bg-slate-300 mx-auto mt-4 rounded-full" />
                   </div>
@@ -553,7 +553,7 @@ export function PWASettings() {
       </div>
 
       {brandedUrl && (
-        <div className="col-span-full mt-12 bg-indigo-50/50 p-8 rounded-3xl border border-indigo-100/50">
+        <div className="col-span-full mt-12 bg-primary/5 p-8 rounded-3xl border border-primary/10">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-8">
               <h3 className="text-2xl font-bold text-slate-900 flex items-center justify-center gap-2">
@@ -565,12 +565,12 @@ export function PWASettings() {
               </p>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-8 items-center bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-              <div className="bg-white p-4 rounded-xl border-2 border-slate-100 shadow-sm shrink-0">
+            <div className="flex flex-col md:flex-row gap-8 items-center bg-card p-8 rounded-2xl shadow-sm border border-border/50">
+              <div className="bg-muted/20 p-4 rounded-xl border-2 border-border/50 shadow-sm shrink-0">
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(brandedUrl)}&margin=10`}
                   alt="App QR Code"
-                  className="w-40 h-40"
+                  className="w-40 h-40 dark:invert-[0.05]"
                 />
               </div>
 
@@ -578,7 +578,7 @@ export function PWASettings() {
                 <div>
                   <Label className="text-sm font-semibold text-slate-700">Tenant App Link</Label>
                   <div className="flex items-center gap-2 mt-2">
-                    <Input readOnly value={brandedUrl} className="bg-slate-50 border-slate-200 h-12 text-slate-700 font-medium" />
+                    <Input readOnly value={brandedUrl} className="bg-muted/30 border-border/50 h-12 text-foreground font-medium" />
                     <Button size="icon" className="h-12 w-12 shrink-0 bg-indigo-600 hover:bg-indigo-700" onClick={() => { navigator.clipboard.writeText(brandedUrl); toast({ title: "Link Copied to Clipboard" }); }}>
                       <Copy className="w-5 h-5" />
                     </Button>
@@ -590,7 +590,7 @@ export function PWASettings() {
                     <MessageCircle className="mr-2 h-5 w-5" />
                     WhatsApp to Tenants
                   </Button>
-                  <Button variant="outline" asChild className="h-12 px-6 rounded-xl text-base font-semibold border-slate-200 hover:bg-slate-50 text-slate-700">
+                  <Button variant="outline" asChild className="h-12 px-6 rounded-xl text-base font-semibold border-border/50 hover:bg-muted text-foreground">
                     <a href={brandedUrl} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="mr-2 h-5 w-5" />
                       Open App Demo

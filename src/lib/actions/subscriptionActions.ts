@@ -86,9 +86,7 @@ export async function verifyPayment(data: {
     const rechargeResult = await processRecharge({
       ownerId: userId,
       amount: amount,
-      paymentId: razorpay_payment_id,
-      orderId: razorpay_order_id,
-      provider: 'razorpay'
+      razorpayPaymentId: razorpay_payment_id,
     });
 
     if (!rechargeResult.success) {

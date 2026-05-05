@@ -66,7 +66,7 @@ export const ActivityDetailSheet: React.FC<ActivityDetailSheetProps> = ({ log, i
                </p>
             </div>
 
-            {hasChanges && (
+            {Boolean(hasChanges) && (
               <div className="space-y-4">
                 <h4 className="text-sm font-semibold">Changes Detected</h4>
                 
@@ -88,19 +88,19 @@ export const ActivityDetailSheet: React.FC<ActivityDetailSheetProps> = ({ log, i
                    </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
-                    {changes.before && (
+                    {(changes as any)?.before !== undefined && (
                       <div className="space-y-2">
                         <span className="text-xs font-medium text-muted-foreground uppercase">Before</span>
                         <pre className="text-[10px] p-3 rounded-lg bg-muted overflow-auto max-h-40 border">
-                          {JSON.stringify(changes.before, null, 2)}
+                          {JSON.stringify((changes as any)?.before, null, 2)}
                         </pre>
                       </div>
                     )}
-                    {changes.after && (
+                    {(changes as any)?.after !== undefined && (
                       <div className="space-y-2">
                         <span className="text-xs font-medium text-muted-foreground uppercase">After</span>
                         <pre className="text-[10px] p-3 rounded-lg bg-green-50/30 border border-green-100/50 overflow-auto max-h-40">
-                          {JSON.stringify(changes.after, null, 2)}
+                          {JSON.stringify((changes as any)?.after, null, 2)}
                         </pre>
                       </div>
                     )}

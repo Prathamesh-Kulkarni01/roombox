@@ -13,25 +13,39 @@ import { useChargeTemplatesStore } from "@/lib/stores/configStores"
 import { usePermissionsStore } from "@/lib/stores/configStores"
 import { useToast } from '@/hooks/use-toast'
 import { useConfetti } from "@/context/confetti-provider"
+import { useTranslation } from "@/context/language-context"
 
 import type { Guest, Bed, Room, PG, Floor, AdditionalCharge, Payment, RentCycleUnit, LedgerEntry } from "@/lib/types"
 import { format, addMonths, addDays, addHours, addMinutes, addWeeks } from "date-fns"
+import { 
+  setOptimisticGuest, 
+  removeOptimisticGuest 
+} from "@/lib/slices/guestsSlice";
+import { 
+  setOptimisticPg, 
+  removeOptimisticPg 
+} from "@/lib/slices/pgsSlice";
 import {
   useGetGuestsQuery,
   useGetPropertiesQuery,
   useUpdateGuestMutation,
+  useDeleteGuestMutation,
   useAddGuestMutation,
   useInitiateGuestExitMutation,
   useVacateGuestMutation,
   useAddSharedRoomChargeMutation,
   useRecordGuestPaymentMutation,
   useUpdatePropertyMutation,
-  useTransferGuestMutation
+  useDeletePropertyMutation,
+  useTransferGuestMutation,
+  useGetComplaintsQuery,
+  useUpdateComplaintMutation,
 } from "@/lib/api/apiSlice"
 import { roomSchema, type RoomFormValues } from "@/lib/actions/roomActions"
 import { sanitizeObjectForFirebase } from "@/lib/utils"
 import { getBalanceBreakdown } from "@/lib/ledger-utils"
 import { auth } from "@/lib/firebase"
+import { getCurrentPlan } from "@/lib/utils"
 
 const addGuestSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -97,27 +111,52 @@ const bulkBedSchema = z.object({
 export function useDashboard() {
   const dispatch = useAppDispatch();
   const { toast } = useToast()
+  const { t } = useTranslation();
 
-  const { pgs } = useAppSelector((state) => state.pgs);
+  const { pgs: rawPgs, optimisticPgs } = useAppSelector((state) => state.pgs);
   const { featurePermissions } = usePermissionsStore();
   const {  currentUser } = useAppSelector(state => state.user)
-  const [isTransitioningRoom, startRoomTransition] = useTransition();
   const { showConfetti } = useConfetti();
-  const { isLoading: isLoadingGuests } = useGetGuestsQuery(undefined, {
-    pollingInterval: 15000, // Poll every 15 seconds to catch background reconciliation updates
-  });
-  const { guests } = useAppSelector(state => state.guests);
+  const { isLoading: isLoadingPgs, refetch: refetchPgs } = useGetPropertiesQuery(undefined);
+  const { isLoading: isLoadingGuests, refetch: refetchGuests } = useGetGuestsQuery(undefined);
+  const { isLoading: isLoadingComplaints } = useGetComplaintsQuery(undefined, { skip: !currentUser?.id });
+  const { guests: rawGuests, optimisticGuests } = useAppSelector(state => state.guests);
+  const { complaints } = useAppSelector((state) => state.complaints);
+  const { isLoading: isAppLoading, initialDataLoaded, selectedPgId } = useAppSelector(state => state.app);
+
+  const pgs = useMemo(() => {
+    const merged = [...rawPgs];
+    Object.values(optimisticPgs).forEach(optPg => {
+      const idx = merged.findIndex(p => p.id === optPg.id);
+      if (idx !== -1) merged[idx] = optPg;
+      else merged.push(optPg);
+    });
+    return merged;
+  }, [rawPgs, optimisticPgs]);
+
+  const guests = useMemo(() => {
+    const merged = [...rawGuests];
+    Object.values(optimisticGuests).forEach(optGuest => {
+      const idx = merged.findIndex(g => g.id === optGuest.id);
+      if (idx !== -1) merged[idx] = optGuest;
+      else merged.push(optGuest);
+    });
+    return merged;
+  }, [rawGuests, optimisticGuests]);
 
   // RTK Query Mutations
   const [addGuest, { isLoading: isAddingGuest }] = useAddGuestMutation();
   const [updateGuest, { isLoading: isUpdatingGuest }] = useUpdateGuestMutation();
+  const [deleteGuest, { isLoading: isDeletingGuest }] = useDeleteGuestMutation();
   const [initiateExit, { isLoading: isInitiatingExit }] = useInitiateGuestExitMutation();
   const [vacateGuest, { isLoading: isVacatingGuest }] = useVacateGuestMutation();
   const [addSharedCharge, { isLoading: isAddingSharedCharge }] = useAddSharedRoomChargeMutation();
   const [recordPayment, { isLoading: isRecordingPayment }] = useRecordGuestPaymentMutation();
   const [updateProperty, { isLoading: isUpdatingProperty }] = useUpdatePropertyMutation();
+  const [deleteProperty, { isLoading: isDeletingProperty }] = useDeletePropertyMutation();
   const [saveRoom, { isLoading: isSavingRoom }] = useUpdatePropertyMutation();
   const [transferGuest, { isLoading: isTransferringGuest }] = useTransferGuestMutation();
+  const [updateComplaint, { isLoading: isUpdatingComplaint }] = useUpdateComplaintMutation();
 
 
   const [isAddGuestDialogOpen, setIsAddGuestDialogOpen] = useState(false);
@@ -318,12 +357,10 @@ export function useDashboard() {
 
     // Resolve pg/bed from either pre-selected (from bed UI) or from form dropdowns (from All Guests page)
     let resolvedPg: PG | undefined;
-    let resolvedBed: Bed | undefined;
     let resolvedBedId: string | undefined;
 
     if (selectedBedForGuestAdd) {
       resolvedPg = selectedBedForGuestAdd.pg;
-      resolvedBed = selectedBedForGuestAdd.bed;
       resolvedBedId = selectedBedForGuestAdd.bed.id;
     } else {
       // Opened from All Guests page — use form-selected pgId/roomId/bedId
@@ -333,53 +370,173 @@ export function useDashboard() {
       }
       resolvedPg = pgs.find(p => p.id === values.pgId);
       if (!resolvedPg) { toast({ variant: 'destructive', title: 'Error', description: 'Selected property not found.' }); return; }
-
-      for (const floor of (resolvedPg.floors || [])) {
-        for (const room of (floor.rooms || [])) {
-          if (room.id === values.roomId) {
-            resolvedBed = (room.beds || []).find(b => b.id === values.bedId);
-          }
-        }
-      }
-      if (!resolvedBed) { toast({ variant: 'destructive', title: 'Error', description: 'Selected bed not found.' }); return; }
-      resolvedBedId = resolvedBed.id;
+      resolvedBedId = values.bedId;
     }
 
-    const ownerId = currentUser.role === 'owner' ? currentUser.id : currentUser.ownerId;
-    if (!ownerId) return;
+      const ownerId = currentUser?.role === 'owner' ? currentUser.id : currentUser?.ownerId;
+      if (!ownerId) return;
 
-    try {
-      const result = await addGuest({
-        name: values.name,
-        phone: values.phone,
-        email: values.email || '',
-        pgId: resolvedPg!.id,
-        pgName: resolvedPg!.name,
-        bedId: resolvedBedId!,
-        amountType: values.amountType,
-        rentAmount: values.amountType === 'numeric' ? (values.rentAmount || 0) : 0,
-        deposit: values.amountType === 'numeric' ? (values.depositAmount || 0) : 0,
-        symbolicRentValue: values.amountType === 'symbolic' ? values.symbolicRentValue : undefined,
-        symbolicDepositValue: values.amountType === 'symbolic' ? values.symbolicDepositValue : undefined,
-        joinDate: values.moveInDate.toISOString(),
-        rentCycleUnit: values.rentCycleUnit,
-        rentCycleValue: values.rentCycleValue,
+      // Check tenant limit
+      const plan = getCurrentPlan(currentUser);
+      // Use user-specific limit if set, otherwise plan limit, otherwise fallback to 10 for trial
+      const tenantLimit = currentUser?.subscription?.trialTenantLimit ?? plan.tenantLimit ?? (plan.id === 'trial' ? 10 : Infinity);
+      const maxTenants = tenantLimit === 'unlimited' ? Infinity : tenantLimit;
+      
+      const activeTenantsCount = guests.filter(g => !g.isVacated).length;
+      
+      // If we're at or above limit, block addition
+      if (activeTenantsCount >= maxTenants) {
+        toast({
+          variant: 'destructive',
+          title: t('limit_reached'),
+          description: t('tenant_limit_reached_desc', { tenants: maxTenants })
+        });
+        return;
+      }
+  
+      const tempGuestId = 'pending-' + Date.now();
+
+      try {
+        // Close immediately for perceived speed
+        setIsAddGuestDialogOpen(false);
+        
+        // 1. Optimistic update for the PG to show bed as occupied
+        const nextPgState = produce(resolvedPg, draft => {
+          draft.updatedAt = new Date().toISOString();
+          draft.occupancy = (draft.occupancy || 0) + 1;
+          draft.floors?.forEach(f => f.rooms.forEach(r => r.beds.forEach(b => {
+            if (b.id === resolvedBedId) {
+              b.guestId = tempGuestId; // Use temp ID to link to optimistic guest
+            }
+          })));
+        });
+        dispatch(setOptimisticPg(nextPgState));
+  
+        // 2. Optimistic update for the Guest itself
+        const optimisticGuest: Guest = {
+          id: tempGuestId,
+          name: values.name,
+          phone: values.phone,
+          email: values.email || '',
+          pgId: resolvedPg!.id,
+          pgName: resolvedPg!.name,
+          bedId: resolvedBedId!,
+          roomId: values.roomId || '',
+          amountType: values.amountType,
+          rentAmount: values.amountType === 'numeric' ? (values.rentAmount || 0) : 0,
+          depositAmount: values.amountType === 'numeric' ? (values.depositAmount || 0) : 0,
+          symbolicRentValue: values.amountType === 'symbolic' ? values.symbolicRentValue : undefined,
+          symbolicDepositValue: values.amountType === 'symbolic' ? values.symbolicDepositValue : undefined,
+          rentStatus: 'unpaid',
+          dueDate: values.moveInDate.toISOString(),
+          kycStatus: 'not-started',
+          moveInDate: values.moveInDate.toISOString(),
+          noticePeriodDays: 0,
+          rentCycleUnit: values.rentCycleUnit,
+          rentCycleValue: values.rentCycleValue,
+          billingAnchorDay: values.moveInDate.getDate(),
+          isVacated: false,
+          status: 'active',
+          ledger: [],
+          paymentHistory: [],
+          balance: 0,
+          pending: true,
+          updatedAt: new Date().toISOString()
+        };
+        dispatch(setOptimisticGuest(optimisticGuest));
+
+        const savingToast = toast({ 
+          title: 'Saving...', 
+          description: `Adding ${values.name} to the property...`,
+        });
+  
+        const result = await addGuest({
+          name: values.name,
+          phone: values.phone,
+          email: values.email || '',
+          pgId: resolvedPg!.id,
+          pgName: resolvedPg!.name,
+          bedId: resolvedBedId!,
+          amountType: values.amountType,
+          rentAmount: values.amountType === 'numeric' ? (values.rentAmount || 0) : 0,
+          deposit: values.amountType === 'numeric' ? (values.depositAmount || 0) : 0,
+          symbolicRentValue: values.amountType === 'symbolic' ? values.symbolicRentValue : undefined,
+          symbolicDepositValue: values.amountType === 'symbolic' ? values.symbolicDepositValue : undefined,
+          joinDate: values.moveInDate.toISOString(),
+          rentCycleUnit: values.rentCycleUnit,
+          rentCycleValue: values.rentCycleValue,
       }).unwrap();
 
       if (result.success) {
+        savingToast.dismiss();
+        
         let successDescription = `${values.name} has been successfully added.`;
-
-        // Show the generated default password to the owner if present
         if (result.guest && (result.guest as any)._defaultPassword) {
           successDescription += `\nDefault Password: ${(result.guest as any)._defaultPassword}`;
         }
 
         toast({ title: 'Success!', description: successDescription });
-        setIsAddGuestDialogOpen(false);
         showConfetti({ particleCount: 150, spread: 80 });
+        
+        // Immediate clearing as fallback, but reconciliation should handle it faster
+        dispatch(removeOptimisticPg(resolvedPg!.id));
+        dispatch(removeOptimisticGuest(tempGuestId));
       }
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to add guest.' });
+      dispatch(removeOptimisticPg(resolvedPg!.id));
+      dispatch(removeOptimisticGuest(tempGuestId));
+      console.error('Failed to add guest:', err);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Error Adding Guest', 
+        description: err.data?.error || 'Failed to add guest. Please try again.' 
+      });
+    }
+  };
+  
+  const handleDeleteGuest = async (guestId: string) => {
+    if (!currentUser) return;
+    const guest = guests.find(g => g.id === guestId);
+    if (!guest) return;
+
+    try {
+      const guestName = guest.name;
+      const pgId = guest.pgId;
+      const bedId = guest.bedId;
+
+      // 1. Optimistic removal from guests list
+      dispatch(removeOptimisticGuest(guestId));
+
+      // 2. Optimistic update for PG (clear bed)
+      const pg = pgs.find(p => p.id === pgId);
+      if (pg) {
+        const nextPg = produce(pg, draft => {
+          draft.updatedAt = new Date().toISOString();
+          draft.floors?.forEach(f => f.rooms.forEach(r => r.beds.forEach(b => {
+            if (b.id === bedId) b.guestId = null;
+          })));
+        });
+        dispatch(setOptimisticPg(nextPg));
+      }
+
+      const deletingToast = toast({ title: 'Deleting...', description: `Permanently deleting ${guestName}...` });
+
+      await deleteGuest({ guestId }).unwrap();
+
+      deletingToast.dismiss();
+      toast({ title: 'Guest Deleted', description: `${guestName} has been permanently removed.` });
+
+      // reconciliation will handle it, but safety immediate removal
+      if (pgId) dispatch(removeOptimisticPg(pgId));
+    } catch (err: any) {
+      console.error('Failed to delete guest:', err);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Delete Failed', 
+        description: err.data?.error || 'Failed to delete guest.' 
+      });
+      // Note: we don't easily "restore" a deleted guest from here because we already removed it from state.
+      // But on next snapshot sync, it will reappear if it still exists in DB.
     }
   };
 
@@ -389,14 +546,33 @@ export function useDashboard() {
     if (!ownerId) return;
 
     try {
+      setIsEditGuestDialogOpen(false);
+      const optimisticGuest = { 
+        ...guestToEdit, 
+        ...values,
+        updatedAt: new Date().toISOString()
+      };
+      dispatch(setOptimisticGuest(optimisticGuest));
+      
+      const savingToast = toast({ title: 'Saving...', description: `Updating ${guestToEdit.name}...` });
+      
       await updateGuest({
         guestId: guestToEdit.id,
         updates: values,
       }).unwrap();
-      setIsEditGuestDialogOpen(false);
+      
+      savingToast.dismiss();
       toast({ title: 'Guest Updated' });
+      // Reconciliation will handle clearing, but we add a safety immediate removal
+      dispatch(removeOptimisticGuest(guestToEdit.id));
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to update guest.' });
+      dispatch(removeOptimisticGuest(guestToEdit.id));
+      console.error('Failed to update guest:', err);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Update Failed', 
+        description: err.data?.error || 'Failed to update guest.' 
+      });
     }
   };
 
@@ -415,16 +591,70 @@ export function useDashboard() {
     if (!ownerId) return;
 
     try {
+      setIsTransferDialogOpen(false);
+      const guestName = guestToTransfer.name;
+      const oldPgId = guestToTransfer.pgId;
+      const oldBedId = guestToTransfer.bedId;
+      const { newPgId, newBedId } = values;
+
+      // 1. Update guest optimistically
+      const optimisticGuest = { 
+        ...guestToTransfer, 
+        pgId: newPgId, 
+        bedId: newBedId,
+        pgName: pgs.find(p => p.id === newPgId)?.name || guestToTransfer.pgName
+      };
+      dispatch(setOptimisticGuest(optimisticGuest));
+
+      // 2. Update PGs optimistically
+      const oldPg = pgs.find(p => p.id === oldPgId);
+      const newPg = pgs.find(p => p.id === newPgId);
+
+      if (oldPg) {
+        const nextOldPg = produce(oldPg, draft => {
+          draft.updatedAt = new Date().toISOString();
+          draft.floors?.forEach(f => f.rooms.forEach(r => r.beds.forEach(b => {
+            if (b.id === oldBedId) b.guestId = null;
+          })));
+        });
+        dispatch(setOptimisticPg(nextOldPg));
+      }
+
+      if (newPg) {
+        const nextNewPg = produce(newPg, draft => {
+          draft.updatedAt = new Date().toISOString();
+          draft.floors?.forEach(f => f.rooms.forEach(r => r.beds.forEach(b => {
+            if (b.id === newBedId) b.guestId = guestToTransfer.id;
+          })));
+        });
+        dispatch(setOptimisticPg(nextNewPg));
+      }
+
+      const savingToast = toast({ title: 'Transferring...', description: `Moving ${guestName}...` });
+
       await transferGuest({
         guestId: guestToTransfer.id,
         ...values,
       }).unwrap();
-      setIsTransferDialogOpen(false);
+
+      savingToast.dismiss();
       setGuestToTransfer(null);
       toast({ title: 'Guest Transferred Successfully' });
       showConfetti({ particleCount: 100, spread: 70 });
+
+      dispatch(removeOptimisticGuest(guestToTransfer.id));
+      if (oldPgId) dispatch(removeOptimisticPg(oldPgId));
+      dispatch(removeOptimisticPg(newPgId));
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to transfer guest.' });
+      dispatch(removeOptimisticGuest(guestToTransfer.id));
+      if (guestToTransfer.pgId) dispatch(removeOptimisticPg(guestToTransfer.pgId));
+      dispatch(removeOptimisticPg(values.newPgId));
+      console.error('Failed to transfer guest:', err);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Transfer Failed', 
+        description: err.data?.error || 'Failed to transfer guest.' 
+      });
     }
   };
 
@@ -434,6 +664,28 @@ export function useDashboard() {
     if (!ownerId) return;
 
     try {
+      setIsPaymentDialogOpen(false);
+      const guestId = selectedGuestForPayment.id;
+      const guestName = selectedGuestForPayment.name;
+
+      // Optimistic update: add a ledger entry
+      const newEntry: LedgerEntry = {
+        id: `opt-pay-${Date.now()}`,
+        type: 'credit',
+        amount: values.amountType === 'numeric' ? (values.amountPaid || 0) : 0,
+        description: `Payment via ${values.paymentMethod}${values.amountType === 'symbolic' ? ` (${values.symbolicValue})` : ''}`,
+        date: new Date().toISOString()
+      };
+
+      const optimisticGuest = {
+        ...selectedGuestForPayment,
+        ledger: [...(selectedGuestForPayment.ledger || []), newEntry],
+        updatedAt: new Date().toISOString()
+      };
+      dispatch(setOptimisticGuest(optimisticGuest));
+
+      const savingToast = toast({ title: 'Recording Payment...', description: `Recording payment for ${guestName}...` });
+
       await recordPayment({
         guest: selectedGuestForPayment,
         amountType: values.amountType,
@@ -442,11 +694,19 @@ export function useDashboard() {
         method: values.paymentMethod,
       }).unwrap();
 
+      savingToast.dismiss();
       toast({ title: "Payment Recorded" });
-      setIsPaymentDialogOpen(false);
       setSelectedGuestForPaymentId(null);
+
+      dispatch(removeOptimisticGuest(guestId));
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to record payment.' });
+      if (selectedGuestForPayment) dispatch(removeOptimisticGuest(selectedGuestForPayment.id));
+      console.error('Failed to record payment:', err);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Payment Failed', 
+        description: err.data?.error || 'Failed to record payment.' 
+      });
     }
   };
 
@@ -468,16 +728,43 @@ export function useDashboard() {
     }
 
     try {
+      setIsSharedChargeDialogOpen(false);
+      const roomId = roomForSharedCharge.room.id;
+      const guestIds = roomForSharedCharge.guests.map(g => g.id);
+
+      // Optimistic update for each guest in the room
+      roomForSharedCharge.guests.forEach(guest => {
+        const newEntry: LedgerEntry = {
+          id: `opt-charge-${Date.now()}-${guest.id}`,
+          type: 'debit',
+          amount: finalAmount!,
+          description: description,
+          date: new Date().toISOString()
+        };
+        const optimisticGuest = {
+          ...guest,
+          ledger: [...(guest.ledger || []), newEntry],
+          updatedAt: new Date().toISOString()
+        };
+        dispatch(setOptimisticGuest(optimisticGuest));
+      });
+
+      const savingToast = toast({ title: 'Adding Charge...', description: `Adding shared charge to room ${roomForSharedCharge.room.name}...` });
+
       await addSharedCharge({
-        roomId: roomForSharedCharge.room.id,
+        roomId,
         description,
         amount: finalAmount,
       }).unwrap();
 
+      savingToast.dismiss();
       toast({ title: 'Shared Charge Added', description: `Added to guests in room ${roomForSharedCharge.room.name}.` });
-      setIsSharedChargeDialogOpen(false);
       sharedChargeForm.reset();
+
+      guestIds.forEach(id => dispatch(removeOptimisticGuest(id)));
     } catch (err: any) {
+      roomForSharedCharge.guests.forEach(g => dispatch(removeOptimisticGuest(g.id)));
+      console.error('Failed to add shared charge:', err);
       toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to add shared charge.' });
     }
   };
@@ -488,12 +775,32 @@ export function useDashboard() {
     if (!ownerId) return;
 
     try {
-      await initiateExit({
-        guestId: guestToInitiateExit.id,
-      }).unwrap();
+      const guestId = guestToInitiateExit.id;
+      const guestName = guestToInitiateExit.name;
       setGuestToInitiateExit(null);
+
+      // Optimistic update
+      const optimisticGuest = { 
+        ...guestToInitiateExit, 
+        exitInitiated: true,
+        exitDate: new Date().toISOString(), // Fallback exit date for UI
+        updatedAt: new Date().toISOString()
+      };
+      dispatch(setOptimisticGuest(optimisticGuest));
+
+      const savingToast = toast({ title: 'Initiating Exit...', description: `Setting exit date for ${guestName}...` });
+
+      await initiateExit({
+        guestId,
+      }).unwrap();
+
+      savingToast.dismiss();
       toast({ title: 'Exit Initiated' });
+
+      dispatch(removeOptimisticGuest(guestId));
     } catch (err: any) {
+      if (guestToInitiateExit) dispatch(removeOptimisticGuest(guestToInitiateExit.id));
+      console.error('Failed to initiate exit:', err);
       toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to initiate exit.' });
     }
   };
@@ -504,13 +811,51 @@ export function useDashboard() {
     if (!ownerId) return;
 
     try {
+      const guestName = guestToExitImmediately.name;
+      const guestId = guestToExitImmediately.id;
+      const pgId = guestToExitImmediately.pgId;
+      const bedId = guestToExitImmediately.bedId;
+      
+      setGuestToExitImmediately(null);
+
+      // 1. Update guest optimistically
+      const optimisticGuest = { 
+        ...guestToExitImmediately, 
+        isVacated: true,
+        updatedAt: new Date().toISOString()
+      };
+      dispatch(setOptimisticGuest(optimisticGuest));
+
+      // 2. Update PG optimistically
+      const pg = pgs.find(p => p.id === pgId);
+      if (pg) {
+        const nextPg = produce(pg, draft => {
+          draft.updatedAt = new Date().toISOString();
+          draft.floors?.forEach(f => f.rooms.forEach(r => r.beds.forEach(b => {
+            if (b.id === bedId) b.guestId = null;
+          })));
+        });
+        dispatch(setOptimisticPg(nextPg));
+      }
+
+      const savingToast = toast({ title: 'Vacating Guest...', description: `Marking ${guestName} as vacated...` });
+
       await vacateGuest({
-        guestId: guestToExitImmediately.id,
+        guestId,
         sendWhatsApp
       }).unwrap();
-      setGuestToExitImmediately(null);
-      toast({ title: 'Guest Vacated' });
+
+      savingToast.dismiss();
+      toast({ title: 'Guest Vacated', description: `${guestName} has been marked as vacated.` });
+
+      dispatch(removeOptimisticGuest(guestId));
+      if (pgId) dispatch(removeOptimisticPg(pgId));
     } catch (err: any) {
+      if (guestToExitImmediately) {
+        dispatch(removeOptimisticGuest(guestToExitImmediately.id));
+        if (guestToExitImmediately.pgId) dispatch(removeOptimisticPg(guestToExitImmediately.pgId));
+      }
+      console.error('Failed to vacate guest:', err);
       toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to vacate guest.' });
     }
   };
@@ -580,11 +925,25 @@ Thank you!`;
       } else {
         draft.floors.push({ id: `floor-${Date.now()}`, name: values.name, rooms: [], pgId: pg.id });
       }
+      draft.updatedAt = new Date().toISOString();
     });
+
     if (currentUser) {
+      // Optimistic update
+      dispatch(setOptimisticPg(nextState));
+      
+      const savingToast = toast({ title: 'Saving...', description: `${floorToEdit ? 'Updating' : 'Adding'} floor...` });
       updateProperty({
         pgId: pg.id,
         updates: nextState
+      }).unwrap().then(() => {
+        savingToast.dismiss();
+        toast({ title: floorToEdit ? 'Floor Updated' : 'Floor Added' });
+        dispatch(removeOptimisticPg(pg.id));
+      }).catch((err) => {
+        dispatch(removeOptimisticPg(pg.id));
+        savingToast.dismiss();
+        toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to save floor.' });
       });
     }
 
@@ -592,62 +951,74 @@ Thank you!`;
     showConfetti({ particleCount: 50, spread: 60, startVelocity: 20 });
   };
 
-  const processRoomSubmit = (values: RoomFormValues) => {
-    startRoomTransition(async () => {
-      const formFloorId = values.floorId;
-      const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
-      const floorId = formFloorId || (roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId);
-      if (!pgId || !floorId) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Floor or Property information missing.' });
-        return;
-      }
+  const processRoomSubmit = async (values: RoomFormValues) => {
+    const formFloorId = values.floorId;
+    const pgId = roomToEdit ? roomToEdit.pgId : selectedLocationForRoomAdd?.pgId;
+    const floorId = formFloorId || (roomToEdit ? roomToEdit.floorId : selectedLocationForRoomAdd?.floorId);
+    if (!pgId || !floorId) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Floor or Property information missing.' });
+      return;
+    }
 
-      const pg = getPgById(pgId);
-      if (!pg) return;
+    const pg = getPgById(pgId);
+    if (!pg) return;
 
-      const nextState = produce(pg, draft => {
-        const floor = draft.floors?.find(f => f.id === floorId);
-        if (!floor) return;
+    const nextState = produce(pg, draft => {
+      const floor = draft.floors?.find(f => f.id === floorId);
+      if (!floor) return;
 
-        const cleanValues = sanitizeObjectForFirebase(values);
+      const cleanValues = sanitizeObjectForFirebase(values);
 
-        if (roomToEdit) {
-          const roomIndex = floor.rooms.findIndex(r => r.id === roomToEdit.id);
-          if (roomIndex !== -1) {
-            floor.rooms[roomIndex] = {
-              ...floor.rooms[roomIndex],
-              ...cleanValues,
-              rent: values.monthlyRent || 0,
-              deposit: values.securityDeposit || 0,
-              name: values.roomTitle
-            };
-          }
-        } else {
-          const newRoom: Room = {
-            id: `room-${Date.now()}`,
+      if (roomToEdit) {
+        const roomIndex = floor.rooms.findIndex(r => r.id === roomToEdit.id);
+        if (roomIndex !== -1) {
+          floor.rooms[roomIndex] = {
+            ...floor.rooms[roomIndex],
             ...cleanValues,
-            pgId,
-            floorId,
-            beds: [],
             rent: values.monthlyRent || 0,
             deposit: values.securityDeposit || 0,
             name: values.roomTitle
           };
-          floor.rooms.push(newRoom);
         }
-      });
-      if (currentUser) {
+      } else {
+        const newRoom: Room = {
+          id: `room-${Date.now()}`,
+          ...cleanValues,
+          pgId,
+          floorId,
+          beds: [],
+          rent: values.monthlyRent || 0,
+          deposit: values.securityDeposit || 0,
+          name: values.roomTitle
+        };
+        floor.rooms.push(newRoom);
+      }
+      draft.updatedAt = new Date().toISOString();
+    });
+    if (currentUser) {
+      setIsRoomDialogOpen(false);
+      // Optimistic update
+      dispatch(setOptimisticPg(nextState));
+
+      const savingToast = toast({ title: 'Saving...', description: `${roomToEdit ? 'Updating' : 'Adding'} room...` });
+
+      try {
         await updateProperty({
           pgId,
           updates: nextState
         }).unwrap();
-      }
 
-      toast({ title: roomToEdit ? 'Room Updated' : 'Room Added', description: `The room has been successfully ${roomToEdit ? 'updated' : 'added'}.` })
-      setIsRoomDialogOpen(false);
-      showConfetti({ particleCount: 100, spread: 70 });
-    });
-  }
+        savingToast.dismiss();
+        toast({ title: roomToEdit ? 'Room Updated' : 'Room Added', description: `The room has been successfully ${roomToEdit ? 'updated' : 'added'}.` });
+        showConfetti({ particleCount: 100, spread: 70 });
+        dispatch(removeOptimisticPg(pg.id));
+      } catch (err: any) {
+        dispatch(removeOptimisticPg(pg.id));
+        savingToast.dismiss();
+        toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to save room.' });
+      }
+    }
+  };
   const handleRoomSubmit = roomForm.handleSubmit(processRoomSubmit);
 
   const handleBedSubmit = (values: z.infer<typeof bedSchema>) => {
@@ -665,11 +1036,24 @@ Thank you!`;
         room.beds.push({ id: `bed-${Date.now()}`, name: values.name, guestId: null });
         draft.totalBeds = (draft.totalBeds || 0) + 1;
       }
+      draft.updatedAt = new Date().toISOString();
     });
     if (currentUser) {
+      // Optimistic update
+      dispatch(setOptimisticPg(nextState));
+
+      const savingToast = toast({ title: 'Saving...', description: `${bedToEdit ? 'Updating' : 'Adding'} bed...` });
       updateProperty({
         pgId: pg.id,
         updates: nextState
+      }).unwrap().then(() => {
+        savingToast.dismiss();
+        toast({ title: bedToEdit ? 'Bed Updated' : 'Bed Added' });
+        dispatch(removeOptimisticPg(pg.id));
+      }).catch((err) => {
+        dispatch(removeOptimisticPg(pg.id));
+        savingToast.dismiss();
+        toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to save bed.' });
       });
     }
 
@@ -710,18 +1094,32 @@ Thank you!`;
         });
         draft.totalBeds = (draft.totalBeds || 0) + bedsPerRoom;
       }
+      draft.updatedAt = new Date().toISOString();
     });
 
     if (currentUser) {
-      await updateProperty({
-        pgId: pg.id,
-        updates: nextState
-      }).unwrap();
-    }
+      setIsBulkAddDialogOpen(false);
+      // Optimistic update
+      dispatch(setOptimisticPg(nextState));
 
-    setIsBulkAddDialogOpen(false);
-    toast({ title: 'Success', description: `Successfully added ${endNumber - startNumber + 1} rooms.` });
-    showConfetti({ particleCount: 100, spread: 70 });
+      const savingToast = toast({ title: 'Creating Rooms...', description: `Adding ${endNumber - startNumber + 1} rooms to ${pg.name}...` });
+
+      try {
+        await updateProperty({
+          pgId: pg.id,
+          updates: nextState
+        }).unwrap();
+
+        savingToast.dismiss();
+        toast({ title: 'Success', description: `Successfully added ${endNumber - startNumber + 1} rooms.` });
+        showConfetti({ particleCount: 100, spread: 70 });
+        dispatch(removeOptimisticPg(pg.id));
+      } catch (err: any) {
+        dispatch(removeOptimisticPg(pg.id));
+        savingToast.dismiss();
+        toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to add rooms.' });
+      }
+    }
   };
 
   const handleBulkBedSubmit = async (values: z.infer<typeof bulkBedSchema>, pgId: string, floorId: string) => {
@@ -743,18 +1141,33 @@ Thank you!`;
         });
       }
       draft.totalBeds = (draft.totalBeds || 0) + count;
+      draft.updatedAt = new Date().toISOString();
     });
 
     if (currentUser) {
-      await updateProperty({
-        pgId: pg.id,
-        updates: nextState
-      }).unwrap();
-    }
+      setIsBulkAddDialogOpen(false);
+      // Optimistic update
+      dispatch(setOptimisticPg(nextState));
 
-    setIsBulkAddDialogOpen(false);
-    toast({ title: 'Success', description: `Successfully added ${count} beds.` });
-    showConfetti({ particleCount: 50, spread: 60 });
+      const targetRoom = pg.floors?.find(f => f.id === floorId)?.rooms.find(r => r.id === roomId);
+      const savingToast = toast({ title: 'Creating Beds...', description: `Adding ${count} beds to ${targetRoom?.name || 'room'}...` });
+
+      try {
+        await updateProperty({
+          pgId: pg.id,
+          updates: nextState
+        }).unwrap();
+
+        savingToast.dismiss();
+        toast({ title: 'Success', description: `Successfully added ${count} beds.` });
+        showConfetti({ particleCount: 50, spread: 60 });
+        dispatch(removeOptimisticPg(pg.id));
+      } catch (err: any) {
+        dispatch(removeOptimisticPg(pg.id));
+        savingToast.dismiss();
+        toast({ variant: 'destructive', title: 'Error', description: err.data?.error || 'Failed to add beds.' });
+      }
+    }
   };
 
   const handleDelete = (type: 'floor' | 'room' | 'bed', ids: { pgId: string; floorId: string; roomId?: string; bedId?: string }) => {
@@ -807,13 +1220,26 @@ Thank you!`;
         room.beds.splice(bedIndex, 1);
         draft.totalBeds -= 1;
       }
+      draft.updatedAt = new Date().toISOString();
     });
 
     if (JSON.stringify(pg) !== JSON.stringify(nextState)) {
       if (currentUser) {
+        // Optimistic update
+        dispatch(setOptimisticPg(nextState));
+
+        const savingToast = toast({ title: 'Deleting...', description: `Removing ${type} from ${pg.name}...` });
         updateProperty({
           pgId: pg.id,
           updates: nextState
+        }).unwrap().then(() => {
+          savingToast.dismiss();
+          toast({ title: `${type.charAt(0).toUpperCase() + type.slice(1)} Deleted` });
+          dispatch(removeOptimisticPg(pg.id));
+        }).catch((err) => {
+          dispatch(removeOptimisticPg(pg.id));
+          savingToast.dismiss();
+          toast({ variant: 'destructive', title: 'Error', description: err.data?.error || `Failed to delete ${type}.` });
         });
       }
     }
@@ -915,10 +1341,27 @@ Thank you!`;
     isAddingSharedCharge,
     isRecordingPayment,
     isUpdatingProperty,
-    isLoadingGuests,
+    updateProperty,
+    isDeletingProperty,
+    isTransferringGuest,
     isTransferDialogOpen, setIsTransferDialogOpen,
     guestToTransfer, handleOpenTransferDialog,
-    handleTransferGuestSubmit, isTransferringGuest,
+    handleTransferGuestSubmit,
+    isUpdatingComplaint,
+    pgs,
+    guests,
+    complaints,
+    isLoadingPgs,
+    isLoadingGuests,
+    isLoadingComplaints,
+    isAppLoading,
+    initialDataLoaded,
+    refetchPgs,
+    refetchGuests,
+    deleteProperty,
+    selectedPgId,
+    currentUser,
+    featurePermissions
   }
 }
 
