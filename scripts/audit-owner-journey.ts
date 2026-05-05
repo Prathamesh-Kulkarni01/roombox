@@ -11,7 +11,7 @@
 import { PropertyService } from '../src/services/propertyService';
 import { TenantService } from '../src/services/tenantService';
 import { getReminderForGuest } from '../src/lib/reminder-logic';
-import { Guest } from '../src/lib/types';
+import { Guest, OnboardTenantInput } from '../src/lib/types';
 import { getAdminDb } from '../src/lib/firebaseAdmin';
 import { Firestore } from 'firebase-admin/firestore';
 
@@ -68,7 +68,7 @@ async function runAudit() {
 
         // --- 2. Tenant Onboarding ---
         console.log('\n--- Phase 2: Tenant Onboarding ---');
-        const tenantInput = {
+        const tenantInput:OnboardTenantInput = {
             ownerId: TEST_OWNER_ID,
             name: 'Audit Tenant',
             email: 'audit-tenant@example.com',

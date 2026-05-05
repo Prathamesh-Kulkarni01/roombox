@@ -17,6 +17,7 @@ import { badRequest, forbidden, notFound, serverError, unauthorized } from '@/li
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { enforcePermission, enforcePermissionForStaff } from '@/lib/rbac-middleware';
 import { API_PERMISSION_MAP } from '@/lib/permissions';
+import { PlanName } from '@/lib/types';
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ export async function POST(req: NextRequest) {
             ...guestInput,
             phone: guestInput.phone || '',
             ownerId,
-            planId: plan?.id
+            planId: plan?.id as PlanName
         }, performer);
 
         return NextResponse.json({ success: true, guest: newGuest, magicLink }, { status: 201 });

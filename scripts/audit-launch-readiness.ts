@@ -9,7 +9,7 @@
 
 import { getAdminDb } from '../src/lib/firebaseAdmin';
 import { TenantService } from '../src/services/tenantService';
-import { Guest, LedgerEntry } from '../src/lib/types';
+import { Guest, LedgerEntry, OnboardTenantInput } from '../src/lib/types';
 import { Firestore } from 'firebase-admin/firestore';
 
 const OWNER_ID = 'launch-audit-owner';
@@ -60,7 +60,7 @@ async function runAudit() {
 
     // --- SCENARIO 1: Ghost Mode Onboarding ---
     console.log('\n--- Scenario 1: Ghost Mode (Symbolic Rent) Onboarding ---');
-    const ghostTenantInput = {
+    const ghostTenantInput:OnboardTenantInput = {
         ownerId: OWNER_ID,
         name: 'Ghost Tenant',
         phone: '9000000001',
@@ -76,7 +76,7 @@ async function runAudit() {
         symbolicDepositValue: '1 UNIT',
         joinDate: new Date().toISOString(),
         dueDate: '5',
-        planId: 'pro'
+        planId: 'trial'
     };
 
     const performer = { userId: 'system', name: 'Launch Auditor' };
@@ -126,7 +126,7 @@ async function runAudit() {
 
     // --- SCENARIO 3: Offline Numeric Payment ---
     console.log('\n--- Scenario 3: Offline Numeric (Cash) Payment ---');
-    const numericTenantInput = {
+    const numericTenantInput:OnboardTenantInput = {
         ownerId: OWNER_ID,
         name: 'Numeric Tenant',
         phone: '9000000002',
@@ -140,7 +140,7 @@ async function runAudit() {
         amountType: 'numeric',
         joinDate: new Date().toISOString(),
         dueDate: '10',
-        planId: 'pro'
+        planId: 'trial'
     };
     const { guest: numericGuest } = await TenantService.onboardTenant(db, appDb, numericTenantInput, performer);
     report('Numeric Guest onboarded, balance = 15000', numericGuest.balance === 15000, numericGuest.balance);

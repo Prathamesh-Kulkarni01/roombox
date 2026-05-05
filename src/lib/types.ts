@@ -137,7 +137,7 @@ export interface OnboardTenantInput {
     dueDate?: string;
     rentCycleUnit?: RentCycleUnit;
     rentCycleValue?: number;
-    planId?: string;
+    planId?: PlanName;
     amountType?: 'numeric' | 'symbolic';
     symbolicRentValue?: string;
     symbolicDepositValue?: string;
@@ -568,7 +568,7 @@ export interface BillingLedgerEntry {
     tenantCount?: number;
     tenantIds?: string[];
     featureId?: string;
-    planId?: string;
+    planId?: PlanName;
     discountId?: string;
     transactionId?: string; // Link to WalletTransaction if applicable
     adjustmentReason?: string;
