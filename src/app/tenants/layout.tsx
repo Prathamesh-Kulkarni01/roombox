@@ -12,9 +12,6 @@ import InstallForceOverlay from '@/components/InstallForceOverlay';
 import { ShieldAlert } from 'lucide-react';
 
 
-import { useGetGuestsQuery, useGetPropertiesQuery } from '@/lib/api/apiSlice';
-
-
 export default function TenantDashboardLayout({
   children,
 }: {
@@ -24,22 +21,11 @@ export default function TenantDashboardLayout({
   const { guests } = useAppSelector((state) => state.guests);
   const { isLoading: appLoading } = useAppSelector((state) => state.app);
   
-  // Call global data fetching hooks to ensure store is populated
-  const { isFetching: isFetchingGuests } = useGetGuestsQuery(
-    (currentUser?.role === 'tenant' && currentUser.guestId) ? { guestId: currentUser.guestId } : undefined,
-    { skip: !currentUser?.id }
-  );
-
-
-  const { isFetching: isFetchingProperties } = useGetPropertiesQuery(undefined, {
-    skip: !currentUser?.id
-  });
-
   const router = useRouter();
 
   const currentGuest = guests.find(g => g.id === currentUser?.guestId);
   const isWaitingForFirstGuestData = currentUser?.role === 'tenant' && currentUser.guestId && !currentGuest;
-  const isLoading = appLoading || isFetchingGuests || isFetchingProperties || isWaitingForFirstGuestData;
+  const isLoading = appLoading || isWaitingForFirstGuestData;
 
   useEffect(() => {
     if (isLoading) return;

@@ -11,6 +11,7 @@ import {
   getDocs,
   query,
   where,
+  documentId,
   type Unsubscribe,
 } from "firebase/firestore";
 import { getApp } from "firebase/app";
@@ -331,19 +332,29 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     // Role-claims sync check: ensure Firestore listeners use the correct token claims
     // We check if the token has the expected 'role' or 'ownerId' for the current state.
+        // Role-claims sync check: ensure Firestore listeners use the correct token claims
+    // We check if the token has the expected 'role', 'ownerId', or 'pgIds' hash for the current state.
     const verifyClaims = async () => {
       if (!auth?.currentUser) return false;
       const idTokenResult = await auth.currentUser.getIdTokenResult();
       const tokenRole = idTokenResult.claims.role;
       const tokenOwnerId = idTokenResult.claims.ownerId;
+      const tokenPgIdsHash = idTokenResult.claims.pgIdsHash;
+
+      // Generate a simple hash of current pgIds to compare
+      const currentPgIdsHash = currentUser.pgIds 
+        ? [...currentUser.pgIds].sort().join(',') 
+        : '';
 
       // If mismatch detected, force a refresh
       if (
         tokenRole !== currentUser.role ||
-        (currentUser.role !== "owner" && tokenOwnerId !== currentUser.ownerId)
+        (currentUser.role !== "owner" && tokenOwnerId !== currentUser.ownerId) ||
+        (tokenPgIdsHash !== undefined && tokenPgIdsHash !== currentPgIdsHash)
       ) {
         console.log(
-          `[StoreProvider] Role mismatch (Token: ${tokenRole}, Redux: ${currentUser.role}). Refreshing token...`,
+          `[StoreProvider] Claims mismatch detected. Refreshing token...`,
+          { tokenRole, reduxRole: currentUser.role, tokenPgIdsHash, currentPgIdsHash }
         );
         await auth.currentUser.getIdToken(true);
         return true;
@@ -414,16 +425,23 @@ function AuthHandler({ children }: { children: ReactNode }) {
           const loadedCollections = new Set<string>();
 
           if (ownerIdForFetching && ownerIdForFetching !== "undefined") {
-            const ownerNotifQuery = query(
+            const notificationTargets = [currentUser.id];
+            if (currentUser.role === "owner") {
+              notificationTargets.push(ownerIdForFetching);
+            } else if (currentUser.pgIds && currentUser.pgIds.length > 0) {
+              notificationTargets.push(...currentUser.pgIds);
+            }
+
+            const notifQuery = query(
               collection(
                 dbInstance,
                 "users_data",
                 ownerIdForFetching,
                 "notifications",
               ),
-              where("targetId", "==", ownerIdForFetching),
+              where("targetId", "in", notificationTargets),
             );
-            const unsub = onSnapshot(ownerNotifQuery, (snapshot) => {
+            const unsub = onSnapshot(notifQuery, (snapshot) => {
               const data = snapshot.docs.map(
                 (doc) => doc.data() as Notification,
               );
@@ -458,48 +476,51 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
           collectionNames.forEach((collectionName) => {
             const setDataAction = collectionsToSync[collectionName];
-            const collRef = collection(
+            const isStaffRole =
+              currentUser.role !== "owner" && currentUser.role !== "admin";
+            const assignedPgIds = currentUser.pgIds || [];
+
+            let finalQuery: any = collection(
               dbInstance,
               "users_data",
               ownerIdForFetching,
               collectionName,
             );
+
+            if (isStaffRole) {
+              if (assignedPgIds.length === 0) {
+                // FAIL-CLOSED: If staff has no assignments, query for something that won't exist
+                finalQuery = query(
+                  finalQuery,
+                  where(documentId(), "==", "force-empty-result"),
+                );
+              } else {
+                if (collectionName === "pgs") {
+                  finalQuery = query(
+                    finalQuery,
+                    where(documentId(), "in", assignedPgIds),
+                  );
+                } else if (
+                  ["guests", "complaints", "expenses"].includes(collectionName)
+                ) {
+                  finalQuery = query(
+                    finalQuery,
+                    where("pgId", "in", assignedPgIds),
+                  );
+                } else if (collectionName === "staff") {
+                  // Show colleagues who share at least one PG assignment
+                  finalQuery = query(
+                    finalQuery,
+                    where("pgIds", "array-contains-any", assignedPgIds),
+                  );
+                }
+              }
+            }
+
             const unsub = onSnapshot(
-              collRef,
+              finalQuery,
               (snapshot) => {
                 let data = snapshot.docs.map((doc) => doc.data());
-
-                // For non-owners (staff), restrict data to their assigned PGs only
-                const isStaffRole =
-                  currentUser.role !== "owner" && currentUser.role !== "admin";
-                const assignedPgIds = currentUser.pgIds;
-
-                if (isStaffRole && assignedPgIds && assignedPgIds.length > 0) {
-                  if (collectionName === "pgs") {
-                    data = data.filter((pg) =>
-                      assignedPgIds.includes((pg as PG).id),
-                    );
-                  } else if (collectionName === "guests") {
-                    data = data.filter((g) =>
-                      assignedPgIds.includes((g as any).pgId),
-                    );
-                  } else if (collectionName === "complaints") {
-                    data = data.filter((c) =>
-                      assignedPgIds.includes((c as any).pgId),
-                    );
-                  } else if (collectionName === "expenses") {
-                    data = data.filter((e) =>
-                      assignedPgIds.includes((e as any).pgId),
-                    );
-                  } else if (collectionName === "staff") {
-                    // Show all staff so they can see colleagues — but this could be tightened if needed
-                    data = data.filter((s) =>
-                      ((s as any).pgIds || []).some((id: string) =>
-                        assignedPgIds.includes(id),
-                      ),
-                    );
-                  }
-                }
 
                 if (collectionName === "pgs")
                   dispatch(validateSelectedPg(data.map((pg) => (pg as PG).id)));
@@ -637,6 +658,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
     currentUser?.pgId,
     currentUser?.guestId,
     currentUser?.ownerId,
+    currentUser?.pgIds,
     currentPlan,
     dispatch,
     authReady,

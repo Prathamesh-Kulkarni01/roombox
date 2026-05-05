@@ -143,11 +143,14 @@ export class StaffService {
             await userRef.set(userUpdate, { merge: true });
             
             // Sync custom claims immediately
+            const pgIds = userUpdate.pgIds || [];
             const claims = {
                 role: userUpdate.role,
                 ownerId: userUpdate.ownerId,
                 staffId: userUpdate.staffId,
-                permissions: userUpdate.permissions
+                permissions: userUpdate.permissions,
+                pgs: pgIds,
+                pgIdsHash: [...pgIds].sort().join(',')
             };
             try {
                 await auth.setCustomUserClaims(uid, claims);
@@ -310,11 +313,14 @@ export class StaffService {
                 // Sync updated claims to Firebase Auth
                 const fullUserData = (await appDb.collection('users').doc(userId).get()).data() as User;
                 
+                const pgIds = fullUserData.pgIds || [];
                 const claims = {
                     role: fullUserData.role,
                     ownerId: fullUserData.ownerId,
                     staffId: fullUserData.staffId,
-                    permissions: fullUserData.permissions || []
+                    permissions: fullUserData.permissions || [],
+                    pgs: pgIds,
+                    pgIdsHash: [...pgIds].sort().join(',')
                 };
                 
                 try {

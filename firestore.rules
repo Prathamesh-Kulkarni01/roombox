@@ -192,17 +192,34 @@ service cloud.firestore {
     }
 
     // ─── Owner data (permissions, etc.) ──────────────────────────────────────
-    match /users_data/{ownerId}/{document=**} {
-      // Allow tenants to read their own guest record specifically
-      allow read: if isAuth() && (
-        (document.matches('guests/.*') && get(/databases/$(database)/documents/users_data/$(ownerId)/guests/$(document[1])).data.uid == request.auth.uid) ||
-        request.auth.uid == ownerId ||
-        request.auth.token.ownerId == ownerId
+    match /users_data/{ownerId}/{collectionName}/{docId} {
+      // Owners have full access to their own data
+      allow read, write: if isAuth() && request.auth.uid == ownerId;
+
+      // Staff access is scoped to their assigned properties
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && (
+        (collectionName == 'notifications' && (
+          resource.data.targetId == request.auth.uid || 
+          request.auth.token.pgs.hasAny([resource.data.targetId])
+        )) ||
+        collectionName == 'chargeTemplates' || 
+        (collectionName == 'pgs' && isStaff(docId)) ||
+        (resource.data.pgId != null && isStaff(resource.data.pgId)) ||
+        (request.resource.data.pgId != null && isStaff(request.resource.data.pgId)) ||
+        (collectionName == 'staff' && (
+          (resource.data.pgIds != null && resource.data.pgIds.hasAny(request.auth.token.pgs)) ||
+          (request.resource.data.pgIds != null && request.resource.data.pgIds.hasAny(request.auth.token.pgs))
+        ))
       );
-      
-      allow read, write: if isAuth() && (
-        request.auth.uid == ownerId ||
-        request.auth.token.ownerId == ownerId
+
+      // Support for collection-level listing (Staff)
+      allow list: if isAuth() && request.auth.token.ownerId == ownerId && (
+        (collectionName == 'notifications' && request.query.filters.targetId != null && 
+          request.auth.token.pgs.concat([request.auth.uid]).hasAll(request.query.filters.targetId)) ||
+        collectionName == 'chargeTemplates' ||
+        (collectionName == 'pgs' && request.query.filters.__name__ != null && request.auth.token.pgs.hasAll(request.query.filters.__name__)) ||
+        (request.query.filters.pgId != null && request.auth.token.pgs.hasAll(request.query.filters.pgId)) ||
+        (collectionName == 'staff' && request.query.filters.pgIds != null && request.auth.token.pgs.hasAll(request.query.filters.pgIds))
       );
     }
 

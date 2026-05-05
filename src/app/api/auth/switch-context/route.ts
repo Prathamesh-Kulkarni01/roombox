@@ -40,9 +40,12 @@ export async function POST(req: NextRequest) {
             const profile = userData.activeStaffProfiles?.find((p: any) => p.ownerId && (p.pgIds?.includes(targetPgId) || p.pgId === targetPgId));
             if (!profile) return forbidden('No staff profile found for this property');
 
+            const pgIds = profile.pgIds || [];
             newClaims.ownerId = profile.ownerId;
             newClaims.pgId = targetPgId;
             newClaims.staffId = profile.staffId;
+            newClaims.pgs = pgIds;
+            newClaims.pgIdsHash = [...pgIds].sort().join(',');
             // Staff permissions usually live on the staff record, but for consistency 
             // we'll set them in claims if they are synced to the user doc.
             if (userData.permissions) newClaims.permissions = userData.permissions;
