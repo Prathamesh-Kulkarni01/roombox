@@ -118,7 +118,7 @@ export function useDashboard() {
   const {  currentUser } = useAppSelector(state => state.user)
   const { showConfetti } = useConfetti();
   const { isLoading: isLoadingPgs, refetch: refetchPgs } = useGetPropertiesQuery(undefined);
-  const { isLoading: isLoadingGuests, refetch: refetchGuests } = useGetGuestsQuery(undefined);
+  const { isLoading: isLoadingGuests, refetch: refetchGuests } = useGetGuestsQuery({ vacated: true });
   const { isLoading: isLoadingComplaints } = useGetComplaintsQuery(undefined, { skip: !currentUser?.id });
   const { guests: rawGuests, optimisticGuests } = useAppSelector(state => state.guests);
   const { complaints } = useAppSelector((state) => state.complaints);
