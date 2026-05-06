@@ -57,7 +57,7 @@ export function NavigationFooter({
                         {isLoading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
                         ) : isFinal ? (
-                            <>DEPLOY SYSTEM <Rocket className="w-5 h-5" /></>
+                            <>{nextLabel} <Rocket className="w-5 h-5" /></>
                         ) : (
                             <>{nextLabel} <ChevronRight className="w-5 h-5" /></>
                         )}

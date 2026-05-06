@@ -1,20 +1,16 @@
+import { generateUpiLink } from '../upi';
+
 export function generateUpiIntentLink(
     payeeVpa: string,
     payeeName: string,
     amount: number,
     transactionNote: string
 ): string {
-    // Standard UPI Intent URI format
-    // upi://pay?pa=payee@vpa&pn=Payee%20Name&tr=txn_id&tn=transaction%20note&am=amount&cu=INR
-
-    const baseUrl = 'upi://pay';
-    const params = new URLSearchParams({
+    return generateUpiLink({
         pa: payeeVpa,
         pn: payeeName,
-        tn: transactionNote,
         am: amount.toString(),
+        tn: transactionNote,
         cu: 'INR'
     });
-
-    return `${baseUrl}?${params.toString()}`;
 }

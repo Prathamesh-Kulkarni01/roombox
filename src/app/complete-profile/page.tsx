@@ -82,11 +82,13 @@ const pgSchema = z.object({
   bedsPerRoom: z.coerce.number().min(1).max(10).default(2),
   amenities: z.array(z.string()).default([]),
   images: z.array(z.string()).default([]),
+  upiId: z.string().min(3, "UPI ID is required for digital payments").optional().or(z.literal('')),
+  payeeName: z.string().min(2, "Payee name is required").optional().or(z.literal('')),
 })
 
 type PgFormValues = z.infer<typeof pgSchema>
 
-type OnboardingStep = 'ROLE_SELECTION' | 'OWNER_DETAILS' | 'PG_DETAILS' | 'LAYOUT_CONFIG' | 'REVIEW_FINAL'
+type OnboardingStep = 'ROLE_SELECTION' | 'OWNER_DETAILS' | 'PG_DETAILS' | 'LAYOUT_CONFIG' | 'UPI_SETUP' | 'REVIEW_FINAL'
 
 export default function CompleteProfilePage() {
     const router = useRouter()
@@ -117,6 +119,8 @@ export default function CompleteProfilePage() {
             bedsPerRoom: 2,
             amenities: [],
             images: [],
+            upiId: '',
+            payeeName: '',
         },
     })
 
@@ -141,7 +145,8 @@ export default function CompleteProfilePage() {
             case 'ROLE_SELECTION': return 10;
             case 'OWNER_DETAILS': return 30;
             case 'PG_DETAILS': return 50;
-            case 'LAYOUT_CONFIG': return 75;
+            case 'LAYOUT_CONFIG': return 70;
+            case 'UPI_SETUP': return 85;
             case 'REVIEW_FINAL': return 100;
             default: return 0;
         }
@@ -189,11 +194,16 @@ export default function CompleteProfilePage() {
         form.setValue('floorCount', floors);
         form.setValue('roomsPerFloor', rooms);
         form.setValue('bedsPerRoom', beds);
-        toast({ title: 'Preset Applied', description: `Building configured for ${floors} levels.` });
+        toast({ title: 'Added!', description: `${floors} floors configured.` });
     }
 
     const validateLayout = async () => {
         const result = await form.trigger(['floorCount', 'roomsPerFloor', 'bedsPerRoom']);
+        if (result) setActiveStep('UPI_SETUP');
+    }
+
+    const validateUPI = async () => {
+        const result = await form.trigger(['upiId', 'payeeName']);
         if (result) setActiveStep('REVIEW_FINAL');
     }
 
@@ -212,7 +222,11 @@ export default function CompleteProfilePage() {
                 roomsPerFloor: data.roomsPerFloor,
                 bedsPerRoom: data.bedsPerRoom,
                 amenities: data.amenities,
-                images: data.images
+                images: data.images,
+                upiId: data.upiId,
+                payeeName: data.payeeName,
+                direct_upi_enabled: !!data.upiId,
+                paymentMode: data.upiId ? 'DIRECT_UPI' : 'CASH_ONLY'
             }).unwrap();
 
             if (result.success) {
@@ -240,19 +254,21 @@ export default function CompleteProfilePage() {
                         </div>
                         <div>
                             <span className="font-black text-xl tracking-tighter block leading-none">RentSutra</span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary leading-none mt-1 block">Property Cloud</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary leading-none mt-1 block">Simple PG App</span>
                         </div>
                     </div>
                     
                     {activeStep !== 'ROLE_SELECTION' && (
                         <div className="hidden md:flex items-center gap-10">
-                            <StepIndicator active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'LAYOUT_CONFIG', 'REVIEW_FINAL'].includes(activeStep)} label="Owner" index={1} />
+                            <StepIndicator active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'LAYOUT_CONFIG', 'UPI_SETUP', 'REVIEW_FINAL'].includes(activeStep)} label="Owner" index={1} />
                             <div className="w-8 h-[2px] bg-muted/20" />
-                            <StepIndicator active={activeStep === 'PG_DETAILS'} completed={['LAYOUT_CONFIG', 'REVIEW_FINAL'].includes(activeStep)} label="Property" index={2} />
+                            <StepIndicator active={activeStep === 'PG_DETAILS'} completed={['LAYOUT_CONFIG', 'UPI_SETUP', 'REVIEW_FINAL'].includes(activeStep)} label="PG Name" index={2} />
                             <div className="w-8 h-[2px] bg-muted/20" />
-                            <StepIndicator active={activeStep === 'LAYOUT_CONFIG'} completed={activeStep === 'REVIEW_FINAL'} label="Layout" index={3} />
+                            <StepIndicator active={activeStep === 'LAYOUT_CONFIG'} completed={['UPI_SETUP', 'REVIEW_FINAL'].includes(activeStep)} label="Rooms" index={3} />
                             <div className="w-8 h-[2px] bg-muted/20" />
-                            <StepIndicator active={activeStep === 'REVIEW_FINAL'} completed={false} label="Review" index={4} />
+                            <StepIndicator active={activeStep === 'UPI_SETUP'} completed={activeStep === 'REVIEW_FINAL'} label="Rent" index={4} />
+                            <div className="w-8 h-[2px] bg-muted/20" />
+                            <StepIndicator active={activeStep === 'REVIEW_FINAL'} completed={false} label="Finish" index={5} />
                         </div>
                     )}
 
@@ -265,11 +281,41 @@ export default function CompleteProfilePage() {
                 </div>
             </div>
 
-            <main className="flex-1 flex flex-col items-center justify-center py-12 px-6">
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onPropertySubmit)} className="w-full max-w-4xl">
-                        
-                        <AnimatePresence mode="wait">
+            <main className="flex-1 max-w-7xl mx-auto px-6 py-12 w-full grid grid-cols-1 lg:grid-cols-12 gap-16">
+                {/* Desktop Sidebar */}
+                <div className="hidden lg:flex lg:col-span-3 flex-col gap-12 sticky top-24 h-fit pr-12 border-r border-primary/5">
+                    <div className="space-y-12">
+                        <StepIndicator index={1} label="Owner Details" active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'LAYOUT_CONFIG', 'UPI_SETUP', 'REVIEW_FINAL'].includes(activeStep)} />
+                        <StepIndicator index={2} label="Building Name" active={activeStep === 'PG_DETAILS'} completed={['LAYOUT_CONFIG', 'UPI_SETUP', 'REVIEW_FINAL'].includes(activeStep)} />
+                        <StepIndicator index={3} label="Rooms & Beds" active={activeStep === 'LAYOUT_CONFIG'} completed={['UPI_SETUP', 'REVIEW_FINAL'].includes(activeStep)} />
+                        <StepIndicator index={4} label="Rent Money" active={activeStep === 'UPI_SETUP'} completed={['REVIEW_FINAL'].includes(activeStep)} />
+                        <StepIndicator index={5} label="Check & Finish" active={activeStep === 'REVIEW_FINAL'} completed={false} />
+                    </div>
+
+                    <div className="mt-auto pt-12 space-y-8">
+                        <div className="p-6 rounded-[2.5rem] bg-primary/5 border border-primary/10 space-y-4">
+                            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center">
+                                <HelpCircle className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-black tracking-tight">Need Help?</p>
+                                <p className="text-[10px] text-muted-foreground font-medium leading-relaxed">Our support team is ready to help you set up.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="lg:col-span-9">
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onPropertySubmit)} className="w-full">
+                            <AnimatePresence mode="wait">
+                                {/* The steps are already here */}
+                            </AnimatePresence>
+                            {/* NavigationFooter will be added separately or kept if possible */}
+                        </form>
+                    </Form>
+                </div>
+            </main>
                             {/* STEP 0: ROLE SELECTION */}
                             {activeStep === 'ROLE_SELECTION' && (
                                 <motion.div
@@ -291,7 +337,7 @@ export default function CompleteProfilePage() {
                                         <div className="space-y-2">
                                             <h2 className="text-5xl md:text-6xl font-black tracking-tighter">Welcome to RentSutra</h2>
                                             <p className="text-muted-foreground text-xl font-medium max-w-xl mx-auto">
-                                                To personalize your experience, please select how you'll be using the platform.
+                                                Is this your PG?
                                             </p>
                                         </div>
                                     </div>
@@ -313,9 +359,9 @@ export default function CompleteProfilePage() {
                                                     )}
                                                 </div>
                                                 <div className="space-y-3 text-left">
-                                                    <h3 className="text-3xl font-black tracking-tight">Property Owner</h3>
+                                                    <h3 className="text-3xl font-black tracking-tight">PG Owner</h3>
                                                     <p className="text-muted-foreground font-medium leading-relaxed">
-                                                        Manage multiple properties, collect rent automatically, and track expenses.
+                                                        Add rooms, collect rent, and see everything in one simple place.
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center justify-between pt-4 border-t border-primary/5">
@@ -336,7 +382,7 @@ export default function CompleteProfilePage() {
                                                 <div className="space-y-3 text-left">
                                                     <h3 className="text-3xl font-black tracking-tight text-muted-foreground">Guest / Tenant</h3>
                                                     <p className="text-muted-foreground font-medium leading-relaxed">
-                                                        Access through owner invite to pay rent, raise complaints, and view receipts.
+                                                        Pay rent and see your bills online.
                                                     </p>
                                                 </div>
                                                 <div className="flex items-center justify-between pt-4 border-t border-muted-foreground/5">
@@ -348,7 +394,7 @@ export default function CompleteProfilePage() {
                                     </div>
 
                                     <div className="pt-12 text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground/40">
-                                        Secure Enterprise Infrastructure • Powered by RentSutra
+                                        Safe and Simple to Use • RentSutra
                                     </div>
                                 </motion.div>
                             )}
@@ -365,10 +411,10 @@ export default function CompleteProfilePage() {
                                 >
                                     <div className="space-y-4 mb-12 text-center">
                                         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                            Phase 01 / 04
+                                            Step 01 / 04
                                         </div>
-                                        <h2 className="text-4xl md:text-5xl font-black">Owner Profile</h2>
-                                        <p className="text-muted-foreground text-lg font-medium">Let's set up your personal management profile.</p>
+                                        <h2 className="text-4xl md:text-5xl font-black">Your Details</h2>
+                                        <p className="text-muted-foreground text-lg font-medium">Tell us who you are.</p>
                                     </div>
 
                                     <Card className="border-primary/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden bg-card/50 backdrop-blur-md">
@@ -379,12 +425,12 @@ export default function CompleteProfilePage() {
                                                 render={({ field }) => (
                                                     <FormItem className="space-y-3">
                                                         <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                                                            <UserCircle className="w-3 h-3" /> Full Legal Name
+                                                            <UserCircle className="w-3 h-3" /> Your Name
                                                         </FormLabel>
                                                         <FormControl>
                                                             <div className="relative group">
                                                                 <Input 
-                                                                    placeholder="e.g. John Doe" 
+                                                                    placeholder="e.g. Rahul Kumar" 
                                                                     className="h-16 px-6 text-xl font-black bg-muted/40 border border-primary/5 rounded-2xl focus-visible:ring-2 focus-visible:ring-primary transition-all placeholder:text-muted-foreground/30 tracking-wider" 
                                                                     {...field} 
                                                                 />
@@ -401,7 +447,7 @@ export default function CompleteProfilePage() {
                                                 render={({ field }) => (
                                                     <FormItem className="space-y-3">
                                                         <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                                                            <Phone className="w-3 h-3" /> WhatsApp Connection
+                                                            <Phone className="w-3 h-3" /> WhatsApp Number
                                                         </FormLabel>
                                                         <FormControl>
                                                             <div className="relative group">
@@ -440,10 +486,10 @@ export default function CompleteProfilePage() {
                                 >
                                     <div className="space-y-4 mb-12 text-center">
                                         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                            Phase 02 / 04
+                                            Step 02 / 04
                                         </div>
-                                        <h2 className="text-4xl md:text-5xl font-black">Property Blueprint</h2>
-                                        <p className="text-muted-foreground text-lg font-medium">Define your property's identity and location.</p>
+                                        <h2 className="text-4xl md:text-5xl font-black">Building Name</h2>
+                                        <p className="text-muted-foreground text-lg font-medium">Tell us what your PG is called.</p>
                                     </div>
 
                                     <Card className="border-primary/10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden bg-card/50 backdrop-blur-md">
@@ -453,11 +499,11 @@ export default function CompleteProfilePage() {
                                                 name="name"
                                                 render={({ field }) => (
                                                     <FormItem className="space-y-3">
-                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Property Name</FormLabel>
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">PG Name</FormLabel>
                                                         <FormControl>
                                                             <div className="relative group">
                                                                 <Building className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                                                <Input placeholder="e.g., Skyview Luxury Residency" className="h-16 pl-16 pr-6 text-xl font-bold bg-muted/20 border-none rounded-2xl" {...field} />
+                                                                <Input placeholder="e.g. Sai Residency PG" className="h-16 pl-16 pr-6 text-xl font-bold bg-muted/20 border-none rounded-2xl" {...field} />
                                                             </div>
                                                         </FormControl>
                                                         <FormMessage />
@@ -487,17 +533,17 @@ export default function CompleteProfilePage() {
                                                     name="gender"
                                                     render={({ field }) => (
                                                         <FormItem className="space-y-3">
-                                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Type</FormLabel>
+                                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Who stays here?</FormLabel>
                                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                                 <FormControl>
                                                                     <SelectTrigger className="h-16 font-bold bg-muted/20 border-none rounded-2xl px-6 text-lg">
-                                                                        <SelectValue placeholder="Gender" />
+                                                                        <SelectValue placeholder="Select type" />
                                                                     </SelectTrigger>
                                                                 </FormControl>
                                                                 <SelectContent className="rounded-2xl border-primary/10">
-                                                                    <SelectItem value="co-ed" className="font-bold py-3">Co-living / All</SelectItem>
-                                                                    <SelectItem value="male" className="font-bold py-3">Male Exclusive</SelectItem>
-                                                                    <SelectItem value="female" className="font-bold py-3">Female Exclusive</SelectItem>
+                                                                    <SelectItem value="co-ed" className="font-bold py-3">Boys & Girls (Both)</SelectItem>
+                                                                    <SelectItem value="male" className="font-bold py-3">Boys Only</SelectItem>
+                                                                    <SelectItem value="female" className="font-bold py-3">Girls Only</SelectItem>
                                                                 </SelectContent>
                                                             </Select>
                                                             <FormMessage />
@@ -511,7 +557,7 @@ export default function CompleteProfilePage() {
                                                 name="location"
                                                 render={({ field }) => (
                                                     <FormItem className="space-y-3">
-                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Address / Landmark</FormLabel>
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Full Address</FormLabel>
                                                         <FormControl>
                                                             <div className="relative group">
                                                                 <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary" />
@@ -528,15 +574,15 @@ export default function CompleteProfilePage() {
                                                 name="amenities"
                                                 render={({ field }) => (
                                                     <FormItem className="space-y-4">
-                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Amenities</FormLabel>
+                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Facilities (What do you provide?)</FormLabel>
                                                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                                             {[
                                                                 { id: 'wifi', icon: Globe, label: 'WiFi' },
-                                                                { id: 'ac', icon: Zap, label: 'A/C' },
+                                                                { id: 'ac', icon: Zap, label: 'AC' },
                                                                 { id: 'food', icon: Users, label: 'Food' },
-                                                                { id: 'laundry', icon: Sparkles, label: 'Laundry' },
+                                                                { id: 'laundry', icon: Sparkles, label: 'Washing' },
                                                                 { id: 'parking', icon: Building, label: 'Parking' },
-                                                                { id: 'power-backup', icon: Zap, label: 'Power' },
+                                                                { id: 'power-backup', icon: Zap, label: 'Lift' },
                                                             ].map((item) => (
                                                                 <motion.div 
                                                                     key={item.id}
@@ -572,7 +618,7 @@ export default function CompleteProfilePage() {
                                                 render={({ field }) => (
                                                     <FormItem className="space-y-4">
                                                         <div className="flex items-center justify-between">
-                                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Cover Image (Optional)</FormLabel>
+                                                            <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Building Photo (Optional)</FormLabel>
                                                             {field.value.length > 0 ? (
                                                                 <Button 
                                                                     type="button" 
@@ -610,8 +656,8 @@ export default function CompleteProfilePage() {
                                                                         {uploadingImage ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <Camera className="w-8 h-8" />}
                                                                     </div>
                                                                     <div className="text-center">
-                                                                        <p className="text-sm font-black text-foreground">Upload Property Photo</p>
-                                                                        <p className="text-[10px] font-medium opacity-60 mt-1">First impressions matter. Use a clear facade.</p>
+                                                                        <p className="text-sm font-black text-foreground">Upload PG Photo</p>
+                                                                        <p className="text-[10px] font-medium opacity-60 mt-1">A good photo helps guests find you easily.</p>
                                                                     </div>
                                                                     <Input 
                                                                         type="file" 
@@ -657,25 +703,25 @@ export default function CompleteProfilePage() {
                                         <div className="lg:col-span-5 space-y-10">
                                             <div className="space-y-4">
                                                 <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
-                                                    Phase 03 / 04
+                                                    Step 03 / 04
                                                 </div>
-                                                <h2 className="text-4xl md:text-5xl font-black tracking-tight">Smart Setup</h2>
+                                                <h2 className="text-4xl md:text-5xl font-black tracking-tight">Rooms & Beds</h2>
                                                 <p className="text-muted-foreground font-medium leading-relaxed text-lg">
-                                                    Our engine will auto-generate your building structure based on these metrics.
+                                                    How many rooms and beds do you have?
                                                 </p>
                                             </div>
 
                                             <div className="space-y-4">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Choose a Template</p>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pick a size</p>
                                                 <div className="flex flex-wrap gap-2">
                                                     <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(2, 4, 2)} className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] gap-2 border-2 px-6 hover:bg-primary/5 hover:border-primary/20 transition-all">
                                                         <Building className="w-4 h-4" /> Small PG
                                                     </Button>
                                                     <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(4, 6, 2)} className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] gap-2 border-2 px-6 hover:bg-primary/5 hover:border-primary/20 transition-all">
-                                                        <Layout className="w-4 h-4" /> Hostel
+                                                        <Layout className="w-4 h-4" /> Big PG
                                                     </Button>
                                                     <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(1, 4, 1)} className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px] gap-2 border-2 px-6 hover:bg-primary/5 hover:border-primary/20 transition-all">
-                                                        <Home className="w-4 h-4" /> Apartment
+                                                        <Home className="w-4 h-4" /> Small Flat
                                                     </Button>
                                                 </div>
                                             </div>
@@ -687,7 +733,7 @@ export default function CompleteProfilePage() {
                                                         name="floorCount"
                                                         render={({ field }) => (
                                                             <FormItem className="space-y-4">
-                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Total Floors</FormLabel>
+                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">How many floors?</FormLabel>
                                                                 <FormControl>
                                                                     <div className="flex items-center justify-between gap-6 bg-muted/20 p-2 rounded-2xl border border-primary/5">
                                                                         <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
@@ -708,7 +754,7 @@ export default function CompleteProfilePage() {
                                                         name="roomsPerFloor"
                                                         render={({ field }) => (
                                                             <FormItem className="space-y-4">
-                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Rooms Per Floor</FormLabel>
+                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Rooms per floor</FormLabel>
                                                                 <FormControl>
                                                                     <div className="flex items-center justify-between gap-6 bg-muted/20 p-2 rounded-2xl border border-primary/5">
                                                                         <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
@@ -729,7 +775,7 @@ export default function CompleteProfilePage() {
                                                         name="bedsPerRoom"
                                                         render={({ field }) => (
                                                             <FormItem className="space-y-4">
-                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Beds Per Room</FormLabel>
+                                                                <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Beds per room</FormLabel>
                                                                 <FormControl>
                                                                     <div className="flex items-center justify-between gap-6 bg-muted/20 p-2 rounded-2xl border border-primary/5">
                                                                         <Button type="button" variant="ghost" size="icon" className="h-14 w-14 rounded-xl shrink-0 bg-background shadow-md hover:bg-primary/5 hover:text-primary transition-all" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
@@ -767,15 +813,178 @@ export default function CompleteProfilePage() {
                                                         <Sparkles className="w-7 h-7 text-primary" />
                                                     </div>
                                                     <div className="space-y-2">
-                                                        <h4 className="text-sm font-black uppercase tracking-widest text-foreground">Intelligent Generation</h4>
+                                                        <h4 className="text-sm font-black uppercase tracking-widest text-foreground">Everything will be ready</h4>
                                                         <p className="text-sm text-muted-foreground leading-relaxed font-medium">
-                                                            RentSutra handles the heavy lifting. This structure will be instantly ready for guest onboarding and rent collection.
+                                                            We will create all your rooms automatically. You just need to add guests later.
                                                         </p>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+                                </motion.div>
+                            )}
+                            
+                            {/* STEP 4: UPI SETUP */}
+                            {activeStep === 'UPI_SETUP' && (
+                                <motion.div key="upi" {...stepVariants} className="w-full max-w-4xl mx-auto pb-40">
+                                    <div className="text-center space-y-6 mb-12">
+                                        <motion.div 
+                                            initial={{ scale: 0.9, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="inline-flex items-center gap-3 bg-primary/10 text-primary px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-primary/20 shadow-lg shadow-primary/5"
+                                        >
+                                            <Zap className="w-3 h-3 fill-primary" />
+                                            Step 04 / 04
+                                        </motion.div>
+                                        <div className="space-y-4">
+                                            <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/50">
+                                                Rent Money
+                                            </h2>
+                                            <p className="text-muted-foreground text-lg font-medium max-w-xl mx-auto">
+                                                How should your guests pay you?
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid lg:grid-cols-2 gap-8 mb-12">
+                                        <Card 
+                                            onClick={() => form.setValue('upiId', currentValues.upiId || ' ')}
+                                            className={cn(
+                                                "relative group cursor-pointer border-2 transition-all duration-500 rounded-[3rem] overflow-hidden",
+                                                currentValues.upiId ? "border-primary bg-primary/5" : "border-primary/5 hover:border-primary/20 bg-card/50"
+                                            )}
+                                        >
+                                            <CardContent className="p-8 space-y-6">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                                                        <Zap className="w-8 h-8 text-primary" />
+                                                    </div>
+                                                    {currentValues.upiId && <CheckCircle2 className="w-6 h-6 text-primary" />}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <h3 className="text-2xl font-black tracking-tight">Online Payment</h3>
+                                                    <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                                                        Money goes direct to your bank account.
+                                                    </p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        <Card 
+                                            onClick={() => {
+                                                form.setValue('upiId', '');
+                                                form.setValue('payeeName', '');
+                                            }}
+                                            className={cn(
+                                                "relative group cursor-pointer border-2 transition-all duration-500 rounded-[3rem] overflow-hidden",
+                                                !currentValues.upiId ? "border-primary bg-primary/5" : "border-primary/5 hover:border-primary/20 bg-card/50"
+                                            )}
+                                        >
+                                            <CardContent className="p-8 space-y-6">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+                                                        <Users className="w-8 h-8 text-muted-foreground" />
+                                                    </div>
+                                                    {!currentValues.upiId && <CheckCircle2 className="w-6 h-6 text-primary" />}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <h3 className="text-2xl font-black tracking-tight">Take Cash</h3>
+                                                    <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                                                        Collect rent in hand from guests.
+                                                    </p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+
+                                    <AnimatePresence>
+                                        {currentValues.upiId !== '' && (
+                                            <motion.div 
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 20 }}
+                                                className="grid lg:grid-cols-12 gap-12 items-start"
+                                            >
+                                                <div className="lg:col-span-5 space-y-8">
+                                                    <div className="space-y-6">
+                                                        <div className="space-y-6 p-8 rounded-[2.5rem] bg-card/50 backdrop-blur-md border border-primary/10 shadow-xl shadow-primary/5">
+                                                            <FormField
+                                                                control={form.control}
+                                                                name="upiId"
+                                                                render={({ field }) => (
+                                                                    <FormItem className="space-y-4">
+                                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground flex items-center justify-between">
+                                                                            Enter UPI ID (PhonePe/GPay ID)
+                                                                        </FormLabel>
+                                                                        <FormControl>
+                                                                            <div className="relative group">
+                                                                                <Input 
+                                                                                    {...field} 
+                                                                                    placeholder="9876543210@ybl" 
+                                                                                    className="h-16 pl-6 rounded-2xl bg-background border-primary/10 group-focus-within:border-primary/30 group-focus-within:ring-primary/20 transition-all font-bold text-lg"
+                                                                                />
+                                                                            </div>
+                                                                        </FormControl>
+                                                                        <FormMessage className="text-[10px] font-bold uppercase tracking-wider" />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+
+                                                            <FormField
+                                                                control={form.control}
+                                                                name="payeeName"
+                                                                render={({ field }) => (
+                                                                    <FormItem className="space-y-4">
+                                                                        <FormLabel className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Your Name (as in Bank)</FormLabel>
+                                                                        <FormControl>
+                                                                            <div className="relative group">
+                                                                                <Input 
+                                                                                    {...field} 
+                                                                                    placeholder="Account Holder Name" 
+                                                                                    className="h-16 pl-6 rounded-2xl bg-background border-primary/10 group-focus-within:border-primary/30 group-focus-within:ring-primary/20 transition-all font-bold text-lg"
+                                                                                />
+                                                                            </div>
+                                                                        </FormControl>
+                                                                        <FormMessage className="text-[10px] font-bold uppercase tracking-wider" />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="lg:col-span-7">
+                                                    <div className="p-10 rounded-[3rem] bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/10 relative overflow-hidden group">
+                                                        <div className="relative space-y-8">
+                                                            <div className="w-16 h-16 rounded-2xl bg-background shadow-xl flex items-center justify-center border border-primary/5">
+                                                                <Zap className="w-8 h-8 text-primary" />
+                                                            </div>
+                                                            
+                                                            <div className="space-y-4">
+                                                                <h4 className="text-2xl font-black tracking-tight">Why take rent online?</h4>
+                                                                <div className="space-y-4">
+                                                                    {[
+                                                                        "Money goes directly to your bank",
+                                                                        "Rent is marked as paid automatically",
+                                                                        "Guests get receipt immediately",
+                                                                        "No need to ask for cash"
+                                                                    ].map((perk, i) => (
+                                                                        <div key={i} className="flex items-center gap-3">
+                                                                            <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                                                                                <Check className="w-3 h-3 text-emerald-600" />
+                                                                            </div>
+                                                                            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{perk}</p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </motion.div>
                             )}
 
@@ -789,14 +998,14 @@ export default function CompleteProfilePage() {
                                             className="inline-flex items-center gap-3 bg-emerald-500/10 text-emerald-600 px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-emerald-500/20 shadow-lg shadow-emerald-500/5"
                                         >
                                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            Configuration Verified
+                                            All Done!
                                         </motion.div>
                                         <div className="space-y-4">
                                             <h2 className="text-6xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/50">
-                                                Final Review
+                                                Check and Finish
                                             </h2>
                                             <p className="text-muted-foreground text-lg font-medium max-w-xl mx-auto">
-                                                Please verify your property configuration before we deploy your management system.
+                                                Please check if all info is correct.
                                             </p>
                                         </div>
                                     </div>
@@ -810,7 +1019,7 @@ export default function CompleteProfilePage() {
                                                 <div className="grid md:grid-cols-2 gap-12 border-b border-primary/5 pb-12">
                                                     <div className="space-y-6">
                                                         <div className="space-y-2">
-                                                            <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Property Identity</p>
+                                                            <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">PG Information</p>
                                                             <h3 className="text-4xl font-black tracking-tight">{currentValues.name}</h3>
                                                             <div className="flex items-center gap-2 text-muted-foreground font-bold">
                                                                 <MapPin className="w-4 h-4" />
@@ -822,13 +1031,13 @@ export default function CompleteProfilePage() {
                                                                 {currentValues.gender} Only
                                                             </div>
                                                             <div className="px-4 py-1.5 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/10">
-                                                                Verified Listing
+                                                                Ready to use
                                                             </div>
                                                         </div>
                                                     </div>
 
                                                     <div className="space-y-6 md:border-l md:border-primary/5 md:pl-12">
-                                                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Manager Profile</p>
+                                                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Step 01 / 04</p>
                                                         <div className="flex items-center gap-4 p-4 rounded-3xl bg-muted/30 border border-primary/5">
                                                             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10">
                                                                 <UserCircle className="w-8 h-8 text-primary" />
@@ -846,13 +1055,13 @@ export default function CompleteProfilePage() {
 
                                                 {/* Infrastructure Stats */}
                                                 <div className="space-y-6">
-                                                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Infrastructure Specs</p>
+                                                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Building Details</p>
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                         {[
                                                             { label: 'Floors', value: currentValues.floorCount, icon: Building2 },
-                                                            { label: 'Units/Floor', value: currentValues.roomsPerFloor, icon: Home },
-                                                            { label: 'Beds/Unit', value: currentValues.bedsPerRoom, icon: Bed },
-                                                            { label: 'Capacity', value: Number(currentValues.floorCount) * Number(currentValues.roomsPerFloor) * Number(currentValues.bedsPerRoom), icon: Users, highlight: true }
+                                                            { label: 'Rooms', value: currentValues.roomsPerFloor, icon: Home },
+                                                            { label: 'Beds', value: currentValues.bedsPerRoom, icon: Bed },
+                                                            { label: 'Total Guests', value: Number(currentValues.floorCount) * Number(currentValues.roomsPerFloor) * Number(currentValues.bedsPerRoom), icon: Users, highlight: true }
                                                         ].map((stat, i) => (
                                                             <div key={i} className={cn(
                                                                 "p-6 rounded-[2rem] border transition-all group",
@@ -860,23 +1069,33 @@ export default function CompleteProfilePage() {
                                                             )}>
                                                                 <stat.icon className={cn("w-5 h-5 mb-4 opacity-50", stat.highlight && "opacity-100")} />
                                                                 <p className="text-4xl font-black tracking-tight mb-1">{stat.value}</p>
-                                                                <p className={cn("text-[10px] font-black uppercase tracking-widest opacity-60", stat.highlight && "opacity-80")}>{stat.label}</p>
+                                                                <p className={cn("text-[10px] font-black uppercase tracking-widest opacity-60", stat.highlight && "opacity-80")}>{stat.label === 'Total Guests' ? 'Total People' : stat.label}</p>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
 
-                                                {/* Services */}
-                                                <div className="space-y-6">
-                                                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Integrated Services</p>
-                                                    <div className="flex flex-wrap gap-3">
-                                                        {currentValues.amenities.length > 0 ? currentValues.amenities.map((amenity) => (
-                                                            <div key={amenity} className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-muted/40 border border-primary/5 text-foreground text-[10px] font-black uppercase tracking-wider group hover:bg-primary/10 hover:border-primary/20 transition-all">
-                                                                <Check className="w-3.5 h-3.5 text-primary" /> {amenity}
+                                                {/* Payment Config */}
+                                                <div className="space-y-6 pt-6 border-t border-primary/5">
+                                                    <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">Rent Settings</p>
+                                                    <div className="p-6 rounded-[2rem] bg-muted/30 border border-primary/5 flex items-center justify-between">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/10">
+                                                                <Zap className="w-6 h-6 text-primary" />
                                                             </div>
-                                                        )) : (
-                                                            <p className="text-sm text-muted-foreground font-medium italic">No additional services selected</p>
-                                                        )}
+                                                            <div>
+                                                                <p className="text-sm font-black uppercase tracking-wider">{currentValues.payeeName || 'Cash Only'}</p>
+                                                                <p className="text-xs text-muted-foreground font-medium">{currentValues.upiId || 'No UPI ID provided'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className={cn(
+                                                            "px-4 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest border",
+                                                            currentValues.upiId 
+                                                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
+                                                                : "bg-orange-500/10 text-orange-600 border-orange-500/20"
+                                                        )}>
+                                                            {currentValues.upiId ? "Direct to Bank" : "Cash Only"}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </CardContent>
@@ -891,9 +1110,9 @@ export default function CompleteProfilePage() {
                                                         <Trophy className="w-8 h-8 text-white" />
                                                     </div>
                                                     <div>
-                                                        <h4 className="text-2xl font-black tracking-tight">Ready for Deployment</h4>
+                                                        <h4 className="text-2xl font-black tracking-tight">All Set!</h4>
                                                         <p className="text-white/80 font-medium max-w-md">
-                                                            Click the deploy button below to launch your property management system and start adding tenants instantly.
+                                                            Click the button below to start using your PG app.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -905,7 +1124,7 @@ export default function CompleteProfilePage() {
                                     </div>
 
                                     <div className="mt-12 text-center text-muted-foreground/30 font-black text-[10px] uppercase tracking-[0.6em] pb-12">
-                                        Enterprise Cloud Deployment Engine • RentSutra Systems
+                                        Simple PG App • RentSutra
                                     </div>
                                 </motion.div>
                             )}
@@ -918,21 +1137,24 @@ export default function CompleteProfilePage() {
                                 activeStep === 'OWNER_DETAILS' ? validateProfile :
                                 activeStep === 'PG_DETAILS' ? validateBasics :
                                 activeStep === 'LAYOUT_CONFIG' ? validateLayout :
+                                activeStep === 'UPI_SETUP' ? validateUPI :
                                 form.handleSubmit(onPropertySubmit)
                             }
                             onBack={
                                 activeStep === 'PG_DETAILS' ? () => setActiveStep('OWNER_DETAILS') :
                                 activeStep === 'LAYOUT_CONFIG' ? () => setActiveStep('PG_DETAILS') :
-                                activeStep === 'REVIEW_FINAL' ? () => setActiveStep('LAYOUT_CONFIG') :
+                                activeStep === 'UPI_SETUP' ? () => setActiveStep('LAYOUT_CONFIG') :
+                                activeStep === 'REVIEW_FINAL' ? () => setActiveStep('UPI_SETUP') :
                                 undefined
                             }
                             showBack={activeStep !== 'OWNER_DETAILS' && activeStep !== 'ROLE_SELECTION'}
                             showNext={activeStep !== 'ROLE_SELECTION'}
                             nextLabel={
-                                activeStep === 'OWNER_DETAILS' ? "Next Step" :
-                                activeStep === 'PG_DETAILS' ? "Continue" :
-                                activeStep === 'LAYOUT_CONFIG' ? "Review Build" :
-                                "Deploy System"
+                                activeStep === 'OWNER_DETAILS' ? "Next" :
+                                activeStep === 'PG_DETAILS' ? "Next" :
+                                activeStep === 'LAYOUT_CONFIG' ? "Next" :
+                                activeStep === 'UPI_SETUP' ? "Go to Final Step" :
+                                "Start My PG App"
                             }
                             isFinal={activeStep === 'REVIEW_FINAL'}
                             isLoading={isCreating}

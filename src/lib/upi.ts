@@ -9,6 +9,7 @@ export interface UpiConfig {
     am?: string;     // Amount
     cu?: string;     // Currency (default INR)
     tn?: string;     // Transaction Note
+    tr?: string;     // Transaction Reference
 }
 
 /**
@@ -16,16 +17,38 @@ export interface UpiConfig {
  * Format: upi://pay?pa={upiId}&pn={name}&am={amount}&cu=INR&tn={note}
  */
 export function generateUpiLink(config: UpiConfig): string {
-    const { pa, pn, am, cu = 'INR', tn } = config;
+    const { pa, am } = config;
+    
+    // Very clean Payee Name - avoid special chars
+    const pn = (config.pn || 'Rent Payment')
+        .replace(/[^a-zA-Z0-9 ]/g, '')
+        .substring(0, 20)
+        .trim();
+
+    // Very clean Transaction Note
+    const tn = (config.tn || 'Rent')
+        .replace(/[^a-zA-Z0-9 ]/g, '')
+        .substring(0, 20)
+        .trim();
     
     const params = new URLSearchParams();
     params.append('pa', pa);
     params.append('pn', pn);
-    if (am) params.append('am', am);
-    params.append('cu', cu);
-    if (tn) params.append('tn', tn);
+    
+    if (am) {
+        const numAmount = parseFloat(am);
+        if (!isNaN(numAmount)) {
+            params.append('am', numAmount.toFixed(2));
+        }
+    }
+    
+    params.append('cu', 'INR');
+    params.append('tn', tn);
 
-    return `upi://pay?${params.toString()}`;
+    // Removed 'tr' (Transaction Reference) as it often causes "limit reached" 
+    // or security errors in standard P2P UPI links.
+    
+    return `upi://pay?${params.toString().replace(/\+/g, '%20')}`;
 }
 
 /** 

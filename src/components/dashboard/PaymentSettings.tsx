@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, QrCode, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Image from 'next/image';
+import { generateUpiLink } from '@/lib/upi';
 
 const formSchema = z.object({
   upiId: z.string().optional().refine((val) => !val || /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(val), {
@@ -305,7 +306,7 @@ export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsPro
                       ) : watchUpiId ? (
                         <div className="relative w-full h-full p-4 group-hover:scale-105 transition-transform duration-500">
                             <Image
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${watchUpiId}&pn=${encodeURIComponent(watchPayeeName || 'Rent Payment')}&cu=INR`}
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(generateUpiLink({ pa: watchUpiId, pn: watchPayeeName || 'Rent Payment', cu: 'INR', tr: 'PREVIEW' }))}`}
                                 alt="Generated QR"
                                 fill
                                 className="object-contain p-2"
