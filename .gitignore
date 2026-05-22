@@ -56,3 +56,8 @@ firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*
 
+# AI / Agents
+.agent/
+.agents/
+.playwright-mcp/
+scratch/

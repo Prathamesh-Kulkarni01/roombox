@@ -437,6 +437,8 @@ export default function CompleteProfilePage() {
                                                                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground group-focus-within:text-primary transition-colors">+91</div>
                                                                 <Input 
                                                                     placeholder="98765 43210" 
+                                                                    type="tel"
+                                                                    inputMode="numeric"
                                                                     className="h-10 pl-10 pr-4 text-sm font-semibold bg-muted/30 border border-primary/5 focus:border-primary/30 rounded-lg focus-visible:ring-1 transition-all placeholder:text-muted-foreground/30 tracking-wider" 
                                                                     maxLength={10}
                                                                     {...field}
@@ -565,6 +567,8 @@ export default function CompleteProfilePage() {
                                                             ].map((item) => (
                                                                 <motion.div 
                                                                     key={item.id}
+                                                                    role="button"
+                                                                    tabIndex={0}
                                                                     whileTap={{ scale: 0.95 }}
                                                                     onClick={() => {
                                                                         const current = field.value || [];
@@ -887,6 +891,8 @@ export default function CompleteProfilePage() {
                                                                             <div className="relative group">
                                                                                 <Input 
                                                                                     {...field} 
+                                                                                    type="email"
+                                                                                    inputMode="email"
                                                                                     placeholder="9876543210@ybl" 
                                                                                     className="h-12 pl-4 rounded-xl bg-background border-primary/10 group-focus-within:border-primary/30 group-focus-within:ring-primary/20 transition-all font-semibold text-base"
                                                                                 />
