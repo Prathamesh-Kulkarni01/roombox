@@ -45,9 +45,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { produce } from "immer";
 import {
-  featurePermissionConfig,
   validateAndEnforceDependencies,
 } from "@/lib/permissions";
+import { featurePermissionConfig } from "@/lib/permissions-config";
+
+
 import { parseStaffPermissions } from "@/lib/parseStaffPermissions";
 import type { UserRole } from "@/lib/types";
 import {

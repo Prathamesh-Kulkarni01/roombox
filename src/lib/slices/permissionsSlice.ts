@@ -5,9 +5,11 @@ import type { Plan, UserRole } from '../types';
 import { db, isFirebaseConfigured, selectOwnerDataDb } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { RootState } from '../store';
-import { featurePermissionConfig, type FeaturePermissions, RolePermissions } from '../permissions';
 
-// This maps a UserRole to a full set of feature permissions
+import { type FeaturePermissions, RolePermissions } from '../permissions';
+import { featurePermissionConfig } from '../permissions-config';
+
+
 
 interface PermissionsState {
     featurePermissions: RolePermissions | null;

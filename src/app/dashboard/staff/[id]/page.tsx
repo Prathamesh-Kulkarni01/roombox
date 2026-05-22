@@ -17,7 +17,11 @@ import { cn, getEffectiveOwnerId } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { fetchStaff as fetchStaffAction, updateStaff as updateStaffAction } from '@/lib/slices/staffSlice'
 import { useGenerateStaffMagicLinkMutation, useGenerateStaffPasswordMutation } from '@/lib/api/apiSlice'
-import { featurePermissionConfig, validateAndEnforceDependencies } from '@/lib/permissions'
+import { validateAndEnforceDependencies } from '@/lib/permissions'
+import { featurePermissionConfig } from '@/lib/permissions-config'
+
+
+
 import { parseStaffPermissions } from '@/lib/parseStaffPermissions'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
