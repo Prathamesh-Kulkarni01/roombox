@@ -1,7 +1,5 @@
-process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-process.env.FIREBASE_PROJECT_ID = 'empty';
-process.env.FIREBASE_CLIENT_EMAIL = 'empty';
-process.env.FIREBASE_PRIVATE_KEY = 'empty';
+process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8081';
+process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'roombox-test';
 
 import { getAdminDb } from '../src/lib/firebaseAdmin';
 
@@ -16,6 +14,7 @@ async function auditGuests() {
 
     for (const ownerDoc of ownersSnap.docs) {
         const ownerId = ownerDoc.id;
+        if (ownerId.includes('test') || ownerId.includes('tester')) continue;
         const guestsSnap = await db.collection('users_data').doc(ownerId).collection('guests').get();
 
         for (const doc of guestsSnap.docs) {
@@ -40,6 +39,17 @@ async function auditGuests() {
     console.log(`Total Guests: ${totalGuests}`);
     console.log(`Guests with issues: ${missingFields}`);
     console.log('---------------------');
+
+    if (missingFields > 0) {
+        console.error(`❌ Audit failed: ${missingFields} guests have issues!`);
+        process.exit(1);
+    } else {
+        console.log('✅ Guest audit passed! All real guests have correct fields.');
+        process.exit(0);
+    }
 }
 
-auditGuests().catch(console.error);
+auditGuests().catch(err => {
+    console.error(err);
+    process.exit(1);
+});
