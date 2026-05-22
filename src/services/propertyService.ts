@@ -42,6 +42,11 @@ export interface CreatePropertyInput {
     bedsPerRoom?: number;
     amenities?: string[];
     images?: string[];
+    upiId?: string;
+    payeeName?: string;
+    direct_upi_enabled?: boolean;
+    online_payment_enabled?: boolean;
+    paymentMode?: 'DIRECT_UPI' | 'GATEWAY' | 'CASH_ONLY';
 }
 
 export class PropertyService {
@@ -76,7 +81,25 @@ export class PropertyService {
      * Handles floor/room generation if requested.
      */
     static async createProperty(db: Firestore, input: CreatePropertyInput & { planId?: string }, performer: PerformerInfo): Promise<any> {
-        const { ownerId, name, location, city, gender, autoSetup, floorCount = 0, roomsPerFloor = 0, bedsPerRoom = 1, amenities = [], images = [], planId = 'trial' } = input;
+        const { 
+            ownerId, 
+            name, 
+            location, 
+            city, 
+            gender, 
+            autoSetup, 
+            floorCount = 0, 
+            roomsPerFloor = 0, 
+            bedsPerRoom = 1, 
+            amenities = [], 
+            images = [], 
+            planId = 'trial',
+            upiId,
+            payeeName,
+            direct_upi_enabled,
+            online_payment_enabled,
+            paymentMode
+        } = input;
 
         // 1. Check PG Limit
         await PropertyService.checkPgLimit(db, ownerId, planId);
@@ -102,15 +125,15 @@ export class PropertyService {
                     }
 
                     rooms.push({
-                        id: roomId,
-                        name: `${roomNum}`,
-                        pgId: newPgId,
-                        floorId,
-                        beds,
-                        rent: 0,
-                        deposit: 0,
-                        available: true,
-                        amenities: [],
+                         id: roomId,
+                         name: `${roomNum}`,
+                         pgId: newPgId,
+                         floorId,
+                         beds,
+                         rent: 0,
+                         deposit: 0,
+                         available: true,
+                         amenities: [],
                     });
                 }
                 initialFloors.push({
@@ -145,6 +168,13 @@ export class PropertyService {
             updatedAt: new Date().toISOString(),
             updatedBy: performer,
             schemaVersion: CURRENT_SCHEMA_VERSION,
+            // Payout config
+            upiId: upiId || '',
+            payeeName: payeeName || '',
+            paymentMode: paymentMode || (upiId ? 'DIRECT_UPI' : 'CASH_ONLY'),
+            online_payment_enabled: online_payment_enabled ?? (!!upiId),
+            direct_upi_enabled: direct_upi_enabled ?? (!!upiId),
+            qrCodeImage: '',
         };
 
         await db.collection('users_data').doc(ownerId).collection('pgs').doc(newPgId).set(newPg);

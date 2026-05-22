@@ -64,7 +64,12 @@ export async function POST(req: NextRequest) {
             bedsPerRoom: propertyData.bedsPerRoom,
             amenities: propertyData.amenities,
             images: imageUrls,
-            planId: plan?.id
+            planId: plan?.id,
+            upiId: propertyData.upiId,
+            payeeName: propertyData.payeeName,
+            direct_upi_enabled: propertyData.direct_upi_enabled,
+            online_payment_enabled: propertyData.online_payment_enabled,
+            paymentMode: propertyData.paymentMode
         }, performer);
 
         // Update owner summary in main app DB using centralized logic
