@@ -180,6 +180,7 @@ export default function CompleteProfilePage() {
                     name: currentValues.ownerName, 
                     phone: currentValues.ownerPhone 
                 })).unwrap();
+                if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
                 setActiveStep('PG_DETAILS');
             } catch (error: any) {
                 toast({ variant: 'destructive', title: 'Profile Update Failed', description: error.message });
@@ -189,7 +190,10 @@ export default function CompleteProfilePage() {
 
     const validateBasics = async () => {
         const result = await form.trigger(['name', 'city', 'location', 'gender']);
-        if (result) setActiveStep('ROOMS_CONFIG');
+        if (result) {
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            setActiveStep('ROOMS_CONFIG');
+        }
     }
 
     const applyPreset = (floors: number, rooms: number, beds: number) => {
@@ -201,12 +205,18 @@ export default function CompleteProfilePage() {
 
     const validateLayout = async () => {
         const result = await form.trigger(['floorCount', 'roomsPerFloor', 'bedsPerRoom']);
-        if (result) setActiveStep('PAYMENT_SETUP');
+        if (result) {
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            setActiveStep('PAYMENT_SETUP');
+        }
     }
 
     const validateUPI = async () => {
         const result = await form.trigger(['upiId', 'payeeName']);
-        if (result) setActiveStep('FINAL_CHECK');
+        if (result) {
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            setActiveStep('FINAL_CHECK');
+        }
     }
 
     const onPropertySubmit = async (data: PgFormValues) => {
@@ -247,7 +257,7 @@ export default function CompleteProfilePage() {
 
     
     return (
-        <div className="min-h-screen bg-background selection:bg-primary/10 flex flex-col pb-safe">
+        <div className="min-h-screen bg-background selection:bg-primary/10 flex flex-col pb-safe overscroll-none">
             <div className="sticky top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-2xl border-b border-primary/5">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -414,7 +424,8 @@ export default function CompleteProfilePage() {
                                                             <div className="relative group">
                                                                 <Input 
                                                                     placeholder="e.g. Rahul Kumar" 
-                                                                    className="h-10 px-4 text-sm font-semibold bg-muted/30 border border-primary/5 rounded-lg focus-visible:ring-1 focus-visible:ring-primary transition-all placeholder:text-muted-foreground/40" 
+                                                                    autoCapitalize="words"
+                                                                    className="h-10 px-4 text-base md:text-sm font-semibold bg-muted/30 border border-primary/5 rounded-lg focus-visible:ring-1 focus-visible:ring-primary transition-all placeholder:text-muted-foreground/40" 
                                                                     {...field} 
                                                                 />
                                                             </div>
@@ -439,7 +450,7 @@ export default function CompleteProfilePage() {
                                                                     placeholder="98765 43210" 
                                                                     type="tel"
                                                                     inputMode="numeric"
-                                                                    className="h-10 pl-10 pr-4 text-sm font-semibold bg-muted/30 border border-primary/5 focus:border-primary/30 rounded-lg focus-visible:ring-1 transition-all placeholder:text-muted-foreground/30 tracking-wider" 
+                                                                    className="h-10 pl-10 pr-4 text-base md:text-sm font-semibold bg-muted/30 border border-primary/5 focus:border-primary/30 rounded-lg focus-visible:ring-1 transition-all placeholder:text-muted-foreground/30 tracking-wider" 
                                                                     maxLength={10}
                                                                     {...field}
                                                                     onChange={(e) => {
@@ -484,7 +495,7 @@ export default function CompleteProfilePage() {
                                                         <FormControl>
                                                             <div className="relative group">
                                                                 <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                                                <Input placeholder="e.g. Sai PG" className="h-10 pl-9 pr-3 text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
+                                                                <Input placeholder="e.g. Sai PG" autoCapitalize="words" className="h-10 pl-9 pr-3 text-base md:text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
                                                             </div>
                                                         </FormControl>
                                                         <FormMessage />
@@ -502,7 +513,7 @@ export default function CompleteProfilePage() {
                                                             <FormControl>
                                                                 <div className="relative group">
                                                                     <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary" />
-                                                                    <Input placeholder="e.g. Pune" className="h-10 pl-9 pr-3 text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
+                                                                    <Input placeholder="e.g. Pune" autoCapitalize="words" className="h-10 pl-9 pr-3 text-base md:text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
                                                                 </div>
                                                             </FormControl>
                                                             <FormMessage />
@@ -542,7 +553,7 @@ export default function CompleteProfilePage() {
                                                         <FormControl>
                                                             <div className="relative group">
                                                                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary" />
-                                                                <Input placeholder="e.g. Viman Nagar, near Phoenix Mall" className="h-10 pl-9 pr-3 text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
+                                                                <Input placeholder="e.g. Viman Nagar, near Phoenix Mall" autoCapitalize="words" className="h-10 pl-9 pr-3 text-base md:text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
                                                             </div>
                                                         </FormControl>
                                                         <FormMessage />
@@ -644,7 +655,7 @@ export default function CompleteProfilePage() {
                                                                     </div>
                                                                     <Input 
                                                                         type="file" 
-                                                                        accept="image/*" 
+                                                                        accept="image/jpeg, image/png, image/webp, image/heic" 
                                                                         className="absolute inset-0 opacity-0 cursor-pointer" 
                                                                         onChange={async (e) => {
                                                                             const file = e.target.files?.[0];
@@ -893,6 +904,8 @@ export default function CompleteProfilePage() {
                                                                                     {...field} 
                                                                                     type="email"
                                                                                     inputMode="email"
+                                                                                    autoCapitalize="none"
+                                                                                    autoCorrect="off"
                                                                                     placeholder="9876543210@ybl" 
                                                                                     className="h-12 pl-4 rounded-xl bg-background border-primary/10 group-focus-within:border-primary/30 group-focus-within:ring-primary/20 transition-all font-semibold text-base"
                                                                                 />
@@ -913,6 +926,7 @@ export default function CompleteProfilePage() {
                                                                             <div className="relative group">
                                                                                 <Input 
                                                                                     {...field} 
+                                                                                    autoCapitalize="words"
                                                                                     placeholder="Account Holder Name" 
                                                                                     className="h-12 pl-4 rounded-xl bg-background border-primary/10 group-focus-within:border-primary/30 group-focus-within:ring-primary/20 transition-all font-semibold text-base"
                                                                                 />
