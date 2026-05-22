@@ -2,9 +2,9 @@ name: RBAC Security Audit
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ master, staging, dev ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ master, staging, dev ]
 
 jobs:
   security-audit:
