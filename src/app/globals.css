@@ -31,6 +31,24 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
+
+    /* Stitch Dynamic Tokens */
+    --surface: 0 0% 100%;
+    --surface-dim: 210 40% 96.1%;
+    --surface-bright: 0 0% 100%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-low: 210 40% 98%;
+    --surface-container: 210 40% 96.1%;
+    --surface-container-high: 210 40% 94%;
+    --surface-container-highest: 210 40% 92%;
+    --on-surface: 222.2 84% 4.9%;
+    --on-surface-variant: 215.4 16.3% 46.9%;
+    --outline: 214.3 31.8% 91.4%;
+    --outline-variant: 214.3 31.8% 85%;
+    --primary-container: 207 90% 88%;
+    --on-primary-container: 207 90% 20%;
+    --secondary-container: 210 40% 90%;
+    --on-secondary-container: 210 40% 20%;
   }
 
   [data-theme="dark"] {
@@ -53,6 +71,24 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 207 90% 68%;
+
+    /* Stitch Dynamic Tokens */
+    --surface: 222.2 84% 4.9%;
+    --surface-dim: 222.2 84% 4%;
+    --surface-bright: 222.2 84% 12%;
+    --surface-container-lowest: 222.2 84% 2%;
+    --surface-container-low: 222.2 84% 6%;
+    --surface-container: 222.2 84% 8%;
+    --surface-container-high: 222.2 84% 12%;
+    --surface-container-highest: 222.2 84% 16%;
+    --on-surface: 210 40% 98%;
+    --on-surface-variant: 215 20.2% 65.1%;
+    --outline: 217.2 32.6% 30%;
+    --outline-variant: 217.2 32.6% 17.5%;
+    --primary-container: 207 90% 25%;
+    --on-primary-container: 207 90% 95%;
+    --secondary-container: 217.2 32.6% 12%;
+    --on-secondary-container: 217.2 32.6% 85%;
   }
 
   [data-theme="saffron"] {
@@ -229,6 +265,46 @@
     --border: 84 25% 17%;
     --input: 84 25% 17%;
     --ring: 84 100% 55%;
+  }
+
+  [data-theme="velvet-obsidian"] {
+    --background: 0 0% 7.5%;
+    --foreground: 15 7% 89%;
+    --card: 0 0% 11%;
+    --card-foreground: 15 7% 89%;
+    --popover: 0 0% 11%;
+    --popover-foreground: 15 7% 89%;
+    --primary: 359 100% 85.1%;
+    --primary-foreground: 349 80% 20%;
+    --secondary: 349 18% 30%;
+    --secondary-foreground: 349 26% 75%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 359 100% 85%;
+    --accent: 349 18% 22%;
+    --accent-foreground: 15 7% 89%;
+    --destructive: 356 100% 29%;
+    --destructive-foreground: 6 100% 92%;
+    --border: 349 18% 22%;
+    --input: 349 18% 22%;
+    --ring: 349 80% 51%;
+
+    /* Stitch Dynamic Tokens */
+    --surface: 0 0% 7.5%;
+    --surface-dim: 0 0% 7.5%;
+    --surface-bright: 0 1% 22.7%;
+    --surface-container-lowest: 0 0% 5.5%;
+    --surface-container-low: 0 1% 11%;
+    --surface-container: 0 1% 12.5%;
+    --surface-container-high: 0 0% 16.5%;
+    --surface-container-highest: 60 1% 20.8%;
+    --on-surface: 15 3% 89%;
+    --on-surface-variant: 0 33% 82%;
+    --outline: 0 19% 60.8%;
+    --outline-variant: 357 18% 30.6%;
+    --primary-container: 349 80% 51%;
+    --on-primary-container: 0 0% 100%;
+    --secondary-container: 349 18% 30%;
+    --on-secondary-container: 349 26% 75.3%;
   }
 }
 

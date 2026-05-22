@@ -16,13 +16,13 @@ export function WhatsAppSupport() {
             animate={{ opacity: 1, x: 0 }}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-3 px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full transition-all group"
+            className="flex items-center gap-2 sm:gap-3 p-2 sm:px-4 sm:py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-full transition-all group"
         >
-            <div className="flex flex-col items-end">
-                <span className="hidden sm:block text-[9px] font-black uppercase tracking-widest text-primary/70">
+            <div className="hidden sm:flex flex-col items-end">
+                <span className="text-[9px] font-black uppercase tracking-widest text-primary/70">
                     Live Support
                 </span>
-                <span className="text-[10px] font-bold text-foreground tabular-nums">
+                <span className="text-[10px] font-bold text-foreground tabular-nums whitespace-nowrap">
                     +91 90216 45063
                 </span>
             </div>

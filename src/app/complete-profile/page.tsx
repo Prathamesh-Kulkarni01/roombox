@@ -266,7 +266,7 @@ export default function CompleteProfilePage() {
                         </div>
                         <div>
                             <span className="font-bold text-xl tracking-tighter block leading-none">RentSutra</span>
-                            <span className="text-base font-semibold text-primary leading-none mt-1 block">Simple PG App</span>
+                            <span className="text-base font-semibold text-primary leading-none mt-1 hidden sm:block">Simple PG App</span>
                         </div>
                     </div>
                     
@@ -330,68 +330,70 @@ export default function CompleteProfilePage() {
                                     initial="initial"
                                     animate="animate"
                                     exit="exit"
-                                    className="w-full max-w-lg mx-auto px-4 text-center space-y-6"
+                                    className="w-full max-w-lg mx-auto px-4 text-center space-y-6 relative z-10"
                                 >
-                                    <div className="space-y-3">
+                                    <div className="space-y-4">
                                         <motion.div 
                                             initial={{ scale: 0.5, opacity: 0 }}
                                             animate={{ scale: 1, opacity: 1 }}
-                                            className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-primary/60 flex items-center justify-center shadow-lg shadow-primary/30 mx-auto rotate-3"
+                                            className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary-container/20 to-transparent flex items-center justify-center border border-primary/10 shadow-[0_0_30px_rgba(255,179,180,0.15)] mx-auto rotate-12"
                                         >
-                                            <Sparkles className="w-7 h-7 text-primary-foreground -rotate-3" />
+                                            <Sparkles className="w-7 h-7 text-primary rotate-[-12deg]" />
                                         </motion.div>
-                                        <div className="space-y-1">
-                                            <h2 className="text-xl md:text-3xl font-bold tracking-tight">Namaste</h2>
-                                            <p className="text-muted-foreground text-sm font-medium">
+                                        <div className="space-y-2">
+                                            <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Namaste</h2>
+                                            <p className="text-muted-foreground text-sm font-semibold leading-relaxed">
                                                 Select how you want to use RentSutra
                                             </p>
                                         </div>
                                     </div>
 
-                                    <div className="grid gap-3 sm:grid-cols-2 max-w-lg mx-auto w-full text-left">
-                                        <Card 
+                                    <div className="flex flex-col gap-4 max-w-lg mx-auto w-full text-left">
+                                        {/* PG Owner Card */}
+                                        <button 
+                                            type="button"
                                             onClick={handleOwnerSetup}
+                                            disabled={loadingRole === 'owner'}
                                             className={cn(
-                                                "relative group cursor-pointer border transition-all duration-200 rounded-xl overflow-hidden",
-                                                loadingRole === 'owner' ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/50 hover:bg-muted/30"
+                                                "w-full text-left bg-gradient-to-br from-secondary/10 to-surface-container/30 backdrop-blur-[24px] border rounded-[24px] p-6 relative overflow-hidden group hover:opacity-95 active:scale-[0.98] transition-all duration-300 flex items-center justify-between shadow-xl",
+                                                loadingRole === 'owner' ? "border-primary ring-1 ring-primary/20 shadow-[0_0_30px_rgba(255,179,180,0.25)]" : "border-primary/10 shadow-[0_0_30px_rgba(255,179,180,0.05)] hover:border-primary/30"
                                             )}
                                         >
-                                            <CardContent className="p-4 flex flex-col gap-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                                                        {loadingRole === 'owner' ? (
-                                                            <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                                                        ) : (
-                                                            <Building2 className="w-5 h-5 text-primary" />
-                                                        )}
-                                                    </div>
-                                                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                            {/* Subtle Glow Overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-transparent pointer-events-none opacity-50" />
+                                            <div className="flex items-center gap-4 relative z-10">
+                                                <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(255,179,180,0.3)] shrink-0 transition-transform duration-300 group-hover:scale-105">
+                                                    {loadingRole === 'owner' ? (
+                                                        <Loader2 className="w-6 h-6 text-primary-foreground animate-spin" />
+                                                    ) : (
+                                                        <Building2 className="w-6 h-6 text-primary-foreground" />
+                                                    )}
                                                 </div>
-                                                <div>
-                                                    <h3 className="text-sm font-bold text-foreground">PG Owner</h3>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                                        Manage your PG easily.
-                                                    </p>
+                                                <div className="flex flex-col">
+                                                    <h3 className="text-base font-bold text-primary group-hover:text-primary/95 transition-colors">PG Owner</h3>
+                                                    <p className="text-xs text-muted-foreground mt-0.5 font-medium">Manage your PG easily.</p>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                            <div className="relative z-10 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border border-primary/10">
+                                                <ChevronRight className="w-4 h-4 text-primary" />
+                                            </div>
+                                        </button>
 
-                                        <Card className="relative opacity-60 border-dashed border border-border rounded-xl bg-muted/10">
-                                            <CardContent className="p-4 flex flex-col gap-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                                                        <Users className="w-5 h-5 text-muted-foreground" />
-                                                    </div>
-                                                    <span className="text-[10px] font-bold bg-muted px-2 py-0.5 rounded-full text-muted-foreground uppercase tracking-wider">Soon</span>
+                                        {/* Guest Card (Soon) */}
+                                        <div className="w-full text-left bg-surface-container-low/30 backdrop-blur-[10px] border border-dashed border-primary/10 rounded-[24px] p-6 relative overflow-hidden opacity-60 flex items-center justify-between">
+                                            <div className="flex items-center gap-4 relative z-10">
+                                                <div className="w-12 h-12 rounded-2xl bg-surface-container/50 flex items-center justify-center shrink-0 border border-white/5">
+                                                    <Users className="w-6 h-6 text-muted-foreground" />
                                                 </div>
-                                                <div>
-                                                    <h3 className="text-sm font-bold text-muted-foreground">I am Guest</h3>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                                        Pay rent and see bills.
-                                                    </p>
+                                                <div className="flex flex-col">
+                                                    <h3 className="text-base font-bold text-foreground">I am Guest</h3>
+                                                    <p className="text-xs text-muted-foreground mt-0.5 font-medium">Pay rent and see bills.</p>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                            <div className="relative z-10 bg-secondary/20 text-primary border border-primary/20 px-3 py-1 rounded-full flex items-center justify-center">
+                                                <span className="text-[10px] font-black uppercase tracking-wider">Soon</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </motion.div>
                             )}
@@ -404,69 +406,71 @@ export default function CompleteProfilePage() {
                                     initial="initial"
                                     animate="animate"
                                     exit="exit"
-                                    className="w-full max-w-2xl mx-auto pb-24 px-4"
+                                    className="w-full max-w-lg mx-auto pb-24 px-4 space-y-6"
                                 >
-                                    <div className="space-y-2 mb-4 text-center md:text-left">
-                                        <h2 className="text-xl md:text-2xl font-bold">About You</h2>
+                                    <div className="space-y-2 text-center">
+                                        <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">About You</h2>
+                                        <p className="text-muted-foreground text-sm font-semibold leading-relaxed">
+                                            Let's start with your profile details
+                                        </p>
                                     </div>
 
-                                    <Card className="border-primary/10 shadow-sm rounded-2xl overflow-hidden bg-card/50 backdrop-blur-md">
-                                        <CardContent className="pt-5 md:pt-6 px-4 md:px-6 pb-5 md:pb-6 space-y-5">
-                                            <FormField
-                                                control={form.control}
-                                                name="ownerName"
-                                                render={({ field }) => (
-                                                    <FormItem className="space-y-1.5">
-                                                        <FormLabel className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                                                            <UserCircle className="w-4 h-4" /> Full Name
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <div className="relative group">
-                                                                <Input 
-                                                                    placeholder="e.g. Rahul Kumar" 
-                                                                    autoCapitalize="words"
-                                                                    className="h-10 px-4 text-base md:text-sm font-semibold bg-muted/30 border border-primary/5 rounded-lg focus-visible:ring-1 focus-visible:ring-primary transition-all placeholder:text-muted-foreground/40" 
-                                                                    {...field} 
-                                                                />
-                                                            </div>
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                    <div className="bg-gradient-to-br from-secondary/15 to-[#201f1f]/40 backdrop-blur-[24px] border border-primary/10 rounded-[24px] p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+                                        
+                                        <FormField
+                                            control={form.control}
+                                            name="ownerName"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-2 text-left">
+                                                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                        <UserCircle className="w-4 h-4 text-primary" /> Full Name
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <div className="relative">
+                                                            <Input 
+                                                                placeholder="e.g. Rahul Kumar" 
+                                                                autoCapitalize="words"
+                                                                className="h-12 px-4 text-base font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all placeholder:text-muted-foreground/30 text-foreground" 
+                                                                {...field} 
+                                                            />
+                                                        </div>
+                                                    </FormControl>
+                                                    <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                </FormItem>
+                                            )}
+                                        />
 
-                                            <FormField
-                                                control={form.control}
-                                                name="ownerPhone"
-                                                render={({ field }) => (
-                                                    <FormItem className="space-y-1.5">
-                                                        <FormLabel className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                                                            <Phone className="w-4 h-4" /> WhatsApp No.
-                                                        </FormLabel>
-                                                        <FormControl>
-                                                            <div className="relative group">
-                                                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground group-focus-within:text-primary transition-colors">+91</div>
-                                                                <Input 
-                                                                    placeholder="98765 43210" 
-                                                                    type="tel"
-                                                                    inputMode="numeric"
-                                                                    className="h-10 pl-10 pr-4 text-base md:text-sm font-semibold bg-muted/30 border border-primary/5 focus:border-primary/30 rounded-lg focus-visible:ring-1 transition-all placeholder:text-muted-foreground/30 tracking-wider" 
-                                                                    maxLength={10}
-                                                                    {...field}
-                                                                    onChange={(e) => {
-                                                                        const val = e.target.value.replace(/\D/g, '');
-                                                                        field.onChange(val);
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                    
+                                        <FormField
+                                            control={form.control}
+                                            name="ownerPhone"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-2 text-left">
+                                                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                        <Phone className="w-4 h-4 text-primary" /> WhatsApp No.
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <div className="relative flex items-center">
+                                                            <div className="absolute left-4 text-base font-black text-muted-foreground">+91</div>
+                                                            <Input 
+                                                                placeholder="98765 43210" 
+                                                                type="tel"
+                                                                inputMode="numeric"
+                                                                className="h-12 pl-14 pr-4 text-base font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all placeholder:text-muted-foreground/30 text-foreground tracking-widest" 
+                                                                maxLength={10}
+                                                                {...field}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value.replace(/\D/g, '');
+                                                                    field.onChange(val);
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </FormControl>
+                                                    <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
                                 </motion.div>
                             )}
 
@@ -478,208 +482,234 @@ export default function CompleteProfilePage() {
                                     initial="initial"
                                     animate="animate"
                                     exit="exit"
-                                    className="w-full max-w-3xl mx-auto pb-24 px-4"
+                                    className="w-full max-w-2xl mx-auto pb-24 px-4 space-y-6"
                                 >
-                                    <div className="space-y-2 mb-4 text-center md:text-left">
-                                        <h2 className="text-xl md:text-2xl font-bold">PG Name</h2>
+                                    <div className="space-y-2 text-center">
+                                        <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">PG Details</h2>
+                                        <p className="text-muted-foreground text-sm font-semibold leading-relaxed">
+                                            Tell us about your property and facilities
+                                        </p>
                                     </div>
 
-                                    <Card className="border-primary/10 shadow-sm rounded-2xl overflow-hidden bg-card/50 backdrop-blur-md">
-                                        <CardContent className="pt-5 md:pt-6 px-4 md:px-6 pb-5 md:pb-6 space-y-5">
+                                    <div className="bg-gradient-to-br from-secondary/15 to-[#201f1f]/40 backdrop-blur-[24px] border border-primary/10 rounded-[24px] p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="name"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-2 text-left">
+                                                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                        <Building className="w-4 h-4 text-primary" /> PG Name
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <div className="relative">
+                                                            <Input 
+                                                                placeholder="e.g. Sai PG" 
+                                                                autoCapitalize="words" 
+                                                                className="h-12 px-4 text-base font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all placeholder:text-muted-foreground/30 text-foreground" 
+                                                                {...field} 
+                                                            />
+                                                        </div>
+                                                    </FormControl>
+                                                    <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <FormField
                                                 control={form.control}
-                                                name="name"
+                                                name="city"
                                                 render={({ field }) => (
-                                                    <FormItem className="space-y-1.5">
-                                                        <FormLabel className="text-sm font-semibold text-muted-foreground">PG Name</FormLabel>
+                                                    <FormItem className="space-y-2 text-left">
+                                                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                            <Globe className="w-4 h-4 text-primary" /> City
+                                                        </FormLabel>
                                                         <FormControl>
-                                                            <div className="relative group">
-                                                                <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                                                <Input placeholder="e.g. Sai PG" autoCapitalize="words" className="h-10 pl-9 pr-3 text-base md:text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
+                                                            <div className="relative">
+                                                                <Input 
+                                                                    placeholder="e.g. Pune" 
+                                                                    autoCapitalize="words" 
+                                                                    className="h-12 px-4 text-base font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all placeholder:text-muted-foreground/30 text-foreground" 
+                                                                    {...field} 
+                                                                />
                                                             </div>
                                                         </FormControl>
-                                                        <FormMessage />
+                                                        <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
                                                     </FormItem>
                                                 )}
                                             />
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <FormField
-                                                    control={form.control}
-                                                    name="city"
-                                                    render={({ field }) => (
-                                                        <FormItem className="space-y-1.5">
-                                                            <FormLabel className="text-sm font-semibold text-muted-foreground">City</FormLabel>
+                                            <FormField
+                                                control={form.control}
+                                                name="gender"
+                                                render={({ field }) => (
+                                                    <FormItem className="space-y-2 text-left">
+                                                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                            <Users className="w-4 h-4 text-primary" /> Who stays here?
+                                                        </FormLabel>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                             <FormControl>
-                                                                <div className="relative group">
-                                                                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary" />
-                                                                    <Input placeholder="e.g. Pune" autoCapitalize="words" className="h-10 pl-9 pr-3 text-base md:text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
-                                                                </div>
+                                                                <SelectTrigger className="h-12 font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] px-4 text-foreground text-sm">
+                                                                    <SelectValue placeholder="Select type" />
+                                                                </SelectTrigger>
                                                             </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={form.control}
-                                                    name="gender"
-                                                    render={({ field }) => (
-                                                        <FormItem className="space-y-1.5">
-                                                            <FormLabel className="text-sm font-semibold text-muted-foreground">Who stays here?</FormLabel>
-                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                <FormControl>
-                                                                    <SelectTrigger className="h-10 font-semibold bg-muted/20 border-none rounded-lg px-3 text-sm">
-                                                                        <SelectValue placeholder="Select type" />
-                                                                    </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent className="rounded-lg border-primary/10">
-                                                                    <SelectItem value="co-ed" className="font-semibold py-2 text-sm">Boys & Girls</SelectItem>
-                                                                    <SelectItem value="male" className="font-semibold py-2 text-sm">Boys Only</SelectItem>
-                                                                    <SelectItem value="female" className="font-semibold py-2 text-sm">Girls Only</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-
-                                            <FormField
-                                                control={form.control}
-                                                name="location"
-                                                render={({ field }) => (
-                                                    <FormItem className="space-y-1.5">
-                                                        <FormLabel className="text-sm font-semibold text-muted-foreground">Full Address</FormLabel>
-                                                        <FormControl>
-                                                            <div className="relative group">
-                                                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary" />
-                                                                <Input placeholder="e.g. Viman Nagar, near Phoenix Mall" autoCapitalize="words" className="h-10 pl-9 pr-3 text-base md:text-sm font-semibold bg-muted/20 border-none rounded-lg" {...field} />
-                                                            </div>
-                                                        </FormControl>
-                                                        <FormMessage />
+                                                            <SelectContent className="rounded-lg border border-primary/10 bg-[#1c1b1b] text-foreground">
+                                                                <SelectItem value="co-ed" className="font-semibold py-2 text-sm focus:bg-primary/10 focus:text-primary">Boys & Girls</SelectItem>
+                                                                <SelectItem value="male" className="font-semibold py-2 text-sm focus:bg-primary/10 focus:text-primary">Boys Only</SelectItem>
+                                                                <SelectItem value="female" className="font-semibold py-2 text-sm focus:bg-primary/10 focus:text-primary">Girls Only</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
                                                     </FormItem>
                                                 )}
                                             />
+                                        </div>
 
-                                            <FormField
-                                                control={form.control}
-                                                name="amenities"
-                                                render={({ field }) => (
-                                                    <FormItem className="space-y-2">
-                                                        <FormLabel className="text-sm font-semibold text-muted-foreground">Facilities (What do you provide?)</FormLabel>
-                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                                            {[
-                                                                { id: 'wifi', icon: Globe, label: 'WiFi' },
-                                                                { id: 'ac', icon: Zap, label: 'AC' },
-                                                                { id: 'food', icon: Users, label: 'Food' },
-                                                                { id: 'laundry', icon: Sparkles, label: 'Washing' },
-                                                                { id: 'parking', icon: Building, label: 'Parking' },
-                                                                { id: 'power-backup', icon: Zap, label: 'Lift' },
-                                                            ].map((item) => (
-                                                                <motion.div 
-                                                                    key={item.id}
-                                                                    role="button"
-                                                                    tabIndex={0}
-                                                                    whileTap={{ scale: 0.95 }}
-                                                                    onClick={() => {
-                                                                        const current = field.value || [];
-                                                                        if (current.includes(item.id)) {
-                                                                            field.onChange(current.filter(i => i !== item.id));
-                                                                        } else {
-                                                                            field.onChange([...current, item.id]);
+                                        <FormField
+                                            control={form.control}
+                                            name="location"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-2 text-left">
+                                                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                        <MapPin className="w-4 h-4 text-primary" /> Full Address
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <div className="relative">
+                                                            <Input 
+                                                                placeholder="e.g. Viman Nagar, near Phoenix Mall" 
+                                                                autoCapitalize="words" 
+                                                                className="h-12 px-4 text-base font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all placeholder:text-muted-foreground/30 text-foreground" 
+                                                                {...field} 
+                                                            />
+                                                        </div>
+                                                    </FormControl>
+                                                    <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="amenities"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-3 text-left">
+                                                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                        <Sparkles className="w-4 h-4 text-primary" /> Facilities (What do you provide?)
+                                                    </FormLabel>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                                        {[
+                                                            { id: 'wifi', icon: Globe, label: 'WiFi' },
+                                                            { id: 'ac', icon: Zap, label: 'AC' },
+                                                            { id: 'food', icon: Users, label: 'Food' },
+                                                            { id: 'laundry', icon: Sparkles, label: 'Washing' },
+                                                            { id: 'parking', icon: Building, label: 'Parking' },
+                                                            { id: 'power-backup', icon: Zap, label: 'Lift' },
+                                                        ].map((item) => (
+                                                            <motion.div 
+                                                                key={item.id}
+                                                                role="button"
+                                                                tabIndex={0}
+                                                                whileTap={{ scale: 0.95 }}
+                                                                onClick={() => {
+                                                                    const current = field.value || [];
+                                                                    if (current.includes(item.id)) {
+                                                                        field.onChange(current.filter(i => i !== item.id));
+                                                                    } else {
+                                                                        field.onChange([...current, item.id]);
+                                                                    }
+                                                                }}
+                                                                className={cn(
+                                                                    "flex items-center gap-2 px-3 py-3 rounded-[14px] border transition-all cursor-pointer select-none",
+                                                                    field.value?.includes(item.id) 
+                                                                        ? "bg-primary/20 border-primary text-primary shadow-[0_0_20px_rgba(230,30,67,0.15)] font-bold" 
+                                                                        : "bg-black/40 border-primary/5 hover:border-primary/20 text-muted-foreground font-semibold"
+                                                                )}
+                                                            >
+                                                                <item.icon className="w-4 h-4 shrink-0" />
+                                                                <span className="text-[11px] uppercase tracking-wider">{item.label}</span>
+                                                            </motion.div>
+                                                        ))}
+                                                    </div>
+                                                    <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="images"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-3 mt-4 text-left">
+                                                    <div className="flex items-center justify-between">
+                                                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                            <Camera className="w-4 h-4 text-primary" /> Building Photo (Optional)
+                                                        </FormLabel>
+                                                        {field.value.length > 0 ? (
+                                                            <Button 
+                                                                type="button" 
+                                                                variant="ghost" 
+                                                                size="sm" 
+                                                                onClick={() => field.onChange([])}
+                                                                className="text-xs font-bold uppercase text-destructive/80 hover:bg-destructive/5"
+                                                            >
+                                                                Remove
+                                                            </Button>
+                                                        ) : (
+                                                            <div className="text-[10px] font-bold uppercase tracking-wider bg-secondary-container/30 px-2.5 py-0.5 rounded-full text-muted-foreground">Optional</div>
+                                                        )}
+                                                    </div>
+                                                    <div 
+                                                        className={cn(
+                                                            "relative h-48 rounded-[20px] border-2 border-dashed transition-all flex flex-col items-center justify-center overflow-hidden",
+                                                            field.value.length > 0 
+                                                                ? "border-primary/30 bg-primary/5 shadow-inner" 
+                                                                : "border-primary/10 bg-black/40 hover:bg-[#201f1f]/40 hover:border-primary/20 group cursor-pointer"
+                                                        )}
+                                                    >
+                                                        {field.value.length > 0 ? (
+                                                            <>
+                                                                <img src={field.value[0]} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-80" />
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                                                                <div className="relative z-10 flex flex-col items-center gap-2 bg-black/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/25 shadow-2xl">
+                                                                    <CheckCircle2 className="w-5 h-5 text-primary" />
+                                                                    <span className="text-xs font-black uppercase tracking-widest text-primary">Image Loaded</span>
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <div className="flex flex-col items-center gap-4 text-muted-foreground">
+                                                                <div className="w-14 h-14 rounded-2xl bg-secondary-container/20 flex items-center justify-center border border-primary/10 shadow-lg group-hover:scale-105 transition-all duration-300">
+                                                                    {uploadingImage ? <Loader2 className="w-7 h-7 animate-spin text-primary" /> : <Camera className="w-7 h-7 text-primary" />}
+                                                                </div>
+                                                                <div className="text-center px-4">
+                                                                    <p className="text-sm font-bold text-foreground">Add Front Photo</p>
+                                                                    <p className="text-xs font-medium text-muted-foreground mt-0.5">Guests love visual profiles.</p>
+                                                                </div>
+                                                                <Input 
+                                                                    type="file" 
+                                                                    accept="image/jpeg, image/png, image/webp, image/heic" 
+                                                                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                                                                    onChange={async (e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            setUploadingImage(true);
+                                                                            const reader = new FileReader();
+                                                                            reader.onloadend = () => {
+                                                                                field.onChange([reader.result as string]);
+                                                                                setUploadingImage(false);
+                                                                            };
+                                                                            reader.readAsDataURL(file);
                                                                         }
                                                                     }}
-                                                                    className={cn(
-                                                                        "flex items-center gap-2 px-3 py-3 rounded-xl border transition-all cursor-pointer select-none",
-                                                                        field.value?.includes(item.id) 
-                                                                            ? "bg-primary border-primary text-primary-foreground shadow-sm shadow-primary/20" 
-                                                                            : "bg-muted/20 border-transparent text-muted-foreground hover:bg-muted/30"
-                                                                    )}
-                                                                >
-                                                                    <item.icon className="w-4 h-4 shrink-0" />
-                                                                    <span className="text-xs font-bold uppercase tracking-wider">{item.label}</span>
-                                                                </motion.div>
-                                                            ))}
-                                                        </div>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-
-                                            <FormField
-                                                control={form.control}
-                                                name="images"
-                                                render={({ field }) => (
-                                                    <FormItem className="space-y-3 mt-4">
-                                                        <div className="flex items-center justify-between">
-                                                            <FormLabel className="text-sm font-semibold text-muted-foreground">Building Photo (Optional)</FormLabel>
-                                                            {field.value.length > 0 ? (
-                                                                <Button 
-                                                                    type="button" 
-                                                                    variant="ghost" 
-                                                                    size="sm" 
-                                                                    onClick={() => field.onChange([])}
-                                                                    className="text-sm font-bold uppercase text-destructive hover:bg-destructive/5"
-                                                                >
-                                                                    Remove
-                                                                </Button>
-                                                            ) : (
-                                                                <div className="text-sm font-bold uppercase text-primary/60">Optional</div>
-                                                            )}
-                                                        </div>
-                                                        <div 
-                                                            className={cn(
-                                                                "relative h-48 rounded-3xl border-2 border-dashed transition-all flex flex-col items-center justify-center overflow-hidden",
-                                                                field.value.length > 0 
-                                                                    ? "border-primary/20 bg-primary/5 shadow-inner" 
-                                                                    : "border-muted-foreground/20 bg-muted/20 hover:bg-muted/30 group"
-                                                            )}
-                                                        >
-                                                            {field.value.length > 0 ? (
-                                                                <>
-                                                                    <img src={field.value[0]} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                                                    <div className="relative z-10 flex flex-col items-center gap-2 bg-background/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/20 shadow-xl">
-                                                                        <CheckCircle2 className="w-5 h-5 text-primary" />
-                                                                        <span className="text-sm font-bold uppercase tracking-wider">Image Ready</span>
-                                                                    </div>
-                                                                </>
-                                                            ) : (
-                                                                <div className="flex flex-col items-center gap-4 text-muted-foreground">
-                                                                    <div className="w-16 h-16 rounded-2xl bg-background flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                                                        {uploadingImage ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <Camera className="w-8 h-8" />}
-                                                                    </div>
-                                                                    <div className="text-center">
-                                                                        <p className="text-sm font-bold text-foreground">Add Photo</p>
-                                                                        <p className="text-sm font-medium opacity-60 mt-1">Guests like to see the building.</p>
-                                                                    </div>
-                                                                    <Input 
-                                                                        type="file" 
-                                                                        accept="image/jpeg, image/png, image/webp, image/heic" 
-                                                                        className="absolute inset-0 opacity-0 cursor-pointer" 
-                                                                        onChange={async (e) => {
-                                                                            const file = e.target.files?.[0];
-                                                                            if (file) {
-                                                                                setUploadingImage(true);
-                                                                                const reader = new FileReader();
-                                                                                reader.onloadend = () => {
-                                                                                    field.onChange([reader.result as string]);
-                                                                                    setUploadingImage(false);
-                                                                                };
-                                                                                reader.readAsDataURL(file);
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </CardContent>
-                                    </Card>
-
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
                                 </motion.div>
                             )}
 
@@ -695,40 +725,77 @@ export default function CompleteProfilePage() {
                                 >
                                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start max-w-6xl mx-auto">
                                         <div className="lg:col-span-5 space-y-6">
-                                            <div className="space-y-2 mb-4 text-center md:text-left">
-                                                <h2 className="text-xl md:text-2xl font-bold tracking-tight">Floors & Rooms</h2>
+                                            <div className="space-y-2 text-center lg:text-left">
+                                                <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Floors & Rooms</h2>
+                                                <p className="text-muted-foreground text-sm font-semibold">
+                                                    Configure the building's floor and room capacity
+                                                </p>
                                             </div>
 
-                                            <div className="space-y-3">
-                                                <p className="text-sm font-semibold text-muted-foreground">Quick Setup</p>
-                                                <div className="flex flex-wrap gap-2">
-                                                    <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(1, 5, 3)} className="h-10 rounded-lg font-semibold text-sm gap-2 px-4 hover:bg-primary/5 hover:border-primary/20 transition-all">
-                                                        <Building className="w-4 h-4" /> Small PG
-                                                    </Button>
-                                                    <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(3, 6, 3)} className="h-10 rounded-lg font-semibold text-sm gap-2 px-4 hover:bg-primary/5 hover:border-primary/20 transition-all">
-                                                        <Layout className="w-4 h-4" /> Medium PG
-                                                    </Button>
-                                                    <Button type="button" variant="outline" size="sm" onClick={() => applyPreset(5, 10, 3)} className="h-10 rounded-lg font-semibold text-sm gap-2 px-4 hover:bg-primary/5 hover:border-primary/20 transition-all">
-                                                        <Home className="w-4 h-4" /> Large PG
-                                                    </Button>
+                                            <div className="bg-gradient-to-br from-secondary/15 to-[#201f1f]/40 backdrop-blur-[24px] border border-primary/10 rounded-[24px] p-6 space-y-6 shadow-2xl relative overflow-hidden">
+                                                <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+                                                
+                                                <div className="space-y-3">
+                                                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Quick Presets</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <Button 
+                                                            type="button" 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            onClick={() => applyPreset(1, 5, 3)} 
+                                                            className="h-10 rounded-[12px] bg-black/40 border border-primary/10 hover:border-primary/30 text-foreground font-semibold text-xs gap-2 px-4 transition-all duration-300"
+                                                        >
+                                                            <Building className="w-4 h-4 text-primary" /> Small PG
+                                                        </Button>
+                                                        <Button 
+                                                            type="button" 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            onClick={() => applyPreset(3, 6, 3)} 
+                                                            className="h-10 rounded-[12px] bg-black/40 border border-primary/10 hover:border-primary/30 text-foreground font-semibold text-xs gap-2 px-4 transition-all duration-300"
+                                                        >
+                                                            <Layout className="w-4 h-4 text-primary" /> Medium PG
+                                                        </Button>
+                                                        <Button 
+                                                            type="button" 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            onClick={() => applyPreset(5, 10, 3)} 
+                                                            className="h-10 rounded-[12px] bg-black/40 border border-primary/10 hover:border-primary/30 text-foreground font-semibold text-xs gap-2 px-4 transition-all duration-300"
+                                                        >
+                                                            <Home className="w-4 h-4 text-primary" /> Large PG
+                                                        </Button>
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            <div className="space-y-6">
-                                                <div className="space-y-5 p-5 md:p-6 rounded-2xl bg-card/50 backdrop-blur-md border border-primary/10 shadow-sm shadow-primary/5">
+                                                <div className="space-y-4">
                                                     <FormField
                                                         control={form.control}
                                                         name="floorCount"
                                                         render={({ field }) => (
-                                                            <FormItem className="flex items-center justify-between gap-4 p-3 bg-muted/10 rounded-xl border border-primary/5">
-                                                                <FormLabel className="text-sm font-semibold text-foreground m-0">Floors</FormLabel>
+                                                            <FormItem className="flex items-center justify-between gap-4 p-4 bg-black/40 rounded-[16px] border border-primary/5 hover:border-primary/10 transition-all duration-300">
+                                                                <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 flex items-center gap-2">
+                                                                    <Building2 className="w-4 h-4 text-primary" /> Floors
+                                                                </FormLabel>
                                                                 <FormControl>
                                                                     <div className="flex items-center gap-3">
-                                                                        <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 shadow-sm" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
+                                                                        <Button 
+                                                                            type="button" 
+                                                                            variant="outline" 
+                                                                            size="icon" 
+                                                                            className="h-9 w-9 rounded-[10px] shrink-0 border-primary/10 hover:border-primary/30 hover:bg-primary/5 hover:text-primary transition-all duration-200 shadow-sm" 
+                                                                            onClick={() => field.onChange(Math.max(1, field.value - 1))}
+                                                                        >
                                                                             <Minus className="w-4 h-4" />
                                                                         </Button>
-                                                                        <div className="w-8 text-center text-xl font-bold text-primary">{field.value}</div>
-                                                                        <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 shadow-sm" onClick={() => field.onChange(Math.min(10, field.value + 1))}>
+                                                                        <div className="w-10 text-center text-xl font-black text-primary">{field.value}</div>
+                                                                        <Button 
+                                                                            type="button" 
+                                                                            variant="outline" 
+                                                                            size="icon" 
+                                                                            className="h-9 w-9 rounded-[10px] shrink-0 border-primary/10 hover:border-primary/30 hover:bg-primary/5 hover:text-primary transition-all duration-200 shadow-sm" 
+                                                                            onClick={() => field.onChange(Math.min(10, field.value + 1))}
+                                                                        >
                                                                             <Plus className="w-4 h-4" />
                                                                         </Button>
                                                                     </div>
@@ -741,15 +808,29 @@ export default function CompleteProfilePage() {
                                                         control={form.control}
                                                         name="roomsPerFloor"
                                                         render={({ field }) => (
-                                                            <FormItem className="flex items-center justify-between gap-4 p-3 bg-muted/10 rounded-xl border border-primary/5">
-                                                                <FormLabel className="text-sm font-semibold text-foreground m-0">Rooms / Floor</FormLabel>
+                                                            <FormItem className="flex items-center justify-between gap-4 p-4 bg-black/40 rounded-[16px] border border-primary/5 hover:border-primary/10 transition-all duration-300">
+                                                                <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 flex items-center gap-2">
+                                                                    <Layout className="w-4 h-4 text-primary" /> Rooms / Floor
+                                                                </FormLabel>
                                                                 <FormControl>
                                                                     <div className="flex items-center gap-3">
-                                                                        <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 shadow-sm" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
+                                                                        <Button 
+                                                                            type="button" 
+                                                                            variant="outline" 
+                                                                            size="icon" 
+                                                                            className="h-9 w-9 rounded-[10px] shrink-0 border-primary/10 hover:border-primary/30 hover:bg-primary/5 hover:text-primary transition-all duration-200 shadow-sm" 
+                                                                            onClick={() => field.onChange(Math.max(1, field.value - 1))}
+                                                                        >
                                                                             <Minus className="w-4 h-4" />
                                                                         </Button>
-                                                                        <div className="w-8 text-center text-xl font-bold text-primary">{field.value}</div>
-                                                                        <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 shadow-sm" onClick={() => field.onChange(Math.min(20, field.value + 1))}>
+                                                                        <div className="w-10 text-center text-xl font-black text-primary">{field.value}</div>
+                                                                        <Button 
+                                                                            type="button" 
+                                                                            variant="outline" 
+                                                                            size="icon" 
+                                                                            className="h-9 w-9 rounded-[10px] shrink-0 border-primary/10 hover:border-primary/30 hover:bg-primary/5 hover:text-primary transition-all duration-200 shadow-sm" 
+                                                                            onClick={() => field.onChange(Math.min(20, field.value + 1))}
+                                                                        >
                                                                             <Plus className="w-4 h-4" />
                                                                         </Button>
                                                                     </div>
@@ -762,15 +843,29 @@ export default function CompleteProfilePage() {
                                                         control={form.control}
                                                         name="bedsPerRoom"
                                                         render={({ field }) => (
-                                                            <FormItem className="flex items-center justify-between gap-4 p-3 bg-muted/10 rounded-xl border border-primary/5">
-                                                                <FormLabel className="text-sm font-semibold text-foreground m-0">Beds / Room</FormLabel>
+                                                            <FormItem className="flex items-center justify-between gap-4 p-4 bg-black/40 rounded-[16px] border border-primary/5 hover:border-primary/10 transition-all duration-300">
+                                                                <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground m-0 flex items-center gap-2">
+                                                                    <Users className="w-4 h-4 text-primary" /> Beds / Room
+                                                                </FormLabel>
                                                                 <FormControl>
                                                                     <div className="flex items-center gap-3">
-                                                                        <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 shadow-sm" onClick={() => field.onChange(Math.max(1, field.value - 1))}>
+                                                                        <Button 
+                                                                            type="button" 
+                                                                            variant="outline" 
+                                                                            size="icon" 
+                                                                            className="h-9 w-9 rounded-[10px] shrink-0 border-primary/10 hover:border-primary/30 hover:bg-primary/5 hover:text-primary transition-all duration-200 shadow-sm" 
+                                                                            onClick={() => field.onChange(Math.max(1, field.value - 1))}
+                                                                        >
                                                                             <Minus className="w-4 h-4" />
                                                                         </Button>
-                                                                        <div className="w-8 text-center text-xl font-bold text-primary">{field.value}</div>
-                                                                        <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-md shrink-0 shadow-sm" onClick={() => field.onChange(Math.min(10, field.value + 1))}>
+                                                                        <div className="w-10 text-center text-xl font-black text-primary">{field.value}</div>
+                                                                        <Button 
+                                                                            type="button" 
+                                                                            variant="outline" 
+                                                                            size="icon" 
+                                                                            className="h-9 w-9 rounded-[10px] shrink-0 border-primary/10 hover:border-primary/30 hover:bg-primary/5 hover:text-primary transition-all duration-200 shadow-sm" 
+                                                                            onClick={() => field.onChange(Math.min(10, field.value + 1))}
+                                                                        >
                                                                             <Plus className="w-4 h-4" />
                                                                         </Button>
                                                                     </div>
@@ -783,9 +878,9 @@ export default function CompleteProfilePage() {
                                         </div>
 
                                         <div className="lg:col-span-7">
-                                            <div className="sticky top-24 space-y-8">
+                                            <div className="sticky top-24 space-y-6">
                                                 <motion.div 
-                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                    initial={{ opacity: 0, scale: 0.95 }}
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     transition={{ duration: 0.5 }}
                                                 >
@@ -796,14 +891,14 @@ export default function CompleteProfilePage() {
                                                     />
                                                 </motion.div>
                                                 
-                                                <div className="p-6 md:p-8 rounded-3xl bg-card/50 backdrop-blur-md border border-primary/10 flex gap-4 md:gap-6 shadow-xl shadow-primary/5">
-                                                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                                                        <Sparkles className="w-7 h-7 text-primary" />
+                                                <div className="p-6 rounded-[24px] bg-gradient-to-br from-secondary/15 to-[#201f1f]/40 backdrop-blur-[24px] border border-primary/10 flex gap-4 md:gap-6 shadow-2xl relative overflow-hidden">
+                                                    <div className="w-12 h-12 rounded-[16px] bg-primary/20 flex items-center justify-center shrink-0 border border-primary/15 shadow-[0_0_20px_rgba(230,30,67,0.15)]">
+                                                        <Sparkles className="w-6 h-6 text-primary animate-pulse" />
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <h4 className="text-base font-semibold text-foreground">Auto Setup</h4>
-                                                        <p className="text-sm text-muted-foreground leading-relaxed font-medium">
-                                                            We will create all rooms for you.
+                                                    <div className="space-y-1.5 text-left">
+                                                        <h4 className="text-base font-bold text-foreground">Auto-Generation Setup</h4>
+                                                        <p className="text-xs text-muted-foreground leading-relaxed font-semibold">
+                                                            RentSutra will automatically pre-generate all {currentValues.floorCount * currentValues.roomsPerFloor} room structures and their respective beds for your PG. You can custom-configure individual rooms later in your dashboard.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -816,59 +911,68 @@ export default function CompleteProfilePage() {
                             {/* STEP 4: UPI SETUP */}
                             {activeStep === 'PAYMENT_SETUP' && (
                                 <motion.div key="upi" {...stepVariants} className="w-full max-w-4xl mx-auto pb-24 px-4">
-                                    <div className="text-center md:text-left space-y-2 mb-4">
-                                        <h2 className="text-xl md:text-2xl font-bold">Rent Collection</h2>
+                                    <div className="text-center md:text-left space-y-2 mb-6">
+                                        <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Rent Collection</h2>
+                                        <p className="text-muted-foreground text-sm font-semibold">
+                                            Choose how your guests will pay their monthly rent
+                                        </p>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3 mb-6">
-                                        <Card 
+                                    <div className="grid grid-cols-2 gap-4 mb-8">
+                                        <button 
+                                            type="button"
                                             onClick={() => {
                                                 form.setValue('direct_upi_enabled', true, { shouldValidate: true, shouldDirty: true });
                                             }}
                                             className={cn(
-                                                "relative group cursor-pointer border transition-all duration-200 rounded-xl overflow-hidden text-center flex items-center justify-center h-28",
-                                                currentValues.direct_upi_enabled ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm" : "border-border hover:border-primary/50 bg-card hover:bg-muted/30"
+                                                "relative group cursor-pointer border transition-all duration-300 rounded-[24px] p-4 text-center flex flex-col items-center justify-center h-32 overflow-hidden bg-gradient-to-br backdrop-blur-[24px] select-none",
+                                                currentValues.direct_upi_enabled 
+                                                    ? "from-primary/20 to-secondary/10 border-primary shadow-[0_0_25px_rgba(230,30,67,0.2)]" 
+                                                    : "from-black/40 to-[#201f1f]/40 border-primary/5 hover:border-primary/20 text-muted-foreground"
                                             )}
                                         >
-                                            <CardContent className="p-3 flex flex-col items-center justify-center gap-2">
-                                                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                                    <Zap className="w-4 h-4 text-primary" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-sm font-bold">Online (UPI)</h3>
-                                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                                        Direct to bank
-                                                    </p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 to-transparent pointer-events-none opacity-50" />
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg transition-transform duration-300 group-hover:scale-105",
+                                                currentValues.direct_upi_enabled ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(230,30,67,0.3)]" : "bg-black/40 border border-white/5 text-muted-foreground"
+                                            )}>
+                                                <Zap className="w-5 h-5" />
+                                            </div>
+                                            <div className="mt-3">
+                                                <h3 className="text-sm font-bold text-foreground">Online (UPI)</h3>
+                                                <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">Direct to bank</p>
+                                            </div>
+                                        </button>
 
-                                        <Card 
+                                        <button 
+                                            type="button"
                                             onClick={() => {
                                                 form.setValue('direct_upi_enabled', false, { shouldValidate: true, shouldDirty: true });
                                                 form.setValue('upiId', '');
                                                 form.setValue('payeeName', '');
                                             }}
                                             className={cn(
-                                                "relative group cursor-pointer border transition-all duration-200 rounded-xl overflow-hidden text-center flex items-center justify-center h-28",
-                                                !currentValues.direct_upi_enabled ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm" : "border-border hover:border-primary/50 bg-card hover:bg-muted/30"
+                                                "relative group cursor-pointer border transition-all duration-300 rounded-[24px] p-4 text-center flex flex-col items-center justify-center h-32 overflow-hidden bg-gradient-to-br backdrop-blur-[24px] select-none",
+                                                !currentValues.direct_upi_enabled 
+                                                    ? "from-primary/20 to-secondary/10 border-primary shadow-[0_0_25px_rgba(230,30,67,0.2)]" 
+                                                    : "from-black/40 to-[#201f1f]/40 border-primary/5 hover:border-primary/20 text-muted-foreground"
                                             )}
                                         >
-                                            <CardContent className="p-3 flex flex-col items-center justify-center gap-2">
-                                                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                                                    <Users className="w-4 h-4 text-muted-foreground" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-sm font-bold">Cash Only</h3>
-                                                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                                                        Collect manually
-                                                    </p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-secondary/10 to-transparent pointer-events-none opacity-50" />
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-lg transition-transform duration-300 group-hover:scale-105",
+                                                !currentValues.direct_upi_enabled ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(230,30,67,0.3)]" : "bg-black/40 border border-white/5 text-muted-foreground"
+                                            )}>
+                                                <Users className="w-5 h-5" />
+                                            </div>
+                                            <div className="mt-3">
+                                                <h3 className="text-sm font-bold text-foreground">Cash Only</h3>
+                                                <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">Collect manually</p>
+                                            </div>
+                                        </button>
                                     </div>
 
-                                    <AnimatePresence>
+                                    <AnimatePresence mode="wait">
                                         {currentValues.direct_upi_enabled && (
                                             <motion.div 
                                                 initial={{ opacity: 0, y: 10 }}
@@ -878,28 +982,29 @@ export default function CompleteProfilePage() {
                                             >
                                                 <div className="lg:col-span-5 space-y-4">
                                                     <div className="space-y-4">
-                                                        <div className="space-y-4 p-4 md:p-6 rounded-2xl bg-card/50 backdrop-blur-md border border-primary/10 shadow-sm shadow-primary/5">
+                                                        <div className="space-y-4 p-6 rounded-[24px] bg-gradient-to-br from-secondary/15 to-[#201f1f]/40 backdrop-blur-[24px] border border-primary/10 shadow-2xl relative overflow-hidden">
+                                                            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
                                                             <FormField
                                                                 control={form.control}
                                                                 name="upiId"
                                                                 render={({ field }) => (
-                                                                    <FormItem className="space-y-1.5">
-                                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
-                                                                            <FormLabel className="text-sm font-semibold text-muted-foreground">
-                                                                                Your UPI ID
+                                                                    <FormItem className="space-y-2 text-left">
+                                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                                                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                                                <Zap className="w-4 h-4 text-primary" /> Your UPI ID
                                                                             </FormLabel>
                                                                             {currentValues.ownerPhone && (
                                                                                 <button 
                                                                                     type="button"
                                                                                     onClick={() => field.onChange(`${currentValues.ownerPhone}@ybl`)}
-                                                                                    className="text-xs font-semibold text-primary hover:underline"
+                                                                                    className="text-xs font-bold uppercase tracking-wider text-primary hover:underline"
                                                                                 >
                                                                                     Use My Phone Number
                                                                                 </button>
                                                                             )}
                                                                         </div>
                                                                         <FormControl>
-                                                                            <div className="relative group">
+                                                                            <div className="relative">
                                                                                 <Input 
                                                                                     {...field} 
                                                                                     type="email"
@@ -907,11 +1012,11 @@ export default function CompleteProfilePage() {
                                                                                     autoCapitalize="none"
                                                                                     autoCorrect="off"
                                                                                     placeholder="9876543210@ybl" 
-                                                                                    className="h-12 pl-4 rounded-xl bg-background border-primary/10 group-focus-within:border-primary/30 group-focus-within:ring-primary/20 transition-all font-semibold text-base"
+                                                                                    className="h-12 px-4 text-base font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all placeholder:text-muted-foreground/30 text-foreground"
                                                                                 />
                                                                             </div>
                                                                         </FormControl>
-                                                                        <FormMessage className="text-xs font-bold uppercase tracking-wider" />
+                                                                        <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
                                                                     </FormItem>
                                                                 )}
                                                             />
@@ -920,19 +1025,21 @@ export default function CompleteProfilePage() {
                                                                 control={form.control}
                                                                 name="payeeName"
                                                                 render={({ field }) => (
-                                                                    <FormItem className="space-y-1.5">
-                                                                        <FormLabel className="text-sm font-semibold text-muted-foreground">Account Holder Name</FormLabel>
+                                                                    <FormItem className="space-y-2 text-left">
+                                                                        <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                                            <UserCircle className="w-4 h-4 text-primary" /> Account Holder Name
+                                                                        </FormLabel>
                                                                         <FormControl>
-                                                                            <div className="relative group">
+                                                                            <div className="relative">
                                                                                 <Input 
                                                                                     {...field} 
                                                                                     autoCapitalize="words"
                                                                                     placeholder="Account Holder Name" 
-                                                                                    className="h-12 pl-4 rounded-xl bg-background border-primary/10 group-focus-within:border-primary/30 group-focus-within:ring-primary/20 transition-all font-semibold text-base"
+                                                                                    className="h-12 px-4 text-base font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all placeholder:text-muted-foreground/30 text-foreground"
                                                                                 />
                                                                             </div>
                                                                         </FormControl>
-                                                                        <FormMessage className="text-xs font-bold uppercase tracking-wider" />
+                                                                        <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
                                                                     </FormItem>
                                                                 )}
                                                             />
@@ -941,25 +1048,29 @@ export default function CompleteProfilePage() {
                                                 </div>
 
                                                 <div className="lg:col-span-7">
-                                                    <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/10 relative overflow-hidden group">
-                                                        <div className="relative space-y-8">
-                                                            <div className="w-16 h-16 rounded-2xl bg-background shadow-xl flex items-center justify-center border border-primary/5">
-                                                                <Zap className="w-8 h-8 text-primary" />
+                                                    <div className="p-6 md:p-8 rounded-[24px] bg-gradient-to-br from-secondary/15 to-[#201f1f]/40 backdrop-blur-[24px] border border-primary/10 relative overflow-hidden group shadow-2xl">
+                                                        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+                                                        <div className="relative space-y-6 text-left">
+                                                            <div className="w-12 h-12 rounded-[16px] bg-primary/20 flex items-center justify-center border border-primary/15 shadow-[0_0_20px_rgba(230,30,67,0.15)]">
+                                                                <Zap className="w-6 h-6 text-primary animate-pulse" />
                                                             </div>
                                                             
                                                             <div className="space-y-4">
-                                                                <h4 className="text-2xl font-bold tracking-tight">Why Online?</h4>
-                                                                <div className="space-y-4">
+                                                                <h4 className="text-base font-bold text-foreground">Why Online Rent Collection?</h4>
+                                                                <div className="space-y-3">
                                                                     {[
-                                                                        "Money direct in bank",
-                                                                        "Auto-marked as paid",
-                                                                        "Very easy and safe",
+                                                                        { text: "Money direct in bank", desc: "Payments bypass third parties and go straight to your account." },
+                                                                        { text: "Auto-marked as paid", desc: "Our system automatically tracks and updates payment ledgers." },
+                                                                        { text: "Very easy and safe", desc: "No manual cash matching required, reducing errors by 99%." },
                                                                     ].map((perk, i) => (
-                                                                        <div key={i} className="flex items-center gap-3">
-                                                                            <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
-                                                                                <Check className="w-3 h-3 text-emerald-600" />
+                                                                        <div key={i} className="flex gap-3">
+                                                                            <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 shrink-0 mt-0.5">
+                                                                                <Check className="w-3 h-3 text-emerald-400" />
                                                                             </div>
-                                                                            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">{perk}</p>
+                                                                            <div>
+                                                                                <p className="text-xs font-bold text-foreground uppercase tracking-widest">{perk.text}</p>
+                                                                                <p className="text-xs text-muted-foreground mt-0.5 font-medium leading-relaxed">{perk.desc}</p>
+                                                                            </div>
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -975,49 +1086,52 @@ export default function CompleteProfilePage() {
 
                             {/* STEP 5: REVIEW & LAUNCH */}
                             {activeStep === 'FINAL_CHECK' && (
-                                <motion.div key="review" {...stepVariants} className="w-full max-w-4xl mx-auto pb-40">
+                                <motion.div key="review" {...stepVariants} className="w-full max-w-4xl mx-auto pb-40 px-4">
                                     <div className="text-center space-y-2 mb-6">
-                                        <h2 className="text-xl md:text-4xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/50">
+                                        <h2 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/70">
                                             Ready to Launch!
                                         </h2>
+                                        <p className="text-muted-foreground text-sm font-semibold">
+                                            Review your details before completing setup
+                                        </p>
                                     </div>
 
                                     <div className="grid gap-8">
                                         {/* Main Config Sheet */}
-                                        <Card className="border-none shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] rounded-3xl bg-card/50 backdrop-blur-3xl overflow-hidden border border-primary/5">
+                                        <div className="rounded-[32px] bg-gradient-to-br from-secondary/15 to-[#201f1f]/40 backdrop-blur-[24px] border border-primary/10 overflow-hidden shadow-2xl relative">
                                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
-                                            <CardContent className="p-5 md:p-10 space-y-8 md:space-y-10">
+                                            <div className="p-6 md:p-10 space-y-8 md:space-y-10">
                                                 {/* Header Info */}
-                                                <div className="grid md:grid-cols-2 gap-8 md:gap-12 border-b border-primary/5 pb-8 md:pb-12">
-                                                    <div className="space-y-4 md:space-y-6">
+                                                <div className="grid md:grid-cols-2 gap-8 md:gap-12 border-b border-primary/10 pb-8 md:pb-12">
+                                                    <div className="space-y-4 md:space-y-6 text-left">
                                                         <div className="space-y-2">
-                                                            <p className="text-sm font-bold text-primary uppercase tracking-widest">PG Info</p>
-                                                            <h3 className="text-3xl md:text-4xl font-bold tracking-tight">{currentValues.name}</h3>
-                                                            <div className="flex items-center gap-2 text-muted-foreground font-bold text-sm">
-                                                                <MapPin className="w-3.5 h-3.5" />
+                                                            <p className="text-xs font-bold text-primary uppercase tracking-widest">PG Info</p>
+                                                            <h3 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">{currentValues.name}</h3>
+                                                            <div className="flex items-center gap-2 text-muted-foreground font-semibold text-xs">
+                                                                <MapPin className="w-3.5 h-3.5 text-primary" />
                                                                 <span>{currentValues.location}, {currentValues.city}</span>
                                                             </div>
                                                         </div>
                                                         <div className="flex flex-wrap gap-2">
-                                                            <div className="px-3 py-1 rounded-lg bg-muted/50 text-sm font-semibold border border-primary/5">
+                                                            <div className="px-3 py-1 rounded-[10px] bg-[#1c1b1b] text-muted-foreground text-xs font-bold uppercase tracking-wider border border-primary/5">
                                                                 {currentValues.gender}
                                                             </div>
-                                                            <div className="px-3 py-1 rounded-lg bg-primary/10 text-primary text-sm font-semibold border border-primary/10">
+                                                            <div className="px-3 py-1 rounded-[10px] bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/10 shadow-[0_0_15px_rgba(230,30,67,0.1)]">
                                                                 Ready
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="space-y-6 md:border-l md:border-primary/5 md:pl-12">
-                                                        <p className="text-sm font-bold text-primary uppercase tracking-widest">Step 01 / 04</p>
-                                                        <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-primary/5">
-                                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10">
-                                                                <UserCircle className="w-8 h-8 text-primary" />
+                                                    <div className="space-y-4 md:border-l md:border-primary/10 md:pl-12 text-left flex flex-col justify-center">
+                                                        <p className="text-xs font-bold text-primary uppercase tracking-widest">PG OWNER</p>
+                                                        <div className="flex items-center gap-4 p-4 rounded-[20px] bg-black/40 border border-primary/10">
+                                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10 shrink-0">
+                                                                <UserCircle className="w-7 h-7 text-primary" />
                                                             </div>
                                                             <div>
-                                                                <p className="text-lg font-bold leading-none mb-1">{currentValues.ownerName}</p>
-                                                                <div className="flex items-center gap-2 text-muted-foreground font-bold text-sm">
-                                                                    <Phone className="w-3 h-3" />
+                                                                <p className="text-base font-bold text-foreground leading-none mb-1.5">{currentValues.ownerName}</p>
+                                                                <div className="flex items-center gap-2 text-muted-foreground font-semibold text-xs">
+                                                                    <Phone className="w-3 h-3 text-primary" />
                                                                     <span>+91 {currentValues.ownerPhone}</span>
                                                                 </div>
                                                             </div>
@@ -1026,70 +1140,75 @@ export default function CompleteProfilePage() {
                                                 </div>
 
                                                 {/* Infrastructure Stats */}
-                                                <div className="space-y-4 md:space-y-6">
-                                                    <p className="text-sm font-bold text-primary uppercase tracking-widest">Quick View</p>
+                                                <div className="space-y-4 md:space-y-6 text-left">
+                                                    <p className="text-xs font-bold text-primary uppercase tracking-widest">Quick View</p>
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                                                         {[
                                                             { label: 'Floors', value: currentValues.floorCount, icon: Building2 },
                                                             { label: 'Rooms', value: currentValues.roomsPerFloor, icon: Home },
                                                             { label: 'Beds', value: currentValues.bedsPerRoom, icon: Bed },
-                                                            { label: 'Total', value: Number(currentValues.floorCount) * Number(currentValues.roomsPerFloor) * Number(currentValues.bedsPerRoom), icon: Users, highlight: true }
+                                                            { label: 'Total Beds', value: Number(currentValues.floorCount) * Number(currentValues.roomsPerFloor) * Number(currentValues.bedsPerRoom), icon: Users, highlight: true }
                                                         ].map((stat, i) => (
                                                             <div key={i} className={cn(
-                                                                "p-4 md:p-6 rounded-2xl border transition-all group",
-                                                                stat.highlight ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" : "bg-muted/30 border-primary/5 hover:border-primary/20"
+                                                                "p-4 md:p-6 rounded-[20px] border transition-all duration-300 group flex flex-col justify-between h-28 sm:h-32",
+                                                                stat.highlight 
+                                                                    ? "bg-gradient-to-br from-[#e61e43] to-[#5b3f44] text-white border-primary shadow-[0_0_20px_rgba(230,30,67,0.3)]" 
+                                                                    : "bg-black/40 border-primary/10 hover:border-primary/20 text-foreground"
                                                             )}>
-                                                                <stat.icon className={cn("w-4 h-4 mb-3 opacity-50", stat.highlight && "opacity-100")} />
-                                                                <p className="text-2xl md:text-4xl font-bold tracking-tight mb-0.5">{stat.value}</p>
-                                                                <p className={cn("text-sm font-semibold opacity-60", stat.highlight && "opacity-80")}>{stat.label}</p>
+                                                                <stat.icon className={cn("w-5 h-5 shrink-0 opacity-60", stat.highlight && "opacity-100")} />
+                                                                <div>
+                                                                    <p className="text-xl md:text-3xl font-black tracking-tight leading-none mb-1">{stat.value}</p>
+                                                                    <p className={cn("text-[10px] font-bold uppercase tracking-wider opacity-60 leading-none", stat.highlight && "opacity-80")}>{stat.label}</p>
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
 
                                                 {/* Payment Config */}
-                                                <div className="space-y-6 pt-6 border-t border-primary/5">
-                                                    <p className="text-sm font-bold text-primary uppercase tracking-widest">Rent Settings</p>
-                                                    <div className="p-5 rounded-2xl bg-muted/30 border border-primary/5 flex items-center justify-between">
+                                                <div className="space-y-4 pt-6 border-t border-primary/10 text-left">
+                                                    <p className="text-xs font-bold text-primary uppercase tracking-widest">Rent Settings</p>
+                                                    <div className="p-4 rounded-[20px] bg-black/40 border border-primary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/10">
+                                                            <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center border border-primary/15 shrink-0">
                                                                 <Zap className="w-6 h-6 text-primary" />
                                                             </div>
                                                             <div>
-                                                                <p className="text-sm font-bold uppercase tracking-wider">{currentValues.payeeName || 'Cash Only'}</p>
-                                                                <p className="text-xs text-muted-foreground font-medium">{currentValues.upiId || 'No UPI ID provided'}</p>
+                                                                <p className="text-sm font-bold uppercase tracking-wider text-foreground">{currentValues.payeeName || 'Cash Only'}</p>
+                                                                <p className="text-xs text-muted-foreground font-semibold mt-0.5">{currentValues.upiId || 'No UPI ID provided'}</p>
                                                             </div>
                                                         </div>
                                                         <div className={cn(
-                                                            "px-4 py-1.5 rounded-xl text-sm font-semibold border",
+                                                            "px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider border self-start sm:self-auto",
                                                             currentValues.upiId 
-                                                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" 
-                                                                : "bg-orange-500/10 text-orange-600 border-orange-500/20"
+                                                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                                                                : "bg-orange-500/10 text-orange-400 border-orange-500/20"
                                                         )}>
                                                             {currentValues.upiId ? "Direct to Bank" : "Cash Only"}
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
 
                                         {/* Action Card */}
-                                        <div className="p-6 md:p-10 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden group">
-                                            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-700" />
-                                            <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
-                                                <div className="space-y-4 text-center md:text-left">
-                                                    <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mx-auto md:mx-0">
-                                                        <Trophy className="w-8 h-8 text-white" />
+                                        <div className="p-6 md:p-8 rounded-[28px] bg-gradient-to-br from-[#e61e43]/20 to-[#5b3f44]/25 backdrop-blur-[24px] border border-primary/20 text-white shadow-xl shadow-primary/5 relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+                                            <div className="relative flex flex-col sm:flex-row items-center justify-between gap-6">
+                                                <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                                                    <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(230,30,67,0.3)] shrink-0">
+                                                        <Trophy className="w-7 h-7 text-white" />
                                                     </div>
                                                     <div>
-                                                        <h4 className="text-2xl font-bold tracking-tight">Ready to Go!</h4>
+                                                        <h4 className="text-xl font-bold text-foreground">You are all set!</h4>
+                                                        <p className="text-xs text-muted-foreground mt-0.5 font-medium leading-relaxed font-semibold">Click finish below to launch your digital PG setup.</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="mt-12 text-center text-muted-foreground/30 font-bold text-base font-medium tracking-widest pb-12">
+                                    <div className="mt-12 text-center text-muted-foreground/30 font-bold text-xs uppercase tracking-widest pb-12">
                                         Simple PG App • RentSutra
                                     </div>
                                 </motion.div>
