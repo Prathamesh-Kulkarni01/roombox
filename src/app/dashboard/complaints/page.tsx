@@ -97,14 +97,18 @@ const ComplaintsView = ({ onRaiseComplaintClick }: { onRaiseComplaintClick: () =
     return (
         <Card>
             <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                    <CardTitle>Open Complaints</CardTitle>
-                    <CardDescription>
+                <div className="flex flex-col gap-1">
+                    <CardTitle className="text-xl md:text-2xl">Open Complaints</CardTitle>
+                    <CardDescription className="hidden md:block">
                         Showing complaints {selectedPgId ? `for ${pgs.find(p => p.id === selectedPgId)?.name}` : 'for all properties'}.
                     </CardDescription>
                 </div>
                 <Access feature="complaints" action="add">
-                    <Button onClick={onRaiseComplaintClick}><PlusCircle className="mr-2 h-4 w-4" />Raise Complaint</Button>
+                    <Button size="sm" onClick={onRaiseComplaintClick}>
+                        <PlusCircle className="md:mr-2 h-4 w-4" />
+                        <span className="hidden md:inline">Raise Complaint</span>
+                        <span className="md:hidden">Raise</span>
+                    </Button>
                 </Access>
             </CardHeader>
             <CardContent>
@@ -367,16 +371,18 @@ const NoticeBoardView = () => {
             <Dialog open={isNoticeDialogOpen} onOpenChange={setIsNoticeDialogOpen}>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Notice Board</CardTitle>
-                        <CardDescription>
+                        <CardTitle className="text-xl md:text-2xl">Notice Board</CardTitle>
+                        <CardDescription className="hidden md:block">
                             Send announcements and important information to all active guests.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="text-center">
                         <Access feature="complaints" action="add">
                             <DialogTrigger asChild>
-                                <Button>
-                                    <Send className="mr-2 h-4 w-4" /> Create a New Notice
+                                <Button size="sm">
+                                    <Send className="md:mr-2 h-4 w-4" />
+                                    <span className="hidden md:inline">Create a New Notice</span>
+                                    <span className="md:hidden">New Notice</span>
                                 </Button>
                             </DialogTrigger>
                         </Access>
@@ -409,8 +415,8 @@ const NoticeBoardView = () => {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Notice History</CardTitle>
-                    <CardDescription>View previously sent announcements.</CardDescription>
+                    <CardTitle className="text-xl md:text-2xl">Notice History</CardTitle>
+                    <CardDescription className="hidden md:block">View previously sent announcements.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {isNoticesLoading ? (

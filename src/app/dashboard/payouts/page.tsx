@@ -237,9 +237,9 @@ export default function PaymentsBillingPage() {
             
             {/* Unified Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4 md:px-0 border-b pb-8">
-                <div className="space-y-1">
-                    <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">Payouts & Settlement</h1>
-                    <p className="text-muted-foreground text-base md:text-lg font-medium max-w-2xl">Manage your payout methods and settlement history.</p>
+                <div className="space-y-0.5">
+                    <h1 className="text-xl md:text-4xl font-black tracking-tight text-foreground">Payouts & Settlement</h1>
+                    <p className="text-muted-foreground text-[10px] md:text-lg font-medium max-w-2xl">Manage your payout methods and settlement history.</p>
                 </div>
                 <div className="hidden md:flex flex-col items-end">
                     <div className="group relative inline-flex items-center gap-3 px-6 py-3 rounded-2xl bg-emerald-500/5 text-emerald-700 border border-emerald-200/50 shadow-sm transition-all hover:bg-emerald-500/10 hover:border-emerald-500/30">
@@ -256,26 +256,26 @@ export default function PaymentsBillingPage() {
 
             {/* Active Mode Indicator */}
             <div className="px-4 md:px-0">
-                <Card className="bg-gradient-to-br from-indigo-600 via-blue-600 to-blue-700 border-none shadow-2xl rounded-[2.5rem] overflow-hidden group relative">
+                <Card className="bg-gradient-to-br from-indigo-600 via-blue-600 to-blue-700 border-none shadow-2xl rounded-3xl md:rounded-[2.5rem] overflow-hidden group relative">
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none"></div>
-                    <CardContent className="p-6 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 text-white relative z-10">
-                        <div className="flex items-center gap-5 md:gap-8">
-                            <div className="p-5 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                    <CardContent className="p-4 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 text-white relative z-10">
+                        <div className="flex items-center gap-4 md:gap-8 w-full md:w-auto">
+                            <div className="p-3 md:p-5 rounded-2xl md:rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-inner group-hover:scale-110 transition-transform duration-500">
                                 {currentUser?.subscription?.payoutMode === 'ROUTE' || currentUser?.subscription?.payoutMode === 'PAYOUT' ? (
-                                    <Zap className="w-8 h-8 md:w-10 md:h-10 text-yellow-300 fill-yellow-300/20" />
+                                    <Zap className="w-6 h-6 md:w-10 md:h-10 text-yellow-300 fill-yellow-300/20" />
                                 ) : (
-                                    <Banknote className="w-8 h-8 md:w-10 md:h-10 text-emerald-300 fill-emerald-300/20" />
+                                    <Banknote className="w-6 h-6 md:w-10 md:h-10 text-emerald-300 fill-emerald-300/20" />
                                 )}
                             </div>
-                            <div className="space-y-1">
-                                <p className="text-blue-100/70 text-[0.65rem] font-black uppercase tracking-[0.2em]">Current Active Mode</p>
+                            <div className="space-y-0.5">
+                                <p className="text-blue-100/70 text-[0.6rem] md:text-[0.65rem] font-black uppercase tracking-[0.2em]">Current Active Mode</p>
                                 <div className="flex items-center gap-3">
-                                    <h2 className="text-2xl md:text-4xl font-black tracking-tight">
+                                    <h2 className="text-lg md:text-4xl font-black tracking-tight">
                                         {activeTab === 'online' ? 'Online Setup' : 'Offline Setup'}
                                     </h2>
-                                    <div className="inline-flex items-center px-3 py-1 bg-white/20 backdrop-blur-md rounded-full border border-white/30">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse mr-2"></span>
-                                        <span className="text-[0.6rem] font-black uppercase tracking-widest leading-none">Active</span>
+                                    <div className="inline-flex items-center px-2 py-0.5 md:px-3 md:py-1 bg-white/20 backdrop-blur-md rounded-full border border-white/30">
+                                        <span className="w-1 md:w-1.5 h-1 md:h-1.5 rounded-full bg-green-400 animate-pulse mr-1.5 md:mr-2"></span>
+                                        <span className="text-[0.5rem] md:text-[0.6rem] font-black uppercase tracking-widest leading-none">Active</span>
                                     </div>
                                 </div>
                             </div>

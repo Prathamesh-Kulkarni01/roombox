@@ -3,18 +3,18 @@ const translations = {
     hero_badge: "The OS for Modern Rental Properties",
     hero_title_1: "Standardize Your PG,",
     hero_title_2: "Automate Your Growth.",
-    hero_subtitle: "RentSutra is the all-in-one platform to run your entire PG, hostel, or co-living business. Replace your spreadsheets and WhatsApp chats with a single, intelligent system.",
+    hero_subtitle: "RentSutra is the all-in-one platform to run your entire PG, hostel, or co-living business. Replace spreadsheets with a single, intelligent system.",
     hero_cta: "Get Started for Free",
     hero_check_1: "No credit card required",
     hero_check_2: "90-day free trial with all features",
     hero_check_3: "App size less than 1MB",
 
     all_features_title: "One App to Rule Them All",
-    all_features_subtitle: "From guest check-in to financial reconciliation, RentSutra has every feature you'll ever need to run a successful rental business.",
+    all_features_subtitle: "From guest check-in to financial tracking, RentSutra has everything you need to run a successful rental business.",
 
     supercharge_title_1: "Supercharge Your Business with",
     supercharge_title_2: "Automation",
-    supercharge_subtitle: "Go beyond basic management. Unlock powerful tools to grow your brand and automate your entire workflow.",
+    supercharge_subtitle: "Unlock powerful tools to grow your brand and automate your entire workflow.",
 
     why_title: "Stop Juggling, Start Managing",
     why_subtitle: "Tired of the chaos? See how RentSutra transforms your daily operations.",
@@ -140,7 +140,7 @@ const translations = {
     // Supercharge Sections
     supercharge_whatsapp_badge: "WhatsApp Automation",
     supercharge_whatsapp_title: "Never Chase a Payment Again",
-    supercharge_whatsapp_desc: "Automatically send polite, personalized rent reminders to your tenants via WhatsApp. Each reminder includes a secure payment link, making it effortless for them to pay and for you to get paid on time.",
+    supercharge_whatsapp_desc: "Automatically send personalized rent reminders via WhatsApp with secure payment links.",
     supercharge_whatsapp_flow_due: "Due Date",
     supercharge_whatsapp_flow_reminder: "Auto-Reminder",
     supercharge_whatsapp_flow_pay: "Tenant Pays",
@@ -148,7 +148,7 @@ const translations = {
 
     supercharge_website_badge: "Website & CRM",
     supercharge_website_title: "Build Your Brand, Capture Leads",
-    supercharge_website_desc: "Get a stunning, professional website for your properties without any coding. Our simple editor lets you showcase your PGs, and the built-in CRM helps you track and convert every potential lead that comes from your site.",
+    supercharge_website_desc: "Get a professional website for your properties without any coding. Showcase your rooms and capture leads automatically.",
     supercharge_website_editor: "Site Editor",
     supercharge_website_lead_manager: "Lead Manager",
     supercharge_website_hero: "Hero Image",
@@ -158,7 +158,7 @@ const translations = {
 
     supercharge_payouts_badge: "Automated Payouts",
     supercharge_payouts_title: "Get Paid Instantly, Automatically",
-    supercharge_payouts_desc: "Become a verified business partner and connect your bank account. All online rent payments are automatically settled to your account instantly after a small platform fee deduction. No more manual transfers.",
+    supercharge_payouts_desc: "Receive rent payments directly to your bank account with automated settlement and no manual transfers.",
     supercharge_payouts_flow_pay: "Tenant Pays Rent Online",
     supercharge_payouts_flow_gateway: "Razorpay Secure Gateway",
     supercharge_payouts_flow_fee: "Platform Fee Deducted",
@@ -166,7 +166,7 @@ const translations = {
 
     supercharge_enterprise_badge: "Enterprise Data Privacy",
     supercharge_enterprise_title: "Your Data, Your Cloud. Complete Privacy.",
-    supercharge_enterprise_desc: "For businesses that demand the highest level of security, our Enterprise plan lets you run RentSutra on your own private Firebase project. Your data never leaves your cloud, giving you unparalleled control and peace of mind.",
+    supercharge_enterprise_desc: "Run RentSutra on your own private Firebase project for complete data control and security.",
     supercharge_enterprise_learn_more: "Learn More about Enterprise",
     supercharge_enterprise_other_pgs: "Other PGs",
     supercharge_enterprise_private_cloud: "Your Private Cloud",

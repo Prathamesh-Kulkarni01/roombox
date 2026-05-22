@@ -311,8 +311,8 @@ export default function PgManagementPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold flex items-center gap-2">
-        <Building /> PG Management
+      <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2">
+        <Building className="w-5 h-5 md:w-8 md:h-8" /> PG Management
       </h1>
       <Tabs defaultValue="properties" className="w-full">
         <TabsList
@@ -344,10 +344,10 @@ export default function PgManagementPage() {
               </Access>
             )}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
+              <CardHeader className="flex flex-row items-center justify-between px-4 sm:px-6 py-4">
                 <div>
-                  <CardTitle>Your Properties</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-lg md:text-xl">Your Properties</CardTitle>
+                  <CardDescription className="hidden md:block">
                     You have {pgs.length} properties.
                   </CardDescription>
                 </div>
@@ -362,9 +362,10 @@ export default function PgManagementPage() {
                             limitKey="pgs"
                             currentCount={pgs.length}
                           >
-                            <Button onClick={handleAddPgClick}>
-                              <PlusCircle className="mr-2 h-4 w-4" /> Add New
-                              Property
+                            <Button onClick={handleAddPgClick} size="sm" className="h-9 px-3 sm:px-4">
+                              <PlusCircle className="sm:mr-2 h-4 w-4" /> 
+                              <span className="hidden sm:inline">Add New Property</span>
+                              <span className="sm:hidden">Add</span>
                             </Button>
                           </Access>
                         </div>
@@ -617,7 +618,7 @@ export default function PgManagementPage() {
               <CardTitle className="flex items-center gap-2">
                 <Zap className="w-5 h-5" /> Billing Templates
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="hidden md:block">
                 Configure predefined charge types like electricity, water, etc.,
                 to automate bill splitting.
               </CardDescription>
@@ -691,7 +692,7 @@ export default function PgManagementPage() {
             <DialogTitle>
               {templateToEdit ? "Edit Template" : "Add New Template"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="hidden md:block">
               Templates help you quickly add common charges to guests.
             </DialogDescription>
           </DialogHeader>

@@ -42,16 +42,16 @@ export function PendingDuesCard({
 }) {
   return (
     <Access feature="finances" action="view">
-      <div className="bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20 border shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+      <div className="bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20 border shadow-sm rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-red-500/20 text-red-600 dark:text-red-400 rounded-full shrink-0">
-            <Clock className="w-5 h-5" />
+          <div className="p-1.5 bg-red-500/20 text-red-600 dark:text-red-400 rounded-full shrink-0">
+            <Clock className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-xs font-bold text-red-600/80 dark:text-red-400/80 uppercase tracking-wider mb-0.5">
+            <p className="text-[10px] font-bold text-red-600/80 dark:text-red-400/80 uppercase tracking-wider mb-0">
               Pending Dues
             </p>
-            <h3 className="text-2xl font-black text-red-600 dark:text-red-400">
+            <h3 className="text-lg sm:text-2xl font-black text-red-600 dark:text-red-400">
               {amount > 0 ? `₹${amount.toLocaleString("en-IN")}` : ""}
               {amount > 0 && symbolicBalance ? " + " : ""}
               {symbolicBalance || (amount === 0 ? "₹0" : "")}
@@ -61,7 +61,8 @@ export function PendingDuesCard({
         <Button
           variant="outline"
           onClick={onSendReminders}
-          className="border-red-600/20 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 font-bold tracking-tight rounded-xl"
+          size="sm"
+          className="w-full sm:w-auto border-red-600/20 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 font-bold tracking-tight rounded-xl text-[10px] h-8"
         >
           SEND ALERTS
         </Button>
@@ -123,32 +124,32 @@ export default function StatsCards({ stats }: StatsCardsProps) {
         {/* Occupancy Card */}
         <Access feature="properties" action="view">
           <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-              <div className="p-2 bg-primary/10 text-primary rounded-xl">
-                <BedDouble className="w-5 h-5" />
+            <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2 flex flex-row items-center justify-between">
+              <div className="p-1.5 bg-primary/10 text-primary rounded-xl">
+                <BedDouble className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               {stats.occupancy.newThisMonth > 0 && (
                 <Badge
                   variant="secondary"
-                  className="text-primary bg-primary/10 border-none font-bold text-xs"
+                  className="text-primary bg-primary/10 border-none font-bold text-[9px] sm:text-xs px-1.5"
                 >{`+${stats.occupancy.newThisMonth} New`}</Badge>
               )}
             </CardHeader>
-            <CardContent className="p-4 pt-1 space-y-3">
+            <CardContent className="p-3 sm:p-4 pt-0 sm:pt-1 space-y-2 sm:space-y-3">
               <div>
                 <div className="flex items-baseline gap-1">
-                  <h2 className="text-3xl font-extrabold">
+                  <h2 className="text-xl sm:text-3xl font-extrabold">
                     {stats.occupancy.occupied}
                   </h2>
-                  <span className="text-muted-foreground font-semibold">
+                  <span className="text-[10px] sm:text-base text-muted-foreground font-semibold">
                     / {stats.occupancy.total}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-muted-foreground mt-1">
+                <p className="text-[10px] sm:text-sm font-medium text-muted-foreground">
                   Occupancy ({occPercentage}%)
                 </p>
               </div>
-              <Progress value={occPercentage} className="h-1.5 bg-primary/10" />
+              <Progress value={occPercentage} className="h-1 bg-primary/10" />
             </CardContent>
           </Card>
         </Access>
@@ -156,24 +157,24 @@ export default function StatsCards({ stats }: StatsCardsProps) {
         {/* Complaints Card */}
         <Access feature="complaints" action="view">
           <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
-              <div className="p-2 bg-orange-500/10 text-orange-500 rounded-xl">
-                <ShieldAlert className="w-5 h-5" />
+            <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2 flex flex-row items-center justify-between">
+              <div className="p-1.5 bg-orange-500/10 text-orange-500 rounded-xl">
+                <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               {stats.complaints.active > 0 && (
                 <Badge
                   variant="outline"
-                  className="text-orange-500 border-orange-500/30 font-bold text-xs"
+                  className="text-orange-500 border-orange-500/30 font-bold text-[9px] sm:text-xs px-1.5"
                 >
                   {stats.complaints.severity}
                 </Badge>
               )}
             </CardHeader>
-            <CardContent className="p-4 pt-1">
-              <h2 className="text-3xl font-extrabold">
+            <CardContent className="p-3 sm:p-4 pt-0 sm:pt-1">
+              <h2 className="text-xl sm:text-3xl font-extrabold">
                 {stats.complaints.active.toString().padStart(2, "0")}
               </h2>
-              <p className="text-sm font-medium text-muted-foreground mt-1">
+              <p className="text-[10px] sm:text-sm font-medium text-muted-foreground">
                 Active Complaints
               </p>
             </CardContent>
@@ -184,17 +185,17 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       {/* Middle Row: Revenue (Merged) */}
       <Access feature="finances" action="view">
         <Card className="glass shadow-native transition-all duration-300 hover:shadow-native-lg border-border/40 overflow-hidden relative group bg-gradient-to-br from-background to-emerald-50/20 dark:to-emerald-500/5">
-          <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+          <CardHeader className="p-3 sm:p-4 pb-1 sm:pb-2 flex flex-row items-center justify-between">
             <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-8 h-8 bg-emerald-500/10 text-emerald-600 rounded-lg flex items-center justify-center">
-                  <IndianRupee className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-emerald-500/10 text-emerald-600 rounded-lg flex items-center justify-center">
+                  <IndianRupee className="w-3 h-3 sm:w-4 sm:h-4" />
                 </div>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                <p className="text-[9px] sm:text-xs font-bold text-muted-foreground uppercase tracking-widest">
                   Monthly Collection
                 </p>
               </div>
-              <h2 className="text-3xl font-black text-foreground">
+              <h2 className="text-xl sm:text-3xl font-black text-foreground">
                 {stats.revenue.expected >= 100000 ? (
                   <>
                     {stats.revenue.collected > 0
@@ -211,10 +212,10 @@ export default function StatsCards({ stats }: StatsCardsProps) {
                       : stats.revenue.collected === 0
                         ? "₹0"
                         : ""}
-                    <span className="text-lg font-medium text-muted-foreground ml-1">
+                    <span className="text-sm sm:text-lg font-medium text-muted-foreground ml-1">
                       / {(stats.revenue.expected / 100000).toFixed(2)}L{" "}
                       {stats.revenue.symbolicBalance
-                        ? `+ ${stats.revenue.symbolicBalance} (Inc. Coll.)`
+                        ? `+ ${stats.revenue.symbolicBalance}`
                         : ""}
                     </span>
                   </>
@@ -234,10 +235,10 @@ export default function StatsCards({ stats }: StatsCardsProps) {
                       : stats.revenue.collected === 0
                         ? "₹0"
                         : ""}
-                    <span className="text-lg font-medium text-muted-foreground ml-1">
+                    <span className="text-sm sm:text-lg font-medium text-muted-foreground ml-1">
                       / {stats.revenue.expected.toLocaleString("en-IN")}
                       {stats.revenue.symbolicBalance
-                        ? ` + ${stats.revenue.symbolicBalance} (Inc. Coll.)`
+                        ? ` + ${stats.revenue.symbolicBalance}`
                         : ""}
                     </span>
                   </>

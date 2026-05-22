@@ -239,13 +239,13 @@ export default function ExpensePage() {
             <div className="grid gap-4 md:grid-cols-3">
                 {stats.map(stat => (
                     <Card key={stat.title}>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                            <stat.icon className="h-4 w-4 text-muted-foreground" />
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+                            <CardTitle className="text-[10px] sm:text-sm font-medium">{stat.title}</CardTitle>
+                            <stat.icon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold flex items-center">
-                              <IndianRupee className="h-6 w-6 mr-1" />
+                        <CardContent className="p-3 pt-0">
+                            <div className="text-lg sm:text-2xl font-bold flex items-center">
+                              <IndianRupee className="h-4 w-4 sm:h-6 sm:w-6 mr-0.5" />
                               {stat.value.toLocaleString('en-IN')}
                             </div>
                         </CardContent>
@@ -263,10 +263,10 @@ export default function ExpensePage() {
                         <button
                             key={item.label}
                             onClick={() => handleQuickAdd(item)}
-                            className="flex flex-col items-center justify-center gap-2 p-4 border rounded-lg bg-card hover:bg-muted/50 dark:hover:bg-muted/20 transition-colors text-center"
+                            className="flex flex-col items-center justify-center gap-1.5 p-2 sm:p-4 border rounded-lg bg-card hover:bg-muted/50 dark:hover:bg-muted/20 transition-colors text-center"
                         >
-                            <item.icon className="w-6 h-6 text-primary" />
-                            <span className="text-sm font-medium">{item.label}</span>
+                            <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                            <span className="text-[10px] sm:text-sm font-medium leading-tight">{item.label}</span>
                         </button>
                     ))}
                 </CardContent>
@@ -274,13 +274,13 @@ export default function ExpensePage() {
 
 
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-row items-center justify-between p-3 sm:p-6">
                     <div>
-                        <CardTitle>Recent Expenses</CardTitle>
-                        <CardDescription>A log of your most recent expenses{selectedPgId ? ` for ${pgs.find(p=>p.id === selectedPgId)?.name}` : ' for all properties'}.</CardDescription>
+                        <CardTitle className="text-base sm:text-2xl">Recent Expenses</CardTitle>
+                        <CardDescription className="hidden sm:block">A log of your most recent expenses{selectedPgId ? ` for ${pgs.find(p=>p.id === selectedPgId)?.name}` : ' for all properties'}.</CardDescription>
                     </div>
-                     <Button onClick={canAddExpense ? openAddExpenseDialog : undefined} disabled={!canAddExpense}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
+                     <Button size="sm" onClick={canAddExpense ? openAddExpenseDialog : undefined} disabled={!canAddExpense} className="h-8 text-[10px] sm:text-sm">
+                        <PlusCircle className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Add <span className="hidden sm:inline">Expense</span>
                     </Button>
                 </CardHeader>
                 <CardContent>

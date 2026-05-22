@@ -119,6 +119,10 @@ export const api = createApi({
             bedsPerRoom?: number;
             amenities?: string[];
             images?: string[];
+            upiId?: string;
+            payeeName?: string;
+            direct_upi_enabled?: boolean;
+            paymentMode?: string;
         }>({
             query: (body) => ({ url: 'api/properties', method: 'POST', body }),
             invalidatesTags: ['Properties'],

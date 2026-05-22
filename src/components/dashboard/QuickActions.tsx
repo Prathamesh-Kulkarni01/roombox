@@ -147,15 +147,15 @@ export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, ha
     }
 
     return (
-        <div className="grid grid-cols-2 gap-3">
-            <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80 group" onClick={() => setIsAddGuestOpen(true)}>
-                <UserPlus className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" strokeWidth={1.5} />
-                <span className="text-sm font-semibold text-foreground">Add Guest</span>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            <Button variant="outline" className="h-auto py-3 sm:py-5 flex flex-col items-center justify-center gap-2 sm:gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80 group" onClick={() => setIsAddGuestOpen(true)}>
+                <UserPlus className="w-5 h-5 sm:w-6 sm:h-6 text-primary group-hover:scale-110 transition-transform" strokeWidth={1.5} />
+                <span className="text-xs sm:text-sm font-semibold text-foreground">Add Guest</span>
             </Button>
 
-            <Button variant="outline" className="h-auto py-5 flex flex-col items-center justify-center gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80 group" onClick={() => setIsCollectRentOpen(true)}>
-                <Wallet className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" strokeWidth={1.5} />
-                <span className="text-sm font-semibold text-foreground">Collect Rent</span>
+            <Button variant="outline" className="h-auto py-3 sm:py-5 flex flex-col items-center justify-center gap-2 sm:gap-3 hover:border-primary/50 hover:bg-primary/5 transition-all shadow-sm rounded-2xl border-border/80 group" onClick={() => setIsCollectRentOpen(true)}>
+                <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-primary group-hover:scale-110 transition-transform" strokeWidth={1.5} />
+                <span className="text-xs sm:text-sm font-semibold text-foreground">Collect Rent</span>
             </Button>
 
             <AddGuestDialog beds={availableBeds} onSelectBed={handleSelectBedForGuestAdd} open={isAddGuestOpen} onOpenChange={setIsAddGuestOpen} />

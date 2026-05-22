@@ -274,22 +274,22 @@ export default function DashboardPage() {
     <>
       <div className="flex flex-col gap-6 md:max-w-xl mx-auto md:mx-0 w-full pb-20 mt-4 md:mt-0">
 
-        <div className="flex items-center justify-between mb-2 px-1">
+        <div className="flex items-center justify-between mb-0 px-1">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-1.5 mb-0">
               {greeting.icon}
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{greeting.text}</span>
+              <span className="text-[9px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">{greeting.text}</span>
             </div>
-            <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+            <h2 className="text-lg md:text-2xl font-black tracking-tight flex items-center gap-2">
               Welcome, {currentUser?.name?.split(' ')[0] || 'Partner'}
-              <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+              <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 text-primary animate-pulse" />
             </h2>
-            <p className="text-sm font-semibold text-muted-foreground mt-1">
+            <p className="text-[9px] md:text-sm font-semibold text-muted-foreground mt-0">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <Avatar className="w-12 h-12 border-2 border-primary/20 shadow-sm ring-2 ring-background">
-            <AvatarFallback className="bg-primary/5 text-primary text-sm font-black">
+          <Avatar className="w-8 h-8 md:w-12 md:h-12 border-2 border-primary/20 shadow-sm ring-2 ring-background">
+            <AvatarFallback className="bg-primary/5 text-primary text-[10px] md:text-sm font-black">
               {currentUser?.name?.slice(0, 2).toUpperCase() || 'HB'}
             </AvatarFallback>
           </Avatar>

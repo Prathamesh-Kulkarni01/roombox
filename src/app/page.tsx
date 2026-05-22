@@ -178,14 +178,14 @@ const Index = () => {
                 <Badge className="bg-primary/10 text-primary border-primary/20 px-4 py-2 text-base shadow-lg">
                     {t('hero_badge')}
                 </Badge>
-                <h1 className="text-4xl lg:text-6xl font-bold leading-tight mt-6 max-w-4xl mx-auto">
+                <h1 className="text-3xl lg:text-5xl font-bold leading-tight mt-6 max-w-4xl mx-auto">
                     {t('hero_title_1')}
                     <br />
                     <span className="bg-gradient-saffron bg-clip-text text-transparent">
                         {t('hero_title_2')}
                     </span>
                 </h1>
-                <p className="text-xl text-muted-foreground leading-relaxed mt-8 max-w-2xl mx-auto">
+                <p className="text-lg text-muted-foreground leading-relaxed mt-6 max-w-2xl mx-auto">
                     {t('hero_subtitle')}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
@@ -228,10 +228,10 @@ const Index = () => {
          <section id="features" className="py-20 bg-muted/40">
              <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-12">
-                    <h2 className="text-4xl lg:text-5xl font-bold">
+                    <h2 className="text-3xl lg:text-4xl font-bold">
                        {t('all_features_title')}
                     </h2>
-                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                    <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
                         {t('all_features_subtitle')}
                     </p>
                 </div>
@@ -255,10 +255,10 @@ const Index = () => {
         <section className="py-20 bg-background">
             <div className="container mx-auto px-4">
                 <div className="text-center space-y-4 mb-16">
-                    <h2 className="text-4xl lg:text-5xl font-bold">
+                    <h2 className="text-3xl lg:text-4xl font-bold">
                         {t('supercharge_title_1')} <span className="bg-gradient-saffron bg-clip-text text-transparent">{t('supercharge_title_2')}</span>
                     </h2>
-                    <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                    <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
                         {t('supercharge_subtitle')}
                     </p>
                 </div>
@@ -504,8 +504,12 @@ const Index = () => {
                         <CardDescription>{t('plan_enterprise_desc')}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="text-4xl font-bold">{t('plan_enterprise_price')}</div>
-                        <p className="font-semibold">{t('plan_enterprise_limit')}</p>
+                        <h2 className="text-3xl font-black tracking-tight text-foreground sm:text-5xl">
+            Everything you need to <span className="text-primary">scale your PG</span>
+          </h2>
+          <p className="mt-4 text-base text-muted-foreground sm:text-lg">
+            Manage your properties, tenants, and finances in one place.
+          </p>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li className="flex items-center"><Check className="w-4 h-4 text-green-500 mr-2" />{t('plan_enterprise_feat1')}</li>
                             <li className="flex items-center"><IndianRupee className="w-4 h-4 text-primary mr-2" />{t('plan_enterprise_feat2')}</li>

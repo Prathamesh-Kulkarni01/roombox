@@ -182,31 +182,31 @@ export default function WalletPage() {
     <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-in fade-in duration-700">
       {/* Header section with Stats */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-4">
-        <div className="space-y-1">
-          <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
-            <Wallet className="w-10 h-10 text-primary" />
+        <div className="space-y-0.5">
+          <h1 className="text-xl md:text-4xl font-black tracking-tight flex items-center gap-2 md:gap-3">
+            <Wallet className="w-6 h-6 md:w-10 md:h-10 text-primary" />
             Wallet
           </h1>
-          <p className="text-muted-foreground font-medium flex items-center gap-2">
+          <p className="text-[10px] md:text-sm text-muted-foreground font-medium flex items-center gap-2">
             Manage your balance, add credits, and track usage
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-muted/30 p-2 rounded-2xl border border-border/50">
-          <div className="px-4 py-2 text-center">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+        <div className="flex items-center gap-2 md:gap-3 bg-muted/30 p-1.5 md:p-2 rounded-xl md:rounded-2xl border border-border/50">
+          <div className="px-2 md:px-4 py-1 md:py-2 text-center">
+            <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">
               Status
             </p>
-            <Badge className="mt-1 font-black px-3 py-0.5 uppercase text-[10px] bg-emerald-600">
+            <Badge className="mt-0.5 md:mt-1 font-black px-2 md:px-3 py-0 uppercase text-[8px] md:text-[10px] bg-emerald-600">
               Active
             </Badge>
           </div>
-          <div className="w-px h-8 bg-border/50" />
-          <div className="px-4 py-2 text-center">
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+          <div className="w-px h-6 md:h-8 bg-border/50" />
+          <div className="px-2 md:px-4 py-1 md:py-2 text-center">
+            <p className="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-muted-foreground">
               Current Plan
             </p>
-            <p className="font-black text-sm uppercase">
+            <p className="font-black text-[10px] md:text-sm uppercase">
               {planLabels[planType]}
             </p>
           </div>
@@ -233,8 +233,8 @@ export default function WalletPage() {
               <Wallet className="w-24 h-24 rotate-12" />
             </div>
             <CardHeader className="pb-3 border-b border-border/50 bg-card/50 p-6 backdrop-blur-sm">
-              <CardTitle className="flex items-center gap-2 text-xl font-black">
-                <Wallet className="text-emerald-500 w-6 h-6" /> Available
+              <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-black">
+                <Wallet className="text-emerald-500 w-5 h-5 md:w-6 md:h-6" /> Available
                 Balance
               </CardTitle>
             </CardHeader>
@@ -246,7 +246,7 @@ export default function WalletPage() {
                   </span>
                   <p
                     className={cn(
-                      "text-6xl font-black tracking-tighter leading-none",
+                      "text-4xl md:text-6xl font-black tracking-tighter leading-none",
                       walletBalance <= 0
                         ? "text-red-600"
                         : walletBalance <=
@@ -327,11 +327,11 @@ export default function WalletPage() {
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-black tracking-tight uppercase">
+                  <h2 className="text-base md:text-lg font-black tracking-tight uppercase">
                     Premium Add-ons
                   </h2>
-                  <p className="text-xs text-muted-foreground font-medium">
-                    Toggle features to boost your business efficiency.
+                  <p className="text-[10px] md:text-xs text-muted-foreground font-medium">
+                    Toggle features to boost efficiency.
                   </p>
                 </div>
               </div>
@@ -415,8 +415,8 @@ export default function WalletPage() {
           <Card className="border-border/40 shadow-sm overflow-hidden rounded-3xl bg-zinc-500/[0.01] border-dashed">
             <CardHeader className="p-6 border-b border-border/40 bg-muted/10">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <CardTitle className="flex items-center gap-2 text-xl font-black">
-                  <Receipt className="text-primary w-6 h-6" /> Cycle Forecast
+                <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-black">
+                  <Receipt className="text-primary w-5 h-5 md:w-6 md:h-6" /> Cycle Forecast
                 </CardTitle>
                 {billingDetails && (
                   <div className="flex items-center gap-3 bg-card px-4 py-2 rounded-xl border shadow-sm">
@@ -541,8 +541,8 @@ export default function WalletPage() {
           {/* History Table */}
           <Card className="border-border/40 shadow-sm rounded-3xl overflow-hidden">
             <CardHeader className="bg-muted/30 border-b border-border/40 p-6">
-              <CardTitle className="flex items-center gap-2 text-xl font-black">
-                <History className="text-muted-foreground w-5 h-5" /> Payment
+              <CardTitle className="flex items-center gap-2 text-lg md:text-xl font-black">
+                <History className="text-muted-foreground w-4 h-4 md:w-5 md:h-5" /> Payment
                 History
               </CardTitle>
             </CardHeader>

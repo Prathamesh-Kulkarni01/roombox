@@ -437,10 +437,10 @@ export default function WhatsAppPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <MessageCircle /> WhatsApp Automation Center
+        <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2">
+          <MessageCircle className="w-5 h-5 md:w-8 md:h-8" /> WhatsApp Automation Center
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground hidden md:block">
           Manage your automated notifications and credits here.
         </p>
       </div>
@@ -451,7 +451,7 @@ export default function WhatsAppPage() {
             <CardTitle className="flex items-center gap-2">
               <Wallet className="w-5 h-5" /> Credit Wallet
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="hidden md:block">
               Your current balance and message estimates.
             </CardDescription>
           </CardHeader>
@@ -490,7 +490,7 @@ export default function WhatsAppPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Recharge Credits</CardTitle>
-              <CardDescription>Top up your wallet instantly.</CardDescription>
+              <CardDescription className="hidden md:block">Top up your wallet instantly.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex gap-2">
@@ -617,11 +617,10 @@ export default function WhatsAppPage() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertTitle>How It Works</AlertTitle>
-        <AlertDescription>
-          WhatsApp messages are billed based on type.
-          <b> Templates: ₹1.50</b>, <b>Auth (OTP): ₹2.50</b>,{" "}
+        <AlertDescription className="text-xs">
+          <b>Templates: ₹1.50</b>, <b>Auth (OTP): ₹2.50</b>,{" "}
           <b>Session: ₹0.50</b>.
-          <i>Messages within a 24h session window are FREE.</i>
+          <i className="hidden md:inline"> Messages within a 24h session window are FREE.</i>
         </AlertDescription>
       </Alert>
 
@@ -642,7 +641,7 @@ export default function WhatsAppPage() {
               <TabsContent value="settings" className="m-0">
                 <CardHeader>
                   <CardTitle>Notification Settings</CardTitle>
-                  <CardDescription>
+                  <CardDescription className="hidden md:block">
                     Enable or disable automated WhatsApp notifications for
                     specific events.
                   </CardDescription>
@@ -729,7 +728,7 @@ export default function WhatsAppPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle>Usage History</CardTitle>
-                      <CardDescription>
+                      <CardDescription className="hidden md:block">
                         A log of your WhatsApp message credits and interactions.
                       </CardDescription>
                     </div>

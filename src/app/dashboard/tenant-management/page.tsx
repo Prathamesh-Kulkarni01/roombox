@@ -148,20 +148,20 @@ const GuestList = ({ guests, onEdit, canEdit }: GuestListProps) => {
             {/* Mobile Card View */}
             <div className="md:hidden grid gap-4">
                 {guests.map((guest) => (
-                    <div key={guest.id} className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20">
+                    <div key={guest.id} className="p-3 border rounded-lg flex flex-col gap-2 bg-muted/20">
                         <div className="flex justify-between items-start">
-                            <div className="flex items-center gap-3">
-                                <Avatar>
-                                    <AvatarImage src={`https://placehold.co/40x40.png?text=${guest.name?.charAt(0) || 'G'}`} />
+                            <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={`https://placehold.co/32x32.png?text=${guest.name?.charAt(0) || 'G'}`} />
                                     <AvatarFallback>{guest.name?.charAt(0) || 'G'}</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <p className="font-bold">
+                                    <p className="font-bold text-sm">
                                         <Link href={`/dashboard/tenant-management/${guest.id}`} className="hover:underline text-primary">
                                             {guest.name}
                                         </Link>
                                     </p>
-                                    <p className="text-sm text-muted-foreground">{guest.pgName}</p>
+                                    <p className="text-[10px] text-muted-foreground leading-tight">{guest.pgName}</p>
                                 </div>
                             </div>
                             <DropdownMenu>
@@ -325,17 +325,20 @@ export default function GuestManagementPage() {
             <div className="flex flex-col gap-8">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle>Guest Management</CardTitle>
-                            <CardDescription>You are managing {guests.length} total guests.</CardDescription>
+                        <div className="flex flex-col gap-0.5">
+                            <CardTitle className="text-lg md:text-2xl">Guest Management</CardTitle>
+                            <CardDescription className="hidden md:block">You are managing {guests.length} total guests.</CardDescription>
                         </div>
                         <Access feature="guests" action="add">
                             <div className="flex items-center gap-2">
-                                <Button variant="outline" onClick={() => setIsCsvUploaderOpen(true)}>
-                                    <Upload className="mr-2 h-4 w-4" /> Import CSV
+                                <Button variant="outline" size="sm" onClick={() => setIsCsvUploaderOpen(true)}>
+                                    <Upload className="md:mr-2 h-4 w-4" />
+                                    <span className="hidden md:inline">Import CSV</span>
                                 </Button>
-                                <Button onClick={handleOpenGeneralAddGuestDialog}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Guest
+                                <Button size="sm" onClick={handleOpenGeneralAddGuestDialog}>
+                                    <PlusCircle className="md:mr-2 h-4 w-4" />
+                                    <span className="hidden md:inline">Add New Guest</span>
+                                    <span className="md:hidden">Add</span>
                                 </Button>
                             </div>
                         </Access>

@@ -391,10 +391,10 @@ export default function RentPassbookPage() {
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Rentbook</CardTitle>
-                    <CardDescription>View pending dues, payment history, and financial analytics.</CardDescription>
+            <Card className="border-none sm:border shadow-none sm:shadow-sm">
+                <CardHeader className="px-4 sm:px-6 py-4">
+                    <CardTitle className="text-xl md:text-2xl">Rentbook</CardTitle>
+                    <CardDescription className="hidden md:block">View pending dues, payment history, and financial analytics.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="analytics">
@@ -440,9 +440,15 @@ export default function RentPassbookPage() {
                                 </Select>
                                 <Input type="month" value={filters.month} onChange={(e) => setFilters(f => ({ ...f, month: e.target.value }))} />
                             </div>
-                            <div className="flex gap-2 justify-end mb-4">
-                                <Button onClick={handleDownloadCsv} variant="outline"><Download className="mr-2 h-4 w-4" />Download CSV</Button>
-                                <Button onClick={handlePrint} variant="outline"><Printer className="mr-2 h-4 w-4" />Print Report</Button>
+                            <div className="flex gap-2 justify-end mb-4 px-2 sm:px-0">
+                                <Button onClick={handleDownloadCsv} variant="outline" size="sm" className="h-9 px-3 sm:px-4">
+                                    <Download className="sm:mr-2 h-4 w-4" />
+                                    <span className="hidden sm:inline">Download CSV</span>
+                                </Button>
+                                <Button onClick={handlePrint} variant="outline" size="sm" className="h-9 px-3 sm:px-4">
+                                    <Printer className="sm:mr-2 h-4 w-4" />
+                                    <span className="hidden sm:inline">Print Report</span>
+                                </Button>
                             </div>
 
                             <div style={{ display: "none" }}>
