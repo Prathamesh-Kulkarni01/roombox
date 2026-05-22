@@ -242,7 +242,7 @@ export default function LoginPage() {
 
   if (isOwnerLogin) {
       return (
-          <div className="flex items-center justify-center min-h-[85vh] p-4">
+          <div className="flex items-center justify-center min-h-[85vh] p-4 overscroll-none">
               <Card className="w-full max-w-sm border-primary/20 shadow-2xl">
                   <CardHeader className="text-center space-y-1">
                       <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
@@ -255,11 +255,11 @@ export default function LoginPage() {
                       <form onSubmit={handleOwnerLogin} className="grid gap-4">
                          <div className="grid gap-2">
                             <Label htmlFor="email">Email Address</Label>
-                            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isLoading} />
+                            <Input id="email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" className="text-base md:text-sm" value={email} onChange={e => setEmail(e.target.value)} required disabled={isLoading} />
                          </div>
                          <div className="grid gap-2">
                             <Label htmlFor="owner-pass">Password</Label>
-                            <Input id="owner-pass" type="password" value={ownerPassword} onChange={e => setOwnerPassword(e.target.value)} required disabled={isLoading} />
+                            <Input id="owner-pass" type="password" className="text-base md:text-sm" value={ownerPassword} onChange={e => setOwnerPassword(e.target.value)} required disabled={isLoading} />
                          </div>
                          <Button type="submit" className="w-full h-11" disabled={isLoading}>
                              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -292,7 +292,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-[85vh] bg-background p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background">
+    <div className="flex items-center justify-center min-h-[85vh] bg-background p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background overscroll-none">
       <Card className="w-full max-w-[400px] border-primary/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] backdrop-blur-sm bg-card/95">
         <CardHeader className="text-center pb-8 pt-8">
             <div className="mx-auto bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-5 rotate-3 shadow-inner">
@@ -315,7 +315,7 @@ export default function LoginPage() {
                 </Label>
                 <div className="relative group">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium border-r pr-3">+91</span>
-                    <Input id="phone" type="tel" placeholder="9876543210" required className="pl-14 h-12 text-lg font-medium tracking-wide focus-visible:ring-primary/20" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0,10))} disabled={isLoading} />
+                    <Input id="phone" type="tel" inputMode="numeric" pattern="[0-9]*" placeholder="9876543210" required className="pl-14 h-12 text-lg font-medium tracking-wide focus-visible:ring-primary/20" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0,10))} disabled={isLoading} />
                 </div>
                 <p className="text-[11px] text-muted-foreground text-center">Enter the number shared with your property owner.</p>
               </div>
@@ -367,7 +367,7 @@ export default function LoginPage() {
                    <form onSubmit={handleVerifyCode} className="grid gap-6">
                         <div className="grid gap-3">
                             <Label htmlFor="invite-code" className="text-sm font-semibold">Your Invitation Code</Label>
-                            <Input id="invite-code" type="text" placeholder="6-digit code" required maxLength={6} className="h-12 text-center text-2xl font-mono tracking-[0.5em] focus:tracking-[0.8em] transition-all" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} disabled={isLoading} />
+                            <Input id="invite-code" type="text" inputMode="numeric" pattern="[0-9]*" placeholder="6-digit code" required maxLength={6} className="h-12 text-center text-2xl font-mono tracking-[0.5em] focus:tracking-[0.8em] transition-all" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} disabled={isLoading} />
                             <p className="text-[11px] text-muted-foreground italic text-center">This code was shared by your manager for setup.</p>
                         </div>
                         <Button type="submit" className="w-full h-12 text-md font-bold shadow-lg" disabled={isLoading || otp.length !== 6}>
@@ -381,7 +381,7 @@ export default function LoginPage() {
                         <form onSubmit={handlePasswordSignIn} className="grid gap-6">
                             <div className="grid gap-3">
                                 <Label htmlFor="pass" className="text-sm font-semibold">Password</Label>
-                                <Input id="pass" type="password" placeholder="Enter your password" required className="h-12 focus-visible:ring-primary/20" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
+                                <Input id="pass" type="password" placeholder="Enter your password" required className="h-12 text-base md:text-sm focus-visible:ring-primary/20" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
                                 <button type="button" className="text-xs font-bold text-primary hover:underline text-left w-fit" onClick={() => setAuthMethod('OTP')} disabled={isLoading}>Forgot? Use OTP Login</button>
                             </div>
                             <Button type="submit" className="w-full h-12 text-md font-bold shadow-lg shadow-primary/10" disabled={isLoading || !password}>
@@ -407,7 +407,7 @@ export default function LoginPage() {
                                 <form onSubmit={handleVerifyCode} className="grid gap-6">
                                     <div className="grid gap-3">
                                         <Label htmlFor="otp-verify" className="text-sm font-semibold">One-Time Code (OTP)</Label>
-                                        <Input id="otp-verify" type="text" placeholder="6-digit code" required maxLength={6} className="h-12 text-center text-2xl font-mono tracking-[0.5em] transition-all" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} disabled={isLoading} />
+                                        <Input id="otp-verify" type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" placeholder="6-digit code" required maxLength={6} className="h-12 text-center text-2xl font-mono tracking-[0.5em] transition-all" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} disabled={isLoading} />
                                         <div className="flex justify-between items-center px-1">
                                             <button type="button" className="text-[11px] font-bold text-muted-foreground hover:text-primary" onClick={handleSendOtp} disabled={isLoading}>Resend Code</button>
                                             <button type="button" className="text-[11px] font-bold text-primary" onClick={() => setWaitingForOtp(false)} disabled={isLoading}>Change Method</button>

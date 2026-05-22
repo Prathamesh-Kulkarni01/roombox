@@ -97,7 +97,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4">
+    <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4 overscroll-none">
       <Card className="w-full max-w-sm shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl pt-4">Owner Sign Up</CardTitle>
@@ -112,6 +112,10 @@ export default function SignupPage() {
               <Input 
                 id="email" 
                 type="email" 
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                className="text-base md:text-sm"
                 placeholder="name@example.com" 
                 required 
                 value={email} 
@@ -125,6 +129,7 @@ export default function SignupPage() {
               <Input 
                 id="password" 
                 type="password" 
+                className="text-base md:text-sm"
                 placeholder="Min 6 characters" 
                 required 
                 value={password} 
