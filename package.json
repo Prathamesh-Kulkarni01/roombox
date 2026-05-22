@@ -31,7 +31,8 @@
     "test:smoke": "playwright test --grep @smoke --project=chromium",
     "stability-check": "npm run typecheck && npm run lint && npm run test:smoke",
     "audit": "npm run audit:load && npm run audit:financial && npm run audit:failure && npm run audit:pilot && npm run audit:guests && npm run audit:transfer && npm run audit:launch",
-    "verify:billing": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8081 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=roombox-test npx tsx scripts/verify-billing-system.ts"
+    "verify:billing": "cross-env FIRESTORE_EMULATOR_HOST=localhost:8081 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_PROJECT_ID=roombox-test npx tsx scripts/verify-billing-system.ts",
+    "knip": "knip"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.7",
@@ -110,7 +111,7 @@
     "@netlify/plugin-nextjs": "^5.11.4",
     "@playwright/test": "^1.58.2",
     "@types/jsonwebtoken": "^9.0.6",
-    "@types/node": "^20.19.35",
+    "@types/node": "^20.19.41",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/shortid": "^0.0.32",
@@ -118,10 +119,11 @@
     "cross-env": "^10.1.0",
     "cypress": "^13.13.1",
     "genkit-cli": "^1.13.0",
+    "knip": "^6.14.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }
