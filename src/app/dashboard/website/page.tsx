@@ -164,7 +164,7 @@ export default function WebsiteBuilderPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setDomain(process.env.NEXT_PUBLIC_SITE_DOMAIN || "");
+    setDomain(process.env.NEXT_PUBLIC_APP_URL || "");
   }, []);
 
   const form = useForm<WebsiteConfigFormValues>({
