@@ -5,6 +5,22 @@ import * as dotenv from 'dotenv';
 import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types'; // Target version from code
 dotenv.config();
 
+// ─── Environment Safety: Purge emulator vars in CI/Vercel ───
+// On Vercel/CI, there is no emulator — purge leaked env vars so the admin SDK
+// doesn't silently try to connect to 127.0.0.1:8081.
+const isVercel = !!process.env.VERCEL;
+const isCI = !!process.env.CI;
+if (isVercel || isCI) {
+    if (process.env.FIRESTORE_EMULATOR_HOST) {
+        console.log(`[WARN] Purging FIRESTORE_EMULATOR_HOST in CI/Vercel environment`);
+        delete process.env.FIRESTORE_EMULATOR_HOST;
+    }
+    if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+        console.log(`[WARN] Purging FIREBASE_AUTH_EMULATOR_HOST in CI/Vercel environment`);
+        delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    }
+}
+
 // Ensure firebase admin is initialized
 if (!admin.apps.length) {
     const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -26,10 +42,20 @@ if (!admin.apps.length) {
             }),
             projectId
         });
-    } else {
-        const isEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
-        console.log(`[INFO] Using default/local initialization (Emulator: ${isEmulator})`);
+    } else if (process.env.FIRESTORE_EMULATOR_HOST) {
+        // Local emulator mode — no credentials needed
+        console.log(`[INFO] Using local emulator initialization (Host: ${process.env.FIRESTORE_EMULATOR_HOST})`);
         admin.initializeApp({ projectId });
+    } else {
+        // No credentials and no emulator — fail fast with a clear error
+        console.error(`\n❌ FATAL: No Firebase credentials found for migration runner!`);
+        console.error(`Set one of the following in your Vercel Environment Variables:`);
+        console.error(`  - FIREBASE_SERVICE_ACCOUNT_KEY (full JSON service account)`);
+        console.error(`  - FIREBASE_PRIVATE_KEY + FIREBASE_CLIENT_EMAIL (split credentials)`);
+        console.error(`  - FIRESTORE_EMULATOR_HOST (for local emulator only)`);
+        console.error(`\nProject ID found: ${projectId || 'NONE'}`);
+        console.error(`Environment: VERCEL=${process.env.VERCEL || 'unset'}, VERCEL_ENV=${process.env.VERCEL_ENV || 'unset'}`);
+        process.exit(1);
     }
 }
 
