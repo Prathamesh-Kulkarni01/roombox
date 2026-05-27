@@ -61,3 +61,6 @@ ui-debug.log*
 .agents/
 .playwright-mcp/
 scratch/
+
+# Sentry Config File
+.env.sentry-build-plugin
