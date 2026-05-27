@@ -5,6 +5,7 @@
  * shared between the Web UI (via API routes) and the WhatsApp bot.
  * It combines the old GuestService and TenantService logic.
  */
+import '@/lib/purgeEmulators';
 import { Firestore, FieldValue, DocumentSnapshot } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 import { format } from 'date-fns';
