@@ -8,10 +8,20 @@ Sentry.init({
   dsn: "https://58f0b7b1a616f2dfd2fa93a71032aa5c@o4511462870941696.ingest.de.sentry.io/4511462874873936",
 
   // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+  integrations: [
+    Sentry.replayIntegration(),
+    Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
+  ],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
+
+  // Define URLs where traces should be propagated (distributed tracing)
+  tracePropagationTargets: [
+    "localhost",
+    ...(process.env.NEXT_PUBLIC_APP_URL ? [new RegExp(`^${process.env.NEXT_PUBLIC_APP_URL.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}/api`)] : []),
+  ],
+
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
