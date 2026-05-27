@@ -17,6 +17,7 @@ export default function Page() {
 
   useEffect(() => {
     Sentry.logger.info("Sentry example page loaded");
+    Sentry.metrics.count("example_page_loaded", 1);
     async function checkConnectivity() {
       const result = await Sentry.diagnoseSdkConnectivity();
       setIsConnected(result !== "sentry-unreachable");
@@ -84,6 +85,7 @@ export default function Page() {
                 }
               },
             );
+            Sentry.metrics.count('test_metric', 1);
             throw new SentryExampleFrontendError(
               "This error is raised on the frontend of the example page.",
             );
