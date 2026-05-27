@@ -1,5 +1,7 @@
 
 
+import './purgeEmulators';
+
 import { initializeApp, getApps, cert, App, AppOptions } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
@@ -49,25 +51,32 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
   };
 
   try {
-    const isEmulator = process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    const isEmulator = (process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST) && 
+                       (fbProjectId === 'roombox-test' || process.env.NEXT_PUBLIC_USE_EMULATOR === 'true');
 
     if (isEmulator) {
       // Use dummy credentials for local emulator
       appOptions.projectId = fbProjectId || 'roombox-test';
-    } else if (fbPrivateKey && fbClientEmail && fbProjectId) {
-      // Use individual environment variables (Netlify 4KB limit workaround)
-      appOptions.credential = cert({
-        projectId: fbProjectId,
-        clientEmail: fbClientEmail,
-        // Replace escaped newlines if they exist (\n) and handle the literal value
-        privateKey: fbPrivateKey.replace(/\\n/g, '\n').replace(/"/g, ''),
-      });
-    } else if (legacyConfig) {
-      // Fallback to the full JSON string if provided
-      const serviceAccount = JSON.parse(legacyConfig);
-      appOptions.credential = cert(serviceAccount);
     } else {
-      throw new Error('Missing Firebase Admin credentials. Please set FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, and FIREBASE_PROJECT_ID.');
+      // CRITICAL: Delete emulator variables to prevent gRPC library from hijacking live cloud connections
+      delete process.env.FIRESTORE_EMULATOR_HOST;
+      delete process.env.FIREBASE_AUTH_EMULATOR_HOST;
+
+      if (fbPrivateKey && fbClientEmail && fbProjectId) {
+        // Use individual environment variables (Netlify 4KB limit workaround)
+        appOptions.credential = cert({
+          projectId: fbProjectId,
+          clientEmail: fbClientEmail,
+          // Replace escaped newlines if they exist (\n) and handle the literal value
+          privateKey: fbPrivateKey.replace(/\\n/g, '\n').replace(/"/g, ''),
+        });
+      } else if (legacyConfig) {
+        // Fallback to the full JSON string if provided
+        const serviceAccount = JSON.parse(legacyConfig);
+        appOptions.credential = cert(serviceAccount);
+      } else {
+        throw new Error('Missing Firebase Admin credentials. Please set FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, and FIREBASE_PROJECT_ID.');
+      }
     }
     if (projectId) {
       appOptions.projectId = projectId;

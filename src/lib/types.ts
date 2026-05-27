@@ -56,6 +56,54 @@ export type ActivityType =
     | 'EXPENSE_DELETED'
     | 'SYSTEM_LOG';
 
+// ─── Super Admin Types ───────────────────────────────────────────────
+
+/** Granular sub-roles for admin accounts. 'admin' retains full God Mode. */
+export type AdminSubRole =
+    | 'admin'           // Full access — can do everything
+    | 'admin_finance'   // Finance ledger, subscriptions, billing only
+    | 'admin_support'   // Complaints, support tickets only
+    | 'admin_moderation'// Approve/reject owners and hostels
+    | 'admin_operations'; // User management, no impersonation
+
+/** Categories of auditable admin actions written to admin_audit_logs */
+export type AdminAuditAction =
+    | 'OWNER_APPROVED'
+    | 'OWNER_REJECTED'
+    | 'OWNER_SUSPENDED'
+    | 'OWNER_UNSUSPENDED'
+    | 'PROPERTY_APPROVED'
+    | 'PROPERTY_REJECTED'
+    | 'WALLET_CREDITED'
+    | 'WALLET_DEBITED'
+    | 'SUBSCRIPTION_MODIFIED'
+    | 'IMPERSONATION_STARTED'
+    | 'IMPERSONATION_ENDED'
+    | 'IMPERSONATION_EXPIRED'
+    | 'COMPLAINT_ESCALATED'
+    | 'COMPLAINT_RESOLVED'
+    | 'ADMIN_ROLE_CHANGED'
+    | 'CREDITS_ADJUSTED'
+    | 'ACCOUNT_DELETED';
+
+/** Immutable audit log record written to Firestore admin_audit_logs collection */
+export interface AdminAuditLog {
+    id: string;
+    adminId: string;        // UID of the admin who performed the action
+    adminName: string;      // Display name for human-readable logs
+    adminSubRole?: AdminSubRole;
+    action: AdminAuditAction;
+    targetType: 'owner' | 'property' | 'complaint' | 'subscription' | 'wallet' | 'admin_account';
+    targetId: string;       // ID of the affected document
+    targetName?: string;    // Display name (owner name, property name, etc.)
+    details?: string;       // Human-readable description
+    metadata?: Record<string, unknown>; // Action-specific extra data
+    ipAddress?: string;
+    sessionId?: string;     // Impersonation session ID if applicable
+    timestamp: any;         // Firestore server timestamp
+    schemaVersion?: number;
+}
+
 export interface ActivityChange {
     field: string;
     before: unknown;

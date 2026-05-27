@@ -15,7 +15,9 @@ const firebaseConfig: FirebaseOptions = {
 };
 
 export const isEmulator = () => {
-    return !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST || !!process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST;
+    const isTestProject = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === 'roombox-test';
+    const useEmulatorFlag = process.env.NEXT_PUBLIC_USE_EMULATOR === 'true';
+    return (isTestProject || useEmulatorFlag) && (!!process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST || !!process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST);
 }
 
 // Function to check if the Firebase config keys have been set
@@ -33,8 +35,8 @@ const app = isFirebaseConfigured() && !getApps().length ? initializeApp(firebase
 const db = app ? initializeFirestore(app, { experimentalAutoDetectLongPolling: true }) : null;
 const auth = app ? getAuth(app) : null;
 
-// Connect to emulators if host variables are set
-if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+// Connect to emulators if host variables are set and we are in emulator mode
+if (typeof window !== 'undefined' && isEmulator()) {
     if (db && process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST) {
         const [host, port] = process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST.split(':');
         connectFirestoreEmulator(db, host, parseInt(port));
