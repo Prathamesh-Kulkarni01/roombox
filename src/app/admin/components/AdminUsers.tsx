@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { 
   Users, Search, UserCheck, ShieldAlert, Key, 
-  Mail, Phone, Eye, Star, UserMinus, AlertTriangle, MessageSquare, ChevronDown, ChevronUp, Sparkles, Check
+  Mail, Phone, Eye, Star, UserMinus, AlertTriangle, MessageSquare, ChevronDown, ChevronUp, Sparkles, Check, Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,7 +15,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { startGodModeSession } from '@/components/GodModeGuard';
-import { adminLogImpersonation } from '@/lib/actions/adminActions';
+import { adminLogImpersonation, adminDeleteOwnerData, type AdminDeleteOwnerOptions } from '@/lib/actions/adminActions';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 interface UsersProps {
@@ -36,6 +38,49 @@ export default function AdminUsers({ owners, onUserStatusUpdate, loading, curren
 
   const toggleExpand = (ownerId: string) => {
     setExpandedOwner(expandedOwner === ownerId ? null : ownerId);
+  };
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [ownerToDelete, setOwnerToDelete] = useState<User | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteOptions, setDeleteOptions] = useState<AdminDeleteOwnerOptions>({
+    ownerAccount: true,
+    properties: true,
+    tenants: true,
+    staff: true,
+    expenses: true,
+    notices: true,
+    complaints: true,
+  });
+
+  const triggerDelete = (owner: User) => {
+    setOwnerToDelete(owner);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!ownerToDelete) return;
+    setIsDeleting(true);
+    try {
+      const result = await adminDeleteOwnerData(
+        currentAdminId,
+        currentAdminName,
+        ownerToDelete.id,
+        ownerToDelete.name || ownerToDelete.email,
+        deleteOptions
+      );
+      if (result.success) {
+        toast({ title: 'Owner Data Deleted', description: 'Selected data was permanently wiped.' });
+        setDeleteModalOpen(false);
+        window.location.reload(); 
+      } else {
+        toast({ variant: 'destructive', title: 'Deletion Failed', description: result.error });
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Deletion Error', description: err.message });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredOwners = owners.filter(owner => {
@@ -286,6 +331,16 @@ export default function AdminUsers({ owners, onUserStatusUpdate, loading, curren
                         >
                           <Key className="w-3 h-3" /> God Mode
                         </Button>
+                        
+                        {/* Delete Owner Action */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => triggerDelete(owner)}
+                          className="border-rose-500/20 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 flex items-center justify-center gap-1 text-[10px] h-7.5 px-2 rounded-lg bg-transparent"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -460,6 +515,14 @@ export default function AdminUsers({ owners, onUserStatusUpdate, loading, curren
                   >
                     <Key className="w-3.5 h-3.5 mr-1" /> God Mode
                   </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => triggerDelete(owner)}
+                    className="border-rose-500/20 text-rose-400 bg-slate-900/20 font-extrabold text-[10px] h-9 px-3 rounded-xl hover:bg-rose-500/10 hover:text-rose-300"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             );
@@ -474,6 +537,53 @@ export default function AdminUsers({ owners, onUserStatusUpdate, loading, curren
         </div>
 
       </CardContent>
+
+      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <DialogContent className="bg-slate-950 border-slate-800 text-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-rose-400">Wipe Owner Data</DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              This action is destructive and cannot be undone. Select which records to permanently delete for <strong className="text-white">{ownerToDelete?.name || ownerToDelete?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="flex items-center space-x-3">
+              <Checkbox id="opt-account" checked={deleteOptions.ownerAccount} onCheckedChange={(c) => setDeleteOptions(prev => ({...prev, ownerAccount: !!c}))} />
+              <label htmlFor="opt-account" className="text-sm font-medium">Owner Account & Auth</label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Checkbox id="opt-properties" checked={deleteOptions.properties} onCheckedChange={(c) => setDeleteOptions(prev => ({...prev, properties: !!c}))} />
+              <label htmlFor="opt-properties" className="text-sm font-medium">Properties, Rooms & Beds</label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Checkbox id="opt-tenants" checked={deleteOptions.tenants} onCheckedChange={(c) => setDeleteOptions(prev => ({...prev, tenants: !!c}))} />
+              <label htmlFor="opt-tenants" className="text-sm font-medium">Tenants / Guests</label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Checkbox id="opt-staff" checked={deleteOptions.staff} onCheckedChange={(c) => setDeleteOptions(prev => ({...prev, staff: !!c}))} />
+              <label htmlFor="opt-staff" className="text-sm font-medium">Staff Members</label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Checkbox id="opt-expenses" checked={deleteOptions.expenses} onCheckedChange={(c) => setDeleteOptions(prev => ({...prev, expenses: !!c}))} />
+              <label htmlFor="opt-expenses" className="text-sm font-medium">Expenses</label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Checkbox id="opt-complaints" checked={deleteOptions.complaints} onCheckedChange={(c) => setDeleteOptions(prev => ({...prev, complaints: !!c}))} />
+              <label htmlFor="opt-complaints" className="text-sm font-medium">Complaints</label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteModalOpen(false)} disabled={isDeleting} className="border-slate-800 text-slate-300 hover:bg-slate-900">
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting} className="bg-rose-600 hover:bg-rose-700">
+              {isDeleting ? 'Wiping...' : 'Confirm Wipe'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
