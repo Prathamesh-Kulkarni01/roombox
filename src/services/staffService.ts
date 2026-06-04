@@ -26,7 +26,7 @@ export class StaffService {
             used: false
         });
 
-        const appUrl = await getBrandedAppUrl(ownerId, 'https://rentsutra.vercel.app');
+        const appUrl = await getBrandedAppUrl(ownerId);
         const magicLink = `${appUrl}/invite/${token}`;
         return { magicLink, inviteCode };
     }
