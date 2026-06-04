@@ -70,6 +70,10 @@ export default function PWAHandler() {
             if (currentUser?.id && (currentUser.role === 'owner' || currentUser.role === 'admin')) {
                 manifestUrl = `/api/pwa/manifest?ownerId=${currentUser.id}`;
             }
+            // If we have a staff member logged in, brand using their employer's ownerId
+            else if (currentUser?.id && currentUser.ownerId && currentUser.role !== 'tenant') {
+                manifestUrl = `/api/pwa/manifest?ownerId=${currentUser.ownerId}`;
+            }
             // If we have a tenant logged in, use their active PG owner's ID for branding
             else if (currentUser?.id && currentUser.role === 'tenant') {
                 const activeTenancy = currentUser.activeTenancies?.find(t => (t as any).pgId === selectedPgId) || currentUser.activeTenancies?.[0];
