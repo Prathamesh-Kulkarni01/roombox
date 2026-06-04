@@ -28,6 +28,7 @@ import { Loader2, ArrowRight, ChevronLeft, ShieldCheck, Mail, Phone, Lock, Build
 import { useAppSelector } from '@/lib/hooks'
 import { signInWithEmailAndPassword, signInWithCustomToken, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
 import { usePgBranding } from '@/context/branding-context'
+import { getRedirectUrlForSubdomain } from '@/lib/utils'
 
 type LoginStage = 'IDENTITY' | 'CHALLENGE' | 'SWITCH_CONTEXT';
 type ChallengeType = 'PASSWORD_OR_OTP' | 'INVITE_CODE';
@@ -208,15 +209,17 @@ export default function LoginPageClient() {
             throw new Error(data.error || 'Failed to switch context');
         }
 
+        const data = await res.json();
+        const subdomain = data.subdomain || null;
+
         // Refresh the token to ensure new claims are available
         await auth?.currentUser?.getIdToken(true);
         
-        // Redirect based on selected role
-        if (role === 'tenant') {
-            router.replace('/tenants/my-pg');
-        } else {
-            router.replace('/dashboard');
-        }
+        // Redirect based on selected role with subdomain sync
+        const targetPath = role === 'tenant' ? '/tenants/my-pg' : '/dashboard';
+        const redirectUrl = getRedirectUrlForSubdomain(role, subdomain, targetPath);
+        
+        window.location.href = redirectUrl;
     } catch (err: any) {
         toast({ variant: 'destructive', title: 'Switch Failed', description: err.message });
         setIsProcessing(false);
