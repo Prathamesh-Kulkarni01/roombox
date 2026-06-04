@@ -3,6 +3,7 @@
  * Use this in all API routes for consistent error responses.
  */
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 
 export interface ApiErrorResponse {
     success: false;
@@ -34,6 +35,12 @@ export function notFound(message: string = 'Not found'): NextResponse<ApiErrorRe
 export function serverError(error: unknown, context?: string): NextResponse<ApiErrorResponse> {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     if (context) console.error(`[${context}]`, error);
+    
+    // Send to centralized error tracking (Sentry)
+    Sentry.captureException(error, {
+        tags: { api_context: context || 'unknown' },
+    });
+
     return NextResponse.json({ success: false, error: message }, { status: 500 });
 }
 
