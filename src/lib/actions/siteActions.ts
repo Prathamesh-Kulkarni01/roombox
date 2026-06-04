@@ -258,3 +258,43 @@ export async function getBrandedAppUrl(ownerId: string, defaultUrl?: string): Pr
     return base;
 }
 
+/**
+ * Retrieves branding details for an owner.
+ */
+export async function getBrandingForOwner(ownerId: string): Promise<{
+    siteTitle: string;
+    logoUrl?: string;
+    faviconUrl?: string;
+    themeColor?: string;
+    contactPhone?: string;
+    contactEmail?: string;
+    subdomain: string;
+} | null> {
+    if (!ownerId) return null;
+    try {
+        const adminDb = await getAdminDb();
+        const snapshot = await adminDb.collection('sites')
+            .where('ownerId', '==', ownerId)
+            .where('status', '==', 'published')
+            .limit(1)
+            .get();
+            
+        if (snapshot.empty) return null;
+        
+        const data = snapshot.docs[0].data() as any;
+        return {
+            subdomain: data.subdomain,
+            siteTitle: data.siteTitle || 'My PG',
+            logoUrl: data.logoUrl,
+            faviconUrl: data.faviconUrl,
+            themeColor: data.themeColor,
+            contactPhone: data.contactPhone,
+            contactEmail: data.contactEmail,
+        };
+    } catch (error) {
+        console.error("Error in getBrandingForOwner:", error);
+        return null;
+    }
+}
+
+
