@@ -51,6 +51,8 @@ import { Select, SelectContent, SelectItem, SelectValue, SelectTrigger } from '@
 import { useCreatePropertyMutation } from '@/lib/api/apiSlice'
 import { useConfetti } from '@/context/confetti-provider'
 import { Progress } from "@/components/ui/progress"
+import { Textarea } from "@/components/ui/textarea"
+import { ImageDropzone } from "@/components/ui/image-dropzone"
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from "@/lib/utils"
 import { StepIndicator } from './components/StepIndicator'
@@ -699,51 +701,15 @@ export default function CompleteProfilePage() {
                                                             <div className="text-[10px] font-bold uppercase tracking-wider bg-secondary-container/30 px-2.5 py-0.5 rounded-full text-muted-foreground">Optional</div>
                                                         )}
                                                     </div>
-                                                    <div 
-                                                        className={cn(
-                                                            "relative h-48 rounded-[20px] border-2 border-dashed transition-all flex flex-col items-center justify-center overflow-hidden",
-                                                            field.value.length > 0 
-                                                                ? "border-primary/30 bg-primary/5 shadow-inner" 
-                                                                : "border-primary/10 bg-black/40 hover:bg-[#201f1f]/40 hover:border-primary/20 group cursor-pointer"
-                                                        )}
-                                                    >
-                                                        {field.value.length > 0 ? (
-                                                            <>
-                                                                <img src={field.value[0]} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                                                                <div className="relative z-10 flex flex-col items-center gap-2 bg-black/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/25 shadow-2xl">
-                                                                    <CheckCircle2 className="w-5 h-5 text-primary" />
-                                                                    <span className="text-xs font-black uppercase tracking-widest text-primary">Image Loaded</span>
-                                                                </div>
-                                                            </>
-                                                        ) : (
-                                                            <div className="flex flex-col items-center gap-4 text-muted-foreground">
-                                                                <div className="w-14 h-14 rounded-2xl bg-secondary-container/20 flex items-center justify-center border border-primary/10 shadow-lg group-hover:scale-105 transition-all duration-300">
-                                                                    {uploadingImage ? <Loader2 className="w-7 h-7 animate-spin text-primary" /> : <Camera className="w-7 h-7 text-primary" />}
-                                                                </div>
-                                                                <div className="text-center px-4">
-                                                                    <p className="text-sm font-bold text-foreground">Add Front Photo</p>
-                                                                    <p className="text-xs font-medium text-muted-foreground mt-0.5">Guests love visual profiles.</p>
-                                                                </div>
-                                                                <Input 
-                                                                    type="file" 
-                                                                    accept="image/jpeg, image/png, image/webp, image/heic" 
-                                                                    className="absolute inset-0 opacity-0 cursor-pointer" 
-                                                                    onChange={async (e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) {
-                                                                            setUploadingImage(true);
-                                                                            const reader = new FileReader();
-                                                                            reader.onloadend = () => {
-                                                                                field.onChange([reader.result as string]);
-                                                                                setUploadingImage(false);
-                                                                            };
-                                                                            reader.readAsDataURL(file);
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        )}
+                                                    <div className="mt-2">
+                                                        <ImageDropzone 
+                                                            value={field.value}
+                                                            onChange={(files) => field.onChange(files)}
+                                                            multiple={true}
+                                                            label="Add Front Photo"
+                                                            sublabel="Guests love visual profiles."
+                                                            className="h-48 rounded-[20px]"
+                                                        />
                                                     </div>
                                                     <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
                                                 </FormItem>
@@ -1230,24 +1196,13 @@ export default function CompleteProfilePage() {
                                                                         <button type="button" onClick={() => field.onChange([])} className="text-xs text-destructive hover:underline">Remove</button>
                                                                     )}
                                                                 </FormLabel>
-                                                                <div className="relative h-20 rounded-[14px] border-2 border-dashed border-primary/10 bg-black/20 hover:bg-[#201f1f]/40 transition-all flex items-center justify-center overflow-hidden cursor-pointer group">
-                                                                    {field.value?.length > 0 ? (
-                                                                        <img src={field.value[0]} alt="Logo Preview" className="h-full object-contain p-2" />
-                                                                    ) : (
-                                                                        <div className="text-center text-muted-foreground group-hover:text-primary transition-colors">
-                                                                            <Camera className="w-5 h-5 mx-auto mb-1 opacity-70" />
-                                                                            <span className="text-[10px] font-semibold">Upload Logo</span>
-                                                                        </div>
-                                                                    )}
-                                                                    <Input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) {
-                                                                            const reader = new FileReader();
-                                                                            reader.onloadend = () => field.onChange([reader.result as string]);
-                                                                            reader.readAsDataURL(file);
-                                                                        }
-                                                                    }} />
-                                                                </div>
+                                                                <ImageDropzone 
+                                                                    value={field.value}
+                                                                    onChange={field.onChange}
+                                                                    label="Upload Logo"
+                                                                    className="h-20 rounded-[14px]"
+                                                                    isIcon={false}
+                                                                />
                                                             </FormItem>
                                                         )}
                                                     />
@@ -1263,24 +1218,13 @@ export default function CompleteProfilePage() {
                                                                         <button type="button" onClick={() => field.onChange([])} className="text-xs text-destructive hover:underline">Remove</button>
                                                                     )}
                                                                 </FormLabel>
-                                                                <div className="relative h-20 rounded-[14px] border-2 border-dashed border-primary/10 bg-black/20 hover:bg-[#201f1f]/40 transition-all flex items-center justify-center overflow-hidden cursor-pointer group">
-                                                                    {field.value?.length > 0 ? (
-                                                                        <img src={field.value[0]} alt="Icon Preview" className="h-full w-full object-cover" />
-                                                                    ) : (
-                                                                        <div className="text-center text-muted-foreground group-hover:text-primary transition-colors">
-                                                                            <Camera className="w-5 h-5 mx-auto mb-1 opacity-70" />
-                                                                            <span className="text-[10px] font-semibold">Upload Icon</span>
-                                                                        </div>
-                                                                    )}
-                                                                    <Input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => {
-                                                                        const file = e.target.files?.[0];
-                                                                        if (file) {
-                                                                            const reader = new FileReader();
-                                                                            reader.onloadend = () => field.onChange([reader.result as string]);
-                                                                            reader.readAsDataURL(file);
-                                                                        }
-                                                                    }} />
-                                                                </div>
+                                                                <ImageDropzone 
+                                                                    value={field.value}
+                                                                    onChange={field.onChange}
+                                                                    label="Upload Icon"
+                                                                    className="h-20 rounded-[14px]"
+                                                                    isIcon={true}
+                                                                />
                                                             </FormItem>
                                                         )}
                                                     />
