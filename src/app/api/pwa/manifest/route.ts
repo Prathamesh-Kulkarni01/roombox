@@ -37,6 +37,21 @@ export async function GET(req: NextRequest) {
     const backgroundColor = config?.backgroundColor || siteConfig?.pwaBackgroundColor || '#ffffff';
     const logo = config?.logo || siteConfig?.logoUrl || siteConfig?.faviconUrl || '';
 
+    // Helper to dynamically resize Cloudinary URLs to match specified manifest sizes
+    const getTransformedImageUrl = (url: string, w: number, h: number) => {
+        if (!url) return '';
+        if (url.includes('res.cloudinary.com')) {
+            const parts = url.split('/upload/');
+            if (parts.length === 2) {
+                return `${parts[0]}/upload/c_fill,g_auto,w_${w},h_${h},f_png/${parts[1]}`;
+            }
+        }
+        return url;
+    };
+
+    const icon192 = getTransformedImageUrl(logo, 192, 192) || '/icons/icon-192x192.png';
+    const icon512 = getTransformedImageUrl(logo, 512, 512) || '/icons/icon-512x512.png';
+
     const manifest = {
         name,
         short_name: shortName,
@@ -50,16 +65,42 @@ export async function GET(req: NextRequest) {
         orientation: 'portrait',
         icons: [
             {
-                src: logo || '/icons/icon-192x192.png',
+                src: icon192,
                 sizes: '192x192',
                 type: 'image/png',
-                purpose: 'any maskable'
+                purpose: 'any'
             },
             {
-                src: logo || '/icons/icon-512x512.png',
+                src: icon512,
                 sizes: '512x512',
                 type: 'image/png',
-                purpose: 'any maskable'
+                purpose: 'any'
+            },
+            {
+                src: icon192,
+                sizes: '192x192',
+                type: 'image/png',
+                purpose: 'maskable'
+            },
+            {
+                src: icon512,
+                sizes: '512x512',
+                type: 'image/png',
+                purpose: 'maskable'
+            }
+        ],
+        screenshots: [
+            {
+                src: '/images/dashboard_loaded.png',
+                sizes: '1280x720',
+                type: 'image/png',
+                form_factor: 'wide'
+            },
+            {
+                src: '/images/manage_rooms_mobile.png',
+                sizes: '720x1280',
+                type: 'image/png',
+                form_factor: 'narrow'
             }
         ]
     };
