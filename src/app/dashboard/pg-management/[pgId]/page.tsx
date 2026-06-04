@@ -72,6 +72,7 @@ import {
   Filter,
   MoreHorizontal,
   History,
+  Settings,
 } from "lucide-react";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { canAccess } from "@/lib/permissions";
@@ -535,6 +536,19 @@ export default function RoomManagementPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Settings button */}
+            {canEditProperty && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push(`/dashboard/pg-management/${pg.id}/settings`)}
+                className="rounded-xl h-10 w-10 shrink-0 transition-colors bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                title="Property Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+            )}
 
             {/* Edit mode toggle */}
             {canEditProperty && (

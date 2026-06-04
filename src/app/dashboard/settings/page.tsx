@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/card";
 import { useAppSelector } from "@/lib/hooks";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PWASettings } from "@/components/dashboard/pwa-settings";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,8 +25,6 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PWASettings />
-
       <Card>
         <CardHeader>
           <CardTitle>Owner Profile</CardTitle>
