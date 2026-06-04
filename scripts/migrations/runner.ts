@@ -71,9 +71,15 @@ export interface Migration {
     name: string;
     targetSchemaVersion: number;
     description: string;
-    // New: Up returns stats and actual field-level changes for audit
+    /** 
+     * Up returns stats and actual field-level changes for audit.
+     * IMPORTANT: This must be written idempotently. It should be safe to run multiple times without causing side-effects.
+     */
     up: (db: admin.firestore.Firestore, isDryRun?: boolean) => Promise<MigrationResult>;
-    // New: Down for rollbacks
+    /** 
+     * Down for rollbacks.
+     * IMPORTANT: This must be written idempotently.
+     */
     down?: (db: admin.firestore.Firestore) => Promise<MigrationResult>;
 }
 
@@ -107,32 +113,41 @@ async function runMigrations() {
         process.exit(1);
     }
 
-    // 2. Lock System with TTL
+    // 2. Lock System with TTL (Atomic Transaction)
     const lockRef = db.doc('system/migration_lock');
     const isForce = process.argv.includes('--force');
+    let acquiredLock = false;
+
     try {
-        const lockDoc = await lockRef.get();
-        if (lockDoc.exists && !isForce) {
-            const lockData = lockDoc.data();
-            const lockTime = lockData?.lockedAt?.toDate();
-            // TTL: 30 minutes
-            const ttlThreshold = new Date(Date.now() - 30 * 60 * 1000);
-            
-            if (lockTime && lockTime > ttlThreshold) {
-                console.error(`❌ LOCKED: Migration already running (Locked at: ${lockTime.toISOString()})`);
-                console.error(`Use --force to override if you are sure no other process is running.`);
-                process.exit(1);
-            } else {
-                console.log('⚠️ Overwriting stale/expired lock.');
+        await db.runTransaction(async (transaction) => {
+            const lockDoc = await transaction.get(lockRef);
+            if (lockDoc.exists && !isForce) {
+                const lockData = lockDoc.data();
+                const lockTime = lockData?.lockedAt?.toDate();
+                // TTL: 30 minutes
+                const ttlThreshold = new Date(Date.now() - 30 * 60 * 1000);
+                
+                if (lockTime && lockTime > ttlThreshold) {
+                    throw new Error(`LOCKED: Migration already running (Locked at: ${lockTime.toISOString()})`);
+                } else {
+                    console.log('⚠️ Overwriting stale/expired lock.');
+                }
             }
-        }
-        await lockRef.set({ 
-            lockedAt: admin.firestore.FieldValue.serverTimestamp(), 
-            lockedBy: process.pid,
-            githubRunId: process.env.GITHUB_RUN_ID || 'local'
+            
+            transaction.set(lockRef, { 
+                lockedAt: admin.firestore.FieldValue.serverTimestamp(), 
+                lockedBy: process.pid,
+                githubRunId: process.env.GITHUB_RUN_ID || 'local'
+            });
+            acquiredLock = true;
         });
-    } catch (err) {
-        console.error('Lock fail:', err);
+    } catch (err: any) {
+        if (err.message && err.message.startsWith('LOCKED:')) {
+            console.error(`❌ ${err.message}`);
+            console.error(`Use --force to override if you are sure no other process is running.`);
+        } else {
+            console.error('Lock fail:', err);
+        }
         process.exit(1);
     }
 
@@ -146,38 +161,10 @@ async function runMigrations() {
             console.log('🚀 LIVE MODE: Changes will be committed to production.');
         }
 
-        // 3. Optional: Backup critical Collections or Docs
+        // 3. Pre-migration Checklist
         if (!isDryRun && !isSkipBackup) {
-            console.log(`\n📦 [BACKUP] Snapshotting critical data...`);
-            const pathsToBackup = ['system/config', 'tenants', 'properties']; 
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            
-            for (const path of pathsToBackup) {
-                const isDoc = path.split('/').filter(Boolean).length % 2 === 0;
-                
-                if (isDoc) {
-                    const snapshotPath = `system_backups/${timestamp}_doc_${path.replace(/\//g, '_')}`;
-                    console.log(` - Backing up doc: ${path} to ${snapshotPath}...`);
-                    const source = await db.doc(path).get();
-                    if (source.exists) {
-                        await db.doc(snapshotPath).set({ ...source.data(), backupAt: timestamp });
-                    }
-                } else {
-                    // It's a collection - snapshot first 100 docs
-                    const snapshotCol = `system_backups/${timestamp}_col_${path.replace(/\//g, '_')}/data`;
-                    console.log(` - Backing up collection (sample): ${path} to ${snapshotCol}...`);
-                    const snap = await db.collection(path).limit(100).get();
-                    if (!snap.empty) {
-                        const batch = db.batch();
-                        snap.forEach(doc => {
-                            const ref = db.collection(snapshotCol).doc(doc.id);
-                            batch.set(ref, { ...doc.data(), backupAt: timestamp });
-                        });
-                        await batch.commit();
-                        console.log(`   - Snapshotted ${snap.size} docs from ${path}.`);
-                    }
-                }
-            }
+            console.log(`\n📦 [BACKUP REMINDER] Internal backups are disabled for scale/reliability.`);
+            console.log(`Please ensure Google Cloud Firestore Scheduled Exports are configured before running production migrations.`);
         }
 
         // 4. Scan Migration Files
@@ -277,7 +264,15 @@ async function runMigrations() {
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
         }
     } finally {
-        await lockRef.delete();
+        if (acquiredLock) {
+            const currentLock = await lockRef.get();
+            if (currentLock.exists && currentLock.data()?.lockedBy === process.pid) {
+                await lockRef.delete();
+                console.log('\n🔓 Lock released successfully.');
+            } else if (currentLock.exists) {
+                console.log('\n⚠️ Lock is held by another process; not deleting.');
+            }
+        }
     }
 }
 
@@ -304,8 +299,14 @@ async function rollback() {
             console.log(`[ROLLBACK] Reverting version ${currentVersion} using ${file}...`);
             if (migrationModule.down) {
                 await migrationModule.down(db);
+                
+                // Delete the migration history to allow it to run again
+                const migrationName = file.replace(/\.ts$/, '');
+                await db.collection('system_migrations').doc(migrationName).delete();
+                
                 await configRef.update({ 
                     schemaVersion: currentVersion - 1,
+                    lastExecutedMigration: admin.firestore.FieldValue.delete(),
                     updatedAt: admin.firestore.FieldValue.serverTimestamp()
                 });
                 console.log(` ✅ Rollback to v${currentVersion - 1} complete.`);
