@@ -180,8 +180,22 @@ export function PWASettings() {
   const logoValue = form.watch('logo');
   const subdomainValue = form.watch('subdomain');
 
-  const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const brandedUrl = subdomainValue ? `${appUrl}/app/${subdomainValue}` : '';
+  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://roombox.in';
+  let brandedUrl = '';
+  if (subdomainValue && typeof window !== 'undefined') {
+    try {
+      const url = new URL(appUrl);
+      let host = url.hostname;
+      if (host.startsWith('www.')) host = host.substring(4);
+      url.hostname = `${subdomainValue}.${host}`;
+      brandedUrl = url.toString().replace(/\/+$/, '');
+    } catch(e) {
+      brandedUrl = `${appUrl}/app/${subdomainValue}`;
+    }
+  }
+
+  const qrDarkColor = (themeColorValue || '#0f172a').replace('#', '');
+  const qrCodeUrl = brandedUrl ? `https://quickchart.io/qr?text=${encodeURIComponent(brandedUrl)}&size=300&dark=${qrDarkColor}&margin=2${logoValue && !logoValue.startsWith('data:image/svg+xml') ? `&centerImageUrl=${encodeURIComponent(logoValue)}` : ''}` : '';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -566,12 +580,17 @@ export function PWASettings() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-8 items-center bg-card p-8 rounded-2xl shadow-sm border border-border/50">
-              <div className="bg-muted/20 p-4 rounded-xl border-2 border-border/50 shadow-sm shrink-0">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(brandedUrl)}&margin=10`}
-                  alt="App QR Code"
-                  className="w-40 h-40 dark:invert-[0.05]"
-                />
+              <div className="bg-muted/20 p-4 rounded-xl border-2 border-border/50 shadow-sm shrink-0 flex flex-col items-center gap-4">
+                <div className="bg-white p-2 rounded-lg">
+                  <img
+                    src={qrCodeUrl}
+                    alt="App QR Code"
+                    className="w-40 h-40 object-contain"
+                  />
+                </div>
+                <Button variant="outline" size="sm" className="w-full font-semibold" onClick={() => window.open(qrCodeUrl, '_blank')}>
+                  Download QR
+                </Button>
               </div>
 
               <div className="flex-1 space-y-6 w-full text-center md:text-left">

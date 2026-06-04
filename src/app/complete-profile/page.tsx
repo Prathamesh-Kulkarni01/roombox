@@ -85,11 +85,16 @@ const pgSchema = z.object({
   upiId: z.string().min(3, "UPI ID is required for digital payments").optional().or(z.literal('')),
   payeeName: z.string().min(2, "Payee name is required").optional().or(z.literal('')),
   direct_upi_enabled: z.boolean().default(true),
+  themeColor: z.string().default('#2563eb'),
+  appName: z.string().min(2, "App name is required").default(''),
+  subdomain: z.string().min(3, "Subdomain must be at least 3 characters").regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens allowed").default(''),
+  logo: z.array(z.string()).default([]),
+  icon: z.array(z.string()).default([]),
 })
 
 type PgFormValues = z.infer<typeof pgSchema>
 
-type OnboardingStep = 'ROLE_SELECTION' | 'OWNER_DETAILS' | 'PG_DETAILS' | 'ROOMS_CONFIG' | 'PAYMENT_SETUP' | 'FINAL_CHECK'
+type OnboardingStep = 'ROLE_SELECTION' | 'OWNER_DETAILS' | 'PG_DETAILS' | 'ROOMS_CONFIG' | 'PAYMENT_SETUP' | 'BRANDING_SETUP' | 'FINAL_CHECK'
 
 export default function CompleteProfilePage() {
     const router = useRouter()
@@ -123,6 +128,11 @@ export default function CompleteProfilePage() {
             upiId: '',
             payeeName: currentUser?.name || '',
             direct_upi_enabled: true,
+            themeColor: '#2563eb',
+            appName: '',
+            subdomain: '',
+            logo: [],
+            icon: [],
         },
     })
 
@@ -149,6 +159,7 @@ export default function CompleteProfilePage() {
             case 'PG_DETAILS': return 50;
             case 'ROOMS_CONFIG': return 70;
             case 'PAYMENT_SETUP': return 85;
+            case 'BRANDING_SETUP': return 92;
             case 'FINAL_CHECK': return 100;
             default: return 0;
         }
@@ -215,6 +226,27 @@ export default function CompleteProfilePage() {
         const result = await form.trigger(['upiId', 'payeeName']);
         if (result) {
             if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+            
+            // Auto-fill branding defaults if not set
+            const pgName = form.getValues('name');
+            if (pgName) {
+                if (!form.getValues('appName')) {
+                    form.setValue('appName', pgName, { shouldValidate: true });
+                }
+                if (!form.getValues('subdomain')) {
+                    const autoSubdomain = pgName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                    form.setValue('subdomain', autoSubdomain, { shouldValidate: true });
+                }
+            }
+
+            setActiveStep('BRANDING_SETUP');
+        }
+    }
+
+    const validateBranding = async () => {
+        const result = await form.trigger(['themeColor', 'appName', 'subdomain']);
+        if (result) {
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
             setActiveStep('FINAL_CHECK');
         }
     }
@@ -238,7 +270,12 @@ export default function CompleteProfilePage() {
                 upiId: data.upiId?.trim() || '',
                 payeeName: data.payeeName?.trim() || '',
                 direct_upi_enabled: !!data.upiId?.trim(),
-                paymentMode: data.upiId?.trim() ? 'DIRECT_UPI' : 'CASH_ONLY'
+                paymentMode: data.upiId?.trim() ? 'DIRECT_UPI' : 'CASH_ONLY',
+                themeColor: data.themeColor,
+                appName: data.appName,
+                subdomain: data.subdomain,
+                logo: data.logo,
+                icon: data.icon
             }).unwrap();
 
             if (result.success) {
@@ -272,15 +309,17 @@ export default function CompleteProfilePage() {
                     
                     {activeStep !== 'ROLE_SELECTION' && (
                         <div className="hidden md:flex items-center gap-6">
-                            <StepIndicator active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'ROOMS_CONFIG', 'PAYMENT_SETUP', 'FINAL_CHECK'].includes(activeStep)} label="Me" index={1} />
+                            <StepIndicator active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'ROOMS_CONFIG', 'PAYMENT_SETUP', 'BRANDING_SETUP', 'FINAL_CHECK'].includes(activeStep)} label="Me" index={1} />
                             <div className="w-4 h-[2px] bg-muted/20" />
-                            <StepIndicator active={activeStep === 'PG_DETAILS'} completed={['ROOMS_CONFIG', 'PAYMENT_SETUP', 'FINAL_CHECK'].includes(activeStep)} label="PG" index={2} />
+                            <StepIndicator active={activeStep === 'PG_DETAILS'} completed={['ROOMS_CONFIG', 'PAYMENT_SETUP', 'BRANDING_SETUP', 'FINAL_CHECK'].includes(activeStep)} label="PG" index={2} />
                             <div className="w-4 h-[2px] bg-muted/20" />
-                            <StepIndicator active={activeStep === 'ROOMS_CONFIG'} completed={['PAYMENT_SETUP', 'FINAL_CHECK'].includes(activeStep)} label="Rooms" index={3} />
+                            <StepIndicator active={activeStep === 'ROOMS_CONFIG'} completed={['PAYMENT_SETUP', 'BRANDING_SETUP', 'FINAL_CHECK'].includes(activeStep)} label="Rooms" index={3} />
                             <div className="w-4 h-[2px] bg-muted/20" />
-                            <StepIndicator active={activeStep === 'PAYMENT_SETUP'} completed={activeStep === 'FINAL_CHECK'} label="Rent" index={4} />
+                            <StepIndicator active={activeStep === 'PAYMENT_SETUP'} completed={['BRANDING_SETUP', 'FINAL_CHECK'].includes(activeStep)} label="Rent" index={4} />
                             <div className="w-4 h-[2px] bg-muted/20" />
-                            <StepIndicator active={activeStep === 'FINAL_CHECK'} completed={false} label="Finish" index={5} />
+                            <StepIndicator active={activeStep === 'BRANDING_SETUP'} completed={activeStep === 'FINAL_CHECK'} label="App" index={5} />
+                            <div className="w-4 h-[2px] bg-muted/20" />
+                            <StepIndicator active={activeStep === 'FINAL_CHECK'} completed={false} label="Finish" index={6} />
                         </div>
                     )}
 
@@ -297,11 +336,12 @@ export default function CompleteProfilePage() {
                 {/* Desktop Sidebar */}
                 <div className="hidden lg:flex lg:col-span-3 flex-col gap-10 sticky top-24 h-fit pr-10 border-r border-primary/5">
                     <div className="space-y-10">
-                        <StepIndicator index={1} label="About You" active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'ROOMS_CONFIG', 'PAYMENT_SETUP', 'FINAL_CHECK'].includes(activeStep)} />
-                        <StepIndicator index={2} label="PG Name & City" active={activeStep === 'PG_DETAILS'} completed={['ROOMS_CONFIG', 'PAYMENT_SETUP', 'FINAL_CHECK'].includes(activeStep)} />
-                        <StepIndicator index={3} label="Rooms & Floors" active={activeStep === 'ROOMS_CONFIG'} completed={['PAYMENT_SETUP', 'FINAL_CHECK'].includes(activeStep)} />
-                        <StepIndicator index={4} label="Collect Rent" active={activeStep === 'PAYMENT_SETUP'} completed={['FINAL_CHECK'].includes(activeStep)} />
-                        <StepIndicator index={5} label="Finish Setup" active={activeStep === 'FINAL_CHECK'} completed={false} />
+                        <StepIndicator index={1} label="About You" active={activeStep === 'OWNER_DETAILS'} completed={['PG_DETAILS', 'ROOMS_CONFIG', 'PAYMENT_SETUP', 'BRANDING_SETUP', 'FINAL_CHECK'].includes(activeStep)} />
+                        <StepIndicator index={2} label="PG Name & City" active={activeStep === 'PG_DETAILS'} completed={['ROOMS_CONFIG', 'PAYMENT_SETUP', 'BRANDING_SETUP', 'FINAL_CHECK'].includes(activeStep)} />
+                        <StepIndicator index={3} label="Rooms & Floors" active={activeStep === 'ROOMS_CONFIG'} completed={['PAYMENT_SETUP', 'BRANDING_SETUP', 'FINAL_CHECK'].includes(activeStep)} />
+                        <StepIndicator index={4} label="Collect Rent" active={activeStep === 'PAYMENT_SETUP'} completed={['BRANDING_SETUP', 'FINAL_CHECK'].includes(activeStep)} />
+                        <StepIndicator index={5} label="App Branding" active={activeStep === 'BRANDING_SETUP'} completed={['FINAL_CHECK'].includes(activeStep)} />
+                        <StepIndicator index={6} label="Finish Setup" active={activeStep === 'FINAL_CHECK'} completed={false} />
                     </div>
 
                     <div className="mt-auto pt-10 space-y-8">
@@ -1084,7 +1124,212 @@ export default function CompleteProfilePage() {
                                 </motion.div>
                             )}
 
-                            {/* STEP 5: REVIEW & LAUNCH */}
+                            {/* STEP 5: BRANDING SETUP */}
+                            {activeStep === 'BRANDING_SETUP' && (
+                                <motion.div key="branding" {...stepVariants} className="w-full max-w-4xl mx-auto pb-24 px-4">
+                                    <div className="text-center md:text-left space-y-2 mb-6">
+                                        <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">White Label App Setup</h2>
+                                        <p className="text-muted-foreground text-sm font-semibold">
+                                            Your tenants will use an app that looks like YOUR brand. Set it up instantly.
+                                        </p>
+                                    </div>
+                                    <div className="grid md:grid-cols-2 gap-8">
+                                        <div className="space-y-6">
+                                            <div className="p-6 rounded-[24px] bg-black/40 border border-primary/10 space-y-5">
+                                                
+                                                <FormField
+                                                    control={form.control}
+                                                    name="appName"
+                                                    render={({ field }) => (
+                                                        <FormItem className="space-y-2 text-left">
+                                                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                                App Name
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input 
+                                                                    placeholder="e.g. Royal PG App" 
+                                                                    className="h-12 px-4 text-base font-semibold bg-[#201f1f]/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all" 
+                                                                    {...field} 
+                                                                    onChange={(e) => {
+                                                                        field.onChange(e);
+                                                                        const autoSubdomain = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                                                                        if (!form.getValues('subdomain') && autoSubdomain.length >= 3) {
+                                                                            form.setValue('subdomain', autoSubdomain, { shouldValidate: true });
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                <FormField
+                                                    control={form.control}
+                                                    name="subdomain"
+                                                    render={({ field }) => (
+                                                        <FormItem className="space-y-2 text-left">
+                                                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                                Web App Link
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <div className="flex items-center">
+                                                                    <Input 
+                                                                        placeholder="your-pg-name" 
+                                                                        className="h-12 px-4 text-base font-semibold bg-[#201f1f]/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-l-[14px] rounded-r-none transition-all" 
+                                                                        {...field} 
+                                                                    />
+                                                                    <div className="h-12 px-4 flex items-center bg-black/60 border border-l-0 border-primary/10 rounded-r-[14px] text-muted-foreground font-medium text-sm">
+                                                                        .roombox.in
+                                                                    </div>
+                                                                </div>
+                                                            </FormControl>
+                                                            <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                <div>
+                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">Select Theme Color</h3>
+                                                    <div className="flex flex-wrap gap-4">
+                                                        {[
+                                                            { label: 'Blue', value: '#2563eb' },
+                                                            { label: 'Rose', value: '#e11d48' },
+                                                            { label: 'Green', value: '#16a34a' },
+                                                            { label: 'Purple', value: '#9333ea' },
+                                                            { label: 'Amber', value: '#d97706' },
+                                                            { label: 'Slate', value: '#475569' }
+                                                        ].map((color) => (
+                                                            <button
+                                                                key={color.value}
+                                                                type="button"
+                                                                onClick={() => form.setValue('themeColor', color.value, { shouldDirty: true, shouldValidate: true })}
+                                                                className={cn(
+                                                                    "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-2 border-transparent",
+                                                                    currentValues.themeColor === color.value 
+                                                                        ? "ring-4 ring-offset-4 ring-offset-background scale-110" 
+                                                                        : "hover:scale-105 opacity-80 hover:opacity-100"
+                                                                )}
+                                                                style={{ backgroundColor: color.value }}
+                                                            >
+                                                                {currentValues.themeColor === color.value && <Check className="w-4 h-4 text-white" />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 gap-4 pt-2">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="logo"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-2 text-left">
+                                                                <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex justify-between items-center">
+                                                                    <span>Logo <span className="text-[10px] lowercase normal-case opacity-70">(Optional)</span></span>
+                                                                    {field.value?.length > 0 && (
+                                                                        <button type="button" onClick={() => field.onChange([])} className="text-xs text-destructive hover:underline">Remove</button>
+                                                                    )}
+                                                                </FormLabel>
+                                                                <div className="relative h-20 rounded-[14px] border-2 border-dashed border-primary/10 bg-black/20 hover:bg-[#201f1f]/40 transition-all flex items-center justify-center overflow-hidden cursor-pointer group">
+                                                                    {field.value?.length > 0 ? (
+                                                                        <img src={field.value[0]} alt="Logo Preview" className="h-full object-contain p-2" />
+                                                                    ) : (
+                                                                        <div className="text-center text-muted-foreground group-hover:text-primary transition-colors">
+                                                                            <Camera className="w-5 h-5 mx-auto mb-1 opacity-70" />
+                                                                            <span className="text-[10px] font-semibold">Upload Logo</span>
+                                                                        </div>
+                                                                    )}
+                                                                    <Input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            const reader = new FileReader();
+                                                                            reader.onloadend = () => field.onChange([reader.result as string]);
+                                                                            reader.readAsDataURL(file);
+                                                                        }
+                                                                    }} />
+                                                                </div>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="icon"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-2 text-left">
+                                                                <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex justify-between items-center">
+                                                                    <span>App Icon <span className="text-[10px] lowercase normal-case opacity-70">(Optional)</span></span>
+                                                                    {field.value?.length > 0 && (
+                                                                        <button type="button" onClick={() => field.onChange([])} className="text-xs text-destructive hover:underline">Remove</button>
+                                                                    )}
+                                                                </FormLabel>
+                                                                <div className="relative h-20 rounded-[14px] border-2 border-dashed border-primary/10 bg-black/20 hover:bg-[#201f1f]/40 transition-all flex items-center justify-center overflow-hidden cursor-pointer group">
+                                                                    {field.value?.length > 0 ? (
+                                                                        <img src={field.value[0]} alt="Icon Preview" className="h-full w-full object-cover" />
+                                                                    ) : (
+                                                                        <div className="text-center text-muted-foreground group-hover:text-primary transition-colors">
+                                                                            <Camera className="w-5 h-5 mx-auto mb-1 opacity-70" />
+                                                                            <span className="text-[10px] font-semibold">Upload Icon</span>
+                                                                        </div>
+                                                                    )}
+                                                                    <Input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            const reader = new FileReader();
+                                                                            reader.onloadend = () => field.onChange([reader.result as string]);
+                                                                            reader.readAsDataURL(file);
+                                                                        }
+                                                                    }} />
+                                                                </div>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                        <div className="p-6 rounded-[24px] bg-gradient-to-br from-secondary/10 to-[#201f1f]/20 border border-primary/10 shadow-2xl flex flex-col items-center justify-center min-h-[300px]">
+                                            <div className="mb-4 text-center">
+                                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Live Preview</p>
+                                                <p className="text-sm font-semibold text-primary">{currentValues.subdomain || 'your-pg-name'}.roombox.in</p>
+                                            </div>
+                                            <div className="w-[220px] h-[450px] rounded-[32px] border-[6px] border-black/80 bg-background overflow-hidden relative shadow-2xl flex flex-col">
+                                                <div className="w-full h-14 flex items-center px-4 transition-colors duration-500" style={{ backgroundColor: currentValues.themeColor || '#2563eb' }}>
+                                                    <div className="flex items-center gap-2 w-full">
+                                                        {currentValues.icon?.[0] ? (
+                                                            <img src={currentValues.icon[0]} className="w-6 h-6 rounded-md object-cover bg-white/20" />
+                                                        ) : (
+                                                            <div className="w-6 h-6 rounded-md bg-white/30" />
+                                                        )}
+                                                        {currentValues.logo?.[0] ? (
+                                                            <img src={currentValues.logo[0]} className="h-6 object-contain" />
+                                                        ) : (
+                                                            <div className="h-4 w-20 bg-white/30 rounded-md backdrop-blur-sm" />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 flex-1 flex flex-col gap-3 relative">
+                                                    <div className="text-xs font-bold text-foreground opacity-80 mt-1">
+                                                        Welcome to {currentValues.appName || 'Your PG App'}
+                                                    </div>
+                                                    <div className="bg-muted/30 rounded-xl p-3 shadow-sm border border-primary/5">
+                                                        <div className="h-3 w-16 bg-muted/80 rounded mb-2" />
+                                                        <div className="h-5 w-24 bg-muted/60 rounded mb-3" />
+                                                        <div className="h-8 w-full rounded-lg transition-colors duration-500 opacity-90" style={{ backgroundColor: currentValues.themeColor || '#2563eb' }} />
+                                                    </div>
+                                                    <div className="bg-muted/30 rounded-xl p-3 shadow-sm border border-primary/5">
+                                                        <div className="h-3 w-full bg-muted/80 rounded mb-2" />
+                                                        <div className="h-3 w-3/4 bg-muted/60 rounded mb-2" />
+                                                        <div className="h-3 w-1/2 bg-muted/60 rounded" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* STEP 6: REVIEW & LAUNCH */}
                             {activeStep === 'FINAL_CHECK' && (
                                 <motion.div key="review" {...stepVariants} className="w-full max-w-4xl mx-auto pb-40 px-4">
                                     <div className="text-center space-y-2 mb-6">
@@ -1223,13 +1468,15 @@ export default function CompleteProfilePage() {
                                 activeStep === 'PG_DETAILS' ? validateBasics :
                                 activeStep === 'ROOMS_CONFIG' ? validateLayout :
                                 activeStep === 'PAYMENT_SETUP' ? validateUPI :
+                                activeStep === 'BRANDING_SETUP' ? validateBranding :
                                 form.handleSubmit(onPropertySubmit)
                             }
                             onBack={
                                 activeStep === 'PG_DETAILS' ? () => setActiveStep('OWNER_DETAILS') :
                                 activeStep === 'ROOMS_CONFIG' ? () => setActiveStep('PG_DETAILS') :
                                 activeStep === 'PAYMENT_SETUP' ? () => setActiveStep('ROOMS_CONFIG') :
-                                activeStep === 'FINAL_CHECK' ? () => setActiveStep('PAYMENT_SETUP') :
+                                activeStep === 'BRANDING_SETUP' ? () => setActiveStep('PAYMENT_SETUP') :
+                                activeStep === 'FINAL_CHECK' ? () => setActiveStep('BRANDING_SETUP') :
                                 undefined
                             }
                             showBack={activeStep !== 'OWNER_DETAILS' && activeStep !== 'ROLE_SELECTION'}
@@ -1238,7 +1485,8 @@ export default function CompleteProfilePage() {
                                 activeStep === 'OWNER_DETAILS' ? "Next" :
                                 activeStep === 'PG_DETAILS' ? "Next" :
                                 activeStep === 'ROOMS_CONFIG' ? "Next" :
-                                activeStep === 'PAYMENT_SETUP' ? "Check" :
+                                activeStep === 'PAYMENT_SETUP' ? "Next" :
+                                activeStep === 'BRANDING_SETUP' ? "Check" :
                                 "Finish"
                             }
                             isFinal={activeStep === 'FINAL_CHECK'}
