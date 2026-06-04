@@ -49,10 +49,7 @@ export function ImageDropzone({
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
         accept: {
-            'image/jpeg': [],
-            'image/png': [],
-            'image/webp': [],
-            'image/heic': []
+            'image/*': []
         },
         multiple,
     });
@@ -90,18 +87,43 @@ export function ImageDropzone({
         );
     }
 
-    if (value.length > 0 && multiple) {
+    if (multiple) {
         return (
-            <div className={cn("relative overflow-hidden group border-2 border-primary/30 bg-primary/5 shadow-inner flex flex-col items-center justify-center transition-all cursor-pointer", className)} {...getRootProps()}>
-                <input {...getInputProps()} />
-                <img src={value[0]} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                <div className="relative z-10 flex flex-col items-center gap-2 bg-black/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-primary/25 shadow-2xl">
-                    <CheckCircle2 className="w-5 h-5 text-primary" />
-                    <span className="text-xs font-black uppercase tracking-widest text-primary">{value.length} Image{value.length > 1 ? 's' : ''} Loaded</span>
-                </div>
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 z-20">
-                     <span className="text-sm font-semibold text-white">Click or Drop to replace</span>
+            <div className="space-y-4 w-full">
+                {value.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {value.map((img, i) => (
+                            <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-border group shadow-sm">
+                                <img src={img} alt={`Preview ${i}`} className="w-full h-full object-cover" />
+                                <button 
+                                    type="button"
+                                    onClick={(e) => removeImage(e, i)}
+                                    className="absolute top-2 right-2 bg-black/60 text-white p-1.5 rounded-full opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive hover:scale-110"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <div 
+                    {...getRootProps()} 
+                    className={cn(
+                        "relative border-2 border-dashed rounded-xl transition-all flex flex-col items-center justify-center overflow-hidden cursor-pointer group py-8",
+                        isDragActive ? "border-primary bg-primary/10" : "border-primary/20 bg-muted/20 hover:bg-muted/40",
+                        className
+                    )}
+                >
+                    <input {...getInputProps()} />
+                    <div className="flex flex-col items-center gap-4 text-muted-foreground group-hover:text-primary transition-colors">
+                        <div className="w-14 h-14 rounded-2xl bg-secondary-container/20 border border-primary/10 shadow-lg flex items-center justify-center group-hover:scale-105 transition-all duration-300">
+                            {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
+                        </div>
+                        <div className="text-center px-4">
+                            <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{value.length > 0 ? "Add More Photos" : label}</p>
+                            <p className="text-xs font-medium text-muted-foreground mt-0.5">{sublabel || "Drag & drop or click to upload"}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         );

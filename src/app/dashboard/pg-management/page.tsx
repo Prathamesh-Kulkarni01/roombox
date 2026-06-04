@@ -30,6 +30,7 @@ import {
   Building,
   Trash2,
   Zap,
+  Settings,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -38,6 +39,14 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -477,12 +486,22 @@ export default function PgManagementPage() {
                                     <DropdownMenuItem
                                       onClick={() =>
                                         router.push(
+                                          `/dashboard/pg-management/${pg.id}/settings`,
+                                        )
+                                      }
+                                    >
+                                      <Building className="mr-2 h-4 w-4" />{" "}
+                                      View Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        router.push(
                                           `/dashboard/pg-management/${pg.id}`,
                                         )
                                       }
                                     >
-                                      <Pencil className="mr-2 h-4 w-4" />{" "}
-                                      Configure
+                                      <Settings className="mr-2 h-4 w-4" />{" "}
+                                      Manage Rooms
                                     </DropdownMenuItem>
                                     <Access feature="properties" action="add">
                                       <DropdownMenuItem
@@ -518,91 +537,102 @@ export default function PgManagementPage() {
                     {/* Mobile Card View */}
                     <div className="md:hidden grid gap-4">
                       {pgs.map((pg) => (
-                        <div
-                          key={pg.id}
-                          className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-bold">{pg.name}</p>
-                              <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                                <MapPin className="w-3.5 h-3.5" />
-                                {pg.location}
+                        <Sheet key={pg.id}>
+                          <SheetTrigger asChild>
+                            <div className="p-4 border rounded-lg flex flex-col gap-3 bg-muted/20 cursor-pointer active:scale-[0.98] transition-transform">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-bold">{pg.name}</p>
+                                  <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    {pg.location}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex justify-between items-end text-sm">
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-muted-foreground" />
+                                    <span>
+                                      {pg.occupancy}/{pg.totalBeds} Occupancy
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <IndianRupee className="w-4 h-4 text-muted-foreground" />
+                                    <span>
+                                      {pg.priceRange?.min ?? 0} -{" "}
+                                      {pg.priceRange?.max ?? 0}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Badge
+                                  className={cn(
+                                    "capitalize border-transparent",
+                                    pg.gender
+                                      ? genderBadgeColor[
+                                          pg.gender as keyof typeof genderBadgeColor
+                                        ]
+                                      : "bg-gray-100 text-gray-800",
+                                  )}
+                                >
+                                  {pg.gender || "Unknown"}
+                                </Badge>
                               </div>
                             </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
+                          </SheetTrigger>
+                          <SheetContent side="bottom" className="h-auto max-h-[85dvh] rounded-t-[1.5rem] p-4 pb-safe flex flex-col gap-2 border-t-0 bg-background/95 backdrop-blur-xl">
+                            <SheetHeader className="pb-2">
+                              <SheetTitle className="text-left">Actions</SheetTitle>
+                            </SheetHeader>
+                            <div className="flex flex-col gap-1">
+                              <SheetClose asChild>
                                 <Button
-                                  aria-haspopup="true"
-                                  size="icon"
                                   variant="ghost"
-                                  className="-mr-2 -mt-2"
+                                  className="justify-start font-normal h-12 text-base w-full"
+                                  onClick={() => router.push(`/dashboard/pg-management/${pg.id}/settings`)}
                                 >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">Toggle menu</span>
+                                  <Building className="mr-3 h-5 w-5 text-muted-foreground" /> View Details
                                 </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    router.push(
-                                      `/dashboard/pg-management/${pg.id}`,
-                                    )
-                                  }
+                              </SheetClose>
+                              <SheetClose asChild>
+                                <Button
+                                  variant="ghost"
+                                  className="justify-start font-normal h-12 text-base w-full"
+                                  onClick={() => router.push(`/dashboard/pg-management/${pg.id}`)}
                                 >
-                                  <Pencil className="mr-2 h-4 w-4" /> Configure
-                                </DropdownMenuItem>
-                                <Access feature="properties" action="add">
-                                  <DropdownMenuItem
+                                  <Settings className="mr-3 h-5 w-5 text-muted-foreground" /> Manage Rooms
+                                </Button>
+                              </SheetClose>
+                              <Access feature="properties" action="add">
+                                <SheetClose asChild>
+                                  <Button
+                                    variant="ghost"
+                                    className="justify-start font-normal h-12 text-base w-full"
                                     onClick={() => setPgForBulkSetup(pg)}
                                   >
-                                    <Zap className="mr-2 h-4 w-4" /> Bulk Setup
-                                    Rooms
-                                  </DropdownMenuItem>
-                                </Access>
-                                <DropdownMenuItem>View Guests</DropdownMenuItem>
-                                <Access feature="properties" action="delete">
-                                  <DropdownMenuItem
-                                    className="text-red-600 focus:text-red-600 focus:bg-red-500/10"
+                                    <Zap className="mr-3 h-5 w-5 text-muted-foreground" /> Bulk Setup Rooms
+                                  </Button>
+                                </SheetClose>
+                              </Access>
+                              <SheetClose asChild>
+                                <Button variant="ghost" className="justify-start font-normal h-12 text-base w-full">
+                                  <Users className="mr-3 h-5 w-5 text-muted-foreground" /> View Guests
+                                </Button>
+                              </SheetClose>
+                              <Access feature="properties" action="delete">
+                                <SheetClose asChild>
+                                  <Button
+                                    variant="ghost"
+                                    className="justify-start font-normal h-12 text-base w-full text-red-600 hover:text-red-600 hover:bg-red-500/10"
                                     onClick={() => setPgToDelete(pg)}
                                   >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                  </DropdownMenuItem>
-                                </Access>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                          <div className="flex justify-between items-end text-sm">
-                            <div className="flex flex-col gap-2">
-                              <div className="flex items-center gap-2">
-                                <Users className="w-4 h-4 text-muted-foreground" />
-                                <span>
-                                  {pg.occupancy}/{pg.totalBeds} Occupancy
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <IndianRupee className="w-4 h-4 text-muted-foreground" />
-                                <span>
-                                  {pg.priceRange?.min ?? 0} -{" "}
-                                  {pg.priceRange?.max ?? 0}
-                                </span>
-                              </div>
+                                    <Trash2 className="mr-3 h-5 w-5 text-red-600" /> Delete
+                                  </Button>
+                                </SheetClose>
+                              </Access>
                             </div>
-                            <Badge
-                              className={cn(
-                                "capitalize border-transparent",
-                                pg.gender
-                                  ? genderBadgeColor[
-                                      pg.gender as keyof typeof genderBadgeColor
-                                    ]
-                                  : "bg-gray-100 text-gray-800",
-                              )}
-                            >
-                              {pg.gender || "Unknown"}
-                            </Badge>
-                          </div>
-                        </div>
+                          </SheetContent>
+                        </Sheet>
                       ))}
                     </div>
                   </>

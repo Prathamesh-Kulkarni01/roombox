@@ -212,6 +212,18 @@ export async function PATCH(req: NextRequest) {
 
         const db = await selectOwnerDataAdminDb(ownerId);
 
+        // Process any new image uploads (data URIs)
+        if (updates.images && Array.isArray(updates.images)) {
+            updates.images = await Promise.all(
+                updates.images.map(async (dataUri: string) => {
+                    if (dataUri.startsWith('data:')) {
+                        return await uploadDataUriToStorage(dataUri, `properties/${ownerId}`);
+                    }
+                    return dataUri;
+                })
+            );
+        }
+
         await PropertyService.updateProperty(db, ownerId, pgId, updates, performer);
         const updatedPg = (await db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId).get()).data();
 
