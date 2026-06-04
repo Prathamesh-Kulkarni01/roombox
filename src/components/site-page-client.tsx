@@ -1129,7 +1129,7 @@ const SinglePgView = ({
           </h2>
           <div
             className="spg-card overflow-hidden divide-y"
-            style={{ divideColor: "var(--card-border)" }}
+            style={{ borderTopColor: "var(--card-border)" } as any}
           >
             <Accordion type="single" collapsible>
               {(siteConfig.faqs && siteConfig.faqs.length > 0
@@ -1712,7 +1712,7 @@ const MultiPgView = ({
           </div>
           <div
             className="spg-card overflow-hidden divide-y"
-            style={{ divideColor: "rgba(180,160,120,0.15)" }}
+            style={{ borderTopColor: "rgba(180,160,120,0.15)" } as any}
           >
             <Accordion type="single" collapsible>
               {(siteConfig.faqs && siteConfig.faqs.length > 0

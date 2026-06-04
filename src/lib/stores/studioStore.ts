@@ -1,7 +1,17 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { WorkflowSchema } from '@/components/lowcode/WorkflowRunner';
-import type { LayoutNode } from '@/components/lowcode/Renderer';
+export interface LayoutNode {
+  id: string;
+  type: string;
+  props?: Record<string, any>;
+  children?: LayoutNode[];
+}
+
+export interface WorkflowSchema {
+  id: string;
+  name: string;
+  steps: any[];
+}
 
 export interface StudioNavItem {
   href: string;

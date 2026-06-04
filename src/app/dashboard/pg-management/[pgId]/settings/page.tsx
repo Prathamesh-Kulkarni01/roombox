@@ -136,7 +136,7 @@ export default function PgSettingsPage() {
         return;
       }
 
-      await updateProperty({ pgId, updates: data }).unwrap();
+      await updateProperty({ pgId, updates: { ...data, amenities: data.amenities as any } }).unwrap();
       
       toast({
         title: "Property Updated",

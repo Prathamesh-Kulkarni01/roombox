@@ -112,7 +112,7 @@ export const api = createApi({
             name: string;
             location: string;
             city: string;
-            gender: 'male' | 'female' | 'co-ed';
+            gender: 'male' | 'female' | 'co-ed' | 'co-living';
             autoSetup?: boolean;
             floorCount?: number;
             roomsPerFloor?: number;
@@ -123,6 +123,11 @@ export const api = createApi({
             payeeName?: string;
             direct_upi_enabled?: boolean;
             paymentMode?: string;
+            themeColor?: string;
+            appName?: string;
+            subdomain?: string;
+            logo?: string[];
+            icon?: string[];
         }>({
             query: (body) => ({ url: 'api/properties', method: 'POST', body }),
             invalidatesTags: ['Properties'],
