@@ -1,6 +1,7 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getPWAConfigByOwnerId, getPWAConfigBySubdomain } from '@/lib/pwa-config';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(JSON.stringify(manifest), {
         headers: {
             'Content-Type': 'application/manifest+json',
-            'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600'
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
         }
     });
 }

@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid';
 import { CURRENT_SCHEMA_VERSION, type Guest, type Payment } from '@/lib/types';
 import { runReconciliationLogic } from '@/lib/reconciliation';
 import { getBalanceBreakdown } from '@/lib/ledger-utils';
+import { getBrandedAppUrl } from '@/lib/actions/siteActions';
 
 /**
  * Service for handling Smart UPI Payment System logic.
@@ -139,7 +140,7 @@ export class PaymentSystemService {
 
                     const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
                     
-                    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
+                    const appUrl = await getBrandedAppUrl(ownerId, 'https://roombox.in');
                     const receiptUrl = `${appUrl}/ledger/${creditId}`;
 
                     // rent_receipt_simple_3: [name, amount, month, receiptUrl]

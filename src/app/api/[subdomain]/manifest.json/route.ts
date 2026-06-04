@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPWAConfigBySubdomain, getPWAConfigByOwnerId, getOwnerForTenant } from '@/lib/pwa-config';
 import { auth } from '@/lib/firebaseAdmin';
 
+export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     let pwaConfig = null;
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(manifest, {
       headers: {
         'Content-Type': 'application/manifest+json',
-        'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       },
     });
   } catch (error) {
@@ -105,7 +106,7 @@ export async function GET(req: NextRequest) {
     }, {
       headers: {
         'Content-Type': 'application/manifest+json',
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       },
     });
   }

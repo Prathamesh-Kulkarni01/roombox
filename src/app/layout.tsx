@@ -21,7 +21,6 @@ export const metadata: Metadata = {
   },
   description: "Simplify your rental property management with RentSutra. Automate rent collection, track occupancy, and manage tenants with ease. The all-in-one OS for co-living, PGs, and hostels.",
   metadataBase: new URL(NEXT_PUBLIC_APP_URL),
-  manifest: '/manifest.json',
   keywords: [
     "rental management software",
     "property management",
@@ -53,8 +52,6 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
     creator: "@rentsutra_app",
   },
-  // The manifest is now generated dynamically in /site/[subdomain]/page.tsx
-  // and should not be here.
 };
 
 export const viewport: Viewport = {

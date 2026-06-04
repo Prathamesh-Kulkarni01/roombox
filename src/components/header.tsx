@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Menu, HomeIcon, Building2, BookOpen, ChevronRight, Languages, ArrowLeft, Bell, User, MessageSquareWarning, Search, Plus, LogOut, Globe, Moon, Sun, Settings2, Sparkles, IndianRupee, Building, Wallet, CreditCard, Receipt, Users, ShieldCheck, Contact, UtensilsCrossed, MessageCircle, UserCircle, Settings, LayoutDashboard, ChevronDown, HelpCircle } from 'lucide-react';
+import { Menu, Home as HomeIcon, Building2, BookOpen, ChevronRight, Languages, ArrowLeft, Bell, User, MessageSquareWarning, Search, Plus, LogOut, Globe, Moon, Sun, Settings2, Sparkles, IndianRupee, Building, Wallet, CreditCard, Receipt, Users, ShieldCheck, Contact, UtensilsCrossed, MessageCircle, UserCircle, Settings, LayoutDashboard, ChevronDown, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from './ui/skeleton';
 import NotificationsPopover from './notifications-popover';
@@ -160,6 +160,8 @@ export default function Header() {
   const isDashboard = pathname.startsWith('/dashboard');
   const isTenantDashboard = pathname.startsWith('/tenants');
   const isLandingPage = pathname === '/';
+  // Subdomain PG public pages have their own sticky nav — suppress global header
+  const isSitePage = pathname.startsWith('/site/');
 
   const handleValueChange = (pgId: string) => {
     dispatch(setSelectedPgId(pgId === 'all' ? null : pgId));
@@ -185,6 +187,11 @@ export default function Header() {
   }
 
   if (isLandingPage && !currentUser) { // Don't show header on landing page for logged-out users
+    return null;
+  }
+
+  // Don't show global header on subdomain PG pages — they have their own nav
+  if (isSitePage) {
     return null;
   }
 

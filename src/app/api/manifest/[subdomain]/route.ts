@@ -47,6 +47,7 @@ export async function GET(
   return new NextResponse(JSON.stringify(manifest), {
     headers: {
       'Content-Type': 'application/manifest+json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
     },
   });
 }

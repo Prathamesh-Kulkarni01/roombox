@@ -38,6 +38,10 @@ export async function GET(request: NextRequest) {
             const enterpriseProjectId = (userDoc.data()?.subscription?.enterpriseProject?.projectId) as string | undefined;
             const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
 
+            // Fetch branded app url for the owner
+            const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
+            const ownerAppUrl = await getBrandedAppUrl(ownerId);
+
             // Optimization: Only fetch guests whose rent is due within the next 3 days (max lead time for reminders)
             const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
             let guestsSnapshot;
@@ -136,8 +140,7 @@ export async function GET(request: NextRequest) {
 
                             const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
-                            const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
-                            const payUrl = `${appUrl}/pay/${guest.id}`;
+                            const payUrl = `${ownerAppUrl}/pay/${guest.id}`;
                             const dueDateObj = new Date(guest.dueDate);
                             const monthLabel = dueDateObj.toLocaleDateString('en-IN', { month: 'long' });
                             const dateLabel = dueDateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });

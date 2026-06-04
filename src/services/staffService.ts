@@ -3,6 +3,7 @@ import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import * as crypto from 'crypto';
 import { CURRENT_SCHEMA_VERSION, type Staff, type User, type PerformerInfo } from '@/lib/types';
 import { ActivityLogsService } from '@/lib/activity-logs-service';
+import { getBrandedAppUrl } from '@/lib/actions/siteActions';
 
 export class StaffService {
     /**
@@ -25,7 +26,7 @@ export class StaffService {
             used: false
         });
 
-        let appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.vercel.app').replace(/\/+$/, '');
+        const appUrl = await getBrandedAppUrl(ownerId, 'https://rentsutra.vercel.app');
         const magicLink = `${appUrl}/invite/${token}`;
         return { magicLink, inviteCode };
     }

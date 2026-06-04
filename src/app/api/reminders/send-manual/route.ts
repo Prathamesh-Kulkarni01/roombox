@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid token, owner not found.' }, { status: 403 });
     }
 
+    const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
+    const ownerAppUrl = await getBrandedAppUrl(ownerId);
+
     const { guestIds } = await request.json(); // Expect an array of guest IDs
 
     const adminDb = await getAdminDb();
@@ -99,8 +102,7 @@ export async function POST(request: NextRequest) {
           if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
 
           const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
-          const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
-          const payUrl = `${appUrl}/pay/${guest.id}`;
+          const payUrl = `${ownerAppUrl}/pay/${guest.id}`;
           const dueDateObj = new Date(guest.dueDate);
           const monthLabel = dueDateObj.toLocaleDateString('en-IN', { month: 'long' });
           const dateLabel = dueDateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });

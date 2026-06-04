@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 export interface KycDocumentConfig {
     id: string;
@@ -826,6 +826,10 @@ export interface SiteConfig {
   features?: { title: string; description: string; }[];
   faqs?: { q: string; a: string; }[];
   testimonials?: { quote: string; author: string; }[];
+  websiteStyle?: string;
+  pwaShortName?: string;
+  pwaBackgroundColor?: string;
+  schemaVersion?: number;
   updatedAt?: number;
 }
 
