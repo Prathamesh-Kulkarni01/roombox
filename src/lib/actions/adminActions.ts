@@ -1,5 +1,7 @@
 'use server'
 
+import * as Sentry from '@sentry/nextjs';
+
 import { getAdminDb } from '../firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { User, PG, Guest, ActivityLog, Complaint, AdminAuditLog } from '../types';
@@ -164,6 +166,7 @@ export async function fetchAdminDashboardData(adminId: string): Promise<AdminDat
     };
 
   } catch (error: any) {
+    Sentry.captureException(error);
     console.error('[AdminActions] Failed to fetch admin data on server:', error);
     return { success: false, error: error.message || 'Server error fetching admin data.' };
   }
@@ -202,6 +205,7 @@ export async function adminUpdateOwnerStatus(
 
     return { success: true };
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error('[AdminActions] adminUpdateOwnerStatus failed:', err);
     return { success: false, error: err.message };
   }
@@ -239,6 +243,7 @@ export async function adminApproveOwner(
 
     return { success: true };
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error('[AdminActions] adminApproveOwner failed:', err);
     return { success: false, error: err.message };
   }
@@ -278,6 +283,7 @@ export async function adminApprovePG(
 
     return { success: true };
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error('[AdminActions] adminApprovePG failed:', err);
     return { success: false, error: err.message };
   }
@@ -326,6 +332,7 @@ export async function adminAdjustWallet(
 
     return { success: true };
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error('[AdminActions] adminAdjustWallet failed:', err);
     return { success: false, error: err.message };
   }
@@ -358,6 +365,7 @@ export async function adminLogImpersonation(
 
     return { success: true };
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error('[AdminActions] adminLogImpersonation failed:', err);
     return { success: false, error: err.message };
   }
@@ -477,6 +485,7 @@ export async function adminDeleteOwnerData(
         const { getAuth } = await import('firebase-admin/auth');
         await getAuth().deleteUser(targetOwnerId);
       } catch (authErr) {
+        Sentry.captureException(authErr);
         console.warn(`[AdminActions] Failed to delete auth user ${targetOwnerId}:`, authErr);
       }
     }
@@ -492,6 +501,7 @@ export async function adminDeleteOwnerData(
 
     return { success: true };
   } catch (err: any) {
+    Sentry.captureException(err);
     console.error('[AdminActions] adminDeleteOwnerData failed:', err);
     return { success: false, error: err.message };
   }
