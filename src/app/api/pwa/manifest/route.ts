@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPWAConfigByOwnerId, getPWAConfigBySubdomain } from '@/lib/pwa-config';
+import { getAdminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,44 +10,53 @@ export async function GET(req: NextRequest) {
     const subdomain = searchParams.get('subdomain');
 
     let config = null;
+    let siteConfig = null;
 
-    if (ownerId) {
-        config = await getPWAConfigByOwnerId(ownerId);
-    } else if (subdomain) {
-        config = await getPWAConfigBySubdomain(subdomain);
+    try {
+        const adminDb = await getAdminDb();
+        if (ownerId) {
+            config = await getPWAConfigByOwnerId(ownerId);
+            const snapshot = await adminDb.collection('sites').where('ownerId', '==', ownerId).limit(1).get();
+            if (!snapshot.empty) {
+                siteConfig = snapshot.docs[0].data();
+            }
+        } else if (subdomain) {
+            config = await getPWAConfigBySubdomain(subdomain);
+            const siteDoc = await adminDb.collection('sites').doc(subdomain).get();
+            if (siteDoc.exists) {
+                siteConfig = siteDoc.data();
+            }
+        }
+    } catch (err) {
+        console.error('Failed to fetch configurations in manifest route:', err);
     }
 
-    if (!config) {
-        // Fallback to default manifest values
-        config = {
-            name: 'RentSutra',
-            shortName: 'RentSutra',
-            themeColor: '#0f172a',
-            backgroundColor: '#ffffff',
-            logo: '/icons/icon-512x512.png'
-        };
-    }
+    const name = config?.name || siteConfig?.siteTitle || 'RentSutra';
+    const shortName = config?.shortName || siteConfig?.pwaShortName || siteConfig?.siteTitle?.slice(0, 12) || 'RentSutra';
+    const themeColor = config?.themeColor || siteConfig?.themeColor || '#0f172a';
+    const backgroundColor = config?.backgroundColor || siteConfig?.pwaBackgroundColor || '#ffffff';
+    const logo = config?.logo || siteConfig?.logoUrl || siteConfig?.faviconUrl || '';
 
     const manifest = {
-        name: config.name || 'RentSutra',
-        short_name: config.shortName || 'RentSutra',
-        description: `Welcome to ${config.name || 'our property'}. The Modern OS for Your Rental Property.`,
+        name,
+        short_name: shortName,
+        description: `Welcome to ${name}. The Modern OS for Your Rental Property.`,
         id: '/',
         start_url: subdomain ? `/site/${subdomain}?utm_source=pwa` : '/dashboard?utm_source=pwa',
         scope: '/',
         display: 'standalone',
-        background_color: config.backgroundColor || '#ffffff',
-        theme_color: config.themeColor || '#0f172a',
+        background_color: backgroundColor,
+        theme_color: themeColor,
         orientation: 'portrait',
         icons: [
             {
-                src: config.logo || '/icons/icon-192x192.png',
+                src: logo || '/icons/icon-192x192.png',
                 sizes: '192x192',
                 type: 'image/png',
                 purpose: 'any maskable'
             },
             {
-                src: config.logo || '/icons/icon-512x512.png',
+                src: logo || '/icons/icon-512x512.png',
                 sizes: '512x512',
                 type: 'image/png',
                 purpose: 'any maskable'
