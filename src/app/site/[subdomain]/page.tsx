@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { notFound } from 'next/navigation';
-import type { Metadata, ResolvingMetadata } from 'next';
+import type { Metadata, ResolvingMetadata, Viewport } from 'next';
 import { getSiteData } from '@/lib/actions/siteActions';
 import SitePageClient from '@/components/site-page-client';
 
@@ -9,6 +9,22 @@ type Props = {
   params: Promise<{ subdomain: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
+
+export async function generateViewport(
+  { params }: Props
+): Promise<Viewport> {
+  const { subdomain } = await params;
+  if (!subdomain) {
+    return {};
+  }
+
+  const siteData = await getSiteData(subdomain, false);
+  const config = siteData?.siteConfig;
+
+  return {
+    themeColor: config?.themeColor || '#2563EB',
+  };
+}
 
 export async function generateMetadata(
   { params }: Props,
@@ -38,7 +54,6 @@ export async function generateMetadata(
       icon: config.faviconUrl || '/favicon.ico',
       apple: config.logoUrl || '/apple-touch-icon.png',
     },
-    themeColor: config.themeColor || '#2563EB',
   };
 }
 

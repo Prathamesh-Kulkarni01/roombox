@@ -76,7 +76,7 @@ export async function saveSiteConfig(config: SiteConfig & { existingSubdomain?: 
             shortName: validatedConfig.pwaShortName || validatedConfig.siteTitle.slice(0, 12),
             themeColor: validatedConfig.themeColor || '#2563EB',
             backgroundColor: validatedConfig.pwaBackgroundColor || '#ffffff',
-            logo: validatedConfig.logoUrl || '',
+            logo: validatedConfig.logoUrl || validatedConfig.faviconUrl || '',
             subdomain: validatedConfig.subdomain,
             ownerId: validatedConfig.ownerId,
             updatedAt: new Date().toISOString(),

@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPWAConfigBySubdomain, getPWAConfigByOwnerId, getOwnerForTenant } from '@/lib/pwa-config';
-import { auth } from '@/lib/firebaseAdmin';
+import { auth, getAdminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     let pwaConfig = null;
+    let siteConfig = null;
+
+    const adminDb = await getAdminDb();
 
     // First try to get config from subdomain
     const hostname = req.headers.get('host') || '';
     const subdomain = hostname.split('.')[0];
 
-    if (subdomain !== 'www' && subdomain !== 'rentvastu') {
+    if (subdomain !== 'www' && subdomain !== 'rentvastu' && subdomain !== 'roombox') {
       pwaConfig = await getPWAConfigBySubdomain(subdomain);
+      const siteDoc = await adminDb.collection('sites').doc(subdomain).get();
+      if (siteDoc.exists) {
+        siteConfig = siteDoc.data();
+      }
     }
 
     // If no subdomain config, try to get from auth token
@@ -26,12 +33,12 @@ export async function GET(req: NextRequest) {
 
           // Check if user is a tenant
           const ownerId = await getOwnerForTenant(userId);
-          if (ownerId) {
-            // Get owner's PWA config
-            pwaConfig = await getPWAConfigByOwnerId(ownerId);
-          } else {
-            // User might be an owner
-            pwaConfig = await getPWAConfigByOwnerId(userId);
+          const targetOwnerId = ownerId || userId;
+          
+          pwaConfig = await getPWAConfigByOwnerId(targetOwnerId);
+          const snapshot = await adminDb.collection('sites').where('ownerId', '==', targetOwnerId).limit(1).get();
+          if (!snapshot.empty) {
+            siteConfig = snapshot.docs[0].data();
           }
         } catch (error) {
           console.error('Token verification failed:', error);
@@ -39,42 +46,42 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Generate manifest from PWA config
-    const manifest = pwaConfig ? {
-      name: pwaConfig.name,
-      short_name: pwaConfig.shortName,
-      start_url: "/dashboard",
+    const name = pwaConfig?.name || siteConfig?.siteTitle || "RentVastu";
+    const shortName = pwaConfig?.shortName || siteConfig?.pwaShortName || siteConfig?.siteTitle?.slice(0, 12) || "RentVastu";
+    const backgroundColor = pwaConfig?.backgroundColor || siteConfig?.pwaBackgroundColor || "#ffffff";
+    const themeColor = pwaConfig?.themeColor || siteConfig?.themeColor || "#000000";
+    const logo = pwaConfig?.logo || siteConfig?.logoUrl || siteConfig?.faviconUrl || "";
+
+    // Generate manifest from PWA config / Site config
+    const manifest = {
+      name,
+      short_name: shortName,
+      start_url: subdomain !== 'www' && subdomain !== 'rentvastu' && subdomain !== 'roombox' ? `/site/${subdomain}` : "/dashboard",
       display: "standalone",
-      background_color: pwaConfig.backgroundColor,
-      theme_color: pwaConfig.themeColor,
-      icons: pwaConfig.logo ? [
+      background_color: backgroundColor,
+      theme_color: themeColor,
+      icons: logo ? [
         {
-          src: pwaConfig.logo,
+          src: logo,
+          sizes: "192x192",
+          type: "image/png"
+        },
+        {
+          src: logo,
           sizes: "512x512",
           type: "image/png"
         }
       ] : [
         {
-          "src": "icons/icon-48x48.png",
-          "sizes": "48x48",
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192",
           "type": "image/png"
-        }
-        // Add other default icons
-      ]
-    } : {
-      name: "RentVastu",
-      short_name: "RentVastu",
-      start_url: "/",
-      display: "standalone",
-      background_color: "#ffffff",
-      theme_color: "#000000",
-      icons: [
+        },
         {
-          "src": "icons/icon-48x48.png",
-          "sizes": "48x48",
+          "src": "/icons/icon-512x512.png",
+          "sizes": "512x512",
           "type": "image/png"
         }
-        // Add other default icons
       ]
     };
 
