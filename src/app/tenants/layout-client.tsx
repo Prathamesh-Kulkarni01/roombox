@@ -30,8 +30,41 @@ export default function TenantLayoutClient({
     if (isLoading) return;
 
     if (!currentUser) {
-      console.log(`[TenantLayout] No user found. Redirecting to login.`);
-      router.replace('/login');
+      console.log(`[TenantLayout] No user found. Checking for subdomain SSO fallback.`);
+      
+      const host = window.location.host;
+      const parts = host.split('.');
+      
+      let isSubdomain = false;
+      let mainHost = host;
+
+      const systemSubdomains = ['www', 'rentsutra', 'roombox', 'dev', 'staging', 'localhost'];
+
+      if (parts.length >= 3) {
+        if (parts.includes('dev') || parts.includes('staging')) {
+          if (parts.length >= 4 && !systemSubdomains.includes(parts[0])) {
+            isSubdomain = true;
+            mainHost = parts.slice(1).join('.');
+          }
+        } else {
+          if (!systemSubdomains.includes(parts[0])) {
+            isSubdomain = true;
+            mainHost = parts.slice(1).join('.');
+          }
+        }
+      } else if (parts.length === 2 && parts[1].startsWith('localhost') && parts[0] !== 'localhost') {
+        isSubdomain = true;
+        mainHost = parts[1];
+      }
+
+      if (isSubdomain) {
+        const mainAppUrl = `${window.location.protocol}//${mainHost}`;
+        const ssoUrl = `${mainAppUrl}/sso?target=${window.location.host}&returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+        console.log(`[TenantLayout] Redirecting to SSO: ${ssoUrl}`);
+        window.location.href = ssoUrl;
+      } else {
+        router.replace('/login');
+      }
       return;
     }
 
