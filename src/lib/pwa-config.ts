@@ -1,16 +1,16 @@
-import { db } from './firebase';
-import { collection, doc, setDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
+import { getAdminDb } from './firebaseAdmin';
 import type { PWAConfig } from './types';
 
 const PWA_COLLECTION = 'pwa_configs';
 
 export async function savePWAConfig(ownerId: string, config: PWAConfig) {
     try {
-        await setDoc(doc(db!, PWA_COLLECTION, ownerId), {
+        const adminDb = await getAdminDb();
+        await adminDb.collection(PWA_COLLECTION).doc(ownerId).set({
             ...config,
             updatedAt: new Date().toISOString(),
             ownerId
-        });
+        }, { merge: true });
         return true;
     } catch (error) {
         console.error('Error saving PWA config:', error);
@@ -20,10 +20,10 @@ export async function savePWAConfig(ownerId: string, config: PWAConfig) {
 
 export async function getPWAConfigByOwnerId(ownerId: string): Promise<PWAConfig | null> {
     try {
-        const docRef = doc(db!, PWA_COLLECTION, ownerId);
-        const docSnap = await getDoc(docRef);
+        const adminDb = await getAdminDb();
+        const docSnap = await adminDb.collection(PWA_COLLECTION).doc(ownerId).get();
         
-        if (docSnap.exists()) {
+        if (docSnap.exists) {
             return docSnap.data() as PWAConfig;
         }
         return null;
@@ -35,12 +35,12 @@ export async function getPWAConfigByOwnerId(ownerId: string): Promise<PWAConfig 
 
 export async function getPWAConfigBySubdomain(subdomain: string): Promise<PWAConfig | null> {
     try {
-        const q = query(
-            collection(db!, PWA_COLLECTION),
-            where('subdomain', '==', subdomain)
-        );
-        
-        const querySnapshot = await getDocs(q);
+        const adminDb = await getAdminDb();
+        const querySnapshot = await adminDb.collection(PWA_COLLECTION)
+            .where('subdomain', '==', subdomain)
+            .limit(1)
+            .get();
+            
         if (!querySnapshot.empty) {
             return querySnapshot.docs[0].data() as PWAConfig;
         }
@@ -53,10 +53,10 @@ export async function getPWAConfigBySubdomain(subdomain: string): Promise<PWACon
 
 export async function getOwnerForTenant(tenantId: string): Promise<string | null> {
     try {
-        // Query the tenants collection to get the owner ID
-        const tenantDoc = await getDoc(doc(db!, 'tenants', tenantId));
-        if (tenantDoc.exists()) {
-            return tenantDoc.data().ownerId || null;
+        const adminDb = await getAdminDb();
+        const tenantDoc = await adminDb.collection('tenants').doc(tenantId).get();
+        if (tenantDoc.exists) {
+            return tenantDoc.data()?.ownerId || null;
         }
         return null;
     } catch (error) {

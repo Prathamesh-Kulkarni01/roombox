@@ -44,6 +44,10 @@ const websiteConfigSchema = z.object({
     features: z.array(featureSchema).optional(),
     faqs: z.array(faqSchema).optional(),
     testimonials: z.array(testimonialSchema).optional(),
+    websiteStyle: z.string().optional(),
+    pwaShortName: z.string().optional(),
+    pwaBackgroundColor: z.string().optional(),
+    schemaVersion: z.number().optional(),
     updatedAt: z.number().optional(),
 });
 
@@ -52,6 +56,7 @@ export type SiteConfig = z.infer<typeof websiteConfigSchema>;
 export async function saveSiteConfig(config: SiteConfig & { existingSubdomain?: string | null }) {
     try {
         const { existingSubdomain, ...newConfig } = config;
+        newConfig.schemaVersion = 11;
         const validatedConfig = websiteConfigSchema.parse(newConfig);
 
         const adminDb = await getAdminDb();
@@ -64,6 +69,20 @@ export async function saveSiteConfig(config: SiteConfig & { existingSubdomain?: 
         }
 
         await adminDb.collection('sites').doc(validatedConfig.subdomain).set(validatedConfig, { merge: true });
+
+        // Save PWA config automatically to keep them in sync
+        const pwaConfig = {
+            name: validatedConfig.siteTitle,
+            shortName: validatedConfig.pwaShortName || validatedConfig.siteTitle.slice(0, 12),
+            themeColor: validatedConfig.themeColor || '#2563EB',
+            backgroundColor: validatedConfig.pwaBackgroundColor || '#ffffff',
+            logo: validatedConfig.logoUrl || '',
+            subdomain: validatedConfig.subdomain,
+            ownerId: validatedConfig.ownerId,
+            updatedAt: new Date().toISOString(),
+        };
+
+        await adminDb.collection('pwa_configs').doc(validatedConfig.ownerId).set(pwaConfig, { merge: true });
 
         revalidatePath(`/site/${validatedConfig.subdomain}`);
         if (existingSubdomain && validatedConfig.subdomain !== existingSubdomain) {
@@ -98,6 +117,13 @@ export async function getSiteConfigForOwner(ownerId: string): Promise<SiteConfig
 export async function deleteSiteConfig(subdomain: string) {
     try {
         const adminDb = await getAdminDb();
+        const siteDoc = await adminDb.collection('sites').doc(subdomain).get();
+        if (siteDoc.exists) {
+            const siteConfig = siteDoc.data();
+            if (siteConfig?.ownerId) {
+                await adminDb.collection('pwa_configs').doc(siteConfig.ownerId).delete();
+            }
+        }
         await adminDb.collection('sites').doc(subdomain).delete();
         revalidatePath(`/site/${subdomain}`);
         return { success: true };
@@ -162,3 +188,73 @@ export async function getSiteData(subdomain: string, isPreview: boolean = false)
         return null;
     }
 }
+
+/**
+ * Lightweight branding fetch — only reads the siteConfig document.
+ * Used for login and tenant portal pages to apply PG-specific branding
+ * without loading full PG data. Returns null if subdomain not found.
+ */
+export async function getBrandingForSubdomain(subdomain: string): Promise<{
+    siteTitle: string;
+    logoUrl?: string;
+    faviconUrl?: string;
+    themeColor?: string;
+    contactPhone?: string;
+    contactEmail?: string;
+    subdomain: string;
+} | null> {
+    if (!subdomain) return null;
+    try {
+        const adminDb = await getAdminDb();
+        const siteDoc = await adminDb.collection('sites').doc(subdomain).get();
+        if (!siteDoc.exists) return null;
+        const data = siteDoc.data() as SiteConfig;
+        return {
+            subdomain,
+            siteTitle: data.siteTitle || 'My PG',
+            logoUrl: data.logoUrl,
+            faviconUrl: data.faviconUrl,
+            themeColor: data.themeColor,
+            contactPhone: data.contactPhone,
+            contactEmail: data.contactEmail,
+        };
+} catch (error) {
+        console.error("Error in getBrandingForSubdomain:", error);
+        return null;
+    }
+}
+
+/**
+ * Utility to get the fully qualified branded URL for an owner.
+ * If the owner has a published site with a subdomain, it prepends the subdomain to the base URL.
+ * Otherwise, it returns the base URL (e.g. process.env.NEXT_PUBLIC_APP_URL).
+ */
+export async function getBrandedAppUrl(ownerId: string, defaultUrl?: string): Promise<string> {
+    const base = (defaultUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in').replace(/\/+$/, '');
+    
+    try {
+        const adminDb = await getAdminDb();
+        const snapshot = await adminDb.collection('sites')
+            .where('ownerId', '==', ownerId)
+            .where('status', '==', 'published')
+            .limit(1)
+            .get();
+            
+        if (!snapshot.empty) {
+            const config = snapshot.docs[0].data() as SiteConfig;
+            if (config.subdomain) {
+                const url = new URL(base);
+                let host = url.hostname;
+                if (host.startsWith('www.')) host = host.substring(4);
+                
+                url.hostname = `${config.subdomain}.${host}`;
+                return url.toString().replace(/\/+$/, '');
+            }
+        }
+    } catch (error) {
+        console.error("Error fetching branded app url:", error);
+    }
+    
+    return base;
+}
+

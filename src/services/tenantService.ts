@@ -16,6 +16,7 @@ import { parseDateString, calculateFirstDueDate } from '@/lib/utils';
 import { ActivityLogsService } from '@/lib/activity-logs-service';
 import { getBalanceBreakdown } from '@/lib/ledger-utils';
 import { handleTenantAddition, handleTenantVacation } from '@/lib/actions/walletActions';
+import { getBrandedAppUrl } from '@/lib/actions/siteActions';
 
 export interface Tenant {
     id: string;
@@ -77,7 +78,7 @@ export class TenantService {
 
         await appDb.collection('magic_links').doc(token).set(magicLinkData);
 
-        const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.vercel.app').replace(/\/+$/, '');
+        const appUrl = await getBrandedAppUrl(ownerId, 'https://rentsutra.vercel.app');
         const magicLink = `${appUrl}/invite/${token}`;
         return { magicLink, inviteCode };
     }
@@ -592,7 +593,7 @@ export class TenantService {
                         }
                 }
 
-                let appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/+$/, '');
+                let appUrl = await getBrandedAppUrl(ownerId);
                 if (!appUrl) {
                     console.warn('[onboardTenant] NEXT_PUBLIC_APP_URL not found, using root fallback. Magic links may break!');
                 }
@@ -642,7 +643,7 @@ export class TenantService {
                     await import('@/lib/whatsapp/send-message').then(m => m.sendWhatsAppMessage(formattedPhone, fallbackMsg, ownerId, guestId));
                 } else {
                     console.log(`[onboardTenant] WhatsApp template welcome sent successfully to ${formattedPhone}`);
-                    const usedFallback = (process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost');
+                    const usedFallback = appUrl.includes('localhost');
                     await ActivityLogsService.logActivity({
                         ownerId,
                         activityType: 'GUEST_ONBOARDED',
@@ -1334,13 +1335,11 @@ export class TenantService {
                     const phone = finalGuest.phone;
                     if (!phone) return;
 
-                    let formattedPhone = phone.replace(/\D/g, '');
-                    if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
-
+                    const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
                     const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
                     const primaryCredit = newCredits[0];
-                    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
+                    const appUrl = await getBrandedAppUrl(ownerId, 'https://roombox.in');
                     const receiptUrl = `${appUrl}/ledger/${primaryCredit.id}`;
 
                     const messageAmount = amountType === 'symbolic' 
@@ -1359,6 +1358,9 @@ export class TenantService {
                         { type: 'text', text: primaryCredit.id },
                         { type: 'text', text: receiptUrl } // {{6}}
                     ];
+
+                    let formattedPhone = phone.replace(/\D/g, '');
+                    if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
 
                     await sendWhatsAppTemplate(
                         formattedPhone, 
@@ -1707,17 +1709,14 @@ export class TenantService {
         const statusLabel = status === 'resolved' ? '✅ *Resolved*' :
             status === 'in-progress' ? '⏳ *In Progress*' : status;
 
-        const message = `🔧 *Update on your Maintenance Request*\n\n` +
-            `Issue: ${compData.description || compData.category}\n` +
-            `New Status: ${statusLabel}\n\n` +
-            (status === 'resolved' ? `If this isn't fixed yet, please contact your landlord.` : `We are working on it!`);
-
         try {
-            let formattedPhone = phone.replace(/\D/g, '');
-            if (formattedPhone.length === 10) formattedPhone = '91' + formattedPhone;
-
             const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
-            const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in');
+            
+            const cleanPhone = phone.replace(/\D/g, '');
+            const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+
+            const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
+            const appUrl = await getBrandedAppUrl(ownerId, 'https://roombox.in');
             const statusUrl = `${appUrl}/complaints/${complaintId}`;
             const title = compData.description || compData.category;
             const updateMessage = status === 'resolved' ? 'Fixed! Contact landlord if issue persists.' : 'We are working on it!';

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Download, Loader2, CheckCircle, Smartphone } from 'lucide-react'
 import Image from 'next/image'
+import { useAppSelector } from '@/lib/hooks'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -15,6 +16,15 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function DownloadPage() {
+  const { currentUser } = useAppSelector((state) => state.user)
+  const { selectedPgId } = useAppSelector((state) => state.app)
+
+  const [brand, setBrand] = useState({
+    name: 'RentSutra App',
+    logo: '/icons/icon-192x192.png',
+    description: 'Fast rental management directly on your phone.'
+  })
+
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null)
 
@@ -23,6 +33,56 @@ export default function DownloadPage() {
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>(
     'desktop'
   )
+
+  useEffect(() => {
+    const fetchBranding = async () => {
+      let query = '';
+      let activeSubdomain = '';
+
+      if (typeof window !== 'undefined') {
+        const host = window.location.hostname;
+        const parts = host.split('.');
+        if (parts.length >= 3 || (parts.length === 2 && parts[1] === 'localhost')) {
+          const domainSub = parts[0];
+          if (domainSub !== 'www' && domainSub !== 'rentvastu' && domainSub !== 'roombox' && domainSub !== 'localhost') {
+            activeSubdomain = domainSub;
+          }
+        }
+        if (!activeSubdomain) {
+          activeSubdomain = sessionStorage.getItem('pwa_subdomain') || '';
+        }
+      }
+
+      if (currentUser?.id) {
+        if (currentUser.role === 'owner' || currentUser.role === 'admin') {
+          query = `?ownerId=${currentUser.id}`;
+        } else if (currentUser.role === 'tenant') {
+          const activeTenancy = currentUser.activeTenancies?.find((t: any) => (t as any).pgId === selectedPgId) || currentUser.activeTenancies?.[0];
+          if (activeTenancy?.ownerId) {
+            query = `?ownerId=${activeTenancy.ownerId}`;
+          }
+        }
+      } else if (activeSubdomain) {
+        query = `?subdomain=${activeSubdomain}`;
+      }
+
+      try {
+        const res = await fetch(`/api/pwa/manifest${query}`);
+        if (res.ok) {
+          const data = await res.json();
+          setBrand({
+            name: data.name || 'RentSutra App',
+            logo: data.icons?.[0]?.src || '/icons/icon-192x192.png',
+            description: data.description || 'Fast rental management directly on your phone.'
+          });
+        }
+      } catch (e) {
+        console.error('Failed to fetch PWA branding:', e);
+      }
+    };
+
+    fetchBranding();
+  }, [currentUser, selectedPgId]);
 
   useEffect(() => {
     const ua = window.navigator.userAgent.toLowerCase()
@@ -100,21 +160,20 @@ export default function DownloadPage() {
 
           <div className="bg-primary/5 px-6 py-8 text-center border-b border-primary/10">
 
-            <div className="w-20 h-20 bg-white rounded-2xl shadow-md flex items-center justify-center mx-auto mb-6 overflow-hidden">
-              <Image
-                src="/icons/icon-192x192.png"
-                alt="RentSutra Logo"
-                width={80}
-                height={80}
+            <div className="w-20 h-20 bg-white rounded-2xl shadow-md flex items-center justify-center mx-auto mb-6 overflow-hidden p-2">
+              <img
+                src={brand.logo}
+                alt={`${brand.name} Logo`}
+                className="w-full h-full object-contain"
               />
             </div>
 
             <h1 className="text-3xl font-bold tracking-tight mb-2">
-              RentSutra App
+              {brand.name}
             </h1>
 
             <p className="text-muted-foreground">
-              Fast rental management directly on your phone.
+              {brand.description}
             </p>
           </div>
 
@@ -132,7 +191,7 @@ export default function DownloadPage() {
                 </h3>
 
                 <p className="text-muted-foreground mb-6">
-                  RentSutra is ready to use.
+                  {brand.name} is ready to use.
                 </p>
 
                 <Button
@@ -156,7 +215,7 @@ export default function DownloadPage() {
                 </h3>
 
                 <p className="text-muted-foreground mb-6">
-                  Install RentSutra for the best experience.
+                  Install {brand.name} for the best experience.
                 </p>
 
                 {platform === 'ios' ? (
