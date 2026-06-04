@@ -1,16 +1,17 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Download, Smartphone, Info, X, Zap, Bell, Shield } from 'lucide-react';
+import { Download, X, Sparkles, Building2 } from 'lucide-react';
 import Link from 'next/link';
+import { useBranding } from '@/context/branding-context';
 
 export default function InstallForceOverlay() {
     const [isVisible, setIsVisible] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const pathname = usePathname();
+    const branding = useBranding();
 
     useEffect(() => {
         // 1. Detect if it's already installed/standalone
@@ -25,79 +26,84 @@ export default function InstallForceOverlay() {
         const mobile = /android|iphone|ipad|ipod/.test(ua);
         setIsMobile(mobile);
 
-        // 3. Show overlay only if on mobile, not standalone, and not already dismissed this session
-        const isDismissed = sessionStorage.getItem('pwa_prompt_dismissed') === 'true';
+        // 3. Show overlay only if on mobile, not standalone, and not already dismissed recently
+        const dismissedTime = localStorage.getItem('pwa_prompt_dismissed_time');
+        const now = Date.now();
+        
+        // Don't show if dismissed within the last 7 days (7 * 24 * 60 * 60 * 1000)
+        const isRecentlyDismissed = dismissedTime && (now - parseInt(dismissedTime, 10) < 7 * 24 * 60 * 60 * 1000);
 
-        if (mobile && !isStandalone && !isDismissed) {
-            // Small delay for better UX
+        if (mobile && !isStandalone && !isRecentlyDismissed) {
             const timer = setTimeout(() => {
                 setIsVisible(true);
-            }, 1500);
+            }, 3000); // 3 seconds delay for better entry UX
             return () => clearTimeout(timer);
         }
     }, [pathname]);
 
     const handleDismiss = () => {
         setIsVisible(false);
-        sessionStorage.setItem('pwa_prompt_dismissed', 'true');
+        localStorage.setItem('pwa_prompt_dismissed_time', Date.now().toString());
     };
 
     if (!isVisible) return null;
 
+    const pgName = branding.isSubdomain ? branding.siteTitle : 'RentSutra';
+    const logoUrl = branding.isSubdomain ? branding.logoUrl || branding.faviconUrl : null;
+    const themeColor = branding.isSubdomain ? branding.themeColor : '#2563EB';
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="w-full max-w-md bg-card border shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-                <div className="relative p-8 flex flex-col items-center text-center">
-                    <button
-                        onClick={handleDismiss}
-                        className="absolute top-4 right-4 p-2 text-muted-foreground hover:bg-muted rounded-full transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
+        <div className="fixed bottom-4 inset-x-4 z-[99] flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-500">
+            <div className="w-full max-w-md bg-card/95 backdrop-blur-md border border-border shadow-2xl rounded-2xl overflow-hidden p-5 relative pr-12 flex gap-4 items-center">
+                
+                {/* Close Button */}
+                <button
+                    onClick={handleDismiss}
+                    className="absolute top-3 right-3 p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg transition-all"
+                    aria-label="Dismiss"
+                >
+                    <X className="w-4 h-4" />
+                </button>
 
-                    <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mb-6">
-                        <Smartphone className="w-10 h-10 text-primary" />
-                    </div>
+                {/* Branded Icon Container */}
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 shadow-inner overflow-hidden border border-border bg-muted">
+                    {logoUrl ? (
+                        <img src={logoUrl} alt="App Logo" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-white animate-pulse" style={{ backgroundColor: themeColor }}>
+                            <Building2 className="w-6 h-6" />
+                        </div>
+                    )}
+                </div>
 
-                    <h2 className="text-2xl font-bold tracking-tight mb-2">Install RentSutra App</h2>
-                    <p className="text-muted-foreground mb-8">
-                        Get a premium experience with faster loading and instant rent notifications.
+                {/* Content Section */}
+                <div className="flex-1 space-y-1">
+                    <h3 className="text-md font-bold tracking-tight text-foreground flex items-center gap-1.5">
+                        Install {pgName} App
+                        <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    </h3>
+                    <p className="text-xs text-muted-foreground leading-normal">
+                        Faster loading, instant rent updates, and secure local access on your home screen.
                     </p>
-
-                    <div className="grid grid-cols-1 gap-4 w-full mb-8 text-left">
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
-                            <Zap className="w-5 h-5 text-amber-500" />
-                            <span className="text-sm font-medium">2x Faster Performance</span>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
-                            <Bell className="w-5 h-5 text-blue-500" />
-                            <span className="text-sm font-medium">Instant Payment Reminders</span>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
-                            <Shield className="w-5 h-5 text-green-500" />
-                            <span className="text-sm font-medium">Secure & Reliable Access</span>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col w-full gap-3">
-                        <Button size="lg" className="w-full h-12 text-md rounded-xl font-bold shadow-lg shadow-primary/20" asChild>
+                    
+                    <div className="flex items-center gap-3 pt-1">
+                        <Button 
+                            size="sm" 
+                            className="text-xs font-bold rounded-lg px-4 h-8 text-white shadow-sm"
+                            style={{ backgroundColor: themeColor }}
+                            asChild
+                        >
                             <Link href="/download">
-                                <Download className="mr-2 h-5 w-5" /> Install App Now
+                                <Download className="mr-1.5 h-3.5 w-3.5" /> Install Now
                             </Link>
                         </Button>
                         <button
                             onClick={handleDismiss}
-                            className="text-sm text-muted-foreground hover:text-foreground font-medium py-2"
+                            className="text-xs text-muted-foreground hover:text-foreground font-semibold py-1.5"
                         >
-                            Continue in Browser
+                            Maybe Later
                         </button>
                     </div>
-                </div>
-
-                <div className="bg-primary px-4 py-2 text-center">
-                    <p className="text-[10px] text-primary-foreground/80 uppercase font-black tracking-widest">
-                        Recommended for all {isMobile ? 'Mobile' : 'Device'} Users
-                    </p>
                 </div>
             </div>
         </div>

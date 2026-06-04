@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         short_name: shortName,
         description: `Welcome to ${name}. The Modern OS for Your Rental Property.`,
         id: '/',
-        start_url: subdomain ? `/site/${subdomain}?utm_source=pwa` : '/dashboard?utm_source=pwa',
+        start_url: subdomain ? `/tenants/my-pg?utm_source=pwa` : '/dashboard?utm_source=pwa',
         scope: '/',
         display: 'standalone',
         background_color: backgroundColor,

@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     const manifest = {
       name,
       short_name: shortName,
-      start_url: subdomain !== 'www' && subdomain !== 'rentvastu' && subdomain !== 'roombox' ? `/site/${subdomain}` : "/dashboard",
+      start_url: subdomain !== 'www' && subdomain !== 'rentvastu' && subdomain !== 'roombox' ? "/tenants/my-pg?utm_source=pwa" : "/dashboard",
       display: "standalone",
       background_color: backgroundColor,
       theme_color: themeColor,
