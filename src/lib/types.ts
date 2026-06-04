@@ -324,7 +324,7 @@ export interface PG extends BaseEntity {
   name: string;
   location: string;
   city: string;
-  gender: 'male' | 'female' | 'co-ed';
+  gender: 'male' | 'female' | 'co-ed' | 'co-living';
   priceRange: {
     min: number;
     max: number;
@@ -349,6 +349,11 @@ export interface PG extends BaseEntity {
   qrCodeImage?: string;
   online_payment_enabled?: boolean;
   direct_upi_enabled?: boolean;
+  themeColor?: string;
+  appName?: string;
+  subdomain?: string;
+  logo?: string[];
+  icon?: string[];
 }
 
 export interface Payment extends BaseEntity {
@@ -823,7 +828,7 @@ export interface SiteConfig {
   aboutDescription?: string;
   featuresTitle?: string;
   featuresDescription?: string;
-  features?: { title: string; description: string; }[];
+  features?: { title: string; description: string; icon?: any; }[];
   faqs?: { q: string; a: string; }[];
   testimonials?: { quote: string; author: string; }[];
   websiteStyle?: string;
