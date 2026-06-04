@@ -141,3 +141,61 @@ export const getCurrentPlan = (currentUser: User | null) => {
     const plan= plans[currentUser.subscription.planId]
     return plan
 }
+
+/**
+ * Helper to construct the redirection URL for a specific subdomain.
+ * If targetRole is 'tenant' and a subdomain is provided, redirects to the subdomain.
+ * If targetRole is NOT 'tenant' (e.g. owner, staff), redirects to the root host (apex domain) without subdomain.
+ */
+export function getRedirectUrlForSubdomain(
+  targetRole: string,
+  subdomain: string | null,
+  targetPath: string
+): string {
+  if (typeof window === 'undefined') return targetPath;
+
+  const hostname = window.location.hostname;
+  const port = window.location.port;
+  const protocol = window.location.protocol;
+
+  const rootDomains = [
+    'dev.rentsutra.in',
+    'staging.rentsutra.in',
+    'preview.rentsutra.in',
+    'dev.roombox.in',
+    'staging.roombox.in',
+    'roombox.in',
+    'rentsutra.in',
+    'localhost',
+    '127.0.0.1'
+  ];
+
+  // Find which root domain the current hostname ends with
+  let matchedRoot = '';
+  for (const domain of rootDomains) {
+    if (hostname === domain || hostname.endsWith('.' + domain)) {
+      matchedRoot = domain;
+      break;
+    }
+  }
+
+  // If no matched root, check Vercel preview domains
+  if (!matchedRoot) {
+    if (hostname.endsWith('.vercel.app')) {
+      matchedRoot = 'vercel.app';
+    } else {
+      matchedRoot = hostname; // fallback
+    }
+  }
+
+  let targetHost = matchedRoot;
+  if (targetRole === 'tenant' && subdomain) {
+    targetHost = `${subdomain}.${matchedRoot}`;
+  }
+
+  if (port) {
+    targetHost = `${targetHost}:${port}`;
+  }
+
+  return `${protocol}//${targetHost}${targetPath}`;
+}

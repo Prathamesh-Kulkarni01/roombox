@@ -17,7 +17,7 @@ import {
 import { UserCircle, SwitchCamera, Loader2, ChevronRight } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { initializeUser } from '@/lib/slices/userSlice';
-import { cn } from '@/lib/utils';
+import { cn, getRedirectUrlForSubdomain } from '@/lib/utils';
 
 interface RoleSwitcherProps {
   variant?: 'default' | 'ghost' | 'list';
@@ -53,6 +53,9 @@ export default function RoleSwitcher({ variant = 'default' }: RoleSwitcherProps)
 
       if (!response.ok) throw new Error('Failed to switch context');
 
+      const data = await response.json();
+      const subdomain = data.subdomain || null;
+
       // Refresh Firebase Token to pick up new custom claims
       if (auth?.currentUser) {
         await auth.currentUser.getIdToken(true);
@@ -60,16 +63,11 @@ export default function RoleSwitcher({ variant = 'default' }: RoleSwitcherProps)
         await dispatch(initializeUser(auth.currentUser));
       }
 
-      // Redirect based on new role
-      if (targetRole === 'tenant') {
-        router.push('/tenants/my-pg');
-      } else {
-        router.push('/dashboard');
-      }
+      // Redirect based on new role with subdomain sync
+      const targetPath = targetRole === 'tenant' ? '/tenants/my-pg' : '/dashboard';
+      const redirectUrl = getRedirectUrlForSubdomain(targetRole, subdomain, targetPath);
       
-      router.refresh();
-      // Force a reload to ensure all contexts are clean
-      window.location.reload();
+      window.location.href = redirectUrl;
     } catch (error) {
       console.error('Error switching role:', error);
     } finally {

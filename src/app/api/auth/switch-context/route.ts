@@ -72,7 +72,20 @@ export async function POST(req: NextRequest) {
             staffId: newClaims.staffId || null
         });
 
-        return success({ message: 'Context switched successfully', claims: newClaims });
+        // Fetch the subdomain of the owner to redirect correctly
+        let subdomain = null;
+        if (newClaims.ownerId) {
+            const siteSnapshot = await db.collection('sites')
+                .where('ownerId', '==', newClaims.ownerId)
+                .where('status', '==', 'published')
+                .limit(1)
+                .get();
+            if (!siteSnapshot.empty) {
+                subdomain = siteSnapshot.docs[0].data().subdomain || null;
+            }
+        }
+
+        return success({ message: 'Context switched successfully', claims: newClaims, subdomain });
 
     } catch (error: any) {
         console.error('[SwitchContext] Error:', error);
