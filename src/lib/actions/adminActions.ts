@@ -362,3 +362,137 @@ export async function adminLogImpersonation(
     return { success: false, error: err.message };
   }
 }
+
+// ─── Audited Owner Deletion (Data Cleanup) ────────────────────────────────────
+
+export interface AdminDeleteOwnerOptions {
+  ownerAccount: boolean;
+  properties: boolean;
+  tenants: boolean;
+  staff: boolean;
+  expenses: boolean;
+  notices: boolean;
+  complaints: boolean;
+}
+
+export async function adminDeleteOwnerData(
+  adminId: string,
+  adminName: string,
+  targetOwnerId: string,
+  targetOwnerName: string,
+  options: AdminDeleteOwnerOptions
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const adminDb = await getAdminDb();
+    
+    // Security guard
+    const adminDoc = await adminDb.collection('users').doc(adminId).get();
+    if (!adminDoc.exists || adminDoc.data()?.role !== 'admin') {
+      return { success: false, error: 'Unauthorized.' };
+    }
+
+    const batchSize = 100;
+    
+    // Helper function to delete a collection in batches
+    const deleteCollection = async (collectionPath: string) => {
+      const collectionRef = adminDb.collection(collectionPath);
+      const query = collectionRef.orderBy('__name__').limit(batchSize);
+
+      return new Promise<void>((resolve, reject) => {
+        const deleteQueryBatch = async (db: FirebaseFirestore.Firestore, query: FirebaseFirestore.Query, res: () => void) => {
+          const snapshot = await query.get();
+          const count = snapshot.size;
+          if (count === 0) {
+            res();
+            return;
+          }
+          const batch = db.batch();
+          snapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+          });
+          await batch.commit();
+          process.nextTick(() => {
+            deleteQueryBatch(db, query, res);
+          });
+        };
+        deleteQueryBatch(adminDb, query, resolve).catch(reject);
+      });
+    };
+
+    const userDataRef = adminDb.collection('users_data').doc(targetOwnerId);
+
+    // Delete properties (pgs), rooms, and beds
+    if (options.properties) {
+      await deleteCollection(`users_data/${targetOwnerId}/pgs`);
+      await deleteCollection(`users_data/${targetOwnerId}/rooms`);
+      await deleteCollection(`users_data/${targetOwnerId}/beds`);
+    }
+
+    // Delete tenants (guests)
+    if (options.tenants) {
+      await deleteCollection(`users_data/${targetOwnerId}/guests`);
+    }
+
+    // Delete staff
+    if (options.staff) {
+      await deleteCollection(`users_data/${targetOwnerId}/staff`);
+    }
+
+    // Delete expenses
+    if (options.expenses) {
+      await deleteCollection(`users_data/${targetOwnerId}/expenses`);
+    }
+
+    // Delete notices
+    if (options.notices) {
+      await deleteCollection(`users_data/${targetOwnerId}/notices`);
+    }
+
+    // Delete complaints (Root collection where ownerId matches)
+    if (options.complaints) {
+      const complaintsSnapshot = await adminDb.collection('complaints').where('ownerId', '==', targetOwnerId).get();
+      if (!complaintsSnapshot.empty) {
+        let batch = adminDb.batch();
+        let count = 0;
+        for (const doc of complaintsSnapshot.docs) {
+          batch.delete(doc.ref);
+          count++;
+          if (count === batchSize) {
+            await batch.commit();
+            batch = adminDb.batch();
+            count = 0;
+          }
+        }
+        if (count > 0) {
+          await batch.commit();
+        }
+      }
+    }
+
+    // Delete owner account and users_data root doc
+    if (options.ownerAccount) {
+      await adminDb.collection('users').doc(targetOwnerId).delete();
+      await userDataRef.delete();
+      try {
+        const { getAuth } = await import('firebase-admin/auth');
+        await getAuth().deleteUser(targetOwnerId);
+      } catch (authErr) {
+        console.warn(`[AdminActions] Failed to delete auth user ${targetOwnerId}:`, authErr);
+      }
+    }
+
+    // Write immutable audit record
+    await writeAdminAudit(
+      { adminId, adminName },
+      { targetType: 'owner', targetId: targetOwnerId, targetName: targetOwnerName },
+      'OWNER_DELETED',
+      `Admin deleted owner data for '${targetOwnerName}' with selective options`,
+      { options }
+    );
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[AdminActions] adminDeleteOwnerData failed:', err);
+    return { success: false, error: err.message };
+  }
+}
