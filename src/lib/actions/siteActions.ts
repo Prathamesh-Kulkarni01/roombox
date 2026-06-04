@@ -230,7 +230,7 @@ export async function getBrandingForSubdomain(subdomain: string): Promise<{
  * Otherwise, it returns the base URL (e.g. process.env.NEXT_PUBLIC_APP_URL).
  */
 export async function getBrandedAppUrl(ownerId: string, defaultUrl?: string): Promise<string> {
-    const base = (defaultUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in').replace(/\/+$/, '');
+    const base = ( process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in').replace(/\/+$/, '');
     
     try {
         const adminDb = await getAdminDb();

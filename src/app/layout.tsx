@@ -1,25 +1,25 @@
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+import { Toaster } from "@/components/ui/toaster";
+import Header from "@/components/header";
+import StoreProvider from "@/components/StoreProvider";
+import { ThemeProvider } from "@/components/theme-provider";
+import Script from "next/script";
+import { LanguageProvider } from "@/context/language-context";
+import ConfettiProvider from "@/context/confetti-provider";
+import PWAHandler from "@/components/PWAHandler";
+import { Analytics } from "@vercel/analytics/next";
 
-import type { Metadata, Viewport } from 'next';
-import './globals.css';
-import { Toaster } from "@/components/ui/toaster"
-import Header from '@/components/header';
-import StoreProvider from '@/components/StoreProvider';
-import { ThemeProvider } from '@/components/theme-provider';
-import Script from 'next/script';
-import { LanguageProvider } from '@/context/language-context';
-import ConfettiProvider from '@/context/confetti-provider';
-import PWAHandler from '@/components/PWAHandler';
-import { Analytics } from "@vercel/analytics/next"
-
-
-const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.vercel.app";
+const NEXT_PUBLIC_APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.in";
 
 export const metadata: Metadata = {
   title: {
     default: "RentSutra | Modern PG & Hostel Management Software",
-    template: "%s | RentSutra"
+    template: "%s | RentSutra",
   },
-  description: "Simplify your rental property management with RentSutra. Automate rent collection, track occupancy, and manage tenants with ease. The all-in-one OS for co-living, PGs, and hostels.",
+  description:
+    "Simplify your rental property management with RentSutra. Automate rent collection, track occupancy, and manage tenants with ease. The all-in-one OS for co-living, PGs, and hostels.",
   metadataBase: new URL(NEXT_PUBLIC_APP_URL),
   keywords: [
     "rental management software",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     "rent collection",
     "expense tracking",
     "occupancy management",
-    "RentSutra"
+    "RentSutra",
   ],
   authors: [{ name: "RentSutra Team" }],
   creator: "RentSutra",
@@ -59,13 +59,11 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#E2F3FD" },
     { media: "(prefers-color-scheme: dark)", color: "#0A192F" },
   ],
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
 };
-
-
 
 export default function RootLayout({
   children,
@@ -75,21 +73,23 @@ export default function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "RentSutra",
-    "applicationCategory": "BusinessApplication",
-    "operatingSystem": "Web",
-    "description": "Simplify your rental property management with RentSutra. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
-    "offers": {
+    name: "RentSutra",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    description:
+      "Simplify your rental property management with RentSutra. The modern OS for co-living, PGs, and hostels. Automate rent collection, track expenses, and manage tenants with ease.",
+    offers: {
       "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "INR"
+      price: "0",
+      priceCurrency: "INR",
     },
-    "aggregateRating": {
+    aggregateRating: {
       "@type": "AggregateRating",
-      "ratingValue": "4.8",
-      "reviewCount": "250"
+      ratingValue: "4.8",
+      reviewCount: "250",
     },
-    "keywords": "rental management software, property management, pg management, tenant management, rent collection, expense tracking"
+    keywords:
+      "rental management software, property management, pg management, tenant management, rent collection, expense tracking",
   };
 
   return (
@@ -101,17 +101,24 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="RentSutra" />
         <meta name="mobile-web-app-capable" content="yes" />
         <Script id="razorpay-checkout-js" src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
-        <meta name="google-site-verification" content="gK81HXYhS6XKWzEQPHzD8kY0q1Gs-ZSiLn0UDTT9RDQ" />       
+        <meta name="google-site-verification" content="HLDs7KWq0n7qSkYF2Lbuziso5ekVPmQM4ez6Bu6wL1A" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
 
         {/* Performance Optimizations */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin=""
+        />
         <link rel="preconnect" href="https://firestore.googleapis.com" />
         <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
 
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

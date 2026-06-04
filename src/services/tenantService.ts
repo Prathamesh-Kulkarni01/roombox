@@ -78,7 +78,7 @@ export class TenantService {
 
         await appDb.collection('magic_links').doc(token).set(magicLinkData);
 
-        const appUrl = await getBrandedAppUrl(ownerId, 'https://rentsutra.vercel.app');
+        const appUrl = await getBrandedAppUrl(ownerId);
         const magicLink = `${appUrl}/invite/${token}`;
         return { magicLink, inviteCode };
     }
