@@ -214,7 +214,13 @@ export default function WebsiteBuilderPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setDomain(process.env.NEXT_PUBLIC_APP_URL || window.location.host);
+    const rawUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "");
+    try {
+      const parsed = new URL(rawUrl);
+      setDomain(parsed.host);
+    } catch(e) {
+      setDomain(typeof window !== "undefined" ? window.location.host : "");
+    }
   }, []);
 
   const form = useForm<WebsiteConfigFormValues>({

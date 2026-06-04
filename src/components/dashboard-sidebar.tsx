@@ -11,9 +11,12 @@ import { allNavItems, type NavItem } from '@/lib/navigation';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { logoutUser } from '@/lib/slices/userSlice';
-import { LogOut, Shield, BookOpen, BookUser, UserCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { LogOut, Shield, BookOpen, BookUser, UserCircle, Globe, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from '@/context/language-context';
 import { useAccessibleNav } from '@/lib/hooks/use-accessible-nav';
+import { getSiteConfigForOwner } from '@/lib/actions/siteActions';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
@@ -24,6 +27,41 @@ export default function DashboardSidebar() {
     currentPlan, 
     accessibleNavGroups 
   } = useAccessibleNav();
+
+  const { toast } = useToast();
+  const [brandedUrl, setBrandedUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchBrandedUrl = async () => {
+      const ownerId = currentUser?.role === 'owner' || currentUser?.role === 'admin' ? currentUser.id : currentUser?.ownerId;
+      if (!ownerId) return;
+
+      try {
+        const config = await getSiteConfigForOwner(ownerId);
+        if (config?.subdomain) {
+          const rawUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "");
+          let parsedHost = "";
+          try {
+            parsedHost = new URL(rawUrl).host;
+          } catch(e) {
+            parsedHost = typeof window !== "undefined" ? window.location.host : "";
+          }
+
+          let host = parsedHost;
+          if (host.startsWith('www.')) host = host.substring(4);
+          const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+          
+          setBrandedUrl(`${protocol}//${config.subdomain}.${host}`);
+        }
+      } catch (error) {
+        console.error('Failed to load branded URL for sidebar:', error);
+      }
+    };
+
+    if (currentUser) {
+      fetchBrandedUrl();
+    }
+  }, [currentUser]);
   
   if (!currentUser) return null;
 
@@ -71,6 +109,41 @@ export default function DashboardSidebar() {
         </nav>
       </div>
       <div className="p-4 mt-auto">
+        {brandedUrl && (
+          <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/10 flex flex-col gap-2">
+            <div className="flex items-center gap-1.5 text-primary text-xs font-bold">
+              <Globe className="w-3.5 h-3.5" />
+              <span>Your Branded App URL</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground truncate font-mono">
+              {brandedUrl.replace(/^https?:\/\//, '')}
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[10px] h-7 px-2 flex-1"
+                onClick={() => {
+                  navigator.clipboard.writeText(brandedUrl);
+                  toast({
+                    title: "Link Copied",
+                    description: "Subdomain URL copied to clipboard.",
+                  });
+                }}
+              >
+                <Copy className="w-3 h-3 mr-1" /> Copy
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[10px] h-7 px-2 flex-1"
+                onClick={() => window.open(brandedUrl, '_blank')}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" /> Visit
+              </Button>
+            </div>
+          </div>
+        )}
         <Separator className="my-4" />
          <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">

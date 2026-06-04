@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, LogOut, ShieldCheck, History, Building2 } from 'lucide-react';
+import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, LogOut, ShieldCheck, History, Building2, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores';

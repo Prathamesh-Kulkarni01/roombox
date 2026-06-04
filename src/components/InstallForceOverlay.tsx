@@ -34,12 +34,32 @@ export default function InstallForceOverlay() {
         const isRecentlyDismissed = dismissedTime && (now - parseInt(dismissedTime, 10) < 7 * 24 * 60 * 60 * 1000);
 
         if (mobile && !isStandalone && !isRecentlyDismissed) {
-            const timer = setTimeout(() => {
-                setIsVisible(true);
-            }, 3000); // 3 seconds delay for better entry UX
-            return () => clearTimeout(timer);
+            let timeoutId: NodeJS.Timeout;
+
+            const checkManifestAndShow = () => {
+                if (typeof window === 'undefined') return;
+                const link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+                const isBrandedRoute = branding.isSubdomain || window.location.pathname.startsWith('/tenants');
+
+                if (isBrandedRoute) {
+                    // Wait until PWAHandler has injected/updated the manifest link pointing to our dynamic manifest route
+                    if (link && link.href.includes('/api/pwa/manifest')) {
+                        setIsVisible(true);
+                    } else {
+                        // Manifest URL is not ready yet, retry in 500ms
+                        timeoutId = setTimeout(checkManifestAndShow, 500);
+                    }
+                } else {
+                    // Standard root route, show immediately after initial delay
+                    setIsVisible(true);
+                }
+            };
+
+            // Delay initial check by 3 seconds for better entry UX
+            timeoutId = setTimeout(checkManifestAndShow, 3000);
+            return () => clearTimeout(timeoutId);
         }
-    }, [pathname]);
+    }, [pathname, branding]);
 
     const handleDismiss = () => {
         setIsVisible(false);
