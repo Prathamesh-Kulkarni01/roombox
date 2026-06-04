@@ -248,8 +248,17 @@ export default function WebsiteBuilderPage() {
       typeof window !== "undefined"
         ? window.location.origin
         : `https://${domain}`;
-    return `${origin}/site/${subdomain}`;
-  }, [watchAll.subdomain, siteConfig, domain]);
+        
+    try {
+      const url = new URL(origin);
+      let host = url.hostname;
+      if (host.startsWith('www.')) host = host.substring(4);
+      url.hostname = `${subdomain}.${host}`;
+      return url.toString().replace(/\/+$/, '');
+    } catch(e) {
+      return `${origin}/site/${subdomain}`;
+    }
+  }, [siteConfig?.subdomain, watchAll.subdomain, domain]);
 
   const fetchConfig = async () => {
     if (!currentUser) return;
