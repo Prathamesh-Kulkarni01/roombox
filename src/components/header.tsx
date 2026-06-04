@@ -24,6 +24,8 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { allNavItems } from '@/lib/navigation';
 import { usePermissionsStore } from '@/lib/stores/configStores';
 import { useAccessibleNav } from '@/lib/hooks/use-accessible-nav';
+import { auth } from '@/lib/firebase';
+import { initializeUser } from '@/lib/slices/userSlice';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -163,7 +165,7 @@ export default function Header() {
   // Subdomain PG public pages have their own sticky nav — suppress global header
   const isSitePage = pathname.startsWith('/site/');
 
-  const handleValueChange = (pgId: string) => {
+  const handleValueChange = async (pgId: string) => {
     dispatch(setSelectedPgId(pgId === 'all' ? null : pgId));
 
     // If we're on a property management page, update the URL to match the selection
@@ -176,8 +178,35 @@ export default function Header() {
     }
 
     // Tenant specific logic: if they switch PG, clarify their guestId in state or just let the dashboard use the new pgId
-    if (isTenantDashboard) {
-        router.push('/tenants/my-pg');
+    if (isTenantDashboard && currentUser) {
+      try {
+        const token = await auth?.currentUser?.getIdToken();
+        const response = await fetch('/api/auth/switch-context', {
+          method: 'POST',
+          headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ targetRole: 'tenant', targetPgId: pgId }),
+        });
+
+        if (response.ok) {
+          // Refresh Firebase Token to pick up new custom claims
+          if (auth?.currentUser) {
+            await auth.currentUser.getIdToken(true);
+            await dispatch(initializeUser(auth.currentUser));
+          }
+
+          // Reload page locally to refresh dashboard data under the new context
+          router.push('/tenants/my-pg');
+          router.refresh();
+          window.location.reload();
+          return;
+        }
+      } catch (error) {
+        console.error('Error switching tenant PG context:', error);
+      }
+      router.push('/tenants/my-pg');
     }
   }
 
