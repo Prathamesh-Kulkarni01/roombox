@@ -256,6 +256,11 @@ export default function GuestProfilePage() {
   const [isGeneratingMagicLink, setIsGeneratingMagicLink] = useState(false);
   const [isGeneratingPassword, setIsGeneratingPassword] = useState(false);
 
+  // Attendance Integration
+  const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+  const [attendanceStats, setAttendanceStats] = useState<any>(null);
+  const [isAttendanceLoading, setIsAttendanceLoading] = useState(false);
+
   const guestComplaints = useMemo(
     () => complaints.complaints.filter((c) => c.guestId === guestId),
     [complaints.complaints, guestId],
@@ -277,6 +282,41 @@ export default function GuestProfilePage() {
       setDocumentUris(initialUris);
     }
   }, [guest?.documents]);
+
+  useEffect(() => {
+    if (guestId) {
+      setIsAttendanceLoading(true);
+      fetch(`/api/attendance?guestId=${guestId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setAttendanceLogs(data.logs || []);
+            const now = new Date();
+            const thisMonthLogs = (data.logs || []).filter((l: any) => {
+              const d = new Date(l.timestamp);
+              return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            });
+            const inScans = thisMonthLogs.filter((l: any) => l.type === 'IN').length;
+            const outScans = thisMonthLogs.filter((l: any) => l.type === 'OUT').length;
+            const lateScans = thisMonthLogs.filter((l: any) => {
+              if (l.type !== 'IN') return false;
+              const d = new Date(l.timestamp);
+              return d.getHours() >= 23;
+            }).length;
+            const remoteScans = thisMonthLogs.filter((l: any) => l.locationStatus === 'Remote Scan').length;
+
+            setAttendanceStats({
+              inScans,
+              outScans,
+              lateScans,
+              remoteScans,
+            });
+          }
+        })
+        .catch((e) => console.error('Failed to load guest attendance profile logs', e))
+        .finally(() => setIsAttendanceLoading(false));
+    }
+  }, [guestId]);
 
   const { totalDue, dueItems, symbolicBalance } = useMemo(() => {
     if (!guest) return { totalDue: 0, dueItems: [], symbolicBalance: null };
@@ -1014,10 +1054,14 @@ export default function GuestProfilePage() {
         <Card>
           <Tabs defaultValue="stay-details">
             <CardHeader>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="stay-details">
                   <span className="sm:hidden">Stay</span>
                   <span className="hidden sm:inline">Stay Details</span>
+                </TabsTrigger>
+                <TabsTrigger value="attendance">
+                  <span className="sm:hidden">Attendance</span>
+                  <span className="hidden sm:inline">Attendance</span>
                 </TabsTrigger>
                 <TabsTrigger value="payment-history">
                   <span className="sm:hidden">History</span>
@@ -1087,6 +1131,89 @@ export default function GuestProfilePage() {
                         Vacate Immediately
                       </Button>
                     </Access>
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="attendance">
+                <div className="space-y-6 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="bg-muted/30 p-3 rounded-lg border border-primary/5">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">Current Status</p>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "mt-1.5 uppercase font-bold text-xs",
+                          (attendanceLogs[0]?.type || 'IN') === 'IN' 
+                            ? "bg-green-500/10 text-green-500 border-green-500/20" 
+                            : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                        )}
+                      >
+                        {attendanceLogs[0]?.type || 'IN'}
+                      </Badge>
+                    </div>
+
+                    <div className="bg-muted/30 p-3 rounded-lg border border-primary/5">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">Days Present (Month)</p>
+                      <p className="text-lg font-bold text-green-500 mt-1">{attendanceStats?.inScans ?? 0}</p>
+                    </div>
+
+                    <div className="bg-muted/30 p-3 rounded-lg border border-primary/5">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">Days Outside (Month)</p>
+                      <p className="text-lg font-bold text-amber-500 mt-1">{attendanceStats?.outScans ?? 0}</p>
+                    </div>
+
+                    <div className="bg-muted/30 p-3 rounded-lg border border-primary/5">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold">Late Returns (Month)</p>
+                      <p className="text-lg font-bold text-red-400 mt-1">{attendanceStats?.lateScans ?? 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <p className="font-semibold text-base">Recent Checkpoints Logs</p>
+                    {isAttendanceLoading ? (
+                      <div className="flex items-center gap-2 text-muted-foreground py-4 justify-center">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Loading scans...
+                      </div>
+                    ) : attendanceLogs.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">No scan logs recorded for this tenant.</p>
+                    ) : (
+                      <div className="max-h-[250px] overflow-y-auto border rounded-lg">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Time</TableHead>
+                              <TableHead>Action</TableHead>
+                              <TableHead>Zone</TableHead>
+                              <TableHead>GPS Audit</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {attendanceLogs.map((log) => (
+                              <TableRow key={log.id}>
+                                <TableCell className="font-mono text-xs">{new Date(log.timestamp).toLocaleString()}</TableCell>
+                                <TableCell>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={cn(
+                                      "text-[10px] uppercase font-bold", 
+                                      log.type === 'IN' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'
+                                    )}
+                                  >
+                                    {log.type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{log.zoneId}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-[9px]">
+                                    {log.locationStatus}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
                   </div>
                 </div>
               </TabsContent>

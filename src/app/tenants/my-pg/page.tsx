@@ -263,6 +263,20 @@ export default function MyPgPage() {
                         <div className="flex items-center gap-3"><BedDouble className="w-5 h-5 text-primary" /><p>Room/Bed: <span className="font-medium">Room {bedDetails.roomName}, Bed {bedDetails.bedName}</span></p></div>
                         <div className="flex items-center gap-3"><FileText className="w-5 h-5 text-primary" /><p>Notice Period: <span className="font-medium">{currentGuest.noticePeriodDays} days</span></p></div>
                     </CardContent>
+                    
+                    <CardFooter className="flex flex-col sm:flex-row gap-4 border-t pt-4 bg-muted/10">
+                        <div className="flex-1 text-xs text-muted-foreground flex flex-col justify-center">
+                            <p className="font-semibold text-foreground">Self Gate Scan Pass</p>
+                            <p>Scan the Wall QR at the entry to log your IN/OUT instantly.</p>
+                        </div>
+                        <Button 
+                            className="bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20"
+                            onClick={() => router.push(`/scan/${currentGuest.pgId}`)}
+                        >
+                            Open Gate Pass Scanner
+                        </Button>
+                    </CardFooter>
+
                     {exitDate && isValid(exitDate) && !currentGuest.isVacated && (
                         <CardFooter>
                             <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200 w-full">
