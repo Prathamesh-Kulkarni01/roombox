@@ -17,6 +17,7 @@ import type { PWAConfig } from '@/lib/types';
 import { auth } from '@/lib/firebase';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getRedirectUrlForSubdomain } from '@/lib/utils';
 
 const PRESET_ICONS = [
   { id: 'home', icon: Home, label: 'Home' },
@@ -50,6 +51,13 @@ export function PWASettings() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewMode, setPreviewMode] = useState<'home' | 'splash' | 'dashboard'>('dashboard');
+  const [appUrl, setAppUrl] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setAppUrl(window.location.origin);
+    }
+  }, []);
 
   const form = useForm<PWAConfig>({
     resolver: zodResolver(pwaConfigSchema),
@@ -180,19 +188,7 @@ export function PWASettings() {
   const logoValue = form.watch('logo');
   const subdomainValue = form.watch('subdomain');
 
-  const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://roombox.in';
-  let brandedUrl = '';
-  if (subdomainValue && typeof window !== 'undefined') {
-    try {
-      const url = new URL(appUrl);
-      let host = url.hostname;
-      if (host.startsWith('www.')) host = host.substring(4);
-      url.hostname = `${subdomainValue}.${host}`;
-      brandedUrl = url.toString().replace(/\/+$/, '');
-    } catch(e) {
-      brandedUrl = `${appUrl}/app/${subdomainValue}`;
-    }
-  }
+  const brandedUrl = subdomainValue ? getRedirectUrlForSubdomain('tenant', subdomainValue, '') : '';
 
   const qrDarkColor = (themeColorValue || '#0f172a').replace('#', '');
   const qrCodeUrl = brandedUrl ? `https://quickchart.io/qr?text=${encodeURIComponent(brandedUrl)}&size=300&dark=${qrDarkColor}&margin=2${logoValue && !logoValue.startsWith('data:image/svg+xml') ? `&centerImageUrl=${encodeURIComponent(logoValue)}` : ''}` : '';

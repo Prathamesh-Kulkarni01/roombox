@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Printer, Download, Search, RefreshCw, LogIn, LogOut, ShieldCheck, Users, AlertTriangle, HelpCircle, MapPin, Plus, FileText, Settings, BarChart2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getRedirectUrlForSubdomain } from '@/lib/utils';
 
 export default function AdminAttendancePage() {
     const { pgs } = useAppSelector((state) => state.pgs);
@@ -237,9 +237,9 @@ export default function AdminAttendancePage() {
     // Printable Wall Poster Generator URL
     const scanUrl = useMemo(() => {
         if (typeof window === 'undefined') return '';
-        const base = window.location.origin;
-        return `${base}/scan/${activePgForQr}?zone=${encodeURIComponent(zoneId)}`;
-    }, [activePgForQr, zoneId]);
+        const activePg = pgs.find(p => p.id === activePgForQr);
+        return getRedirectUrlForSubdomain('tenant', activePg?.subdomain || null, `/scan/${activePgForQr}?zone=${encodeURIComponent(zoneId)}`);
+    }, [activePgForQr, zoneId, pgs]);
 
     const handlePrintPoster = () => {
         const printWindow = window.open('', '_blank');
@@ -874,10 +874,16 @@ export default function AdminAttendancePage() {
                                                     <Badge className="mt-1" variant="outline">ZONE: {zoneTag}</Badge>
                                                 </div>
                                                 <div className="bg-white p-3 rounded-lg shadow-sm border">
-                                                    <img 
-                                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(window.location.origin + `/scan/${currentPgId}?zone=${zoneTag}`)}`} 
-                                                        alt={`${zone} QR`} 
-                                                    />
+                                                    {(() => {
+                                                        const currentPg = pgs.find(p => p.id === currentPgId);
+                                                        const zoneScanUrl = getRedirectUrlForSubdomain('tenant', currentPg?.subdomain || null, `/scan/${currentPgId}?zone=${zoneTag}`);
+                                                        return (
+                                                            <img 
+                                                                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(zoneScanUrl)}`} 
+                                                                alt={`${zone} QR`} 
+                                                            />
+                                                        );
+                                                    })()}
                                                 </div>
                                                 <div className="flex gap-2 w-full">
                                                     <Button 

@@ -19,7 +19,7 @@ import type { LedgerEntry, PG, Guest, Payment } from "@/lib/types"
 import { auth } from "@/lib/firebase"
 import { Input } from "@/components/ui/input"
 import { useEffect, useMemo, useState, useTransition } from "react"
-import { cn } from "@/lib/utils"
+import { cn, getRedirectUrlForSubdomain } from "@/lib/utils"
 
 const rentStatusColors: Record<string, string> = {
     paid: 'bg-green-100 text-green-800 border-green-300',
@@ -62,6 +62,18 @@ export default function MyPgPage() {
         if (!currentGuest && !effectivePgId) return null;
         return pgs.find(p => p.id === (currentGuest?.pgId || effectivePgId));
     }, [currentGuest, pgs, effectivePgId]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && currentPg?.subdomain) {
+            const hostname = window.location.hostname;
+            const subdomain = hostname.split('.')[0];
+            const isRoot = ['roombox.in', 'www.roombox.in', 'rentsutra.in', 'www.rentsutra.in', 'dev.rentsutra.in', 'staging.rentsutra.in', 'localhost', '127.0.0.1'].includes(hostname);
+            if (isRoot && subdomain !== currentPg.subdomain) {
+                const targetUrl = getRedirectUrlForSubdomain('tenant', currentPg.subdomain, '/tenants/my-pg');
+                window.location.replace(targetUrl);
+            }
+        }
+    }, [currentPg]);
 
     const bedDetails = useMemo(() => {
         if (!currentPg || !currentGuest) return { roomName: 'N/A', bedName: 'N/A' };
@@ -271,7 +283,10 @@ export default function MyPgPage() {
                         </div>
                         <Button 
                             className="bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20"
-                            onClick={() => router.push(`/scan/${currentGuest.pgId}`)}
+                            onClick={() => {
+                                const url = getRedirectUrlForSubdomain('tenant', currentPg?.subdomain || null, `/scan/${currentGuest.pgId}`);
+                                window.location.href = url;
+                            }}
                         >
                             Open Gate Pass Scanner
                         </Button>

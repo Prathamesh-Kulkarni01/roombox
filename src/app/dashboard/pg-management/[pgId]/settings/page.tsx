@@ -61,6 +61,8 @@ const editPgSchema = z.object({
   payeeName: z.string().optional(),
   paymentMode: z.enum(["CASH_ONLY", "DIRECT_UPI", "GATEWAY"]).default("CASH_ONLY"),
   online_payment_enabled: z.boolean().default(false),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
 });
 
 type EditPgFormValues = z.infer<typeof editPgSchema>;
@@ -93,6 +95,8 @@ export default function PgSettingsPage() {
       payeeName: "",
       paymentMode: "CASH_ONLY",
       online_payment_enabled: false,
+      latitude: null,
+      longitude: null,
     },
   });
 
@@ -109,6 +113,8 @@ export default function PgSettingsPage() {
         payeeName: pg.payeeName || "",
         paymentMode: (pg.paymentMode as any) || "CASH_ONLY",
         online_payment_enabled: pg.online_payment_enabled || false,
+        latitude: pg.latitude || null,
+        longitude: pg.longitude || null,
       });
     }
   }, [pg, form]);
@@ -270,6 +276,86 @@ export default function PgSettingsPage() {
                   </FormItem>
                 )}
               />
+            </CardContent>
+          </Card>
+
+          {/* Geofencing Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-primary" /> Geofencing & Checkpoint Coordinates
+              </CardTitle>
+              <CardDescription>
+                Define the geofence center coordinates of your property to enforce location-restricted check-ins.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="latitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Latitude</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="any" 
+                          placeholder="e.g. 12.9716" 
+                          value={field.value ?? ""} 
+                          onChange={(e) => field.onChange(e.target.value === "" ? null : parseFloat(e.target.value))} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="longitude"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Longitude</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="any" 
+                          placeholder="e.g. 77.5946" 
+                          value={field.value ?? ""} 
+                          onChange={(e) => field.onChange(e.target.value === "" ? null : parseFloat(e.target.value))} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex justify-start">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (!navigator.geolocation) {
+                      toast({ variant: "destructive", title: "Error", description: "Geolocation is not supported by your browser." });
+                      return;
+                    }
+                    navigator.geolocation.getCurrentPosition(
+                      (position) => {
+                        form.setValue("latitude", parseFloat(position.coords.latitude.toFixed(6)));
+                        form.setValue("longitude", parseFloat(position.coords.longitude.toFixed(6)));
+                        toast({ title: "Location Locked", description: "Latitude and Longitude auto-filled." });
+                      },
+                      (error) => {
+                        toast({ variant: "destructive", title: "GPS Error", description: error.message });
+                      }
+                    );
+                  }}
+                >
+                  <MapPin className="w-4 h-4 mr-2" /> Detect Current Location
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
