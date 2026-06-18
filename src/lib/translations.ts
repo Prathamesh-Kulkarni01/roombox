@@ -233,6 +233,9 @@ const translations = {
     nav_complaints_short: "Issues",
     nav_food: "Food Menu",
     nav_food_desc: "Plan weekly meals.",
+    nav_attendance: "Gate Pass & Attendance",
+    nav_attendance_desc: "Monitor entry logs & curfew alerts.",
+    nav_attendance_short: "Attendance",
 
     nav_group_growth: "Growth & Settings",
     nav_app_website: "My Brand",
@@ -675,6 +678,9 @@ const translations = {
     nav_complaints_short: "शिकायतें",
     nav_food: "भोजन मेनू",
     nav_food_desc: "साप्ताहिक भोजन की योजना बनाएं।",
+    nav_attendance: "उपस्थिति और गेट पास",
+    nav_attendance_desc: "प्रवेश लॉग और कर्फ्यू अलर्ट की निगरानी करें।",
+    nav_attendance_short: "उपस्थिति",
 
     nav_group_growth: "विकास और सेटिंग्स",
     nav_app_website: "ऐप और वेबसाइट",
@@ -1105,6 +1111,9 @@ const translations = {
     nav_complaints_short: "तक्रारी",
     nav_food: "जेवणाचे वेळापत्रक",
     nav_food_desc: "साप्ताहिक जेवणाचे नियोजन करा.",
+    nav_attendance: "उपस्थिती आणि गेट पास",
+    nav_attendance_desc: "प्रवेश नोंदी आणि कर्फ्यू अलर्टचे निरीक्षण करा.",
+    nav_attendance_short: "उपस्थिती",
 
     nav_group_growth: "सेटिंग्ज",
     manage_rooms: "रूम्स",
