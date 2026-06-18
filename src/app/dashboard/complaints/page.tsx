@@ -297,7 +297,7 @@ const NoticeBoardView = () => {
     const handleSendNotice = async (data: NoticeFormValues) => {
         if (!currentUser?.id) return;
         const activeGuests = guests.filter(g =>
-            !g.isVacated && g.userId && (!selectedPgId || g.pgId === selectedPgId)
+            !g.isVacated && (!selectedPgId || g.pgId === selectedPgId)
         );
 
         if (activeGuests.length === 0) {
@@ -316,7 +316,7 @@ const NoticeBoardView = () => {
                         title: data.title,
                         message: data.message,
                         link: '/tenants/my-pg',
-                        targetId: guest.userId!
+                        targetId: guest.userId || guest.id
                     }
                 })
             ));

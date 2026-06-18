@@ -62,6 +62,21 @@ const getDefaultPermissions = (plan: Plan): RolePermissions => {
     permissions['owner'] = ownerPerms;
     permissions['admin'] = ownerPerms; // Admin also gets all permissions
 
+    // Tenant defaults
+    const tenantPerms: FeaturePermissions = {};
+    featurePermissionConfig.forEach(config => {
+        tenantPerms[config.featureId] = {};
+        config.actions.forEach(action => {
+            tenantPerms[config.featureId][action.id] = false;
+        });
+    });
+    tenantPerms.complaints = { view: true, add: true, edit: false, delete: false };
+    tenantPerms.food = { view: true, edit: false };
+    tenantPerms.kyc = { view: true, edit: false, add: true };
+    tenantPerms.finances = { view: true, add: false };
+    
+    permissions['tenant'] = tenantPerms;
+
     return permissions as RolePermissions;
 };
 
