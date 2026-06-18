@@ -7,7 +7,8 @@ import {
   UserCog, 
   Globe, 
   Zap, 
-  FileCheck 
+  FileCheck,
+  ShieldCheck
 } from 'lucide-react';
 
 export interface PermissionAction {
@@ -74,6 +75,16 @@ export const featurePermissionConfig: FeatureConfig[] = [
       { id: 'view', label: "View Menu" },
       { id: 'edit', label: "Edit Menu" }
     ]
+  },
+  {
+    featureId: 'attendance',
+    featureName: 'Gate Pass & Attendance',
+    icon: ShieldCheck,
+    actions: [
+      { id: 'view', label: 'View Attendance Logs & Status' },
+      { id: 'edit', label: 'Configure Curfew & Settings' },
+      { id: 'add', label: 'Log Manual Entries' },
+    ],
   },
   {
     featureId: 'staff',
