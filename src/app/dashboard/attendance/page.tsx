@@ -238,7 +238,7 @@ export default function AdminAttendancePage() {
     const scanUrl = useMemo(() => {
         if (typeof window === 'undefined') return '';
         const activePg = pgs.find(p => p.id === activePgForQr);
-        return getRedirectUrlForSubdomain('tenant', activePg?.subdomain || null, `/scan/${activePgForQr}?zone=${encodeURIComponent(zoneId)}`);
+        return getRedirectUrlForSubdomain('root', null, `/scan/${activePgForQr}?zone=${encodeURIComponent(zoneId)}`);
     }, [activePgForQr, zoneId, pgs]);
 
     const handlePrintPoster = () => {

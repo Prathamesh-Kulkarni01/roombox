@@ -189,6 +189,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
       "/changelog",
       "/signup",
       "/sentry-example-page",
+      "/scan",
     ];
 
     const isPublicPage = publicPages.some((p) => {
