@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
         // 3. Generate Magic Link
         const formattedPhone = variations.find(v => v.startsWith("+91")) || `+91${cleanPhone}`;
-        const magicLink = await TenantService.generateMagicLink(appDb, userData.guestId, formattedPhone, userData.ownerId, pgName);
+        const { magicLink } = await TenantService.generateMagicLink(appDb, userData.guestId, formattedPhone, userData.ownerId, pgName, 'tenant', userData.pgId);
 
         // 3. Send WhatsApp Message
         const messageText = `🔑 *Password Reset Request*\n\nHi ${userData.name},\nWe received a request to access your account.\n\nClick the link below to securely log in and reset your password:\n${magicLink}\n\nIf you didn't request this, please ignore this message.`;

@@ -54,7 +54,7 @@ export class TenantService {
      * Generates a single-use magic link token for a tenant or staff.
      * Use this whenever the user needs to log in without a password.
      */
-    static async generateMagicLink(appDb: Firestore, id: string, phone: string, ownerId: string, pgName?: string, role: string = 'tenant'): Promise<{ magicLink: string, inviteCode: string }> {
+    static async generateMagicLink(appDb: Firestore, id: string, phone: string, ownerId: string, pgName?: string, role: string = 'tenant', pgId?: string): Promise<{ magicLink: string, inviteCode: string }> {
         const token = crypto.randomBytes(32).toString('hex');
         const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -74,6 +74,10 @@ export class TenantService {
             magicLinkData.staffId = id;
         } else {
             magicLinkData.guestId = id;
+        }
+
+        if (pgId) {
+            magicLinkData.pgId = pgId;
         }
 
         await appDb.collection('magic_links').doc(token).set(magicLinkData);
@@ -597,7 +601,7 @@ export class TenantService {
                 if (!appUrl) {
                     console.warn('[onboardTenant] NEXT_PUBLIC_APP_URL not found, using root fallback. Magic links may break!');
                 }
-                const { magicLink } = await TenantService.generateMagicLink(appDb, guestId, standardizedPhone, ownerId, pgName || newGuest.pgName || 'RentSutra');
+                const { magicLink } = await TenantService.generateMagicLink(appDb, guestId, standardizedPhone, ownerId, pgName || newGuest.pgName || 'RentSutra', 'tenant', pgId);
                 magicLinkResult = magicLink;
 
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);
