@@ -137,23 +137,31 @@ export default function TenantScanPage() {
         return () => unsubscribe();
     }, [pgId, zoneId, router]);
 
-    const captureGPS = () => {
-        if (!navigator.geolocation) return;
-        setGpsLoading(true);
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                setCoords({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                });
-                setGpsLoading(false);
-            },
-            (error) => {
-                console.warn('GPS failed', error);
-                setGpsLoading(false);
-            },
-            { enableHighAccuracy: true, timeout: 5000 }
-        );
+    const captureGPS = (): Promise<{ latitude: number | null; longitude: number | null }> => {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) {
+                resolve({ latitude: null, longitude: null });
+                return;
+            }
+            setGpsLoading(true);
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const newCoords = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+                    setCoords(newCoords);
+                    setGpsLoading(false);
+                    resolve(newCoords);
+                },
+                (error) => {
+                    console.warn('GPS failed', error);
+                    setGpsLoading(false);
+                    resolve({ latitude: null, longitude: null });
+                },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        });
     };
 
     const fetchStatus = async (currentUser: any) => {
@@ -208,6 +216,14 @@ export default function TenantScanPage() {
 
         startLoggingTransition(async () => {
             try {
+                let currentCoords = { ...coords };
+                if (!currentCoords.latitude) {
+                    const fresh = await captureGPS();
+                    if (fresh.latitude) {
+                        currentCoords = fresh;
+                    }
+                }
+
                 const token = await user.getIdToken();
                 const res = await fetch('/api/attendance', {
                     method: 'POST',
@@ -220,8 +236,8 @@ export default function TenantScanPage() {
                         type: selectedType,
                         purpose,
                         isEmergency,
-                        latitude: coords.latitude,
-                        longitude: coords.longitude,
+                        latitude: currentCoords.latitude,
+                        longitude: currentCoords.longitude,
                         zoneId,
                         override: forceOverride,
                         source: 'QR_SCAN'
@@ -378,7 +394,7 @@ export default function TenantScanPage() {
                         </div>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-2">
-                        <Button className="w-full py-5 text-base" onClick={() => router.push('/tenants/my-pg')}>
+                        <Button className="w-full py-5 text-base" onClick={() => window.location.href = '/tenants/my-pg'}>
                             Go to Dashboard
                         </Button>
                     </CardFooter>
@@ -551,7 +567,7 @@ export default function TenantScanPage() {
                     </Button>
                     <button
                         type="button"
-                        onClick={() => router.push('/tenants/my-pg')}
+                        onClick={() => window.location.href = '/tenants/my-pg'}
                         className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mt-1"
                     >
                         <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboard

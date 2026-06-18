@@ -68,6 +68,7 @@ const PASSTHROUGH_PATHS = [
   '/pay',
   '/signup',
   '/dashboard',  // owners might bookmark dashboard — should work on any domain
+  '/scan',
 ];
 
 function isPassthroughPath(pathname: string): boolean {
