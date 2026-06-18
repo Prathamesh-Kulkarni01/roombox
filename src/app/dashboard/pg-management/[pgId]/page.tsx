@@ -86,42 +86,54 @@ import { ActivityLogsList } from "@/components/activity/activity-logs-list";
 // Constant for bed status colors and labels
 const STATUS_STYLES = {
   EMPTY: {
-    bg: "bg-muted/30 backdrop-blur-sm",
-    border: "border-muted/50",
-    text: "text-muted-foreground",
-    icon: "text-muted-foreground/60",
-    badge: "bg-muted/80 text-muted-foreground",
+    bg: "bg-[hsla(210,20%,98%,0.5)] dark:bg-[hsla(210,15%,12%,0.5)] backdrop-blur-md",
+    border: "border-[hsla(210,10%,82%,0.4)] dark:border-[hsla(210,10%,25%,0.4)]",
+    text: "text-[hsl(215,15%,45%)] dark:text-[hsl(215,10%,70%)]",
+    icon: "text-[hsl(215,15%,55%)] dark:text-[hsl(215,10%,60%)]",
+    badge: "bg-[hsla(215,15%,90%,0.8)] dark:bg-[hsla(215,10%,20%,0.8)] text-muted-foreground",
+    shadow: "shadow-[0_2px_8px_rgba(148,163,184,0.05)]",
+    selectedRing: "ring-2 ring-[hsl(210,10%,70%)] dark:ring-[hsl(210,10%,45%)]",
+    selectedShadow: "shadow-[0_0_15px_-3px_rgba(148,163,184,0.3)]",
   },
   DUE: {
-    bg: "bg-rose-500/10 dark:bg-rose-950/40 backdrop-blur-sm",
-    border: "border-rose-500/50 shadow-[0_0_20px_-10px_theme(colors.rose.500)]",
-    text: "text-rose-700 dark:text-rose-200",
-    icon: "text-rose-500",
-    badge: "bg-rose-600 text-white shadow-lg shadow-rose-900/40",
+    bg: "bg-[hsla(343,95%,97%,0.95)] dark:bg-[hsla(343,45%,12%,0.75)] backdrop-blur-md",
+    border: "border-[hsla(343,85%,65%,0.6)] dark:border-[hsla(343,75%,55%,0.6)]",
+    text: "text-[hsl(343,85%,40%)] dark:text-[hsl(343,85%,80%)]",
+    icon: "text-[hsl(343,80%,55%)]",
+    badge: "bg-[hsl(343,75%,55%)] text-white shadow-lg shadow-rose-900/30",
+    shadow: "shadow-[0_4px_12px_rgba(244,63,94,0.08)]",
+    selectedRing: "ring-2 ring-[hsl(343,85%,55%)]",
+    selectedShadow: "shadow-[0_0_20px_-3px_hsla(343,85%,65%,0.5)]",
   },
   PARTIAL: {
-    bg: "bg-amber-500/10 dark:bg-amber-950/40 backdrop-blur-sm",
-    border:
-      "border-amber-500/50 shadow-[0_0_20px_-10px_theme(colors.amber.500)]",
-    text: "text-amber-700 dark:text-amber-200",
-    icon: "text-amber-500",
-    badge: "bg-amber-600 text-white",
+    bg: "bg-[hsla(35,95%,96%,0.95)] dark:bg-[hsla(35,45%,12%,0.75)] backdrop-blur-md",
+    border: "border-[hsla(35,85%,60%,0.6)] dark:border-[hsla(35,75%,50%,0.6)]",
+    text: "text-[hsl(35,90%,35%)] dark:text-[hsl(35,85%,80%)]",
+    icon: "text-[hsl(35,85%,50%)]",
+    badge: "bg-[hsl(35,85%,50%)] text-white",
+    shadow: "shadow-[0_4px_12px_rgba(245,158,11,0.08)]",
+    selectedRing: "ring-2 ring-[hsl(35,85%,50%)]",
+    selectedShadow: "shadow-[0_0_20px_-3px_hsla(35,85%,60%,0.5)]",
   },
   PAID: {
-    bg: "bg-emerald-500/10 dark:bg-emerald-950/40 backdrop-blur-sm",
-    border:
-      "border-emerald-500/50 shadow-[0_0_20px_-10px_theme(colors.emerald.500)]",
-    text: "text-emerald-700 dark:text-emerald-200",
-    icon: "text-emerald-500",
-    badge: "bg-emerald-600 text-white",
+    bg: "bg-[hsla(142,75%,96%,0.95)] dark:bg-[hsla(142,35%,12%,0.75)] backdrop-blur-md",
+    border: "border-[hsla(142,65%,55%,0.6)] dark:border-[hsla(142,55%,45%,0.6)]",
+    text: "text-[hsl(142,70%,32%)] dark:text-[hsl(142,70%,80%)]",
+    icon: "text-[hsl(142,60%,48%)]",
+    badge: "bg-[hsl(142,60%,48%)] text-white",
+    shadow: "shadow-[0_4px_12px_rgba(16,185,129,0.08)]",
+    selectedRing: "ring-2 ring-[hsl(142,65%,50%)]",
+    selectedShadow: "shadow-[0_0_20px_-3px_hsla(142,65%,55%,0.5)]",
   },
   NOTICE: {
-    bg: "bg-indigo-500/10 dark:bg-indigo-950/40 backdrop-blur-sm",
-    border:
-      "border-indigo-500/50 shadow-[0_0_20px_-10px_theme(colors.indigo.500)]",
-    text: "text-indigo-700 dark:text-indigo-200",
-    icon: "text-indigo-500",
-    badge: "bg-indigo-600 text-white",
+    bg: "bg-[hsla(250,90%,97%,0.95)] dark:bg-[hsla(250,45%,12%,0.75)] backdrop-blur-md",
+    border: "border-[hsla(250,80%,65%,0.6)] dark:border-[hsla(250,65%,55%,0.6)]",
+    text: "text-[hsl(250,85%,42%)] dark:text-[hsl(250,80%,82%)]",
+    icon: "text-[hsl(250,75%,60%)]",
+    badge: "bg-[hsl(250,75%,60%)] text-white shadow-md shadow-indigo-900/30",
+    shadow: "shadow-[0_4px_12px_rgba(99,102,241,0.08)]",
+    selectedRing: "ring-2 ring-[hsl(250,80%,60%)]",
+    selectedShadow: "shadow-[0_0_20px_-3px_hsla(250,80%,65%,0.5)]",
   },
 };
 
@@ -347,7 +359,7 @@ export default function RoomManagementPage() {
       return (
         <Badge
           variant="outline"
-          className="text-secondary bg-secondary/10 border-transparent text-[10px]"
+          className="text-[hsl(215,15%,45%)] dark:text-[hsl(215,10%,70%)] bg-[hsla(215,15%,90%,0.4)] dark:bg-[hsla(215,10%,20%,0.4)] border-[hsla(215,15%,80%,0.3)] text-[10px] font-bold px-2 py-0.5 rounded-md"
         >
           EMPTY
         </Badge>
@@ -356,16 +368,16 @@ export default function RoomManagementPage() {
       return (
         <Badge
           variant="outline"
-          className="text-blue-500 bg-blue-500/10 border-transparent text-[10px]"
+          className="text-[hsl(250,85%,42%)] dark:text-[hsl(250,80%,82%)] bg-[hsla(250,90%,96%,0.95)] dark:bg-[hsla(250,45%,20%,0.8)] border-[hsla(250,80%,65%,0.4)] text-[10px] font-bold px-2 py-0.5 rounded-md animate-pulse"
         >
-          NOTICE
+          🗓️ NOTICE
         </Badge>
       );
     if (guest.rentStatus === "unpaid")
       return (
         <Badge
           variant="outline"
-          className="text-red-500 bg-red-500/10 border-transparent text-[10px]"
+          className="text-[hsl(343,85%,40%)] dark:text-[hsl(343,85%,80%)] bg-[hsla(343,90%,96%,0.95)] dark:bg-[hsla(343,45%,20%,0.8)] border-[hsla(343,85%,65%,0.4)] text-[10px] font-bold px-2 py-0.5 rounded-md"
         >
           DUE
         </Badge>
@@ -374,7 +386,7 @@ export default function RoomManagementPage() {
       return (
         <Badge
           variant="outline"
-          className="text-orange-500 bg-orange-500/10 border-transparent text-[10px]"
+          className="text-[hsl(35,90%,35%)] dark:text-[hsl(35,85%,80%)] bg-[hsla(35,95%,95%,0.95)] dark:bg-[hsla(35,45%,20%,0.8)] border-[hsla(35,85%,60%,0.4)] text-[10px] font-bold px-2 py-0.5 rounded-md"
         >
           PARTIAL
         </Badge>
@@ -382,7 +394,7 @@ export default function RoomManagementPage() {
     return (
       <Badge
         variant="outline"
-        className="text-green-500 bg-green-500/10 border-transparent text-[10px]"
+        className="text-[hsl(142,70%,32%)] dark:text-[hsl(142,70%,80%)] bg-[hsla(142,75%,95%,0.95)] dark:bg-[hsla(142,35%,20%,0.8)] border-[hsla(142,65%,55%,0.4)] text-[10px] font-bold px-2 py-0.5 rounded-md"
       >
         PAID
       </Badge>
@@ -803,209 +815,218 @@ export default function RoomManagementPage() {
                           </div>
 
                           {viewMode === "list" ? (
-                            /* LIST VIEW */
-                            <Card className="border-border/40 shadow-sm rounded-2xl overflow-hidden">
-                              <ul className="divide-y divide-border/20">
-                                {room.beds
-                                  .filter((b) => {
-                                    const g = guestMap[b.id];
+                            /* LIST VIEW - PREMIUM CARDS WITH SMOOTH BORDERS & SCALE ANIMATIONS */
+                            <div className="space-y-2.5">
+                              {room.beds
+                                .filter((b) => {
+                                  const g = guestMap[b.id];
+                                  if (
+                                    searchQuery &&
+                                    g &&
+                                    !g.name
+                                      .toLowerCase()
+                                      .includes(searchQuery.toLowerCase())
+                                  )
+                                    return false;
+                                  if (searchQuery && !g) return false;
+                                  if (filterStatus !== "all") {
+                                    if (filterStatus === "available" && g)
+                                      return false;
                                     if (
-                                      searchQuery &&
-                                      g &&
-                                      !g.name
-                                        .toLowerCase()
-                                        .includes(searchQuery.toLowerCase())
+                                      filterStatus === "due" &&
+                                      (!g ||
+                                        (g.rentStatus !== "unpaid" &&
+                                          g.rentStatus !== "partial"))
                                     )
                                       return false;
-                                    if (searchQuery && !g) return false;
-                                    if (filterStatus !== "all") {
-                                      if (filterStatus === "available" && g)
-                                        return false;
-                                      if (
-                                        filterStatus === "due" &&
-                                        (!g ||
-                                          (g.rentStatus !== "unpaid" &&
-                                            g.rentStatus !== "partial"))
-                                      )
-                                        return false;
-                                      if (
-                                        filterStatus === "paid" &&
-                                        (!g ||
-                                          g.rentStatus === "unpaid" ||
-                                          g.rentStatus === "partial")
-                                      )
-                                        return false;
-                                    }
-                                    return true;
-                                  })
-                                  .map((bed) => {
-                                    const guest = guestMap[bed.id];
-                                    const isInitiallyOccupied =
-                                      bed.guestId && !guest && isLoadingGuests;
-                                    const totalDue = guest
-                                      ? duesMap[guest.id] || 0
-                                      : 0;
+                                    if (
+                                      filterStatus === "paid" &&
+                                      (!g ||
+                                        g.rentStatus === "unpaid" ||
+                                        g.rentStatus === "partial")
+                                    )
+                                      return false;
+                                  }
+                                  return true;
+                                })
+                                .map((bed) => {
+                                  const guest = guestMap[bed.id];
+                                  const isInitiallyOccupied =
+                                    bed.guestId && !guest && isLoadingGuests;
+                                  const totalDue = guest
+                                    ? duesMap[guest.id] || 0
+                                    : 0;
+                                  const isSelected = guest && bedSheetGuestId === guest.id;
 
-                                    let status: keyof typeof STATUS_STYLES =
-                                      "EMPTY";
-                                    if (guest) {
-                                      if (guest.exitDate) status = "NOTICE";
-                                      else if (guest.rentStatus === "unpaid")
-                                        status = "DUE";
-                                      else if (guest.rentStatus === "partial")
-                                        status = "PARTIAL";
-                                      else status = "PAID";
-                                    }
-                                    const style = STATUS_STYLES[status];
+                                  let status: keyof typeof STATUS_STYLES =
+                                    "EMPTY";
+                                  if (guest) {
+                                    if (guest.exitDate) status = "NOTICE";
+                                    else if (guest.rentStatus === "unpaid")
+                                      status = "DUE";
+                                    else if (guest.rentStatus === "partial")
+                                      status = "PARTIAL";
+                                    else status = "PAID";
+                                  }
+                                  const style = STATUS_STYLES[status];
 
-                                    return (
-                                      <li
-                                        key={bed.id}
-                                        className={cn(
-                                          "flex items-center justify-between p-4 transition-all duration-200",
-                                          !isEditMode && !isInitiallyOccupied
-                                            ? "active:bg-muted/30 cursor-pointer hover:bg-muted/10 group"
-                                            : "",
-                                        )}
-                                        onClick={
-                                          !isEditMode && !isInitiallyOccupied
-                                            ? () =>
-                                                guest
-                                                  ? setBedSheetGuestId(guest.id)
-                                                  : handleOpenAddGuestDialog(
-                                                      bed,
-                                                      room,
-                                                      pg,
-                                                    )
-                                            : undefined
-                                        }
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          <div
-                                            className={cn(
-                                              "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all shadow-sm",
-                                              style.bg,
-                                              style.border,
-                                              style.icon,
-                                            )}
-                                          >
-                                            <BedDouble className="w-5 h-5" />
-                                          </div>
-                                          <div className="min-w-0">
-                                            {guest ? (
-                                              <>
-                                                <div className="flex items-baseline gap-2">
-                                                  <p
-                                                    className={cn(
-                                                      "font-bold text-sm leading-tight",
-                                                      style.text,
-                                                    )}
-                                                  >
-                                                    {guest.name}
-                                                  </p>
-                                                  {totalDue > 0 && (
-                                                    <span className="text-[10px] font-bold text-red-500">
-                                                      ₹{Math.round(totalDue)}{" "}
-                                                      Due
-                                                    </span>
+                                  return (
+                                    <div
+                                      key={bed.id}
+                                      className={cn(
+                                        "flex items-center justify-between p-4 rounded-2xl border transition-all duration-300",
+                                        style.bg,
+                                        style.border,
+                                        style.shadow,
+                                        !isEditMode && !isInitiallyOccupied
+                                          ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:scale-[0.985] group"
+                                          : "",
+                                        isSelected
+                                          ? cn("scale-[1.015] border-transparent", style.selectedRing, style.selectedShadow)
+                                          : "",
+                                      )}
+                                      onClick={
+                                        !isEditMode && !isInitiallyOccupied
+                                          ? () =>
+                                              guest
+                                                ? setBedSheetGuestId(guest.id)
+                                                : handleOpenAddGuestDialog(
+                                                    bed,
+                                                    room,
+                                                    pg,
+                                                  )
+                                          : undefined
+                                      }
+                                    >
+                                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        <div
+                                          className={cn(
+                                            "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border transition-all shadow-sm",
+                                            style.bg,
+                                            style.border,
+                                            style.icon,
+                                            isSelected ? "scale-105" : "",
+                                          )}
+                                        >
+                                          <BedDouble className="w-5 h-5" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          {guest ? (
+                                            <>
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <p
+                                                  className={cn(
+                                                    "font-extrabold text-sm leading-tight tracking-tight",
+                                                    style.text,
                                                   )}
-                                                </div>
-                                                <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
-                                                  Bed {bed.name}{" "}
-                                                  {guest.exitDate
-                                                    ? "• 🗓️ On notice"
-                                                    : ""}
+                                                >
+                                                  {guest.name}
                                                 </p>
-                                              </>
-                                            ) : isInitiallyOccupied ? (
-                                              <div className="space-y-1.5 w-24">
-                                                <Skeleton className="h-4 w-full rounded" />
-                                                <Skeleton className="h-3 w-16 rounded" />
+                                                {totalDue > 0 && (
+                                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50">
+                                                    ₹{Math.round(totalDue)} Due
+                                                  </span>
+                                                )}
+                                                {guest.exitDate && (
+                                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/50 animate-pulse">
+                                                    🗓️ Exit: {new Date(guest.exitDate).toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}
+                                                  </span>
+                                                )}
                                               </div>
-                                            ) : (
-                                              <>
-                                                <p className="font-semibold text-sm text-secondary-foreground/60">
-                                                  Empty Bed
-                                                </p>
-                                                <p className="text-[10px] text-muted-foreground font-medium">
-                                                  Bed {bed.name}
-                                                </p>
-                                              </>
+                                              <p className="text-[10px] text-muted-foreground mt-1 font-semibold">
+                                                Bed {bed.name}
+                                              </p>
+                                            </>
+                                          ) : isInitiallyOccupied ? (
+                                            <div className="space-y-1.5 w-24">
+                                              <Skeleton className="h-4 w-full rounded" />
+                                              <Skeleton className="h-3 w-16 rounded" />
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <p className="font-bold text-sm text-secondary-foreground/60">
+                                                Empty Bed
+                                              </p>
+                                              <p className="text-[10px] text-muted-foreground font-semibold">
+                                                Bed {bed.name}
+                                              </p>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                                        {!isEditMode &&
+                                          getBedStatusBadge(bed)}
+
+                                        {/* Edit mode controls */}
+                                        {isEditMode && (
+                                          <div className="flex gap-1">
+                                            {canEdit && (
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleOpenBedDialog(
+                                                    bed,
+                                                    room.id,
+                                                    floor.id,
+                                                  );
+                                                }}
+                                              >
+                                                <Pencil className="w-4 h-4" />
+                                              </Button>
+                                            )}
+                                            {canDelete && (
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-red-500 hover:bg-red-500/10"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDelete("bed", {
+                                                    floorId: floor.id,
+                                                    roomId: room.id,
+                                                    bedId: bed.id,
+                                                    pgId: pg.id,
+                                                  });
+                                                }}
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </Button>
                                             )}
                                           </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                          {!isEditMode &&
-                                            getBedStatusBadge(bed)}
-
-                                          {/* Edit mode controls */}
-                                          {isEditMode && (
-                                            <div className="flex gap-1">
-                                              {canEdit && (
-                                                <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-8 w-8 text-muted-foreground"
-                                                  onClick={() =>
-                                                    handleOpenBedDialog(
-                                                      bed,
-                                                      room.id,
-                                                      floor.id,
-                                                    )
-                                                  }
-                                                >
-                                                  <Pencil className="w-4 h-4" />
-                                                </Button>
-                                              )}
-                                              {canDelete && (
-                                                <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-8 w-8 text-red-500 hover:bg-red-500/10"
-                                                  onClick={() =>
-                                                    handleDelete("bed", {
-                                                      floorId: floor.id,
-                                                      roomId: room.id,
-                                                      bedId: bed.id,
-                                                      pgId: pg.id,
-                                                    })
-                                                  }
-                                                >
-                                                  <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                              )}
-                                            </div>
-                                          )}
-                                          {/* Tap arrow hint for occupied, non-edit */}
-                                          {guest && !isEditMode && (
-                                            <MoreHorizontal className="w-4 h-4 text-muted-foreground/40" />
-                                          )}
-                                        </div>
-                                      </li>
-                                    );
-                                  })}
-                                {room.beds.length === 0 && (
-                                  <li className="p-6 text-center text-sm text-muted-foreground">
-                                    No beds added yet.
-                                    {isEditMode && canAdd && (
-                                      <button
-                                        onClick={() =>
-                                          handleOpenBedDialog(
-                                            null,
-                                            room.id,
-                                            floor.id,
-                                          )
-                                        }
-                                        className="ml-2 text-primary font-semibold underline"
-                                      >
-                                        Add bed
-                                      </button>
-                                    )}
-                                  </li>
-                                )}
-                              </ul>
-                            </Card>
+                                        )}
+                                        {/* Tap arrow hint for occupied, non-edit */}
+                                        {guest && !isEditMode && (
+                                          <MoreHorizontal className="w-4 h-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              {room.beds.length === 0 && (
+                                <div className="p-8 text-center text-sm text-muted-foreground bg-muted/5 border border-dashed rounded-2xl">
+                                  No beds added yet.
+                                  {isEditMode && canAdd && (
+                                    <button
+                                      onClick={() =>
+                                        handleOpenBedDialog(
+                                          null,
+                                          room.id,
+                                          floor.id,
+                                        )
+                                      }
+                                      className="ml-2 text-primary font-bold hover:underline"
+                                    >
+                                      Add bed
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             /* GRID VIEW */
                             <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
