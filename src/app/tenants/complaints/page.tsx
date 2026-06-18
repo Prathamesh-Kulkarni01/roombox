@@ -28,6 +28,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import Image from 'next/image'
 import { canAccess } from '@/lib/permissions';
 import { getComplaintSuggestion } from '@/lib/utils'
+import { uploadDataUriToStorage } from '@/lib/storage'
 
 const complaintSchema = z.object({
   category: z.enum(['maintenance', 'cleanliness', 'wifi', 'food', 'other'], {
@@ -45,6 +46,47 @@ const statusColors: Record<Complaint['status'], string> = {
     resolved: "bg-green-100 text-green-800",
 }
 
+const compressImage = (file: File, maxWidth = 1024, maxHeight = 1024, quality = 0.7): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = document.createElement('img');
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error('Canvas context not available'));
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                resolve(dataUrl);
+            };
+            img.onerror = (err) => reject(err);
+            img.src = e.target?.result as string;
+        };
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(file);
+    });
+};
+
 export default function TenantComplaintsPage() {
     const { toast } = useToast()
     const dispatch = useAppDispatch()
@@ -52,6 +94,7 @@ export default function TenantComplaintsPage() {
     const [suggestion, setSuggestion] = useState<string>('')
     const [isSuggesting, setIsSuggesting] = useState(false)
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const { complaints } = useAppSelector(state => state.complaints)
     const { currentUser } = useAppSelector(state => state.user)
@@ -86,27 +129,23 @@ export default function TenantComplaintsPage() {
         }
     }, [complaintCategory]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         if (files.length > 3) {
             toast({ variant: 'destructive', title: 'Too many files', description: 'You can upload a maximum of 3 photos.' });
             return;
         }
-        const newPreviews: string[] = [];
-        const newImageUrls: string[] = [];
-        files.forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const dataUri = event.target?.result as string;
-                newPreviews.push(dataUri);
-                newImageUrls.push(dataUri);
-                if (newPreviews.length === files.length) {
-                    setImagePreviews(newPreviews);
-                    form.setValue('imageUrls', newImageUrls, { shouldValidate: true });
-                }
-            };
-            reader.readAsDataURL(file);
-        });
+        
+        try {
+            const compressedDataUrls = await Promise.all(
+                files.map(file => compressImage(file))
+            );
+            setImagePreviews(compressedDataUrls);
+            form.setValue('imageUrls', compressedDataUrls, { shouldValidate: true });
+        } catch (error) {
+            console.error('Error compressing images:', error);
+            toast({ variant: 'destructive', title: 'Error processing photos', description: 'Failed to compress the selected images.' });
+        }
     };
     
     const onSubmit = async (data: ComplaintFormValues) => {
@@ -114,39 +153,56 @@ export default function TenantComplaintsPage() {
             toast({ title: "Error", description: "Could not identify current guest.", variant: "destructive"})
             return;
         }
-        const newComplaint: Complaint = {
-            id: `comp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-            guestId: currentUser.guestId || null,
-            guestName: currentGuest.name,
-            pgId: currentGuest.pgId,
-            status: 'open',
-            date: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            ...data
-        }
-        const resultAction = await dispatch(addComplaintAction(newComplaint))
+        
+        setIsSubmitting(true);
+        try {
+            let uploadedUrls: string[] = [];
+            if (data.imageUrls && data.imageUrls.length > 0) {
+                uploadedUrls = await Promise.all(
+                    data.imageUrls.map(dataUrl => uploadDataUriToStorage(dataUrl, `tenants/${currentUser.ownerId}/complaints`))
+                );
+            }
 
-        if(addComplaintAction.fulfilled.match(resultAction)){
-            const newComplaint = resultAction.payload;
-            
-            await createAndSendNotification({
-                ownerId: currentUser.ownerId,
-                notification: {
-                    type: 'new-complaint',
-                    title: `New Complaint: ${newComplaint.category}`,
-                    message: `${newComplaint.guestName} reported: "${newComplaint.description.substring(0, 100)}${newComplaint.description.length > 100 ? '...' : ''}"`,
-                    link: `/dashboard/complaints`,
-                    targetId: currentUser.ownerId, // Send to the owner
-                }
-            });
+            const newComplaint: Complaint = {
+                id: `comp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                guestId: currentUser.guestId || null,
+                guestName: currentGuest.name,
+                pgId: currentGuest.pgId,
+                status: 'open',
+                date: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                ...data,
+                imageUrls: uploadedUrls
+            }
+            const resultAction = await dispatch(addComplaintAction(newComplaint))
 
-            toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
-            form.reset()
-            setImagePreviews([])
-            setIsDialogOpen(false)
-        } else {
-             toast({ title: "Error", description: "Could not submit complaint.", variant: "destructive"})
+            if(addComplaintAction.fulfilled.match(resultAction)){
+                const newComplaint = resultAction.payload;
+                
+                await createAndSendNotification({
+                    ownerId: currentUser.ownerId,
+                    notification: {
+                        type: 'new-complaint',
+                        title: `New Complaint: ${newComplaint.category}`,
+                        message: `${newComplaint.guestName} reported: "${newComplaint.description.substring(0, 100)}${newComplaint.description.length > 100 ? '...' : ''}"`,
+                        link: `/dashboard/complaints`,
+                        targetId: currentUser.ownerId, // Send to the owner
+                    }
+                });
+
+                toast({ title: "Complaint Submitted", description: "Your complaint has been sent to the property manager." })
+                form.reset()
+                setImagePreviews([])
+                setIsDialogOpen(false)
+            } else {
+                 toast({ title: "Error", description: "Could not submit complaint.", variant: "destructive"})
+            }
+        } catch (uploadError: any) {
+            console.error('Failed to upload photos:', uploadError);
+            toast({ title: "Upload Failed", description: "Failed to upload one or more photos. Please try again.", variant: "destructive"});
+        } finally {
+            setIsSubmitting(false);
         }
     }
 
@@ -278,8 +334,10 @@ export default function TenantComplaintsPage() {
                     </form>
                 </Form>
                  <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
-                    <Button type="submit" form="complaint-form" disabled={!canAddComplaint}>Submit Complaint</Button>
+                    <DialogClose asChild><Button type="button" variant="ghost" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                    <Button type="submit" form="complaint-form" disabled={!canAddComplaint || isSubmitting}>
+                        {isSubmitting ? 'Submitting...' : 'Submit Complaint'}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
