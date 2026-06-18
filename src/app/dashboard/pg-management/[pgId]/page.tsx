@@ -874,15 +874,14 @@ export default function RoomManagementPage() {
                                     <div
                                       key={bed.id}
                                       className={cn(
-                                        "flex items-center justify-between p-4 rounded-2xl border transition-all duration-300",
+                                        "flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ease-out",
                                         style.bg,
                                         style.border,
-                                        style.shadow,
                                         !isEditMode && !isInitiallyOccupied
                                           ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:scale-[0.985] group"
                                           : "",
                                         isSelected
-                                          ? cn("scale-[1.015] border-transparent", style.selectedRing, style.selectedShadow)
+                                          ? "ring-2 ring-primary ring-offset-2 dark:ring-offset-slate-900 scale-[1.015] shadow-md border-primary"
                                           : "",
                                       )}
                                       onClick={
