@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         const pgName = staffData.pgName || 'Roombox';
 
         // Generate Magic Link for STAFF role
-        const { magicLink, inviteCode } = await TenantService.generateMagicLink(appDb, staffId, phone, ownerId, pgName, 'staff');
+        const { magicLink, inviteCode } = await TenantService.generateMagicLink(appDb, staffId, phone, ownerId, pgName, 'staff', staffData.pgId);
 
         return NextResponse.json({
             success: true,

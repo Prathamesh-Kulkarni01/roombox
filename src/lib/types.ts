@@ -165,6 +165,7 @@ export interface MagicLinkData {
     used: boolean;
     staffId?: string;
     guestId?: string;
+    pgId?: string;
 }
 
 export type RentCycleUnit = 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
