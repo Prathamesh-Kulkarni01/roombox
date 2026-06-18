@@ -71,7 +71,22 @@ export async function enforcePermission(
     // 1. Super-roles (Owner/Admin) have implicit "All" permissions
     const isSuperRole = role === 'owner' || role === 'admin';
     const requiredPerm = `${feature}:${action}`;
-    const hasPermission = isSuperRole || (Array.isArray(permissions) && permissions.includes(requiredPerm));
+
+    // Tenants have a fixed set of allowed permissions by default
+    const tenantPermissions = [
+        'complaints:view',
+        'complaints:add',
+        'food:view',
+        'kyc:view',
+        'kyc:add',
+        'kyc:edit',
+        'finances:view',
+    ];
+
+    const hasPermission = 
+        isSuperRole || 
+        (role === 'tenant' && tenantPermissions.includes(requiredPerm)) ||
+        (Array.isArray(permissions) && permissions.includes(requiredPerm));
 
     if (!hasPermission) {
         // Log the denied access attempt

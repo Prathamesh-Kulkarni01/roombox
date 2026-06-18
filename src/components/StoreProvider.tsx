@@ -297,7 +297,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
     }
 
     const isStaff =
-      currentUser.role !== "owner" && currentUser.role !== "admin";
+      currentUser.role !== "owner" && currentUser.role !== "admin" && currentUser.role !== "tenant";
 
     if (isStaff) {
       // Staff: always use their explicit permissions. [] = no access.
