@@ -2,6 +2,13 @@ import { db } from '../firebase';
 import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc, query, orderBy, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Lead, LeadStatus } from '../types';
 
+/** Remove all keys whose value is `undefined` — Firestore rejects them. */
+function stripUndefined<T extends object>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined)
+  ) as Partial<T>;
+}
+
 export const createLead = async (ownerId: string, leadData: Omit<Lead, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   if (!ownerId) throw new Error('Owner ID is required to create a lead');
 
@@ -14,11 +21,11 @@ export const createLead = async (ownerId: string, leadData: Omit<Lead, 'id' | 'o
     updatedAt: new Date().toISOString(),
   };
 
-  await setDoc(leadRef, {
+  await setDoc(leadRef, stripUndefined({
     ...newLead,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  });
+  }));
 
   return leadRef.id;
 };
@@ -27,20 +34,20 @@ export const updateLeadStatus = async (ownerId: string, leadId: string, status: 
   if (!ownerId || !leadId) throw new Error('Owner ID and Lead ID are required');
 
   const leadRef = doc(db!, `users/${ownerId}/leads`, leadId);
-  await updateDoc(leadRef, {
+  await updateDoc(leadRef, stripUndefined({
     status,
     updatedAt: serverTimestamp(),
-  });
+  }));
 };
 
 export const updateLeadDetails = async (ownerId: string, leadId: string, updates: Partial<Lead>): Promise<void> => {
     if (!ownerId || !leadId) throw new Error('Owner ID and Lead ID are required');
   
     const leadRef = doc(db!, `users/${ownerId}/leads`, leadId);
-    await updateDoc(leadRef, {
+    await updateDoc(leadRef, stripUndefined({
       ...updates,
       updatedAt: serverTimestamp(),
-    });
+    }));
 };
 
 export const fetchLeadsForOwner = async (ownerId: string): Promise<Lead[]> => {
