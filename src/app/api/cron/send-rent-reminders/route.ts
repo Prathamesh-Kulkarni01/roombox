@@ -33,9 +33,14 @@ export async function GET(request: NextRequest) {
         const now = new Date();
 
         for (const userDoc of usersSnapshot.docs) {
+            const userData = userDoc.data();
+            if (userData?.subscription?.planId === 'enterprise') {
+                console.log(`[Cron: Reminders] Skipping Enterprise Owner ${userDoc.id} (Client-Driven Automation Enabled)`);
+                continue;
+            }
             const ownerId = userDoc.id;
-            const enterpriseDbId = (userDoc.data()?.subscription?.enterpriseProject?.databaseId) as string | undefined;
-            const enterpriseProjectId = (userDoc.data()?.subscription?.enterpriseProject?.projectId) as string | undefined;
+            const enterpriseDbId = (userData?.subscription?.enterpriseProject?.databaseId) as string | undefined;
+            const enterpriseProjectId = (userData?.subscription?.enterpriseProject?.projectId) as string | undefined;
             const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
 
             // Fetch branded app url for the owner
