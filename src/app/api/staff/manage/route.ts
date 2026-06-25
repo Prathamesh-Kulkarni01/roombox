@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { StaffService } from '@/services/staffService';
 import { enforcePermission } from '@/lib/rbac-middleware';
 
@@ -21,9 +21,7 @@ export async function POST(req: NextRequest) {
 
 
         const appDb = await getAdminDb();
-        // For simplicity, we assume 'db' is the same as 'appDb' in this project structure,
-        // or we fetch it similarly. Based on previous code, getAdminDb() returns the main db.
-        const db = appDb; 
+        const db = await selectOwnerDataAdminDb(ownerId); 
 
         switch (action) {
             case 'add':

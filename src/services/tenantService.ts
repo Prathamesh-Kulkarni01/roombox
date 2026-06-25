@@ -118,7 +118,7 @@ export class TenantService {
             : new Date(joinDate || new Date().toISOString());
         
         // 1. Fetch Owner's Plan and Data if not provided in input
-        const ownerDoc = await db.collection('users').doc(ownerId).get();
+        const ownerDoc = await appDb.collection('users').doc(ownerId).get();
         const ownerData = ownerDoc.data();
         let effectivePlanId = planId || ownerData?.subscription?.planId || 'free';
 
@@ -582,7 +582,7 @@ export class TenantService {
                 const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
                 // Fetch Owner Phone for "Message Owner" button
-                const ownerDoc = await db.collection('users').doc(ownerId).get();
+                const ownerDoc = await appDb.collection('users').doc(ownerId).get();
                 let ownerPhone = ownerDoc.data()?.phone || pgName || 'Contact Support';
                 const ownerSnap = await db.collection('users_data').doc(ownerId).get();
                 if (ownerSnap.exists) {
