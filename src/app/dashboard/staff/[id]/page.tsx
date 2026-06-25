@@ -25,6 +25,8 @@ import { featurePermissionConfig } from '@/lib/permissions-config'
 import { parseStaffPermissions } from '@/lib/parseStaffPermissions'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import StaffPayrollTab from '@/components/staff/StaffPayrollTab'
 import { produce } from "immer"
 
 const roleColors: Record<string, string> = {
@@ -181,7 +183,14 @@ export default function StaffProfilePage() {
                 <h1 className="text-2xl font-bold">{staffMember.name}'s Profile</h1>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Tabs defaultValue="profile" className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="profile">Profile & Permissions</TabsTrigger>
+                <TabsTrigger value="payroll">Payroll & Advances</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="profile" className="mt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-6">
                     <Card>
                         <CardContent className="pt-6 flex flex-col items-center text-center">
@@ -302,6 +311,12 @@ export default function StaffProfilePage() {
                     </Card>
                 </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="payroll" className="mt-6">
+             <StaffPayrollTab staffMember={staffMember} ownerId={getEffectiveOwnerId(currentUser) || ''} />
+          </TabsContent>
+        </Tabs>
 
             {/* Permissions Dialog */}
             <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>

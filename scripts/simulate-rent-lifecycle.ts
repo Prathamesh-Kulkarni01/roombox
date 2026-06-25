@@ -164,7 +164,7 @@ async function runSimulation() {
     await reconcileAllGuests(undefined, tA_T3);
     const snapA = await db.collection('users_data').doc(ownerId).collection('guests').doc('tenant_a').get();
     const guestA = snapA.data() as Guest;
-    const debits = guestA.ledger.filter(e => e.type === 'debit').length;
+    const debits = (guestA.ledger || []).filter(e => e.type === 'debit').length;
     console.log(`Tenant A Debits: ${debits}`);
     if (debits > 1) console.error('❌ Duplicate rent generated!');
 
@@ -189,7 +189,7 @@ async function runSimulation() {
         simTime = addHours(simTime, 1);
     }
     const finalA = (await db.collection('users_data').doc(ownerId).collection('guests').doc('tenant_a').get()).data() as Guest;
-    console.log(`Tenant A Final: Ledger Entries=${finalA.ledger.length}, Balance=${finalA.balance}`);
+    console.log(`Tenant A Final: Ledger Entries=${(finalA.ledger || []).length}, Balance=${finalA.balance}`);
 
     console.log('\n--- FINAL WHATSAPP LOG SUMMARY ---');
     if (fs.existsSync(waLogsPath)) console.log(fs.readFileSync(waLogsPath, 'utf8'));

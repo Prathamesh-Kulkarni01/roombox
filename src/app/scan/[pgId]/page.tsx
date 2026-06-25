@@ -311,10 +311,10 @@ export default function TenantScanPage() {
 
     const syncOfflineQueue = async () => {
         const queue = JSON.parse(localStorage.getItem('attendance_scan_queue') || '[]');
-        if (queue.length === 0 || !auth.currentUser) return;
+        if (queue.length === 0 || !auth!.currentUser) return;
 
         toast({ title: 'Syncing cached scans...' });
-        const token = await auth.currentUser.getIdToken();
+        const token = await auth!.currentUser.getIdToken();
         const failedItems: any[] = [];
 
         for (const item of queue) {
@@ -413,9 +413,9 @@ export default function TenantScanPage() {
                             Zone: {zoneId}
                         </div>
                         {isOffline && (
-                            <Badge variant="destructive" className="flex items-center gap-1">
+                            <div variant="destructive" className="flex items-center gap-1">
                                 <WifiOff className="w-3 h-3" /> Offline
-                            </Badge>
+                            </div>
                         )}
                     </div>
                     <CardTitle className="text-2xl font-bold">{statusData?.pgName || 'PG Resident'}</CardTitle>

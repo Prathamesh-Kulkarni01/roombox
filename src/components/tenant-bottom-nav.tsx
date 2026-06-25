@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquareWarning, UtensilsCrossed, Bot, History } from 'lucide-react';
+import { Home, MessageSquareWarning, UtensilsCrossed, Bot, History, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores';
@@ -14,7 +14,7 @@ const navItems = [
   { href: '/tenants/complaints', label: 'nav_tenant_complaints_short', icon: MessageSquareWarning },
   { href: '/tenants/ledger', label: 'nav_tenant_ledger_short', icon: History },
   { href: '/tenants/food', label: 'nav_tenant_food_short', icon: UtensilsCrossed },
-  { href: '/tenants/chatbot', label: 'nav_tenant_chatbot_short', icon: Bot },
+  { href: '/tenants/community', label: 'Community', icon: Users },
 ];
 
 export default function TenantBottomNav() {

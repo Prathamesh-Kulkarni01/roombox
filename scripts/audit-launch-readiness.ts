@@ -119,7 +119,7 @@ async function runAudit() {
     report('Ghost Payment status became paid', paymentRes.newStatus === 'paid', paymentRes.newStatus);
     report('Ghost Payment balance stayed 0', paymentRes.newBalance === 0, paymentRes.newBalance);
     
-    const creditEntry = paymentRes.guest.ledger.find(l => l.type === 'credit' && l.amountType === 'symbolic');
+    const creditEntry = (paymentRes.guest.ledger || []).find(l => l.type === 'credit' && l.amountType === 'symbolic');
     report('Ghost Ledger has symbolic credit', !!creditEntry);
     const gTyped = paymentRes.guest as any;
     report('Ghost Payment history has symbolic value', gTyped.paymentHistory && gTyped.paymentHistory[0].symbolicValue === '1 UNIT');

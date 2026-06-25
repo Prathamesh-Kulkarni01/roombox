@@ -15,6 +15,7 @@ export interface PerformerInfo {
 }
 
 export interface BaseEntity {
+    id: string;
     createdAt?: string; // ISO String
     createdBy?: PerformerInfo;
     updatedAt?: string; // ISO String
@@ -512,7 +513,9 @@ export interface Guest extends BaseEntity {
   userId?: string | null; // Link to the user account
   isVacated: boolean; // True if the guest has permanently left the PG
   status?: 'active' | 'inactive' | 'vacated';
-  ledger: LedgerEntry[];
+  /** @deprecated Moving to financial_events subcollection */
+  ledger?: LedgerEntry[];
+  walletBalance?: number; // Escrow / Security Deposit / Advance balance
   documents?: SubmittedKycDocument[];
   paymentHistory: PaymentHistoryItem[]; // History of payments recorded
   payments?: Payment[]; // For tracking manual/offline payment submissions
@@ -922,4 +925,118 @@ export interface OnboardingStep {
   title: string;
   icon: React.ElementType;
   status: OnboardingStatus;
+}
+
+export type LeadStatus = 'new' | 'contacted' | 'visited' | 'negotiation' | 'converted' | 'lost';
+
+export interface Lead extends BaseEntity {
+  id: string;
+  ownerId: string;
+  name: string;
+  phone: string;
+  status: LeadStatus;
+  pgId?: string; // Optional: If they inquired about a specific PG
+  expectedRent?: number;
+  source?: 'website' | 'walk-in' | 'broker' | 'referral' | 'other';
+  notes?: string;
+  nextFollowUpDate?: string; // ISO string
+}
+
+export interface UtilityReading extends BaseEntity {
+  id: string;
+  ownerId: string;
+  pgId: string;
+  roomId: string;
+  roomName: string;
+  utilityType: 'electricity' | 'water' | 'other';
+  utilityName?: string; 
+  previousReading: number;
+  currentReading: number;
+  readingDate: string; // ISO String
+  ratePerUnit?: number; // fallback
+  costPerUnit?: number; // in types.ts it was costPerUnit in one version, ratePerUnit in another
+  totalAmount: number;
+  isBilled: boolean;
+  billedGuestIds?: string[]; 
+  notes?: string;
+}
+
+export interface StaffAdvance extends BaseEntity {
+  id: string;
+  staffId: string;
+  ownerId: string;
+  amount: number;
+  date: string; // ISO string
+  reason?: string;
+  deductedInPayrollId?: string;
+  status?: 'unsettled' | 'settled';
+}
+
+export interface PayrollRecord extends BaseEntity {
+  id: string;
+  staffId: string;
+  ownerId: string;
+  staffName?: string;
+  month: string; // e.g., '2026-06'
+  baseSalary: number;
+  attendanceDays: number; 
+  calculatedDeduction: number; 
+  advancesDeducted: number;
+  bonus?: number;
+  finalPayout: number;
+  status: 'draft' | 'pending' | 'paid';
+  paidDate?: string;
+  paidAt?: string;
+}
+
+export interface RefundRecord extends BaseEntity {
+  id: string;
+  ownerId: string;
+  pgId: string;
+  guestId: string;
+  guestName: string;
+  originalDeposit: number;
+  unpaidRentDeduction: number;
+  damageDeduction: number;
+  damageNotes?: string;
+  finalRefundAmount: number;
+  refundDate?: string; // ISO string
+  processedAt?: string;
+  refundMethod: 'cash' | 'bank_transfer' | 'upi' | 'waived';
+  status: 'pending' | 'processed' | 'completed';
+  expenseId?: string;
+}
+
+export interface CommunityPost extends BaseEntity {
+  id: string;
+  pgId: string;
+  ownerId: string;
+  authorId: string;
+  authorName: string;
+  authorRole: 'owner' | 'tenant' | 'staff';
+  type: 'notice' | 'event' | 'marketplace';
+  title: string;
+  content: string;
+  price?: number;
+  date: string; // ISO string
+  status: 'active' | 'resolved' | 'archived';
+  isPinned: boolean;
+}
+
+
+export type FinancialEventType = 'rent_charge' | 'payment_received' | 'discount_applied' | 'late_fee' | 'deposit_received' | 'deposit_refunded' | 'utility_charge' | 'other_charge';
+
+export interface FinancialEvent {
+  id: string;
+  guestId: string;
+  pgId: string;
+  ownerId: string;
+  type: FinancialEventType;
+  amount: number; // positive means tenant owes money (debit), negative means tenant paid (credit)
+  description: string;
+  date: string; // ISO string
+  createdAt: string; // ISO string
+  createdBy: string; // user ID
+  metadata?: any;
+  schemaVersion: number;
 }

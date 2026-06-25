@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
                         }
 
                         // Add debit to net out the previous credit
-                        draft.ledger.push({
+                        (draft.ledger || []).push({
                             id: `revert-${paymentId}`,
                             date: new Date().toISOString(),
                             type: 'debit',
@@ -163,8 +163,8 @@ export async function POST(req: NextRequest) {
                         });
 
                         // Recalculate balance
-                        const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-                        const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+                        const totalDebits = (draft.ledger || []).filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+                        const totalCredits = (draft.ledger || []).filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
                         draft.balance = totalDebits - totalCredits;
 
                         // Update rent status if balance became positive
