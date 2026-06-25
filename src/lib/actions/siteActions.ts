@@ -300,17 +300,33 @@ export async function getBrandingForOwner(ownerId: string): Promise<{
 /**
  * Retrieves the ownerId associated with a specific subdomain.
  * Useful for strict multi-tenancy enforcement at the middleware layer.
+ * Caches the result in-memory to prevent excessive Firestore reads on every API route.
  */
+const subdomainOwnerCache = new Map<string, { ownerId: string | null, timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
 export async function getOwnerIdFromSubdomain(subdomain: string): Promise<string | null> {
     if (!subdomain) return null;
+    
+    const cached = subdomainOwnerCache.get(subdomain);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.ownerId;
+    }
+
     try {
         const adminDb = await getAdminDb();
         const siteDoc = await adminDb.collection('sites').doc(subdomain).get();
-        if (!siteDoc.exists) return null;
+        if (!siteDoc.exists) {
+            subdomainOwnerCache.set(subdomain, { ownerId: null, timestamp: Date.now() });
+            return null;
+        }
         const data = siteDoc.data() as SiteConfig;
-        return data.ownerId || null;
+        const ownerId = data.ownerId || null;
+        subdomainOwnerCache.set(subdomain, { ownerId, timestamp: Date.now() });
+        return ownerId;
     } catch (error) {
         console.error("Error in getOwnerIdFromSubdomain:", error);
         return null;
     }
 }
+

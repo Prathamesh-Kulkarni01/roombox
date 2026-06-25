@@ -67,13 +67,14 @@ export async function enforcePermission(
     }
 
     // 0.5. Strict Subdomain Multi-Tenancy Enforcement
+    // Admins are cross-tenant support staff, so they bypass this check.
     const requestSubdomain = req.headers.get('x-pg-subdomain');
-    if (requestSubdomain) {
+    if (requestSubdomain && role !== 'admin') {
         const { getOwnerIdFromSubdomain } = await import('./actions/siteActions');
         const subdomainOwnerId = await getOwnerIdFromSubdomain(requestSubdomain);
         
         if (subdomainOwnerId && subdomainOwnerId !== ownerId) {
-            console.warn(`[RBAC] Subdomain Mismatch Leak Blocked! User ${userId} (Owner ${ownerId}) attempted access on subdomain ${requestSubdomain} (Owner ${subdomainOwnerId}).`);
+            console.warn(`[RBAC] Subdomain Mismatch Leak Blocked! User ${userId} (Role: ${role}, Owner: ${ownerId}) attempted access on subdomain ${requestSubdomain} (Owner ${subdomainOwnerId}).`);
             return {
                 authorized: false,
                 response: forbidden('Security block: Cross-tenant access violation. You do not have access to this portal.')
