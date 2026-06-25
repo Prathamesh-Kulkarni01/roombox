@@ -286,12 +286,12 @@ export async function POST(req: NextRequest) {
                 };
 
                 const updatedGuest = produce(guest, draft => {
-                    draft.ledger.push(ledgerEntry);
+                    (draft.ledger || []).push(ledgerEntry);
                     if (!draft.paymentHistory) draft.paymentHistory = [];
                     draft.paymentHistory.push(newPayment);
 
-                    const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-                    const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+                    const totalDebits = (draft.ledger || []).filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+                    const totalCredits = (draft.ledger || []).filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
                     const newBalance = totalDebits - totalCredits;
 
                     if (newBalance <= 0) {
@@ -459,7 +459,7 @@ export async function POST(req: NextRequest) {
                             const guestCurrent = latestGuestDoc.data() as Guest;
                             const updatedGuest = produce(guestCurrent, draft => {
                                 // Add debit to net out the credit
-                                draft.ledger.push({
+                                (draft.ledger || []).push({
                                     id: `revert-${payment.id}`,
                                     date: new Date().toISOString(),
                                     type: 'debit',
@@ -475,8 +475,8 @@ export async function POST(req: NextRequest) {
                                 }
                                 
                                 // Recalculate balance and rent status
-                                const totalDebits = draft.ledger.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
-                                const totalCredits = draft.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
+                                const totalDebits = (draft.ledger || []).filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0);
+                                const totalCredits = (draft.ledger || []).filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
                                 draft.balance = totalDebits - totalCredits;
                                 
                                 if (draft.balance > 0) {

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, LogOut, ShieldCheck, History, Building2, Globe } from 'lucide-react';
+import { Home, MessageSquareWarning, UtensilsCrossed, Bot, User, LogOut, ShieldCheck, History, Building2, Globe, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
 import { usePermissionsStore } from '@/lib/stores/configStores';
@@ -21,6 +21,7 @@ const navItems = [
   { href: '/tenants/complaints', label: 'nav_tenant_complaints', icon: MessageSquareWarning },
   { href: '/tenants/ledger', label: 'nav_tenant_ledger', icon: History },
   { href: '/tenants/food', label: 'nav_tenant_food', icon: UtensilsCrossed },
+  { href: '/tenants/community', label: 'Community', icon: Users },
   { href: '/tenants/kyc', label: 'nav_tenant_kyc', icon: ShieldCheck },
   { href: '/tenants/chatbot', label: 'nav_tenant_chatbot', icon: Bot },
   { href: '/tenants/profile', label: 'nav_tenant_profile', icon: User },

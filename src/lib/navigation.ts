@@ -25,6 +25,7 @@ export const allNavItems: NavGroup[] = [
         { href: '/dashboard/pg-management/rooms', label: 'manage_rooms_short', icon: BedDouble, feature: 'properties', tourId: 'rooms-nav', description: 'manage_rooms_desc' },
         { href: '/dashboard/complaints', label: 'nav_complaints', icon: MessageSquareWarning, feature: 'complaints', description: 'nav_complaints_desc' },
         { href: '/dashboard/tenant-management', label: 'nav_guests', icon: Users, feature: 'guests', description: 'nav_guests_desc' },
+        { href: '/dashboard/leads', label: 'nav_leads', icon: Contact, feature: 'guests', description: 'nav_leads_desc' },
     ]
   },
   {
@@ -34,6 +35,8 @@ export const allNavItems: NavGroup[] = [
         { href: '/dashboard/food', label: 'nav_food', icon: UtensilsCrossed, feature: 'food', description: 'nav_food_desc' },
         { href: '/dashboard/kyc', label: 'nav_kyc', icon: ShieldCheck, feature: 'kyc', description: 'nav_kyc_desc' },
         { href: '/dashboard/staff', label: 'nav_staff', icon: Contact, feature: 'staff', description: 'nav_staff_desc' },
+        { href: '/dashboard/utilities', label: 'Utilities', icon: Settings, feature: 'finances', description: 'Manage meter readings and sub-billing' },
+        { href: '/dashboard/pg-management/community', label: 'Community', icon: MessageCircle, feature: 'properties', description: 'Manage notices and marketplace' },
     ]
   },
   {

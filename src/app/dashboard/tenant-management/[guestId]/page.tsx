@@ -59,6 +59,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditGuestDialog from "@/components/dashboard/dialogs/EditGuestDialog";
+import MoveOutSettlementModal from "@/components/guests/MoveOutSettlementModal";
 
 import { ActivityLogsList } from "@/components/activity/activity-logs-list";
 
@@ -143,6 +144,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { getDoc, doc } from "firebase/firestore";
+import { getFinancialEvents } from "@/lib/actions/financialActions";
+import type { FinancialEvent } from "@/lib/types";
 import { db } from "@/lib/firebase";
 import Access from "@/components/ui/PermissionWrapper";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -203,6 +206,7 @@ export default function GuestProfilePage() {
   const currentPlan = getCurrentPlan(currentUser);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isVacateDialogOpen, setIsVacateDialogOpen] = useState(false);
+  const [isMoveOutModalOpen, setIsMoveOutModalOpen] = useState(false);
   const [sendWhatsAppOnExit, setSendWhatsAppOnExit] = useState(true);
 
   const guest = useMemo(
@@ -255,6 +259,8 @@ export default function GuestProfilePage() {
   const [generatedSetupCode, setGeneratedSetupCode] = useState("");
   const [isGeneratingMagicLink, setIsGeneratingMagicLink] = useState(false);
   const [isGeneratingPassword, setIsGeneratingPassword] = useState(false);
+  const [financialEvents, setFinancialEvents] = useState<FinancialEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
 
   // Attendance Integration
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
@@ -282,6 +288,20 @@ export default function GuestProfilePage() {
       setDocumentUris(initialUris);
     }
   }, [guest?.documents]);
+
+  useEffect(() => {
+    async function fetchEvents() {
+      if (guest && currentUser) {
+         setLoadingEvents(true);
+         const res = await getFinancialEvents(currentUser.id, guest.id);
+         if (res.success && res.events) {
+             setFinancialEvents(res.events);
+         }
+         setLoadingEvents(false);
+      }
+    }
+    fetchEvents();
+  }, [guest, currentUser]);
 
   useEffect(() => {
     if (guestId) {
@@ -323,9 +343,14 @@ export default function GuestProfilePage() {
     const breakdown = getBalanceBreakdown(guest);
 
     // Match the unpaid items logic for display
-    const ledger = [...(guest.ledger || [])].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
+    const ledger = financialEvents.map(e => ({
+      id: e.id,
+      type: (e.type === 'deposit_received' || e.amount < 0 || e.type === 'payment_received') ? 'credit' as const : 'debit' as const,
+      amountType: 'numeric' as const,
+      amount: Math.abs(e.amount),
+      description: e.description,
+      date: e.date
+    })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     let creditsToApply = ledger
       .filter((e) => e.type === "credit" && e.amountType !== "symbolic")
       .reduce((sum, e) => sum + e.amount, 0);
@@ -347,7 +372,7 @@ export default function GuestProfilePage() {
           unpaidItems.push({
             ...debit,
             isSymbolic: true,
-            displayAmount: debit.symbolicValue || "XXX",
+            displayAmount: "XXX",
           });
       } else {
         if (creditsToApply >= debit.amount) creditsToApply -= debit.amount;
@@ -1124,11 +1149,11 @@ export default function GuestProfilePage() {
                       <Button
                         variant="destructive"
                         className="flex-1"
-                        onClick={() => setIsVacateDialogOpen(true)}
+                        onClick={() => setIsMoveOutModalOpen(true)}
                         disabled={guest.isVacated}
                       >
                         <XCircle className="mr-2 h-4 w-4" />
-                        Vacate Immediately
+                        Initiate Move-Out Settlement
                       </Button>
                     </Access>
                   </div>
@@ -1766,7 +1791,17 @@ export default function GuestProfilePage() {
             </Button>
           </div>
         </DialogContent>
-      </Dialog>
+    </Dialog>
+
+      <MoveOutSettlementModal
+        isOpen={isMoveOutModalOpen}
+        onClose={() => setIsMoveOutModalOpen(false)}
+        ownerId={currentUser?.id || ''}
+        guestId={guestId}
+        onSuccess={() => {
+          // Trigger re-fetch or sync state if needed
+        }}
+      />
     </>
   );
 }

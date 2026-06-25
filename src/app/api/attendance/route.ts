@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
             purpose: body.purpose || null,
             latitude: body.latitude || null,
             longitude: body.longitude || null,
-            timestamp: new Date().toISOString(),
+            id: `scan-${Date.now()}`, timestamp: new Date().toISOString(),
             deviceFingerprint: body.deviceFingerprint || null,
             userAgent,
             source: body.source || 'QR_SCAN',
