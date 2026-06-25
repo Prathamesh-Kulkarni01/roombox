@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useMemo } from "react"
-import { useRouter } from "next/navigation"
+import React, { useMemo, useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from 'next/link'
 import { useAppSelector } from "@/lib/hooks"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Loader2, MessageCircle } from "lucide-react"
+import { ArrowRight, Loader2, MessageCircle, TrendingUp, Users, BedDouble, Flame } from "lucide-react"
 
 import StatsCards, { DashboardStats, PendingDuesCard } from '@/components/dashboard/StatsCards'
 import AddGuestDialog from '@/components/dashboard/dialogs/AddGuestDialog'
@@ -25,14 +25,16 @@ import { useToast } from "@/hooks/use-toast"
 import type { PG, Guest, Complaint } from "@/lib/types"
 import { formatBalanceBreakdown, getBalanceBreakdown } from "@/lib/ledger-utils"
 import { sendMassPaymentReminders } from "@/lib/actions/notificationActions"
+import { fetchLeadsForOwner } from "@/lib/actions/leadActions"
 
-export default function DashboardPage() {
+function DashboardContent() {
   const {
     currentUser,
     selectedPgId,
     isAddGuestDialogOpen, setIsAddGuestDialogOpen, selectedBedForGuestAdd, addGuestForm, handleAddGuestSubmit,
     isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit,
     handleOpenAddGuestDialog,
+    handleOpenGeneralAddGuestDialog,
     handleOpenPaymentDialog,
     isAddingGuest,
     isRecordingPayment,
@@ -48,13 +50,38 @@ export default function DashboardPage() {
   } = useDashboard();
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const action = searchParams?.get('action');
+    if (action === 'addGuestFromLead' && !isAddGuestDialogOpen) {
+      const name = searchParams?.get('name') || '';
+      const phone = searchParams?.get('phone') || '';
+      const expectedRent = Number(searchParams?.get('expectedRent')) || 0;
+      
+      handleOpenGeneralAddGuestDialog({ name, phone, expectedRent });
+      
+      // Clean up the URL
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, [searchParams, isAddGuestDialogOpen, handleOpenGeneralAddGuestDialog]);
 
   // Loading state moved to useDashboard return
   const isLoading = !initialDataLoaded || isAppLoading;
 
   const [isMassReminderDialogOpen, setIsMassReminderDialogOpen] = React.useState(false);
   const [guestsForReminder, setGuestsForReminder] = React.useState<any[]>([]);
+  const [hotLeadCount, setHotLeadCount] = useState(0);
+
+  // Fetch hot lead count (visited + negotiation)
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    fetchLeadsForOwner(currentUser.id).then(leads => {
+      const hot = leads.filter(l => l.status === 'visited' || l.status === 'negotiation').length;
+      setHotLeadCount(hot);
+    }).catch(() => { /* non-critical */ });
+  }, [currentUser?.id]);
 
   const stats: DashboardStats = useMemo(() => {
     const relevantPgs = selectedPgId && selectedPgId !== 'all' ? pgs.filter((p: PG) => p.id === selectedPgId) : pgs;
@@ -302,6 +329,48 @@ export default function DashboardPage() {
 
         {pgs.length > 0 ? (
           <>
+            {/* ── Hot Leads vs Empty Beds Widget ── */}
+            {(() => {
+              const emptyBeds = stats.occupancy.total - stats.occupancy.occupied;
+              if (emptyBeds > 0 && hotLeadCount > 0) {
+                return (
+                  <Link href="/dashboard/leads" className="block">
+                    <div className="bg-gradient-to-br from-orange-500/10 via-rose-500/5 to-primary/10 border border-orange-400/30 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all group">
+                      <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                        <Flame className="w-5 h-5 text-orange-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-foreground leading-tight">
+                          {emptyBeds} empty bed{emptyBeds > 1 ? 's' : ''} · {hotLeadCount} hot lead{hotLeadCount > 1 ? 's' : ''} waiting
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Follow up now to maximize your revenue →
+                        </p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                    </div>
+                  </Link>
+                );
+              }
+              if (emptyBeds > 0 && hotLeadCount === 0) {
+                return (
+                  <Link href="/dashboard/leads" className="block">
+                    <div className="bg-gradient-to-br from-blue-500/10 to-primary/5 border border-blue-400/20 rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all group">
+                      <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+                        <BedDouble className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-foreground leading-tight">{emptyBeds} bed{emptyBeds > 1 ? 's' : ''} vacant</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Add leads and start filling your property →</p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform flex-shrink-0" />
+                    </div>
+                  </Link>
+                );
+              }
+              return null;
+            })()}
+
             <div className="space-y-4 pt-2">
               <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-1">Quick Actions</h3>
               <QuickActions
@@ -473,5 +542,13 @@ export default function DashboardPage() {
         onSend={handleConfirmMassReminders}
       />
     </>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+      <DashboardContent />
+    </Suspense>
   )
 }
