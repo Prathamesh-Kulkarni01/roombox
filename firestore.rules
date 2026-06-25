@@ -62,6 +62,15 @@ service cloud.firestore {
         allow read: if isAuth() && request.auth.uid == userId;
         allow write: if false;
       }
+
+      // ─── Leads (CRM pipeline) ─────────────────────────────────────────────
+      // Owners have full CRUD on their own leads.
+      // Staff members belonging to this owner can read and create leads.
+      match /leads/{leadId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+        // Staff under this owner can view and add leads
+        allow read, create: if isAuth() && request.auth.token.ownerId == userId;
+      }
     }
 
     // ─── Invites ──────────────────────────────────────────────────────────────

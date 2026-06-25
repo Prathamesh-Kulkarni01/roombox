@@ -76,12 +76,15 @@ function DashboardContent() {
 
   // Fetch hot lead count (visited + negotiation)
   useEffect(() => {
-    if (!currentUser?.id) return;
-    fetchLeadsForOwner(currentUser.id).then(leads => {
+    const ownerId = currentUser?.role === 'owner' || currentUser?.role === 'admin'
+      ? currentUser?.id
+      : currentUser?.ownerId;
+    if (!ownerId) return;
+    fetchLeadsForOwner(ownerId).then(leads => {
       const hot = leads.filter(l => l.status === 'visited' || l.status === 'negotiation').length;
       setHotLeadCount(hot);
     }).catch(() => { /* non-critical */ });
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.ownerId, currentUser?.role]);
 
   const stats: DashboardStats = useMemo(() => {
     const relevantPgs = selectedPgId && selectedPgId !== 'all' ? pgs.filter((p: PG) => p.id === selectedPgId) : pgs;
