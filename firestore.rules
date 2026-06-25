@@ -71,6 +71,42 @@ service cloud.firestore {
         // Staff under this owner can view and add leads
         allow read, create: if isAuth() && request.auth.token.ownerId == userId;
       }
+
+      // ─── Community Posts (notices, events, marketplace) ───────────────────
+      match /community_posts/{postId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+        allow read: if isAuth() && request.auth.token.ownerId == userId;
+      }
+
+      // ─── Meter Readings (utility tracking) ────────────────────────────────
+      match /meter_readings/{readingId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+        allow read, create: if isAuth() && request.auth.token.ownerId == userId;
+      }
+
+      // ─── Staff Advances ───────────────────────────────────────────────────
+      match /staff_advances/{advanceId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+        allow read: if isAuth() && request.auth.token.ownerId == userId;
+      }
+
+      // ─── Staff Payrolls ───────────────────────────────────────────────────
+      match /staff_payrolls/{payrollId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+        allow read: if isAuth() && request.auth.token.ownerId == userId;
+      }
+
+      // ─── Refund Records ───────────────────────────────────────────────────
+      match /refund_records/{refundId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+        allow read: if isAuth() && request.auth.token.ownerId == userId;
+      }
+
+      // ─── Guests (subcollection alias used by utility/refund actions) ──────
+      match /guests/{guestId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+        allow read: if isAuth() && request.auth.token.ownerId == userId;
+      }
     }
 
     // ─── Invites ──────────────────────────────────────────────────────────────
