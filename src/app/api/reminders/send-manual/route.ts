@@ -2,7 +2,7 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
+import { getAdminDb, getAdminAuth, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { addDays, format, isPast, parseISO, differenceInDays } from 'date-fns';
 import type { User, Guest } from '@/lib/types';
 import { createAndSendNotification } from '@/lib/actions/notificationActions';
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     const { guestIds } = await request.json(); // Expect an array of guest IDs
 
-    const adminDb = await getAdminDb();
+    const adminDb = await selectOwnerDataAdminDb(ownerId);
     let notifiedCount = 0;
     const today = new Date();
 
