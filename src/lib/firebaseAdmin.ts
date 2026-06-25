@@ -121,7 +121,15 @@ export async function getAdminAuth(projectId?: string): Promise<Auth> {
   return getAuth(getAdminApp(projectId));
 }
 
-// Generic selector: fetch owner user doc from App DB and return their data DB
+/**
+ * Generic selector: fetch owner user doc from App DB and return their data DB.
+ * 
+ * MULTI-TENANCY & PHYSICAL DATABASE SHARDING (ENTERPRISE ENFORCEMENT):
+ * - For normal users, this returns the default Firestore database.
+ * - For Enterprise clients (e.g., 50+ buildings), their database is physically isolated
+ *   on a separate Firebase Project or Database instance.
+ * - This function intercepts all data queries and dynamically connects to their specific shard.
+ */
 export async function selectOwnerDataAdminDb(ownerId: string): Promise<Firestore> {
   const appDb = await getAdminDb();
   const ownerDoc = await appDb.collection('users').doc(ownerId).get();

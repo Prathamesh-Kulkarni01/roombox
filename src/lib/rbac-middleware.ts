@@ -66,6 +66,21 @@ export async function enforcePermission(
         };
     }
 
+    // 0.5. Strict Subdomain Multi-Tenancy Enforcement
+    const requestSubdomain = req.headers.get('x-pg-subdomain');
+    if (requestSubdomain) {
+        const { getOwnerIdFromSubdomain } = await import('./actions/siteActions');
+        const subdomainOwnerId = await getOwnerIdFromSubdomain(requestSubdomain);
+        
+        if (subdomainOwnerId && subdomainOwnerId !== ownerId) {
+            console.warn(`[RBAC] Subdomain Mismatch Leak Blocked! User ${userId} (Owner ${ownerId}) attempted access on subdomain ${requestSubdomain} (Owner ${subdomainOwnerId}).`);
+            return {
+                authorized: false,
+                response: forbidden('Security block: Cross-tenant access violation. You do not have access to this portal.')
+            };
+        }
+    }
+
     // --- SCOPE & PERMISSION RESOLUTION ---
     
     // 1. Super-roles (Owner/Admin) have implicit "All" permissions
