@@ -157,14 +157,11 @@ const Index = () => {
         { icon: BookUser, title: t('landing_features_passbook_title'), description: t('landing_features_passbook_desc') },
         { icon: Wallet, title: t('landing_features_expenses_title'), description: t('landing_features_expenses_desc') },
         { icon: MessageSquare, title: t('landing_features_complaints_title'), description: t('landing_features_complaints_desc') },
-        { icon: UtensilsCrossed, title: t('landing_features_food_title'), description: t('landing_features_food_desc') },
         { icon: Contact, title: t('landing_features_staff_title'), description: t('landing_features_staff_desc') },
         { icon: UserCheck, title: t('landing_features_kyc_title'), description: t('landing_features_kyc_desc') },
         { icon: History, title: t('landing_features_history_title'), description: t('landing_features_history_desc') },
         { icon: BarChart3, title: t('landing_features_analytics_title'), description: t('landing_features_analytics_desc') },
         { icon: Globe, title: t('landing_features_website_title'), description: t('landing_features_website_desc') },
-        { icon: BrainCircuit, title: t('landing_features_ai_title'), description: t('landing_features_ai_desc') },
-        { icon: GitBranch, title: t('landing_features_marketplace_title'), description: t('landing_features_marketplace_desc') },
     ];
 
 
@@ -294,32 +291,7 @@ const Index = () => {
                         </div>
                     </div>
                     
-                    <div className="grid md:grid-cols-2 gap-12 items-center">
-                         <div className="space-y-4 md:order-2">
-                            <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">{t('supercharge_website_badge')}</Badge>
-                            <h3 className="text-3xl font-bold">{t('supercharge_website_title')}</h3>
-                            <p className="text-lg text-muted-foreground">{t('supercharge_website_desc')}</p>
-                        </div>
-                        <div className="md:order-1 grid grid-cols-2 gap-4">
-                            <div className="bg-card p-4 rounded-lg border shadow-md">
-                                <Paintbrush className="w-6 h-6 text-primary mb-2"/>
-                                <h4 className="font-bold">{t('supercharge_website_editor')}</h4>
-                                <div className="mt-2 space-y-2">
-                                    <div className="flex items-center justify-between"><span className="text-sm">{t('supercharge_website_hero')}</span> <Button size="sm" variant="outline" className="h-6 px-2 text-xs">Change</Button></div>
-                                    <div className="flex items-center justify-between"><span className="text-sm">{t('supercharge_website_title_text')}</span> <Button size="sm" variant="outline" className="h-6 px-2 text-xs">Edit</Button></div>
-                                </div>
-                            </div>
-                             <div className="bg-card p-4 rounded-lg border shadow-md">
-                                <Target className="w-6 h-6 text-primary mb-2"/>
-                                <h4 className="font-bold">{t('supercharge_website_lead_manager')}</h4>
-                                <div className="mt-2 space-y-2">
-                                    <div className="bg-muted p-2 rounded text-sm font-medium">{t('supercharge_website_lead_1')}</div>
-                                    <div className="bg-muted p-2 rounded text-sm font-medium">{t('supercharge_website_lead_2')}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                   
+
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="space-y-4">
                             <Badge variant="default" className="bg-purple-500 hover:bg-purple-600">{t('supercharge_payouts_badge')}</Badge>

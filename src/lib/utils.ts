@@ -143,6 +143,34 @@ export const getCurrentPlan = (currentUser: User | null) => {
 }
 
 /**
+ * Gets the effective tenant limit for a user, checking custom overrides first,
+ * then falling back to the standard plan limit.
+ */
+export function getEffectiveTenantLimit(user: User | null | undefined, planId?: string): number | 'unlimited' {
+  // If user has a custom override, use it (specifically useful for trial extensions or custom deals)
+  if (user?.subscription?.trialTenantLimit !== undefined) {
+    return user.subscription.trialTenantLimit;
+  }
+  
+  // Otherwise, use the standard limits mapped to the plan (defaults to free)
+  const effectivePlanId = planId || user?.subscription?.planId || 'free';
+  
+  // We dynamically import getPlanLimit or just replicate the lookup here to avoid circular dependencies
+  // Actually, planLimitsConfig is in permissions.ts. Let's just import it at the top of the file, or handle it here if it causes a circular dependency.
+  // Wait, utils.ts is already importing plans from constants.ts. 
+  // For safety against circular dependencies, we can just use the plans object directly.
+  const plan = plans[effectivePlanId as keyof typeof plans];
+  if (plan && plan.tenantLimit !== undefined) {
+    return plan.tenantLimit;
+  }
+  
+  // Hard fallback for free tier if not in plans object
+  if (effectivePlanId === 'free') return 20;
+  
+  return 'unlimited';
+}
+
+/**
  * Helper to construct the redirection URL for a specific subdomain.
  * If targetRole is 'tenant' and a subdomain is provided, redirects to the subdomain.
  * If targetRole is NOT 'tenant' (e.g. owner, staff), redirects to the root host (apex domain) without subdomain.

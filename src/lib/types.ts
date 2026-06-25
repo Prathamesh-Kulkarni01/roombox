@@ -85,7 +85,8 @@ export type AdminAuditAction =
     | 'COMPLAINT_RESOLVED'
     | 'ADMIN_ROLE_CHANGED'
     | 'CREDITS_ADJUSTED'
-    | 'ACCOUNT_DELETED';
+    | 'ACCOUNT_DELETED'
+    | 'OWNER_DELETED';
 
 /** Immutable audit log record written to Firestore admin_audit_logs collection */
 export interface AdminAuditLog {
@@ -356,6 +357,8 @@ export interface PG extends BaseEntity {
   subdomain?: string;
   logo?: string[];
   icon?: string[];
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Payment extends BaseEntity {

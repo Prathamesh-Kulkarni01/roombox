@@ -124,6 +124,7 @@ export default function TenantScanPage() {
 
     // Load auth + profile status
     useEffect(() => {
+        if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
                 setUser(currentUser);
@@ -413,7 +414,7 @@ export default function TenantScanPage() {
                             Zone: {zoneId}
                         </div>
                         {isOffline && (
-                            <div variant="destructive" className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 text-red-500">
                                 <WifiOff className="w-3 h-3" /> Offline
                             </div>
                         )}

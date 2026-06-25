@@ -142,7 +142,7 @@ export default function PgSettingsPage() {
         return;
       }
 
-      await updateProperty({ pgId, updates: { ...data, amenities: data.amenities as any } }).unwrap();
+      await updateProperty({ pgId, updates: { ...data, latitude: data.latitude ?? undefined, longitude: data.longitude ?? undefined, amenities: data.amenities as any } }).unwrap();
       
       toast({
         title: "Property Updated",

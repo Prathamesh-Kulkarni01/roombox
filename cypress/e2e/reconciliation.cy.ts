@@ -65,8 +65,8 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
 
       expect(result.cyclesProcessed).to.equal(1);
       // Ledger should have initial rent + 1 new rent debit
-      expect(result.guest.ledger.filter((e) => e.type === "debit").length).to.equal(2); 
-      expect(calculateBalance(result.guest.ledger)).to.equal(200);
+      expect(result.guest.ledger!.filter((e) => e.type === "debit").length).to.equal(2); 
+      expect(calculateBalance(result.guest.ledger!)).to.equal(200);
       expect(result.guest.rentStatus).to.equal("unpaid");
     });
 
@@ -79,8 +79,8 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
 
       expect(result.cyclesProcessed).to.equal(2);
       // Initial rent + 2 new rent debits
-      expect(result.guest.ledger.filter((e) => e.type === "debit").length).to.equal(3);
-      expect(calculateBalance(result.guest.ledger)).to.equal(300);
+      expect(result.guest.ledger!.filter((e) => e.type === "debit").length).to.equal(3);
+      expect(calculateBalance(result.guest.ledger!)).to.equal(300);
       expect(result.guest.rentStatus).to.equal("unpaid");
     });
 
@@ -88,11 +88,11 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       const guestWithDebit = createMockGuest({}); // Balance: 100
       
       const guestPaid = produce(guestWithDebit, draft => {
-        draft.ledger.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 100, description: 'Payment' });
+        draft.ledger!.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 100, description: 'Payment' });
       });
 
       const result = runReconciliationLogic(guestPaid, addMinutes(new Date(guestPaid.dueDate), -1)); // Not overdue yet
-      expect(calculateBalance(result.guest.ledger)).to.equal(0);
+      expect(calculateBalance(result.guest.ledger!)).to.equal(0);
       expect(result.guest.rentStatus).to.equal('paid');
     });
 
@@ -100,11 +100,11 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       const guestWithDebit = createMockGuest({}); // Balance: 100
       
       const guestPaid = produce(guestWithDebit, draft => {
-        draft.ledger.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 150, description: 'Payment' });
+        draft.ledger!.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 150, description: 'Payment' });
       });
 
       const result = runReconciliationLogic(guestPaid, addMinutes(new Date(guestPaid.dueDate), -1)); // Not overdue yet
-      expect(calculateBalance(result.guest.ledger)).to.equal(-50);
+      expect(calculateBalance(result.guest.ledger!)).to.equal(-50);
       expect(result.guest.rentStatus).to.equal('paid');
     });
 
@@ -112,7 +112,7 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       const guestWithDebit = createMockGuest({}); // Balance: 100
       
       const guestPaid = produce(guestWithDebit, draft => {
-        draft.ledger.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 100, description: 'Payment' });
+        draft.ledger!.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', amount: 100, description: 'Payment' });
       });
 
       let result = runReconciliationLogic(guestPaid, addMinutes(new Date(guestPaid.dueDate), -1)); // Not overdue yet
@@ -123,7 +123,7 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       result = runReconciliationLogic(result.guest, now);
       
       expect(result.cyclesProcessed).to.equal(1);
-      expect(calculateBalance(result.guest.ledger)).to.equal(100); // 100 (initial) - 100 (paid) + 100 (new) = 100
+      expect(calculateBalance(result.guest.ledger!)).to.equal(100); // 100 (initial) - 100 (paid) + 100 (new) = 100
       expect(result.guest.rentStatus).to.equal('unpaid');
     });
 
@@ -143,8 +143,8 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       const result = runReconciliationLogic(guest, now);
 
       expect(result.cyclesProcessed).to.equal(1);
-      expect(result.guest.ledger.length).to.equal(3); // 2 initial + 1 new
-      expect(calculateBalance(result.guest.ledger)).to.equal(100);
+      expect(result.guest.ledger!.length).to.equal(3); // 2 initial + 1 new
+      expect(calculateBalance(result.guest.ledger!)).to.equal(100);
       expect(result.guest.rentStatus).to.equal("unpaid");
     });
   });
@@ -180,8 +180,8 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
 
       expect(result.cyclesProcessed).to.equal(1);
       // Balance = 100 (initial rent) + 50 (charge) + 100 (new rent) = 250
-      expect(calculateBalance(result.guest.ledger)).to.equal(250);
-      expect(result.guest.ledger.some((e) => e.id === "ac1")).to.be.true;
+      expect(calculateBalance(result.guest.ledger!)).to.equal(250);
+      expect(result.guest.ledger!.some((e) => e.id === "ac1")).to.be.true;
     });
   });
 
@@ -200,12 +200,12 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       let result1 = runReconciliationLogic(guest, now1);
 
       expect(result1.cyclesProcessed).to.equal(2);
-      expect(calculateBalance(result1.guest.ledger)).to.equal(3); // 1 (initial) + 2 (new)
+      expect(calculateBalance(result1.guest.ledger!)).to.equal(3); // 1 (initial) + 2 (new)
       guest = result1.guest;
 
       // --- User pays full amount ---
-      guest.ledger.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', description: 'Payment', amount: 3 });
-      expect(calculateBalance(guest.ledger)).to.equal(0);
+      guest.ledger!.push({ id: 'pay-1', date: new Date().toISOString(), type: 'credit', description: 'Payment', amount: 3 });
+      expect(calculateBalance(guest.ledger!)).to.equal(0);
       // Run reconciliation to update status based on new payment, but `now` is not past the new due date, so no new cycles
       guest = runReconciliationLogic(guest, now1).guest;
       expect(guest.rentStatus).to.equal('paid');
@@ -216,12 +216,12 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       let result2 = runReconciliationLogic(guest, now2);
       
       expect(result2.cyclesProcessed).to.equal(1);
-      expect(calculateBalance(result2.guest.ledger)).to.equal(1); // 0 (previous balance) + 1 (new rent)
+      expect(calculateBalance(result2.guest.ledger!)).to.equal(1); // 0 (previous balance) + 1 (new rent)
       guest = result2.guest;
 
       // --- Add additional charge ---
-      guest.ledger.push({ id: 'ac1', date: new Date().toISOString(), type: 'debit', description: 'Electricity', amount: 2 });
-      expect(calculateBalance(guest.ledger)).to.equal(3); // 1 (rent) + 2 (charge)
+      guest.ledger!.push({ id: 'ac1', date: new Date().toISOString(), type: 'debit', description: 'Electricity', amount: 2 });
+      expect(calculateBalance(guest.ledger!)).to.equal(3); // 1 (rent) + 2 (charge)
 
       // --- Fourth cycle becomes due ---
       // new dueDate is at 12 min. `now` is at 13 min.
@@ -229,7 +229,7 @@ describe("Rent Reconciliation Logic (Ledger-based)", () => {
       let result3 = runReconciliationLogic(guest, now3);
 
       expect(result3.cyclesProcessed).to.equal(1);
-      expect(calculateBalance(result3.guest.ledger)).to.equal(4); // 3 (previous balance) + 1 (new rent)
+      expect(calculateBalance(result3.guest.ledger!)).to.equal(4); // 3 (previous balance) + 1 (new rent)
     });
   });
 });
