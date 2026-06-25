@@ -309,14 +309,14 @@ export function useDashboard() {
     setIsAddGuestDialogOpen(true);
   };
 
-  const handleOpenGeneralAddGuestDialog = () => {
+  const handleOpenGeneralAddGuestDialog = (initialData?: { name?: string, phone?: string, expectedRent?: number }) => {
     setSelectedBedForGuestAdd(null);
     addGuestForm.reset({
-      name: '',
-      phone: '',
+      name: initialData?.name || '',
+      phone: initialData?.phone || '',
       email: '',
       amountType: 'numeric',
-      rentAmount: 0,
+      rentAmount: initialData?.expectedRent || 0,
       depositAmount: 0,
       symbolicRentValue: 'XXX',
       symbolicDepositValue: 'YYY',

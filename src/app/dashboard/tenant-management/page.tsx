@@ -445,7 +445,7 @@ export default function GuestManagementPage() {
                   <Upload className="md:mr-2 h-4 w-4" />
                   <span className="hidden md:inline">Import CSV</span>
                 </Button>
-                <Button size="sm" onClick={handleOpenGeneralAddGuestDialog}>
+                <Button size="sm" onClick={() => handleOpenGeneralAddGuestDialog()}>
                   <PlusCircle className="md:mr-2 h-4 w-4" />
                   <span className="hidden md:inline">Add New Guest</span>
                   <span className="md:hidden">Add</span>
