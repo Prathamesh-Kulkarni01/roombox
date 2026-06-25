@@ -45,8 +45,11 @@ export async function POST(req: NextRequest) {
         const db = await selectOwnerDataAdminDb(ownerId);
         const appDb = await getAdminDb();
 
+        const ownerDoc = await db.collection('users').doc(ownerId).get();
+        const ownerData = ownerDoc.data();
+
         // 1. Check Guest Limit for the whole batch
-        await TenantService.checkGuestLimit(db, ownerId, ownerResult.plan?.id || 'free', rows.length);
+        await TenantService.checkGuestLimit(db, ownerId, ownerData, ownerResult.plan?.id || 'free', rows.length);
 
         let created = 0;
         const failed: { row: number; name: string; error: string }[] = [];

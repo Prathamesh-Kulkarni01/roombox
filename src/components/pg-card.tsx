@@ -15,10 +15,11 @@ interface PgCardProps {
   pg: PG;
 }
 
-const genderBadgeColor = {
+const genderBadgeColor: Record<string, string> = {
   male: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   female: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200',
   'co-ed': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  'co-living': 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
 };
 
 export default function PgCard({ pg }: PgCardProps) {

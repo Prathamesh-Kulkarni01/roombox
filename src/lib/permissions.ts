@@ -321,7 +321,7 @@ export const planPermissionConfig: Record<string, PlanPermissions> = {
  * Plan limits (e.g., max number of PGs per plan)
  */
 export const planLimitsConfig: Record<string, { pgs: number | 'unlimited', floors: number | 'unlimited', guests: number | 'unlimited' }> = {
-  free: { pgs: 1, floors: 1, guests: 10 },
+  free: { pgs: 1, floors: 10, guests: 20 },
   trial: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
   monthly: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },
   sixMonth: { pgs: 'unlimited', floors: 'unlimited', guests: 'unlimited' },

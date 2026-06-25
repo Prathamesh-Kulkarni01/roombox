@@ -66,7 +66,7 @@ export default function AdminUsers({ owners, onUserStatusUpdate, loading, curren
         currentAdminId,
         currentAdminName,
         ownerToDelete.id,
-        ownerToDelete.name || ownerToDelete.email,
+        ownerToDelete.name || ownerToDelete.email || 'Unknown',
         deleteOptions
       );
       if (result.success) {

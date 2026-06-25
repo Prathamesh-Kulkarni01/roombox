@@ -25,7 +25,7 @@ export const PRICING_CONFIG = {
         credit: 60,
         durationDays: 90,
         includedWhatsappCredits: 150,
-        maxTenants: 100,
+        maxTenants: 'unlimited',
     },
     lowBalance: {
         warningThreshold: 200, // ₹200 → show warning
@@ -60,7 +60,7 @@ export const plans: Record<PlanName, Plan> = {
     description: "Experience all features for 90 days. No credit card required.",
     pgLimit: 'unlimited',
     floorLimit: 'unlimited',
-    tenantLimit: 10,
+    tenantLimit: 'unlimited',
     hasComplaints: true,
     hasStaffManagement: true,
     hasAiRentReminders: true,

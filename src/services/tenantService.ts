@@ -34,11 +34,9 @@ export interface RentSummary {
 }
 
 export class TenantService {
-    /**
-     * Checks if the owner has reached their guest limit.
-     */
-    static async checkGuestLimit(db: Firestore, ownerId: string, planId: string, batchSize: number = 1): Promise<void> {
-        const limit = getPlanLimit(planId, 'guests');
+    static async checkGuestLimit(db: Firestore, ownerId: string, ownerData: any, planId: string, batchSize: number = 1): Promise<void> {
+        const { getEffectiveTenantLimit } = await import('@/lib/utils');
+        const limit = getEffectiveTenantLimit(ownerData, planId);
         if (limit === 'unlimited') return;
 
         const snap = await db.collection('users_data').doc(ownerId).collection('guests')
@@ -119,14 +117,12 @@ export class TenantService {
             ? (parseDateString(joinDate) || new Date(joinDate))
             : new Date(joinDate || new Date().toISOString());
         
-        // 1. Fetch Owner's Plan if not provided in input
-        let effectivePlanId = planId;
-        if (!effectivePlanId) {
-            const ownerDoc = await db.collection('users').doc(ownerId).get();
-            effectivePlanId = ownerDoc.data()?.subscription?.planId || 'free';
-        }
+        // 1. Fetch Owner's Plan and Data if not provided in input
+        const ownerDoc = await db.collection('users').doc(ownerId).get();
+        const ownerData = ownerDoc.data();
+        let effectivePlanId = planId || ownerData?.subscription?.planId || 'free';
 
-        await TenantService.checkGuestLimit(db, ownerId, effectivePlanId ?? 'free');
+        await TenantService.checkGuestLimit(db, ownerId, ownerData, effectivePlanId);
 
         console.log(`[TenantService.onboardTenant] Starting onboarding for ${name} (${phone || 'no phone'})`);
 

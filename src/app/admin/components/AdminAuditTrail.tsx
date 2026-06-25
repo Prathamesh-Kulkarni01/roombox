@@ -43,6 +43,7 @@ const ACTION_CONFIG: Record<AdminAuditAction, {
   ADMIN_ROLE_CHANGED:     { label: 'Admin Role Changed',     icon: Shield,       color: 'text-purple-400',  bg: 'bg-purple-500/10 border-purple-500/20',   severity: 'critical' },
   CREDITS_ADJUSTED:       { label: 'Credits Adjusted',       icon: CreditCard,   color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20',       severity: 'high' },
   ACCOUNT_DELETED:        { label: 'Account Deleted',        icon: Trash2,       color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20',         severity: 'critical' },
+  OWNER_DELETED:          { label: 'Owner Deleted',          icon: Trash2,       color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20',         severity: 'critical' },
 };
 
 const SEVERITY_COLORS = {

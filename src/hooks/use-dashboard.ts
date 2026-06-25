@@ -377,15 +377,13 @@ export function useDashboard() {
       if (!ownerId) return;
 
       // Check tenant limit
-      const plan = getCurrentPlan(currentUser);
-      // Use user-specific limit if set, otherwise plan limit, otherwise fallback to 10 for trial
-      const tenantLimit = currentUser?.subscription?.trialTenantLimit ?? plan.tenantLimit ?? (plan.id === 'trial' ? 10 : Infinity);
-      const maxTenants = tenantLimit === 'unlimited' ? Infinity : tenantLimit;
+      const { getEffectiveTenantLimit } = await import('@/lib/utils');
+      const maxTenants = getEffectiveTenantLimit(currentUser);
       
       const activeTenantsCount = guests.filter(g => !g.isVacated).length;
       
       // If we're at or above limit, block addition
-      if (activeTenantsCount >= maxTenants) {
+      if (maxTenants !== 'unlimited' && activeTenantsCount >= maxTenants) {
         toast({
           variant: 'destructive',
           title: t('limit_reached'),

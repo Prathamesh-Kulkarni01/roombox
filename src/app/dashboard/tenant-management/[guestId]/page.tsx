@@ -346,7 +346,7 @@ export default function GuestProfilePage() {
     const ledger = financialEvents.map(e => ({
       id: e.id,
       type: (e.type === 'deposit_received' || e.amount < 0 || e.type === 'payment_received') ? 'credit' as const : 'debit' as const,
-      amountType: 'numeric' as const,
+      amountType: 'numeric' as 'numeric' | 'symbolic',
       amount: Math.abs(e.amount),
       description: e.description,
       date: e.date
