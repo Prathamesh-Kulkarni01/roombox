@@ -297,4 +297,20 @@ export async function getBrandingForOwner(ownerId: string): Promise<{
     }
 }
 
-
+/**
+ * Retrieves the ownerId associated with a specific subdomain.
+ * Useful for strict multi-tenancy enforcement at the middleware layer.
+ */
+export async function getOwnerIdFromSubdomain(subdomain: string): Promise<string | null> {
+    if (!subdomain) return null;
+    try {
+        const adminDb = await getAdminDb();
+        const siteDoc = await adminDb.collection('sites').doc(subdomain).get();
+        if (!siteDoc.exists) return null;
+        const data = siteDoc.data() as SiteConfig;
+        return data.ownerId || null;
+    } catch (error) {
+        console.error("Error in getOwnerIdFromSubdomain:", error);
+        return null;
+    }
+}
