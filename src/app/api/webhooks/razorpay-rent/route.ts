@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, addMonths, setDate, lastDayOfMonth } from 'date-fns';
 import type { Guest, Payment, User, LedgerEntry } from '@/lib/types';
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
         const event = JSON.parse(body);
         console.log(`[Webhook: Razorpay-Rent] Received event: ${event.event} (ID: ${event.id})`);
 
-        const adminDb = await getAdminDb();
+        const { db: adminDb } = await resolveTenant(req);
         
         // --- 1. EVENT IDEMPOTENCY CHECK ---
         const eventRef = adminDb.collection('processed_webhook_events').doc(event.id);
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
                 const credits = amount; 
 
                 if (ownerId && !isNaN(credits) && credits > 0) {
-                    const adminDb = await getAdminDb();
+                    const { db: adminDb } = await resolveTenant(req);
                     const rechargeRef = adminDb.collection('wallet_recharges').doc(payment.id);
                     
                     try {
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
                 const amount = (payment.amount || order.amount || 0) / 100;
 
                 if (ownerId && !isNaN(amount) && amount > 0) {
-                    const adminDb = await getAdminDb();
+                    const { db: adminDb } = await resolveTenant(req);
                     const rechargeRef = adminDb.collection('wallet_recharges').doc(`wallet_${payment.id}`);
                     
                     try {
@@ -213,7 +214,7 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ success: true, message: 'Webhook processed, but no action taken due to missing metadata.' });
             }
 
-            // const adminDb = await getAdminDb(); // Already initialized above
+            // const { db: adminDb } = await resolveTenant(req); // Already initialized above
             const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
             if (!ownerDoc.exists) {
                 console.error(`Webhook handler: Owner with ID ${ownerId} not found.`);
@@ -502,7 +503,7 @@ export async function POST(req: NextRequest) {
                         const errorMsg = refundOpError.message || "Unknown error";
                         console.error(`[Webhook: Razorpay-Rent] CRITICAL: Automatic refund or ledger revert failed:`, errorMsg);
                         
-                        const adminDb = await getAdminDb();
+                        const { db: adminDb } = await resolveTenant(req);
                         await adminDb.collection('payment_alerts').add({
                             type: 'AUTO_REFUND_FAILED',
                             paymentId: payment.id,
@@ -533,7 +534,7 @@ export async function POST(req: NextRequest) {
 
             console.log(`[Webhook: Razorpay-Rent] Processing refund for payment ${paymentId}. Status: SETTLED`);
 
-            const adminDb = await getAdminDb();
+            const { db: adminDb } = await resolveTenant(req);
             const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
             if (ownerDoc.exists) {
                 const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;

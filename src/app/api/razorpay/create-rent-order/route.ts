@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Guest, User } from '@/lib/types';
 import { z } from 'zod';
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     if (!guestId) return badRequest('guestId is required.');
 
-    const adminDb = await getAdminDb();
+    const { db: adminDb } = await resolveTenant(req);
 
     // Fetch owner to get their primary payout method (linked account)
     const ownerDoc = await adminDb.collection('users').doc(ownerId).get();

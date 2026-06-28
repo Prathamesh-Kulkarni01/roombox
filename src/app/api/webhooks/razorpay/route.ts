@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 
 const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     const event = JSON.parse(body);
     console.log(`[Webhook: Razorpay-Subscription] Received event: ${event.event} (ID: ${event.id})`);
-    const adminDb = await getAdminDb();
+    const { db: adminDb } = await resolveTenant(req);
 
     // 1. Get Subscription ID from payload
     const subEntity = event.payload.subscription?.entity;

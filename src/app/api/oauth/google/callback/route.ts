@@ -1,8 +1,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { Firestore } from 'firebase-admin/firestore';
+import { encryptTokens } from '@/lib/encryption';
+
+const DEFAULT_ENTERPRISE_RULES = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users_data/{ownerId}/{document=**} {
+      allow read, write: if true;
+    }
+    match /magic_links/{tokenId} {
+      allow read, write: if true;
+    }
+  }
+}`;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -38,8 +52,8 @@ export async function GET(req: NextRequest) {
       databaseId: string | null;
     };
     ownerId = state.ownerId;
-    projectId = state.projectId; // REQUIRED from Option B UI
-    databaseId = state.databaseId || '(default)';
+    projectId = state.projectId ? state.projectId.trim() : null; // REQUIRED from Option B UI
+    databaseId = state.databaseId ? state.databaseId.trim() : '(default)';
 
     if (!ownerId) throw new Error('owner_missing');
     if (!projectId) throw new Error('project_missing');
@@ -69,6 +83,15 @@ export async function GET(req: NextRequest) {
         }
       } catch (e2: any) {
         stepError = e2?.message || 'webapp_config_failed';
+        try {
+          const fs = require('fs');
+          fs.writeFileSync('oauth-error-debug.json', JSON.stringify({
+            error: e2?.message,
+            stack: e2?.stack,
+            response: e2?.response?.data,
+            phase: 'webApps'
+          }, null, 2));
+        } catch {}
       }
     }
 
@@ -79,27 +102,81 @@ export async function GET(req: NextRequest) {
         await (firestoreAdmin.projects.databases.create as any)({
           parent: `projects/${projectId}`,
           databaseId,
-          requestBody: { locationId: 'nam5', type: 'FIRESTORE_NATIVE' },
+          requestBody: { locationId: 'us-central1', type: 'FIRESTORE_NATIVE' },
         });
       } catch (e: any) {
         // ignore already exists; capture other errors
         if (!(e?.code === 409)) {
           stepError = stepError || e?.message || 'db_create_failed';
+          try {
+            const fs = require('fs');
+            fs.writeFileSync('oauth-error-debug.json', JSON.stringify({
+              error: e?.message,
+              stack: e?.stack,
+              response: e?.response?.data,
+              phase: 'db_create'
+            }, null, 2));
+          } catch {}
         }
       }
     }
 
+    // Attempt to deploy default security rules to the database so it's accessible
+    try {
+      const rulesApi = google.firebaserules({ version: 'v1', auth: oauth2Client as any });
+      const createRes = await rulesApi.projects.rulesets.create({
+        name: `projects/${projectId}`,
+        requestBody: {
+          source: {
+            files: [{ name: 'firestore.rules', content: DEFAULT_ENTERPRISE_RULES }],
+          },
+        },
+      });
+
+      const rulesetName = createRes.data.name;
+      if (rulesetName) {
+        const releaseName = databaseId && databaseId !== '(default)'
+          ? `projects/${projectId}/releases/cloud.firestore/${databaseId}`
+          : `projects/${projectId}/releases/cloud.firestore`;
+
+        await (rulesApi.projects.releases as any).patch({
+          name: releaseName,
+          updateMask: 'rulesetName',
+          requestBody: {
+            release: { name: releaseName, rulesetName },
+          },
+        });
+        console.log(`[oauth-callback] Deployed default rules to ${releaseName}`);
+      }
+    } catch (e: any) {
+      console.error('[oauth-callback] Failed to deploy default rules:', e?.message);
+    }
+
+    const cleanTokens: any = {};
+    if (tokens.access_token) cleanTokens.access_token = tokens.access_token;
+    if (tokens.refresh_token) cleanTokens.refresh_token = tokens.refresh_token;
+    if (tokens.scope) cleanTokens.scope = tokens.scope;
+    if (tokens.token_type) cleanTokens.token_type = tokens.token_type;
+    if (tokens.expiry_date) cleanTokens.expiry_date = tokens.expiry_date;
+    if (tokens.id_token) cleanTokens.id_token = tokens.id_token;
+
+    console.log('[oauth-callback] ownerId:', ownerId, 'saving tokens keys:', Object.keys(cleanTokens));
+
     // Save to our main admin DB regardless of clientConfig success, so Option A can still be used
-    const adminDb: Firestore = await getAdminDb();
+    // SECURITY: Encrypt access_token and refresh_token before storing in Firestore
+    const encryptedTokens = encryptTokens(cleanTokens);
+    const adminDb: Firestore = (await resolveTenant(req)).db;
     await adminDb.collection('users').doc(ownerId).update({
       'subscription.enterpriseProject': {
         projectId,
         databaseId,
         clientConfig: webAppConfig || null,
+        oauthTokens: encryptedTokens,
       },
       'subscription.planId': 'enterprise',
       'subscription.status': 'active',
     });
+
 
     const qs = stepError ? `onboarding=partial&warning=${encodeURIComponent(stepError)}` : 'onboarding=success';
     return NextResponse.redirect(new URL(`/dashboard/enterprise?${qs}`, req.url));

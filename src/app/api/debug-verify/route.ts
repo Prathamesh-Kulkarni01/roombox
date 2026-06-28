@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const db = await getAdminDb();
+    const { db: db } = await resolveTenant(request);
     const ownerId = "u2iuFhtepCRXCg0WmaXkg6CrIHu1";
     console.log(`[Debug Reset] Fetching owner doc for ${ownerId}...`);
     const docRef = db.collection('users').doc(ownerId);

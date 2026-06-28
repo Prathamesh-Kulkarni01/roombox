@@ -113,6 +113,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   /* config options here */
+  serverExternalPackages: ['@google-cloud/firestore', 'firebase-admin', 'googleapis'],
   distDir: process.env.NEXT_DIST_DIR || '.next',
   typescript: {
     ignoreBuildErrors: true,

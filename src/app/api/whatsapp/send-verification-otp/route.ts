@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { sendWhatsAppMessage } from '@/lib/whatsapp/send-message';
 import * as crypto from 'crypto';
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
         const normalizedPhone = phone.replace(/\D/g, '');
         const phoneToStore = normalizedPhone.length > 10 ? normalizedPhone.slice(-10) : normalizedPhone;
 
-        const adminDb = await getAdminDb();
+        const { db: adminDb } = await resolveTenant(req);
         const userRef = adminDb.collection('users').doc(ownerId);
 
         const userDoc = await userRef.get();

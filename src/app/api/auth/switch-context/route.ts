@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin';
 import { getUserIdFromRequest } from '@/lib/auth-server';
 import { unauthorized, forbidden, success, badRequest } from '@/lib/api/apiError';
@@ -12,12 +13,12 @@ export async function POST(req: NextRequest) {
         const { targetPgId, targetRole } = await req.json();
         if (!targetRole) return badRequest('Target role is required');
 
-        const db = await getAdminDb();
+        const { db: db } = await resolveTenant(req);
         const userDoc = await db.collection('users').doc(userId).get();
         if (!userDoc.exists) return forbidden('User record not found');
 
         const userData = userDoc.data() || {};
-        const auth = await getAdminAuth();
+        const { auth: auth } = await resolveTenant(req);
 
         let newClaims: any = { role: targetRole };
 

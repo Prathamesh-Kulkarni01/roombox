@@ -45,9 +45,57 @@ export async function reconcileSingleGuest({ ownerId, guestId, now }: { ownerId:
 }
 
 
+export async function reconcileForOwner(ownerId: string, limit?: number, now?: Date): Promise<{ success: boolean; reconciledCount: number; errorCount: number; }> {
+    const dataDb = await selectOwnerDataAdminDb(ownerId);
+    let guestsSnapshot;
+    let processedGuestCount = 0;
+    let totalErrors = 0;
+
+    try {
+        // Try optimized query (requires composite index: isVacated, dueDate)
+        guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
+            .where('isVacated', '==', false)
+            .where('dueDate', '<=', (now || new Date()).toISOString())
+            .get();
+    } catch (error: any) {
+        if (error.code === 9 || error.message?.includes('FAILED_PRECONDITION')) {
+            console.warn(`[Reconcile] Index missing for optimized query. Falling back to full sweep for owner ${ownerId}. Please create the required index.`);
+            // Fallback to full sweep (already has index or is primary)
+            guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
+                .where('isVacated', '==', false)
+                .get();
+        } else {
+            console.error(`[Reconcile] Failed to fetch guests for owner ${ownerId}`, error);
+            return { success: false, reconciledCount: 0, errorCount: 1 };
+        }
+    }
+
+    for (const guestDoc of guestsSnapshot.docs) {
+        if (limit && processedGuestCount >= limit) {
+            console.log(`[Reconcile] Reached processing limit of ${limit} for owner ${ownerId}.`);
+            break;
+        }
+
+        try {
+            const result = await reconcileSingleGuest({ ownerId, guestId: guestDoc.id, now });
+            if (result.success && result.cyclesProcessed > 0) {
+                processedGuestCount++;
+            } else if (!result.success) {
+                totalErrors++;
+            }
+        } catch (e) {
+            console.error(`[Reconcile] Failed for guest ${guestDoc.id} of owner ${ownerId}`, e);
+            totalErrors++;
+        }
+    }
+
+    console.log(`[Reconcile] Owner ${ownerId}: Successfully processed ${processedGuestCount} guests. Failed: ${totalErrors}.`);
+    return { success: totalErrors === 0, reconciledCount: processedGuestCount, errorCount: totalErrors };
+}
+
 export async function reconcileAllGuests(limit?: number, now?: Date): Promise<{ success: boolean; reconciledCount: number; errorCount: number; }> {
     const adminDb = await getAdminDb();
-    let processedGuestCount = 0;
+    let totalProcessed = 0;
     let totalErrors = 0;
 
     try {
@@ -55,53 +103,26 @@ export async function reconcileAllGuests(limit?: number, now?: Date): Promise<{ 
 
         for (const ownerDoc of ownersSnapshot.docs) {
             const ownerId = ownerDoc.id;
-            const dataDb = await selectOwnerDataAdminDb(ownerId);
-            let guestsSnapshot;
-
-            try {
-                // Try optimized query (requires composite index: isVacated, dueDate)
-                guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
-                    .where('isVacated', '==', false)
-                    .where('dueDate', '<=', (now || new Date()).toISOString())
-                    .get();
-            } catch (error: any) {
-                if (error.code === 9 || error.message?.includes('FAILED_PRECONDITION')) {
-                    console.warn(`[Reconcile All] Index missing for optimized query. Falling back to full sweep for owner ${ownerId}. Please create the required index.`);
-                    // Fallback to full sweep (already has index or is primary)
-                    guestsSnapshot = await dataDb.collection('users_data').doc(ownerId).collection('guests')
-                        .where('isVacated', '==', false)
-                        .get();
-                } else {
-                    throw error;
-                }
+            const userData = ownerDoc.data();
+            
+            // Central cron ONLY processes standard owners. Enterprise owners are triggered via Hub-and-Spoke webhooks.
+            if (userData?.subscription?.planId === 'enterprise') {
+                continue;
             }
 
-            for (const guestDoc of guestsSnapshot.docs) {
-                if (limit && processedGuestCount >= limit) {
-                    console.log(`[Reconcile All] Reached processing limit of ${limit}.`);
-                    break;
-                }
-
-                try {
-                    const result = await reconcileSingleGuest({ ownerId, guestId: guestDoc.id, now });
-                    if (result.success && result.cyclesProcessed > 0) {
-                        processedGuestCount++;
-                    } else if (!result.success) {
-                        totalErrors++;
-                    }
-                } catch (e) {
-                    console.error(`[Reconcile All] Failed for guest ${guestDoc.id} of owner ${ownerId}`, e);
-                    totalErrors++;
-                }
-            }
-            if (limit && processedGuestCount >= limit) {
+            if (limit && totalProcessed >= limit) {
                 break;
             }
+
+            const result = await reconcileForOwner(ownerId, limit ? limit - totalProcessed : undefined, now);
+            totalProcessed += result.reconciledCount;
+            totalErrors += result.errorCount;
         }
-        console.log(`[Reconcile All] Successfully processed reconciliation for ${processedGuestCount} guests. Failed: ${totalErrors}.`);
-        return { success: totalErrors === 0, reconciledCount: processedGuestCount, errorCount: totalErrors };
+        
+        console.log(`[Reconcile All] Successfully processed reconciliation for ${totalProcessed} standard guests. Failed: ${totalErrors}.`);
+        return { success: totalErrors === 0, reconciledCount: totalProcessed, errorCount: totalErrors };
     } catch (error: any) {
         console.error('[Reconcile All] Cron job failed:', error);
-        return { success: false, reconciledCount: 0, errorCount: totalErrors };
+        return { success: false, reconciledCount: totalProcessed, errorCount: totalErrors };
     }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import crypto from 'crypto';
@@ -17,8 +18,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'tenantId and phone are required.' }, { status: 400 });
         }
 
-        const db = await getAdminDb();
-        const auth = await getAdminAuth();
+        const { db: db } = await resolveTenant(request);
+        const { auth: auth } = await resolveTenant(request);
 
         // 1. Generate new random 6-character password
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

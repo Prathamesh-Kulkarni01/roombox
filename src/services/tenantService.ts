@@ -51,10 +51,24 @@ export class TenantService {
     /**
      * Generates a single-use magic link token for a tenant or staff.
      * Use this whenever the user needs to log in without a password.
+     *
+     * ENTERPRISE SHARDING SUPPORT:
+     * - `primaryDb` — Where the FULL magic link record is stored (custom DB for sharded owners, central for regular).
+     * - `centralDb` — (optional) When different from primaryDb, a PII-free routing pointer is also written here.
      */
-    static async generateMagicLink(appDb: Firestore, id: string, phone: string, ownerId: string, pgName?: string, role: string = 'tenant', pgId?: string): Promise<{ magicLink: string, inviteCode: string }> {
+    static async generateMagicLink(
+        primaryDb: Firestore,
+        id: string,
+        phone: string,
+        ownerId: string,
+        pgName?: string,
+        role: string = 'tenant',
+        pgId?: string,
+        centralDb?: Firestore
+    ): Promise<{ magicLink: string, inviteCode: string }> {
         const token = crypto.randomBytes(32).toString('hex');
         const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours expiry
 
         const magicLinkData: MagicLinkData = {
             token,
@@ -64,7 +78,7 @@ export class TenantService {
             role,
             pgName: pgName || 'RentSutra',
             createdAt: Date.now(),
-            expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours expiry
+            expiresAt,
             used: false
         };
 
@@ -78,7 +92,22 @@ export class TenantService {
             magicLinkData.pgId = pgId;
         }
 
-        await appDb.collection('magic_links').doc(token).set(magicLinkData);
+        // Store full magic link data in primaryDb (custom DB for sharded, central for regular)
+        await primaryDb.collection('magic_links').doc(token).set(magicLinkData);
+
+        // For sharded: also store a PII-free routing pointer in central DB
+        const isSharded = centralDb && centralDb !== primaryDb;
+        if (isSharded && centralDb) {
+            await centralDb.collection('magic_links').doc(token).set({
+                token,
+                inviteCode,
+                ownerId,
+                isShardedTenant: true,
+                expiresAt,
+                used: false,
+                // NOTE: phone intentionally NOT stored here to protect tenant privacy
+            });
+        }
 
         const appUrl = await getBrandedAppUrl(ownerId);
         const magicLink = `${appUrl}/invite/${token}`;
@@ -597,7 +626,17 @@ export class TenantService {
                 if (!appUrl) {
                     console.warn('[onboardTenant] NEXT_PUBLIC_APP_URL not found, using root fallback. Magic links may break!');
                 }
-                const { magicLink } = await TenantService.generateMagicLink(appDb, guestId, standardizedPhone, ownerId, pgName || newGuest.pgName || 'RentSutra', 'tenant', pgId);
+                const isShardedForTenant = db !== appDb;
+                const { magicLink } = await TenantService.generateMagicLink(
+                    isShardedForTenant ? db : appDb,
+                    guestId,
+                    standardizedPhone,
+                    ownerId,
+                    pgName || newGuest.pgName || 'RentSutra',
+                    'tenant',
+                    pgId,
+                    isShardedForTenant ? appDb : undefined
+                );
                 magicLinkResult = magicLink;
 
                 console.log(`[TenantService.onboardTenant] Attempting to send WhatsApp template welcome to ${formattedPhone}`);

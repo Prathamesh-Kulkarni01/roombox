@@ -2,6 +2,7 @@
 'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb, getAdminAuth, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { addDays, format, isPast, parseISO, differenceInDays } from 'date-fns';
 import type { User, Guest } from '@/lib/types';
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const token = authHeader.split('Bearer ')[1];
-    const adminAuth = await getAdminAuth();
+    const { auth: adminAuth } = await resolveTenant(request);
     const decodedToken = await adminAuth.verifyIdToken(token);
     const ownerId = decodedToken.uid;
 

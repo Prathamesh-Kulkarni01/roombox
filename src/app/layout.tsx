@@ -9,6 +9,7 @@ import { LanguageProvider } from "@/context/language-context";
 import ConfettiProvider from "@/context/confetti-provider";
 import PWAHandler from "@/components/PWAHandler";
 import { Analytics } from "@vercel/analytics/next";
+import FirebaseProviderWrapper from "@/components/FirebaseProviderWrapper";
 
 const NEXT_PUBLIC_APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || "https://rentsutra.in";
@@ -138,23 +139,25 @@ export default function RootLayout({
       </head>
       <body>
         <StoreProvider>
-          <LanguageProvider>
-            <ThemeProvider
-              attribute="data-theme"
-              defaultTheme="rose"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <ConfettiProvider>
-                <PWAHandler />
-                <div className="flex min-h-screen flex-col">
-                  <Header />
-                  <main className="flex-1">{children}</main>
-                </div>
-                <Toaster />
-              </ConfettiProvider>
-            </ThemeProvider>
-          </LanguageProvider>
+          <FirebaseProviderWrapper>
+            <LanguageProvider>
+              <ThemeProvider
+                attribute="data-theme"
+                defaultTheme="rose"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <ConfettiProvider>
+                  <PWAHandler />
+                  <div className="flex min-h-screen flex-col">
+                    <Header />
+                    <main className="flex-1">{children}</main>
+                  </div>
+                  <Toaster />
+                </ConfettiProvider>
+              </ThemeProvider>
+            </LanguageProvider>
+          </FirebaseProviderWrapper>
         </StoreProvider>
       </body>
     </html>

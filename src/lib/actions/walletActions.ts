@@ -615,11 +615,23 @@ export async function handleTenantAddition(
   // This function can be used to log the event or verify if addition is allowed.
   
   const adminDb = await getAdminDb();
-  const userRef = adminDb.collection('users').doc(ownerId);
-  const userDoc = await transaction.get(userRef);
-  if (!userDoc.exists) throw new Error('Owner not found.');
+  
+  // Safe detection of cross-database transactions (for sharded/BYODB databases)
+  const txFirestore = (transaction as any)._firestore || (transaction as any).database;
+  const isCrossDb = txFirestore && txFirestore !== adminDb;
 
-  const userData = userDoc.data() as User;
+  let userData: any;
+  if (isCrossDb) {
+    // Perform standard read to avoid cross-database transaction errors
+    const userDoc = await adminDb.collection('users').doc(ownerId).get();
+    if (!userDoc.exists) throw new Error('Owner not found.');
+    userData = userDoc.data();
+  } else {
+    const userRef = adminDb.collection('users').doc(ownerId);
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new Error('Owner not found.');
+    userData = userDoc.data();
+  }
   
   // Restriction Check: If restricted, don't allow adding tenants
   if (userData.subscription?.status === 'restricted') {

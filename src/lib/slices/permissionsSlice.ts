@@ -115,7 +115,7 @@ export const fetchPermissions = createAsyncThunk<RolePermissions, { ownerId: str
                 return defaultPermissions;
             }
         } catch (error) {
-            console.error("[fetchPermissions] Missing permission to read staff roles (expected for non-owners):", error);
+            console.warn("[fetchPermissions] Missing permission to read staff roles (expected for non-owners):", (error as any).message);
             return getDefaultPermissions(plan);
         }
     }

@@ -4,7 +4,8 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth'
-import { auth, isFirebaseConfigured } from '@/lib/firebase'
+import { isFirebaseConfigured } from '@/lib/firebase'
+import { useFirebaseTenant } from '@/context/firebase-tenant-context'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Loader2, AlertCircle } from 'lucide-react'
@@ -12,6 +13,7 @@ import { Loader2, AlertCircle } from 'lucide-react'
 function VerifyLogin() {
     const router = useRouter()
     const { toast } = useToast()
+    const { auth } = useFirebaseTenant()
     const [error, setError] = useState<string | null>(null)
     const [message, setMessage] = useState("Verifying your login link...")
 

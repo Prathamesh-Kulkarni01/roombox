@@ -132,13 +132,8 @@ export async function calculateOwnerBill(owner: User, monthIso?: string): Promis
   // Use owner-specific billing config if set by admin, else defaults
   const billingConfig = owner.billingConfig;
   
-  // Per-tenant fee based on plan type
+  // Per-tenant fee is flat for the standard plan
   let perTenantFee = PRICING_CONFIG.monthly.perTenant;
-  if (billingConfig?.planType === 'yearly') perTenantFee = PRICING_CONFIG.yearly.perTenant;
-  else if (billingConfig?.planType === 'sixMonth') perTenantFee = PRICING_CONFIG.sixMonth.perTenant;
-  else if (billingConfig?.planType === 'monthly') perTenantFee = PRICING_CONFIG.monthly.perTenant;
-  else if (billingConfig?.planType === 'trial') perTenantFee = PRICING_CONFIG.monthly.perTenant; // Trial uses monthly rates if credit runs out
-  else if (billingConfig?.planType === 'enterprise') perTenantFee = 0; // Enterprise usually has custom flat pricing or per-tenant logic handled via overrides
 
   // Admin Override
   if (billingConfig?.perTenantFee !== undefined) perTenantFee = billingConfig.perTenantFee;
@@ -148,7 +143,11 @@ export async function calculateOwnerBill(owner: User, monthIso?: string): Promis
 
   const calculateCycleDetails = (features: PremiumFeatures): BillingCycleDetails => {
     const propertyCharge = isSubscribed ? baseFee : 0;
-    const tenantCharge = isSubscribed ? billableTenantCount * perTenantFee : 0;
+    
+    // First 20 beds are free
+    const freeLimit = PRICING_CONFIG.freeBedsLimit || 20;
+    const billableBeds = Math.max(0, billableTenantCount - freeLimit);
+    const tenantCharge = isSubscribed ? billableBeds * perTenantFee : 0;
 
     let premiumCharge = 0;
     const premiumDetails: BillingCycleDetails['premiumFeaturesDetails'] = {};

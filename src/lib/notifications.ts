@@ -27,7 +27,11 @@ export async function initPushAndSaveToken(userId: string): Promise<InitPushResu
 	const token = await getToken(messaging, { vapidKey })
 	if (!token) return {}
 
-	await setDoc(doc(db, 'users', userId), { fcmToken: token }, { merge: true })
+	try {
+		await setDoc(doc(db, 'users', userId), { fcmToken: token }, { merge: true })
+	} catch (e: any) {
+		console.warn('[Push] Failed to save FCM token to users collection (likely a sharded tenant):', e.message)
+	}
 	return { token, subscribedTopics: [] }
 }
 

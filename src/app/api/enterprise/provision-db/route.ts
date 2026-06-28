@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { google } from 'googleapis';
 
@@ -11,7 +12,7 @@ const requestSchema = z.object({
 	projectId: z.string().optional(),
 	databaseId: z.union([
 		z.literal('(default)'),
-		z.string().regex(/^[a-z0-9-]{4,63}$/)
+		z.string().regex(/^[a-zA-Z0-9-]{4,63}$/).transform(v => v.toLowerCase())
 	]).optional(),
 	locationId: z.string().optional(), // e.g., "nam5"
 	clientConfig: z.object({
@@ -28,11 +29,40 @@ const requestSchema = z.object({
 async function createSecondaryDatabaseIfPossible(
 	projectId: string,
 	databaseId: string,
-	locationId: string = 'nam5',
+	locationId: string = 'us-central1',
 ): Promise<{ created: boolean; error?: string }> {
 	try {
 		// Requires the service to run with a service account that has the Datastore scope
+		const projectIdEnv = process.env.FIREBASE_PROJECT_ID;
+		const clientEmailEnv = process.env.FIREBASE_CLIENT_EMAIL;
+		const privateKeyEnv = process.env.FIREBASE_PRIVATE_KEY;
+		const legacyConfigEnv = process.env.FIREBASE_ADMIN_SDK_CONFIG;
+
+		let credentials: any = undefined;
+		if (clientEmailEnv && privateKeyEnv) {
+			credentials = {
+				client_email: clientEmailEnv,
+				private_key: privateKeyEnv.replace(/\\n/g, '\n').replace(/"/g, ''),
+				project_id: projectIdEnv
+			};
+		} else if (legacyConfigEnv) {
+			try {
+				credentials = JSON.parse(legacyConfigEnv);
+			} catch {}
+		} else {
+			// Try to load service-account.json from root for local development
+			try {
+				const fs = require('fs');
+				const path = require('path');
+				const saPath = path.resolve(process.cwd(), 'service-account.json');
+				if (fs.existsSync(saPath)) {
+					credentials = JSON.parse(fs.readFileSync(saPath, 'utf8'));
+				}
+			} catch {}
+		}
+
 		const auth = new google.auth.GoogleAuth({
+			credentials,
 			scopes: ['https://www.googleapis.com/auth/datastore'],
 		});
 		const client = await auth.getClient();
@@ -68,7 +98,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		const { email, projectId: inputProjectId, databaseId: inputDbId, locationId, clientConfig } = parsed.data;
-		const adminDb = await getAdminDb();
+		const { db: adminDb } = await resolveTenant(req);
 		const userss = await adminDb.collection('users').get();
 
 		if (userss.empty) {
@@ -97,9 +127,18 @@ export async function POST(req: NextRequest) {
 		// Best-effort: Try to create the secondary database (same project multi-database)
 		const provisionResult = await createSecondaryDatabaseIfPossible(projectId, dbId, locationId);
 
+		// Preserve existing oauthTokens if any to prevent wiping out Google Auth credentials
+		const currentDoc = await adminDb.collection('users').doc(userDoc.id).get();
+		const existingOauthTokens = currentDoc.data()?.subscription?.enterpriseProject?.oauthTokens;
+
 		// Attach to owner subscription
 		await adminDb.collection('users').doc(userDoc.id).update({
-			'subscription.enterpriseProject': { projectId, databaseId: dbId, clientConfig: clientConfig || null },
+			'subscription.enterpriseProject': { 
+				projectId, 
+				databaseId: dbId, 
+				clientConfig: clientConfig || null,
+				...(existingOauthTokens ? { oauthTokens: existingOauthTokens } : {})
+			},
 			'subscription.planId': 'enterprise',
 			'subscription.status': 'active',
 		});

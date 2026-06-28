@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { enforcePermission, enforcePermissionForStaff } from '@/lib/rbac-middleware';
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        const appDb = await getAdminDb();
+        const { db: appDb } = await resolveTenant(req);
 
         const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, {
             ...guestData,

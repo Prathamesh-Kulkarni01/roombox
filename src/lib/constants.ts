@@ -11,16 +11,17 @@ export const defaultMenu: Menu = {
 }
 
 export const PRICING_CONFIG = {
-    baseFee: 200, // ₹200 base fee per month
+    baseFee: 0, // ₹0 base fee per month for the standard plan
     monthly: {
-        perTenant: 30, // ₹30 per tenant per month
+        perTenant: 20, // ₹20 per bed per month beyond the free limit
     },
     sixMonth: {
-        perTenant: 20, // ₹20 per tenant per month
+        perTenant: 20,
     },
     yearly: {
-        perTenant: 10, // ₹10 per tenant per month
+        perTenant: 20,
     },
+    freeBedsLimit: 20, // First 20 beds are 100% free
     trial: {
         credit: 60,
         durationDays: 90,
@@ -47,6 +48,11 @@ export const PRICING_CONFIG = {
             name: 'WhatsApp Automation',
             perTenantCharge: 10, // Per-tenant charge
             billingType: 'per_tenant' as const,
+        },
+        enterprise: {
+            name: 'Enterprise DB (Private DB)',
+            monthlyCharge: 2000, // Flat monthly charge for BYODB
+            billingType: 'monthly' as const,
         }
     }
 };
@@ -74,10 +80,10 @@ export const plans: Record<PlanName, Plan> = {
   },
   monthly: {
     id: 'monthly',
-    name: 'Flex (Monthly)',
-    price: 200,
-    pricePeriod: '/month base',
-    description: "No commitment. Standard daily rates. Best for testing.",
+    name: 'Standard Plan',
+    price: 0,
+    pricePeriod: '/month (First 20 Beds Free)',
+    description: "First 20 beds are free. ₹20/bed/month for additional beds.",
     pgLimit: 'unlimited',
     floorLimit: 'unlimited',
     tenantLimit: 'unlimited',
@@ -94,10 +100,10 @@ export const plans: Record<PlanName, Plan> = {
   },
   sixMonth: {
     id: 'sixMonth',
-    name: 'Saver (6-Months)',
-    price: 200,
-    pricePeriod: '/month base',
-    description: "Commit to 6 months for 33% lower daily rates.",
+    name: 'Standard Plan (6M commitment)',
+    price: 0,
+    pricePeriod: '/month (First 20 Beds Free)',
+    description: "First 20 beds are free. ₹20/bed/month for additional beds.",
     pgLimit: 'unlimited',
     floorLimit: 'unlimited',
     tenantLimit: 'unlimited',
@@ -114,10 +120,10 @@ export const plans: Record<PlanName, Plan> = {
   },
   yearly: {
     id: 'yearly',
-    name: 'Elite (Yearly)',
-    price: 200,
-    pricePeriod: '/month base',
-    description: "Best value. 66% lower daily rates for long-term growth.",
+    name: 'Standard Plan (Yearly commitment)',
+    price: 0,
+    pricePeriod: '/month (First 20 Beds Free)',
+    description: "First 20 beds are free. ₹20/bed/month for additional beds.",
     pgLimit: 'unlimited',
     floorLimit: 'unlimited',
     tenantLimit: 'unlimited',
@@ -134,10 +140,10 @@ export const plans: Record<PlanName, Plan> = {
   },
   enterprise: {
     id: 'enterprise',
-    name: 'Enterprise',
-    price: 'Custom',
-    pricePeriod: '/year',
-    description: "For large chains requiring data isolation and premium support.",
+    name: 'Enterprise Plan',
+    price: 2000,
+    pricePeriod: '/month',
+    description: "Standard Plan with Private DB Addon enabled.",
     pgLimit: 'unlimited',
     floorLimit: 'unlimited',
     tenantLimit: 'unlimited',

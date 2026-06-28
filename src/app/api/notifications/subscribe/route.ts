@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminMessaging, getAdminDb } from '@/lib/firebaseAdmin'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Persist topics
-		const db = await getAdminDb()
+		const { db: db } = await resolveTenant(request);
 		await db.collection('tokens').doc(token).set({
 			token,
 			topics: FieldValue.arrayUnion(...list),

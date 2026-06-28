@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        const appDb = await getAdminDb();
+        const { db: appDb } = await resolveTenant(request);
 
         // Fetch Guest Data to get PG name
         const guestDoc = await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
@@ -27,8 +28,19 @@ export async function POST(request: NextRequest) {
         const guestData = guestDoc.data()!;
         const pgName = guestData.pgName || 'Roombox';
 
-        // Generate Magic Link
-        const { magicLink, inviteCode } = await TenantService.generateMagicLink(appDb, guestId, phone, ownerId, pgName, 'tenant', guestData.pgId);
+        // For sharded (enterprise) owners: store magic link in custom DB (privacy)
+        // and write a PII-free routing pointer to the central DB.
+        const isSharded = db !== appDb;
+        const { magicLink, inviteCode } = await TenantService.generateMagicLink(
+            isSharded ? db : appDb,   // Full data → custom DB for sharded, central for regular
+            guestId,
+            phone,
+            ownerId,
+            pgName,
+            'tenant',
+            guestData.pgId,
+            isSharded ? appDb : undefined  // Pointer DB → only for sharded
+        );
 
         return NextResponse.json({
             success: true,

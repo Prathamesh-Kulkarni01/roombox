@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { TenantService } from "@/services/tenantService";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/send-message";
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Phone number is required." }, { status: 400 });
         }
 
-        const appDb = await getAdminDb();
+        const { db: appDb } = await resolveTenant(req);
 
         // 1. Standardize and find user
         const cleanPhone = phone.replace(/\D/g, '');

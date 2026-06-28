@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useTranslation } from '@/context/language-context';
 import { useAppSelector } from '@/lib/hooks';
-import { auth } from '@/lib/firebase';
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, QrCode, CheckCircle2, ShieldCheck } from 'lucide-react';
@@ -41,6 +41,7 @@ interface PaymentSettingsProps {
 }
 
 export default function PaymentSettings({ onSwitchToOnline }: PaymentSettingsProps) {
+    const { auth } = useFirebaseTenant();
   const { t } = useTranslation();
   const { toast } = useToast();
   const { pgs, isLoadingPgs, updateProperty, isUpdatingProperty: isUpdating, selectedPgId } = useDashboard();

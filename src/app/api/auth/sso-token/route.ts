@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminAuth } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     const idToken = authHeader.split('Bearer ')[1];
-    const adminAuth = await getAdminAuth();
+    const { auth: adminAuth } = await resolveTenant(req);
     
     // Verify the token to ensure the request is authenticated
     const decodedToken = await adminAuth.verifyIdToken(idToken);

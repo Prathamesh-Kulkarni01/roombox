@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserCircle, SwitchCamera, Loader2, ChevronRight } from 'lucide-react';
-import { auth } from '@/lib/firebase';
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import { initializeUser } from '@/lib/slices/userSlice';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +24,7 @@ interface RoleSwitcherProps {
 }
 
 export default function RoleSwitcher({ variant = 'default' }: RoleSwitcherProps) {
+    const { auth } = useFirebaseTenant();
   const { currentUser } = useAppSelector((state) => state.user);
   const dispatch = useAppDispatch();
   const router = useRouter();

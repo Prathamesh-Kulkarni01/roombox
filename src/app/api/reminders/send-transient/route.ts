@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminAuth } from '@/lib/firebaseAdmin';
 
 export async function POST(request: NextRequest) {
@@ -8,7 +9,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     const token = authHeader.split('Bearer ')[1];
-    const adminAuth = await getAdminAuth();
+    const { auth: adminAuth } = await resolveTenant(request);
     const decodedToken = await adminAuth.verifyIdToken(token);
     const verifiedOwnerId = decodedToken.uid;
 

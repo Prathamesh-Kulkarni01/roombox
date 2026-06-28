@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin'
 
 export async function GET(request: NextRequest) {
@@ -6,7 +7,7 @@ export async function GET(request: NextRequest) {
 		const { searchParams } = new URL(request.url)
 		const userId = searchParams.get('userId') || ''
 		const token = searchParams.get('token') || ''
-		const db = await getAdminDb()
+		const { db: db } = await resolveTenant(request);
 
 		if (userId) {
 			const userSnap = await db.collection('users').doc(userId).get()

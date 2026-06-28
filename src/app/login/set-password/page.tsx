@@ -11,11 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { useFirebaseTenant } from "@/context/firebase-tenant-context";
 
 function SetPasswordContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { toast } = useToast();
+    const { auth: tenantContextAuth } = useFirebaseTenant();
     const token = searchParams.get("token");
 
     const [password, setPassword] = useState("");
@@ -62,8 +64,36 @@ function SetPasswordContent() {
                 throw new Error(data.error || data.message || "Failed to set password.");
             }
 
-            // Sign in with the Custom Token
-            await signInWithCustomToken(auth, data.customToken);
+            // The layout's FirebaseTenantProvider has already initialized the correct Firebase instance for this subdomain.
+            // We just need to log into it natively. No more Custom Tokens or separate 'tenant-login-instance' apps.
+            if (data.email) {
+                const { signInWithEmailAndPassword, getAuth } = await import('firebase/auth');
+                const { getApps, initializeApp } = await import('firebase/app');
+
+                // StoreProvider initializes 'tenant-login-instance' for enterprise subdomains.
+                // We MUST log into this exact instance so StoreProvider's onAuthStateChanged detects it.
+                let tenantApp = getApps().find(a => a.name === 'tenant-login-instance');
+                if (!tenantApp && data.clientConfig) {
+                    console.log('[set-password] tenantApp not found, initializing manually...');
+                    tenantApp = initializeApp(data.clientConfig, 'tenant-login-instance');
+                }
+                const targetAuth = tenantApp ? getAuth(tenantApp) : tenantContextAuth;
+                
+                console.log('[set-password] targetAuth name:', targetAuth.app.name);
+
+                await signInWithEmailAndPassword(targetAuth, data.email, password);
+            } else if (data.customToken) {
+                // Legacy fallback for standard plan if they haven't transitioned yet
+                const { signInWithCustomToken, getAuth } = await import('firebase/auth');
+                const { getApps } = await import('firebase/app');
+                
+                const tenantApp = getApps().find(a => a.name === 'tenant-login-instance');
+                const targetAuth = tenantApp ? getAuth(tenantApp) : tenantContextAuth;
+                
+                await signInWithCustomToken(targetAuth, data.customToken);
+            } else {
+                throw new Error("Unable to log in. No valid authentication token was provided.");
+            }
 
             toast({
                 title: "Password Set & Logged In!",

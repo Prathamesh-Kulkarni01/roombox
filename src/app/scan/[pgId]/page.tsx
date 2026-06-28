@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { auth } from '@/lib/firebase';
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,6 +76,7 @@ const playChime = (type: 'success' | 'error' | 'info' | 'warning') => {
 };
 
 export default function TenantScanPage() {
+    const { auth } = useFirebaseTenant();
     const router = useRouter();
     const params = useParams();
     const searchParams = useSearchParams();

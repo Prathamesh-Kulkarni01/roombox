@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPWAConfigByOwnerId, getPWAConfigBySubdomain } from '@/lib/pwa-config';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     let siteConfig = null;
 
     try {
-        const adminDb = await getAdminDb();
+        const { db: adminDb } = await resolveTenant(req);
         if (ownerId) {
             config = await getPWAConfigByOwnerId(ownerId);
             const snapshot = await adminDb.collection('sites').where('ownerId', '==', ownerId).limit(1).get();
