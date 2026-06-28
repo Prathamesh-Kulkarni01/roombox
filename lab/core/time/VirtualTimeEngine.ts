@@ -1,5 +1,8 @@
+type EventHandler = (time: number) => Promise<void>;
+
 export class VirtualTimeEngine {
   private offsetMs = 0;
+  private hooks: EventHandler[] = [];
 
   /**
    * Advances the virtual clock by a given duration string (e.g. "30d", "24h").
@@ -7,8 +10,20 @@ export class VirtualTimeEngine {
   public async advance(durationStr: string) {
     const ms = this.parseDuration(durationStr);
     this.offsetMs += ms;
-    console.log(`[VirtualTimeEngine] Time advanced by ${durationStr} (${ms}ms)`);
-    // In real implementation, this would trigger crons and queues here.
+    console.log(`[VirtualTimeEngine] Time advanced by ${durationStr} (${ms}ms). Current Virtual Time: ${this.offsetMs}ms`);
+    
+    // Trigger scheduler hooks
+    for (const hook of this.hooks) {
+        await hook(this.offsetMs);
+    }
+  }
+
+  public getTime(): number {
+    return this.offsetMs;
+  }
+  
+  public onTimeAdvanced(handler: EventHandler) {
+      this.hooks.push(handler);
   }
 
   private parseDuration(durationStr: string): number {
@@ -20,5 +35,3 @@ export class VirtualTimeEngine {
     return val;
   }
 }
-
-export const virtualTime = new VirtualTimeEngine();
