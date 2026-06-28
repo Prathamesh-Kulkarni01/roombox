@@ -1,6 +1,18 @@
 import { PlatformProvider } from "./PlatformProvider";
 import { EventStream } from "../../validation/EventStream";
 
+export interface ProviderAPI {
+  createOwner(params: { name: string }): Promise<{ id: string }>;
+  createProperty(params: { ownerId: string; name: string; rooms: number }): Promise<{ id: string }>;
+  inviteGuest(params: { propertyId: string; email: string }): Promise<{ inviteId: string }>;
+  acceptInvite(params: { inviteId: string }): Promise<{ guestId: string }>;
+  guestLogin(params: { guestId: string }): Promise<{ token: string }>;
+  generateRent(params: { guestId: string; amount: number; month: string }): Promise<{ invoiceId: string }>;
+  
+  loginOwner(params: { email: string }): Promise<{ ownerId: string; token: string; tenantId: string }>;
+  loginGuest(params: { email: string }): Promise<{ guestId: string; token: string; tenantId: string }>;
+}
+
 export class LocalEmulatorProvider implements PlatformProvider {
   private eventStream: EventStream;
   
@@ -25,16 +37,37 @@ export class LocalEmulatorProvider implements PlatformProvider {
   queue() { return {}; }
   secrets() { return {}; }
 
-  public api = {
-    createOwner: async (data: any) => {
-      const id = `owner_${Date.now()}`;
-      this.eventStream.emit("OwnerCreated", { id, ...data });
+  public api: ProviderAPI = {
+    createOwner: async (p) => {
+      const id = "owner-123";
+      this.eventStream.emit("OwnerCreated", { id, name: p.name });
       return { id };
     },
-    createProperty: async (ownerId: string, data: any) => {
-      const id = `prop_${Date.now()}`;
-      this.eventStream.emit("PropertyCreated", { id, ownerId, ...data });
+    createProperty: async (p) => {
+      const id = "prop-456";
+      this.eventStream.emit("PropertyCreated", { id, ownerId: p.ownerId, name: p.name, rooms: p.rooms });
       return { id };
-    }
+    },
+    inviteGuest: async (p) => {
+      const inviteId = "inv-789";
+      this.eventStream.emit("GuestInvited", { inviteId, propertyId: p.propertyId, email: p.email });
+      return { inviteId };
+    },
+    acceptInvite: async (p) => {
+      const guestId = "guest-001";
+      this.eventStream.emit("GuestAccepted", { guestId, inviteId: p.inviteId });
+      return { guestId };
+    },
+    guestLogin: async (p) => {
+      const token = "jwt-123";
+      this.eventStream.emit("GuestLogin", { guestId: p.guestId });
+      return { token };
+    },
+    generateRent: async (p) => {
+      return { invoiceId: "inv-2024-01" };
+    },
+    
+    loginOwner: async (p) => ({ ownerId: "owner-123", token: "jwt-owner", tenantId: "tenant-owner" }),
+    loginGuest: async (p) => ({ guestId: "guest-001", token: "jwt-guest", tenantId: "tenant-guest" })
   };
 }
