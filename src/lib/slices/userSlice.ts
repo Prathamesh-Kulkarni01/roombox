@@ -83,7 +83,7 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                     pgId: claimPgId,
                     ownerId: claimOwnerId,
                     createdAt: new Date().toISOString(),
-                    subscription: null, // Bypassed central owner subscription fetch to prevent unauthorized read errors
+                    subscription: undefined, // Bypassed central owner subscription fetch to prevent unauthorized read errors
                 };
 
                 const userPlan = getPlanForUser(enterpriseUser);
