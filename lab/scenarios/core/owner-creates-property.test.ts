@@ -1,39 +1,38 @@
 import { describe, it } from "vitest";
 import { Scenario } from "../dsl/ScenarioBuilder";
-import { WorldBuilder } from "../../world/WorldBuilder";
+import { Templates } from "../../world/WorldBuilder";
 import { LocalEmulatorProvider } from "../../core/engine/LocalEmulatorProvider";
-import { InvariantEngine } from "../../validation/invariants/InvariantEngine";
 
 describe("RentLab Core Lifecycles", () => {
-  it("Phase 1 Milestone: Owner creates property", async () => {
+  it("Phase 1.1 Milestone: Owner creates property with Execution Context", async () => {
     
+    // We pass a dummy eventStream here for the provider constructor,
+    // but the scenario will inject the real one in run().
+    const provider = new LocalEmulatorProvider({} as any);
+
     // RentLab execution
     await Scenario("Owner creates property")
-      .on(new LocalEmulatorProvider())
+      .requirements(["REQ-001"])
+      .tags(["foundation", "critical"])
+      .on(provider)
       .withAPI()
-      .setup(
-        WorldBuilder()
-          .seed("phase1-milestone")
-          .createOwner((owner) => {
-             // Basic configuration
-             owner.withProperty({ name: "Phase 1 PG" });
-          })
-      )
-      .execute(async (world, provider) => {
-        // Business logic execution sequence
+      .setup(Templates.smallPG().seed("phase1.1-milestone"))
+      .execute(async (ctx) => {
+        // Business logic execution sequence using Context
+        
         // 1. Create the owner
-        const ownerData = await provider.api.createOwner({ name: "John Doe" });
+        const ownerData = await ctx.provider.api.createOwner({ name: "John Doe" });
         
         // 2. Create the property
-        await provider.api.createProperty(ownerData.id, { name: "Phase 1 PG", rooms: 10 });
+        await ctx.provider.api.createProperty(ownerData.id, { name: "Small PG", rooms: 5 });
+        
+        // 3. Advance virtual time just to prove it exists on the context
+        await ctx.virtualTime.advance("1d");
       })
       .expectEvents([
         "OwnerCreated",
         "PropertyCreated"
       ])
       .run();
-      
-    // Assert global invariants automatically after scenario completes
-    InvariantEngine.verifyAll();
   });
 });

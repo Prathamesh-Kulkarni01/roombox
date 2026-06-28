@@ -6,7 +6,6 @@ export class WorldBuilderContext {
 
   public seed(seed: string) {
     this.seedValue = seed;
-    // In real implementation, set the RNG seed here
     return this;
   }
 
@@ -27,3 +26,12 @@ export class WorldBuilderContext {
 export function WorldBuilder() {
   return new WorldBuilderContext();
 }
+
+export const Templates = {
+  smallPG: () => {
+    return WorldBuilder().createOwner(owner => owner.withProperty({ name: "Small PG", rooms: 5 }));
+  },
+  demo: () => {
+    return WorldBuilder().createOwner(owner => owner.withProperty({ name: "Demo Property", rooms: 1 }));
+  }
+};

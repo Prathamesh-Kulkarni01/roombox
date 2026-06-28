@@ -1,27 +1,39 @@
 import { PlatformProvider } from "./PlatformProvider";
-import { globalEventStream } from "../../validation/EventStream";
+import { EventStream } from "../../validation/EventStream";
 
 export class LocalEmulatorProvider implements PlatformProvider {
-  async initialize(): Promise<void> {
-    console.log("[LocalEmulatorProvider] Initializing emulator connections...");
-    // Mock connections to localhost:8081 etc.
+  private eventStream: EventStream;
+  
+  constructor(eventStream: EventStream) {
+      this.eventStream = eventStream;
   }
 
-  async teardown(): Promise<void> {
+  async initialize(): Promise<void> {
+    console.log("[LocalEmulatorProvider] Initializing emulator connections...");
+  }
+
+  async cleanup(): Promise<void> {
     console.log("[LocalEmulatorProvider] Tearing down emulator state...");
   }
+  
+  auth() { return {}; }
+  firestore() { return {}; }
+  storage() { return {}; }
+  scheduler() { return {}; }
+  notification() { return {}; }
+  payment() { return {}; }
+  queue() { return {}; }
+  secrets() { return {}; }
 
   public api = {
     createOwner: async (data: any) => {
-      // Mock API call
       const id = `owner_${Date.now()}`;
-      globalEventStream.emit("OwnerCreated", { id, ...data });
+      this.eventStream.emit("OwnerCreated", { id, ...data });
       return { id };
     },
     createProperty: async (ownerId: string, data: any) => {
-      // Mock API call
       const id = `prop_${Date.now()}`;
-      globalEventStream.emit("PropertyCreated", { id, ownerId, ...data });
+      this.eventStream.emit("PropertyCreated", { id, ownerId, ...data });
       return { id };
     }
   };

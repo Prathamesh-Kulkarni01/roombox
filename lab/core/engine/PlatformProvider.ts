@@ -7,12 +7,16 @@ export interface PlatformProvider {
   /**
    * Cleans up the environment after execution.
    */
-  teardown(): Promise<void>;
+  cleanup(): Promise<void>;
 
-  // Future capabilities will go here:
-  // auth(): AuthProvider;
-  // firestore(): FirestoreProvider;
-  // scheduler(): SchedulerProvider;
+  auth(): any;
+  firestore(): any;
+  storage(): any;
+  scheduler(): any;
+  notification(): any;
+  payment(): any;
+  queue(): any;
+  secrets(): any;
   
   /**
    * Direct API bindings for testing business scenarios without UI.

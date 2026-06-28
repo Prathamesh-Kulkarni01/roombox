@@ -10,8 +10,9 @@ export class StateMachine<T extends string> {
   public transition(newState: T) {
     const allowed = this.validTransitions.get(this.currentState) || [];
     if (!allowed.includes(newState)) {
-      throw new Error(`Invalid state transition: Cannot go from ${this.currentState} to ${newState}`);
+      throw new Error(`StateMachine Guard Violation: Invalid state transition from ${this.currentState} to ${newState}`);
     }
+    console.log(`[StateMachine] Transitioned: ${this.currentState} -> ${newState}`);
     this.currentState = newState;
   }
 
