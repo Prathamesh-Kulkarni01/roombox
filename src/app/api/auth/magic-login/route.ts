@@ -4,6 +4,7 @@ import { getAdminDb, getAdminAuth, selectOwnerDataAdminDb } from "@/lib/firebase
 import { FieldValue } from "firebase-admin/firestore";
 import { serverError, badRequest, unauthorized } from "@/lib/api/apiError";
 import type { Firestore } from "firebase-admin/firestore";
+import { resolveTimeProvider } from "@/lib/providers";
 
 export async function GET(req: NextRequest) {
     try {
@@ -17,8 +18,9 @@ export async function GET(req: NextRequest) {
 
         if (!doc.exists) return unauthorized("Invalid link");
 
+        const timeProvider = resolveTimeProvider();
         const data = doc.data()!;
-        if (data.used || (data.expiresAt && Date.now() > data.expiresAt)) {
+        if (data.used || (data.expiresAt && timeProvider.now() > data.expiresAt)) {
             return unauthorized("Link expired or already used");
         }
 
@@ -51,9 +53,10 @@ export async function POST(req: NextRequest) {
             return unauthorized("Invalid or expired login link");
         }
 
+        const timeProvider = resolveTimeProvider();
         const centralData = centralMagicDoc.data()!;
 
-        if (centralData.expiresAt && Date.now() > centralData.expiresAt) {
+        if (centralData.expiresAt && timeProvider.now() > centralData.expiresAt) {
             return unauthorized("This login link has expired. Please contact your host.");
         }
         if (centralData.used && centralData.consumedBy !== 'magic-login') {
@@ -138,7 +141,7 @@ export async function POST(req: NextRequest) {
                         const newDocRef = adminDb.collection('users').doc(authUser.uid);
                         await newDocRef.set({
                             ...userDoc.data(),
-                            updatedAt: Date.now()
+                            updatedAt: timeProvider.now()
                         }, { merge: true });
                     }
                     uid = authUser.uid;
@@ -152,11 +155,11 @@ export async function POST(req: NextRequest) {
         }
 
         // ── 4. Mark as used (both central pointer and source) ────────────────────────────────
-        const usedUpdate = { used: true, usedAt: Date.now(), consumedBy: 'magic-login' };
+        const usedUpdate = { used: true, usedAt: timeProvider.now(), consumedBy: 'magic-login' };
         await sourceMagicRef.update(usedUpdate);
         if (isShardedTenant) {
             // Also mark the central pointer as used
-            await centralMagicRef.update({ used: true, usedAt: Date.now() });
+            await centralMagicRef.update({ used: true, usedAt: timeProvider.now() });
         }
 
         // ── 5. For non-sharded tenants only: update central users/ doc ───────────────────────
@@ -164,7 +167,7 @@ export async function POST(req: NextRequest) {
             const userRef = adminDb.collection('users').doc(uid);
             const userDocSnapshot = await userRef.get();
 
-            const promotionUpdates: any = { updatedAt: Date.now() };
+            const promotionUpdates: any = { updatedAt: timeProvider.now() };
 
             if (magicLinkData.guestId) {
                 promotionUpdates.guestId = magicLinkData.guestId;
@@ -219,7 +222,7 @@ export async function POST(req: NextRequest) {
                     ownerId: magicLinkData.ownerId,
                     role,
                     status: 'active',
-                    updatedAt: new Date()
+                    updatedAt: timeProvider.date()
                 });
             }
 
