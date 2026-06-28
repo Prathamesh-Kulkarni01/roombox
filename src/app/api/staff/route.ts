@@ -4,6 +4,7 @@
  * Complex invite/email logic remains in Redux staffSlice thunks.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
@@ -50,7 +51,7 @@ export async function PATCH(req: NextRequest) {
         if (!staffId || !updates) return badRequest('staffId and updates are required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        const appDb = await getAdminDb();
+        const { db: appDb } = await resolveTenant(req);
         await StaffService.updateStaff(db, appDb, ownerId, staffId, updates, performer);
 
         const updated = await db.collection('users_data').doc(ownerId).collection('staff').doc(staffId).get();
@@ -73,7 +74,7 @@ export async function DELETE(req: NextRequest) {
         if (!staffId) return badRequest('staffId is required');
 
         const db = await selectOwnerDataAdminDb(ownerId);
-        const appDb = await getAdminDb();
+        const { db: appDb } = await resolveTenant(req);
         await StaffService.deleteStaff(db, appDb, ownerId, staffId, performer);
 
         return NextResponse.json({ success: true, staffId });

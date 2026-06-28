@@ -157,18 +157,13 @@ export default function WalletPage() {
   const planType: BillingPlanType =
     currentUser.billingConfig?.planType ?? "monthly";
   const perTenantFee =
-    currentUser.billingConfig?.perTenantFee ??
-    (planType === "yearly"
-      ? PRICING_CONFIG.yearly.perTenant
-      : planType === "sixMonth"
-        ? PRICING_CONFIG.sixMonth.perTenant
-        : PRICING_CONFIG.monthly.perTenant);
+    currentUser.billingConfig?.perTenantFee ?? PRICING_CONFIG.monthly.perTenant;
   const baseFee = currentUser.billingConfig?.baseFee ?? PRICING_CONFIG.baseFee;
 
   const planLabels: Record<BillingPlanType, string> = {
-    monthly: "Pay-As-You-Go",
-    sixMonth: "6-Month Saver",
-    yearly: "Annual Pro",
+    monthly: "Standard Plan",
+    sixMonth: "Standard Plan",
+    yearly: "Standard Plan",
     trial: "Free Trial",
   };
 
@@ -176,6 +171,7 @@ export default function WalletPage() {
     website: "Your own property website to capture leads directly.",
     kyc: "Instant identity verification for all your tenants.",
     whatsapp: "Automated rent reminders & receipts via WhatsApp.",
+    enterprise: "Enterprise sharded database for maximum privacy and BYODB setup.",
   };
 
   return (
@@ -456,19 +452,20 @@ export default function WalletPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="p-4 rounded-2xl bg-card border border-border/50 shadow-sm">
+                     <div className="p-4 rounded-2xl bg-card border border-border/50 shadow-sm">
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                           Usage Billing
                         </span>
                         <span className="text-xs font-black text-primary">
-                          {billingDetails.details.billableTenantCount || 0}{" "}
-                          Tenants
+                          {billingDetails.details.billableTenantCount || 0} Beds
                         </span>
                       </div>
                       <div className="flex justify-between items-end">
                         <p className="text-sm font-bold">
-                          ₹{perTenantFee}/tenant
+                          {billingDetails.details.billableTenantCount <= 20 
+                            ? "First 20 Beds Free" 
+                            : `${billingDetails.details.billableTenantCount - 20} billed @ ₹${perTenantFee}/bed`}
                         </p>
                         <p className="text-lg font-black italic tracking-tighter">
                           ₹

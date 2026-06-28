@@ -8,12 +8,25 @@ import { getBrandedAppUrl } from '@/lib/actions/siteActions';
 export class StaffService {
     /**
      * Generates a single-use magic link token for a staff member.
+     *
+     * ENTERPRISE SHARDING SUPPORT:
+     * - `primaryDb` — Where the FULL magic link record is stored (custom DB for sharded owners, central for regular).
+     * - `centralDb` — (optional) When different from primaryDb, a PII-free routing pointer is also written here.
      */
-    static async generateMagicLink(appDb: Firestore, staffId: string, phone: string, ownerId: string, role: string, pgName?: string): Promise<{ magicLink: string, inviteCode: string }> {
+    static async generateMagicLink(
+        primaryDb: Firestore,
+        staffId: string,
+        phone: string,
+        ownerId: string,
+        role: string,
+        pgName?: string,
+        centralDb?: Firestore
+    ): Promise<{ magicLink: string, inviteCode: string }> {
         const token = crypto.randomBytes(32).toString('hex');
         const inviteCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days expiry for staff
 
-        await appDb.collection('magic_links').doc(token).set({
+        const magicLinkData = {
             token,
             inviteCode,
             staffId,
@@ -22,9 +35,26 @@ export class StaffService {
             role,
             pgName: pgName || 'RentSutra',
             createdAt: Date.now(),
-            expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days expiry for staff
+            expiresAt,
             used: false
-        });
+        };
+
+        // Store full magic link data in primaryDb (custom DB for sharded, central for regular)
+        await primaryDb.collection('magic_links').doc(token).set(magicLinkData);
+
+        // For sharded: also store a PII-free routing pointer in central DB
+        const isSharded = centralDb && centralDb !== primaryDb;
+        if (isSharded && centralDb) {
+            await centralDb.collection('magic_links').doc(token).set({
+                token,
+                inviteCode,
+                ownerId,
+                isShardedTenant: true,
+                expiresAt,
+                used: false,
+                // NOTE: phone intentionally NOT stored here to protect staff privacy
+            });
+        }
 
         const appUrl = await getBrandedAppUrl(ownerId);
         const magicLink = `${appUrl}/invite/${token}`;
@@ -81,7 +111,11 @@ export class StaffService {
         });
 
         // 2. Create/Update skeleton user in appDb (users collection)
-        if (appDb) {
+        // ENTERPRISE SHARDING: When db !== appDb, the owner uses a custom DB.
+        // In that case, skip writing a staff skeleton to the central users/ collection.
+        const isShardedOwner = db !== appDb;
+
+        if (appDb && !isShardedOwner) {
             let uid = `staff-${standardizedPhone.replace(/\D/g, '').slice(-10)}`;
             const cleanPhoneTen = standardizedPhone.replace(/\D/g, '').slice(-10);
             const internalEmail = `${cleanPhoneTen}@roombox.app`;
@@ -174,7 +208,17 @@ export class StaffService {
                     const { createAndSendNotification } = await import('@/lib/actions/notificationActions');
                     
                     const primaryPgName = pgNames?.[0] || 'RentSutra';
-                    const { magicLink } = await StaffService.generateMagicLink(appDb, staffId, standardizedPhone, ownerId, role, primaryPgName);
+                    // For sharded enterprise owners: store magic link in custom DB, pointer in central DB
+                    const isShardedForStaff = db !== appDb;
+                    const { magicLink } = await StaffService.generateMagicLink(
+                        isShardedForStaff ? db : appDb,
+                        staffId,
+                        standardizedPhone,
+                        ownerId,
+                        role,
+                        primaryPgName,
+                        isShardedForStaff ? appDb : undefined
+                    );
                     
                     const dashboardUrl = magicLink;
 

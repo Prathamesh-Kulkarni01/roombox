@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
             return badRequest('Missing OTP.');
         }
 
-        const adminDb = await getAdminDb();
+        const { db: adminDb } = await resolveTenant(req);
         const userRef = adminDb.collection('users').doc(ownerId);
 
         const userDoc = await userRef.get();

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Building2, LayoutGrid, BedDouble, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { auth } from '@/lib/firebase';
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import type { PG } from '@/lib/types';
 
 interface BulkSetupModalProps {
@@ -18,6 +18,7 @@ interface BulkSetupModalProps {
 }
 
 export default function BulkSetupModal({ pg, open, onOpenChange, onSuccess }: BulkSetupModalProps) {
+    const { auth } = useFirebaseTenant();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({

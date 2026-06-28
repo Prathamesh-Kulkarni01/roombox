@@ -27,7 +27,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { auth } from '@/lib/firebase';
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import { cn } from '@/lib/utils';
 import ReactConfetti from 'react-confetti';
 import Image from 'next/image';
@@ -68,6 +68,7 @@ export default function PaymentsBillingPage() {
     const dispatch = useAppDispatch();
     const { currentUser } = useAppSelector(state => state.user);
     const { toast } = useToast();
+    const { auth } = useFirebaseTenant();
     const { width, height } = useWindowSize();
     const [isSaving, startSavingTransition] = useTransition();
     const [isPayoutDialogOpen, setIsPayoutDialogOpen] = useState(false);

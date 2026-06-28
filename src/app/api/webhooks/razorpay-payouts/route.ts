@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
 
         console.log(`[Webhook: Razorpay-Payouts] Processing ${event.event} for Payment: ${paymentId}, Payout: ${payout.id}`);
 
-        const adminDb = await getAdminDb();
+        const { db: adminDb } = await resolveTenant(req);
         
         // --- 1. IDEMPOTENCY CHECK ---
         const eventRef = adminDb.collection('processed_webhook_events').doc(event.id);

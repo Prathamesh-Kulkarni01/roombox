@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { TenantService } from '@/services/tenantService';
 import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { badRequest, forbidden, notFound, serverError, unauthorized } from '@/lib/api/apiError';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { enforcePermission, enforcePermissionForStaff } from '@/lib/rbac-middleware';
@@ -167,7 +168,7 @@ export async function POST(req: NextRequest) {
 
         const { ownerId: _unused, ...guestInput } = parsed.data;
         const db = await selectOwnerDataAdminDb(ownerId);
-        const appDb = await getAdminDb(); // for user/invite linking
+        const { db: appDb } = await resolveTenant(req, ownerId); // for user/invite linking
 
         const { guest: newGuest, magicLink } = await TenantService.onboardTenant(db, appDb, { 
             ...guestInput,
@@ -208,6 +209,7 @@ export async function PATCH(req: NextRequest) {
         }
 
         const db = await selectOwnerDataAdminDb(ownerId);
+        const { db: appDb } = await resolveTenant(req, ownerId);
         const performer = { userId, name: authName || 'Unknown User' };
 
         switch (data.action) {
@@ -224,7 +226,7 @@ export async function PATCH(req: NextRequest) {
             }
 
             case 'vacate': {
-                const appDb = await getAdminDb();
+                const { db: appDb } = await resolveTenant(req, ownerId);
                 const result = await TenantService.vacateTenant(db, ownerId, data.guestId, performer, appDb || undefined, data.sendWhatsApp);
                 return NextResponse.json({ success: true, ...result });
             }

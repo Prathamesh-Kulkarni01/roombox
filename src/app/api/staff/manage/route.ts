@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { StaffService } from '@/services/staffService';
 import { enforcePermission } from '@/lib/rbac-middleware';
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
         const effectivePerformer = performer || { userId: userId, name: name || 'System', role: result.role };
 
 
-        const appDb = await getAdminDb();
+        const { db: appDb } = await resolveTenant(req);
         const db = await selectOwnerDataAdminDb(ownerId); 
 
         switch (action) {

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import { signInWithCustomToken } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +11,7 @@ function SSOCallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { auth } = useFirebaseTenant();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ function SSOCallbackContent() {
 }
 
 export default function SSOCallbackPage() {
+    const { auth } = useFirebaseTenant();
   return (
     <Suspense fallback={
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">

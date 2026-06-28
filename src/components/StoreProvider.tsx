@@ -22,6 +22,8 @@ import {
   getDynamicDb,
   getOwnerClientDb,
   isEmulator,
+  getActiveDb,
+  getActiveAuth,
 } from "@/lib/firebase";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
@@ -112,48 +114,114 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
   // Auth state listener
   useEffect(() => {
-    if (!isFirebaseConfigured() || authListenerStarted.current || !auth) {
-      setAuthReady(true);
-      return;
-    }
-
-    authListenerStarted.current = true;
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (firebaseUser: FirebaseUser | null) => {
-        console.log(
-          `[StoreProvider] Auth change detected. User: ${firebaseUser?.uid || "logged out"}`,
-        );
-        setAuthReady(false);
-
-        if (firebaseUser) {
-          // First initialization
-          await dispatch(initializeUser(firebaseUser));
-
-          // Add real-time user doc listener to catch role/guestId updates while logged in
-          const userDocRef = doc(db!, "users", firebaseUser.uid);
-          const userUnsub = onSnapshot(userDocRef, (snap) => {
-            if (snap.exists()) {
-              const userData = { ...snap.data(), id: snap.id } as User;
-              // Use the same action that initializeUser uses internally if possible,
-              // or just dispatch setCurrentUser (need to make sure we don't overwrite crucial metadata)
-              // For now, let's just trigger initializeUser again if role/guestId changes significantly?
-              // Actually, we can just update the Redux state directly.
-              dispatch(setCurrentUser(userData));
-            }
-          });
-
-          setDataListeners((prev) => [...prev, userUnsub]);
-        } else {
-          dispatch(logoutUser());
-          dispatch(setLoading(false));
-        }
+    let unsubscribe: Unsubscribe | null = null;
+    
+    const initAuthListener = async () => {
+      if (!isFirebaseConfigured() || authListenerStarted.current) {
         setAuthReady(true);
-      },
-    );
+        return;
+      }
+
+      authListenerStarted.current = true;
+      
+      let activeAuth = auth;
+      let activeDb = db;
+
+      // Subdomain check
+      try {
+        const host = window.location.host;
+        const parts = host.split('.');
+        let isSubdomain = false;
+        const systemSubdomains = ['www', 'rentsutra', 'roombox', 'dev', 'staging', 'localhost'];
+
+        if (parts.length >= 3) {
+          if (parts.includes('dev') || parts.includes('staging')) {
+            if (parts.length >= 4 && !systemSubdomains.includes(parts[0])) {
+              isSubdomain = true;
+            }
+          } else {
+            if (!systemSubdomains.includes(parts[0])) {
+              isSubdomain = true;
+            }
+          }
+        } else if (parts.length === 2 && parts[1].startsWith('localhost') && parts[0] !== 'localhost') {
+          isSubdomain = true;
+        }
+
+        if (isSubdomain) {
+          // Fetch tenant config
+          const res = await fetch(`/api/tenant-config?domain=${encodeURIComponent(host)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.isEnterprise && data.clientConfig) {
+              const { initializeApp, getApps } = await import('firebase/app');
+              const { getAuth } = await import('firebase/auth');
+              const { getFirestore } = await import('firebase/firestore');
+
+              const appName = `tenant-login-instance`;
+              let tenantApp = getApps().find(a => a.name === appName);
+              if (!tenantApp) {
+                tenantApp = initializeApp(data.clientConfig, appName);
+              }
+              activeAuth = getAuth(tenantApp);
+              
+              if (data.databaseId && data.databaseId !== '(default)' && data.databaseId !== 'default') {
+                try {
+                  activeDb = getFirestore(tenantApp, data.databaseId);
+                } catch {
+                  activeDb = getFirestore(tenantApp);
+                }
+              } else {
+                activeDb = getFirestore(tenantApp);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[StoreProvider] Failed to fetch tenant config:", err);
+      }
+
+      if (!activeAuth) {
+        setAuthReady(true);
+        return;
+      }
+
+      unsubscribe = onAuthStateChanged(
+        activeAuth,
+        async (firebaseUser: FirebaseUser | null) => {
+          console.log(
+            `[StoreProvider] Auth change detected. User: ${firebaseUser?.uid || "logged out"}`,
+          );
+          setAuthReady(false);
+
+          if (firebaseUser) {
+            // First initialization
+            await dispatch(initializeUser(firebaseUser));
+
+            // Add real-time user doc listener to catch role/guestId updates while logged in
+            if (activeDb) {
+              const userDocRef = doc(activeDb, "users", firebaseUser.uid);
+              const userUnsub = onSnapshot(userDocRef, (snap) => {
+                if (snap.exists()) {
+                  const userData = { ...snap.data(), id: snap.id } as User;
+                  dispatch(setCurrentUser(userData));
+                }
+              });
+              setDataListeners((prev) => [...prev, userUnsub]);
+            }
+          } else {
+            dispatch(logoutUser());
+            dispatch(setLoading(false));
+          }
+          setAuthReady(true);
+        },
+      );
+    };
+
+    initAuthListener();
 
     return () => {
-      unsubscribe();
+      if (unsubscribe) unsubscribe();
       authListenerStarted.current = false;
     };
   }, [dispatch]);
@@ -337,8 +405,9 @@ function AuthHandler({ children }: { children: ReactNode }) {
         // Role-claims sync check: ensure Firestore listeners use the correct token claims
     // We check if the token has the expected 'role', 'ownerId', or 'pgIds' hash for the current state.
     const verifyClaims = async () => {
-      if (!auth?.currentUser) return false;
-      const idTokenResult = await auth.currentUser.getIdTokenResult();
+      const activeAuth = getActiveAuth() || auth;
+      if (!activeAuth?.currentUser) return false;
+      const idTokenResult = await activeAuth.currentUser.getIdTokenResult();
       const tokenRole = idTokenResult.claims.role;
       const tokenOwnerId = idTokenResult.claims.ownerId;
       const tokenPgIdsHash = idTokenResult.claims.pgIdsHash;
@@ -358,7 +427,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
           `[StoreProvider] Claims mismatch detected. Refreshing token...`,
           { tokenRole, reduxRole: currentUser.role, tokenPgIdsHash, currentPgIdsHash }
         );
-        await auth.currentUser.getIdToken(true);
+        await activeAuth.currentUser.getIdToken(true);
         return true;
       }
       return true;
@@ -375,7 +444,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
       ? getOwnerClientDb(clientConfig, enterpriseDbId)
       : enterpriseDbId
         ? getDynamicDb(enterpriseDbId)
-        : db;
+        : getActiveDb() || db;
 
     if (!dbInstance || !ownerIdForFetching) {
       dispatch(setLoading(false));
@@ -560,16 +629,23 @@ function AuthHandler({ children }: { children: ReactNode }) {
           currentUser.guestId
         ) {
           const { ownerId, pgId, guestId, id: userId } = currentUser;
+          console.log(`[StoreProvider] Tenant data fetching: ownerId=${ownerId}, pgId=${pgId}, guestId=${guestId}, DB=${(dbInstance as any)?.app?.options?.projectId}`);
 
           const unsubPg = onSnapshot(
             doc(dbInstance, "users_data", ownerId, "pgs", pgId),
-            (snap) =>
-              dispatch(setPgs(snap.exists() ? [snap.data() as PG] : [])),
+            (snap) => {
+              console.log(`[StoreProvider] PG Snapshot exists: ${snap.exists()}`);
+              dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []))
+            },
+            (error) => console.error('[StoreProvider] PG Snapshot error:', error)
           );
           const unsubGuest = onSnapshot(
             doc(dbInstance, "users_data", ownerId, "guests", guestId),
-            (snap) =>
-              dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : [])),
+            (snap) => {
+              console.log(`[StoreProvider] Guest Snapshot exists: ${snap.exists()}`);
+              dispatch(setGuests(snap.exists() ? [snap.data() as Guest] : []))
+            },
+            (error) => console.error('[StoreProvider] Guest Snapshot error:', error)
           );
           unsubs.push(unsubPg, unsubGuest);
           setDataListeners((prev) => [...prev, unsubPg, unsubGuest]);

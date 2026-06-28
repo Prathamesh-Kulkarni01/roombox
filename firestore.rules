@@ -277,6 +277,16 @@ service cloud.firestore {
       );
     }
 
+    // ─── Activity Logs ────────────────────────────────────────────────────────
+    match /activity_logs/{logId} {
+      allow read, write: if isAuth() && (
+        resource == null || 
+        resource.data.ownerId == request.auth.uid || 
+        request.resource.data.ownerId == request.auth.uid ||
+        request.auth.token.ownerId != null
+      );
+    }
+
     // ─── Default: deny all ───────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

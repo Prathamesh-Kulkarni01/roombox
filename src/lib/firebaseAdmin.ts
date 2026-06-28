@@ -1,14 +1,66 @@
-
-
 import './purgeEmulators';
 
 import { initializeApp, getApps, cert, App, AppOptions } from 'firebase-admin/app';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import { getFirestore, Firestore, DocumentReference, DocumentSnapshot, FieldPath } from 'firebase-admin/firestore';
 import { getMessaging, Messaging } from 'firebase-admin/messaging';
 import { getStorage, Storage } from 'firebase-admin/storage';
 import { getAuth, Auth } from 'firebase-admin/auth';
+import { decryptTokens } from './encryption';
 
-const adminApps: Map<string, App> = new Map();
+/**
+ * Adapter that mocks a Firebase Transaction using a standard WriteBatch.
+ * This is used strictly as a workaround for BYODB (Bring-Your-Own-Database) Enterprise tenants 
+ * using OAuth credentials, because GCP Datastore rejects native server-SDK transactions 
+ * with PERMISSION_DENIED unless a Service Account is used.
+ */
+class OAuthTransactionAdapter {
+  private batch: FirebaseFirestore.WriteBatch;
+  
+  constructor(private db: FirebaseFirestore.Firestore) {
+      this.batch = db.batch();
+  }
+
+  async get(documentRef: DocumentReference): Promise<DocumentSnapshot> {
+      return await documentRef.get();
+  }
+
+  async getAll(...documentRefs: DocumentReference[]): Promise<DocumentSnapshot[]> {
+      if (documentRefs.length === 0) return [];
+      return await Promise.all(documentRefs.map(ref => ref.get()));
+  }
+
+  set(documentRef: DocumentReference, data: any, options?: any): this {
+      if (options) {
+          this.batch.set(documentRef, data, options);
+      } else {
+          this.batch.set(documentRef, data);
+      }
+      return this;
+  }
+
+  update(documentRef: DocumentReference, data: any): this;
+  update(documentRef: DocumentReference, field: string | FieldPath, value: any, ...moreFieldsOrValues: any[]): this;
+  update(documentRef: DocumentReference, dataOrField: any, ...rest: any[]): this {
+      if (typeof dataOrField === 'string' || dataOrField instanceof FieldPath) {
+           this.batch.update(documentRef, dataOrField, rest[0], ...rest.slice(1));
+      } else {
+           this.batch.update(documentRef, dataOrField);
+      }
+      return this;
+  }
+
+  delete(documentRef: DocumentReference): this {
+      this.batch.delete(documentRef);
+      return this;
+  }
+
+  async commit(): Promise<void> {
+      await this.batch.commit();
+  }
+}
+
+import { LRUCache } from './lru-cache';
+const adminApps = new LRUCache<string, App>(50);
 
 import { getEnv } from './env';
 
@@ -121,6 +173,8 @@ export async function getAdminAuth(projectId?: string): Promise<Auth> {
   return getAuth(getAdminApp(projectId));
 }
 
+const customFirestoreInstances = new LRUCache<string, Firestore>(50);
+
 /**
  * Generic selector: fetch owner user doc from App DB and return their data DB.
  * 
@@ -133,10 +187,89 @@ export async function getAdminAuth(projectId?: string): Promise<Auth> {
 export async function selectOwnerDataAdminDb(ownerId: string): Promise<Firestore> {
   const appDb = await getAdminDb();
   const ownerDoc = await appDb.collection('users').doc(ownerId).get();
-  const enterpriseDbId = ownerDoc.data()?.subscription?.enterpriseProject?.databaseId as string | undefined;
-  const enterpriseProjectId = ownerDoc.data()?.subscription?.enterpriseProject?.projectId as string | undefined;
+  const ownerData = ownerDoc.data();
+  const enterpriseProject = ownerData?.subscription?.enterpriseProject;
+  
+  if (!enterpriseProject) {
+      return getAdminDb();
+  }
+  
+  const enterpriseDbId = enterpriseProject.databaseId as string | undefined;
+  const enterpriseProjectId = enterpriseProject.projectId as string | undefined;
+  const oauthTokens = enterpriseProject.oauthTokens;
+  const serviceAccountJson = enterpriseProject.serviceAccountJson;
+
+  if (enterpriseProjectId && (serviceAccountJson || oauthTokens)) {
+    const cacheKey = `${ownerId}:${enterpriseProjectId}:${enterpriseDbId || '(default)'}`;
+    if (customFirestoreInstances.has(cacheKey)) {
+      return customFirestoreInstances.get(cacheKey)!;
+    }
+
+    console.log(`[FirebaseAdmin] Initializing custom Firestore for owner ${ownerId} (project: ${enterpriseProjectId})`);
+    try {
+      if (serviceAccountJson) {
+        // NATIVE SERVICE ACCOUNT INITIALIZATION (Preferred V2 Approach)
+        console.log(`[FirebaseAdmin] Using native Service Account for ${ownerId}`);
+        const { Firestore: GCFirestore } = require('@google-cloud/firestore');
+        const credentials = typeof serviceAccountJson === 'string' 
+            ? JSON.parse(serviceAccountJson) 
+            : serviceAccountJson;
+            
+        const firestore: Firestore = new GCFirestore({
+            projectId: enterpriseProjectId,
+            databaseId: enterpriseDbId && enterpriseDbId !== '(default)' ? enterpriseDbId : undefined,
+            credentials,
+        });
+        
+        firestore.settings({ ignoreUndefinedProperties: true });
+        customFirestoreInstances.set(cacheKey, firestore);
+        return firestore;
+      } 
+      else if (oauthTokens) {
+        // OAUTH FALLBACK (Legacy)
+        console.warn(`[FirebaseAdmin] Using legacy OAuth fallback for ${ownerId}`);
+        const { google } = require('googleapis');
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET
+        );
+        oauth2Client.setCredentials(decryptTokens(oauthTokens));
+
+        if (typeof oauth2Client.getUniverseDomain !== 'function') oauth2Client.getUniverseDomain = async () => 'googleapis.com';
+        if (typeof oauth2Client.getProjectId !== 'function') oauth2Client.getProjectId = async () => enterpriseProjectId;
+        if (typeof oauth2Client.getClient !== 'function') oauth2Client.getClient = async () => oauth2Client;
+
+        const { Firestore: GCFirestore } = require('@google-cloud/firestore');
+        const firestore: Firestore = new GCFirestore({
+          projectId: enterpriseProjectId,
+          databaseId: enterpriseDbId && enterpriseDbId !== '(default)' ? enterpriseDbId : undefined,
+          authClient: oauth2Client,
+        });
+
+        firestore.settings({ ignoreUndefinedProperties: true });
+        
+        firestore.runTransaction = async <T>(updateFunction: (transaction: FirebaseFirestore.Transaction) => Promise<T>, transactionOptions?: any): Promise<T> => {
+            const mockTx = new OAuthTransactionAdapter(firestore);
+            const result = await updateFunction(mockTx as any);
+            await mockTx.commit();
+            return result;
+        };
+
+        customFirestoreInstances.set(cacheKey, firestore);
+        return firestore;
+      }
+    } catch (error) {
+      console.error(`[FirebaseAdmin] Failed to initialize custom Firestore for owner ${ownerId}:`, error);
+      console.warn(`[FirebaseAdmin] Falling back to CENTRAL database for owner ${ownerId}.`);
+      return getAdminDb(); 
+    }
+  }
+
   return getAdminDb(enterpriseProjectId, enterpriseDbId);
 }
+
+
+
 
 // Export auth instance for convenience
 export const auth = getAuth(initializeAdminApp());

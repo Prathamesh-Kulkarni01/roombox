@@ -1,4 +1,4 @@
-import { getAdminDb } from '../firebaseAdmin';
+import { selectOwnerDataAdminDb } from '../firebaseAdmin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 export interface WhatsAppLog {
@@ -28,7 +28,7 @@ export class WhatsAppLogsService {
      */
     static async logMessage(log: Omit<WhatsAppLog, 'id' | 'timestamp'>) {
         try {
-            const adminDb = await getAdminDb();
+            const adminDb = await selectOwnerDataAdminDb(log.ownerId);
             const logRef = adminDb.collection(this.COLLECTION).doc();
 
             const logData: any = {
@@ -59,7 +59,7 @@ export class WhatsAppLogsService {
      */
     static async getOwnerLogs(ownerId: string, limit: number = 50) {
         try {
-            const adminDb = await getAdminDb();
+            const adminDb = await selectOwnerDataAdminDb(ownerId);
             let query = adminDb.collection(this.COLLECTION)
                 .where('ownerId', '==', ownerId);
 

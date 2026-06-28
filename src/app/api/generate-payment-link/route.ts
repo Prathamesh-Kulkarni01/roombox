@@ -4,7 +4,8 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { resolveTenant } from '@/lib/tenantResolver';
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 
 const tokenRequestSchema = z.object({
   guestId: z.string(),
@@ -29,17 +30,8 @@ export async function POST(req: NextRequest) {
 
     const { guestId } = validation.data;
 
-    const adminDb = await getAdminDb();
-    // 1. Fetch owner to get enterprise database info
-    const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
-    if (!ownerDoc.exists) return notFound('Owner not found.');
-
-    const ownerData = ownerDoc.data();
-    const enterpriseDbId = ownerData?.subscription?.enterpriseProject?.databaseId;
-    const enterpriseProjectId = ownerData?.subscription?.enterpriseProject?.projectId;
-
-    // 2. Fetch guest from the correct database to verify ownership
-    const dataDb = await getAdminDb(enterpriseProjectId, enterpriseDbId);
+    // Fetch guest from the correct database (automatically resolves Enterprise DB if configured)
+    const dataDb = await selectOwnerDataAdminDb(ownerId);
     const guestDoc = await dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
 
     if (!guestDoc.exists) {

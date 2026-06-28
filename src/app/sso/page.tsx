@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { auth } from '@/lib/firebase';
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
 function SSOProviderContent() {
   const searchParams = useSearchParams();
+  const { auth } = useFirebaseTenant();
   const [status, setStatus] = useState('Checking credentials...');
 
   useEffect(() => {
@@ -86,6 +87,7 @@ function SSOProviderContent() {
 }
 
 export default function SSOProviderPage() {
+    const { auth } = useFirebaseTenant();
   return (
     <Suspense fallback={
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">

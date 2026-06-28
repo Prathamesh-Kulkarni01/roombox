@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { ActivityLogsService } from '@/lib/activity-logs-service';
 import jwt from 'jsonwebtoken';
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
             guestId = decoded.guestId;
         } catch (jwtError) {
             // Fallback: try public_tokens collection
-            const db = await getAdminDb();
+            const { db: db } = await resolveTenant(req);
             const tokensSnap = await db.collection('public_tokens').doc(token).get();
             if (!tokensSnap.exists) {
                 return NextResponse.json({ success: false, error: 'Invalid or expired token.' }, { status: 404 });
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
             guestId = tokenData.guestId;
         }
 
-        const db = await getAdminDb();
+        const { db: db } = await resolveTenant(req);
 
         let guestData: any;
         await db.runTransaction(async (txn: any) => {

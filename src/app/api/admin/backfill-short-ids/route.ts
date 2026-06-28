@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { nanoid } from 'nanoid';
 
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const db = await getAdminDb();
+        const { db: db } = await resolveTenant(req);
         const usersDataSnap = await db.collection('users_data').get();
         
         let totalUpdated = 0;

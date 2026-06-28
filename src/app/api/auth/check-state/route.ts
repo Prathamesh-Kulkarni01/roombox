@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 
 export async function POST(req: NextRequest) {
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        const appDb = await getAdminDb();
+        const { db: appDb } = await resolveTenant(req);
         const cleanPhoneDigits = cleanPhone.slice(-10);
         
         // 1. Check for Active Invitation (Magic Link)

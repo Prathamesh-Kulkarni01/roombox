@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { PaymentSystemService } from '@/services/paymentSystemService';
 import { enforcePermission } from '@/lib/rbac-middleware';
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
         const { guestId, paymentId, verifiedAmount } = await req.json();
 
 
-        const db = await getAdminDb();
+        const { db: db } = await resolveTenant(req);
 
         // 1. Verify payment using the service
         await PaymentSystemService.verifyPaymentIntent(db, ownerId, guestId, paymentId, verifiedAmount);

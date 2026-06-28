@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { PropertyService } from '@/services/propertyService';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
 
         // Update owner summary in main app DB using centralized logic
         try {
-            const appDb = await getAdminDb();
+            const { db: appDb } = await resolveTenant(req);
             await PropertyService.syncPgSummary(db, appDb, ownerId);
         } catch (summaryErr) {
             console.warn('Could not update owner summary:', summaryErr);
@@ -183,7 +184,7 @@ export async function DELETE(req: NextRequest) {
 
         // Update owner summary using centralized logic
         try {
-            const appDb = await getAdminDb();
+            const { db: appDb } = await resolveTenant(req);
             await PropertyService.syncPgSummary(db, appDb, ownerId);
         } catch (summaryErr) {
             console.warn('Could not update owner summary after delete:', summaryErr);

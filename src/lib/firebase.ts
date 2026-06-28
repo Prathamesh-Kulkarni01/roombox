@@ -1,8 +1,6 @@
-
-
 import { initializeApp, getApps, getApp, type FirebaseOptions, type FirebaseApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, initializeFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
 
 const firebaseConfig: FirebaseOptions = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -29,10 +27,29 @@ export const isFirebaseConfigured = () => {
 }
 
 // Initialize Firebase
-const app = isFirebaseConfigured() && !getApps().length ? initializeApp(firebaseConfig) : (getApps().length > 0 ? getApp() : null);
+const app = (() => {
+    if (!isFirebaseConfigured()) return null;
+    const existing = getApps().find(a => a.name === '[DEFAULT]');
+    if (existing) return existing;
+    try {
+        return initializeApp(firebaseConfig);
+    } catch (e) {
+        try {
+            return getApp('[DEFAULT]');
+        } catch {
+            return null;
+        }
+    }
+})();
 
 // Initialize default firestore instance
-const db = app ? initializeFirestore(app, { experimentalAutoDetectLongPolling: true }) : null;
+const db = app ? (() => {
+    try {
+        return initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+    } catch (e) {
+        return getFirestore(app);
+    }
+})() : null;
 const auth = app ? getAuth(app) : null;
 
 // Connect to emulators if host variables are set and we are in emulator mode
@@ -106,8 +123,18 @@ export function getOwnerClientDb(config: OwnerClientConfig, databaseId?: string)
     const app = getOwnerClientApp(config);
     if (!app) return null;
     const normalized = normalizeDatabaseId(databaseId);
-    if (!normalized) return getFirestore(app);
-    return initializeFirestore(app, { experimentalAutoDetectLongPolling: true }, normalized);
+    if (!normalized) {
+        try {
+            return initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+        } catch {
+            return getFirestore(app);
+        }
+    }
+    try {
+        return initializeFirestore(app, { experimentalAutoDetectLongPolling: true }, normalized);
+    } catch {
+        return getFirestore(app, normalized);
+    }
 }
 
 // Generic selector for owner data DB on the client
@@ -122,5 +149,17 @@ export function selectOwnerDataDb(currentUser: any) {
     }
     return db;
 }
+
+// Global active tenant state for non-React code (e.g. Redux apiSlice)
+let activeAuth: Auth | null = auth;
+let activeDb: Firestore | null = db;
+
+export function setActiveTenantContext(tenantAuth: Auth | null, tenantDb: Firestore | null) {
+    activeAuth = tenantAuth;
+    activeDb = tenantDb;
+}
+
+export function getActiveAuth() { return activeAuth; }
+export function getActiveDb() { return activeDb; }
 
 export { db, auth, app, firebaseConfig };

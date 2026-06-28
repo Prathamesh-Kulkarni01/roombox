@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPWAConfigBySubdomain, getPWAConfigByOwnerId, getOwnerForTenant } from '@/lib/pwa-config';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { auth, getAdminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -8,7 +9,7 @@ export async function GET(req: NextRequest) {
     let pwaConfig = null;
     let siteConfig = null;
 
-    const adminDb = await getAdminDb();
+    const { db: adminDb } = await resolveTenant(req);
 
     // First try to get config from subdomain
     const hostname = req.headers.get('host') || '';

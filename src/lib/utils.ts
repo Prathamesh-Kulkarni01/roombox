@@ -138,8 +138,9 @@ export const getCurrentPlan = (currentUser: User | null) => {
         return plans['trial'];
     }
 
-    const plan= plans[currentUser.subscription.planId]
-    return plan
+    const planId = currentUser.subscription.planId;
+    const plan = plans[planId as keyof typeof plans] || plans['monthly'] || plans['trial'];
+    return plan;
 }
 
 /**

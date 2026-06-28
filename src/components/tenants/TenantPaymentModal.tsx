@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { IndianRupee, AlertCircle, Loader2, Copy, Check, Smartphone, Upload, X, ImageIcon } from "lucide-react"
 import { format } from 'date-fns'
-import { auth } from '@/lib/firebase'
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import { generateRentSutraNote } from '@/lib/upi'
 import { useToast } from "@/hooks/use-toast"
 import type { PG, Guest } from "@/lib/types"
@@ -30,6 +30,7 @@ export default function TenantPaymentModal({
     onConfirmManual 
 }: TenantPaymentModalProps) {
     const { toast } = useToast();
+    const { auth } = useFirebaseTenant();
     const [utr, setUtr] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGeneratingLink, setIsGeneratingLink] = useState(false);

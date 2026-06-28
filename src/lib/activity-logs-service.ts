@@ -1,4 +1,4 @@
-import { getAdminDb } from './firebaseAdmin';
+import { selectOwnerDataAdminDb } from './firebaseAdmin';
 import { FieldValue, Timestamp, Query } from 'firebase-admin/firestore';
 import { ActivityLog, ActivityChange, ActivityType } from './types';
 
@@ -60,7 +60,7 @@ export class ActivityLogsService {
      */
     static async logActivity(log: Omit<ActivityLog, 'id' | 'timestamp'>) {
         try {
-            const adminDb = await getAdminDb();
+            const adminDb = await selectOwnerDataAdminDb(log.ownerId);
             const logRef = adminDb.collection(this.COLLECTION).doc();
 
             const logData: any = {
@@ -94,7 +94,7 @@ export class ActivityLogsService {
         lastId?: string;
     } = {}) {
         const { module, activityType, targetId, userId, limit = 20, lastId } = filters;
-        const adminDb = await getAdminDb();
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
         const collection = adminDb.collection(this.COLLECTION);
         
         let query: Query = collection.where('ownerId', '==', ownerId);

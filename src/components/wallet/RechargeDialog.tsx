@@ -31,7 +31,7 @@ import { useToast } from '@/hooks/use-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import Confetti from 'react-confetti'
 import { useWindowSize } from 'react-use'
-import { auth } from '@/lib/firebase'
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 
 interface RechargeDialogProps {
   open: boolean
@@ -50,10 +50,11 @@ export default function RechargeDialog({
 }: RechargeDialogProps) {
   const { currentUser } = useAppSelector((state) => state.user)
   const { toast } = useToast()
+  const { auth } = useFirebaseTenant()
   
   // -- State --
   const [bedCount, setBedCount] = useState(maxBedCount)
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'sixMonth' | 'yearly'>('monthly')
+  const [monthsCount, setMonthsCount] = useState<1 | 3 | 6>(1)
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -68,10 +69,8 @@ export default function RechargeDialog({
     }
   }, [open, maxBedCount])
 
-  // Get current plan config
-  const planConfig = PRICING_CONFIG[selectedPlan] as { perTenant: number }
-  const monthsCount = selectedPlan === 'monthly' ? 1 : selectedPlan === 'sixMonth' ? 6 : 12
-  const perTenantFee = planConfig.perTenant
+  // Flat rate for standard plan
+  const perTenantFee = PRICING_CONFIG.monthly.perTenant
 
   // Calculate Effective Fees including Premium Features
   let effectiveBaseFee = baseFee
@@ -88,7 +87,11 @@ export default function RechargeDialog({
     }
   })
 
-  const monthlyCost = (bedCount * effectivePerTenantFee + effectiveBaseFee)
+  // First 20 beds are free
+  const freeLimit = PRICING_CONFIG.freeBedsLimit || 20
+  const billableBeds = Math.max(0, bedCount - freeLimit)
+
+  const monthlyCost = (billableBeds * effectivePerTenantFee + effectiveBaseFee)
   const calculatedTotal = monthlyCost * monthsCount
   const effectiveAmount = selectedAmount || calculatedTotal
 
@@ -120,7 +123,7 @@ export default function RechargeDialog({
         },
         body: JSON.stringify({ 
           amount, 
-          description: `Wallet recharge: ${bedCount} beds (${selectedPlan} plan)` 
+          description: `Wallet recharge: ${bedCount} beds (${monthsCount} month coverage)` 
         }),
       })
       const { success, order, error } = await res.json()
@@ -144,7 +147,7 @@ export default function RechargeDialog({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_signature: response.razorpay_signature,
               amount,
-              description: `Wallet recharge: ${bedCount} beds (${selectedPlan} plan)`,
+              description: `Wallet recharge: ${bedCount} beds (${monthsCount} month coverage)`,
             }, freshToken || undefined)
 
             if (result.success && result.newBalance !== undefined) {
@@ -197,7 +200,7 @@ export default function RechargeDialog({
     setShowSuccess(false)
     setSelectedAmount(null)
     setBedCount(maxBedCount)
-    setSelectedPlan('monthly')
+    setMonthsCount(1)
     onOpenChange(false)
   }
 
@@ -327,20 +330,19 @@ export default function RechargeDialog({
                   </div>
                 </div>
 
-                {/* ─── Plan Selector ────────────────────────── */}
+                {/* ─── Duration Selector ────────────────────────── */}
                 <div className="space-y-2">
-                  <p className="text-[0.65rem] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Choose Billing Plan</p>
+                  <p className="text-[0.65rem] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Choose Duration Coverage</p>
                   <div className="grid grid-cols-3 gap-1.5 p-1.5 rounded-[1.8rem] sm:rounded-[2rem] bg-muted/40 border border-border/40 shadow-inner">
-                    {(['monthly', 'sixMonth', 'yearly'] as const).map((plan) => {
-                      const isActive = selectedPlan === plan;
-                      const planPrice = PRICING_CONFIG[plan].perTenant;
-                      const planLabel = plan === 'monthly' ? 'Monthly' : plan === 'sixMonth' ? '6 Months' : 'Yearly';
+                    {([1, 3, 6] as const).map((months) => {
+                      const isActive = monthsCount === months;
+                      const durationLabel = months === 1 ? '1 Month' : months === 3 ? '3 Months' : '6 Months';
                       
                       return (
                         <button
-                          key={plan}
+                          key={months}
                           onClick={() => {
-                            setSelectedPlan(plan);
+                            setMonthsCount(months);
                             setSelectedAmount(null);
                           }}
                           className={`
@@ -351,25 +353,11 @@ export default function RechargeDialog({
                             }
                           `}
                         >
-                          <span className="text-[0.6rem] font-black uppercase tracking-wider mb-1">{planLabel}</span>
-                          <span className="text-lg font-black tracking-tighter">₹{planPrice}</span>
-                          <span className="text-[0.5rem] font-bold opacity-60 uppercase tracking-tighter">/bed/mo</span>
-                          {plan === 'sixMonth' && (
+                          <span className="text-[0.65rem] font-black uppercase tracking-wider">{durationLabel}</span>
+                          {months === 6 && (
                             <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-primary rounded-full shadow-lg z-20">
-                              <span className="text-[0.45rem] font-black text-white uppercase tracking-tighter whitespace-nowrap">Best Value</span>
+                              <span className="text-[0.45rem] font-black text-white uppercase tracking-tighter whitespace-nowrap">Standard</span>
                             </div>
-                          )}
-                          {isActive && (
-                            <motion.div 
-                              layoutId="activePlan"
-                              className="absolute -top-1 -right-1"
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                            >
-                              <div className="p-1 bg-primary rounded-full shadow-lg">
-                                <Sparkles className="w-2.5 h-2.5 text-white" />
-                              </div>
-                            </motion.div>
                           )}
                         </button>
                       );
@@ -399,8 +387,12 @@ export default function RechargeDialog({
                       <span className="text-foreground">₹{effectiveBaseFee}/mo</span>
                     </div>
                     <div className="flex items-center justify-between text-[0.6rem] sm:text-[0.65rem] font-bold">
-                      <span className="text-muted-foreground italic">{bedCount} Beds @ ₹{effectivePerTenantFee}</span>
-                      <span className="text-foreground">₹{bedCount * effectivePerTenantFee}/mo</span>
+                      <span className="text-muted-foreground italic">
+                        {bedCount <= 20 
+                          ? `${bedCount} Beds (First 20 Free)` 
+                          : `${bedCount} Beds (${billableBeds} billed @ ₹${effectivePerTenantFee})`}
+                      </span>
+                      <span className="text-foreground">₹{billableBeds * effectivePerTenantFee}/mo</span>
                     </div>
                     <div className="flex items-center justify-between text-[0.6rem] sm:text-[0.65rem] font-bold mt-0.5">
                       <span className="text-muted-foreground italic">Billing Cycle</span>

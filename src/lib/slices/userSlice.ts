@@ -9,7 +9,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { CURRENT_SCHEMA_VERSION, type User, type Plan, type PlanName, type UserRole, type Guest, type Staff, type Invite, type PremiumFeatures, type PaymentMethod, type BusinessKycDetails, type BillingConfig, type WalletInfo } from '../types';
 import { plans, PRICING_CONFIG } from '../constants';
-import { auth, db, isFirebaseConfigured, getOwnerClientDb, getDynamicDb } from '../firebase';
+import { auth, db, isFirebaseConfigured, getOwnerClientDb, getDynamicDb, getActiveAuth } from '../firebase';
 import { doc, getDoc, setDoc, writeBatch, deleteDoc, collection, query, where, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { RootState } from '../store';
@@ -51,25 +51,69 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
                 dispatch(setLoading(false));
                 return rejectWithValue('Firebase not configured');
             }
-            console.log(`[initializeUser] Resolving user: ${firebaseUser.uid}`);
-            const userDocRef = doc(db!, 'users', firebaseUser.uid);
+            console.log(`[initializeUser] Resolving user: ${firebaseUser.uid} on db project: ${(db as any).app?.options?.projectId || 'unknown'}`);
 
-            // Force server-side fetch initially to avoid stale cached roles
-            let userDoc = await getDoc(userDocRef).catch((e) => {
-                console.warn(`[initializeUser] Initial getDoc failed for ${firebaseUser.uid}:`, e);
-                return getDoc(userDocRef);
+            // ── ENTERPRISE SHARDED TENANT DETECTION ──────────────────────────────────
+            // Parse JWT claims FIRST. Enterprise sharded tenants are onboarded WITHOUT 
+            // a central users/ doc. Their auth context lives entirely in the JWT token.
+            const claimsResult = await firebaseUser.getIdTokenResult(true).catch(e => {
+                console.warn('[initializeUser] Claims refresh failed:', e);
+                return firebaseUser.getIdTokenResult();
             });
+            const claimRole = claimsResult.claims.role as string | undefined;
+            const claimOwnerId = claimsResult.claims.ownerId as string | undefined;
+            const claimGuestId = claimsResult.claims.guestId as string | undefined;
+            const claimPgId = claimsResult.claims.pgId as string | undefined;
 
-            // If still unassigned, wait briefly for propagation if a server-side update just happened
-            if (userDoc.exists() && (userDoc.data() as User).role === 'unassigned') {
-                console.log(`[initializeUser] Role is unassigned. Waiting for propagation...`);
-                await new Promise(r => setTimeout(r, 800));
-                userDoc = await getDoc(userDocRef);
+            const isEnterpriseTenant =
+                (claimRole === 'tenant' || claimRole === 'staff') &&
+                claimOwnerId &&
+                (claimGuestId || claimRole === 'staff');
+
+            if (isEnterpriseTenant) {
+                console.log(`[initializeUser] Enterprise sharded tenant detected (UID: ${firebaseUser.uid}). Building from JWT claims — bypassing central DB checks.`);
+
+                const enterpriseUser: User = {
+                    id: firebaseUser.uid,
+                    name: firebaseUser.displayName || 'Tenant',
+                    role: claimRole as any,
+                    status: 'active',
+                    avatarUrl: firebaseUser.photoURL || `https://placehold.co/40x40.png?text=T`,
+                    guestId: claimGuestId || null,
+                    pgId: claimPgId,
+                    ownerId: claimOwnerId,
+                    createdAt: new Date().toISOString(),
+                    subscription: null, // Bypassed central owner subscription fetch to prevent unauthorized read errors
+                };
+
+                const userPlan = getPlanForUser(enterpriseUser);
+                if (claimOwnerId && claimRole !== 'tenant') { // Skip permissions fetch for tenants to avoid warnings
+                    dispatch(fetchPermissions({ ownerId: claimOwnerId, plan: userPlan }));
+                }
+                dispatch(setLoading(false));
+                return enterpriseUser;
             }
 
+            // ── STANDARD CENTRAL USER RESOLUTION ─────────────────────────────────────
+            const userDocRef = doc(db!, 'users', firebaseUser.uid);
+            let userDoc: any = null;
+            try {
+                userDoc = await getDoc(userDocRef);
+            } catch (e: any) {
+                console.warn(`[initializeUser] getDoc failed for ${firebaseUser.uid}. Error:`, e.message);
+            }
 
+            // If still unassigned, wait briefly for propagation if a server-side update just happened
+            if (userDoc && userDoc.exists() && (userDoc.data() as User).role === 'unassigned') {
+                console.log(`[initializeUser] Role is unassigned. Waiting for propagation...`);
+                await new Promise(r => setTimeout(r, 800));
+                try {
+                    userDoc = await getDoc(userDocRef);
+                } catch(e) {}
+            }
 
-            if (!userDoc.exists()) {
+            if (!userDoc || !userDoc.exists()) {
+                // ── STANDARD NEW USER: Create skeleton doc in central DB ─────────────────
                 console.log(`[initializeUser] Creating new skeleton user doc for ${firebaseUser.uid}`);
                 const baseUser: User = {
                     id: firebaseUser.uid,
@@ -391,14 +435,19 @@ export const logoutUser = createAsyncThunk(
     'user/logoutUser',
     async (_, { getState }) => {
         const { currentUser } = (getState() as RootState).user;
-        if (isFirebaseConfigured() && auth) {
+        const activeAuth = getActiveAuth() || auth;
+        if (isFirebaseConfigured() && activeAuth) {
             if (currentUser && currentUser.fcmToken) {
                 // Clear the FCM token on logout
-                if (!db) throw new Error('Firestore is not initialized.');
-                const userDocRef = doc(db, 'users', currentUser.id);
-                await setDoc(userDocRef, { fcmToken: null }, { merge: true });
+                try {
+                    if (!db) throw new Error('Firestore is not initialized.');
+                    const userDocRef = doc(db, 'users', currentUser.id);
+                    await setDoc(userDocRef, { fcmToken: null }, { merge: true });
+                } catch (e: any) {
+                    console.warn('[logoutUser] Failed to clear FCM token (likely sharded tenant):', e.message);
+                }
             }
-            await auth.signOut();
+            await activeAuth.signOut();
         }
         return null;
     }

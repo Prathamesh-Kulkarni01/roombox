@@ -24,7 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { allNavItems } from '@/lib/navigation';
 import { usePermissionsStore } from '@/lib/stores/configStores';
 import { useAccessibleNav } from '@/lib/hooks/use-accessible-nav';
-import { auth } from '@/lib/firebase';
+import { useFirebaseTenant } from '@/context/firebase-tenant-context';
 import { initializeUser } from '@/lib/slices/userSlice';
 import {
   DropdownMenu,
@@ -67,6 +67,7 @@ const navLinks: NavLink[] = [
 
 
 export default function Header() {
+    const { auth } = useFirebaseTenant();
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useAppDispatch();

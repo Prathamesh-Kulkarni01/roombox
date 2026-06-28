@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb, getAdminMessaging } from '@/lib/firebaseAdmin'
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { unauthorized } from '@/lib/api/apiError';
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: 'userId, title, body required' }, { status: 400 })
 		}
 
-		const db = await getAdminDb()
+		const { db: db } = await resolveTenant(request);
 		const userSnap = await db.collection('users').doc(userId).get()
 		const token = userSnap.exists ? (userSnap.data() as any)?.fcmToken : undefined
 		if (!token) return NextResponse.json({ error: 'No token for user' }, { status: 404 })

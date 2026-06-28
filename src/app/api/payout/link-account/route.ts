@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import Razorpay from "razorpay";
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       return badRequest('Invalid payout method');
     }
 
-    const db = await getAdminDb();
+    const { db: db } = await resolveTenant(req);
     const ownerDoc = await db.collection('users').doc(verifiedOwnerId).get();
     
     if (!ownerDoc.exists) {

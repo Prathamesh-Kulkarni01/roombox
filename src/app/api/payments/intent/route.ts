@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { PaymentSystemService } from '@/services/paymentSystemService';
 import { generateUpiLink, generateRentSutraNote } from '@/lib/upi';
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
             month = format(new Date(), 'MMM').toUpperCase();
             
             // Fetch guest to get pgId
-            const db = await getAdminDb();
+            const { db: db } = await resolveTenant(req);
             const guestSnap = await db.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
             if (!guestSnap.exists) {
                 return NextResponse.json({ error: 'Guest not found.' }, { status: 404 });
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const db = await getAdminDb();
+        const { db: db } = await resolveTenant(req);
         const pgRef = db.collection('users_data').doc(ownerId).collection('pgs').doc(pgId);
         const pgSnap = await pgRef.get();
         

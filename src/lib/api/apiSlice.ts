@@ -70,7 +70,7 @@ export interface ActivityLogsResponse {
 }
 
 
-import { auth as clientAuth } from '@/lib/firebase';
+import { auth as clientAuth, getActiveAuth } from '@/lib/firebase';
 import { setPgs } from '../slices/pgsSlice';
 import { setGuests } from '../slices/guestsSlice';
 
@@ -81,8 +81,9 @@ export const api = createApi({
     baseQuery: fetchBaseQuery({
         baseUrl: '/',
         prepareHeaders: async (headers) => {
-            if (clientAuth) {
-                const token = await clientAuth.currentUser?.getIdToken();
+            const currentAuth = getActiveAuth();
+            if (currentAuth) {
+                const token = await currentAuth.currentUser?.getIdToken();
                 if (token) {
                     headers.set('Authorization', `Bearer ${token}`);
                 }
