@@ -79,6 +79,8 @@ function SetPasswordContent() {
                 }
                 const targetAuth = tenantApp ? getAuth(tenantApp) : tenantContextAuth;
                 
+                if (!targetAuth) throw new Error("Firebase Auth is not initialized.");
+
                 console.log('[set-password] targetAuth name:', targetAuth.app.name);
 
                 await signInWithEmailAndPassword(targetAuth, data.email, password);
@@ -90,6 +92,8 @@ function SetPasswordContent() {
                 const tenantApp = getApps().find(a => a.name === 'tenant-login-instance');
                 const targetAuth = tenantApp ? getAuth(tenantApp) : tenantContextAuth;
                 
+                if (!targetAuth) throw new Error("Firebase Auth is not initialized.");
+
                 await signInWithCustomToken(targetAuth, data.customToken);
             } else {
                 throw new Error("Unable to log in. No valid authentication token was provided.");

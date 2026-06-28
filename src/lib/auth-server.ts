@@ -123,7 +123,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
     email?: string,
     error: string | null
 }> {
-    const userId = await getUserIdFromRequest(req, token);
+    const userId = await getUserIdFromRequest(req || null, token);
     if (!userId) return { ownerId: null, error: 'Unauthorized: Invalid or missing token' };
 
     try {
