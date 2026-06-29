@@ -411,21 +411,26 @@ function AuthHandler({ children }: { children: ReactNode }) {
       const tokenRole = idTokenResult.claims.role;
       const tokenOwnerId = idTokenResult.claims.ownerId;
       const tokenPgIdsHash = idTokenResult.claims.pgIdsHash;
+      const tokenPgId = idTokenResult.claims.pgId;
+      const tokenGuestId = idTokenResult.claims.guestId;
 
       // Generate a simple hash of current pgIds to compare
       const currentPgIdsHash = currentUser.pgIds 
         ? [...currentUser.pgIds].sort().join(',') 
         : '';
 
+      const isTenantMismatch = currentUser.role === "tenant" && (tokenPgId !== currentUser.pgId || tokenGuestId !== currentUser.guestId);
+
       // If mismatch detected, force a refresh
       if (
         tokenRole !== currentUser.role ||
         (currentUser.role !== "owner" && tokenOwnerId !== currentUser.ownerId) ||
-        (tokenPgIdsHash !== undefined && tokenPgIdsHash !== currentPgIdsHash)
+        (tokenPgIdsHash !== undefined && tokenPgIdsHash !== currentPgIdsHash) ||
+        isTenantMismatch
       ) {
         console.log(
           `[StoreProvider] Claims mismatch detected. Refreshing token...`,
-          { tokenRole, reduxRole: currentUser.role, tokenPgIdsHash, currentPgIdsHash }
+          { tokenRole, reduxRole: currentUser.role, tokenPgIdsHash, currentPgIdsHash, tokenPgId, tokenGuestId, isTenantMismatch }
         );
         await activeAuth.currentUser.getIdToken(true);
         return true;
@@ -637,7 +642,10 @@ function AuthHandler({ children }: { children: ReactNode }) {
               console.log(`[StoreProvider] PG Snapshot exists: ${snap.exists()}`);
               dispatch(setPgs(snap.exists() ? [snap.data() as PG] : []))
             },
-            (error) => console.error('[StoreProvider] PG Snapshot error:', error)
+            (error) => {
+              console.error('[StoreProvider] PG Snapshot error:', error);
+              auth.currentUser?.getIdTokenResult().then(r => console.log('[StoreProvider] Claims at error:', r.claims));
+            }
           );
           const unsubGuest = onSnapshot(
             doc(dbInstance, "users_data", ownerId, "guests", guestId),
@@ -654,7 +662,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
             const unsubComplaints = onSnapshot(
               query(
                 collection(dbInstance, "users_data", ownerId, "complaints"),
-                where("pgId", "==", pgId),
+                where("guestId", "==", guestId),
               ),
               (snap) => {
                 dispatch(
@@ -669,18 +677,10 @@ function AuthHandler({ children }: { children: ReactNode }) {
                   ),
                 );
               },
+              (error) => console.error('[StoreProvider] Tenant complaints error:', error)
             );
-            const unsubStaff = onSnapshot(
-              query(
-                collection(dbInstance, "users_data", ownerId, "staff"),
-                where("pgId", "==", pgId),
-              ),
-              (snap) => {
-                dispatch(setStaff(snap.docs.map((d) => d.data() as Staff)));
-              },
-            );
-            unsubs.push(unsubComplaints, unsubStaff);
-            setDataListeners((prev) => [...prev, unsubComplaints, unsubStaff]);
+            unsubs.push(unsubComplaints);
+            setDataListeners((prev) => [...prev, unsubComplaints]);
           }
           const notificationTargets = [guestId, pgId, userId].filter(
             (t) => t && t !== "undefined",
