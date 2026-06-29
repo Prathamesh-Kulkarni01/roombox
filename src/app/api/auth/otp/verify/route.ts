@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
             ownerId: userData.ownerId || ownerId,
             guestId: userData.guestId || guestId,
             staffId: userData.staffId || staffId,
+            pgId: userData.pgId,
         };
 
         // Populate staff details if needed
