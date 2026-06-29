@@ -277,21 +277,21 @@ service cloud.firestore {
       );
       
       // Tenant access to their own data
-      allow get: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'tenant' && (
-        (collectionName == 'guests' && docId == request.auth.token.guestId) ||
-        (collectionName == 'pgs' && docId == request.auth.token.pgId) ||
-        (collectionName == 'complaints' && (resource == null || resource.data.guestId == request.auth.token.guestId)) ||
-        (collectionName == 'expenses' && (resource == null || resource.data.guestId == request.auth.token.guestId)) ||
-        (collectionName == 'financial_events' && (resource == null || resource.data.guestId == request.auth.token.guestId)) ||
-        (collectionName == 'notifications' && (resource == null || resource.data.targetId in [request.auth.token.guestId, request.auth.token.pgId, request.auth.uid]))
+      allow get: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && (
+        collectionName == 'guests' || 
+        collectionName == 'pgs' || 
+        collectionName == 'complaints' || 
+        collectionName == 'expenses' || 
+        collectionName == 'financial_events' || 
+        collectionName == 'notifications'
       );
       
       // Tenant list access (using query constraints implicitly evaluated by Firestore)
-      allow list: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'tenant' && (
-        (collectionName == 'complaints' && resource.data.guestId == request.auth.token.guestId) ||
-        (collectionName == 'expenses' && resource.data.guestId == request.auth.token.guestId) ||
-        (collectionName == 'financial_events' && resource.data.guestId == request.auth.token.guestId) ||
-        (collectionName == 'notifications' && resource.data.targetId in [request.auth.token.guestId, request.auth.token.pgId, request.auth.uid])
+      allow list: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && (
+        collectionName == 'complaints' || 
+        collectionName == 'expenses' || 
+        collectionName == 'financial_events' || 
+        collectionName == 'notifications'
       );
     }
 
