@@ -251,7 +251,7 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == ownerId;
 
       // Staff access is scoped to their assigned properties
-      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && (
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && (
         (collectionName == 'notifications' && (
           resource.data.targetId == request.auth.uid || 
           request.auth.token.pgs.hasAny([resource.data.targetId])
@@ -267,13 +267,31 @@ service cloud.firestore {
       );
 
       // Support for collection-level listing (Staff)
-      allow list: if isAuth() && request.auth.token.ownerId == ownerId && (
+      allow list: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && (
         (collectionName == 'notifications' && request.query.filters.targetId != null && 
           request.auth.token.pgs.concat([request.auth.uid]).hasAll(request.query.filters.targetId)) ||
         collectionName == 'chargeTemplates' ||
         (collectionName == 'pgs' && request.query.filters.__name__ != null && request.auth.token.pgs.hasAll(request.query.filters.__name__)) ||
         (request.query.filters.pgId != null && request.auth.token.pgs.hasAll(request.query.filters.pgId)) ||
         (collectionName == 'staff' && request.query.filters.pgIds != null && request.auth.token.pgs.hasAll(request.query.filters.pgIds))
+      );
+      
+      // Tenant access to their own data
+      allow get: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'tenant' && (
+        (collectionName == 'guests' && docId == request.auth.token.guestId) ||
+        (collectionName == 'pgs' && docId == request.auth.token.pgId) ||
+        (collectionName == 'complaints' && (resource == null || resource.data.guestId == request.auth.token.guestId)) ||
+        (collectionName == 'expenses' && (resource == null || resource.data.guestId == request.auth.token.guestId)) ||
+        (collectionName == 'financial_events' && (resource == null || resource.data.guestId == request.auth.token.guestId)) ||
+        (collectionName == 'notifications' && (resource == null || resource.data.targetId in [request.auth.token.guestId, request.auth.token.pgId, request.auth.uid]))
+      );
+      
+      // Tenant list access (using query constraints implicitly evaluated by Firestore)
+      allow list: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'tenant' && (
+        (collectionName == 'complaints' && resource.data.guestId == request.auth.token.guestId) ||
+        (collectionName == 'expenses' && resource.data.guestId == request.auth.token.guestId) ||
+        (collectionName == 'financial_events' && resource.data.guestId == request.auth.token.guestId) ||
+        (collectionName == 'notifications' && resource.data.targetId in [request.auth.token.guestId, request.auth.token.pgId, request.auth.uid])
       );
     }
 
