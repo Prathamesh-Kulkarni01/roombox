@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
+import { maskPhone } from '@/lib/logging/redact';
 
 /**
  * OTP SEND ROUTE
@@ -48,8 +49,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (!userDoc && !isTestNumber) {
-            // Acknowledge request without confirming non-existence
-            console.log(`[OTP] Request for unregistered number: ${cleanPhone}`);
+            console.log(`[OTP] Request for unregistered number: ${maskPhone(cleanPhone)}`);
             return NextResponse.json({ 
                 success: true, 
                 message: 'If the number is registered, you will receive a code shortly.' 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         if (['staff', 'manager', 'cook', 'cleaner', 'security', 'admin'].includes(role)) {
             const resetSession = userData.authSessions?.passwordResetActive;
             if (!resetSession && !isPasswordReset) {
-                console.warn(`[OTP BLOCKED] Staff login via OTP attempted for ${cleanPhone}`);
+                console.warn(`[OTP BLOCKED] Staff login via OTP attempted for ${maskPhone(cleanPhone)}`);
                 return NextResponse.json({ 
                     success: true, 
                     message: 'If the number is registered, you will receive a code shortly.' 
@@ -87,12 +87,11 @@ export async function POST(req: NextRequest) {
             ownerId: userData?.ownerId || null
         });
 
-        // 5. Send OTP (Mock for now; log for production audit)
+        // 5. Send OTP (integration point: WhatsApp or SMS API)
         if (isTestNumber) {
-            console.log(`[AUTH] TEST OTP: 123456 for ${cleanPhone}`);
+            console.log(`[AUTH] Test OTP dispatched to ${maskPhone(cleanPhone)}`);
         } else {
-            // Integration Point: WhatsApp or SMS API
-            console.log(`[AUTH] SEND OTP: ${otp} to ${cleanPhone} (Context: ${isPasswordReset ? 'RESET' : 'LOGIN'})`);
+            console.log(`[AUTH] OTP dispatched to ${maskPhone(cleanPhone)} (context: ${isPasswordReset ? 'RESET' : 'LOGIN'})`);
         }
 
         return NextResponse.json({ 

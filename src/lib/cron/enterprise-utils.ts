@@ -39,6 +39,25 @@ export function resolveEnterpriseTargetDomain(
   return null;
 }
 
+async function resolveEnterpriseTargetDomainForOwner(
+  ownerId: string,
+  enterpriseProject: Record<string, unknown>,
+  baseAppUrl?: string
+): Promise<string | null> {
+  const direct = resolveEnterpriseTargetDomain(enterpriseProject, baseAppUrl);
+  if (direct) return direct;
+
+  const base = (baseAppUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in').replace(/\/+$/, '');
+  const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
+  const brandedUrl = (await getBrandedAppUrl(ownerId, base)).replace(/\/+$/, '');
+
+  if (brandedUrl && brandedUrl !== base) {
+    return brandedUrl;
+  }
+
+  return null;
+}
+
 /**
  * Blocks guest-data jobs on the central cron path for enterprise owners.
  * Enterprise reconciliation/reminders must run via signed tenant dispatch only.
@@ -64,10 +83,10 @@ export async function isCentralGuestDataAccessBlocked(
   return false;
 }
 
-export function filterDispatchableEnterpriseOwners(
+export async function filterDispatchableEnterpriseOwners(
   ownerEntries: EnterpriseOwnerEntry[],
   options?: { allowProdDomainsInDev?: boolean }
-): DispatchableEnterpriseOwner[] {
+): Promise<DispatchableEnterpriseOwner[]> {
   const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in';
   const dispatchable: DispatchableEnterpriseOwner[] = [];
 
@@ -83,7 +102,11 @@ export function filterDispatchableEnterpriseOwners(
     }
 
     const enterpriseProject = subscription.enterpriseProject as Record<string, unknown>;
-    const targetDomain = resolveEnterpriseTargetDomain(enterpriseProject, baseAppUrl);
+    const targetDomain = await resolveEnterpriseTargetDomainForOwner(
+      entry.id,
+      enterpriseProject,
+      baseAppUrl
+    );
     if (!targetDomain) {
       console.warn(`[Cron] Enterprise owner ${entry.id} has no tenant domain configured. Skipping.`);
       continue;

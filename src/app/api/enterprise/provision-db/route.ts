@@ -3,7 +3,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { google } from 'googleapis';
 
@@ -98,14 +97,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		const { email, projectId: inputProjectId, databaseId: inputDbId, locationId, clientConfig } = parsed.data;
-		const { db: adminDb } = await resolveTenant(req);
-		const userss = await adminDb.collection('users').get();
-
-		if (userss.empty) {
-		  console.log('No users found.');
-		} else {
-			console.log('Users.');
-		}
+		const adminDb = await getAdminDb();
 		// Find owner by email in main users collection
 		const usersSnap = await adminDb.collection('users').where('email', '==', email).get();
 		if (usersSnap.empty) {

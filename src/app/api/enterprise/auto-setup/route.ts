@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
-import { resolveTenant } from '@/lib/tenantResolver';
-import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { decryptTokens } from '@/lib/encryption';
 
 const FIRESTORE_RULES = `rules_version = '2';
@@ -42,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     if (!projectId) return badRequest('projectId is required.');
 
-    const { db: adminDb } = await resolveTenant(req);
+    const adminDb = await getAdminDb();
     const ownerSnap = await adminDb.collection('users').doc(ownerId).get();
     const ownerData = ownerSnap.data();
     const oauthTokens = ownerData?.subscription?.enterpriseProject?.oauthTokens;

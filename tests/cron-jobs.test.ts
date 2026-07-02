@@ -66,8 +66,8 @@ describe('cron job audit', () => {
     ).toBe('https://acme.rentsutra.in');
   });
 
-  it('filters dispatchable enterprise owners with credentials and domain', () => {
-    const dispatchable = filterDispatchableEnterpriseOwners(
+  it('filters dispatchable enterprise owners with credentials and domain', async () => {
+    const dispatchable = await filterDispatchableEnterpriseOwners(
       [
         {
           id: 'ready-owner',
@@ -162,5 +162,15 @@ describe('cron auth', () => {
 
     expect(isCronAuthorized(missingAuth as unknown as import('next/server').NextRequest)).toBe(false);
     expect(isCronAuthorized(wrongToken as unknown as import('next/server').NextRequest)).toBe(false);
+  });
+
+  it('rejects all requests in production when CRON_SECRET is missing', () => {
+    vi.stubEnv('CRON_SECRET', '');
+    const request = {
+      headers: { get: () => 'Bearer anything' },
+    };
+
+    expect(getCronSecret()).toBeUndefined();
+    expect(isCronAuthorized(request as unknown as import('next/server').NextRequest)).toBe(false);
   });
 });

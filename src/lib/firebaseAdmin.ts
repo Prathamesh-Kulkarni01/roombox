@@ -6,6 +6,9 @@ import { getMessaging, Messaging } from 'firebase-admin/messaging';
 import { getStorage, Storage } from 'firebase-admin/storage';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { decryptTokens } from './encryption';
+import { EnterpriseDbUnavailableError } from './errors/enterprise-db';
+
+export { EnterpriseDbUnavailableError } from './errors/enterprise-db';
 
 /**
  * Adapter that mocks a Firebase Transaction using a standard WriteBatch.
@@ -260,8 +263,7 @@ export async function selectOwnerDataAdminDb(ownerId: string): Promise<Firestore
       }
     } catch (error) {
       console.error(`[FirebaseAdmin] Failed to initialize custom Firestore for owner ${ownerId}:`, error);
-      console.warn(`[FirebaseAdmin] Falling back to CENTRAL database for owner ${ownerId}.`);
-      return getAdminDb(); 
+      throw new EnterpriseDbUnavailableError(ownerId, error);
     }
   }
 

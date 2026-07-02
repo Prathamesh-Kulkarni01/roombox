@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
-import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { unauthorized, serverError } from '@/lib/api/apiError';
 
@@ -9,9 +8,9 @@ export async function POST(req: NextRequest) {
   if (!ownerId) return unauthorized(authError);
 
   try {
-    const { db: adminDb } = await resolveTenant(req);
+    const adminDb = await getAdminDb();
     
-    // Reset subscription configurations back to standard monthly plan
+    // Owner subscription metadata always lives on the central Firebase project.
     await adminDb.collection('users').doc(ownerId).update({
       'subscription.enterpriseProject': null,
       'subscription.planId': 'monthly',

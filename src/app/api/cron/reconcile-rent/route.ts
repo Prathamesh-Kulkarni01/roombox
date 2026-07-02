@@ -4,27 +4,18 @@
 
 import { reconcileAllGuests } from '@/lib/actions/reconciliationActions';
 import { NextRequest, NextResponse } from 'next/server';
+import { isCronAuthorized, unauthorizedCronResponse } from '@/lib/cron/auth';
 
-// --- API ROUTE HANDLER ---
-// This handler is now ONLY for the real cron job.
-// Testing is done via unit tests in Cypress that call the pure logic function directly.
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const secret = process.env.CRON_SECRET;
-    const isProd = process.env.NODE_ENV === 'production';
-
-    // In production, require a secret to prevent unauthorized access.
-    if (isProd && (!secret || authHeader !== `Bearer ${secret}`)) {
-      return new Response('Unauthorized', { status: 401 });
+    if (!isCronAuthorized(request)) {
+      return unauthorizedCronResponse();
     }
 
-    // In a test/dev environment, we might process fewer records to speed things up.
+    const isProd = process.env.NODE_ENV === 'production';
     const result = await reconcileAllGuests(isProd ? undefined : 50);
 
     if (!result.success) {
-      // Even if some guests fail, we don't want to throw an error for the whole job.
-      // The individual errors are logged in reconcileAllGuests.
       console.warn(`Rent reconciliation job completed with ${result.errorCount} error(s).`);
     }
 

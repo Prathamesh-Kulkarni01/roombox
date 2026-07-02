@@ -158,7 +158,7 @@ export async function runMaintenanceCron(options?: { includeEnterprise?: boolean
 
   const enterpriseCandidates = ownerEntries.filter((entry) => groups.enterprise.includes(entry.id));
   const skippedEnterprise = enterpriseCandidates.length;
-  const dispatchableEnterprise = filterDispatchableEnterpriseOwners(enterpriseCandidates);
+  const dispatchableEnterprise = await filterDispatchableEnterpriseOwners(enterpriseCandidates);
 
   const enterpriseSummary = results.enterprise as {
     queued: number;

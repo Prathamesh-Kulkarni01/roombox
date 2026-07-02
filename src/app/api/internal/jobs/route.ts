@@ -4,25 +4,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { resolveTenant } from '@/lib/tenantResolver';
 import { verifyPayload, SignedPayload } from '@/lib/cryptoUtils';
 import { TenantScheduler } from '@/lib/tenant/TenantScheduler';
+import { getCronSecret } from '@/lib/cron/auth';
 
 export async function POST(request: NextRequest) {
     try {
-        const secret = process.env.CRON_SECRET;
+        const secret = getCronSecret();
         
         if (process.env.NODE_ENV === 'production' && !secret) {
             console.error('[Tenant Dispatcher] CRON_SECRET is not configured on the server.');
             return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
         }
 
-        // Parse the signed payload from the body
         const payload: SignedPayload = await request.json();
 
-        // 1. Validate the HMAC signature and expiration whenever CRON_SECRET is configured
         if (secret) {
             const isValid = verifyPayload(payload, secret);
             if (!isValid) {
                 return new Response('Unauthorized, Expired, or Tampered Payload', { status: 401 });
             }
+        } else if (process.env.NODE_ENV === 'production') {
+            return new Response('Unauthorized', { status: 401 });
         }
 
         // 2. Resolve Tenant dynamically based on the requested domain

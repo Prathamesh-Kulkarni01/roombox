@@ -3,6 +3,7 @@ import { getAdminDb } from '../firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { WhatsAppLogsService } from './logs-service';
 import { ActivityLogsService } from '../activity-logs-service';
+import { maskPhone, redactWhatsAppPayload } from '../logging/redact';
 
 const WHATSAPP_ACCESS_TOKEN = getEnv('WHATSAPP_ACCESS_TOKEN');
 const WHATSAPP_PHONE_ID = getEnv('WHATSAPP_PHONE_NUMBER_ID');
@@ -54,7 +55,7 @@ async function sendWhatsAppWithBilling(
 
             if (isWithinSessionWindow && payload.type !== 'template') {
                 cost = 0; // Free session message
-                console.log(`[WhatsApp Billing] Free session message for ${to}`);
+                console.log(`[WhatsApp Billing] Free session message for ${maskPhone(to)}`);
             } else {
                 // Determine cost based on type
                 if (payload.type === 'template' && payload.template) {
@@ -146,7 +147,7 @@ async function sendWhatsAppWithBilling(
 
     // 2. Make the actual API call (or mock if no credentials)
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.warn('WhatsApp credentials not configured. Mocking API call for:', { to, payload });
+        console.warn('WhatsApp credentials not configured. Mocking API call for:', { to: maskPhone(to), type: payload.type });
         result = { success: true, mock: true };
     } else {
         result = await makeWhatsAppApiCall(payload);
@@ -193,7 +194,7 @@ async function sendWhatsAppWithBilling(
 
 export async function sendWhatsAppMessage(to: string, messageBody: string, ownerId?: string, targetId?: string) {
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.warn('WhatsApp credentials not configured. Mocking send:', { to, messageBody });
+        console.warn('WhatsApp credentials not configured. Mocking send:', { to: maskPhone(to) });
         return { success: true, mock: true };
     }
 
@@ -216,14 +217,16 @@ export async function sendWhatsAppMessage(to: string, messageBody: string, owner
 
 export async function sendWhatsAppInteractiveMessage(to: string, interactiveData: any, ownerId?: string, targetId?: string) {
     if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.warn('WhatsApp credentials not configured. Mocking interactive send:', { to, interactiveData });
+        console.warn('WhatsApp credentials not configured. Mocking interactive send:', { to: maskPhone(to) });
         return { success: true, mock: true };
     }
 
-    try {
-        const fs = require('fs');
-        fs.appendFileSync('wa-logs.txt', `\\n💬 [BOT SAYS TO ${to} (INTERACTIVE)]:\\n${JSON.stringify(interactiveData, null, 2)}\\n`);
-    } catch (e) { }
+    if (process.env.NODE_ENV !== 'production') {
+        try {
+            const fs = require('fs');
+            fs.appendFileSync('wa-logs.txt', `\n💬 [BOT SAYS TO ${maskPhone(to)} (INTERACTIVE)]:\n[REDACTED]\n`);
+        } catch (e) { /* ignore */ }
+    }
 
     const payload: WhatsAppMessagePayload = {
         messaging_product: "whatsapp",
@@ -346,7 +349,7 @@ async function makeWhatsAppApiCall(payload: WhatsAppMessagePayload, maxRetries =
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            console.log(`[WhatsApp API] Sending payload to ${WHATSAPP_PHONE_ID}:`, JSON.stringify(payload, null, 2));
+            console.log(`[WhatsApp API] Sending payload to ${WHATSAPP_PHONE_ID}:`, JSON.stringify(redactWhatsAppPayload(payload as unknown as Record<string, unknown>), null, 2));
             const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
                 method: 'POST',
                 headers: {

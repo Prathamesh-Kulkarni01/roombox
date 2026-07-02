@@ -1,17 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { sendWhatsAppMessage } from '@/lib/whatsapp/send-message';
+import { isCronAuthorized, unauthorizedCronResponse } from '@/lib/cron/auth';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
     try {
-        const authHeader = request.headers.get('authorization');
-        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-            return new NextResponse('Unauthorized', { status: 401 });
+        if (!isCronAuthorized(request)) {
+            return unauthorizedCronResponse();
         }
 
-        // Connect to your database here.
         console.log('Running daily owner briefing cron job...');
 
-        // MOCK DB FETCH
         const mockOwners = [
             { id: '1', phone: '919999999999', name: 'Admin Boss' }
         ];

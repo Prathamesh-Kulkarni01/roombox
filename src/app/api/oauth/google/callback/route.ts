@@ -1,9 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { resolveTenant } from '@/lib/tenantResolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
-import { Firestore } from 'firebase-admin/firestore';
 import { encryptTokens } from '@/lib/encryption';
 
 const DEFAULT_ENTERPRISE_RULES = `rules_version = '2';
@@ -165,7 +163,7 @@ export async function GET(req: NextRequest) {
     // Save to our main admin DB regardless of clientConfig success, so Option A can still be used
     // SECURITY: Encrypt access_token and refresh_token before storing in Firestore
     const encryptedTokens = encryptTokens(cleanTokens);
-    const adminDb: Firestore = (await resolveTenant(req)).db;
+    const adminDb = await getAdminDb();
     await adminDb.collection('users').doc(ownerId).update({
       'subscription.enterpriseProject': {
         projectId,
