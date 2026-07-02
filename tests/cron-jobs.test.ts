@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { auditCronJobs } from '../scripts/verify-cron-jobs';
 import {
   categorizeOwners,
   dispatchEnterpriseMaintenance,
 } from '../src/lib/cron/maintenance';
+import { getCronSecret, isCronAuthorized } from '../src/lib/cron/auth';
 import {
   filterDispatchableEnterpriseOwners,
   hasEnterpriseDataIsolation,
@@ -117,5 +118,49 @@ describe('cron job audit', () => {
       targetDomain: 'https://tenant.example.com',
     });
     expect(payloads[0].signedPayload.tenantId).toBe('enterprise-owner');
+  });
+});
+
+describe('cron auth', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalCronSecret = process.env.CRON_SECRET;
+
+  beforeEach(() => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('CRON_SECRET', 'r15bmwthar');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    process.env.NODE_ENV = originalNodeEnv;
+    process.env.CRON_SECRET = originalCronSecret;
+  });
+
+  it('trims whitespace from CRON_SECRET', () => {
+    vi.stubEnv('CRON_SECRET', '  r15bmwthar  ');
+    expect(getCronSecret()).toBe('r15bmwthar');
+  });
+
+  it('accepts a matching bearer token in production', () => {
+    const request = {
+      headers: {
+        get: (name: string) =>
+          name === 'authorization' ? 'Bearer r15bmwthar' : null,
+      },
+    };
+
+    expect(isCronAuthorized(request as unknown as import('next/server').NextRequest)).toBe(true);
+  });
+
+  it('rejects a missing or mismatched bearer token in production', () => {
+    const missingAuth = {
+      headers: { get: () => null },
+    };
+    const wrongToken = {
+      headers: { get: () => 'Bearer wrong-secret' },
+    };
+
+    expect(isCronAuthorized(missingAuth as unknown as import('next/server').NextRequest)).toBe(false);
+    expect(isCronAuthorized(wrongToken as unknown as import('next/server').NextRequest)).toBe(false);
   });
 });

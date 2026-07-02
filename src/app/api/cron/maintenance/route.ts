@@ -1,16 +1,13 @@
-'use server';
-
 import { NextRequest, NextResponse } from 'next/server';
+import { isCronAuthorized, unauthorizedCronResponse } from '@/lib/cron/auth';
 import { runMaintenanceCron } from '@/lib/cron/maintenance';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const secret = process.env.CRON_SECRET;
-    const isProd = process.env.NODE_ENV === 'production';
-
-    if (isProd && (!secret || authHeader !== `Bearer ${secret}`)) {
-      return new Response('Unauthorized', { status: 401 });
+    if (!isCronAuthorized(request)) {
+      return unauthorizedCronResponse();
     }
 
     const results = await runMaintenanceCron({ includeEnterprise: true });

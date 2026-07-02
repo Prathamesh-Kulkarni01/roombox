@@ -45,7 +45,7 @@ export interface EnterpriseDispatchResult {
 }
 
 function getSigningSecret(): string {
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env.CRON_SECRET?.trim();
   if (process.env.NODE_ENV === 'production' && !secret) {
     throw new Error('CRON_SECRET is required for enterprise cron dispatch in production');
   }
