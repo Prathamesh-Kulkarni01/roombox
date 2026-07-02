@@ -56,7 +56,7 @@ export type SiteConfig = z.infer<typeof websiteConfigSchema>;
 export async function saveSiteConfig(config: SiteConfig & { existingSubdomain?: string | null }) {
     try {
         const { existingSubdomain, ...newConfig } = config;
-        newConfig.schemaVersion = 11;
+        newConfig.schemaVersion = 0;
         const validatedConfig = websiteConfigSchema.parse(newConfig);
 
         const adminDb = await getAdminDb();
