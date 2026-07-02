@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 0;
 
 export interface KycDocumentConfig {
     id: string;
