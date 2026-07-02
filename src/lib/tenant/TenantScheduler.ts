@@ -46,7 +46,9 @@ export class TenantScheduler {
             // 3. Rent Generation / Ledger Reconciliation
             try {
                 console.log(`[TenantScheduler] Running reconciliation for ${this.tenantId}`);
-                results.reconciliation = await reconcileForOwner(this.tenantId, undefined, this.now);
+                results.reconciliation = await reconcileForOwner(this.tenantId, undefined, this.now, {
+                    tenantScheduled: true,
+                });
             } catch (e: any) {
                 console.error(`[TenantScheduler] Reconciliation failed for ${this.tenantId}`, e.message);
                 results.reconciliation = { success: false, error: e.message };
@@ -55,7 +57,9 @@ export class TenantScheduler {
             // 4. Reminders & Notifications
             try {
                 console.log(`[TenantScheduler] Running reminders for ${this.tenantId}`);
-                results.reminders = await sendRemindersForOwner(this.tenantId, this.now);
+                results.reminders = await sendRemindersForOwner(this.tenantId, this.now, {
+                    tenantScheduled: true,
+                });
             } catch (e: any) {
                 console.error(`[TenantScheduler] Reminders failed for ${this.tenantId}`, e.message);
                 results.reminders = { success: false, error: e.message };

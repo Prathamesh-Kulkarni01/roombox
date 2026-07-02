@@ -45,7 +45,17 @@ export async function reconcileSingleGuest({ ownerId, guestId, now }: { ownerId:
 }
 
 
-export async function reconcileForOwner(ownerId: string, limit?: number, now?: Date): Promise<{ success: boolean; reconciledCount: number; errorCount: number; }> {
+export async function reconcileForOwner(
+    ownerId: string,
+    limit?: number,
+    now?: Date,
+    options?: { tenantScheduled?: boolean }
+): Promise<{ success: boolean; reconciledCount: number; errorCount: number; }> {
+    const { isCentralGuestDataAccessBlocked } = await import('@/lib/cron/enterprise-utils');
+    if (await isCentralGuestDataAccessBlocked(ownerId, options?.tenantScheduled)) {
+        return { success: false, reconciledCount: 0, errorCount: 0 };
+    }
+
     const dataDb = await selectOwnerDataAdminDb(ownerId);
     let guestsSnapshot;
     let processedGuestCount = 0;

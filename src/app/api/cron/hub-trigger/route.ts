@@ -5,6 +5,7 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 import { randomUUID } from 'crypto';
 
 import { FirestoreJobQueue } from '@/lib/queue/FirestoreJobQueue';
+import { filterDispatchableEnterpriseOwners } from '@/lib/cron/enterprise-utils';
 
 export async function GET(request: NextRequest) {
     try {
@@ -24,47 +25,26 @@ export async function GET(request: NextRequest) {
             .where('subscription.planId', '==', 'enterprise')
             .get();
 
-        const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in';
         let jobsEnqueued = 0;
         const jobQueue = new FirestoreJobQueue();
         const enqueuePromises: Promise<void>[] = [];
 
-        // 3. Iterate and enqueue jobs for enterprise tenants
-        for (const userDoc of usersSnapshot.docs) {
-            const userData = userDoc.data();
-            const enterpriseProject = userData.subscription?.enterpriseProject;
-            
-            if (!enterpriseProject) continue;
+        const ownerEntries = usersSnapshot.docs.map((userDoc) => ({
+            id: userDoc.id,
+            data: userDoc.data() as Record<string, unknown>,
+        }));
 
-            let targetDomain = '';
-            
-            // Prefer custom domain, fallback to subdomain
-            if (enterpriseProject.customDomain) {
-                targetDomain = `https://${enterpriseProject.customDomain}`;
-            } else if (enterpriseProject.clientConfig?.subdomain) {
-                const parsedBase = new URL(baseAppUrl);
-                targetDomain = `https://${enterpriseProject.clientConfig.subdomain}.${parsedBase.hostname}`;
-            } else {
-                console.warn(`[Hub-Trigger] Enterprise owner ${userDoc.id} has no domain configured. Skipping.`);
-                continue;
-            }
-
-            // In local development, override domain mapping if testing locally
-            if (process.env.NODE_ENV !== 'production' && targetDomain.includes('rentsutra.in')) {
-                // If local dev, we might be hitting localhost. Just skip or log.
-                console.log(`[Hub-Trigger] Local dev: Would enqueue job for ${targetDomain}`);
-                continue;
-            }
-
+        // 3. Enqueue only enterprise tenants with isolated DB credentials and a tenant domain
+        for (const owner of filterDispatchableEnterpriseOwners(ownerEntries)) {
             const jobId = randomUUID();
-            
+
             enqueuePromises.push(jobQueue.enqueue({
                 jobId,
                 type: 'run-scheduled-jobs',
-                targetDomain,
-                ownerId: userDoc.id
+                targetDomain: owner.targetDomain,
+                ownerId: owner.id,
             }));
-            
+
             jobsEnqueued++;
         }
 

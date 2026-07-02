@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { auditCronJobs } from '../scripts/verify-cron-jobs';
-import { categorizeOwners, dispatchEnterpriseMaintenance } from '../src/lib/cron/maintenance';
+import {
+  categorizeOwners,
+  dispatchEnterpriseMaintenance,
+} from '../src/lib/cron/maintenance';
+import {
+  filterDispatchableEnterpriseOwners,
+  hasEnterpriseDataIsolation,
+  resolveEnterpriseTargetDomain,
+} from '../src/lib/cron/enterprise-utils';
 
 describe('cron job audit', () => {
   it('keeps the core cron jobs active and flags the draft briefing flow', async () => {
@@ -18,18 +26,89 @@ describe('cron job audit', () => {
     const result = categorizeOwners([
       { id: 'standard-owner', data: { subscription: { planId: 'free' } } },
       { id: 'enterprise-owner', data: { subscription: { planId: 'enterprise' } } },
-    ] as any[]);
+    ]);
 
     expect(result.standard).toEqual(['standard-owner']);
     expect(result.enterprise).toEqual(['enterprise-owner']);
   });
 
-  it('creates tenant-dispatch payloads for enterprise owners without touching their DB directly', async () => {
-    const payloads = await dispatchEnterpriseMaintenance([
-      { id: 'enterprise-owner', data: { subscription: { planId: 'enterprise' } } },
-    ] as any[], {
-      targetDomain: 'https://tenant.example.com',
+  it('requires isolated project credentials before enterprise dispatch', () => {
+    expect(
+      hasEnterpriseDataIsolation({
+        subscription: {
+          planId: 'enterprise',
+          enterpriseProject: { projectId: 'tenant-proj', serviceAccountJson: '{}' },
+        },
+      })
+    ).toBe(true);
+
+    expect(
+      hasEnterpriseDataIsolation({
+        subscription: { planId: 'enterprise', enterpriseProject: { projectId: 'tenant-proj' } },
+      })
+    ).toBe(false);
+  });
+
+  it('resolves tenant domains for enterprise dispatch', () => {
+    expect(
+      resolveEnterpriseTargetDomain(
+        { customDomain: 'pg.example.com' },
+        'https://rentsutra.in'
+      )
+    ).toBe('https://pg.example.com');
+
+    expect(
+      resolveEnterpriseTargetDomain(
+        { clientConfig: { subdomain: 'acme' } },
+        'https://rentsutra.in'
+      )
+    ).toBe('https://acme.rentsutra.in');
+  });
+
+  it('filters dispatchable enterprise owners with credentials and domain', () => {
+    const dispatchable = filterDispatchableEnterpriseOwners(
+      [
+        {
+          id: 'ready-owner',
+          data: {
+            subscription: {
+              planId: 'enterprise',
+              enterpriseProject: {
+                projectId: 'tenant-proj',
+                serviceAccountJson: '{}',
+                customDomain: 'pg.example.com',
+              },
+            },
+          },
+        },
+        {
+          id: 'missing-creds',
+          data: {
+            subscription: {
+              planId: 'enterprise',
+              enterpriseProject: { projectId: 'tenant-proj', customDomain: 'pg2.example.com' },
+            },
+          },
+        },
+      ],
+      { allowProdDomainsInDev: true }
+    );
+
+    expect(dispatchable).toHaveLength(1);
+    expect(dispatchable[0]).toMatchObject({
+      id: 'ready-owner',
+      targetDomain: 'https://pg.example.com',
     });
+  });
+
+  it('creates tenant-dispatch payloads per owner domain without central guest-data access', async () => {
+    const { payloads } = await dispatchEnterpriseMaintenance([
+      {
+        id: 'enterprise-owner',
+        data: { subscription: { planId: 'enterprise' } },
+        targetDomain: 'https://tenant.example.com',
+      },
+    ]);
 
     expect(payloads).toHaveLength(1);
     expect(payloads[0]).toMatchObject({
@@ -37,5 +116,6 @@ describe('cron job audit', () => {
       tenantId: 'enterprise-owner',
       targetDomain: 'https://tenant.example.com',
     });
+    expect(payloads[0].signedPayload.tenantId).toBe('enterprise-owner');
   });
 });

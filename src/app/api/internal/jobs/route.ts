@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
         // Parse the signed payload from the body
         const payload: SignedPayload = await request.json();
 
-        // 1. Validate the HMAC signature and expiration
-        if (process.env.NODE_ENV === 'production') {
-            const isValid = verifyPayload(payload, secret!);
+        // 1. Validate the HMAC signature and expiration whenever CRON_SECRET is configured
+        if (secret) {
+            const isValid = verifyPayload(payload, secret);
             if (!isValid) {
                 return new Response('Unauthorized, Expired, or Tampered Payload', { status: 401 });
             }

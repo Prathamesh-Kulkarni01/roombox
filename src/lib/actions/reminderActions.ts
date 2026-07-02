@@ -7,7 +7,16 @@ import { getReminderForGuest } from '@/lib/reminder-logic';
 import { sendWhatsAppTemplate } from '@/lib/whatsapp/send-message';
 import { getBrandedAppUrl } from '@/lib/actions/siteActions';
 
-export async function sendRemindersForOwner(ownerId: string, now?: Date): Promise<{ success: boolean; sentCount: number; errorCount: number }> {
+export async function sendRemindersForOwner(
+    ownerId: string,
+    now?: Date,
+    options?: { tenantScheduled?: boolean }
+): Promise<{ success: boolean; sentCount: number; errorCount: number }> {
+    const { isCentralGuestDataAccessBlocked } = await import('@/lib/cron/enterprise-utils');
+    if (await isCentralGuestDataAccessBlocked(ownerId, options?.tenantScheduled)) {
+        return { success: false, sentCount: 0, errorCount: 0 };
+    }
+
     const dataDb = await selectOwnerDataAdminDb(ownerId);
     const currentDate = now || new Date();
     let totalRemindersSent = 0;
