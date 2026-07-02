@@ -62,13 +62,5 @@ ui-debug.log*
 .playwright-mcp/
 scratch/
 
-# Local secrets and debug artifacts
-oauth-*.json
-oauth-debug.json
-oauth-error-debug.json
-service-account.json
-*.debug.json
-firestore-debug.log*
-
 # Sentry Config File
 .env.sentry-build-plugin
