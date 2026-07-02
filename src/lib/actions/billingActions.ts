@@ -7,7 +7,7 @@ import type {
   User, PremiumFeatures, BillingDetails, BillingCycleDetails, BillingDiscount,
   MonthlyInvoice, BillingLedgerEntry, BillingPlanType
 } from '../types'
-import { getAdminDb } from '../firebaseAdmin'
+import { getAdminDb, selectOwnerDataAdminDb } from '../firebaseAdmin'
 import { PRICING_CONFIG } from '../constants'
 import { debitWallet, addBillingLedgerEntry } from './walletActions'
 import { getVerifiedOwnerIdFromHeaders } from '../auth-server'
@@ -50,12 +50,12 @@ function applyDiscount(baseAmount: number, baseFee: number, tenantCharge: number
  * Rule: A tenant is counted if they stayed at least 1 day in the billing cycle.
  */
 export async function getUniqueTenantsForMonth(ownerId: string, monthIso: string): Promise<string[]> {
-  const adminDb = await getAdminDb();
+  const dataDb = await selectOwnerDataAdminDb(ownerId);
   const [year, month] = monthIso.split('-').map(Number);
   const startOfMonth = new Date(Date.UTC(year, month - 1, 1));
   const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59));
 
-  const guestsSnapshot = await adminDb
+  const guestsSnapshot = await dataDb
     .collection('users_data')
     .doc(ownerId)
     .collection('guests')
@@ -88,7 +88,7 @@ export async function getUniqueTenantsForMonth(ownerId: string, monthIso: string
  * Calculates the billing details for a given owner for both the current and next cycle.
  */
 export async function calculateOwnerBill(owner: User, monthIso?: string): Promise<BillingDetails> {
-  const adminDb = await getAdminDb();
+  const dataDb = await selectOwnerDataAdminDb(owner.id);
   const currentMonth = monthIso || new Date().toISOString().slice(0, 7);
 
   // Fetch unique tenants for the cycle
@@ -96,7 +96,7 @@ export async function calculateOwnerBill(owner: User, monthIso?: string): Promis
   const billableTenantCount = billableTenantIds.length;
 
   // Fetch active properties (still needed for display)
-  const pgsSnapshot = await adminDb
+  const pgsSnapshot = await dataDb
     .collection('users_data')
     .doc(owner.id)
     .collection('pgs')

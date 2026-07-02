@@ -5,6 +5,7 @@
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import type { Guest } from '@/lib/types';
 import { runReconciliationLogic } from '@/lib/reconciliation';
+import { isEnterpriseIsolated } from '@/lib/enterprise/isolation';
 
 export async function reconcileSingleGuest({ ownerId, guestId, now }: { ownerId: string, guestId: string, now?: Date }): Promise<{ success: boolean; cyclesProcessed: number }> {
     const dataDb = await selectOwnerDataAdminDb(ownerId);
@@ -115,8 +116,7 @@ export async function reconcileAllGuests(limit?: number, now?: Date): Promise<{ 
             const ownerId = ownerDoc.id;
             const userData = ownerDoc.data();
             
-            // Central cron ONLY processes standard owners. Enterprise owners are triggered via Hub-and-Spoke webhooks.
-            if (userData?.subscription?.planId === 'enterprise') {
+            if (isEnterpriseIsolated(userData as Record<string, unknown>)) {
                 continue;
             }
 

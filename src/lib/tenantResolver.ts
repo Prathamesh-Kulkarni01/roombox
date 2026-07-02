@@ -6,6 +6,7 @@ import type { Auth } from 'firebase-admin/auth';
 import { App } from 'firebase-admin/app';
 import * as admin from 'firebase-admin';
 import { decryptTokens } from './encryption';
+import { isEnterpriseIsolated } from './enterprise/isolation';
 
 import { LRUCache } from './lru-cache';
 
@@ -120,8 +121,8 @@ export async function resolveTenant(req: NextRequest | Request, overrideTenantId
     const ownerDoc = await defaultDb.collection('users').doc(tenantId).get();
     const ownerData = ownerDoc.data();
     const enterpriseProject = ownerData?.subscription?.enterpriseProject;
-    
-    if (enterpriseProject?.projectId && (enterpriseProject?.serviceAccountJson || enterpriseProject?.oauthTokens)) {
+
+    if (isEnterpriseIsolated(ownerData as Record<string, unknown>)) {
         const customAuth = await getEnterpriseAuth(tenantId, enterpriseProject);
         
         return {

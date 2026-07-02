@@ -46,15 +46,15 @@ const cronJobs = [
   },
   {
     slug: 'hub-trigger',
-    description: 'Enterprise hub trigger for tenant cron jobs',
+    description: 'Deprecated — enterprise dispatch handled by maintenance cron',
     routePath: 'src/app/api/cron/hub-trigger/route.ts',
-    expectedSignals: ['FirestoreJobQueue', 'enqueue', 'isCronAuthorized'],
+    expectedSignals: ['deprecated', 'isCronAuthorized', '410'],
   },
   {
     slug: 'hub-worker',
-    description: 'Enterprise hub worker dispatching signed jobs',
+    description: 'Deprecated — enterprise dispatch handled by maintenance cron',
     routePath: 'src/app/api/cron/hub-worker/route.ts',
-    expectedSignals: ['FirestoreJobQueue', 'dequeue', 'signPayload', 'isCronAuthorized'],
+    expectedSignals: ['deprecated', 'isCronAuthorized', '410'],
   },
   {
     slug: 'internal-jobs',
@@ -105,9 +105,15 @@ export async function auditCronJobs(): Promise<CronJobAuditReport> {
         evidence.push('mock-owner-list');
       }
 
+      if ((job.slug === 'hub-trigger' || job.slug === 'hub-worker') && /deprecated/i.test(source)) {
+        evidence.push('deprecated-route');
+      }
+
       let status: CronJobStatus = 'active';
       if (issues.length > 0) {
         status = issues.some((issue) => issue.includes('mock') || issue.includes('placeholder')) ? 'needs-attention' : 'inactive';
+      } else if (job.slug === 'hub-trigger' || job.slug === 'hub-worker') {
+        status = 'needs-attention';
       }
 
       return {

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { signPayload, SignedPayload } from '@/lib/cryptoUtils';
+import { isEnterpriseIsolated } from '@/lib/enterprise/isolation';
 import {
   DispatchableEnterpriseOwner,
   filterDispatchableEnterpriseOwners,
@@ -14,9 +15,7 @@ export interface MaintenanceOwnerGroup {
 export function categorizeOwners(ownerDocs: EnterpriseOwnerEntry[]): MaintenanceOwnerGroup {
   return ownerDocs.reduce<MaintenanceOwnerGroup>(
     (acc, ownerDoc) => {
-      const subscription = ownerDoc.data?.subscription as Record<string, unknown> | undefined;
-      const planId = subscription?.planId;
-      if (planId === 'enterprise') {
+      if (isEnterpriseIsolated(ownerDoc.data)) {
         acc.enterprise.push(ownerDoc.id);
       } else {
         acc.standard.push(ownerDoc.id);

@@ -21,15 +21,30 @@ describe('cron job audit', () => {
     expect(jobs.get('calculate-billing')?.status).toBe('active');
     expect(jobs.get('daily-briefing')?.status).toBe('needs-attention');
     expect(jobs.get('daily-briefing')?.issues.some(issue => issue.includes('mock'))).toBe(true);
+    expect(jobs.get('hub-trigger')?.status).toBe('needs-attention');
+    expect(jobs.get('hub-worker')?.status).toBe('needs-attention');
+    expect(jobs.get('maintenance')?.status).toBe('active');
   });
 
-  it('splits standard and enterprise owners for the consolidated maintenance cron', () => {
+  it('splits standard and isolated enterprise owners for the consolidated maintenance cron', () => {
     const result = categorizeOwners([
       { id: 'standard-owner', data: { subscription: { planId: 'free' } } },
-      { id: 'enterprise-owner', data: { subscription: { planId: 'enterprise' } } },
+      {
+        id: 'enterprise-owner',
+        data: {
+          subscription: {
+            planId: 'enterprise',
+            enterpriseProject: { projectId: 'tenant-proj', serviceAccountJson: '{}' },
+          },
+        },
+      },
+      {
+        id: 'enterprise-plan-only',
+        data: { subscription: { planId: 'enterprise', enterpriseProject: { projectId: 'tenant-proj' } } },
+      },
     ]);
 
-    expect(result.standard).toEqual(['standard-owner']);
+    expect(result.standard).toEqual(['standard-owner', 'enterprise-plan-only']);
     expect(result.enterprise).toEqual(['enterprise-owner']);
   });
 

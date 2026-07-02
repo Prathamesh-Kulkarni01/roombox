@@ -1,3 +1,12 @@
+import { isEnterpriseIsolated, isEnterprisePlan } from '@/lib/enterprise/isolation';
+
+export {
+  isEnterpriseIsolated,
+  isEnterprisePlan,
+  getEnterpriseProject,
+  hasEnterpriseDataIsolation,
+} from '@/lib/enterprise/isolation';
+
 export interface EnterpriseOwnerEntry {
   id: string;
   data: Record<string, unknown>;
@@ -5,19 +14,6 @@ export interface EnterpriseOwnerEntry {
 
 export interface DispatchableEnterpriseOwner extends EnterpriseOwnerEntry {
   targetDomain: string;
-}
-
-/**
- * Enterprise tenants must have an isolated Firebase project with credentials
- * before any guest data (reconciliation / reminders) is processed.
- */
-export function hasEnterpriseDataIsolation(ownerData: Record<string, unknown>): boolean {
-  const subscription = ownerData?.subscription as Record<string, unknown> | undefined;
-  const enterpriseProject = subscription?.enterpriseProject as Record<string, unknown> | undefined;
-
-  if (!enterpriseProject?.projectId) return false;
-
-  return !!(enterpriseProject.serviceAccountJson || enterpriseProject.oauthTokens);
 }
 
 export function resolveEnterpriseTargetDomain(
@@ -59,7 +55,7 @@ async function resolveEnterpriseTargetDomainForOwner(
 }
 
 /**
- * Blocks guest-data jobs on the central cron path for enterprise owners.
+ * Blocks guest-data jobs on the central cron path for isolated enterprise owners.
  * Enterprise reconciliation/reminders must run via signed tenant dispatch only.
  */
 export async function isCentralGuestDataAccessBlocked(
@@ -71,11 +67,10 @@ export async function isCentralGuestDataAccessBlocked(
   const { getAdminDb } = await import('@/lib/firebaseAdmin');
   const adminDb = await getAdminDb();
   const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
-  const subscription = ownerDoc.data()?.subscription as Record<string, unknown> | undefined;
 
-  if (subscription?.planId === 'enterprise') {
+  if (isEnterpriseIsolated(ownerDoc.data() as Record<string, unknown>)) {
     console.warn(
-      `[Privacy] Blocked central-path guest-data access for enterprise owner ${ownerId}. Use tenant dispatcher.`
+      `[Privacy] Blocked central-path guest-data access for isolated enterprise owner ${ownerId}. Use tenant dispatcher.`
     );
     return true;
   }
@@ -91,17 +86,17 @@ export async function filterDispatchableEnterpriseOwners(
   const dispatchable: DispatchableEnterpriseOwner[] = [];
 
   for (const entry of ownerEntries) {
-    const subscription = entry.data?.subscription as Record<string, unknown> | undefined;
-    if (subscription?.planId !== 'enterprise') continue;
-
-    if (!hasEnterpriseDataIsolation(entry.data)) {
-      console.warn(
-        `[Cron] Enterprise owner ${entry.id} is missing isolated project credentials. Skipping guest-data jobs.`
-      );
+    if (!isEnterpriseIsolated(entry.data)) {
+      if (isEnterprisePlan(entry.data)) {
+        console.warn(
+          `[Cron] Enterprise-plan owner ${entry.id} is missing isolated project credentials. Skipping guest-data jobs.`
+        );
+      }
       continue;
     }
 
-    const enterpriseProject = subscription.enterpriseProject as Record<string, unknown>;
+    const subscription = entry.data?.subscription as Record<string, unknown> | undefined;
+    const enterpriseProject = subscription?.enterpriseProject as Record<string, unknown>;
     const targetDomain = await resolveEnterpriseTargetDomainForOwner(
       entry.id,
       enterpriseProject,

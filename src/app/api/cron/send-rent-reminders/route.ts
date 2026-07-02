@@ -1,10 +1,10 @@
-'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { reconcileAllGuests } from '@/lib/actions/reconciliationActions';
 import { sendRemindersForOwner } from '@/lib/actions/reminderActions';
 import { isCronAuthorized, unauthorizedCronResponse } from '@/lib/cron/auth';
+import { isEnterpriseIsolated } from '@/lib/enterprise/isolation';
 
 export async function GET(request: NextRequest) {
     try {
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         for (const userDoc of usersSnapshot.docs) {
             const userData = userDoc.data();
             
-            if (userData?.subscription?.planId === 'enterprise') {
+            if (isEnterpriseIsolated(userData as Record<string, unknown>)) {
                 continue;
             }
             

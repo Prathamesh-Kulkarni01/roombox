@@ -17,7 +17,6 @@ import { ShieldAlert, Star, Crown } from "lucide-react";
 import { logoutUser, setCurrentUser } from "@/lib/slices/userSlice";
 import InstallForceOverlay from "@/components/InstallForceOverlay";
 import { useRouteGuard } from "@/hooks/useRouteGuard";
-import { useClientAutomation } from "@/hooks/useClientAutomation";
 import GodModeGuard, { getActiveGodModeSession, clearGodModeSession } from "@/components/GodModeGuard";
 import type { GodModeSession } from "@/components/GodModeGuard";
 import { adminLogImpersonation } from "@/lib/actions/adminActions";
@@ -28,7 +27,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  useClientAutomation();
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
   const { currentUser } = useAppSelector((state) => state.user);
