@@ -1,4 +1,4 @@
-'use server';
+
 
 import { NextRequest, NextResponse, after } from 'next/server';
 import { resolveTenant } from '@/lib/tenantResolver';
