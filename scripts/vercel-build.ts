@@ -22,10 +22,10 @@ try {
     console.log('\n🚀 Production build detected. Executing database migrations...');
     // In Vercel, the matching environment variables are loaded directly from the Vercel dashboard.
     // We execute the standard migration runner using the currently injected environment variables.
-    execSync('npx ts-node --project scripts/tsconfig.json -r tsconfig-paths/register scripts/migrations/runner.ts', { stdio: 'inherit' });
+    execSync('npx ts-node --project scripts/tsconfig.json -r tsconfig-paths/register scripts/migrations/runner.ts --force', { stdio: 'inherit' });
   } else if (vercelEnv === 'preview' && branch === 'staging') {
     console.log('\n🧪 Staging branch preview build detected. Executing staging migrations...');
-    execSync('npx ts-node --project scripts/tsconfig.json -r tsconfig-paths/register scripts/migrations/runner.ts', { stdio: 'inherit' });
+    execSync('npx ts-node --project scripts/tsconfig.json -r tsconfig-paths/register scripts/migrations/runner.ts --force', { stdio: 'inherit' });
   } else {
     console.log('\n⏭️ Normal Preview deployment / Feature branch. Skipping live migrations.');
   }
