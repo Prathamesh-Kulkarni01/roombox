@@ -2,7 +2,7 @@
 'use server'
 
 import crypto from 'crypto'
-import { getAdminDb } from '../firebaseAdmin'
+import { getAdminDb, selectOwnerDataAdminDb } from '../firebaseAdmin'
 import { PRICING_CONFIG } from '../constants'
 import { getVerifiedOwnerIdFromHeaders } from '../auth-server'
 import type { 
@@ -452,7 +452,8 @@ export async function estimateBalanceRunway(ownerId: string): Promise<{
     const billingConfig = owner.billingConfig;
 
     // Get tenant count
-    const guestsSnapshot = await adminDb
+    const ownerDb = await selectOwnerDataAdminDb(ownerId);
+    const guestsSnapshot = await ownerDb
       .collection('users_data')
       .doc(ownerId)
       .collection('guests')

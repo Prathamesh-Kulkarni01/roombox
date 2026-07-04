@@ -1,6 +1,6 @@
 'use server'
 
-import { getAdminDb } from '../firebaseAdmin'
+import { getAdminDb, selectOwnerDataAdminDb } from '../firebaseAdmin'
 import type { Guest, FinancialEvent, FinancialEventType } from '../types'
 import { FieldValue } from 'firebase-admin/firestore'
 
@@ -21,7 +21,7 @@ export async function recordFinancialEvent(data: {
   date?: string;
 }): Promise<{ success: boolean; newBalance?: number; error?: string }> {
   try {
-    const adminDb = await getAdminDb();
+    const adminDb = await selectOwnerDataAdminDb(data.ownerId);
     
     // Guest document reference
     const guestRef = adminDb.collection('users_data').doc(data.ownerId).collection('guests').doc(data.guestId);
@@ -105,7 +105,7 @@ export async function recordFinancialEvent(data: {
  */
 export async function getFinancialEvents(ownerId: string, guestId: string): Promise<{ success: boolean; events?: FinancialEvent[]; error?: string }> {
   try {
-    const adminDb = await getAdminDb();
+    const adminDb = await selectOwnerDataAdminDb(ownerId);
     const snapshot = await adminDb
       .collection('users_data')
       .doc(ownerId)

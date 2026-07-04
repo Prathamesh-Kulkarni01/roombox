@@ -88,31 +88,40 @@ export default function MyPgPage() {
         return { roomName: room.name, bedName: bed.name };
     }, [currentPg, currentGuest, pgs]);
 
-    const { totalDue, dueItems } = useMemo(() => {
-        if (!currentGuest?.ledger) return { totalDue: 0, dueItems: [] };
+    const { totalDue, symbolicDue, dueItems } = useMemo(() => {
+        if (!currentGuest?.ledger) return { totalDue: currentGuest?.balance || 0, symbolicDue: currentGuest?.symbolicBalance || null, dueItems: [] };
 
-        let balance = 0;
-        const unpaidDebits: LedgerEntry[] = [];
-        const allCredits = currentGuest.ledger.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0);
-        let creditsToApply = allCredits;
+        const unpaidDebits: (LedgerEntry & { displayAmount: string | number })[] = [];
+        
+        let creditsToApply = currentGuest.ledger.filter(e => e.type === 'credit' && e.amountType !== 'symbolic').reduce((sum, e) => sum + e.amount, 0);
+
+        const symbolicCreditsMap: Record<string, number> = {};
+        currentGuest.ledger.filter(e => e.type === 'credit' && e.amountType === 'symbolic').forEach(e => {
+            const val = e.symbolicValue || 'XXX';
+            symbolicCreditsMap[val] = (symbolicCreditsMap[val] || 0) + 1;
+        });
 
         const allDebits = currentGuest.ledger.filter(e => e.type === 'debit');
 
         for (const debit of allDebits) {
-            if (creditsToApply >= debit.amount) {
-                creditsToApply -= debit.amount;
+            if (debit.amountType === 'symbolic') {
+                const val = debit.symbolicValue || 'XXX';
+                if (symbolicCreditsMap[val] > 0) {
+                    symbolicCreditsMap[val]--;
+                } else {
+                    unpaidDebits.push({ ...debit, displayAmount: val });
+                }
             } else {
-                unpaidDebits.push({
-                    ...debit,
-                    amount: debit.amount - creditsToApply,
-                });
-                creditsToApply = 0;
+                if (creditsToApply >= debit.amount) {
+                    creditsToApply -= debit.amount;
+                } else {
+                    unpaidDebits.push({ ...debit, amount: debit.amount - creditsToApply, displayAmount: debit.amount - creditsToApply });
+                    creditsToApply = 0;
+                }
             }
         }
 
-        balance = unpaidDebits.reduce((sum, item) => sum + item.amount, 0);
-
-        return { totalDue: balance, dueItems: unpaidDebits };
+        return { totalDue: currentGuest.balance || 0, symbolicDue: currentGuest.symbolicBalance || null, dueItems: unpaidDebits };
     }, [currentGuest]);
 
     useEffect(() => {
@@ -326,7 +335,9 @@ export default function MyPgPage() {
                             {dueItems.length > 0 ? dueItems.map(item => (
                                 <div key={item.id} className="flex justify-between text-sm text-muted-foreground">
                                     <span>{item.description}</span>
-                                    <span className="font-medium text-foreground">₹{item.amount.toLocaleString('en-IN')}</span>
+                                    <span className="font-medium text-foreground">
+                                        {typeof item.displayAmount === 'number' ? `₹${item.displayAmount.toLocaleString('en-IN')}` : `${item.displayAmount} (Unit)`}
+                                    </span>
                                 </div>
                             )) : <p className="text-sm text-muted-foreground">No outstanding charges.</p>}
                         </div>
@@ -334,14 +345,16 @@ export default function MyPgPage() {
 
                         <div className="flex justify-between items-center text-base pt-4 border-t">
                             <span className="font-bold">Total Amount Due:</span>
-                            <span className="font-bold text-lg text-primary flex items-center"><IndianRupee className="w-5 h-5" />{totalDue.toLocaleString('en-IN')}</span>
+                            <span className="font-bold text-lg text-primary flex items-center">
+                                {symbolicDue ? `${symbolicDue} Units` : <><IndianRupee className="w-5 h-5" />{totalDue.toLocaleString('en-IN')}</>}
+                            </span>
                         </div>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-3">
                         <Button 
                             className="w-full bg-accent text-accent-foreground hover:bg-accent/90 py-6 text-lg font-bold shadow-lg shadow-accent/20" 
                             onClick={handlePayNow} 
-                            disabled={totalDue <= 0 || isPaying}
+                            disabled={(totalDue <= 0 && !symbolicDue) || isPaying}
                         >
                             {isPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Pay Now

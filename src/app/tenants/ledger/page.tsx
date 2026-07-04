@@ -69,12 +69,12 @@ export default function TenantLedgerPage() {
                             <History className="h-4 w-4" /> Outstanding Rent Dues
                         </CardDescription>
                         <CardTitle className="text-4xl font-black text-primary">
-                            ₹{currentBalance.toLocaleString('en-IN')}
+                            {currentGuest.symbolicBalance ? `${currentGuest.symbolicBalance} Units` : `₹${currentBalance.toLocaleString('en-IN')}`}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm text-muted-foreground">
-                            {currentBalance <= 0 ? "You're all caught up! No pending dues." : "Please clear your dues to avoid late fees."}
+                            {(currentBalance <= 0 && !currentGuest.symbolicBalance) ? "You're all caught up! No pending dues." : "Please clear your dues to avoid late fees."}
                         </p>
                     </CardContent>
                 </Card>
@@ -85,7 +85,7 @@ export default function TenantLedgerPage() {
                             <ShieldCheck className="h-4 w-4" /> Escrow / Security Deposit
                         </CardDescription>
                         <CardTitle className="text-4xl font-black text-green-700">
-                            ₹{escrowBalance.toLocaleString('en-IN')}
+                            {currentGuest.amountType === 'symbolic' ? `${currentGuest.symbolicDepositValue || 'N/A'}` : `₹${escrowBalance.toLocaleString('en-IN')}`}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -123,6 +123,9 @@ export default function TenantLedgerPage() {
                                         const isCharge = entry.amount > 0 && entry.type !== 'deposit_received';
                                         const isPayment = entry.amount < 0 || entry.type === 'deposit_received' || entry.type === 'payment_received';
                                         
+                                        const isSymbolic = (entry as any).amountType === 'symbolic';
+                                        const displayVal = isSymbolic ? ((entry as any).symbolicValue || '1 Unit') : `₹${Math.abs(entry.amount).toLocaleString('en-IN')}`;
+                                        
                                         return (
                                             <TableRow key={entry.id}>
                                                 <TableCell className="whitespace-nowrap">{format(parseISO(entry.date), 'dd MMM, yyyy')}</TableCell>
@@ -133,10 +136,10 @@ export default function TenantLedgerPage() {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="text-right font-medium text-destructive">
-                                                    {isCharge ? `₹${Math.abs(entry.amount).toLocaleString('en-IN')}` : '-'}
+                                                    {isCharge ? displayVal : '-'}
                                                 </TableCell>
                                                 <TableCell className="text-right font-medium text-green-600">
-                                                    {isPayment ? `₹${Math.abs(entry.amount).toLocaleString('en-IN')}` : '-'}
+                                                    {isPayment ? displayVal : '-'}
                                                 </TableCell>
                                             </TableRow>
                                         );
