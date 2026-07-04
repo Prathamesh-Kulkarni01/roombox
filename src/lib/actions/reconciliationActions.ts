@@ -40,6 +40,34 @@ export async function reconcileSingleGuest({ ownerId, guestId, now }: { ownerId:
             }
 
             transaction.update(guestDocRef, result.guest as any);
+
+            // Sync ledger changes to financial_events subcollection
+            const oldLedger = guest.ledger || [];
+            const newLedger = result.guest.ledger || [];
+            const oldLedgerMap = new Map(oldLedger.map(e => [e.id, e]));
+
+            for (const entry of newLedger) {
+                const oldEntry = oldLedgerMap.get(entry.id);
+                if (!oldEntry || oldEntry.amount !== entry.amount) {
+                    const eventRef = guestDocRef.collection('financial_events').doc(entry.id);
+                    const event = {
+                        id: entry.id,
+                        guestId,
+                        pgId: guest.pgId,
+                        ownerId,
+                        type: entry.isLateFee ? 'late_fee' : 'rent_charge',
+                        amount: entry.amount,
+                        description: entry.description,
+                        date: entry.date,
+                        createdAt: new Date().toISOString(),
+                        createdBy: 'system_cron',
+                        schemaVersion: 1,
+                        metadata: { amountType: entry.amountType, symbolicValue: entry.symbolicValue }
+                    };
+                    transaction.set(eventRef, event, { merge: true });
+                }
+            }
+
             return { cycles: result.cyclesProcessed, updated: true, lateFee: result.lateFeeApplied };
         });
 
