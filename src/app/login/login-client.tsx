@@ -15,15 +15,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2,
-  ArrowRight,
   ChevronLeft,
-  ShieldCheck,
-  Mail,
-  Phone,
   Lock,
-  Building2,
 } from "lucide-react";
 import { useAppSelector } from "@/lib/hooks";
 import {
@@ -32,7 +28,8 @@ import {
   RecaptchaVerifier,
   GoogleAuthProvider,
   signInWithPopup,
-  ConfirmationResult
+  ConfirmationResult,
+  createUserWithEmailAndPassword
 } from "firebase/auth";
 import { usePgBranding } from "@/context/branding-context";
 import { useFirebaseTenant } from "@/context/firebase-tenant-context";
@@ -47,6 +44,15 @@ declare global {
 
 type LoginStage = "IDENTITY" | "CHALLENGE" | "SWITCH_CONTEXT";
 type ChallengeType = "PASSWORD_OR_OTP" | "INVITE_CODE";
+
+const GoogleIcon = (props: React.ComponentProps<'svg'>) => (
+  <svg role="img" viewBox="0 0 24 24" {...props}>
+    <path
+      fill="currentColor"
+      d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.6 1.98-4.66 1.98-3.56 0-6.47-2.91-6.47-6.47s2.91-6.47 6.47-6.47c1.94 0 3.32.73 4.31 1.76l2.35-2.35C19.05 3.32 16.2 2 12.48 2 7.18 2 3.13 5.96 3.13 11.25s4.05 9.25 9.35 9.25c3.21 0 5.7-1.09 7.6-3.05 2.03-2.03 2.54-5.02 2.54-7.61 0-.61-.05-1.19-.16-1.74z"
+    />
+  </svg>
+);
 
 export default function LoginPageClient() {
   const router = useRouter();
@@ -80,7 +86,8 @@ export default function LoginPageClient() {
   const [showSwitcher, setShowSwitcher] = useState(false);
 
   // Owner Fallback State
-  const [isOwnerLogin, setIsOwnerLogin] = useState(false);
+  const [activeTab, setActiveTab] = useState("tenant"); // "tenant" or "owner"
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
 
@@ -138,8 +145,6 @@ export default function LoginPageClient() {
 
     setIsProcessing(true);
     try {
-      // In a fully decentralized setup, you might skip checking state centrally and just attempt login.
-      // For now, we assume standard password/otp flow.
       setChallengeType("PASSWORD_OR_OTP");
       setStage("CHALLENGE");
     } finally {
@@ -155,7 +160,6 @@ export default function LoginPageClient() {
     try {
       const loginId = `${phone.replace(/\D/g, "").slice(-10)}@roombox.app`;
       await signInWithEmailAndPassword(auth, loginId, password);
-      // Let useEffect handle redirect
     } catch (err: any) {
       let msg = "Invalid password. Please try again.";
       if (err.code === "auth/user-not-found") msg = "Account not found.";
@@ -176,7 +180,6 @@ export default function LoginPageClient() {
       toast({ title: "OTP Sent", description: "Check your messages for the 6-digit code." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
-      // Reset recaptcha on error
       if (window.recaptchaVerifier) {
           window.recaptchaVerifier.render().then((widgetId: any) => {
               window.grecaptcha.reset(widgetId);
@@ -194,7 +197,6 @@ export default function LoginPageClient() {
     setIsProcessing(true);
     try {
       await confirmationResult.confirm(otp);
-      // Let useEffect handle redirect
     } catch (err: any) {
       toast({ variant: "destructive", title: "Verification Failed", description: "Invalid OTP code." });
       setOtp("");
@@ -224,115 +226,185 @@ export default function LoginPageClient() {
     }
   };
 
-  const handleOwnerLogin = async (e: React.FormEvent) => {
+  const handleOwnerEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) return;
+    
     setIsProcessing(true);
     try {
-      await signInWithEmailAndPassword(auth!, email, ownerPassword);
+      if (isSignUp) {
+        if (!ownerPassword || ownerPassword.length < 6) {
+          toast({ variant: "destructive", title: "Weak Password", description: "Password must be at least 6 characters." });
+          setIsProcessing(false);
+          return;
+        }
+        await createUserWithEmailAndPassword(auth, email, ownerPassword);
+        toast({ title: 'Welcome!', description: "Account created successfully." });
+      } else {
+        await signInWithEmailAndPassword(auth, email, ownerPassword);
+      }
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
+      toast({ variant: "destructive", title: isSignUp ? "Sign Up Failed" : "Login Failed", description: err.message });
+      setIsProcessing(false);
+    }
+  };
+  
+  const handleGoogleSignIn = async () => {
+    if (!auth) return;
+    setIsProcessing(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      toast({ title: 'Success', description: "Authenticated with Google." });
+    } catch (error: any) {
+      console.error("Google Sign-In Error:", error);
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast({
+          variant: "destructive",
+          title: "Google Auth Failed",
+          description: error.message || "An error occurred.",
+        });
+      }
       setIsProcessing(false);
     }
   };
 
-  if (isOwnerLogin) {
-    return (
-      <div className="flex items-center justify-center min-h-[85vh] p-4 overscroll-none">
-        <Card className="w-full max-w-sm border-primary/20 shadow-2xl">
-          <CardHeader className="text-center space-y-1">
-            <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-              <Lock className="w-6 h-6 text-primary" />
-            </div>
-            <CardTitle className="text-2xl font-bold">Owner Portal</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <form onSubmit={handleOwnerLogin} className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="owner-pass">Password</Label>
-                <Input id="owner-pass" type="password" value={ownerPassword} onChange={(e) => setOwnerPassword(e.target.value)} required disabled={isLoading} />
-              </div>
-              <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Log In
-              </Button>
-            </form>
-            <Button variant="ghost" className="w-full h-9" onClick={() => setIsOwnerLogin(false)}>
-              <ChevronLeft className="mr-2 h-4 w-4" /> Back
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex items-center justify-center min-h-[85vh] bg-background p-4">
+    <div className="flex items-center justify-center min-h-[calc(100vh-56px)] bg-background p-4 sm:p-8 overscroll-none">
       <div id="recaptcha-container"></div>
-      <Card className="w-full max-w-[400px] shadow-xl">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-extrabold">{branding?.siteTitle ?? "RentSutra"}</CardTitle>
-          <CardDescription>Authenticate to continue</CardDescription>
+      <Card className="w-full max-w-sm shadow-none sm:shadow-xl border-0 sm:border bg-transparent sm:bg-card">
+        <CardHeader className="text-center px-0 sm:px-6">
+          <CardTitle className="text-3xl font-extrabold pb-2 tracking-tight">{branding?.siteTitle ?? "RentSutra"}</CardTitle>
+          <CardDescription className="text-base">
+            {activeTab === "tenant" ? "Authenticate to continue" : (isSignUp ? "Create an owner account" : "Sign in to owner portal")}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          {stage === "IDENTITY" ? (
-            <form onSubmit={handleIdentityCheck} className="grid gap-6">
-              <div className="grid gap-3">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} required disabled={isLoading} />
-              </div>
-              <Button type="submit" className="w-full h-12" disabled={isLoading || phone.length < 10}>
-                {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />} Next
-              </Button>
-              <Button variant="outline" type="button" onClick={() => setIsOwnerLogin(true)}>
-                Owner Access
-              </Button>
-            </form>
-          ) : stage === "SWITCH_CONTEXT" ? (
-            <RoleContextSwitcher user={currentUser} onSelect={handleContextSelect} isProcessing={isProcessing} />
+        <CardContent className="px-0 sm:px-6">
+          {stage === "SWITCH_CONTEXT" ? (
+             <RoleContextSwitcher user={currentUser} onSelect={handleContextSelect} isProcessing={isProcessing} />
           ) : (
-            <div className="grid gap-6">
-              <Button variant="ghost" onClick={() => setStage("IDENTITY")}>
-                <ChevronLeft className="w-3 h-3 mr-1" /> Back
-              </Button>
-              
-              {authMethod === "PASSWORD" ? (
-                <form onSubmit={handlePasswordSignIn} className="grid gap-6">
-                  <div className="grid gap-3">
-                    <Label htmlFor="pass">Password</Label>
-                    <Input id="pass" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} />
-                  </div>
-                  <Button type="submit" className="w-full h-12" disabled={isLoading || !password}>
-                    Sign In
-                  </Button>
-                  <Button variant="link" type="button" onClick={() => setAuthMethod("OTP")}>
-                    Use OTP Login Instead
-                  </Button>
-                </form>
-              ) : (
-                <div className="grid gap-6">
-                  {!waitingForOtp ? (
-                    <>
-                      <Button onClick={handleSendOtp} className="w-full h-12" disabled={isLoading}>
-                        Get OTP
-                      </Button>
-                      <Button variant="link" onClick={() => setAuthMethod("PASSWORD")}>
-                        Back to Password
-                      </Button>
-                    </>
-                  ) : (
-                    <form onSubmit={handleVerifyOtp} className="grid gap-6">
-                      <Input id="otp-verify" type="text" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} required disabled={isLoading} />
-                      <Button type="submit" className="w-full h-12" disabled={isLoading || otp.length !== 6}>
-                        Verify OTP
+             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+               <TabsList className="grid w-full grid-cols-2 mb-6 h-12 sm:h-10">
+                 <TabsTrigger value="tenant" className="text-base sm:text-sm h-full">Tenant</TabsTrigger>
+                 <TabsTrigger value="owner" className="text-base sm:text-sm h-full">Owner</TabsTrigger>
+               </TabsList>
+
+               <TabsContent value="tenant" className="mt-0 space-y-4">
+                  {stage === "IDENTITY" ? (
+                    <form onSubmit={handleIdentityCheck} className="grid gap-6">
+                      <div className="grid gap-3">
+                        <Label htmlFor="phone" className="text-base sm:text-sm">Phone Number</Label>
+                        <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} required disabled={isLoading} className="text-base sm:text-sm h-12 sm:h-10" placeholder="10-digit mobile number" />
+                      </div>
+                      <Button type="submit" className="w-full h-14 sm:h-11 text-base sm:text-sm" disabled={isLoading || phone.length < 10}>
+                        {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />} Next
                       </Button>
                     </form>
+                  ) : (
+                    <div className="grid gap-6">
+                      <Button variant="ghost" onClick={() => setStage("IDENTITY")} className="w-fit h-12 sm:h-10 text-base sm:text-sm px-0 hover:bg-transparent">
+                        <ChevronLeft className="w-5 h-5 sm:w-4 sm:h-4 mr-1" /> Back
+                      </Button>
+                      
+                      {authMethod === "PASSWORD" ? (
+                        <form onSubmit={handlePasswordSignIn} className="grid gap-6">
+                          <div className="grid gap-3">
+                            <Label htmlFor="pass" className="text-base sm:text-sm">Password</Label>
+                            <Input id="pass" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} className="text-base sm:text-sm h-12 sm:h-10" placeholder="Enter your password" />
+                          </div>
+                          <Button type="submit" className="w-full h-14 sm:h-11 text-base sm:text-sm" disabled={isLoading || !password}>
+                            Sign In
+                          </Button>
+                          <Button variant="link" type="button" onClick={() => setAuthMethod("OTP")} className="h-12 sm:h-10 text-base sm:text-sm">
+                            Use OTP Login Instead
+                          </Button>
+                        </form>
+                      ) : (
+                        <div className="grid gap-6">
+                          {!waitingForOtp ? (
+                            <>
+                              <Button onClick={handleSendOtp} className="w-full h-14 sm:h-11 text-base sm:text-sm" disabled={isLoading}>
+                                Get OTP
+                              </Button>
+                              <Button variant="link" onClick={() => setAuthMethod("PASSWORD")} className="h-12 sm:h-10 text-base sm:text-sm">
+                                Back to Password
+                              </Button>
+                            </>
+                          ) : (
+                            <form onSubmit={handleVerifyOtp} className="grid gap-6">
+                              <div className="grid gap-3">
+                                <Label htmlFor="otp-verify" className="text-base sm:text-sm">Enter 6-digit OTP</Label>
+                                <Input id="otp-verify" type="text" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} required disabled={isLoading} className="text-base sm:text-sm h-12 sm:h-10 text-center tracking-widest font-mono" placeholder="------" />
+                              </div>
+                              <Button type="submit" className="w-full h-14 sm:h-11 text-base sm:text-sm" disabled={isLoading || otp.length !== 6}>
+                                Verify OTP
+                              </Button>
+                            </form>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
-                </div>
-              )}
-            </div>
+               </TabsContent>
+
+               <TabsContent value="owner" className="mt-0">
+                  <form onSubmit={handleOwnerEmailAuth} className="grid gap-5">
+                    <div className="grid gap-2">
+                      <Label htmlFor="email" className="text-base sm:text-sm">Email</Label>
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        inputMode="email"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        className="text-base sm:text-sm h-12 sm:h-10"
+                        placeholder="name@example.com" 
+                        required 
+                        value={email} 
+                        onChange={(e) => setEmail(e.target.value)} 
+                        disabled={isLoading} 
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="owner-password" className="text-base sm:text-sm">Password</Label>
+                      <Input 
+                        id="owner-password" 
+                        type="password" 
+                        className="text-base sm:text-sm h-12 sm:h-10"
+                        placeholder={isSignUp ? "Min 6 characters" : "Your password"} 
+                        required 
+                        value={ownerPassword} 
+                        onChange={(e) => setOwnerPassword(e.target.value)} 
+                        disabled={isLoading} 
+                        minLength={isSignUp ? 6 : 1} 
+                      />
+                    </div>
+
+                    <Button type="submit" className="w-full h-14 sm:h-11 mt-2 text-base sm:text-sm" disabled={isLoading || !email || !ownerPassword}>
+                      {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                      {isSignUp ? "Sign Up" : "Log In"}
+                    </Button>
+                  </form>
+
+                  <div className="relative my-8">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background sm:bg-card px-2 text-muted-foreground font-medium">OR</span></div>
+                  </div>
+
+                  <Button variant="outline" className="w-full h-14 sm:h-11 text-base sm:text-sm" onClick={handleGoogleSignIn} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <GoogleIcon className="mr-2 h-5 w-5" />}
+                    Continue with Google
+                  </Button>
+
+                  <div className="mt-8 text-center text-base sm:text-sm">
+                    {isSignUp ? "Already have an account?" : "Don't have an account?"} {" "}
+                    <Button variant="link" className="p-0 h-auto font-normal text-base sm:text-sm" onClick={() => setIsSignUp(!isSignUp)}>
+                      {isSignUp ? "Log in" : "Sign up"}
+                    </Button>
+                  </div>
+               </TabsContent>
+             </Tabs>
           )}
         </CardContent>
       </Card>
