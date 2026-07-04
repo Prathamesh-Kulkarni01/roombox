@@ -63,7 +63,7 @@ export default function ConfettiProvider({ children }: { children: ReactNode }) 
       )}
     </ConfettiContext.Provider>
   );
-};
+}
 
 export const useConfetti = () => {
   const context = useContext(ConfettiContext);

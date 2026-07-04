@@ -63,7 +63,7 @@ export function calculateFirstDueDate(startDate: Date, unit: RentCycleUnit, valu
 
   // For all other units, simply add the value. This preserves the time component.
   return addFn(startDate, value);
-};
+}
 
 /**
  * Calculates the pro-rated rent for the remaining days of a month.

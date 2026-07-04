@@ -1,5 +1,5 @@
-import { Command } from "../../../Command";
-import { ExecutionContext } from "../../../../core/engine/ExecutionContext";
+import { Command } from "../../Command";
+import { ExecutionContext } from "../../../core/engine/ExecutionContext";
 
 export class OwnerLoginCommand implements Command {
   public readonly name = "OwnerLoginCommand";

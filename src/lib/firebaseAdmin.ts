@@ -153,7 +153,7 @@ function initializeAdminApp(projectId?: string, databaseId?: string): App {
     }
     throw error; // Rethrow original error for better debugging
   }
-};
+}
 
 function getAdminApp(projectId?: string, databaseId?: string): App {
   return initializeAdminApp(projectId, databaseId);

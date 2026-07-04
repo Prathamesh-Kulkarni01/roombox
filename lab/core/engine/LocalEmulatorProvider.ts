@@ -2,8 +2,8 @@ import { PlatformProvider } from "./PlatformProvider";
 import { EventStream } from "../../validation/EventStream";
 
 export interface ProviderAPI {
-  createOwner(params: { name: string }): Promise<{ id: string }>;
-  createProperty(params: { ownerId: string; name: string; rooms: number }): Promise<{ id: string }>;
+  createOwner(data: any): Promise<{ id: string }>;
+  createProperty(ownerId: string, data: any): Promise<{ id: string }>;
   inviteGuest(params: { propertyId: string; email: string }): Promise<{ inviteId: string }>;
   acceptInvite(params: { inviteId: string }): Promise<{ guestId: string }>;
   guestLogin(params: { guestId: string }): Promise<{ token: string }>;
@@ -43,9 +43,9 @@ export class LocalEmulatorProvider implements PlatformProvider {
       this.eventStream.emit("OwnerCreated", { id, name: p.name });
       return { id };
     },
-    createProperty: async (p) => {
+    createProperty: async (ownerId, data) => {
       const id = "prop-456";
-      this.eventStream.emit("PropertyCreated", { id, ownerId: p.ownerId, name: p.name, rooms: p.rooms });
+      this.eventStream.emit("PropertyCreated", { id, ownerId, name: data.name, rooms: data.rooms });
       return { id };
     },
     inviteGuest: async (p) => {

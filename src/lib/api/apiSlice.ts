@@ -129,6 +129,12 @@ export const api = createApi({
             subdomain?: string;
             logo?: string[];
             icon?: string[];
+            rentCollectionType?: 'anniversary' | 'fixed_date';
+            fixedCollectionDay?: number;
+            lateFeeEnabled?: boolean;
+            lateFeeAmount?: number;
+            lateFeeGracePeriodDays?: number;
+            minimumBalanceForLateFee?: number;
         }>({
             query: (body) => ({ url: 'api/properties', method: 'POST', body }),
             invalidatesTags: ['Properties'],

@@ -30,7 +30,7 @@ export function runReconciliationLogic(
   let moveInDate = guest.moveInDate || guest.dueDate;
   if (!moveInDate) {
     console.error(`[Reconcile] Guest ${guest.id} is missing moveInDate/joinDate. Skipping.`);
-    return { guest, cyclesProcessed: 0 };
+    return { guest, cyclesProcessed: 0, lateFeeApplied: false };
   }
   const billingAnchorDay = guest.billingAnchorDay || parseISO(moveInDate).getDate();
 

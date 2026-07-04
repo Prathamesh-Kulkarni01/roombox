@@ -162,4 +162,4 @@ export default function QuickActions({ pgs, guests, handleOpenAddGuestDialog, ha
             <CollectRentDialog guests={guests} onSelectGuest={handleSelectGuestForPayment} open={isCollectRentOpen} onOpenChange={setIsCollectRentOpen} />
         </div>
     );
-};
+}

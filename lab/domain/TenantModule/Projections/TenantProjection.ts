@@ -1,4 +1,4 @@
-import { EventStream } from "../../validation/EventStream";
+import { EventStream } from "../../../validation/EventStream";
 
 export class TenantProjection {
   private guests: Record<string, any> = {};

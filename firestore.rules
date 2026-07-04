@@ -295,6 +295,19 @@ service cloud.firestore {
       );
     }
 
+    // ─── Property Layout (Floors, Rooms, Beds) ─────────────────────────────
+    // These are nested under users_data/{ownerId}/pgs/{pgId}
+    match /users_data/{ownerId}/pgs/{pgId}/{subCollection}/{subId} {
+      allow read, write: if isAuth() && request.auth.uid == ownerId;
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && isStaff(pgId);
+      allow read: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && request.auth.token.pgId == pgId;
+    }
+    match /users_data/{ownerId}/pgs/{pgId}/{subCollection}/{subId}/{nestedCollection}/{nestedId} {
+      allow read, write: if isAuth() && request.auth.uid == ownerId;
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && isStaff(pgId);
+      allow read: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && request.auth.token.pgId == pgId;
+    }
+
     // ─── Activity Logs ────────────────────────────────────────────────────────
     match /activity_logs/{logId} {
       allow read, write: if isAuth() && (

@@ -24,5 +24,11 @@ export interface PlatformProvider {
   api: {
     createOwner(data: any): Promise<{ id: string }>;
     createProperty(ownerId: string, data: any): Promise<{ id: string }>;
+    inviteGuest(params: { propertyId: string; email: string }): Promise<{ inviteId: string }>;
+    acceptInvite(params: { inviteId: string }): Promise<{ guestId: string }>;
+    guestLogin(params: { guestId: string }): Promise<{ token: string }>;
+    generateRent(params: { guestId: string; amount: number; month: string }): Promise<{ invoiceId: string }>;
+    loginOwner(params: { email: string }): Promise<{ ownerId: string; token: string; tenantId: string }>;
+    loginGuest(params: { email: string }): Promise<{ guestId: string; token: string; tenantId: string }>;
   };
 }

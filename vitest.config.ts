@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup/vitest.setup.ts'],
-    exclude: [...configDefaults.exclude, 'archive/**'],
+    exclude: [...configDefaults.exclude, 'archive/**', 'tests/e2e/**'],
     alias: {
       '@': path.resolve(__dirname, './src'),
     },

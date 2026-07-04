@@ -644,7 +644,7 @@ function AuthHandler({ children }: { children: ReactNode }) {
             },
             (error) => {
               console.error('[StoreProvider] PG Snapshot error:', error);
-              auth.currentUser?.getIdTokenResult().then(r => console.log('[StoreProvider] Claims at error:', r.claims));
+              auth?.currentUser?.getIdTokenResult().then(r => console.log('[StoreProvider] Claims at error:', r.claims));
             }
           );
           const unsubGuest = onSnapshot(

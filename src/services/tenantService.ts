@@ -745,10 +745,10 @@ export class TenantService {
             };
 
             // Safety check for mandatory fields (re-added from legacy)
-            if (updates.hasOwnProperty('dueDate') && (updates.dueDate === undefined || updates.dueDate === null)) {
+            if (Object.prototype.hasOwnProperty.call(updates, 'dueDate') && (updates.dueDate === undefined || updates.dueDate === null)) {
                 throw new Error('dueDate cannot be null or undefined');
             }
-            if (updates.hasOwnProperty('moveInDate') && (updates.moveInDate === undefined || updates.moveInDate === null)) {
+            if (Object.prototype.hasOwnProperty.call(updates, 'moveInDate') && (updates.moveInDate === undefined || updates.moveInDate === null)) {
                 throw new Error('moveInDate cannot be null or undefined');
             }
 

@@ -411,6 +411,7 @@ export interface LedgerEntry {
   pgId?: string;
   isLateFee?: boolean;
   lateFeeForgiven?: boolean;
+  paymentId?: string;
 }
 
 // Payment Method Types
@@ -901,6 +902,7 @@ export interface Notification {
   isRead: boolean;
   link?: string;
   targetId?: string;
+  targetRole?: string;
 }
 
 export interface Notice {

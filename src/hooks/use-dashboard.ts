@@ -863,7 +863,7 @@ export function useDashboard() {
       setReminderMessage("Cannot generate reminder: guest or user data is missing.");
       setIsReminderDialogOpen(true);
       return;
-    };
+    }
     setSelectedGuestForReminderId(guest.id);
     setIsGeneratingReminder(true);
     setIsReminderDialogOpen(true);
