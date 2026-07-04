@@ -304,6 +304,23 @@ export async function POST(req: NextRequest) {
                 });
 
                 transaction.set(guestDocRef, updatedGuest);
+                
+                // Sync to financial_events subcollection
+                const eventRef = guestDocRef.collection('financial_events').doc(ledgerEntry.id);
+                transaction.set(eventRef, {
+                    id: ledgerEntry.id,
+                    guestId,
+                    pgId: guest.pgId,
+                    ownerId,
+                    type: 'payment_received',
+                    amount: amountPaid,
+                    description: ledgerEntry.description,
+                    date: ledgerEntry.date,
+                    createdAt: new Date().toISOString(),
+                    createdBy: 'system_webhook',
+                    schemaVersion: 1
+                }, { merge: true });
+                
                 console.log(`[Webhook: Razorpay-Rent] Ledger updated. New balance for guest ${guestId}: ₹${updatedGuest.balance}. Rent Status: ${updatedGuest.rentStatus}`);
 
                 return {

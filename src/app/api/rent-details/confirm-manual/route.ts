@@ -78,6 +78,22 @@ export async function POST(req: NextRequest) {
             schemaVersion: 3
         });
 
+        // Sync to financial_events
+        const eventRef = guestRef.collection('financial_events').doc(newLedgerEntry.id);
+        await eventRef.set({
+            id: newLedgerEntry.id,
+            guestId,
+            pgId: guest.pgId,
+            ownerId,
+            type: 'payment_received',
+            amount: Number(amount) || 0,
+            description: newLedgerEntry.description,
+            date: newLedgerEntry.date,
+            createdAt: new Date().toISOString(),
+            createdBy: 'tenant_manual',
+            schemaVersion: 1
+        }, { merge: true });
+
         return NextResponse.json({ success: true, paymentId });
 
     } catch (error) {

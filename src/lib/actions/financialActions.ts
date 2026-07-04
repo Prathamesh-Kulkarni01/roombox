@@ -48,16 +48,31 @@ export async function recordFinancialEvent(data: {
         newBalance = currentBalance + data.amount;
       }
       
+      // Create reference for the immutable event
+      const eventRef = guestRef.collection('financial_events').doc();
+      const eventDate = data.date || new Date().toISOString();
+
+      // Legacy Ledger Entry (Backward Compatibility for Cron & Balance Calcs)
+      const ledgerEntry = {
+        id: eventRef.id,
+        date: eventDate,
+        type: data.amount < 0 ? 'credit' : 'debit',
+        amount: Math.abs(data.amount),
+        description: data.description
+      };
+      
+      const updatedLedger = [...(guestData.ledger || []), ledgerEntry];
+
       // 1. Update Computed balances on Guest
       transaction.update(guestRef, {
         balance: newBalance,
         walletBalance: newWallet,
+        ledger: updatedLedger,
         // Update rentStatus dynamically based on new balance
         rentStatus: newBalance <= 0 ? 'paid' : (newBalance < (guestData.rentAmount || 0) ? 'partial' : 'unpaid')
       });
       
       // 2. Insert Immutable Event
-      const eventRef = guestRef.collection('financial_events').doc();
       const event: FinancialEvent = {
         id: eventRef.id,
         guestId: data.guestId,
@@ -66,7 +81,7 @@ export async function recordFinancialEvent(data: {
         type: data.type,
         amount: data.amount,
         description: data.description,
-        date: data.date || new Date().toISOString(),
+        date: eventDate,
         createdAt: new Date().toISOString(),
         createdBy: data.performedBy,
         metadata: data.metadata || null,
