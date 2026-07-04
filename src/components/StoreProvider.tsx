@@ -440,21 +440,6 @@ function AuthHandler({ children }: { children: ReactNode }) {
 
     const ownerIdForFetching =
       currentUser.role === "owner" ? currentUser.id : currentUser.ownerId;
-    const enterpriseDbId =
-      currentUser.subscription?.enterpriseProject?.databaseId;
-    const clientConfig =
-      currentUser.subscription?.enterpriseProject?.clientConfig;
-
-    const dbInstance = clientConfig
-      ? getOwnerClientDb(clientConfig, enterpriseDbId)
-      : enterpriseDbId
-        ? getDynamicDb(enterpriseDbId)
-        : getActiveDb() || db;
-
-    if (!dbInstance || !ownerIdForFetching) {
-      dispatch(setLoading(false));
-      return;
-    }
 
     // FCM and topics
     initializeFirebaseMessaging(currentUser.id);
@@ -465,6 +450,36 @@ function AuthHandler({ children }: { children: ReactNode }) {
           console.warn(
             "[StoreProvider] Claims not synced, skipping listener setup this cycle.",
           );
+          return;
+        }
+
+        let enterpriseDbId = currentUser.subscription?.enterpriseProject?.databaseId;
+        let clientConfig = currentUser.subscription?.enterpriseProject?.clientConfig;
+
+        // Managers don't have subscription info on their user document
+        if (currentUser.role !== "owner" && currentUser.ownerId && !clientConfig && !enterpriseDbId) {
+          try {
+            const res = await fetch(`/api/tenant-config/by-owner?ownerId=${currentUser.ownerId}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.isEnterprise) {
+                enterpriseDbId = data.databaseId;
+                clientConfig = data.clientConfig;
+              }
+            }
+          } catch (err) {
+            console.error("[StoreProvider] Failed to fetch manager tenant config:", err);
+          }
+        }
+
+        const dbInstance = clientConfig
+          ? getOwnerClientDb(clientConfig, enterpriseDbId)
+          : enterpriseDbId
+            ? getDynamicDb(enterpriseDbId)
+            : getActiveDb() || db;
+
+        if (!dbInstance || !ownerIdForFetching) {
+          dispatch(setLoading(false));
           return;
         }
 

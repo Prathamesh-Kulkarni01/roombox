@@ -1,10 +1,12 @@
 'use server';
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { resolveTenant } from '@/lib/tenantResolver';
 import { verifyPayload, SignedPayload } from '@/lib/cryptoUtils';
 import { TenantScheduler } from '@/lib/tenant/TenantScheduler';
 import { getCronSecret } from '@/lib/cron/auth';
+
+export const maxDuration = 300; // Allow 5 minutes for processing up to 10,000+ tenants in the background
 
 export async function POST(request: NextRequest) {
     try {
@@ -42,15 +44,19 @@ export async function POST(request: NextRequest) {
 
         console.log(`[Tenant Dispatcher] Valid payload received for Enterprise Owner: ${tenantId}`);
 
-        let results: any = null;
-
         // 4. Delegate to the TenantScheduler based on job type
         if (payload.type === 'run-scheduled-jobs') {
             if (!db) {
                 throw new Error("Resolved tenant database is missing.");
             }
-            const scheduler = new TenantScheduler(tenantId, db, new Date(payload.issuedAt));
-            results = await scheduler.runAllScheduledJobs(payload.jobId);
+            after(async () => {
+                try {
+                    const scheduler = new TenantScheduler(tenantId, db, new Date(payload.issuedAt));
+                    await scheduler.runAllScheduledJobs(payload.jobId);
+                } catch (e) {
+                    console.error(`[Tenant Dispatcher] Background job failed for ${tenantId}:`, e);
+                }
+            });
         } else {
             console.warn(`[Tenant Dispatcher] Unknown job type: ${payload.type}`);
             return NextResponse.json({ success: false, error: 'Unknown job type' }, { status: 400 });
@@ -58,10 +64,10 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ 
             success: true, 
-            message: 'Tenant cron jobs completed successfully',
+            message: 'Tenant cron jobs dispatched to background successfully',
             jobId: payload.jobId,
-            results
-        });
+            results: 'Processing in background'
+        }, { status: 202 });
 
     } catch (error: any) {
         console.error('[Tenant Dispatcher] Fatal error:', error);

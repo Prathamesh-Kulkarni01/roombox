@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveTenant } from '@/lib/tenantResolver';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import jwt from 'jsonwebtoken';
 import type { Guest, LedgerEntry } from '@/lib/types';
 
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     try {
         const { guestId, ownerId } = decoded;
 
-        const { db: adminDb } = await resolveTenant(req);
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
         const guestDoc = await adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId).get();
 
         if (!guestDoc.exists) {

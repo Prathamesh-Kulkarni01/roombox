@@ -3,6 +3,7 @@ import { isCronAuthorized, unauthorizedCronResponse } from '@/lib/cron/auth';
 import { runMaintenanceCron } from '@/lib/cron/maintenance';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // Allow 5 minutes for processing standard tenants and dispatching enterprise
 
 export async function GET(request: NextRequest) {
   try {

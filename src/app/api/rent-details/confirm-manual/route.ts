@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveTenant } from '@/lib/tenantResolver';
-import { getAdminDb } from '@/lib/firebaseAdmin';
+import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
 import type { LedgerEntry, Payment } from '@/lib/types';
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         const decoded = jwt.verify(token, secret) as { guestId: string, ownerId: string };
         const { guestId, ownerId } = decoded;
 
-        const { db: adminDb } = await resolveTenant(req);
+        const adminDb = await selectOwnerDataAdminDb(ownerId);
         const guestRef = adminDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
         const guestDoc = await guestRef.get();
         
