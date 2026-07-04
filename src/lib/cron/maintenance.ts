@@ -105,7 +105,13 @@ export async function dispatchEnterpriseMaintenance(
     };
   });
 
-  const finalResults = await Promise.all(sendPromises);
+  const finalResults: EnterpriseDispatchResult[] = [];
+  const BATCH_SIZE = 5;
+  for (let i = 0; i < sendPromises.length; i += BATCH_SIZE) {
+    const batch = sendPromises.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(batch);
+    finalResults.push(...batchResults);
+  }
 
   return { payloads, results: finalResults };
 }

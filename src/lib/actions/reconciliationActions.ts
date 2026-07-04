@@ -136,23 +136,31 @@ export async function reconcileForOwner(
         return data.dueDate && data.dueDate <= targetDateStr;
     });
 
-    for (const guestDoc of guestsToProcess) {
+    // Process in batches of 10 to speed up execution and avoid serverless timeouts
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < guestsToProcess.length; i += BATCH_SIZE) {
         if (limit && processedGuestCount >= limit) {
             console.log(`[Reconcile] Reached processing limit of ${limit} for owner ${ownerId}.`);
             break;
         }
 
-        try {
-            const result = await reconcileSingleGuest({ ownerId, guestId: guestDoc.id, now });
-            if (result.success && result.cyclesProcessed > 0) { // cyclesProcessed could be 0 if only late fee applied, but that's fine to count as processed or we can just count success
-                processedGuestCount++;
-            } else if (!result.success) {
+        const batch = guestsToProcess.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (guestDoc) => {
+            // Prevent overflowing limit within batch
+            if (limit && processedGuestCount >= limit) return; 
+            
+            try {
+                const result = await reconcileSingleGuest({ ownerId, guestId: guestDoc.id, now });
+                if (result.success && result.cyclesProcessed > 0) {
+                    processedGuestCount++;
+                } else if (!result.success) {
+                    totalErrors++;
+                }
+            } catch (e) {
+                console.error(`[Reconcile] Failed for guest ${guestDoc.id} of owner ${ownerId}`, e);
                 totalErrors++;
             }
-        } catch (e) {
-            console.error(`[Reconcile] Failed for guest ${guestDoc.id} of owner ${ownerId}`, e);
-            totalErrors++;
-        }
+        }));
     }
 
     console.log(`[Reconcile] Owner ${ownerId}: Successfully processed ${processedGuestCount} guests. Failed: ${totalErrors}.`);
