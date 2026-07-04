@@ -3,6 +3,7 @@
 'use client';
 
 import { useMemo } from "react"
+import { addDays, format } from "date-fns"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
@@ -12,11 +13,15 @@ import type { UseDashboardReturn } from "@/hooks/use-dashboard"
 import type { Guest, LedgerEntry } from "@/lib/types"
 import { getBalanceBreakdown } from "@/lib/ledger-utils";
 import { produce } from "immer";
-import { Loader2 } from "lucide-react"
+import { Loader2, XCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { useRecordGuestPaymentMutation } from "@/lib/api/apiSlice"
 
 type PaymentDialogProps = Pick<UseDashboardReturn, 'isPaymentDialogOpen' | 'setIsPaymentDialogOpen' | 'selectedGuestForPayment' | 'paymentForm' | 'handlePaymentSubmit' | 'isRecordingPayment'>
 
 export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogOpen, selectedGuestForPayment, paymentForm, handlePaymentSubmit, isRecordingPayment }: PaymentDialogProps) {
+  const { toast } = useToast()
+  const [recordPayment, { isLoading: isForgiving }] = useRecordGuestPaymentMutation()
 
   const { totalDue, dueItems, localSymbolicBalance } = useMemo(() => {
     if (!selectedGuestForPayment) return { totalDue: 0, dueItems: [], localSymbolicBalance: null };
@@ -72,6 +77,32 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
     };
   }, [selectedGuestForPayment]);
 
+  const handleForgiveLateFee = async (item: LedgerEntry) => {
+    if (!selectedGuestForPayment) return;
+    try {
+      await recordPayment({
+        guest: selectedGuestForPayment,
+        amount: item.amount,
+        method: 'cash',
+        amountType: 'numeric',
+        notes: 'Late Fee Forgiven',
+        waiveLateFeesUntil: format(addDays(new Date(), 7), 'yyyy-MM-dd')
+      }).unwrap();
+      
+      toast({
+        title: "Late Fee Forgiven",
+        description: "A credit entry has been added to the ledger."
+      });
+      // The parent will re-fetch data or RTK Query will invalidate automatically.
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to forgive late fee",
+        description: "Please try again later."
+      });
+    }
+  }
+
   return (
     <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>      <DialogContent className="sm:max-w-md p-0 flex flex-col max-h-[90dvh]">
         <DialogHeader className="p-6 pb-2 flex-shrink-0">
@@ -86,9 +117,24 @@ export default function PaymentDialog({ isPaymentDialogOpen, setIsPaymentDialogO
                   <p className="font-semibold text-sm">Dues Breakdown:</p>
                   <div className="text-sm text-muted-foreground max-h-48 overflow-y-auto pr-2">
                     {dueItems.length > 0 ? dueItems.map(item => (
-                      <div key={item.id} className="flex justify-between py-1 border-b border-muted/50 last:border-0">
-                        <span>{item.description}</span>
-                        <span className="font-medium text-foreground">{item.displayAmount}</span>
+                      <div key={item.id} className={`flex justify-between py-1 border-b border-muted/50 last:border-0 ${item.isLateFee ? 'text-destructive font-medium bg-destructive/10 px-2 rounded-md' : ''}`}>
+                        <span>{item.description} {item.isLateFee && '(Late Fee)'}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium ${item.isLateFee ? 'text-destructive' : 'text-foreground'}`}>{item.displayAmount}</span>
+                          {item.isLateFee && (
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 w-6 p-0 hover:text-destructive hover:bg-destructive/20"
+                              onClick={() => handleForgiveLateFee(item as any)}
+                              disabled={isForgiving}
+                              title="Forgive Late Fee"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     )) : !selectedGuestForPayment.symbolicBalance && <p>No outstanding charges.</p>}
                   </div>

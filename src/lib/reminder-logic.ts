@@ -7,7 +7,7 @@ interface ReminderResult {
   body: string;
 }
 
-function getOldestUnpaidDate(guest: Guest): Date | null {
+export function getOldestUnpaidDate(guest: Guest): Date | null {
   const isSymbolic = guest.amountType === 'symbolic';
   const hasNumericBalance = guest.balance > 0;
   const hasSymbolicBalance = isSymbolic && guest.symbolicBalance && guest.symbolicBalance !== '0';

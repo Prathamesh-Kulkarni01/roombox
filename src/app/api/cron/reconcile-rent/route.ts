@@ -1,7 +1,5 @@
 
 
-'use server';
-
 import { reconcileAllGuests } from '@/lib/actions/reconciliationActions';
 import { NextRequest, NextResponse } from 'next/server';
 import { isCronAuthorized, unauthorizedCronResponse } from '@/lib/cron/auth';

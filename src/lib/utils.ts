@@ -65,6 +65,49 @@ export function calculateFirstDueDate(startDate: Date, unit: RentCycleUnit, valu
   return addFn(startDate, value);
 };
 
+/**
+ * Calculates the pro-rated rent for the remaining days of a month.
+ * @param monthlyRent The full monthly rent amount.
+ * @param moveInDate The date the tenant moved in.
+ * @returns The pro-rated rent amount (rounded to nearest integer).
+ */
+export function calculateProratedRent(monthlyRent: number, moveInDate: Date): number {
+  if (!monthlyRent || monthlyRent <= 0) return 0;
+  
+  const year = moveInDate.getFullYear();
+  const month = moveInDate.getMonth();
+  // Get the last day of the month by getting the 0th day of the NEXT month
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const currentDay = moveInDate.getDate();
+  
+  // E.g., if move in on 15th, and month has 30 days. They stay for 15th, 16th... 30th = 16 days.
+  // Formula: (daysInMonth - currentDay) + 1
+  const remainingDays = (daysInMonth - currentDay) + 1;
+  
+  const proratedAmount = (monthlyRent / daysInMonth) * remainingDays;
+  return Math.round(proratedAmount);
+}
+
+/**
+ * Calculates the next due date based on a fixed collection day.
+ * If the current day is already past the collection day, it moves to the next month.
+ */
+export function getNextFixedCollectionDate(moveInDate: Date, fixedDay: number): Date {
+  const currentDay = moveInDate.getDate();
+  // If we move in on or before the fixed day (e.g. move in on 1st, fixed day is 1st),
+  // should the first payment cover the CURRENT month, and next due date is NEXT month?
+  // Yes, because the prorated rent covers the remainder of this month.
+  // The NEXT due date is ALWAYS the fixed day of the NEXT month (if prorated).
+  // E.g. Move in 15th Jan, next due is 1st Feb.
+  // E.g. Move in 1st Jan, prorated = full month, next due is 1st Feb.
+  
+  const nextMonth = addMonths(moveInDate, 1);
+  const lastDayNextMonth = lastDayOfMonth(nextMonth).getDate();
+  const safeDay = Math.min(fixedDay, lastDayNextMonth);
+  
+  return setDate(nextMonth, safeDay);
+}
+
 
 /**
  * Provides a simple, actionable suggestion for common tenant complaints.

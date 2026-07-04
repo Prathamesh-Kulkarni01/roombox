@@ -233,3 +233,23 @@ export async function sendMassPaymentReminders({ ownerId, guests }: { ownerId: s
         return { success: false, error: error.message };
     }
 }
+
+export async function sendLateFeeReminder({ ownerId, guest, lateFeeAmount }: { ownerId: string, guest: Guest, lateFeeAmount: number }) {
+    if (!ownerId || !guest) return { success: false };
+
+    const title = 'Late Fee Added';
+    const message = `Hello ${guest.name},\nA late fee of ₹${lateFeeAmount} has been added to your rent balance due to delayed payment.\nPlease clear your dues at the earliest.`;
+
+    await createAndSendNotification({
+        ownerId,
+        notification: {
+            type: 'rent-reminder',
+            title,
+            message,
+            targetId: guest.id,
+            targetRole: 'tenant'
+        }
+    });
+
+    return { success: true };
+}

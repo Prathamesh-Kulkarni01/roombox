@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 0;
+export const CURRENT_SCHEMA_VERSION = 1;
 
 export interface KycDocumentConfig {
     id: string;
@@ -359,6 +359,12 @@ export interface PG extends BaseEntity {
   icon?: string[];
   latitude?: number;
   longitude?: number;
+  rentCollectionType?: 'anniversary' | 'fixed_date';
+  fixedCollectionDay?: number;
+  lateFeeEnabled?: boolean;
+  lateFeeAmount?: number;
+  lateFeeGracePeriodDays?: number;
+  minimumBalanceForLateFee?: number;
 }
 
 export interface Payment extends BaseEntity {
@@ -403,6 +409,8 @@ export interface LedgerEntry {
   symbolicValue?: string; // e.g. "XXX"
 
   pgId?: string;
+  isLateFee?: boolean;
+  lateFeeForgiven?: boolean;
 }
 
 // Payment Method Types
@@ -526,6 +534,8 @@ export interface Guest extends BaseEntity {
   finalSettlementAmount?: number;
   lastReminderSentAt?: string;
   lastReminderType?: 'T-3' | 'T-1' | 'T0' | 'T+2';
+  lastLateFeeAppliedDate?: string;
+  waiveLateFeesUntil?: string;
   balance: number;
   symbolicBalance?: string | null; // e.g. "2 * XXX + 500"
   isOnboarded?: boolean;

@@ -79,7 +79,9 @@ const PatchSchema = z.discriminatedUnion('action', [
         amount: z.coerce.number().nonnegative(), 
         amountType: z.enum(['numeric', 'symbolic']).optional(),
         symbolicValue: z.string().optional(),
-        method: z.enum(['cash', 'upi', 'in-app', 'direct_upi', 'gateway']) 
+        method: z.enum(['cash', 'upi', 'in-app', 'direct_upi', 'gateway']),
+        notes: z.string().optional(),
+        waiveLateFeesUntil: z.string().optional()
     }),
     // Transfer guest to new bed
     z.object({
@@ -275,6 +277,8 @@ export async function PATCH(req: NextRequest) {
                     amountType: data.amountType,
                     symbolicValue: data.symbolicValue,
                     paymentMode: data.method,
+                    notes: data.notes,
+                    waiveLateFeesUntil: data.waiveLateFeesUntil,
                     performer,
                 });
                 return NextResponse.json({ success: true, guest });

@@ -60,15 +60,21 @@ async function resolveEnterpriseTargetDomainForOwner(
  */
 export async function isCentralGuestDataAccessBlocked(
   ownerId: string,
-  tenantScheduled = false
+  tenantScheduled = false,
+  knownIsolationStatus?: boolean
 ): Promise<boolean> {
   if (tenantScheduled) return false;
 
-  const { getAdminDb } = await import('@/lib/firebaseAdmin');
-  const adminDb = await getAdminDb();
-  const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
+  let isIsolated = knownIsolationStatus;
 
-  if (isEnterpriseIsolated(ownerDoc.data() as Record<string, unknown>)) {
+  if (isIsolated === undefined) {
+    const { getAdminDb } = await import('@/lib/firebaseAdmin');
+    const adminDb = await getAdminDb();
+    const ownerDoc = await adminDb.collection('users').doc(ownerId).get();
+    isIsolated = isEnterpriseIsolated(ownerDoc.data() as Record<string, unknown>);
+  }
+
+  if (isIsolated) {
     console.warn(
       `[Privacy] Blocked central-path guest-data access for isolated enterprise owner ${ownerId}. Use tenant dispatcher.`
     );

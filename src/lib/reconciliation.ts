@@ -5,16 +5,18 @@ import { format, parseISO, isAfter } from 'date-fns';
 import { calculateFirstDueDate } from './utils';
 import { produce } from 'immer';
 import { getBalanceBreakdown } from './ledger-utils';
+import { getOldestUnpaidDate } from './reminder-logic';
 
 export function runReconciliationLogic(
   guest: Guest,
-  now: Date
-): { guest: Guest; cyclesProcessed: number } {
-  if (guest.isVacated || guest.exitDate) return { guest, cyclesProcessed: 0 };
+  now: Date,
+  pgOptions?: { lateFeeEnabled?: boolean; lateFeeGracePeriodDays?: number; lateFeeAmount?: number; minimumBalanceForLateFee?: number }
+): { guest: Guest; cyclesProcessed: number; lateFeeApplied: boolean } {
+  if (guest.isVacated || guest.exitDate) return { guest, cyclesProcessed: 0, lateFeeApplied: false };
 
   if (!guest.dueDate) {
     console.error(`[Reconcile] Guest ${guest.id} is missing dueDate. Skipping.`);
-    return { guest, cyclesProcessed: 0 };
+    return { guest, cyclesProcessed: 0, lateFeeApplied: false };
   }
 
   const dueDate = parseISO(guest.dueDate);
@@ -70,6 +72,66 @@ export function runReconciliationLogic(
       });
   }
 
+  let lateFeeApplied = false;
+
+  // LATE FEE LOGIC
+  if (pgOptions?.lateFeeEnabled && pgOptions.lateFeeAmount && pgOptions.lateFeeGracePeriodDays !== undefined) {
+      finalGuest = produce(finalGuest, (draft) => {
+          // Timezone Fix: Ensure we evaluate 'now' in Asia/Kolkata for string matching
+          const istNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+          const nowStr = format(istNow, 'yyyy-MM-dd');
+          
+          // Waive Late Fees Until Fix
+          if (draft.waiveLateFeesUntil) {
+              const waiveDate = parseISO(draft.waiveLateFeesUntil);
+              if (istNow <= waiveDate) return; // Waived
+          }
+
+          // Minimum Balance Threshold
+          const breakdown = getBalanceBreakdown(draft as Guest);
+          const minBalance = pgOptions.minimumBalanceForLateFee ?? 100;
+          if (breakdown.total < minBalance) return; // Debt is too small
+
+          const oldestUnpaidDate = getOldestUnpaidDate(draft as Guest);
+          if (oldestUnpaidDate) {
+              // Compare UTC differences for days late (since JS dates internally are ms since epoch, this is fine)
+              const daysLate = Math.floor((now.getTime() - oldestUnpaidDate.getTime()) / (1000 * 60 * 60 * 24));
+              if (daysLate > pgOptions.lateFeeGracePeriodDays!) {
+                  if (draft.lastLateFeeAppliedDate !== nowStr) {
+                      const oldestUnpaidMonthStr = format(oldestUnpaidDate, 'MM-yyyy');
+                      draft.ledger = draft.ledger || [];
+                      
+                      // Ledger Bloat Fix: Look for existing late fee entry for this month
+                      const existingFeeIndex = draft.ledger.findIndex(
+                          e => e.isLateFee && !e.paymentId && e.description?.includes(format(oldestUnpaidDate, 'MMM'))
+                      );
+
+                      if (existingFeeIndex >= 0) {
+                          // Increment existing fee instead of adding a new row
+                          draft.ledger[existingFeeIndex].amount += pgOptions.lateFeeAmount!;
+                          // Optional: update date to reflect latest increment
+                          draft.ledger[existingFeeIndex].date = now.toISOString();
+                      } else {
+                          // Create new fee entry
+                          const lateFeeEntry: LedgerEntry = {
+                              id: `latefee-${format(now, 'yyyy-MM-dd-HH-mm-ss')}`,
+                              date: now.toISOString(),
+                              type: 'debit',
+                              description: `Late Fee for ${format(oldestUnpaidDate, 'do MMM')}`,
+                              amount: pgOptions.lateFeeAmount!,
+                              isLateFee: true
+                          };
+                          draft.ledger.push(lateFeeEntry);
+                      }
+                      
+                      draft.lastLateFeeAppliedDate = nowStr;
+                      lateFeeApplied = true;
+                  }
+              }
+          }
+      });
+  }
+
   // ALWAYS Reconcile Status and Balance based on the full ledger
   const fullyReconciled = produce(finalGuest, (draft) => {
       const breakdown = getBalanceBreakdown(draft as Guest);
@@ -97,6 +159,7 @@ export function runReconciliationLogic(
   return {
     guest: fullyReconciled,
     cyclesProcessed: cyclesToProcess,
+    lateFeeApplied
   };
 }
 

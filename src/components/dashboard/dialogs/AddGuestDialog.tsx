@@ -327,6 +327,17 @@ export default function AddGuestDialog({ isAddGuestDialogOpen, setIsAddGuestDial
                       onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : null)}
                     />
                   </FormControl>
+                  {(() => {
+                    const pg = pgs.find(p => p.id === selectedPgId);
+                    if (pg?.rentCollectionType === 'fixed_date') {
+                      return (
+                        <FormDescription className="text-[10px] text-blue-600">
+                          This property uses Fixed Date billing (Day {pg.fixedCollectionDay}). Initial rent will be pro-rated for the remaining days of the month.
+                        </FormDescription>
+                      );
+                    }
+                    return null;
+                  })()}
                   <FormMessage />
                 </FormItem>
               )} />

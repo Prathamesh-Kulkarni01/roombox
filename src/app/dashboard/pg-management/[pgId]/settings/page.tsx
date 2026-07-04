@@ -63,6 +63,12 @@ const editPgSchema = z.object({
   online_payment_enabled: z.boolean().default(false),
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
+  rentCollectionType: z.enum(["anniversary", "fixed_date"]).default("anniversary"),
+  fixedCollectionDay: z.coerce.number().min(1).max(31).optional(),
+  lateFeeEnabled: z.boolean().default(false),
+  lateFeeAmount: z.coerce.number().min(0).optional(),
+  lateFeeGracePeriodDays: z.coerce.number().min(0).optional(),
+  minimumBalanceForLateFee: z.coerce.number().min(0).optional(),
 });
 
 type EditPgFormValues = z.infer<typeof editPgSchema>;
@@ -97,6 +103,11 @@ export default function PgSettingsPage() {
       online_payment_enabled: false,
       latitude: null,
       longitude: null,
+      rentCollectionType: "anniversary",
+      fixedCollectionDay: 1,
+      lateFeeEnabled: false,
+      lateFeeAmount: 50,
+      lateFeeGracePeriodDays: 5,
     },
   });
 
@@ -115,6 +126,12 @@ export default function PgSettingsPage() {
         online_payment_enabled: pg.online_payment_enabled || false,
         latitude: pg.latitude || null,
         longitude: pg.longitude || null,
+        rentCollectionType: pg.rentCollectionType || "anniversary",
+        fixedCollectionDay: pg.fixedCollectionDay || 1,
+        lateFeeEnabled: pg.lateFeeEnabled || false,
+        lateFeeAmount: pg.lateFeeAmount || 50,
+        lateFeeGracePeriodDays: pg.lateFeeGracePeriodDays || 5,
+        minimumBalanceForLateFee: pg.minimumBalanceForLateFee || 100,
       });
     }
   }, [pg, form]);
@@ -465,6 +482,125 @@ export default function PgSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <FormField
+                control={form.control}
+                name="rentCollectionType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rent Collection Model</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select billing model" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="anniversary">Anniversary (Due date based on move-in date)</SelectItem>
+                        <SelectItem value="fixed_date">Fixed Date (e.g. 1st of every month)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("rentCollectionType") === "fixed_date" && (
+                <div className="p-4 rounded-xl border bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
+                  <FormField
+                    control={form.control}
+                    name="fixedCollectionDay"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fixed Collection Day (1-31)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={1} max={31} placeholder="1" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Tenants moving in mid-month will pay pro-rated rent until this date.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              <div className="pt-4 border-t space-y-4">
+                <FormField
+                  control={form.control}
+                  name="lateFeeEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-card">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Automated Late Fees</FormLabel>
+                        <FormDescription>
+                          Automatically charge tenants a daily late fee after a grace period.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("lateFeeEnabled") && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl border bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
+                    <FormField
+                      control={form.control}
+                      name="lateFeeGracePeriodDays"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Grace Period (Days)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={0} placeholder="5" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Days to wait after due date before charging.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="lateFeeAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Daily Late Fee Amount (₹)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={0} placeholder="50" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Amount charged per day after grace period.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="minimumBalanceForLateFee"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Minimum Balance (₹)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={0} placeholder="100" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Min dues required to trigger fees.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+
               <FormField
                 control={form.control}
                 name="paymentMode"

@@ -12,33 +12,54 @@ export async function reconcileSingleGuest({ ownerId, guestId, now }: { ownerId:
     const guestDocRef = dataDb.collection('users_data').doc(ownerId).collection('guests').doc(guestId);
 
     try {
-        const cyclesProcessed = await dataDb.runTransaction(async (transaction) => {
+        let pgOptions: any = undefined;
+        const resultObj = await dataDb.runTransaction(async (transaction) => {
             const guestDoc = await transaction.get(guestDocRef);
             if (!guestDoc.exists) {
                 console.error(`[Reconcile] Guest ${guestId} not found.`);
-                return 0;
+                return { cycles: 0, updated: false, lateFee: false };
             }
 
             const guest = guestDoc.data() as Guest;
+            
+            const pgDocRef = dataDb.collection('users_data').doc(ownerId).collection('properties').doc(guest.pgId);
+            const pgDoc = await transaction.get(pgDocRef);
+            if (pgDoc.exists) {
+                const pgData = pgDoc.data();
+                pgOptions = {
+                    lateFeeEnabled: pgData?.lateFeeEnabled,
+                    lateFeeGracePeriodDays: pgData?.lateFeeGracePeriodDays,
+                    lateFeeAmount: pgData?.lateFeeAmount
+                };
+            }
 
-            const result = runReconciliationLogic(guest, now || new Date());
+            const result = runReconciliationLogic(guest, now || new Date(), pgOptions);
 
-            if (result.cyclesProcessed === 0) {
-                return 0;
+            if (result.cyclesProcessed === 0 && !result.lateFeeApplied) {
+                return { cycles: 0, updated: false, lateFee: false };
             }
 
             transaction.update(guestDocRef, result.guest as any);
-            return result.cyclesProcessed;
+            return { cycles: result.cyclesProcessed, updated: true, lateFee: result.lateFeeApplied };
         });
 
-        if (cyclesProcessed > 0) {
+        if (resultObj.updated) {
             const guestDoc = await guestDocRef.get();
             const finalGuest = guestDoc.data() as Guest;
-            console.log(`[Reconcile] Processed ${cyclesProcessed} cycle(s) for guest ${finalGuest.name}. New Due Date: ${finalGuest.dueDate}`);
+            console.log(`[Reconcile] Processed updates for guest ${finalGuest.name}. New Due Date: ${finalGuest.dueDate}. Late Fee Applied: ${resultObj.lateFee}`);
+            
+            // Trigger Notification for late fee if applied
+            if (resultObj.lateFee) {
+                // Call notification logic (can be fire-and-forget or imported dynamically)
+                import('@/lib/actions/notificationActions').then(({ sendLateFeeReminder }) => {
+                    if (sendLateFeeReminder) {
+                        sendLateFeeReminder({ ownerId, guest: finalGuest, lateFeeAmount: pgOptions?.lateFeeAmount || 0 }).catch(err => console.error(err));
+                    }
+                }).catch(e => console.error("Failed to load notificationActions", e));
+            }
         }
 
-
-        return { success: true, cyclesProcessed };
+        return { success: true, cyclesProcessed: resultObj.cycles };
     } catch (err: any) {
         console.error(`[Reconcile] Error processing guest ${guestId}:`, err.message);
         return { success: false, cyclesProcessed: 0 };
@@ -50,10 +71,10 @@ export async function reconcileForOwner(
     ownerId: string,
     limit?: number,
     now?: Date,
-    options?: { tenantScheduled?: boolean }
+    options?: { tenantScheduled?: boolean; knownIsolationStatus?: boolean }
 ): Promise<{ success: boolean; reconciledCount: number; errorCount: number; }> {
     const { isCentralGuestDataAccessBlocked } = await import('@/lib/cron/enterprise-utils');
-    if (await isCentralGuestDataAccessBlocked(ownerId, options?.tenantScheduled)) {
+    if (await isCentralGuestDataAccessBlocked(ownerId, options?.tenantScheduled, options?.knownIsolationStatus)) {
         return { success: false, reconciledCount: 0, errorCount: 0 };
     }
 
@@ -81,7 +102,13 @@ export async function reconcileForOwner(
         }
     }
 
-    for (const guestDoc of guestsSnapshot.docs) {
+    const targetDateStr = (now || new Date()).toISOString();
+    const guestsToProcess = guestsSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        return data.dueDate && data.dueDate <= targetDateStr;
+    });
+
+    for (const guestDoc of guestsToProcess) {
         if (limit && processedGuestCount >= limit) {
             console.log(`[Reconcile] Reached processing limit of ${limit} for owner ${ownerId}.`);
             break;
@@ -89,7 +116,7 @@ export async function reconcileForOwner(
 
         try {
             const result = await reconcileSingleGuest({ ownerId, guestId: guestDoc.id, now });
-            if (result.success && result.cyclesProcessed > 0) {
+            if (result.success && result.cyclesProcessed > 0) { // cyclesProcessed could be 0 if only late fee applied, but that's fine to count as processed or we can just count success
                 processedGuestCount++;
             } else if (!result.success) {
                 totalErrors++;
@@ -115,8 +142,9 @@ export async function reconcileAllGuests(limit?: number, now?: Date): Promise<{ 
         for (const ownerDoc of ownersSnapshot.docs) {
             const ownerId = ownerDoc.id;
             const userData = ownerDoc.data();
+            const isolated = isEnterpriseIsolated(userData as Record<string, unknown>);
             
-            if (isEnterpriseIsolated(userData as Record<string, unknown>)) {
+            if (isolated) {
                 continue;
             }
 
@@ -124,7 +152,7 @@ export async function reconcileAllGuests(limit?: number, now?: Date): Promise<{ 
                 break;
             }
 
-            const result = await reconcileForOwner(ownerId, limit ? limit - totalProcessed : undefined, now);
+            const result = await reconcileForOwner(ownerId, limit ? limit - totalProcessed : undefined, now, { knownIsolationStatus: isolated });
             totalProcessed += result.reconciledCount;
             totalErrors += result.errorCount;
         }

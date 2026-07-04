@@ -215,13 +215,25 @@ export class TenantService {
 
             // If a specific due date (day of month) is provided, use it as the anchor.
             // Otherwise, anchor to the join date.
-            const anchorDay = Number(dueDate) || startOfCycle.getDate();
+            let anchorDay = Number(dueDate) || startOfCycle.getDate();
             const amountType = input.amountType || 'numeric';
             const symbolicRentValue = input.symbolicRentValue || 'XXX';
             const symbolicDepositValue = input.symbolicDepositValue || 'YYY';
 
             const numericRent = Number(rentAmount) || 0;
             const numericDeposit = Number(deposit || 0);
+            
+            let firstCycleRent = numericRent;
+            let nextDueDate = calculateFirstDueDate(startOfCycle, rentCycleUnit || 'months', rentCycleValue || 1, anchorDay);
+            let rentDescription = `Rent for Cycle Starting ${format(startOfCycle, 'do MMM')}`;
+
+            if (pgData.rentCollectionType === 'fixed_date' && pgData.fixedCollectionDay && amountType !== 'symbolic') {
+                const { calculateProratedRent, getNextFixedCollectionDate } = require('@/lib/utils');
+                firstCycleRent = calculateProratedRent(numericRent, startOfCycle);
+                rentDescription = `Pro-rated Rent for Cycle Starting ${format(startOfCycle, 'do MMM')}`;
+                nextDueDate = getNextFixedCollectionDate(startOfCycle, pgData.fixedCollectionDay);
+                anchorDay = pgData.fixedCollectionDay;
+            }
 
             const initialLedger: LedgerEntry[] = [];
             let initialBalance = 0;
@@ -250,16 +262,16 @@ export class TenantService {
                     })
                 }
             } else {
-                if (numericRent > 0) {
+                if (firstCycleRent > 0) {
                     initialLedger.push({
                         id: `rent-${Date.now()}-initial`,
                         date: startOfCycle.toISOString(),
                         type: 'debit',
-                        description: `Rent for Cycle Starting ${format(startOfCycle, 'do MMM')}`,
-                        amount: numericRent,
+                        description: rentDescription,
+                        amount: firstCycleRent,
                         pgId: pgId
                     })
-                    initialBalance += numericRent;
+                    initialBalance += firstCycleRent;
                 }
 
                 if (numericDeposit > 0) {
@@ -274,8 +286,6 @@ export class TenantService {
                     initialBalance += numericDeposit;
                 }
             }
-
-            const nextDueDate = calculateFirstDueDate(startOfCycle, rentCycleUnit || 'months', rentCycleValue || 1, anchorDay);
 
             const guestToCreate: Guest = {
                 id: guestId,
@@ -1246,9 +1256,10 @@ export class TenantService {
         symbolicValue?: string,
         paymentMode?: string,
         notes?: string,
+        waiveLateFeesUntil?: string,
         performer: PerformerInfo
     }): Promise<{ guest: Guest, ledgerEntry: LedgerEntry, newBalance: number, newStatus: string }> {
-        const { ownerId, amount, amountType = 'numeric', symbolicValue, paymentMode = 'cash', notes = '', performer } = input;
+        const { ownerId, amount, amountType = 'numeric', symbolicValue, paymentMode = 'cash', notes = '', waiveLateFeesUntil, performer } = input;
         const resolvedGuestId = input.guestId || input.guest?.id;
 
         if (!resolvedGuestId) throw new Error('Guest or guestId required');
@@ -1361,6 +1372,7 @@ export class TenantService {
                 ...reconciledGuest,
                 balance: newBalance,
                 symbolicBalance: (breakdown.symbolic || null) as any,
+                ...(waiveLateFeesUntil && { waiveLateFeesUntil }),
                 updatedAt: now.toISOString(),
                 updatedBy: performer
                 // rentStatus is already set correctly by runReconciliationLogic

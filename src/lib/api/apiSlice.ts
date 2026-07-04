@@ -345,6 +345,8 @@ export const api = createApi({
             amountType?: 'numeric' | 'symbolic';
             symbolicValue?: string;
             method: 'cash' | 'upi' | 'in-app' | 'direct_upi' | 'gateway';
+            notes?: string;
+            waiveLateFeesUntil?: string;
         }>({
             query: (body) => ({ url: 'api/guests', method: 'PATCH', body: { ...body, action: 'record-payment' } }),
             invalidatesTags: ['Guests', 'Rent'],

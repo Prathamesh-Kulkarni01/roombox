@@ -10,10 +10,10 @@ import { getBrandedAppUrl } from '@/lib/actions/siteActions';
 export async function sendRemindersForOwner(
     ownerId: string,
     now?: Date,
-    options?: { tenantScheduled?: boolean }
+    options?: { tenantScheduled?: boolean; knownIsolationStatus?: boolean }
 ): Promise<{ success: boolean; sentCount: number; errorCount: number }> {
     const { isCentralGuestDataAccessBlocked } = await import('@/lib/cron/enterprise-utils');
-    if (await isCentralGuestDataAccessBlocked(ownerId, options?.tenantScheduled)) {
+    if (await isCentralGuestDataAccessBlocked(ownerId, options?.tenantScheduled, options?.knownIsolationStatus)) {
         return { success: false, sentCount: 0, errorCount: 0 };
     }
 
@@ -52,10 +52,14 @@ export async function sendRemindersForOwner(
         return { success: true, sentCount: 0, errorCount: 0 };
     }
 
-    // Filter for guests with a userId OR a phone number (for WhatsApp bots)
+    // Filter for guests with a userId OR a phone number AND actually need a reminder
     const guestsWithAccountsOrPhones = guestsSnapshot.docs
         .map(doc => ({ ref: doc.ref, data: doc.data() as Guest }))
-        .filter(item => !!item.data.userId || !!item.data.phone);
+        .filter(item => {
+            if (!item.data.userId && !item.data.phone) return false;
+            const reminderInfo = getReminderForGuest(item.data, currentDate);
+            return reminderInfo.shouldSend && !!reminderInfo.type;
+        });
 
     // BATCHING: Process 10 guests at a time to prevent timeout and respect rate limits
     const CHUNK_SIZE = 10;

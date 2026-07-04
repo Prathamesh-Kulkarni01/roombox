@@ -35,6 +35,9 @@ export class ScenarioRunner {
   
   // Domain Assertions
   private assertions: Array<(ctx: ExecutionContext) => void> = [];
+  
+  // Custom execution blocks
+  private executionBlocks: Array<(ctx: ExecutionContext) => Promise<void>> = [];
 
   constructor(title: string) {
     this.manifest = {
@@ -87,7 +90,19 @@ export class ScenarioRunner {
     return this;
   }
   
+  public execute(fn: (ctx: ExecutionContext) => Promise<void>) {
+    this.executionBlocks.push(fn);
+    return this;
+  }
+  
   // Domain Assertions
+  public expectEvents(events: string[]) {
+    this.assertions.push((ctx) => {
+      ctx.eventStream.expectEvents(events);
+    });
+    return this;
+  }
+
   public expectGuestVerified(email: string) {
     this.assertions.push((ctx) => {
       const tenantProj = new TenantProjection(ctx.eventStream);
@@ -138,6 +153,14 @@ export class ScenarioRunner {
       const cmdLatency = performance.now() - cmdStart;
       totalCommandTime += cmdLatency;
       console.log(`[Telemetry] Command '${cmd.name}' executed in ${cmdLatency.toFixed(2)}ms`);
+    }
+
+    for (const block of this.executionBlocks) {
+      const blockStart = performance.now();
+      await block(ctx);
+      const blockLatency = performance.now() - blockStart;
+      totalCommandTime += blockLatency;
+      console.log(`[Telemetry] Custom execution block executed in ${blockLatency.toFixed(2)}ms`);
     }
     
     // Evaluate Domain Assertions

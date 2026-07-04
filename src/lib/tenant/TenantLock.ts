@@ -3,7 +3,7 @@ import { Firestore, Transaction } from 'firebase-admin/firestore';
 export class TenantLock {
     private db: Firestore;
     private tenantId: string;
-    private lockDocId = 'cron_execution';
+    private get lockDocId() { return `cron_execution_${this.tenantId}`; }
     private lockCollection = 'system_locks';
 
     constructor(db: Firestore, tenantId: string) {

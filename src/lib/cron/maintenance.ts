@@ -90,21 +90,24 @@ export async function dispatchEnterpriseMaintenance(
       tenantId: ownerId,
       signedPayload,
     });
-
-    let dispatchResult: Pick<EnterpriseDispatchResult, 'ok' | 'status' | 'error'> = { ok: true };
-    if (options?.send) {
-      dispatchResult = await options.send(signedPayload, ownerId, owner.targetDomain);
-    }
-
-    results.push({
-      tenantId: ownerId,
-      jobId,
-      targetDomain: owner.targetDomain,
-      ...dispatchResult,
-    });
   }
 
-  return { payloads, results };
+  const sendPromises = payloads.map(async (payloadObj) => {
+    let dispatchResult: Pick<EnterpriseDispatchResult, 'ok' | 'status' | 'error'> = { ok: true };
+    if (options?.send) {
+      dispatchResult = await options.send(payloadObj.signedPayload, payloadObj.tenantId, payloadObj.targetDomain);
+    }
+    return {
+      tenantId: payloadObj.tenantId,
+      jobId: payloadObj.jobId,
+      targetDomain: payloadObj.targetDomain,
+      ...dispatchResult,
+    };
+  });
+
+  const finalResults = await Promise.all(sendPromises);
+
+  return { payloads, results: finalResults };
 }
 
 export async function runMaintenanceCron(options?: { includeEnterprise?: boolean; maxStandardOwners?: number }) {
@@ -141,18 +144,19 @@ export async function runMaintenanceCron(options?: { includeEnterprise?: boolean
     ? groups.standard.slice(0, options.maxStandardOwners)
     : groups.standard;
 
+  const baseAppUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in';
+  const standardDispatchable: DispatchableEnterpriseOwner[] = standardOwners.map(id => ({
+      id,
+      data: {},
+      targetDomain: baseAppUrl
+  }));
+
   if (standardOwners.length > 0) {
     results.standard = {
       billing: await runMonthlyBillingCron(),
-      reconciliation: await reconcileAllGuests(undefined, new Date()),
-      reminders: [] as Array<{ ownerId: string; result: unknown }>,
+      reconciliation: { success: true, message: 'Dispatched via jobs API' },
+      reminders: { success: true, message: 'Dispatched via jobs API' },
     };
-
-    const reminderResults = (results.standard as { reminders: Array<{ ownerId: string; result: unknown }> })
-      .reminders;
-    for (const ownerId of standardOwners) {
-      reminderResults.push({ ownerId, result: await sendRemindersForOwner(ownerId, new Date()) });
-    }
   }
 
   const enterpriseCandidates = ownerEntries.filter((entry) => groups.enterprise.includes(entry.id));
@@ -170,9 +174,11 @@ export async function runMaintenanceCron(options?: { includeEnterprise?: boolean
 
   enterpriseSummary.skipped = skippedEnterprise - dispatchableEnterprise.length;
 
-  if (options?.includeEnterprise !== false && dispatchableEnterprise.length > 0) {
+  const allDispatchable = [...standardDispatchable, ...dispatchableEnterprise];
+
+  if (options?.includeEnterprise !== false && allDispatchable.length > 0) {
     const { payloads, results: dispatchResults } = await dispatchEnterpriseMaintenance(
-      dispatchableEnterprise,
+      allDispatchable,
       {
         send: async (signedPayload, tenantId, targetDomain) => {
           try {

@@ -30,7 +30,8 @@ import {
     Layout,
     Plus,
     Minus,
-    Camera
+    Camera,
+    Calendar
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAppDispatch, useAppSelector } from '@/lib/hooks'
@@ -84,6 +85,8 @@ const pgSchema = z.object({
   bedsPerRoom: z.coerce.number().min(1).max(10).default(3),
   amenities: z.array(z.string()).default([]),
   images: z.array(z.string()).default([]),
+  rentCollectionType: z.enum(["anniversary", "fixed_date"]).default("anniversary"),
+  fixedCollectionDay: z.coerce.number().min(1).max(31).optional(),
   upiId: z.string().min(3, "UPI ID is required for digital payments").optional().or(z.literal('')),
   payeeName: z.string().min(2, "Payee name is required").optional().or(z.literal('')),
   direct_upi_enabled: z.boolean().default(true),
@@ -135,6 +138,8 @@ export default function CompleteProfilePage() {
             subdomain: '',
             logo: [],
             icon: [],
+            rentCollectionType: "anniversary",
+            fixedCollectionDay: 1,
         },
     })
 
@@ -269,6 +274,8 @@ export default function CompleteProfilePage() {
                 bedsPerRoom: data.bedsPerRoom,
                 amenities: data.amenities,
                 images: data.images,
+                rentCollectionType: data.rentCollectionType,
+                fixedCollectionDay: data.fixedCollectionDay,
                 upiId: data.upiId?.trim() || '',
                 payeeName: data.payeeName?.trim() || '',
                 direct_upi_enabled: !!data.upiId?.trim(),
@@ -922,6 +929,56 @@ export default function CompleteProfilePage() {
                                         <p className="text-muted-foreground text-sm font-semibold">
                                             Choose how your guests will pay their monthly rent
                                         </p>
+                                    </div>
+
+                                    <div className="bg-gradient-to-br from-secondary/15 to-[#201f1f]/40 backdrop-blur-[24px] border border-primary/10 rounded-[24px] p-6 mb-8 space-y-6 shadow-2xl relative overflow-hidden">
+                                        <FormField
+                                            control={form.control}
+                                            name="rentCollectionType"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-2 text-left">
+                                                    <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                        <Zap className="w-4 h-4 text-primary" /> Billing Cycle
+                                                    </FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger className="h-12 font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] px-4 text-foreground text-sm">
+                                                                <SelectValue placeholder="Select billing cycle" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent className="rounded-lg border border-primary/10 bg-[#1c1b1b] text-foreground">
+                                                            <SelectItem value="anniversary" className="font-semibold py-2 text-sm focus:bg-primary/10 focus:text-primary">Anniversary (Move-in date)</SelectItem>
+                                                            <SelectItem value="fixed_date" className="font-semibold py-2 text-sm focus:bg-primary/10 focus:text-primary">Fixed Date</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        {form.watch("rentCollectionType") === "fixed_date" && (
+                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-2">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="fixedCollectionDay"
+                                                    render={({ field }) => (
+                                                        <FormItem className="space-y-2 text-left">
+                                                            <FormLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                                                <Calendar className="w-4 h-4 text-primary" /> Collection Day (1-31)
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input 
+                                                                    type="number" min={1} max={31} placeholder="1" 
+                                                                    className="h-12 px-4 text-base font-semibold bg-black/40 border border-primary/10 hover:border-primary/20 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-[14px] transition-all placeholder:text-muted-foreground/30 text-foreground"
+                                                                    {...field} 
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage className="text-xs font-semibold text-destructive/80 mt-1" />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </motion.div>
+                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-4 mb-8">

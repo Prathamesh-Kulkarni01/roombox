@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
         // 2. Resolve Tenant dynamically based on the requested domain
         const { tenantId, isEnterprise, db } = await resolveTenant(request);
 
-        if (!tenantId || !isEnterprise) {
-            console.error('[Tenant Dispatcher] Failed to resolve enterprise tenant from request URL:', request.url);
-            return NextResponse.json({ success: false, error: 'Not an enterprise tenant domain' }, { status: 400 });
+        if (!tenantId) {
+            console.error('[Tenant Dispatcher] Failed to resolve tenant from request URL:', request.url);
+            return NextResponse.json({ success: false, error: 'Could not resolve tenant' }, { status: 400 });
         }
         
         // 3. Verify payload intended for this tenant

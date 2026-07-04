@@ -46,6 +46,12 @@ const pgSchema = z.object({
   floorCount: z.coerce.number().min(1).max(10).default(1),
   roomsPerFloor: z.coerce.number().min(1).max(20).default(1),
   bedsPerRoom: z.coerce.number().min(1).max(10).default(1),
+  rentCollectionType: z.enum(["anniversary", "fixed_date"]).default("anniversary"),
+  fixedCollectionDay: z.coerce.number().min(1).max(31).optional(),
+  lateFeeEnabled: z.boolean().default(false),
+  lateFeeAmount: z.coerce.number().min(0).optional(),
+  lateFeeGracePeriodDays: z.coerce.number().min(0).optional(),
+  minimumBalanceForLateFee: z.coerce.number().min(0).optional(),
 });
 
 type PgFormValues = z.infer<typeof pgSchema>;
@@ -78,6 +84,12 @@ export default function AddPgSheet({
       floorCount: 1,
       roomsPerFloor: 4,
       bedsPerRoom: 2,
+      rentCollectionType: "anniversary",
+      fixedCollectionDay: 1,
+      lateFeeEnabled: false,
+      lateFeeAmount: 50,
+      lateFeeGracePeriodDays: 5,
+      minimumBalanceForLateFee: 100,
     },
   });
 
@@ -95,6 +107,12 @@ export default function AddPgSheet({
         floorCount: data.floorCount,
         roomsPerFloor: data.roomsPerFloor,
         bedsPerRoom: data.bedsPerRoom,
+        rentCollectionType: data.rentCollectionType,
+        fixedCollectionDay: data.fixedCollectionDay,
+        lateFeeEnabled: data.lateFeeEnabled,
+        lateFeeAmount: data.lateFeeAmount,
+        lateFeeGracePeriodDays: data.lateFeeGracePeriodDays,
+        minimumBalanceForLateFee: data.minimumBalanceForLateFee,
       }).unwrap();
 
       if (result.success && result.pg) {
@@ -198,6 +216,119 @@ export default function AddPgSheet({
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-4 pt-4 border-t mt-4">
+                <FormField
+                  control={form.control}
+                  name="rentCollectionType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rent Collection Model</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select billing model" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="anniversary">Anniversary (Move-in date)</SelectItem>
+                          <SelectItem value="fixed_date">Fixed Date</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("rentCollectionType") === "fixed_date" && (
+                  <div className="p-3 rounded-lg border bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
+                    <FormField
+                      control={form.control}
+                      name="fixedCollectionDay"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Fixed Collection Day (1-31)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={1} max={31} placeholder="1" className="h-8 text-xs font-mono" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+                
+                <div className="pt-4 border-t space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="lateFeeEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-card">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-sm">Automated Late Fees</FormLabel>
+                          <FormDescription className="text-xs">
+                            Charge daily fees after a grace period.
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("lateFeeEnabled") && (
+                    <div className="grid grid-cols-3 gap-3 p-3 rounded-lg border bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
+                      <FormField
+                        control={form.control}
+                        name="lateFeeGracePeriodDays"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Grace Period (Days)</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="5" className="h-8 text-xs font-mono" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="lateFeeAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Fee / Day (₹)</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="50" className="h-8 text-xs font-mono" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="minimumBalanceForLateFee"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">Min Due (₹)</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={0} placeholder="100" className="h-8 text-xs font-mono" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div className="space-y-4 pt-4 border-t mt-4">
                 <FormField
