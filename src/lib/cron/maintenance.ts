@@ -174,11 +174,14 @@ export async function runMaintenanceCron(options?: { includeEnterprise?: boolean
     const { payloads, results: dispatchResults } = await dispatchEnterpriseMaintenance(
       dispatchableEnterprise,
       {
-        send: async (signedPayload, _tenantId, targetDomain) => {
+        send: async (signedPayload, tenantId, targetDomain) => {
           try {
             const response = await fetch(`${targetDomain}/api/internal/jobs`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'x-tenant-id': tenantId
+              },
               body: JSON.stringify(signedPayload),
             });
 
