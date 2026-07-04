@@ -81,10 +81,9 @@ export function runReconciliationLogic(
           const istNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
           const nowStr = format(istNow, 'yyyy-MM-dd');
           
-          // Waive Late Fees Until Fix
+          // Waive Late Fees Until Fix - String comparison avoids timezone offset bugs
           if (draft.waiveLateFeesUntil) {
-              const waiveDate = parseISO(draft.waiveLateFeesUntil);
-              if (istNow <= waiveDate) return; // Waived
+              if (nowStr <= draft.waiveLateFeesUntil) return; // Waived
           }
 
           // Minimum Balance Threshold
@@ -101,9 +100,9 @@ export function runReconciliationLogic(
                       const oldestUnpaidMonthStr = format(oldestUnpaidDate, 'MM-yyyy');
                       draft.ledger = draft.ledger || [];
                       
-                      // Ledger Bloat Fix: Look for existing late fee entry for this month
+                      // Ledger Bloat Fix: Look for existing late fee entry for this month AND YEAR
                       const existingFeeIndex = draft.ledger.findIndex(
-                          e => e.isLateFee && !e.paymentId && e.description?.includes(format(oldestUnpaidDate, 'MMM'))
+                          e => e.isLateFee && !e.paymentId && e.description?.includes(format(oldestUnpaidDate, 'MMM yyyy'))
                       );
 
                       if (existingFeeIndex >= 0) {
@@ -117,7 +116,7 @@ export function runReconciliationLogic(
                               id: `latefee-${format(now, 'yyyy-MM-dd-HH-mm-ss')}`,
                               date: now.toISOString(),
                               type: 'debit',
-                              description: `Late Fee for ${format(oldestUnpaidDate, 'do MMM')}`,
+                              description: `Late Fee for ${format(oldestUnpaidDate, 'do MMM yyyy')}`,
                               amount: pgOptions.lateFeeAmount!,
                               isLateFee: true
                           };
