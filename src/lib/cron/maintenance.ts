@@ -188,7 +188,12 @@ export async function runMaintenanceCron(options?: { includeEnterprise?: boolean
       {
         send: async (signedPayload, tenantId, targetDomain) => {
           try {
-            const response = await fetch(`${targetDomain}/api/internal/jobs`, {
+            // Use NEXT_PUBLIC_APP_URL for internal dispatches to bypass DNS/SSL issues on staging (e.g. wildcard subdomains not configured on Vercel).
+            // The x-tenant-id header ensures the correct enterprise database is used regardless of the URL.
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || targetDomain;
+            const fetchUrl = `${baseUrl.replace(/\/+$/, '')}/api/internal/jobs`;
+            
+            const response = await fetch(fetchUrl, {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',

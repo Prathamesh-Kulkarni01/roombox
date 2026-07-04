@@ -29,7 +29,9 @@ export function resolveEnterpriseTargetDomain(
   const clientConfig = enterpriseProject.clientConfig as Record<string, unknown> | undefined;
   if (clientConfig?.subdomain) {
     const parsedBase = new URL(base);
-    return `https://${clientConfig.subdomain}.${parsedBase.hostname}`;
+    const portStr = parsedBase.port ? `:${parsedBase.port}` : '';
+    // Preserve the protocol and port from the base URL (important for localhost:3000)
+    return `${parsedBase.protocol}//${clientConfig.subdomain}.${parsedBase.hostname}${portStr}`;
   }
 
   return null;
