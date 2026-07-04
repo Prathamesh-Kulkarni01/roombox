@@ -5,20 +5,116 @@ import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { decryptTokens } from '@/lib/encryption';
 
-const FIRESTORE_RULES = `rules_version = '2';
+const fs = require('fs');
+const path = require('path');
+
+// We try to read the main firestore.rules file at runtime if possible,
+// but provide a robust fallback to ensure the custom DB is secure.
+const FALLBACK_FIRESTORE_RULES = `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users_data/{ownerId}/{document=**} {
-      allow read, write: if true;
+    function isAuth() {
+      return request.auth != null;
     }
+    function isStaff(pgId) {
+      return isAuth() && request.auth.token.pgs != null && pgId in request.auth.token.pgs;
+    }
+    function hasPermission(feature, action) {
+      let perm = feature + ":" + action;
+      return isAuth() && request.auth.token.permissions != null && perm in request.auth.token.permissions;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow create: if isAuth() && request.auth.uid == userId;
+      allow update: if isAuth() && request.auth.uid == userId && (
+        (resource.data.role == 'unassigned' && request.resource.data.role == 'owner') ||
+        (!request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['role', 'permissions', 'ownerId', 'guestId', 'staffId', 'subscription', 'wallet', 'billingConfig', 'activeTenancies', 'activeStaffProfiles', 'lastActiveContext']))
+      );
+    }
+    
+    match /users_data/{ownerId}/{collectionName}/{docId} {
+      allow read, write: if isAuth() && request.auth.uid == ownerId;
+      
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && (
+        (collectionName == 'notifications' && (
+          resource.data.targetId == request.auth.uid || 
+          request.auth.token.pgs.hasAny([resource.data.targetId])
+        )) ||
+        collectionName == 'chargeTemplates' || 
+        (collectionName == 'pgs' && isStaff(docId)) ||
+        (resource.data.pgId != null && isStaff(resource.data.pgId)) ||
+        (request.resource.data.pgId != null && isStaff(request.resource.data.pgId)) ||
+        (collectionName == 'staff' && (
+          (resource.data.pgIds != null && resource.data.pgIds.hasAny(request.auth.token.pgs)) ||
+          (request.resource.data.pgIds != null && request.resource.data.pgIds.hasAny(request.auth.token.pgs))
+        ))
+      );
+      
+      allow list: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && (
+        (collectionName == 'notifications' && request.query.filters.targetId != null && 
+          request.auth.token.pgs.concat([request.auth.uid]).hasAll(request.query.filters.targetId)) ||
+        collectionName == 'chargeTemplates' ||
+        (collectionName == 'pgs' && request.query.filters.__name__ != null && request.auth.token.pgs.hasAll(request.query.filters.__name__)) ||
+        (request.query.filters.pgId != null && request.auth.token.pgs.hasAll(request.query.filters.pgId)) ||
+        (collectionName == 'staff' && request.query.filters.pgIds != null && request.auth.token.pgs.hasAll(request.query.filters.pgIds))
+      );
+      
+      allow get: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && (
+        collectionName == 'guests' || 
+        collectionName == 'pgs' || 
+        collectionName == 'complaints' || 
+        collectionName == 'expenses' || 
+        collectionName == 'financial_events' || 
+        collectionName == 'notifications'
+      );
+      
+      allow list: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && (
+        collectionName == 'complaints' || 
+        collectionName == 'expenses' || 
+        collectionName == 'financial_events' || 
+        collectionName == 'notifications'
+      );
+    }
+    
+    match /activity_logs/{logId} {
+      allow read, write: if isAuth() && (
+        resource == null || 
+        resource.data.ownerId == request.auth.uid || 
+        request.resource.data.ownerId == request.auth.uid ||
+        request.auth.token.ownerId != null
+      );
+    }
+
     match /magic_links/{tokenId} {
       allow read, write: if true;
     }
-    match /activity_logs/{logId} {
-      allow read, write: if true;
+    
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }`;
+
+let FIRESTORE_RULES = FALLBACK_FIRESTORE_RULES;
+try {
+  const rulesPath = path.resolve(process.cwd(), 'firestore.rules');
+  if (fs.existsSync(rulesPath)) {
+    const mainRules = fs.readFileSync(rulesPath, 'utf8');
+    // Inject magic_links rule before the final catch-all
+    if (mainRules.includes('match /{document=**} {') && !mainRules.includes('match /magic_links/{tokenId}')) {
+      FIRESTORE_RULES = mainRules.replace(
+        'match /{document=**} {', 
+        'match /magic_links/{tokenId} { allow read, write: if true; }\n\n    match /{document=**} {'
+      );
+    } else {
+      FIRESTORE_RULES = mainRules;
+    }
+  }
+} catch (e) {
+  console.warn('Could not read main firestore.rules, using fallback.');
+}
 
 const REQUIRED_INDEXES = [
   { collectionGroup: "community_posts", fields: [{ fieldPath: "pgId", order: "ASCENDING" }, { fieldPath: "date", order: "DESCENDING" }] },
@@ -167,14 +263,40 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 3. Configure Authorized Domain (rentsutra.in and localhost) via Identity Toolkit API
+      // 3. Configure Authorized Domain (rentsutra.in, localhost, and owner's subdomains) via Identity Toolkit API
       try {
         const identity = google.identitytoolkit({ version: 'v2', auth: authClient as any });
+        
+        const pgsSnap = await adminDb.collection('users_data').doc(ownerId).collection('pgs').get();
+        const subdomains = pgsSnap.docs.map(doc => doc.data().subdomain).filter(Boolean);
+        
+        const authorizedDomains = [
+          'localhost', 
+          'rentsutra.in',
+          'dev.rentsutra.in',
+          'staging.rentsutra.in'
+        ];
+        
+        subdomains.forEach(sub => {
+          authorizedDomains.push(`${sub}.rentsutra.in`);
+          authorizedDomains.push(`${sub}.dev.rentsutra.in`);
+          authorizedDomains.push(`${sub}.staging.rentsutra.in`);
+        });
+
+        // If the owner has a custom top-level domain
+        const customDomain = ownerData?.subscription?.enterpriseProject?.customDomain;
+        if (customDomain) {
+          authorizedDomains.push(customDomain);
+        }
+
+        const uniqueDomains = Array.from(new Set(authorizedDomains));
+        console.log('[auto-setup] Authorizing domains:', uniqueDomains);
+
         await identity.projects.updateConfig({
           name: `projects/${projectId}/config`,
           updateMask: 'authorizedDomains',
           requestBody: {
-            authorizedDomains: ['localhost', 'rentsutra.in']
+            authorizedDomains: uniqueDomains
           }
         });
         results.domains.success = true;
