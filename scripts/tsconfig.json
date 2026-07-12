@@ -1,11 +1,11 @@
 {
     "extends": "../tsconfig.json",
     "compilerOptions": {
-        "module": "CommonJS",
-        "moduleResolution": "node",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
         "outDir": "../.build/scripts",
         "noEmit": false,
-        "target": "ES2020",
+        "target": "es2022",
         "esModuleInterop": true,
         "resolveJsonModule": true,
         "paths": {
