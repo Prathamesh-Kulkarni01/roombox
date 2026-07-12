@@ -57,6 +57,14 @@ export default function AdminAttendancePage() {
     const [manualEmergency, setManualEmergency] = useState(false);
     const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
+    // Visitor Log state
+    const [visitors, setVisitors] = useState<any[]>([]);
+    const [isVisitorsLoading, setIsVisitorsLoading] = useState(false);
+    const [visitorName, setVisitorName] = useState('');
+    const [visitorPhone, setVisitorPhone] = useState('');
+    const [showAddVisitor, setShowAddVisitor] = useState(false);
+    const [isAddingVisitor, setIsAddingVisitor] = useState(false);
+
     // Curfew Settings
     const [curfewTime, setCurfewTime] = useState('23:00');
     const [isSavingCurfew, setIsSavingCurfew] = useState(false);
@@ -69,6 +77,7 @@ export default function AdminAttendancePage() {
         }
         fetchLogs();
         fetchAnalytics();
+        fetchVisitors();
     }, [currentPgId, selectedPgFilter]);
 
     const fetchLogs = async () => {
@@ -120,10 +129,71 @@ export default function AdminAttendancePage() {
         }
     };
 
+    const fetchVisitors = async () => {
+        setIsVisitorsLoading(true);
+        try {
+            const res = await fetch(`/api/attendance/visitors?pgId=${currentPgId}`);
+            const data = await res.json();
+            if (data.success) setVisitors(data.visitors || []);
+        } catch (err) {
+            console.error('Failed to fetch visitors', err);
+        } finally {
+            setIsVisitorsLoading(false);
+        }
+    };
+
     const handleRefreshAll = () => {
         fetchLogs();
         fetchAnalytics();
+        fetchVisitors();
         toast({ title: 'Dashboard refreshed!' });
+    };
+
+    const handleAddVisitor = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!visitorName || !visitorPhone) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Name and phone are required.' });
+            return;
+        }
+        setIsAddingVisitor(true);
+        try {
+            const res = await fetch('/api/attendance/visitors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pgId: currentPgId, visitorName, phone: visitorPhone }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast({ title: 'Visitor Logged!', description: `${visitorName} has been checked in.` });
+                setVisitorName('');
+                setVisitorPhone('');
+                setShowAddVisitor(false);
+                fetchVisitors();
+            } else {
+                toast({ variant: 'destructive', title: 'Failed', description: data.error });
+            }
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Error', description: err.message });
+        } finally {
+            setIsAddingVisitor(false);
+        }
+    };
+
+    const handleMarkExit = async (visitorLogId: string, visitorNameArg: string) => {
+        try {
+            const res = await fetch('/api/attendance/visitors', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ visitorLogId }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast({ title: 'Exit Recorded', description: `${visitorNameArg} has been checked out.` });
+                fetchVisitors();
+            }
+        } catch (err: any) {
+            toast({ variant: 'destructive', title: 'Error', description: err.message });
+        }
     };
 
     // Client-side search filters
@@ -401,6 +471,7 @@ export default function AdminAttendancePage() {
                     <TabsTrigger value="overview" className="rounded-lg">Overview</TabsTrigger>
                     <TabsTrigger value="live" className="rounded-lg">Live Occupancy</TabsTrigger>
                     <TabsTrigger value="logs" className="rounded-lg">Attendance Logs</TabsTrigger>
+                    <TabsTrigger value="visitors" className="rounded-lg">Visitor Gate Log</TabsTrigger>
                     {!isStaff && <TabsTrigger value="alerts" className="rounded-lg">Alerts</TabsTrigger>}
                     {!isStaff && <TabsTrigger value="qr" className="rounded-lg">QR Management</TabsTrigger>}
                     {!isStaff && <TabsTrigger value="analytics" className="rounded-lg">Analytics</TabsTrigger>}
@@ -714,6 +785,105 @@ export default function AdminAttendancePage() {
                                         </TableBody>
                                     </Table>
                                 </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                {/* VISITOR GATE LOG TAB */}
+                <TabsContent value="visitors" className="space-y-6 mt-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-primary/5 pb-4">
+                        <div>
+                            <h2 className="text-xl font-bold">Visitor Gate Log</h2>
+                            <p className="text-muted-foreground text-sm">Track all non-resident visitors entering the property.</p>
+                        </div>
+                        <Button onClick={() => setShowAddVisitor(true)}>
+                            <Plus className="w-4 h-4 mr-2" /> Log Visitor Entry
+                        </Button>
+                    </div>
+
+                    {showAddVisitor && (
+                        <Card className="bg-card/40 backdrop-blur-md border-primary/5">
+                            <CardHeader>
+                                <CardTitle className="text-base">New Visitor Entry</CardTitle>
+                            </CardHeader>
+                            <form onSubmit={handleAddVisitor}>
+                                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground">Visitor Name *</label>
+                                        <Input
+                                            placeholder="e.g. Ramesh Sharma"
+                                            value={visitorName}
+                                            onChange={(e) => setVisitorName(e.target.value)}
+                                            className="bg-background/50"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-medium text-muted-foreground">Phone Number *</label>
+                                        <Input
+                                            placeholder="e.g. 9876543210"
+                                            value={visitorPhone}
+                                            onChange={(e) => setVisitorPhone(e.target.value)}
+                                            className="bg-background/50"
+                                        />
+                                    </div>
+                                </CardContent>
+                                <CardFooter className="justify-end gap-2 border-t border-primary/5 pt-4">
+                                    <Button type="button" variant="ghost" onClick={() => setShowAddVisitor(false)}>Cancel</Button>
+                                    <Button type="submit" disabled={isAddingVisitor}>
+                                        {isAddingVisitor ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Logging...</> : 'Check In Visitor'}
+                                    </Button>
+                                </CardFooter>
+                            </form>
+                        </Card>
+                    )}
+
+                    <Card className="bg-card/40 backdrop-blur-md border-primary/5">
+                        <CardHeader>
+                            <CardTitle className="text-base">Today's Visitors</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {isVisitorsLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                </div>
+                            ) : visitors.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-8">No visitors logged today.</p>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Visitor Name</TableHead>
+                                            <TableHead>Phone</TableHead>
+                                            <TableHead>Entry Time</TableHead>
+                                            <TableHead>Exit Time</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {visitors.map((v) => (
+                                            <TableRow key={v.id}>
+                                                <TableCell className="font-semibold">{v.visitorName}</TableCell>
+                                                <TableCell>{v.phone}</TableCell>
+                                                <TableCell className="font-mono text-xs">{new Date(v.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                                                <TableCell className="font-mono text-xs">{v.exitTime ? new Date(v.exitTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" className={cn('text-[10px] font-bold', v.status === 'active' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-muted text-muted-foreground')}>
+                                                        {v.status === 'active' ? 'Inside' : 'Exited'}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {v.status === 'active' && (
+                                                        <Button variant="outline" size="sm" onClick={() => handleMarkExit(v.id, v.visitorName)}>
+                                                            <LogOut className="w-3 h-3 mr-1" /> Check Out
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             )}
                         </CardContent>
                     </Card>

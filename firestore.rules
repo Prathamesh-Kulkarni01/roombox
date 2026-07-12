@@ -308,6 +308,25 @@ service cloud.firestore {
       allow read: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && request.auth.token.pgId == pgId;
     }
 
+    // ─── Vendors (Maintenance Contractors) ───────────────────────────────────
+    // Vendors are stored under users_data/{ownerId}/vendors
+    // They are accessible to owners and staff with complaints:edit permission.
+
+    // ─── Leases ───────────────────────────────────────────────────────────────
+    // Leases stored under users_data/{ownerId}/leases
+    // Accessible to owners only (and staff with guests:view)
+
+    // ─── Attendance ───────────────────────────────────────────────────────────
+    // Daily attendance records stored under users_data/{ownerId}/attendance
+    // Accessible to owners and staff.
+
+    // ─── Visitor Logs ─────────────────────────────────────────────────────────
+    // Gate visitor logs stored under users_data/{ownerId}/visitor_logs
+    // Accessible to owners and security staff.
+    // Note: All new collections (vendors, leases, attendance, visitor_logs) are
+    // covered by the existing users_data/{ownerId}/{collectionName}/{docId} rule above.
+    // The rule at line 249 grants full owner access and scoped staff access automatically.
+
     // ─── Activity Logs ────────────────────────────────────────────────────────
     match /activity_logs/{logId} {
       allow read, write: if isAuth() && (

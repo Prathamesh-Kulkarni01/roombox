@@ -99,13 +99,74 @@ export async function POST(req: NextRequest) {
         // 4. Find user record
         const cleanPhoneDigits = cleanPhone.slice(-10);
         let userDocSnap = null;
+        let isEnterpriseUser = false;
+        let enterpriseOwnerId: string | null = null;
         const variations = [cleanPhone, `+91${cleanPhoneDigits}`, `91${cleanPhoneDigits}`, cleanPhoneDigits];
         
+        // Search central DB first
         for (const v of variations) {
             const snap = await appDb.collection('users').where('phone', '==', v).limit(1).get();
             if (!snap.empty) {
                 userDocSnap = snap.docs[0];
                 break;
+            }
+        }
+
+        // If not found in central DB, try enterprise context
+        if (!userDocSnap) {
+            const { resolveTenant } = await import('@/lib/tenantResolver');
+            const { selectOwnerDataAdminDb } = await import('@/lib/firebaseAdmin');
+            
+            const { tenantId, isEnterprise } = await resolveTenant(req);
+            
+            // Or if we know the ownerId from the OTP/invite data, try that
+            const targetOwnerId = tenantId || ownerId;
+            
+            if (targetOwnerId) {
+                const customDb = await selectOwnerDataAdminDb(targetOwnerId);
+                
+                // For enterprise staff and tenants, check the custom users and guests collections
+                for (const v of variations) {
+                    const snap = await customDb.collection('users').where('phone', '==', v).limit(1).get();
+                    if (!snap.empty) {
+                        userDocSnap = snap.docs[0];
+                        isEnterpriseUser = true;
+                        enterpriseOwnerId = targetOwnerId;
+                        break;
+                    }
+                }
+                
+                if (!userDocSnap) {
+                    for (const v of variations) {
+                        const guestSnap = await customDb
+                            .collection('users_data')
+                            .doc(targetOwnerId)
+                            .collection('guests')
+                            .where('phone', '==', v)
+                            .limit(1)
+                            .get();
+                        if (!guestSnap.empty) {
+                            userDocSnap = guestSnap.docs[0];
+                            isEnterpriseUser = true;
+                            enterpriseOwnerId = targetOwnerId;
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            // Check if central user is linked to an enterprise owner
+            const userData = userDocSnap.data();
+            if (userData?.ownerId) {
+                const ownerDoc = await appDb.collection('users').doc(userData.ownerId).get();
+                if (ownerDoc.exists) {
+                    const ownerData = ownerDoc.data();
+                    const { isEnterpriseIsolated } = await import('@/lib/enterprise/isolation');
+                    if (isEnterpriseIsolated(ownerData as Record<string, unknown>)) {
+                        isEnterpriseUser = true;
+                        enterpriseOwnerId = userData.ownerId;
+                    }
+                }
             }
         }
 
@@ -145,8 +206,8 @@ export async function POST(req: NextRequest) {
         // 7. Token Generation
         const claims: any = {
             role,
-            ownerId: userData.ownerId || ownerId,
-            guestId: userData.guestId || guestId,
+            ownerId: userData.ownerId || ownerId || enterpriseOwnerId,
+            guestId: userData.guestId || guestId || (role === 'tenant' ? uid : undefined),
             staffId: userData.staffId || staffId,
             pgId: userData.pgId,
         };
@@ -156,7 +217,9 @@ export async function POST(req: NextRequest) {
             const sId = claims.staffId;
             const oId = claims.ownerId;
             if (sId && oId) {
-                const sDoc = await appDb.collection('users_data').doc(oId).collection('staff').doc(sId).get();
+                const { selectOwnerDataAdminDb } = await import('@/lib/firebaseAdmin');
+                const targetDb = isEnterpriseUser ? await selectOwnerDataAdminDb(oId) : appDb;
+                const sDoc = await targetDb.collection('users_data').doc(oId).collection('staff').doc(sId).get();
                 if (sDoc.exists) {
                     claims.permissions = sDoc.data()?.permissions || [];
                     claims.pgs = sDoc.data()?.pgIds || [sDoc.data()?.pgId];
@@ -164,8 +227,18 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const customToken = await auth.createCustomToken(uid, claims);
-        await auth.setCustomUserClaims(uid, claims);
+        let activeAuth = auth;
+        if (isEnterpriseUser && claims.ownerId) {
+            const { resolveTenant } = await import('@/lib/tenantResolver');
+            const { auth: tenantAuth } = await resolveTenant(req);
+            if (tenantAuth && tenantAuth !== auth) {
+                activeAuth = tenantAuth;
+                console.log(`[AUTH] Using enterprise Auth for owner: ${claims.ownerId}`);
+            }
+        }
+
+        const customToken = await activeAuth.createCustomToken(uid, claims);
+        await activeAuth.setCustomUserClaims(uid, claims);
 
         console.log(`[AUTH] Successful OTP login: ${uid} (Role: ${role})`);
         return NextResponse.json({ success: true, customToken });

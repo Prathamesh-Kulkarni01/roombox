@@ -62,6 +62,7 @@ Most important scripts are defined in `package.json`.
 
 ## Helpful docs
 - `README.md` — product overview and feature context.
+- `AUTH_ARCHITECTURE.md` — details on multi-tenant and multi-db auth flows.
 - `ENVIRONMENT_GUIDE.md` — environment isolation, safe local development, and deployment workflow.
 - `STABILITY.md` — stability and release expectations.
 - `firebase.json`, `firestore.rules`, and `.env.*` — Firebase and environment configuration.

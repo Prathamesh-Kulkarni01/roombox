@@ -65,7 +65,22 @@ export class TenantScheduler {
                 results.reminders = { success: false, error: e.message };
             }
 
-            // (Future) Invoices, Late Fees, Maintenance Reminders can be added here
+            // 5. Late Fees – scan overdue guests and apply late fees per PG config
+            try {
+                console.log(`[TenantScheduler] Running late fee check for ${this.tenantId}`);
+                const { reconcileForOwner } = await import('@/lib/actions/reconciliationActions');
+                // reconcileForOwner already handles late fees as part of reconciliation.
+                // We call it in a targeted way (with a date override equal to now) to ensure
+                // any guests whose lateFeeGracePeriodDays have elapsed today get charged.
+                // Reconciliation is idempotent - it won't double-charge if already run above.
+                const lateFeeResult = await reconcileForOwner(this.tenantId, undefined, this.now, {
+                    tenantScheduled: true,
+                });
+                results.lateFees = lateFeeResult;
+            } catch (e: any) {
+                console.error(`[TenantScheduler] Late fee check failed for ${this.tenantId}`, e.message);
+                results.lateFees = { success: false, error: e.message };
+            }
             
         } catch (error: any) {
             executionError = error.message;

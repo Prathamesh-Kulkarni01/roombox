@@ -91,7 +91,15 @@ export async function POST(req: NextRequest) {
         }
 
         // ── 3. Resolve or provision Firebase Auth UID ────────────────────────────────────────
-        const { auth: auth } = await resolveTenant(req);
+        const { auth } = await resolveTenant(req);
+        let activeAuth = auth;
+        if (isShardedTenant && magicLinkData.ownerId) {
+            // Re-resolve the tenant context explicitly for this owner to get their custom Auth
+            const { auth: tenantAuth } = await resolveTenant(req, magicLinkData.ownerId);
+            activeAuth = tenantAuth;
+            console.log(`[magic-login] Using custom Auth instance for enterprise owner: ${magicLinkData.ownerId}`);
+        }
+        
         const phone = magicLinkData.phone;
         const cleanPhoneDigits = phone.replace(/\D/g, '');
         const cleanPhoneTenDigits = cleanPhoneDigits.slice(-10);
@@ -128,10 +136,10 @@ export async function POST(req: NextRequest) {
             try {
                 let authUser = null;
                 try {
-                    authUser = await auth.getUserByPhoneNumber(standardizedPhone);
+                    authUser = await activeAuth.getUserByPhoneNumber(standardizedPhone);
                 } catch (e) {
                     try {
-                        authUser = await auth.getUserByEmail(internalEmail);
+                        authUser = await activeAuth.getUserByEmail(internalEmail);
                     } catch (e2) {}
                 }
 
@@ -211,8 +219,8 @@ export async function POST(req: NextRequest) {
                 claims.pgs = userDocSnapshot?.data()?.pgIds || (claims.pgId ? [claims.pgId] : []);
             }
 
-            const customToken = await auth.createCustomToken(uid, claims);
-            await auth.setCustomUserClaims(uid, claims);
+            const customToken = await activeAuth.createCustomToken(uid, claims);
+            await activeAuth.setCustomUserClaims(uid, claims);
 
             if (userDocSnapshot.exists) {
                 const existingData = userDocSnapshot.data() || {};
@@ -246,8 +254,8 @@ export async function POST(req: NextRequest) {
             pgId: magicLinkData.pgId || null,
         };
 
-        const customToken = await auth.createCustomToken(uid, claims);
-        await auth.setCustomUserClaims(uid, claims);
+        const customToken = await activeAuth.createCustomToken(uid, claims);
+        await activeAuth.setCustomUserClaims(uid, claims);
 
         return NextResponse.json({
             success: true,

@@ -87,6 +87,13 @@ export async function POST(req: NextRequest) {
         const standardizedPhone = phone.startsWith('+') ? phone : (phone.length === 10 ? `+91${phone}` : phone);
 
         // ── 3. Resolve UID ────────────────────────────────────────────────────────────────────
+        let activeAuth = auth;
+        if (isShardedTenant && magicLinkData?.ownerId) {
+            const { auth: tenantAuth } = await resolveTenant(req, magicLinkData.ownerId);
+            activeAuth = tenantAuth;
+            console.log(`[set-password] Using custom Auth instance for enterprise owner: ${magicLinkData.ownerId}`);
+        }
+
         let uid: string;
         let finalUid: string;
 
@@ -132,7 +139,7 @@ export async function POST(req: NextRequest) {
 
         // ── 4. Create/Update Firebase Auth record with password ───────────────────────────────
         try {
-            await auth.updateUser(uid, {
+            await activeAuth.updateUser(uid, {
                 email: internalEmail,
                 password: password,
                 disabled: false
@@ -144,16 +151,16 @@ export async function POST(req: NextRequest) {
                 try {
                     let existingAuthUser = null;
                     try {
-                        existingAuthUser = await auth.getUserByEmail(internalEmail);
+                        existingAuthUser = await activeAuth.getUserByEmail(internalEmail);
                     } catch (e) {
                         try {
-                            existingAuthUser = await auth.getUserByPhoneNumber(standardizedPhone);
+                            existingAuthUser = await activeAuth.getUserByPhoneNumber(standardizedPhone);
                         } catch (e2) {}
                     }
 
                     if (existingAuthUser) {
                         finalUid = existingAuthUser.uid;
-                        await auth.updateUser(finalUid, {
+                        await activeAuth.updateUser(finalUid, {
                             email: internalEmail,
                             password: password,
                             disabled: false
@@ -173,7 +180,7 @@ export async function POST(req: NextRequest) {
                             }
                         }
                     } else {
-                        await auth.createUser({
+                        await activeAuth.createUser({
                             uid: uid,
                             email: internalEmail,
                             phoneNumber: standardizedPhone,
@@ -230,10 +237,10 @@ export async function POST(req: NextRequest) {
             console.log(`[set-password] Sharded tenant ${finalUid}: skipping central users/ doc write.`);
         }
 
-        await auth.setCustomUserClaims(finalUid, claims);
+        await activeAuth.setCustomUserClaims(finalUid, claims);
         let customToken: string | undefined;
         if (!isShardedTenant) {
-            customToken = await auth.createCustomToken(finalUid, claims);
+            customToken = await activeAuth.createCustomToken(finalUid, claims);
         }
 
         // ── 6. Mark magic link as consumed ───────────────────────────────────────────────────

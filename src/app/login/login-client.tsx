@@ -24,6 +24,7 @@ import {
 import { useAppSelector } from "@/lib/hooks";
 import {
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   signInWithPhoneNumber,
   RecaptchaVerifier,
   GoogleAuthProvider,
@@ -159,10 +160,48 @@ export default function LoginPageClient() {
     setIsProcessing(true);
     try {
       const loginId = `${phone.replace(/\D/g, "").slice(-10)}@roombox.app`;
-      await signInWithEmailAndPassword(auth, loginId, password);
+      
+      // First attempt: use the resolved auth instance (enterprise or central)
+      try {
+        await signInWithEmailAndPassword(auth, loginId, password);
+        return; // Success
+      } catch (firstErr: any) {
+        // If we get user-not-found on the central auth, the tenant might be enterprise.
+        // Fall through to server-side resolution via /api/auth/phone-login.
+        if (firstErr.code !== 'auth/user-not-found' && firstErr.code !== 'auth/invalid-credential' && firstErr.code !== 'auth/wrong-password') {
+          throw firstErr;
+        }
+        console.warn('[Login] First auth attempt failed:', firstErr.code, '- trying server-side fallback...');
+      }
+
+      // Fallback: Use server-side /api/auth/phone-login which resolves enterprise context
+      const res = await fetch('/api/auth/phone-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Login failed. Please check your password.');
+      }
+
+      // Use the custom token returned by the server to sign in on the correct auth instance
+      if (data.customToken) {
+        // For enterprise users, sign into the tenant-specific auth instance
+        const { getApps } = await import('firebase/app');
+        const { getAuth } = await import('firebase/auth');
+        const tenantApp = getApps().find(a => a.name === 'tenant-login-instance' || a.name.startsWith('tenant-'));
+        const targetAuth = tenantApp ? getAuth(tenantApp) : auth;
+        await signInWithCustomToken(targetAuth, data.customToken);
+      } else {
+        throw new Error('No authentication token received.');
+      }
     } catch (err: any) {
+      console.error('[Login] Password sign-in error:', err);
       let msg = "Invalid password. Please try again.";
-      if (err.code === "auth/user-not-found") msg = "Account not found.";
+      if (err.code === "auth/user-not-found" || err.message?.includes('Account not found')) msg = "Account not found.";
+      if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") msg = "Incorrect password. Please try again.";
       toast({ variant: "destructive", title: "Login Failed", description: msg });
       setIsProcessing(false);
     }

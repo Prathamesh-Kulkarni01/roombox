@@ -546,6 +546,10 @@ export interface Guest extends BaseEntity {
   rentPaidAmount?: number;
   onboardingFeeDeducted?: number;
   joinDate?: string;
+  // Feature Expansion (Phase 1)
+  screeningStatus?: 'pending' | 'approved' | 'rejected';
+  backgroundCheckId?: string;
+  leaseAgreementId?: string;
 }
 
 export interface AdditionalCharge { // Also deprecated
@@ -572,6 +576,11 @@ export interface Complaint extends BaseEntity {
   upvotes?: number;
   isPublic: boolean;
   imageUrls?: string[];
+  // Vendor Dispatching
+  vendorId?: string;
+  scheduledDate?: string;
+  invoiceAmount?: number;
+  invoiceStatus?: 'pending' | 'paid';
 }
 
 export interface Expense extends BaseEntity {
@@ -1054,4 +1063,56 @@ export interface FinancialEvent {
   createdBy: string; // user ID
   metadata?: any;
   schemaVersion: number;
+}
+
+export interface Vendor extends BaseEntity {
+  id: string;
+  ownerId: string;
+  name: string;
+  category: string;
+  phone: string;
+  email?: string;
+  bankDetails?: string;
+  schemaVersion: number;
+}
+
+export interface Lease extends BaseEntity {
+  id: string;
+  guestId: string;
+  pgId: string;
+  documentUrl?: string;
+  status: 'draft' | 'sent' | 'signed';
+  eSignatureData?: any;
+  schemaVersion: number;
+}
+
+export interface AccountingLedgerEntry extends BaseEntity {
+  id: string;
+  ownerId: string;
+  date: string; // ISO string
+  type: 'credit' | 'debit';
+  accountId?: string;
+  amount: number;
+  description: string;
+  referenceId?: string; // paymentId or complaintId
+  schemaVersion: number;
+}
+
+export interface VisitorLog extends BaseEntity {
+  id: string;
+  pgId: string;
+  guestId?: string;
+  visitorName: string;
+  phone: string;
+  entryTime: string; // ISO string
+  exitTime?: string; // ISO string
+  status: 'active' | 'completed';
+}
+
+export interface AttendanceRecord extends BaseEntity {
+  id: string;
+  pgId: string;
+  guestId: string;
+  date: string; // ISO string (YYYY-MM-DD)
+  status: 'present' | 'absent' | 'leave';
 }

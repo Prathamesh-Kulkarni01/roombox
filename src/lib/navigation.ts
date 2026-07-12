@@ -55,6 +55,7 @@ export const allNavItems: NavGroup[] = [
   {
     title: "nav_group_growth",
     items: [
+        { href: '/dashboard/marketing', label: 'Marketing', icon: Globe, feature: 'marketing', description: 'Listing syndication and tracking' },
         { href: '/dashboard/website', label: 'nav_app_website', icon: Globe, feature: 'website', description: 'nav_app_website_desc' },
         { href: '/dashboard/whatsapp', label: 'nav_whatsapp', icon: MessageCircle, feature: 'whatsapp', description: 'nav_whatsapp_desc' },
         { href: '/dashboard/enterprise', label: 'nav_enterprise', icon: Building, feature: 'enterprise', description: 'nav_enterprise_desc' },

@@ -174,6 +174,12 @@ function AuthHandler({ children }: { children: ReactNode }) {
               } else {
                 activeDb = getFirestore(tenantApp);
               }
+
+              // Signal FirebaseTenantContext that the enterprise app is now available
+              // This resolves the race condition where context renders before this async init completes
+              try {
+                window.dispatchEvent(new Event('tenant-app-ready'));
+              } catch (_) {}
             }
           }
         }
