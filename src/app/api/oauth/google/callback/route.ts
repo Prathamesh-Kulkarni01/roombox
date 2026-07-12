@@ -56,6 +56,54 @@ export async function GET(req: NextRequest) {
     if (!ownerId) throw new Error('owner_missing');
     if (!projectId) throw new Error('project_missing');
 
+    if (projectId === 'auto') {
+      const crm = google.cloudresourcemanager('v1');
+      const su = google.serviceusage('v1');
+      const newProjectId = `rs-db-${Math.random().toString(36).substring(2, 6)}-${Date.now().toString(36).slice(-4)}`;
+      console.log('[oauth-callback] Auto-creating GCP Project:', newProjectId);
+
+      try {
+        const createOp = await crm.projects.create({
+          requestBody: { projectId: newProjectId, name: 'RentSutra Private DB' },
+          auth: oauth2Client,
+        } as any);
+
+        // Poll for project creation completion
+        let isDone = false;
+        let opName = createOp.data.name;
+        while (!isDone && opName) {
+          await new Promise(r => setTimeout(r, 2000));
+          const opResult = await crm.operations.get({
+            name: opName,
+            auth: oauth2Client,
+          } as any);
+          if (opResult.data.done) {
+            if (opResult.data.error) throw new Error(opResult.data.error.message || 'Unknown error');
+            isDone = true;
+          }
+        }
+
+        // Add Firebase
+        const firebaseMgmt = google.firebase('v1beta1');
+        await firebaseMgmt.projects.addFirebase({
+          project: `projects/${newProjectId}`,
+          requestBody: {},
+          auth: oauth2Client,
+        } as any);
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Enable APIs
+        await su.services.enable({ name: `projects/${newProjectId}/services/firestore.googleapis.com`, auth: oauth2Client } as any);
+        await su.services.enable({ name: `projects/${newProjectId}/services/firebaserules.googleapis.com`, auth: oauth2Client } as any);
+        await new Promise(r => setTimeout(r, 2000));
+
+        projectId = newProjectId;
+      } catch (err: any) {
+        console.error('[oauth-callback] Project auto-creation failed:', err);
+        throw new Error(`Auto-creation failed: ${err.message}`);
+      }
+    }
+
     // Use Firebase Management API to create/get a Web App and fetch client config
     const firebase = google.firebase('v1beta1');
     const parent = `projects/${projectId}`;
@@ -64,7 +112,7 @@ export async function GET(req: NextRequest) {
     try {
       const createRes = await firebase.projects.webApps.create({
         parent,
-        requestBody: { displayName: `RentSutra App for ${ownerId}` },
+        requestBody: { displayName: `RentSutra App` },
         auth: oauth2Client,
       } as any);
       if (createRes.data.name) {

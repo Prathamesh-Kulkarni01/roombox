@@ -19,7 +19,12 @@ service cloud.firestore {
 
     // True if the user has a staff token that includes this PG
     function isStaff(pgId) {
-      return isAuth() && request.auth.token.pgs != null && pgId in request.auth.token.pgs;
+      return isAuth() && pgId in request.auth.token.get('pgs', []);
+    }
+
+    // True if the user has a recognized staff role
+    function isStaffRole() {
+      return isAuth() && request.auth.token.role in ['manager', 'cleaner', 'cook', 'security', 'staff', 'other'];
     }
 
     // New helper for granular permissions (supports flat array format)
@@ -78,8 +83,7 @@ service cloud.firestore {
         allow create: if isAuth() && (request.auth.uid == userId || request.auth.token.ownerId == userId);
         allow update, delete: if isAuth() && (
           request.auth.uid == userId || 
-          request.auth.token.role == 'staff' || 
-          request.auth.token.role == 'manager' || 
+          isStaffRole() || 
           (request.auth.token.ownerId == userId && (
             resource.data.authorId == request.auth.uid || 
             resource.data.authorId == request.auth.token.guestId
@@ -251,29 +255,29 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == ownerId;
 
       // Staff access is scoped to their assigned properties
-      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && (
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && isStaffRole() && (
         (collectionName == 'notifications' && (
           resource.data.targetId == request.auth.uid || 
-          request.auth.token.pgs.hasAny([resource.data.targetId])
+          request.auth.token.get('pgs', []).hasAny([resource.data.targetId])
         )) ||
         collectionName == 'chargeTemplates' || 
         (collectionName == 'pgs' && isStaff(docId)) ||
         (resource.data.pgId != null && isStaff(resource.data.pgId)) ||
         (request.resource.data.pgId != null && isStaff(request.resource.data.pgId)) ||
         (collectionName == 'staff' && (
-          (resource.data.pgIds != null && resource.data.pgIds.hasAny(request.auth.token.pgs)) ||
-          (request.resource.data.pgIds != null && request.resource.data.pgIds.hasAny(request.auth.token.pgs))
+          (resource.data.pgIds != null && resource.data.pgIds.hasAny(request.auth.token.get('pgs', []))) ||
+          (request.resource.data.pgIds != null && request.resource.data.pgIds.hasAny(request.auth.token.get('pgs', [])))
         ))
       );
 
       // Support for collection-level listing (Staff)
-      allow list: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && (
+      allow list: if isAuth() && request.auth.token.ownerId == ownerId && isStaffRole() && (
         (collectionName == 'notifications' && request.query.filters.targetId != null && 
-          request.auth.token.pgs.concat([request.auth.uid]).hasAll(request.query.filters.targetId)) ||
+          request.auth.token.get('pgs', []).concat([request.auth.uid]).hasAll(request.query.filters.targetId)) ||
         collectionName == 'chargeTemplates' ||
-        (collectionName == 'pgs' && request.query.filters.__name__ != null && request.auth.token.pgs.hasAll(request.query.filters.__name__)) ||
-        (request.query.filters.pgId != null && request.auth.token.pgs.hasAll(request.query.filters.pgId)) ||
-        (collectionName == 'staff' && request.query.filters.pgIds != null && request.auth.token.pgs.hasAll(request.query.filters.pgIds))
+        (collectionName == 'pgs' && request.query.filters.__name__ != null && request.auth.token.get('pgs', []).hasAll(request.query.filters.__name__)) ||
+        (request.query.filters.pgId != null && request.auth.token.get('pgs', []).hasAll(request.query.filters.pgId)) ||
+        (collectionName == 'staff' && request.query.filters.pgIds != null && request.auth.token.get('pgs', []).hasAll(request.query.filters.pgIds))
       );
       
       // Tenant access to their own data
@@ -299,12 +303,12 @@ service cloud.firestore {
     // These are nested under users_data/{ownerId}/pgs/{pgId}
     match /users_data/{ownerId}/pgs/{pgId}/{subCollection}/{subId} {
       allow read, write: if isAuth() && request.auth.uid == ownerId;
-      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && isStaff(pgId);
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && isStaffRole() && isStaff(pgId);
       allow read: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && request.auth.token.pgId == pgId;
     }
     match /users_data/{ownerId}/pgs/{pgId}/{subCollection}/{subId}/{nestedCollection}/{nestedId} {
       allow read, write: if isAuth() && request.auth.uid == ownerId;
-      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && isStaff(pgId);
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && isStaffRole() && isStaff(pgId);
       allow read: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && request.auth.token.pgId == pgId;
     }
 

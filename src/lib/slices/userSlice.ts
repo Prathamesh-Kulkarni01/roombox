@@ -142,7 +142,9 @@ export const initializeUser = createAsyncThunk<User, FirebaseUser, { dispatch: a
             const roleFromClaim = tokenResult.claims.role as UserRole;
 
             if (roleFromClaim && roleFromClaim !== 'unassigned') {
-                if (userData.role !== roleFromClaim) {
+                // Prevent stale 'owner' claims from bypassing onboarding for users who reset their Firestore profile
+                const isStaleOwnerClaim = userData.role === 'unassigned' && roleFromClaim === 'owner';
+                if (userData.role !== roleFromClaim && !isStaleOwnerClaim) {
                     console.log(`[initializeUser] Overriding Firestore role (${userData.role}) with Auth Claim: ${roleFromClaim}`);
                     userData.role = roleFromClaim;
                 }

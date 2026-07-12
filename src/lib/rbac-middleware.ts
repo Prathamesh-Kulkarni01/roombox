@@ -54,6 +54,7 @@ export async function enforcePermission(
     const { ownerId, userId, name, role, permissions, plan, status, error } = authResult;
 
     if (!ownerId || !userId) {
+        console.warn(`[RBAC] Access denied for ${routeLabel || 'unknown route'}: userId=${userId}, ownerId=${ownerId}, role=${role}, error=${error}`);
         return { authorized: false, response: unauthorized(error) };
     }
 

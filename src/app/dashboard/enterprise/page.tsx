@@ -422,7 +422,7 @@ export default function EnterpriseOnboardingPage() {
         const scope = 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase https://www.googleapis.com/auth/service.management https://www.googleapis.com/auth/servicecontrol https://www.googleapis.com/auth/cloud-platform.read-only';
         const statePayload = {
             ownerId: currentUser?.id || null,
-            projectId: projectId || null,
+            projectId: projectId?.trim() || 'auto',
             databaseId: databaseId || null,
         };
         const state = typeof window !== 'undefined' ? btoa(JSON.stringify(statePayload)) : String(currentUser?.id || '');
@@ -629,12 +629,12 @@ export default function EnterpriseOnboardingPage() {
                                             </p>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                                                 <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Google Project ID *</label>
+                                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Google Project ID</label>
                                                     <input className="w-full border rounded-xl px-3 py-2 bg-background focus:ring-2 focus:ring-primary/20 outline-none text-xs font-bold"
                                                         value={projectId}
                                                         onChange={e => setProjectId(e.target.value)}
-                                                        placeholder="your-firebase-project-id"
-                                                        required />
+                                                        placeholder="Leave blank to Auto-Create"
+                                                         />
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Database Instance ID</label>
@@ -649,7 +649,6 @@ export default function EnterpriseOnboardingPage() {
                                                 className="w-full rounded-xl py-5 font-black text-xs shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground" 
                                                 variant="default" 
                                                 onClick={handleConnectProject}
-                                                disabled={!projectId}
                                             >
                                                 <Link className="mr-1.5 h-3.5 w-3.5" />
                                                 Continue with Google Authentication

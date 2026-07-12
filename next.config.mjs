@@ -11,7 +11,6 @@ if (!isEmulatorForPurge && (process.env.FIRESTORE_EMULATOR_HOST || process.env.F
   delete process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST;
 }
 
-import type { NextConfig } from 'next';
 import withPWAInit from '@ducanh2912/next-pwa';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -91,7 +90,7 @@ const withPWA = withPWAInit({
         },
       },
       {
-        urlPattern: ({ request }: { request: any }) => request.mode === 'navigate',
+        urlPattern: ({ request }) => request.mode === 'navigate',
         handler: 'NetworkFirst',
         options: {
           cacheName: 'pages',
@@ -111,7 +110,7 @@ const withPWA = withPWAInit({
   },
 });
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   /* config options here */
   serverExternalPackages: ['@google-cloud/firestore', 'firebase-admin', 'googleapis'],
   distDir: process.env.NEXT_DIST_DIR || '.next',

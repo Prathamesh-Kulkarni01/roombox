@@ -80,7 +80,7 @@ export const api = createApi({
     reducerPath: 'api',
     baseQuery: fetchBaseQuery({
         baseUrl: '/',
-        prepareHeaders: async (headers) => {
+        prepareHeaders: async (headers, { getState }) => {
             const currentAuth = getActiveAuth();
             if (currentAuth) {
                 const token = await currentAuth.currentUser?.getIdToken();
@@ -88,6 +88,14 @@ export const api = createApi({
                     headers.set('Authorization', `Bearer ${token}`);
                 }
             }
+            
+            const state = getState() as any;
+            const currentUser = state.user?.currentUser;
+            const tenantId = currentUser?.ownerId || (currentUser?.role === 'owner' ? currentUser?.id : null);
+            if (tenantId) {
+                headers.set('x-tenant-id', tenantId);
+            }
+            
             return headers;
         },
     }),

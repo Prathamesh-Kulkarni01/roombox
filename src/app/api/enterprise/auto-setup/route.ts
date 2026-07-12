@@ -17,7 +17,10 @@ service cloud.firestore {
       return request.auth != null;
     }
     function isStaff(pgId) {
-      return isAuth() && request.auth.token.pgs != null && pgId in request.auth.token.pgs;
+      return isAuth() && pgId in request.auth.token.get('pgs', []);
+    }
+    function isStaffRole() {
+      return isAuth() && request.auth.token.role in ['manager', 'cleaner', 'cook', 'security', 'staff', 'other'];
     }
     function hasPermission(feature, action) {
       let perm = feature + ":" + action;
@@ -37,28 +40,28 @@ service cloud.firestore {
     match /users_data/{ownerId}/{collectionName}/{docId} {
       allow read, write: if isAuth() && request.auth.uid == ownerId;
       
-      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && (
+      allow read, write: if isAuth() && request.auth.token.ownerId == ownerId && isStaffRole() && (
         (collectionName == 'notifications' && (
           resource.data.targetId == request.auth.uid || 
-          request.auth.token.pgs.hasAny([resource.data.targetId])
+          request.auth.token.get('pgs', []).hasAny([resource.data.targetId])
         )) ||
         collectionName == 'chargeTemplates' || 
         (collectionName == 'pgs' && isStaff(docId)) ||
         (resource.data.pgId != null && isStaff(resource.data.pgId)) ||
         (request.resource.data.pgId != null && isStaff(request.resource.data.pgId)) ||
         (collectionName == 'staff' && (
-          (resource.data.pgIds != null && resource.data.pgIds.hasAny(request.auth.token.pgs)) ||
-          (request.resource.data.pgIds != null && request.resource.data.pgIds.hasAny(request.auth.token.pgs))
+          (resource.data.pgIds != null && resource.data.pgIds.hasAny(request.auth.token.get('pgs', []))) ||
+          (request.resource.data.pgIds != null && request.resource.data.pgIds.hasAny(request.auth.token.get('pgs', [])))
         ))
       );
       
-      allow list: if isAuth() && request.auth.token.ownerId == ownerId && request.auth.token.role == 'staff' && (
+      allow list: if isAuth() && request.auth.token.ownerId == ownerId && isStaffRole() && (
         (collectionName == 'notifications' && request.query.filters.targetId != null && 
-          request.auth.token.pgs.concat([request.auth.uid]).hasAll(request.query.filters.targetId)) ||
+          request.auth.token.get('pgs', []).concat([request.auth.uid]).hasAll(request.query.filters.targetId)) ||
         collectionName == 'chargeTemplates' ||
-        (collectionName == 'pgs' && request.query.filters.__name__ != null && request.auth.token.pgs.hasAll(request.query.filters.__name__)) ||
-        (request.query.filters.pgId != null && request.auth.token.pgs.hasAll(request.query.filters.pgId)) ||
-        (collectionName == 'staff' && request.query.filters.pgIds != null && request.auth.token.pgs.hasAll(request.query.filters.pgIds))
+        (collectionName == 'pgs' && request.query.filters.__name__ != null && request.auth.token.get('pgs', []).hasAll(request.query.filters.__name__)) ||
+        (request.query.filters.pgId != null && request.auth.token.get('pgs', []).hasAll(request.query.filters.pgId)) ||
+        (collectionName == 'staff' && request.query.filters.pgIds != null && request.auth.token.get('pgs', []).hasAll(request.query.filters.pgIds))
       );
       
       allow get: if isAuth() && request.auth.token.role == 'tenant' && request.auth.token.ownerId == ownerId && (

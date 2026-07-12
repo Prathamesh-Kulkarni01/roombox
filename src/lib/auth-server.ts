@@ -132,7 +132,11 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
         let userDoc = await activeDb.collection('users').doc(userId).get();
         let isTenantDb = activeDb !== await getAdminDb();
 
-        if (!userDoc.exists && isTenantDb) {
+        // If the user is the owner of the tenant DB, their master record (billing, role) is in the Central DB.
+        if (isTenantDb && tenantId === userId) {
+            const centralDb = await getAdminDb();
+            userDoc = await centralDb.collection('users').doc(userId).get();
+        } else if (!userDoc.exists && isTenantDb) {
              // Fallback to central DB just in case it's an owner logging into their own tenant subdomain
              const centralDb = await getAdminDb();
              userDoc = await centralDb.collection('users').doc(userId).get();
@@ -202,7 +206,7 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
             };
         }
 
-        return { ownerId: null, error: 'Forbidden: No owner context associated with this user' };
+        return { ownerId: null, userId: result.userId, role: result.role, error: `Forbidden: No owner context associated with this user. Current role: ${userData.role}` };
     } catch (error) {
         console.error('[AuthServer] Error fetching user data:', error);
         return { ownerId: null, error: 'Internal Server Error during auth verification' };
