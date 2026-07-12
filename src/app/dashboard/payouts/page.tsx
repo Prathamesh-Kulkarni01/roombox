@@ -27,7 +27,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useFirebaseTenant } from '@/context/firebase-tenant-context';
+import { useFirebaseTenant } from '@/platform/auth';
 import { cn } from '@/lib/utils';
 import ReactConfetti from 'react-confetti';
 import Image from 'next/image';

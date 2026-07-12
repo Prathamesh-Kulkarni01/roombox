@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Guest, User } from '@/lib/types';
 import { z } from 'zod';

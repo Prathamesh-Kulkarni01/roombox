@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useFirebaseTenant } from '@/context/firebase-tenant-context';
+import { useFirebaseTenant } from '@/platform/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 

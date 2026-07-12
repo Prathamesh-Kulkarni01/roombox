@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserCircle, SwitchCamera, Loader2, ChevronRight } from 'lucide-react';
-import { useFirebaseTenant } from '@/context/firebase-tenant-context';
+import { useFirebaseTenant } from '@/platform/auth';
 import { initializeUser } from '@/lib/slices/userSlice';
 import { cn } from '@/lib/utils';
 

@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useTranslation } from '@/context/language-context';
 import { useAppSelector } from '@/lib/hooks';
-import { useFirebaseTenant } from '@/context/firebase-tenant-context';
+import { useFirebaseTenant } from '@/platform/auth';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, QrCode, CheckCircle2, ShieldCheck } from 'lucide-react';

@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
 
         // If not found in central DB, try enterprise context
         if (!userDocSnap) {
-            const { resolveTenant } = await import('@/lib/tenantResolver');
+            const { resolveTenant } = await import('@/platform/auth/server/tenant-resolver');
             const { selectOwnerDataAdminDb } = await import('@/lib/firebaseAdmin');
             
             const { tenantId, isEnterprise } = await resolveTenant(req);
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
 
         let activeAuth = auth;
         if (isEnterpriseUser && claims.ownerId) {
-            const { resolveTenant } = await import('@/lib/tenantResolver');
+            const { resolveTenant } = await import('@/platform/auth/server/tenant-resolver');
             const { auth: tenantAuth } = await resolveTenant(req);
             if (tenantAuth && tenantAuth !== auth) {
                 activeAuth = tenantAuth;

@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { useFirebaseTenant } from '@/context/firebase-tenant-context';
+import { useFirebaseTenant } from '@/platform/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

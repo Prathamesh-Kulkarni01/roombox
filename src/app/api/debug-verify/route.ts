@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rejectIfProduction } from '@/lib/api/dev-only';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 
 export const dynamic = 'force-dynamic';
 

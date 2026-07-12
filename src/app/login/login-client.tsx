@@ -33,7 +33,7 @@ import {
   createUserWithEmailAndPassword
 } from "firebase/auth";
 import { usePgBranding } from "@/context/branding-context";
-import { useFirebaseTenant } from "@/context/firebase-tenant-context";
+import { useFirebaseTenant } from "@/platform/auth";
 import { RoleContextSwitcher } from "@/components/auth/RoleContextSwitcher";
 
 declare global {

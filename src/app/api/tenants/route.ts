@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
 import { TenantService } from '@/services/tenantService';
 import { enforcePermission, enforcePermissionForStaff } from '@/lib/rbac-middleware';

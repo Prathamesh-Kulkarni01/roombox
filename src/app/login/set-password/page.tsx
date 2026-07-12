@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { useFirebaseTenant } from "@/context/firebase-tenant-context";
+import { useFirebaseTenant } from "@/platform/auth";
 
 function SetPasswordContent() {
     const router = useRouter();

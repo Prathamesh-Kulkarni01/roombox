@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb, getAdminAuth, selectOwnerDataAdminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 import { serverError, badRequest, unauthorized } from "@/lib/api/apiError";

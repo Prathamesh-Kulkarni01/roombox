@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 
 const tokenRequestSchema = z.object({

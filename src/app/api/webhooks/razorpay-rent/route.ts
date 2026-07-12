@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, addMonths, setDate, lastDayOfMonth } from 'date-fns';
 import type { Guest, Payment, User, LedgerEntry } from '@/lib/types';

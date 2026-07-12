@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin';
 import { getUserIdFromRequest } from '@/lib/auth-server';
 import { unauthorized, forbidden, success, badRequest } from '@/lib/api/apiError';

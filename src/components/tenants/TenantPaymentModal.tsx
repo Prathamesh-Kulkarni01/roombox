@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { IndianRupee, AlertCircle, Loader2, Copy, Check, Smartphone, Upload, X, ImageIcon } from "lucide-react"
 import { format } from 'date-fns'
-import { useFirebaseTenant } from '@/context/firebase-tenant-context';
+import { useFirebaseTenant } from '@/platform/auth';
 import { generateRentSutraNote } from '@/lib/upi'
 import { useToast } from "@/hooks/use-toast"
 import type { PG, Guest } from "@/lib/types"

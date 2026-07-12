@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { headers } from 'next/headers';
 import { getAdminDb, auth as centralAuth } from './firebaseAdmin';
-import { resolveTenant } from './tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { PlanName, SubscriptionStatus } from './types';
 import { resolveTenantBySubdomain, resolveTenantByOwnerId } from './tenant-registry';
 

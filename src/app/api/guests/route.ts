@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { TenantService } from '@/services/tenantService';
 import { selectOwnerDataAdminDb, getAdminDb } from '@/lib/firebaseAdmin';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { badRequest, forbidden, notFound, serverError, unauthorized } from '@/lib/api/apiError';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { enforcePermission, enforcePermissionForStaff } from '@/lib/rbac-middleware';

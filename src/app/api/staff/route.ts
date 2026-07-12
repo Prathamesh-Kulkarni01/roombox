@@ -4,7 +4,7 @@
  * Complex invite/email logic remains in Redux staffSlice thunks.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import { badRequest, serverError, unauthorized } from '@/lib/api/apiError';

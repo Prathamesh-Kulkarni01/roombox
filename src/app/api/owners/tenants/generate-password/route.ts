@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin';
 import { getVerifiedOwnerId } from '@/lib/auth-server';
 import crypto from 'crypto';

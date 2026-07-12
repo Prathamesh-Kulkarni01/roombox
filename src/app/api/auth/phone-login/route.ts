@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb, getAdminAuth, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { verifyPassword } from '@/lib/password-utils';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { isEnterpriseIsolated } from '@/lib/enterprise/isolation';
 
 export async function POST(req: NextRequest) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminMessaging, getAdminDb } from '@/lib/firebaseAdmin'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 

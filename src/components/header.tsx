@@ -24,7 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { allNavItems } from '@/lib/navigation';
 import { usePermissionsStore } from '@/lib/stores/configStores';
 import { useAccessibleNav } from '@/lib/hooks/use-accessible-nav';
-import { useFirebaseTenant } from '@/context/firebase-tenant-context';
+import { useFirebaseTenant } from '@/platform/auth';
 import { initializeUser } from '@/lib/slices/userSlice';
 import {
   DropdownMenu,

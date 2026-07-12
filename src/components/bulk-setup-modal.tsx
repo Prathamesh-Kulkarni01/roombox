@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Building2, LayoutGrid, BedDouble, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebaseTenant } from '@/context/firebase-tenant-context';
+import { useFirebaseTenant } from '@/platform/auth';
 import type { PG } from '@/lib/types';
 
 interface BulkSetupModalProps {

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { FirebaseTenantProvider } from "@/context/firebase-tenant-context";
+import { FirebaseTenantProvider } from "@/platform/auth";
 import { app, db, auth } from "@/lib/firebase";
 
 export default function FirebaseProviderWrapper({ children }: { children: React.ReactNode }) {

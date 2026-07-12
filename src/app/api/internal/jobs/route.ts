@@ -1,7 +1,7 @@
 
 
 import { NextRequest, NextResponse, after } from 'next/server';
-import { resolveTenant } from '@/lib/tenantResolver';
+import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { verifyPayload, SignedPayload } from '@/lib/cryptoUtils';
 import { TenantScheduler } from '@/lib/tenant/TenantScheduler';
 import { getCronSecret } from '@/lib/cron/auth';
