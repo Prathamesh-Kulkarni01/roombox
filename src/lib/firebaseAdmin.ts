@@ -227,37 +227,34 @@ export async function selectOwnerDataAdminDb(ownerId: string): Promise<Firestore
         firestore.settings({ ignoreUndefinedProperties: true });
         customFirestoreInstances.set(cacheKey, firestore);
         return firestore;
-      } 
-      else if (oauthTokens) {
-        // OAUTH FALLBACK (Legacy)
-        console.warn(`[FirebaseAdmin] Using legacy OAuth fallback for ${ownerId}`);
-        const { google } = require('googleapis');
-        const oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET
-        );
-        oauth2Client.setCredentials(decryptTokens(oauthTokens));
-
-        if (typeof oauth2Client.getUniverseDomain !== 'function') oauth2Client.getUniverseDomain = async () => 'googleapis.com';
-        if (typeof oauth2Client.getProjectId !== 'function') oauth2Client.getProjectId = async () => enterpriseProjectId;
-        if (typeof oauth2Client.getClient !== 'function') oauth2Client.getClient = async () => oauth2Client;
-
+      } else if (oauthTokens) {
+        // HYBRID SERVICE ACCOUNT DELEGATION (V3 Approach)
+        // We use the central service account which was granted roles/owner during the OAuth setup.
+        console.log(`[FirebaseAdmin] Using Hybrid Service Account Delegation for ${ownerId}`);
         const { Firestore: GCFirestore } = require('@google-cloud/firestore');
+        
+        const fbPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+        const fbClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+        let credentials = undefined;
+        
+        if (fbPrivateKey && fbClientEmail) {
+            credentials = {
+                client_email: fbClientEmail,
+                private_key: fbPrivateKey.replace(/\\n/g, '\n').replace(/"/g, ''),
+            };
+        } else if (process.env.FIREBASE_ADMIN_SDK_CONFIG) {
+            credentials = JSON.parse(process.env.FIREBASE_ADMIN_SDK_CONFIG);
+        }
+
         const firestore: Firestore = new GCFirestore({
           projectId: enterpriseProjectId,
           databaseId: enterpriseDbId && enterpriseDbId !== '(default)' ? enterpriseDbId : undefined,
-          authClient: oauth2Client,
+          credentials,
         });
 
         firestore.settings({ ignoreUndefinedProperties: true });
         
-        firestore.runTransaction = async <T>(updateFunction: (transaction: FirebaseFirestore.Transaction) => Promise<T>, transactionOptions?: any): Promise<T> => {
-            const mockTx = new OAuthTransactionAdapter(firestore);
-            const result = await updateFunction(mockTx as any);
-            await mockTx.commit();
-            return result;
-        };
-
+        // Native transactions work perfectly because this is a Service Account, not a user OAuth token!
         customFirestoreInstances.set(cacheKey, firestore);
         return firestore;
       }

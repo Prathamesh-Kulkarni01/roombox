@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { 
     Database, Link, ShieldCheck, Copy, Check, Code, 
-    Activity, Terminal, Key, Globe, FileCode, Sliders, Users, Info, ExternalLink, RefreshCw, ServerCrash, CheckCircle2, Zap 
+    Activity, Terminal, Key, Globe, FileCode, Sliders, Users, Info, ExternalLink, RefreshCw, ServerCrash, CheckCircle2, Zap, Wrench 
 } from 'lucide-react';
 import { useAppSelector } from '@/lib/hooks';
 import { getOwnerClientDb, getDynamicDb, db as defaultDb } from '@/lib/firebase';
@@ -32,14 +32,15 @@ const COMPOSITE_INDEXES = [
 export default function EnterpriseOnboardingPage() {
     const { currentUser } = useAppSelector(state => state.user);
 
-    const [projectId, setProjectId] = useState<string>(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '');
-    const [databaseId, setDatabaseId] = useState<string>(() => currentUser ? `owner-${currentUser.id}`.toLowerCase() : '');
+    const [projectId, setProjectId] = useState<string>('');
+    const [databaseId, setDatabaseId] = useState<string>('(default)');
     const [clientConfigText, setClientConfigText] = useState<string>('');
     const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
     const [busy, setBusy] = useState<boolean>(false);
     const [setupRunning, setSetupRunning] = useState<boolean>(false);
     const [resultMsg, setResultMsg] = useState<string>(DEFAULT_INSTRUCTIONS_MSG());
     const [testMsg, setTestMsg] = useState<string>('');
+    const [syncComparison, setSyncComparison] = useState<Record<string, { sourceCount: number; targetCount: number; status: string }> | null>(null);
     const [copiedRules, setCopiedRules] = useState<boolean>(false);
     const [copiedEmail, setCopiedEmail] = useState<boolean>(false);
     const [activeTab, setActiveTab] = useState<'project' | 'auth' | 'rules' | 'indexes' | 'server'>('project');
@@ -54,6 +55,8 @@ export default function EnterpriseOnboardingPage() {
 
     const [connectMethod, setConnectMethod] = useState<'oauth' | 'manual'>('oauth');
     const [isOnboardingSuccess, setIsOnboardingSuccess] = useState<boolean>(false);
+    const [oauthError, setOauthError] = useState<string | null>(null);
+    const [oauthWarning, setOauthWarning] = useState<string | null>(null);
     const [hasLoadedSavedConfig, setHasLoadedSavedConfig] = useState<boolean>(false);
 
     const hasFailed = useMemo(() => {
@@ -73,6 +76,12 @@ export default function EnterpriseOnboardingPage() {
             const params = new URLSearchParams(window.location.search);
             if (params.get('onboarding') === 'success') {
                 setIsOnboardingSuccess(true);
+            }
+            if (params.get('error')) {
+                setOauthError(decodeURIComponent(params.get('error') as string));
+            }
+            if (params.get('warning')) {
+                setOauthWarning(decodeURIComponent(params.get('warning') as string));
             }
         }
     }, []);
@@ -174,7 +183,14 @@ export default function EnterpriseOnboardingPage() {
             });
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.error || 'Provisioning failed');
-            setResultMsg(`🎉 Connected Successfully! Project: ${data.projectId}, Database Instance: ${data.databaseId}${data.provisioned ? ' (Newly provisioned)' : ''}${data.warning ? `, Note: ${data.warning}` : ''}`);
+            
+            if (data.warning) {
+                setOauthWarning(data.warning);
+                setResultMsg(`⚠️ Connected, but there is a warning: Project: ${data.projectId}, Database Instance: ${data.databaseId}`);
+            } else {
+                setOauthWarning(null);
+                setResultMsg(`🎉 Connected Successfully! Project: ${data.projectId}, Database Instance: ${data.databaseId}${data.provisioned ? ' (Newly provisioned)' : ''}`);
+            }
         } catch (e: any) {
             setResultMsg(e.message || 'Provisioning failed');
         } finally {
@@ -210,6 +226,13 @@ export default function EnterpriseOnboardingPage() {
             });
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.error || 'Database linking failed');
+            if (data.warning) {
+                setOauthWarning(data.warning);
+                // The API is likely disabled, so subsequent steps will fail.
+                throw new Error('Database linked, but API is disabled. See the warning above.');
+            } else {
+                setOauthWarning(null);
+            }
 
             // 2. Deploy Firestore Rules, Indexes, and Authorized Domains
             setTestMsg('🚀 [2/3] Linking succeeded! Deploying security rules, indexes, and authorized domains...');
@@ -344,29 +367,15 @@ export default function EnterpriseOnboardingPage() {
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.error || 'Check status failed');
             
-            let summary = '📊 DATABASE SYNC STATUS (DRY RUN):\n';
-            let unsyncedCount = 0;
+            // Store structured comparison data for rich table rendering
+            setSyncComparison(data.comparison || {});
 
-            for (const [col, stats] of Object.entries(data.comparison || {})) {
-                const s = stats as any;
-                const difference = s.sourceCount - s.targetCount;
-                if (difference > 0) {
-                    unsyncedCount += difference;
-                    summary += `\n⚠️ [${col.toUpperCase()}]: Out of sync! Default DB has ${s.sourceCount} records, Custom DB has ${s.targetCount} (${difference} not synced)`;
-                } else if (s.sourceCount > 0) {
-                    summary += `\n✅ [${col.toUpperCase()}]: Fully synced (Count: ${s.sourceCount})`;
-                } else {
-                    summary += `\n💤 [${col.toUpperCase()}]: Empty in both (Count: 0)`;
-                }
-            }
-
-            if (unsyncedCount > 0) {
-                summary += `\n\n📢 Total out-of-sync documents: ${unsyncedCount}. Please click "Sync & Migrate Data" to sync them!`;
+            const totalOut = Object.values(data.comparison || {}).filter((s: any) => s.sourceCount !== s.targetCount && s.sourceCount > 0).length;
+            if (totalOut > 0) {
+                setTestMsg(`⚠️ ${totalOut} collection(s) are out of sync. Review the table below and click Sync & Migrate Data.`);
             } else {
-                summary += '\n\n🎉 Perfect! All database collections are fully in sync!';
+                setTestMsg('🎉 All collections are fully in sync with the custom database!');
             }
-
-            setTestMsg(summary);
         } catch (e: any) {
             setTestMsg(`❌ Sync check failed: ${e.message || String(e)}`);
         } finally {
@@ -573,6 +582,231 @@ export default function EnterpriseOnboardingPage() {
                 </div>
             )}
 
+            {/* Google OAuth Error Guide - UX Polished Flow */}
+            {oauthError && (
+                <div className="mb-8 p-6 lg:p-8 rounded-3xl border-2 border-destructive/30 bg-destructive/5 shadow-lg animate-in zoom-in-95 duration-500">
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
+                        <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center shrink-0 border border-destructive/20">
+                            <ServerCrash className="w-7 h-7 text-destructive animate-pulse" />
+                        </div>
+                        <div className="space-y-6 w-full">
+                            <div>
+                                <h3 className="text-xl font-black text-destructive tracking-tight">
+                                    Setup Paused: Google Cloud Blocked Creation
+                                </h3>
+                                <p className="text-sm text-destructive/80 font-bold mt-1.5 leading-relaxed">
+                                    Google requires a quick manual verification on your account before we can automatically create your private database.
+                                </p>
+                                <div className="mt-3 inline-flex items-center px-3 py-1 rounded-lg bg-background/60 border border-destructive/20 font-mono text-[10px] text-destructive/70 max-w-full overflow-hidden text-ellipsis whitespace-nowrap" title={oauthError}>
+                                    <Info className="w-3 h-3 mr-1.5 shrink-0" />
+                                    Developer Code: {oauthError}
+                                </div>
+                            </div>
+
+                            <div className="bg-background rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+                                <div className="p-4 border-b border-border/40 bg-muted/30">
+                                    <h4 className="font-extrabold text-sm text-foreground flex items-center gap-2">
+                                        <Wrench className="w-4 h-4 text-primary" />
+                                        How to fix this in 2 minutes:
+                                    </h4>
+                                </div>
+                                
+                                <div className="p-5 sm:p-6">
+                                    {oauthError.toLowerCase().includes('terms of service') ? (
+                                        <div className="space-y-4">
+                                            <p className="text-sm font-bold text-foreground">You need to accept Google's Terms of Service.</p>
+                                            <ol className="list-decimal pl-5 space-y-3 text-sm font-medium text-muted-foreground">
+                                                <li>Click the button below to open the Google Cloud Console in a new tab.</li>
+                                                <li>A popup will immediately ask you to agree to the Terms of Service.</li>
+                                                <li>Select your country, check the box, and click <strong className="text-foreground">"Agree and Continue"</strong>.</li>
+                                                <li>Come back to this page and click Retry.</li>
+                                            </ol>
+                                            <div className="pt-2">
+                                                <Button asChild size="default" variant="default" className="gap-2 font-bold shadow-md">
+                                                    <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        Open Google Cloud Console
+                                                    </a>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : oauthError.toLowerCase().includes('quota') || oauthError.toLowerCase().includes('permission') ? (
+                                        <div className="space-y-4">
+                                            <p className="text-sm font-bold text-foreground">Google wants you to manually create your first project to prove you are human.</p>
+                                            <ol className="list-decimal pl-5 space-y-3 text-sm font-medium text-muted-foreground">
+                                                <li>Click the button below to open the Google Cloud Console.</li>
+                                                <li>In the top left, click the <strong className="text-foreground">Project Dropdown</strong> (next to the Google Cloud logo) and click <strong className="text-foreground">New Project</strong>.</li>
+                                                <li>Name it <strong className="text-foreground">"RentSutra Enterprise"</strong> and click Create.</li>
+                                                <li>Copy the <strong className="text-foreground">Project ID</strong> (it looks like <span className="font-mono bg-muted px-1 py-0.5 rounded text-xs">rentsutra-enterprise-123</span>).</li>
+                                                <li>Come back here, paste the Project ID in the field below, and click Retry.</li>
+                                            </ol>
+                                            <div className="pt-2">
+                                                <Button asChild size="default" variant="default" className="gap-2 font-bold shadow-md">
+                                                    <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noreferrer">
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        Create Project in Google Cloud
+                                                    </a>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <p className="text-sm font-bold text-foreground">Your account requires manual intervention.</p>
+                                            <ol className="list-decimal pl-5 space-y-3 text-sm font-medium text-muted-foreground">
+                                                <li>Open the Google Cloud Console using the button below.</li>
+                                                <li>Check for any red banners or alerts requiring your attention (like billing or security verifications).</li>
+                                                <li>If everything looks fine, try creating a project manually.</li>
+                                            </ol>
+                                            <div className="pt-2">
+                                                <Button asChild size="default" variant="default" className="gap-2 font-bold shadow-md">
+                                                    <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer">
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        Check Google Cloud Console
+                                                    </a>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-end gap-4 pt-6 border-t border-destructive/20 mt-6">
+                                <div className="flex-1 w-full space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-destructive">Paste Project ID Here</label>
+                                    <input 
+                                        className="w-full border-2 border-destructive/20 rounded-xl px-4 py-3 bg-background focus:ring-2 focus:ring-destructive/20 outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/50 transition-all"
+                                        value={projectId}
+                                        onChange={(e) => setProjectId(e.target.value)}
+                                        placeholder="e.g., rentsutra-enterprise-123"
+                                    />
+                                </div>
+                                <Button 
+                                    onClick={handleConnectProject}
+                                    size="lg"
+                                    className="gap-2 h-[52px] font-black shadow-md bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl w-full sm:w-auto px-6 shrink-0"
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                    Retry Enterprise Setup
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Google OAuth Warning Guide (Partial Success) */}
+            {oauthWarning && (
+                <div className="mb-8 p-6 lg:p-8 rounded-3xl border-2 border-amber-500/30 bg-amber-500/5 shadow-lg animate-in zoom-in-95 duration-500">
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
+                        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20">
+                            <Info className="w-7 h-7 text-amber-600 animate-pulse" />
+                        </div>
+                        <div className="space-y-6 w-full">
+                            <div>
+                                <h3 className="text-xl font-black text-amber-700 tracking-tight">
+                                    Project Linked, but Firebase Setup Failed
+                                </h3>
+                                <p className="text-sm text-amber-700/80 font-bold mt-1.5 leading-relaxed">
+                                    Your Google Cloud project was linked, but we couldn't automatically configure Firebase for it.
+                                </p>
+                                <div className="mt-3 inline-flex items-center px-3 py-1 rounded-lg bg-background/60 border border-amber-500/20 font-mono text-[10px] text-amber-700/70 max-w-full overflow-hidden text-ellipsis whitespace-nowrap" title={oauthWarning}>
+                                    <Info className="w-3 h-3 mr-1.5 shrink-0" />
+                                    Warning: {oauthWarning}
+                                </div>
+                            </div>
+
+                            <div className="bg-background rounded-2xl border border-border/60 shadow-sm overflow-hidden">
+                                <div className="p-4 border-b border-border/40 bg-muted/30">
+                                    <h4 className="font-extrabold text-sm text-foreground flex items-center gap-2">
+                                        <Wrench className="w-4 h-4 text-primary" />
+                                        How to fix this in 1 minute:
+                                    </h4>
+                                </div>
+                                
+                                <div className="p-5 sm:p-6 space-y-4">
+                                    {oauthWarning.toLowerCase().includes('not found') && oauthWarning.toLowerCase().includes('firebase') ? (
+                                        <>
+                                            <p className="text-sm font-bold text-foreground">You likely entered a Project Number instead of a Project ID, or Firebase isn't enabled.</p>
+                                            <ol className="list-decimal pl-5 space-y-3 text-sm font-medium text-muted-foreground">
+                                                <li>Double-check the Google Project ID you entered. It should be a text string (like <strong className="text-foreground">rentsutra-123</strong>), not a 12-digit number (like <strong className="text-foreground">350517527254</strong>).</li>
+                                                <li>If the ID is correct, open the <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">Firebase Console</a>, click "Add Project", and select your Google Cloud project from the dropdown to manually enable Firebase.</li>
+                                                <li>Come back here, ensure the correct text string Project ID is in the field, and click Retry.</li>
+                                            </ol>
+                                        </>
+                                    ) : oauthWarning.toLowerCase().includes('firestore api') ? (
+                                        <>
+                                            <p className="text-sm font-bold text-foreground">The Firestore API is currently disabled for this project.</p>
+                                            <ol className="list-decimal pl-5 space-y-3 text-sm font-medium text-muted-foreground">
+                                                <li>Click the button below to open the Google Cloud API enablement page.</li>
+                                                <li>Click the blue <strong className="text-foreground">Enable</strong> button.</li>
+                                                <li>Wait about 1-2 minutes for Google's servers to sync the change.</li>
+                                                <li>Come back here and click Retry.</li>
+                                            </ol>
+                                            <div className="pt-2">
+                                                <Button asChild size="default" variant="default" className="gap-2 font-bold shadow-md">
+                                                    <a href={`https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=${projectId}`} target="_blank" rel="noreferrer">
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        Enable Firestore API
+                                                    </a>
+                                                </Button>
+                                            </div>
+                                        </>
+                                    ) : oauthWarning.toLowerCase().includes('billing') ? (
+                                        <>
+                                            <p className="text-sm font-bold text-foreground">Google Cloud requires a linked Billing Account to create a database via API.</p>
+                                            <ol className="list-decimal pl-5 space-y-3 text-sm font-medium text-muted-foreground">
+                                                <li>You must manually create the database to bypass this automated billing check on the free tier.</li>
+                                                <li>Click the button below to open the Firebase Console.</li>
+                                                <li>On the left sidebar, click <strong className="text-foreground">Firestore Database</strong> and then click <strong className="text-foreground">Create Database</strong>.</li>
+                                                <li>Once created, come back here and click Retry.</li>
+                                            </ol>
+                                            <div className="pt-2">
+                                                <Button asChild size="default" variant="default" className="gap-2 font-bold shadow-md">
+                                                    <a href={`https://console.firebase.google.com/project/${projectId}/firestore`} target="_blank" rel="noreferrer">
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        Open Firebase Console
+                                                    </a>
+                                                </Button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm font-bold text-foreground">Manual Firebase configuration required.</p>
+                                            <ol className="list-decimal pl-5 space-y-3 text-sm font-medium text-muted-foreground">
+                                                <li>Open the <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold">Firebase Console</a>.</li>
+                                                <li>Ensure your Google Cloud project is registered as a Firebase project.</li>
+                                                <li>Ensure the "Firestore API" is enabled for the project.</li>
+                                                <li>Come back here and retry.</li>
+                                            </ol>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-end gap-4 pt-6 border-t border-amber-500/20 mt-6">
+                                <div className="flex-1 w-full space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-wider text-amber-700">Project ID</label>
+                                    <input 
+                                        className="w-full border-2 border-amber-500/20 rounded-xl px-4 py-3 bg-background focus:ring-2 focus:ring-amber-500/20 outline-none text-sm font-bold text-foreground placeholder:text-muted-foreground/50 transition-all"
+                                        value={projectId}
+                                        onChange={(e) => setProjectId(e.target.value)}
+                                        placeholder="e.g., rentsutra-enterprise-123"
+                                    />
+                                </div>
+                                <Button 
+                                    onClick={handleConnectProject}
+                                    size="lg"
+                                    className="gap-2 h-[52px] font-black shadow-md bg-amber-600 hover:bg-amber-700 text-white rounded-xl w-full sm:w-auto px-6 shrink-0"
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                    Retry Enterprise Setup
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 
                 {/* Left Column: Guided Setup Flow */}
@@ -586,312 +820,126 @@ export default function EnterpriseOnboardingPage() {
                         </CardHeader>
                         <CardContent className="p-6 space-y-6">
                             
-                            {/* Connection Method Selector */}
-                            <div className="flex gap-2 p-1.5 bg-muted rounded-2xl mb-6 border border-border/40">
-                                <button
-                                    type="button"
-                                    onClick={() => setConnectMethod('oauth')}
-                                    className={`flex-1 py-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                                        connectMethod === 'oauth' 
-                                            ? 'bg-background text-primary shadow-sm border border-border/20' 
-                                            : 'text-muted-foreground hover:bg-background/40'
-                                    }`}
-                                >
-                                    <Zap className="w-3.5 h-3.5" />
-                                    ⚡ Option A: Google Authentication (Recommended)
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setConnectMethod('manual')}
-                                    className={`flex-1 py-3 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                                        connectMethod === 'manual' 
-                                            ? 'bg-background text-primary shadow-sm border border-border/20' 
-                                            : 'text-muted-foreground hover:bg-background/40'
-                                    }`}
-                                >
-                                    <Sliders className="w-3.5 h-3.5" />
-                                    📝 Option B: Manual Setup
-                                </button>
+                            {/* Step 1: Create Project in Google Cloud */}
+                            <div className="flex gap-4 animate-in fade-in duration-300">
+                                <div className="flex flex-col items-center">
+                                    <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0">1</span>
+                                    <div className="w-0.5 flex-1 bg-border/60 my-2"></div>
+                                </div>
+                                <div className="space-y-4 flex-1 pb-4">
+                                    <h4 className="font-extrabold text-sm text-foreground">Create an Empty Google Cloud Project</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed font-medium">
+                                        Google requires you to manually create a project to accept their Terms of Service and prove you are human.
+                                    </p>
+                                    <ol className="list-decimal pl-5 space-y-2 text-xs font-medium text-muted-foreground">
+                                        <li>Open the <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold inline-flex items-center gap-1">Google Cloud Console <ExternalLink className="w-3 h-3 inline" /></a>.</li>
+                                        <li>Name your project <strong className="text-foreground">"RentSutra Enterprise"</strong> and click <strong className="text-foreground">Create</strong>.</li>
+                                        <li>Wait 5 seconds, then copy the <strong className="text-foreground">Project ID</strong> (e.g. <span className="font-mono bg-muted px-1 py-0.5 rounded text-[10px]">rentsutra-enterprise-123</span>).</li>
+                                    </ol>
+                                </div>
                             </div>
 
-                            {connectMethod === 'oauth' ? (
-                                <>
-                                    {/* Step 1: OAuth Quick Link */}
-                                    <div className="flex gap-4 animate-in fade-in duration-300">
-                                        <div className="flex flex-col items-center">
-                                            <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0">1</span>
-                                            <div className="w-0.5 flex-1 bg-border/60 my-2"></div>
+                            {/* Step 2: Connect & Initialize */}
+                            <div className="flex gap-4 animate-in fade-in duration-300">
+                                <div className="flex flex-col items-center">
+                                    <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0">2</span>
+                                    <div className="w-0.5 flex-1 bg-border/60 my-2"></div>
+                                </div>
+                                <div className="space-y-4 flex-1 pb-4">
+                                    <h4 className="font-extrabold text-sm text-foreground">Connect & Initialize</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed font-medium">
+                                        Paste your Project ID below and authenticate with Google. Our backend agent will automatically enable APIs, provision Firebase, and configure security rules for you.
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2 max-w-lg">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Google Project ID</label>
+                                            <input className="w-full border rounded-xl px-3 py-2 bg-background focus:ring-2 focus:ring-primary/20 outline-none text-xs font-bold"
+                                                value={projectId}
+                                                onChange={e => setProjectId(e.target.value)}
+                                                placeholder="e.g. rentsutra-enterprise-123"
+                                                 />
                                         </div>
-                                        <div className="space-y-4 flex-1 pb-4">
-                                            <h4 className="font-extrabold text-sm text-foreground">Authenticate & Connect Project</h4>
-                                            <p className="text-xs text-muted-foreground leading-relaxed font-medium">
-                                                Enter your Firebase project details, then grant secure Google API authorization to configure resources automatically:
-                                            </p>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Google Project ID</label>
-                                                    <input className="w-full border rounded-xl px-3 py-2 bg-background focus:ring-2 focus:ring-primary/20 outline-none text-xs font-bold"
-                                                        value={projectId}
-                                                        onChange={e => setProjectId(e.target.value)}
-                                                        placeholder="Leave blank to Auto-Create"
-                                                         />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Database Instance ID</label>
-                                                    <input className="w-full border rounded-xl px-3 py-2 bg-background focus:ring-2 focus:ring-primary/20 outline-none text-xs font-bold"
-                                                        value={databaseId}
-                                                        onChange={e => setDatabaseId(e.target.value.toLowerCase())}
-                                                        placeholder="(default) or owner-<ownerId>"/>
-                                                    <p className="text-[9px] text-muted-foreground italic">Use <span className="font-mono text-foreground font-bold">(default)</span> to connect your project's main existing database.</p>
-                                                </div>
-                                            </div>
-                                            <Button 
-                                                className="w-full rounded-xl py-5 font-black text-xs shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground" 
-                                                variant="default" 
-                                                onClick={handleConnectProject}
-                                            >
-                                                <Link className="mr-1.5 h-3.5 w-3.5" />
-                                                Continue with Google Authentication
-                                            </Button>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Database Instance ID</label>
+                                            <input className="w-full border rounded-xl px-3 py-2 bg-background focus:ring-2 focus:ring-primary/20 outline-none text-xs font-bold"
+                                                value={databaseId}
+                                                onChange={e => setDatabaseId(e.target.value.toLowerCase())}
+                                                placeholder="(default)"/>
+                                            <p className="text-[9px] text-muted-foreground italic">Required: keep it <span className="font-mono text-foreground font-bold">(default)</span> for standard setup.</p>
                                         </div>
                                     </div>
+                                    <Button 
+                                        className="w-full sm:w-auto rounded-xl py-5 px-6 font-black text-xs shadow-sm bg-primary hover:bg-primary/90 text-primary-foreground" 
+                                        variant="default" 
+                                        onClick={handleConnectProject}
+                                        disabled={!projectId}
+                                    >
+                                        <Zap className="mr-1.5 h-3.5 w-3.5" />
+                                        Connect with Google Authentication
+                                    </Button>
+                                </div>
+                            </div>
 
-                                    {/* Step 2: Run Setup & Verify */}
-                                    <div className="flex gap-4 animate-in fade-in duration-300">
-                                        <div className="flex flex-col items-center">
-                                            <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0">2</span>
-                                        </div>
-                                        <div className="space-y-3 flex-1">
-                                            <h4 className="font-extrabold text-sm text-foreground">Deploy, Sync & Verify Database</h4>
-                                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Click below to automatically deploy security rules, composite indexes, and run sync/migration:
-                                            </p>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                                                <Button 
-                                                    className="w-full rounded-2xl py-6 font-black text-sm shadow-md bg-emerald-600 hover:bg-emerald-700 text-white" 
-                                                    onClick={handleOneClickSetup}
-                                                    disabled={setupRunning || !projectId}
-                                                >
-                                                    🚀 One-Click Auto-Setup & Verify
-                                                </Button>
-                                                <Button 
-                                                    className="w-full rounded-2xl py-6 font-black text-sm shadow-md" 
-                                                    variant="secondary"
-                                                    onClick={handleMigrateData}
-                                                    disabled={setupRunning || !projectId}
-                                                >
-                                                    📦 Sync & Migrate Data
-                                                </Button>
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                <Button 
-                                                    className="w-full rounded-2xl py-5 font-bold text-xs"
-                                                    variant="outline"
-                                                    onClick={handleVerifyStatus}
-                                                    disabled={setupRunning || !projectId}
-                                                >
-                                                    🔍 Recheck Status
-                                                </Button>
-                                                <Button 
-                                                    className="w-full rounded-2xl py-5 font-bold text-xs"
-                                                    variant="outline"
-                                                    onClick={handleCheckSync}
-                                                    disabled={setupRunning || !projectId}
-                                                >
-                                                    📊 Preview Sync Status
-                                                </Button>
-                                                <Button 
-                                                    className="w-full rounded-2xl py-5 font-bold text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                                                    variant="outline"
-                                                    onClick={handleDisconnect}
-                                                    disabled={busy || !projectId}
-                                                >
-                                                    🔌 Disconnect Custom DB
-                                                </Button>
-                                            </div>
-                                            <div className="grid grid-cols-1">
-                                                <Button 
-                                                    className="w-full rounded-2xl py-4 font-bold text-xs text-muted-foreground border-border hover:bg-muted/30"
-                                                    variant="outline"
-                                                    disabled={!canSubmit || busy} 
-                                                    onClick={handleProvision}
-                                                >
-                                                    💾 Save Configuration Only
-                                                </Button>
-                                            </div>
-                                            {resultMsg && resultMsg !== DEFAULT_INSTRUCTIONS_MSG() && (
-                                                <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-600 font-bold text-xs">
-                                                    {resultMsg}
-                                                </div>
-                                            )}
-                                        </div>
+                            {/* Step 3: Run Setup & Verify */}
+                            <div className="flex gap-4 animate-in fade-in duration-300">
+                                <div className="flex flex-col items-center">
+                                    <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0">3</span>
+                                </div>
+                                <div className="space-y-3 flex-1">
+                                    <h4 className="font-extrabold text-sm text-foreground">Deploy, Sync & Verify Database</h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                        Once authenticated, click below to automatically run the deployment and sync:
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                        <Button 
+                                            className="w-full rounded-2xl py-6 font-black text-sm shadow-md bg-emerald-600 hover:bg-emerald-700 text-white" 
+                                            onClick={handleOneClickSetup}
+                                            disabled={setupRunning || !projectId}
+                                        >
+                                            🚀 One-Click Auto-Setup & Verify
+                                        </Button>
+                                        <Button 
+                                            className="w-full rounded-2xl py-6 font-black text-sm shadow-md" 
+                                            variant="secondary"
+                                            onClick={handleMigrateData}
+                                            disabled={setupRunning || !projectId}
+                                        >
+                                            📦 Sync & Migrate Data
+                                        </Button>
                                     </div>
-                                </>
-                            ) : (
-                                <>
-                                    {/* Step 1: IAM Delegation */}
-                                    <div className="flex gap-4 animate-in fade-in duration-300">
-                                        <div className="flex flex-col items-center">
-                                            <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0">1</span>
-                                            <div className="w-0.5 flex-1 bg-border/60 my-2"></div>
-                                        </div>
-                                        <div className="space-y-3 flex-1 pb-4">
-                                            <h4 className="font-extrabold text-sm text-foreground">Grant IAM Service Access (Crucial First Step)</h4>
-                                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Invite our service account email to your Google Console to authorize background setup:
-                                            </p>
-                                            <div className="flex items-center justify-between gap-3 bg-muted/30 p-3 rounded-xl border border-border/40">
-                                                <span className="text-[11px] font-mono font-bold break-all text-foreground select-all">{platformServiceEmail}</span>
-                                                <Button 
-                                                    size="sm" 
-                                                    variant="secondary"
-                                                    onClick={() => handleCopy(platformServiceEmail, setCopiedEmail)}
-                                                    className="shrink-0 h-8 px-3 text-[10px] font-black rounded-lg"
-                                                >
-                                                    {copiedEmail ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-                                                    {copiedEmail ? 'Copied' : 'Copy'}
-                                                </Button>
-                                            </div>
-                                            <p className="text-xs text-muted-foreground leading-relaxed font-medium">
-                                                Add this email as a member in your <a href={consoleLinks.gcpIam} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-bold inline-flex items-center gap-0.5">Google Cloud IAM Console <ExternalLink className="w-3 h-3 inline" /></a> with roles:
-                                                <span className="inline-block mx-1.5 px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px] font-bold">Cloud Datastore User</span> and 
-                                                <span className="inline-block mx-1.5 px-2 py-0.5 rounded bg-primary/10 text-primary font-mono text-[10px] font-bold">Firebase Admin</span>.
-                                            </p>
-                                        </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <Button 
+                                            className="w-full rounded-2xl py-5 font-bold text-xs"
+                                            variant="outline"
+                                            onClick={handleVerifyStatus}
+                                            disabled={setupRunning || !projectId}
+                                        >
+                                            🔍 Recheck Status
+                                        </Button>
+                                        <Button 
+                                            className="w-full rounded-2xl py-5 font-bold text-xs"
+                                            variant="outline"
+                                            onClick={handleCheckSync}
+                                            disabled={setupRunning || !projectId}
+                                        >
+                                            📊 Preview Sync Status
+                                        </Button>
+                                        <Button 
+                                            className="w-full rounded-2xl py-5 font-bold text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                            variant="outline"
+                                            onClick={handleDisconnect}
+                                            disabled={busy || !projectId}
+                                        >
+                                            🔌 Disconnect Custom DB
+                                        </Button>
                                     </div>
-
-                                    {/* Step 2: Paste Web Config */}
-                                    <div className="flex gap-4 animate-in fade-in duration-300">
-                                        <div className="flex flex-col items-center">
-                                            <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0">2</span>
-                                            <div className="w-0.5 flex-1 bg-border/60 my-2"></div>
+                                    {resultMsg && resultMsg !== DEFAULT_INSTRUCTIONS_MSG() && (
+                                        <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-600 font-bold text-xs">
+                                            {resultMsg}
                                         </div>
-                                        <div className="space-y-3 flex-1 pb-4">
-                                            <h4 className="font-extrabold text-sm text-foreground">Paste Firebase Web Config</h4>
-                                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Copy your web app configuration parameters and paste them below:
-                                            </p>
-                                            <div className="space-y-2">
-                                                <textarea className="w-full border rounded-2xl px-4 py-3 bg-background focus:ring-2 focus:ring-primary/20 outline-none text-xs font-mono h-28 leading-relaxed"
-                                                    value={clientConfigText}
-                                                    onChange={e => setClientConfigText(e.target.value)}
-                                                    placeholder='{"apiKey":"AIzaSy...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'/>
-                                                {clientConfigText && parsedClientConfig && (
-                                                    <p className="text-xs font-bold text-emerald-600">
-                                                        ✅ Config parsed successfully! Project ID: <span className="font-mono text-foreground font-extrabold">{projectId}</span>
-                                                    </p>
-                                                )}
-                                                {clientConfigText && !parsedClientConfig && (
-                                                    <p className="text-xs font-bold text-red-600">Invalid JSON or JavaScript object configuration format.</p>
-                                                )}
-                                            </div>
-
-                                            {/* Advanced overrides */}
-                                            <div className="pt-1">
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => setShowAdvanced(!showAdvanced)}
-                                                    className="text-xs font-black uppercase tracking-wider text-primary hover:underline flex items-center gap-1"
-                                                >
-                                                    <Sliders className="w-3.5 h-3.5" />
-                                                    {showAdvanced ? "Hide Advanced Overrides" : "Show Advanced Overrides"}
-                                                </button>
-
-                                                {showAdvanced && (
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 p-4 rounded-2xl border bg-background/50 animate-in slide-in-from-top-2 duration-300">
-                                                        <div className="space-y-1.5">
-                                                            <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Google Project ID</label>
-                                                            <input className="w-full border rounded-xl px-3 py-2 bg-background focus:ring-2 focus:ring-primary/20 outline-none text-sm font-bold"
-                                                                value={projectId}
-                                                                onChange={e => setProjectId(e.target.value)}
-                                                                placeholder="your-firebase-project-id"/>
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <label className="text-xs font-black uppercase tracking-wider text-muted-foreground">Database Instance ID</label>
-                                                            <input className="w-full border rounded-xl px-3 py-2 bg-background focus:ring-2 focus:ring-primary/20 outline-none text-sm font-bold"
-                                                                value={databaseId}
-                                                                onChange={e => setDatabaseId(e.target.value.toLowerCase())}
-                                                                placeholder="(default) or owner-<ownerId>"/>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Step 3: Run Setup & Verify */}
-                                    <div className="flex gap-4 animate-in fade-in duration-300">
-                                        <div className="flex flex-col items-center">
-                                            <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0">3</span>
-                                        </div>
-                                        <div className="space-y-3 flex-1">
-                                            <h4 className="font-extrabold text-sm text-foreground">Deploy, Sync & Verify Database</h4>
-                                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Click below to automatically deploy security rules, composite indexes, and run sync/migration:
-                                            </p>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                                                <Button 
-                                                    className="w-full rounded-2xl py-6 font-black text-sm shadow-md bg-emerald-600 hover:bg-emerald-700 text-white" 
-                                                    onClick={handleOneClickSetup}
-                                                    disabled={setupRunning || !projectId}
-                                                >
-                                                    🚀 One-Click Auto-Setup & Verify
-                                                </Button>
-                                                <Button 
-                                                    className="w-full rounded-2xl py-6 font-black text-sm shadow-md" 
-                                                    variant="secondary"
-                                                    onClick={handleMigrateData}
-                                                    disabled={setupRunning || !projectId}
-                                                >
-                                                    📦 Sync & Migrate Data
-                                                </Button>
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                <Button 
-                                                    className="w-full rounded-2xl py-5 font-bold text-xs"
-                                                    variant="outline"
-                                                    onClick={handleVerifyStatus}
-                                                    disabled={setupRunning || !projectId}
-                                                >
-                                                    🔍 Recheck Status
-                                                </Button>
-                                                <Button 
-                                                    className="w-full rounded-2xl py-5 font-bold text-xs"
-                                                    variant="outline"
-                                                    onClick={handleCheckSync}
-                                                    disabled={setupRunning || !projectId}
-                                                >
-                                                    📊 Preview Sync Status
-                                                </Button>
-                                                <Button 
-                                                    className="w-full rounded-2xl py-5 font-bold text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                                                    variant="outline"
-                                                    onClick={handleDisconnect}
-                                                    disabled={busy || !projectId}
-                                                >
-                                                    🔌 Disconnect Custom DB
-                                                </Button>
-                                            </div>
-                                            <div className="grid grid-cols-1">
-                                                <Button 
-                                                    className="w-full rounded-2xl py-4 font-bold text-xs text-muted-foreground border-border hover:bg-muted/30"
-                                                    variant="outline"
-                                                    disabled={!canSubmit || busy} 
-                                                    onClick={handleProvision}
-                                                >
-                                                    💾 Save Configuration Only
-                                                </Button>
-                                            </div>
-                                            {resultMsg && resultMsg !== DEFAULT_INSTRUCTIONS_MSG() && (
-                                                <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-600 font-bold text-xs">
-                                                    {resultMsg}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                            
+                                    )}
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -1067,6 +1115,49 @@ export default function EnterpriseOnboardingPage() {
                                     <div className="p-3 bg-black text-emerald-400 rounded-xl text-[10px] font-semibold font-mono flex items-start gap-2 shadow-inner border border-emerald-500/20 max-h-32 overflow-y-auto leading-normal">
                                         <Terminal className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                         <span className="whitespace-pre-wrap">{testMsg}</span>
+                                    </div>
+                                )}
+
+                                {/* Sync Comparison Table */}
+                                {syncComparison && (
+                                    <div className="mt-3 rounded-xl border border-border/60 overflow-hidden">
+                                        <div className="bg-muted/30 px-3 py-2 border-b border-border/40 flex items-center justify-between">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">📊 Sync Status — All Collections</span>
+                                            <button onClick={() => setSyncComparison(null)} className="text-[9px] text-muted-foreground hover:text-foreground font-bold">✕ Clear</button>
+                                        </div>
+                                        <table className="w-full text-[10px]">
+                                            <thead>
+                                                <tr className="border-b border-border/30 bg-muted/10">
+                                                    <th className="text-left px-3 py-1.5 font-black text-muted-foreground">Collection</th>
+                                                    <th className="text-right px-2 py-1.5 font-black text-muted-foreground">Central</th>
+                                                    <th className="text-right px-2 py-1.5 font-black text-muted-foreground">Custom</th>
+                                                    <th className="text-right px-3 py-1.5 font-black text-muted-foreground">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-border/20">
+                                                {Object.entries(syncComparison).map(([col, stats]) => {
+                                                    const s = stats as any;
+                                                    const isOut = s.sourceCount !== s.targetCount;
+                                                    const isEmpty = s.sourceCount === 0 && s.targetCount === 0;
+                                                    return (
+                                                        <tr key={col} className={isOut ? 'bg-amber-500/5' : ''}>
+                                                            <td className="px-3 py-1.5 font-mono font-bold text-foreground">{col}</td>
+                                                            <td className="px-2 py-1.5 text-right font-bold text-muted-foreground">{s.sourceCount}</td>
+                                                            <td className="px-2 py-1.5 text-right font-bold text-muted-foreground">{s.targetCount}</td>
+                                                            <td className="px-3 py-1.5 text-right">
+                                                                {isEmpty ? (
+                                                                    <span className="text-muted-foreground/60 font-bold">— empty</span>
+                                                                ) : isOut ? (
+                                                                    <span className="text-amber-600 font-black bg-amber-500/10 px-1.5 py-0.5 rounded-full">⚠ OUT OF SYNC</span>
+                                                                ) : (
+                                                                    <span className="text-emerald-600 font-black">✓ synced</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 )}
                             </div>

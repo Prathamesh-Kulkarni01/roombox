@@ -57,51 +57,75 @@ export async function GET(req: NextRequest) {
     if (!projectId) throw new Error('project_missing');
 
     if (projectId === 'auto') {
-      const crm = google.cloudresourcemanager('v1');
-      const su = google.serviceusage('v1');
-      const newProjectId = `rs-db-${Math.random().toString(36).substring(2, 6)}-${Date.now().toString(36).slice(-4)}`;
-      console.log('[oauth-callback] Auto-creating GCP Project:', newProjectId);
+      throw new Error('Auto-creation is no longer supported. Please provide a valid Google Cloud Project ID.');
+    }
 
-      try {
-        const createOp = await crm.projects.create({
-          requestBody: { projectId: newProjectId, name: 'RentSutra Private DB' },
-          auth: oauth2Client,
-        } as any);
+    // IAM Delegation Step: Grant our central service account OWNER access to the project
+    const crm = google.cloudresourcemanager('v1');
+    const su = google.serviceusage('v1');
+    const serviceAccountEmail = process.env.FIREBASE_CLIENT_EMAIL || 'rentsutra-agent@focal-lens-502207-r8.iam.gserviceaccount.com'; // fallback if not in env
 
-        // Poll for project creation completion
-        let isDone = false;
-        let opName = createOp.data.name;
-        while (!isDone && opName) {
-          await new Promise(r => setTimeout(r, 2000));
-          const opResult = await crm.operations.get({
-            name: opName,
-            auth: oauth2Client,
-          } as any);
-          if (opResult.data.done) {
-            if (opResult.data.error) throw new Error(opResult.data.error.message || 'Unknown error');
-            isDone = true;
-          }
+    try {
+      console.log(`[oauth-callback] Granting IAM roles to ${serviceAccountEmail} for project ${projectId}`);
+      // 1. Get current IAM policy
+      const policyRes = await crm.projects.getIamPolicy({
+        resource: projectId,
+        requestBody: {},
+        auth: oauth2Client
+      } as any);
+
+      const policy = policyRes.data;
+      policy.bindings = policy.bindings || [];
+
+      // 2. Add roles/owner binding for our service account
+      const ownerBindingIndex = policy.bindings.findIndex((b: any) => b.role === 'roles/owner');
+      const memberStr = `serviceAccount:${serviceAccountEmail}`;
+      
+      if (ownerBindingIndex >= 0) {
+        if (!policy.bindings[ownerBindingIndex].members?.includes(memberStr)) {
+          policy.bindings[ownerBindingIndex].members?.push(memberStr);
         }
+      } else {
+        policy.bindings.push({
+          role: 'roles/owner',
+          members: [memberStr]
+        });
+      }
 
-        // Add Firebase
-        const firebaseMgmt = google.firebase('v1beta1');
+      // 3. Set updated IAM policy
+      await crm.projects.setIamPolicy({
+        resource: projectId,
+        requestBody: { policy },
+        auth: oauth2Client
+      } as any);
+      
+      console.log('[oauth-callback] Successfully granted IAM Owner role.');
+
+      // 4. Ensure it's a Firebase project
+      console.log('[oauth-callback] Adding Firebase to project (if not already)...');
+      const firebaseMgmt = google.firebase('v1beta1');
+      try {
         await firebaseMgmt.projects.addFirebase({
-          project: `projects/${newProjectId}`,
+          project: `projects/${projectId}`,
           requestBody: {},
           auth: oauth2Client,
         } as any);
         await new Promise(r => setTimeout(r, 2000));
-
-        // Enable APIs
-        await su.services.enable({ name: `projects/${newProjectId}/services/firestore.googleapis.com`, auth: oauth2Client } as any);
-        await su.services.enable({ name: `projects/${newProjectId}/services/firebaserules.googleapis.com`, auth: oauth2Client } as any);
-        await new Promise(r => setTimeout(r, 2000));
-
-        projectId = newProjectId;
-      } catch (err: any) {
-        console.error('[oauth-callback] Project auto-creation failed:', err);
-        throw new Error(`Auto-creation failed: ${err.message}`);
+      } catch (e: any) {
+        // Ignored if it's already a Firebase project (error code 409)
+        if (e?.code !== 409) {
+          console.warn('[oauth-callback] addFirebase warning:', e?.message);
+        }
       }
+
+      // 5. Ensure necessary APIs are enabled
+      console.log('[oauth-callback] Enabling necessary APIs...');
+      await su.services.enable({ name: `projects/${projectId}/services/firestore.googleapis.com`, auth: oauth2Client } as any);
+      await su.services.enable({ name: `projects/${projectId}/services/firebaserules.googleapis.com`, auth: oauth2Client } as any);
+      await new Promise(r => setTimeout(r, 2000));
+    } catch (err: any) {
+      console.error('[oauth-callback] IAM delegation or API enablement failed:', err);
+      stepError = err?.message || 'iam_delegation_failed';
     }
 
     // Use Firebase Management API to create/get a Web App and fetch client config

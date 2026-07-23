@@ -1,0 +1,227 @@
+/**
+ * ENTERPRISE CUSTOM DATABASE - FIRESTORE SECURITY RULES
+ *
+ * These rules govern an owner's isolated custom Firestore database.
+ * This database only stores data belonging to ONE owner and their guests/staff.
+ *
+ * Key design decisions:
+ * - The `owner` is authenticated via RentSutra Central Auth.
+ * - Their JWT token carries: uid, role, ownerId, pgId(s), permissions.
+ * - Server-side Admin SDK bypasses all rules (migration, cron, auto-setup).
+ * - magic_links are intentionally open for read so invite flows work on the custom domain.
+ * - pwa_configs and sites are read-only for public rendering (no auth needed).
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ══════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ══════════════════════════════════════════════════
+
+    // Is the user authenticated?
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Is the user the owner of this enterprise DB?
+    function isOwner(ownerId) {
+      return isAuth() && request.auth.uid == ownerId;
+    }
+
+    // Is the user a staff member belonging to this owner?
+    function isStaffOf(ownerId) {
+      return isAuth()
+        && request.auth.token.get('ownerId', '') == ownerId
+        && request.auth.token.get('role', '') in ['manager', 'cleaner', 'cook', 'security', 'staff', 'other'];
+    }
+
+    // Is the user a tenant/guest belonging to this owner?
+    function isTenantOf(ownerId) {
+      return isAuth()
+        && request.auth.token.get('ownerId', '') == ownerId
+        && request.auth.token.get('role', '') == 'tenant';
+    }
+
+    // Is the requesting staff assigned to this specific PG?
+    function isAssignedToPg(pgId) {
+      return pgId in request.auth.token.get('pgs', []);
+    }
+
+    // Does the staff have a specific feature:action permission?
+    function hasPermission(feature, action) {
+      return isAuth()
+        && request.auth.token.get('permissions', []).hasAny([feature + ':' + action]);
+    }
+
+    // Is this the tenant whose data is being accessed?
+    function isOwnGuestDoc(ownerId) {
+      return isTenantOf(ownerId)
+        && (resource.data.get('guestId', '') == request.auth.token.get('guestId', '')
+          || resource.data.get('id', '') == request.auth.token.get('guestId', ''));
+    }
+
+    // ══════════════════════════════════════════════════
+    // CORE DATA: users_data/{ownerId}/*
+    // All PG business data lives here.
+    // ══════════════════════════════════════════════════
+
+    match /users_data/{ownerId}/{collectionName}/{docId} {
+
+      // ── Connection probe (admin SDK writes these to test DB connectivity) ──
+      allow read, write: if collectionName == 'connection_tests';
+
+      // ── Owner: full access to everything under their namespace ──
+      allow read, write: if isOwner(ownerId);
+
+      // ── Staff: scoped read/write based on assigned PGs and permissions ──
+      allow read, write: if isStaffOf(ownerId) && (
+        // Charge templates are shared across a PG
+        collectionName == 'chargeTemplates' ||
+        // Staff can see their own record
+        (collectionName == 'staff' && docId == request.auth.uid) ||
+        // Staff can see other staff in their PGs
+        (collectionName == 'staff' && (
+          (resource.data.get('pgIds', []).hasAny(request.auth.token.get('pgs', []))) ||
+          (request.resource.data.get('pgIds', []).hasAny(request.auth.token.get('pgs', [])))
+        )) ||
+        // Staff can access their assigned PG documents
+        (collectionName == 'pgs' && isAssignedToPg(docId)) ||
+        // Staff can access any record that belongs to their assigned PGs
+        (resource.data.get('pgId', '__none__') != '__none__' && isAssignedToPg(resource.data.pgId)) ||
+        (request.resource.data.get('pgId', '__none__') != '__none__' && isAssignedToPg(request.resource.data.pgId)) ||
+        // Staff can access notifications targeted to them or their PGs
+        (collectionName == 'notifications' && (
+          resource.data.get('targetId', '') == request.auth.uid ||
+          request.auth.token.get('pgs', []).hasAny([resource.data.get('targetId', '')])
+        ))
+      );
+
+      // ── Staff collection-level listing ──
+      allow list: if isStaffOf(ownerId) && (
+        collectionName == 'chargeTemplates' ||
+        // List all staff visible in their PGs
+        (collectionName == 'staff' &&
+          request.query.filters.get('pgIds', null) != null &&
+          request.auth.token.get('pgs', []).hasAll(request.query.filters.pgIds)) ||
+        // List PGs they are assigned to
+        (collectionName == 'pgs' &&
+          request.query.filters.get('__name__', null) != null &&
+          request.auth.token.get('pgs', []).hasAll(request.query.filters.__name__)) ||
+        // List records for their PGs
+        (request.query.filters.get('pgId', null) != null &&
+          request.auth.token.get('pgs', []).hasAll(request.query.filters.pgId)) ||
+        // List own notifications
+        (collectionName == 'notifications' &&
+          request.query.filters.get('targetId', null) != null &&
+          request.auth.token.get('pgs', []).concat([request.auth.uid]).hasAll(request.query.filters.targetId))
+      );
+
+      // ── Tenant (Guest): read-only access to their own relevant data ──
+      allow get: if isTenantOf(ownerId) && (
+        // Their own guest profile
+        (collectionName == 'guests' && isOwnGuestDoc(ownerId)) ||
+        // The PG they live in (for branding, rules, amenities)
+        (collectionName == 'pgs' && docId == request.auth.token.get('pgId', '__none__')) ||
+        // Their own complaints
+        (collectionName == 'complaints' && resource.data.get('guestId', '') == request.auth.token.get('guestId', '')) ||
+        // Their own financial events / ledger entries
+        (collectionName == 'financial_events' && resource.data.get('guestId', '') == request.auth.token.get('guestId', '')) ||
+        // Their own notifications
+        (collectionName == 'notifications' && resource.data.get('targetId', '') == request.auth.token.get('guestId', ''))
+      );
+
+      allow list: if isTenantOf(ownerId) && (
+        // Tenants can list their own complaints
+        (collectionName == 'complaints' &&
+          request.query.filters.get('guestId', '') == request.auth.token.get('guestId', '')) ||
+        // Tenants can list their own financial events
+        (collectionName == 'financial_events' &&
+          request.query.filters.get('guestId', '') == request.auth.token.get('guestId', '')) ||
+        // Tenants can list their own notifications
+        (collectionName == 'notifications' &&
+          request.query.filters.get('targetId', '') == request.auth.token.get('guestId', ''))
+      );
+
+      // ── Tenant: limited write access ──
+      allow create: if isTenantOf(ownerId) && (
+        // Tenants can raise complaints
+        collectionName == 'complaints' &&
+        request.resource.data.get('guestId', '') == request.auth.token.get('guestId', '')
+      );
+
+      allow update: if isTenantOf(ownerId) && (
+        // Tenants can update their own complaints (e.g. add comments)
+        collectionName == 'complaints' &&
+        resource.data.get('guestId', '') == request.auth.token.get('guestId', '') &&
+        // Prevent escalation of complaint status (server-side only)
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'resolvedAt', 'resolvedBy'])
+      );
+    }
+
+    // ── Deep nesting: floors, rooms, beds inside PGs ──
+    match /users_data/{ownerId}/pgs/{pgId}/{subCollection}/{subId} {
+      allow read, write: if isOwner(ownerId);
+      allow read, write: if isStaffOf(ownerId) && isAssignedToPg(pgId);
+      allow read: if isTenantOf(ownerId) && request.auth.token.get('pgId', '') == pgId;
+    }
+
+    match /users_data/{ownerId}/pgs/{pgId}/{subCollection}/{subId}/{nestedCollection}/{nestedId} {
+      allow read, write: if isOwner(ownerId);
+      allow read, write: if isStaffOf(ownerId) && isAssignedToPg(pgId);
+      allow read: if isTenantOf(ownerId) && request.auth.token.get('pgId', '') == pgId;
+    }
+
+    // ══════════════════════════════════════════════════
+    // MAGIC LINKS (Invite Tokens)
+    // Written by server-side Admin SDK.
+    // Readable publicly so the /invite page can load the invite before auth.
+    // Writable only by server (used: true set on redemption via Admin SDK).
+    // ══════════════════════════════════════════════════
+    match /magic_links/{tokenId} {
+      // Public read so invite page can look up invite by token without auth
+      allow read: if true;
+      // No client-side writes — only Admin SDK (migration, invite creation, redemption)
+      allow write: if false;
+    }
+
+    // ══════════════════════════════════════════════════
+    // SITE CONFIG (PWA & Website Branding)
+    // Copied here from central DB for fast edge reads.
+    // Public read so branded subdomains render without auth.
+    // Writes only via Admin SDK (migration, site editor save).
+    // ══════════════════════════════════════════════════
+    match /sites/{subdomain} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /pwa_configs/{ownerId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ══════════════════════════════════════════════════
+    // ACTIVITY LOGS
+    // Owners see their own. Staff see logs under their ownerId.
+    // Writes go through server-side SDK only for integrity.
+    // ══════════════════════════════════════════════════
+    match /activity_logs/{logId} {
+      allow read: if isAuth() && (
+        request.auth.uid == resource.data.get('ownerId', '') ||
+        request.auth.token.get('ownerId', '') == resource.data.get('ownerId', '')
+      );
+      // Writes are server-side only
+      allow write: if false;
+    }
+
+    // ══════════════════════════════════════════════════
+    // DEFAULT DENY
+    // Everything not explicitly matched above is denied.
+    // ══════════════════════════════════════════════════
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

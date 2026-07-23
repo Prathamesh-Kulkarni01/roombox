@@ -161,6 +161,17 @@ export async function POST(req: NextRequest) {
             console.warn('Could not auto-create website:', autoSiteErr);
         }
 
+        // Auto-sync enterprise authorized domains if applicable
+        try {
+            const { syncEnterpriseAuthorizedDomains } = await import('@/lib/enterprise/authConfig');
+            // Run asynchronously in the background so we don't delay the response
+            syncEnterpriseAuthorizedDomains(ownerId).catch(err => {
+                console.error('[Properties] Background domain sync failed:', err);
+            });
+        } catch (syncErr) {
+            console.warn('[Properties] Could not trigger enterprise domain sync:', syncErr);
+        }
+
         return NextResponse.json({ success: true, pg: newPg }, { status: 201 });
     } catch (error: any) {
         return serverError(error, 'POST /api/properties');

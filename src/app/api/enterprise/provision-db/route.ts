@@ -60,27 +60,53 @@ async function createSecondaryDatabaseIfPossible(
 
 		const auth = new google.auth.GoogleAuth({
 			credentials,
-			scopes: ['https://www.googleapis.com/auth/datastore'],
+			scopes: [
+				'https://www.googleapis.com/auth/datastore',
+				'https://www.googleapis.com/auth/cloud-platform'
+			],
 		});
 		const client = await auth.getClient();
 		const firestoreAdmin = google.firestore({ version: 'v1', auth: client as any });
 
-		// Attempt to create the database
-		await (firestoreAdmin.projects.databases.create as any)({
-			parent: `projects/${projectId}`,
-			databaseId,
-			requestBody: {
-				locationId,
-				type: 'FIRESTORE_NATIVE',
-			},
-		});
-		return { created: true };
-	} catch (err: any) {
-		// If already exists, we consider it fine to proceed
-		if (err?.code === 409 || err?.errors?.[0]?.reason === 'alreadyExists') {
+		// Check if the database already exists first
+		try {
+			await (firestoreAdmin.projects.databases.get as any)({
+				name: `projects/${projectId}/databases/${databaseId}`,
+			});
+			// If it succeeds, the database exists. No need to create.
 			return { created: false };
+		} catch (getErr: any) {
+			if (getErr?.code !== 404 && getErr?.status !== 404) {
+				// Some other error (e.g. no permission to read). We will still try to create, or just throw.
+				console.warn('[provision-db] databases.get failed with non-404:', getErr.message);
+			}
 		}
-		return { created: false, error: err?.message || 'Failed to create database' };
+
+		// Attempt to create the database if it doesn't exist
+		try {
+			await (firestoreAdmin.projects.databases.create as any)({
+				parent: `projects/${projectId}`,
+				databaseId,
+				requestBody: {
+					locationId,
+					type: 'FIRESTORE_NATIVE',
+				},
+			});
+			return { created: true };
+		} catch (err: any) {
+			if (err?.code === 409 || err?.errors?.[0]?.reason === 'alreadyExists') {
+				return { created: false };
+			}
+			
+			// Format the billing error nicely if it happens
+			let errMsg = err?.message || 'Failed to create database';
+			if (errMsg.toLowerCase().includes('billing')) {
+				errMsg = `Google Cloud strictly requires a linked Billing Account (Credit Card) to create a database via their automated API. To use the free tier instead, you must manually open the Firebase Console, go to "Firestore Database", and click "Create Database". Then come back and click One-Click Auto-Setup again.`;
+			}
+			return { created: false, error: errMsg };
+		}
+	} catch (err: any) {
+		return { created: false, error: err?.message || 'Failed to initialize Google Auth for database creation' };
 	}
 }
 

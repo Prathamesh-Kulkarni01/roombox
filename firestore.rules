@@ -251,6 +251,9 @@ service cloud.firestore {
 
     // ─── Owner data (permissions, etc.) ──────────────────────────────────────
     match /users_data/{ownerId}/{collectionName}/{docId} {
+      // Allow transient connection handshakes without strict auth for cross-project setups
+      allow read, write: if collectionName == 'connection_tests';
+
       // Owners have full access to their own data
       allow read, write: if isAuth() && request.auth.uid == ownerId;
 

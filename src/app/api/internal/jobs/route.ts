@@ -49,26 +49,23 @@ export async function POST(request: NextRequest) {
             if (!db) {
                 throw new Error("Resolved tenant database is missing.");
             }
-            after(async () => {
-                try {
-                    const scheduler = new TenantScheduler(tenantId, db, new Date(payload.issuedAt));
-                    await scheduler.runAllScheduledJobs(payload.jobId);
-                } catch (e) {
-                    console.error(`[Tenant Dispatcher] Background job failed for ${tenantId}:`, e);
-                }
-            });
+            try {
+                const scheduler = new TenantScheduler(tenantId, db, new Date(payload.issuedAt));
+                const results = await scheduler.runAllScheduledJobs(payload.jobId);
+                return NextResponse.json({ 
+                    success: true, 
+                    message: 'Tenant cron jobs completed successfully',
+                    jobId: payload.jobId,
+                    results: results
+                }, { status: 200 });
+            } catch (e: any) {
+                console.error(`[Tenant Dispatcher] Background job failed for ${tenantId}:`, e);
+                return NextResponse.json({ success: false, error: e.message }, { status: 500 });
+            }
         } else {
             console.warn(`[Tenant Dispatcher] Unknown job type: ${payload.type}`);
             return NextResponse.json({ success: false, error: 'Unknown job type' }, { status: 400 });
         }
-
-        return NextResponse.json({ 
-            success: true, 
-            message: 'Tenant cron jobs dispatched to background successfully',
-            jobId: payload.jobId,
-            results: 'Processing in background'
-        }, { status: 202 });
-
     } catch (error: any) {
         console.error('[Tenant Dispatcher] Fatal error:', error);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });

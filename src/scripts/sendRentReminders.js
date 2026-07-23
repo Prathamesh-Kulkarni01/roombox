@@ -1,3 +1,6 @@
+/* eslint-disable no-undef, no-console */
+require('dotenv').config();
+
 // import fetch from 'node-fetch';
 
 const CRON_SECRET = process.env.CRON_SECRET;

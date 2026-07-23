@@ -10,7 +10,9 @@ import {
   Clock,
   IndianRupee,
   Users,
+  RefreshCw,
 } from "lucide-react";
+import { ManualReminderTrigger } from "@/components/dashboard/manual-reminder-trigger";
 
 export interface DashboardStats {
   occupancy: { total: number; occupied: number; newThisMonth: number };
@@ -58,14 +60,23 @@ export function PendingDuesCard({
             </h3>
           </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={onSendReminders}
-          size="sm"
-          className="w-full sm:w-auto border-red-600/20 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 font-bold tracking-tight rounded-xl text-[10px] h-8"
-        >
-          SEND ALERTS
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <ManualReminderTrigger 
+            label="SYNC"
+            icon={<RefreshCw className="w-3 h-3" />}
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto border-red-600/20 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 font-bold tracking-tight rounded-xl text-[10px] h-8"
+          />
+          <Button
+            variant="outline"
+            onClick={onSendReminders}
+            size="sm"
+            className="w-full sm:w-auto border-red-600/20 text-red-600 hover:bg-red-600 hover:text-white dark:border-red-400/30 dark:text-red-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 font-bold tracking-tight rounded-xl text-[10px] h-8"
+          >
+            SEND ALERTS
+          </Button>
+        </div>
       </div>
     </Access>
   );
