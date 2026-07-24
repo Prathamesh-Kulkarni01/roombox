@@ -205,6 +205,40 @@ export async function getVerifiedOwnerId(req?: NextRequest, token?: string): Pro
                 } : { id: 'trial', status: 'active' }
             };
         }
+        // If user is admin (Super User Impersonation)
+        if (userData.role === 'admin') {
+            let requestedTenantId = null;
+            if (req?.headers) {
+                requestedTenantId = req.headers.get('x-tenant-id');
+            } else if (!req) {
+                try {
+                    const { headers } = await import('next/headers');
+                    const headerList = await headers();
+                    requestedTenantId = headerList.get('x-tenant-id');
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            if (requestedTenantId) {
+                return {
+                    ...result,
+                    ownerId: requestedTenantId, // Impersonating this owner
+                    permissions: ['all'],
+                    pgIds: [],
+                    plan: { id: 'enterprise', status: 'active' }
+                };
+            }
+            
+            // Native admin mode
+            return {
+                ...result,
+                ownerId: 'admin',
+                permissions: ['all'],
+                pgIds: [],
+                plan: { id: 'enterprise', status: 'active' }
+            };
+        }
 
         return { ownerId: null, userId: result.userId, role: result.role, error: `Forbidden: No owner context associated with this user. Current role: ${userData.role}` };
     } catch (error) {

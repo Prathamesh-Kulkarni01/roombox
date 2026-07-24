@@ -66,18 +66,41 @@ async function getEnterpriseAuth(ownerId: string, enterpriseProject: any): Promi
     }
 }
 
-export async function resolveTenant(req: NextRequest | Request, overrideTenantId?: string): Promise<TenantContext> {
+export async function resolveTenant(req: NextRequest | Request | null | undefined, overrideTenantId?: string): Promise<TenantContext> {
     // 1. Identify Tenant
     let tenantId: string | null = overrideTenantId || null;
+    let headerList: Headers | null = null;
     
     // Check custom header
     if (!tenantId) {
-        tenantId = req.headers.get('x-tenant-id');
+        if (req?.headers) {
+            tenantId = req.headers.get('x-tenant-id');
+        } else {
+            try {
+                const { headers } = await import('next/headers');
+                headerList = await headers();
+                tenantId = headerList.get('x-tenant-id');
+            } catch (e) {
+                // Ignore
+            }
+        }
     }
     
     if (!tenantId) {
         // Fallback to checking host/subdomain
-        const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+        let host = req?.headers?.get('x-forwarded-host') || req?.headers?.get('host');
+        if (!host && headerList) {
+            host = headerList.get('x-forwarded-host') || headerList.get('host');
+        } else if (!host && !req) {
+            try {
+                const { headers } = await import('next/headers');
+                headerList = await headers();
+                host = headerList.get('x-forwarded-host') || headerList.get('host');
+            } catch (e) {
+                // Ignore
+            }
+        }
+
         if (host) {
             const hostname = host.split(':')[0];
             const baseDomain = process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname : 'rentsutra.in';

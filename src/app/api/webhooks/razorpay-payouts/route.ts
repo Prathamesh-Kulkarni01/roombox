@@ -5,7 +5,7 @@ import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb } from '@/lib/firebaseAdmin';
 import type { Guest, Payment, User } from '@/lib/types';
 import { produce } from 'immer';
-import { createAndSendNotification } from '@/lib/actions/notificationActions';
+import { createAndSendNotification } from '@/lib/actions/internalNotificationActions';
 import Razorpay from 'razorpay';
 import { FieldValue } from 'firebase-admin/firestore';
 

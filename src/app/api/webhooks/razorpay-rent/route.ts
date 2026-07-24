@@ -7,7 +7,7 @@ import { getAdminDb } from '@/lib/firebaseAdmin';
 import { format, addMonths, setDate, lastDayOfMonth } from 'date-fns';
 import type { Guest, Payment, User, LedgerEntry } from '@/lib/types';
 import { produce } from 'immer';
-import { createAndSendNotification } from '@/lib/actions/notificationActions';
+import { createAndSendNotification } from '@/lib/actions/internalNotificationActions';
 import { calculateFirstDueDate } from '@/lib/utils';
 import { FieldValue } from 'firebase-admin/firestore';
 import { executePayout, fetchPayoutStatus, fetchPayoutByReference } from '@/lib/actions/payoutActions';

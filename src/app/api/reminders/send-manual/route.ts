@@ -4,7 +4,7 @@ import { resolveTenant } from '@/platform/auth/server/tenant-resolver';
 import { getAdminDb, getAdminAuth, selectOwnerDataAdminDb } from '@/lib/firebaseAdmin';
 import { addDays, format, isPast, parseISO, differenceInDays } from 'date-fns';
 import type { User, Guest } from '@/lib/types';
-import { createAndSendNotification } from '@/lib/actions/notificationActions';
+import { createAndSendNotification } from '@/lib/actions/internalNotificationActions';
 
 export async function POST(request: NextRequest) {
   try {
