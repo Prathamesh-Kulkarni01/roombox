@@ -50,6 +50,11 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ success: true, guest, ledger });
         }
 
+        // --- Dynamic Scoping ---
+        if (result.role !== 'owner' && result.role !== 'admin' && (!result.pgIds || result.pgIds.length === 0)) {
+            return NextResponse.json({ success: true, summary: { expected: 0, collected: 0, pending: 0 }, pendingTenants: [] });
+        }
+
         // Return overall monthly rent summary (filtered by PG scope)
         const summary = await TenantService.getMonthlyRentSummary(db, ownerId, result.pgIds);
 

@@ -125,7 +125,9 @@ export async function GET(req: NextRequest) {
         let query = collection.limit(limit) as FirebaseFirestore.Query;
         
         // --- Dynamic Scoping ---
-        if (result.pgIds && result.pgIds.length > 0) {
+        if (result.role !== 'owner' && result.role !== 'admin' && (!result.pgIds || result.pgIds.length === 0)) {
+            return NextResponse.json({ success: true, guests: [] });
+        } else if (result.pgIds && result.pgIds.length > 0) {
             // Priority 1: If user requested a specific PG, check if they have access to it
             if (pgId) {
                 if (!result.pgIds.includes(pgId)) {

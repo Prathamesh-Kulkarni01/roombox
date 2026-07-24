@@ -19,6 +19,11 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '100', 10);
 
     try {
+        // --- Dynamic Scoping ---
+        if (result.role !== 'owner' && result.role !== 'admin' && (!result.pgIds || result.pgIds.length === 0)) {
+            return NextResponse.json({ success: true, expenses: [] });
+        }
+
         const db = await selectOwnerDataAdminDb(ownerId);
         const expenses = await ExpenseService.listExpenses(db, ownerId, { pgId, category, limit, pgIds: result.pgIds });
         return NextResponse.json({ success: true, expenses });

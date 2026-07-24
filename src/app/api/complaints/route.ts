@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
             .limit(limit) as FirebaseFirestore.Query;
 
         // --- Dynamic Scoping ---
-        if (result.pgIds && result.pgIds.length > 0) {
+        if (result.role !== 'owner' && result.role !== 'admin' && (!result.pgIds || result.pgIds.length === 0)) {
+            return NextResponse.json({ success: true, complaints: [] });
+        } else if (result.pgIds && result.pgIds.length > 0) {
             if (pgId) {
                 if (!result.pgIds.includes(pgId)) {
                     return forbidden('Access denied: You do not have permission to view data for this property');
