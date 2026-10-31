@@ -139,16 +139,9 @@ export async function enforcePermission(
         }
     }
 
-    // 3. Real-time Re-validation for Sensitive Actions (Bypasses JWT/Cache)
-    if (isSensitive && role !== 'owner') {
-        const db = await (import('./firebaseAdmin').then(m => m.getAdminDb()));
-        const userDoc = await db.collection('users').doc(userId).get();
-        const userData = userDoc.data();
-
-        if (!userDoc.exists || !userData || userData.status !== 'active') {
-            return { authorized: false, response: forbidden('Security re-validation failed. Account may be suspended or modified.') };
-        }
-    }
+    // Note: Step 3 (Real-time Re-validation) was removed as a performance optimization.
+    // The upstream getVerifiedOwnerId() function already performs a real-time Firestore query 
+    // to check the user's status on every request. Doing it again here was redundant.
 
     return {
         authorized: true,
