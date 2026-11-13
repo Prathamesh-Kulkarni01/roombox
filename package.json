@@ -9,7 +9,7 @@
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build:sw": "node scripts/build-sw.js",
-    "build": "npx ts-node --project scripts/tsconfig.json -r tsconfig-paths/register scripts/vercel-build.ts",
+    "build": "npx ts-node --transpile-only --project scripts/tsconfig.json -r tsconfig-paths/register scripts/vercel-build.ts",
     "start": "next start",
     "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\"",
     "typecheck": "tsc --noEmit",
@@ -148,7 +148,7 @@
     "tailwindcss": "^3.4.1",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "7.0.2",
+    "typescript": "^5.9.3",
     "vitest": "^4.1.9"
   }
 }
