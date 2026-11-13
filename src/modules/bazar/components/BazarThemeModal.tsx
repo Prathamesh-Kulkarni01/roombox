@@ -100,7 +100,7 @@ export function BazarThemePickerButton({ language = 'mr' }: BazarThemePickerButt
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
-          className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all active:scale-95 border border-slate-200 shadow-2xs relative"
+          className="h-8 w-8 rounded-full bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center transition-all active:scale-95 border border-border shadow-2xs relative"
           aria-label="Change app theme"
           title="Shopping Theme Palette"
         >
@@ -114,15 +114,15 @@ export function BazarThemePickerButton({ language = 'mr' }: BazarThemePickerButt
 
       <SheetContent
         side="bottom"
-        className="rounded-t-[28px] max-h-[85vh] p-5 bg-white max-w-[430px] mx-auto border-t border-slate-200"
+        className="rounded-t-[28px] max-h-[85vh] p-5 bg-card text-card-foreground max-w-[430px] mx-auto border-t border-border"
       >
-        <SheetHeader className="text-left pb-3 border-b border-slate-100">
+        <SheetHeader className="text-left pb-3 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center">
               <Palette className="h-4 w-4" />
             </div>
             <div>
-              <SheetTitle className="text-base font-bold text-slate-900">
+              <SheetTitle className="text-base font-bold text-foreground">
                 {language === 'mr' ? 'अ‍ॅप थीम निवडा' : 'Choose Shopping Theme'}
               </SheetTitle>
               <SheetDescription className="text-xs text-slate-500">
@@ -147,7 +147,7 @@ export function BazarThemePickerButton({ language = 'mr' }: BazarThemePickerButt
                 className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition-all active:scale-[0.99] ${
                   isSelected
                     ? 'border-purple-600 bg-purple-50/40 shadow-xs ring-2 ring-purple-600/20'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                    : 'border-border hover:border-muted-foreground/30 bg-card'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -193,3 +193,4 @@ export function BazarThemePickerButton({ language = 'mr' }: BazarThemePickerButt
     </Sheet>
   );
 }
+

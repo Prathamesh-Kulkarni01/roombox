@@ -43,7 +43,7 @@ export function GroceryProductCard({
   );
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 p-2.5 flex flex-col justify-between shadow-2xs hover:shadow-md hover:border-purple-300 transition-all relative group">
+    <div className="bg-card text-card-foreground rounded-2xl border border-border p-2.5 flex flex-col justify-between shadow-2xs hover:shadow-md hover:border-primary/50 transition-all relative group">
       
       {/* Top Discount Badge & Heart */}
       <div className="relative w-full">
@@ -90,7 +90,7 @@ export function GroceryProductCard({
         <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
           {product.brand}
         </p>
-        <h4 className="font-extrabold text-xs text-slate-900 line-clamp-2 leading-snug min-h-[32px]">
+        <h4 className="font-extrabold text-xs text-foreground line-clamp-2 leading-snug min-h-[32px]">
           {product.name}
         </h4>
 
@@ -117,10 +117,10 @@ export function GroceryProductCard({
       </div>
 
       {/* Bottom Pricing & ADD / Stepper Button */}
-      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
+      <div className="mt-2.5 pt-2 border-t border-border flex items-center justify-between gap-1">
         <div>
           <div className="flex items-baseline gap-1">
-            <span className="font-black text-sm text-slate-900">
+            <span className="font-black text-sm text-foreground">
               ₹{currentPrice}
             </span>
             {currentMrp > currentPrice && (
@@ -140,13 +140,13 @@ export function GroceryProductCard({
                 addToCart(product, selectedVariantId, storeId, storeName);
               }}
               disabled={!product.inStock}
-              className="h-8 px-3.5 rounded-xl border border-rose-500 bg-rose-50/60 text-rose-600 hover:bg-rose-500 hover:text-white active:scale-95 font-black text-xs flex items-center gap-1 transition-all shadow-2xs"
+              className="h-8 px-3.5 rounded-xl border border-primary/80 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground active:scale-95 font-black text-xs flex items-center gap-1 transition-all shadow-2xs"
             >
               <Plus className="h-3 w-3 stroke-[3]" />
               <span>ADD</span>
             </button>
           ) : (
-            <div className="h-8 flex items-center bg-gradient-to-r from-rose-600 to-[#E11D48] text-white rounded-xl shadow-xs overflow-hidden">
+            <div className="h-8 flex items-center bg-primary text-primary-foreground rounded-xl shadow-xs overflow-hidden">
               <button
                 onClick={(e) => {
                   e.stopPropagation();

@@ -178,30 +178,30 @@ function StorefrontScreen() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#F4F5F8] text-slate-900 flex justify-center pb-24 selection:bg-purple-500/20">
+    <div className="w-full min-h-screen bg-background text-foreground flex justify-center pb-24 selection:bg-primary/20">
       {/* Mobile-First Shell (430px max on Desktop) */}
-      <div className="w-full max-w-[430px] bg-white min-h-screen shadow-lg flex flex-col relative border-x border-slate-200">
+      <div className="w-full max-w-[430px] bg-card text-card-foreground min-h-screen shadow-lg flex flex-col relative border-x border-border">
         
         {/* ─────────────────────────────────────────────────────────────
             1. TOP APP BAR (Back, Store Title, Share Button)
         ───────────────────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between shadow-2xs">
+        <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md px-3.5 py-2.5 border-b border-border flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => router.push('/bazar')}
-              className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center transition-all active:scale-95"
+              className="h-8 w-8 rounded-full bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center transition-all active:scale-95"
               aria-label="Back to Bazar"
             >
               <ArrowLeft className="h-4 w-4 stroke-[2.5]" />
             </button>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="font-extrabold text-sm text-slate-900 leading-tight line-clamp-1">
+                <h1 className="font-extrabold text-sm text-foreground leading-tight line-clamp-1">
                   {language === 'mr' ? store.nameMarathi : store.name}
                 </h1>
-                <BadgeCheck className="h-4 w-4 text-purple-600 shrink-0" />
+                <BadgeCheck className="h-4 w-4 text-primary shrink-0" />
               </div>
-              <p className="text-[10px] text-purple-700 font-extrabold flex items-center gap-1">
+              <p className="text-[10px] text-primary font-extrabold flex items-center gap-1">
                 <span>⚡ {store.deliveryTimeMins}</span>
                 <span className="text-slate-300">•</span>
                 <span className="text-slate-500 font-medium">{store.distanceKm} km</span>
@@ -212,7 +212,7 @@ function StorefrontScreen() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleShare}
-              className="h-8 px-2.5 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-900 flex items-center gap-1 font-bold text-xs border border-purple-200 transition-all active:scale-95 shadow-2xs"
+              className="h-8 px-2.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary flex items-center gap-1 font-bold text-xs border border-primary/20 transition-all active:scale-95 shadow-2xs"
               aria-label="Share Store"
               title="Share store with customers"
             >
@@ -223,7 +223,7 @@ function StorefrontScreen() {
                 </>
               ) : (
                 <>
-                  <Share2 className="h-3.5 w-3.5 text-purple-700" />
+                  <Share2 className="h-3.5 w-3.5 text-primary" />
                   <span>{language === 'mr' ? 'शेअर' : 'Share'}</span>
                 </>
               )}
@@ -234,7 +234,7 @@ function StorefrontScreen() {
         {/* ─────────────────────────────────────────────────────────────
             2. STORE HERO & BRANDING BANNER (High-Conversion Zepto Vibe)
         ───────────────────────────────────────────────────────────── */}
-        <div className="relative bg-gradient-to-br from-[#5800FF] via-[#7B2CBF] to-[#E11D48] text-white p-4 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-primary-foreground p-4 overflow-hidden shadow-sm">
           {/* Subtle Ambient Glow */}
           <div className="absolute top-0 right-0 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -325,13 +325,13 @@ function StorefrontScreen() {
         ───────────────────────────────────────────────────────────── */}
         <div className="px-3.5 pt-2.5 pb-1">
           <div className="relative flex items-center">
-            <Search className="absolute left-3.5 h-4 w-4 text-purple-600 stroke-[2.5]" />
+            <Search className="absolute left-3.5 h-4 w-4 text-primary stroke-[2.5]" />
             <input
               type="text"
               placeholder={language === 'mr' ? `${store.nameMarathi} मध्ये शोधा (उदा. दूध, भाजी, डाळ)...` : `Search in ${store.name} (e.g. Milk, Onion, Atta)...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-10 pr-9 rounded-xl bg-slate-100 border border-slate-200/80 text-xs text-slate-900 placeholder:text-slate-400 font-medium focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-hidden transition-all shadow-2xs"
+              className="w-full h-10 pl-10 pr-9 rounded-xl bg-slate-100 border border-slate-200/80 text-xs text-slate-900 placeholder:text-slate-400 font-medium focus:bg-white focus:ring-2 focus:ring-primary focus:outline-hidden transition-all shadow-2xs"
             />
             {searchQuery && (
               <button 
@@ -347,7 +347,7 @@ function StorefrontScreen() {
         {/* ─────────────────────────────────────────────────────────────
             4. STICKY CATEGORY NAVIGATION TABS (Pill Style)
         ───────────────────────────────────────────────────────────── */}
-        <div className="sticky top-12 z-20 bg-white/95 backdrop-blur-md pt-2 pb-2 border-b border-slate-100 shadow-2xs">
+        <div className="sticky top-12 z-20 bg-card/95 backdrop-blur-md pt-2 pb-2 border-b border-border shadow-2xs">
           <div className="flex gap-2 px-3.5 overflow-x-auto scrollbar-hide scroll-smooth">
             {BAZAR_CATEGORIES.map(cat => {
               const isSelected = activeCategory === cat.id;
@@ -357,8 +357,8 @@ function StorefrontScreen() {
                   onClick={() => setActiveCategory(cat.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 flex items-center gap-1.5 ${
                     isSelected 
-                      ? 'bg-purple-700 text-white shadow-xs scale-102' 
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-primary text-primary-foreground shadow-xs scale-102' 
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
                   }`}
                 >
                   {cat.id === 'all' && <LayoutGrid className="h-3.5 w-3.5" />}
@@ -400,7 +400,7 @@ function StorefrontScreen() {
                     )}
                     <span>{section.title}</span>
                   </h3>
-                  <span className="text-[11px] font-bold text-purple-700 flex items-center gap-0.5">
+                  <span className="text-[11px] font-bold text-primary flex items-center gap-0.5">
                     {section.items.length} {language === 'mr' ? 'वस्तू' : 'items'}
                   </span>
                 </div>
@@ -445,7 +445,7 @@ function StorefrontScreen() {
             8. QUICK CART BOTTOM SHEET
         ───────────────────────────────────────────────────────────── */}
         <Sheet open={isCartSheetOpen} onOpenChange={setIsCartSheetOpen}>
-          <SheetContent side="bottom" className="rounded-t-[28px] max-h-[85vh] overflow-y-auto p-5 bg-white max-w-[430px] mx-auto border-t border-slate-200">
+          <SheetContent side="bottom" className="rounded-t-[28px] max-h-[85vh] overflow-y-auto p-5 bg-card text-card-foreground max-w-[430px] mx-auto border-t border-border">
             <SheetHeader className="text-left pb-3 border-b border-slate-100">
               <SheetTitle className="text-base font-black text-slate-900 flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-purple-700" />
@@ -484,7 +484,7 @@ function StorefrontScreen() {
               )}
 
               {/* Bill Summary */}
-              <div className="bg-slate-50 p-3 rounded-2xl space-y-1 text-xs">
+              <div className="bg-muted/50 p-3 rounded-2xl space-y-1 text-xs">
                 <div className="flex justify-between text-slate-600">
                   <span>{language === 'mr' ? 'वस्तूंची किंमत' : 'Item Total'}</span>
                   <span className="font-bold">₹{subtotal}</span>
@@ -501,7 +501,7 @@ function StorefrontScreen() {
 
               <Button
                 onClick={handleCheckout}
-                className="w-full bg-gradient-to-r from-[#5800FF] via-[#7B2CBF] to-[#E11D48] hover:opacity-95 text-white font-black py-6 rounded-2xl text-base shadow-md transition-all active:scale-[0.99]"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-black py-6 rounded-2xl text-base shadow-md transition-all active:scale-[0.99]"
               >
                 {language === 'mr' ? 'चेकआऊट करा (Proceed to Checkout)' : 'Proceed to Checkout'}
                 <ChevronRight className="w-4 h-4 ml-2" />

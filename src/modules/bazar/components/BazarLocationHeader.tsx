@@ -79,7 +79,7 @@ export function BazarLocationHeader({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
-          className="flex items-center gap-2 text-left group p-1 -ml-1 rounded-xl hover:bg-purple-50/50 active:scale-[0.98] transition-all"
+          className="flex items-center gap-2 text-left group p-1 -ml-1 rounded-xl hover:bg-muted/50 active:scale-[0.98] transition-all"
           aria-label="Change delivery location"
         >
           {/* Zepto-style Lightning Speed Badge */}
@@ -95,11 +95,11 @@ export function BazarLocationHeader({
             </div>
 
             <div className="flex items-center gap-1 pt-0.5">
-              <span className="font-extrabold text-[13px] text-slate-900 leading-tight group-hover:text-purple-700 transition-colors">
+              <span className="font-extrabold text-[13px] text-foreground leading-tight group-hover:text-primary transition-colors">
                 {language === 'mr' ? activeTownConfig.townMarathi : activeTownConfig.town} ·{' '}
                 <span className="font-normal text-slate-500 text-xs">{selectedArea}</span>
               </span>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-purple-700 transition-colors shrink-0" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
             </div>
           </div>
         </button>
@@ -107,15 +107,15 @@ export function BazarLocationHeader({
 
       <SheetContent
         side="bottom"
-        className="rounded-t-[28px] max-h-[85vh] p-5 bg-white max-w-[430px] mx-auto border-t border-slate-200"
+        className="rounded-t-[28px] max-h-[85vh] p-5 bg-card text-card-foreground max-w-[430px] mx-auto border-t border-border"
       >
-        <SheetHeader className="text-left pb-3 border-b border-slate-100">
+        <SheetHeader className="text-left pb-3 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center">
               <MapPin className="h-4 w-4 fill-purple-600" />
             </div>
             <div>
-              <SheetTitle className="text-base font-bold text-slate-900">
+              <SheetTitle className="text-base font-bold text-foreground">
                 {language === 'mr' ? 'डिलिव्हरी परिसर निवडा' : 'Select Delivery Location'}
               </SheetTitle>
               <SheetDescription className="text-xs text-slate-500">
@@ -136,7 +136,7 @@ export function BazarLocationHeader({
                 className={`p-3.5 rounded-2xl border transition-all ${
                   isTownSelected
                     ? 'border-purple-600 bg-purple-50/50 shadow-xs'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                    : 'border-border hover:border-muted-foreground/30 bg-card'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -165,7 +165,7 @@ export function BazarLocationHeader({
                         className={`text-xs px-2.5 py-1 rounded-xl font-medium transition-all ${
                           isAreaActive
                             ? 'bg-purple-700 text-white shadow-xs font-bold'
-                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                            : 'bg-muted/50 border border-border text-foreground hover:bg-muted'
                         }`}
                       >
                         {area}
