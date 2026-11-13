@@ -101,6 +101,26 @@ export default function LoginPageClient() {
     if (stage === "SWITCH_CONTEXT") return;
 
     if (currentUser?.role) {
+      if (redirectParam) {
+        const target = decodeURIComponent(redirectParam);
+        if (target.startsWith("/") || target.startsWith(window.location.origin)) {
+          window.location.href = target;
+        } else {
+          router.replace(target);
+        }
+        return;
+      }
+
+      const mode = appConfig.id;
+      if (mode === 'bazar') {
+        router.replace('/bazar/dashboard');
+        return;
+      }
+      if (mode === 'gym') {
+        router.replace('/gym/dashboard');
+        return;
+      }
+
       if (currentUser.role === "unassigned") {
         router.replace("/complete-profile");
         return;
@@ -114,14 +134,7 @@ export default function LoginPageClient() {
         return;
       }
 
-      if (redirectParam) {
-        const target = decodeURIComponent(redirectParam);
-        if (target.startsWith("/") || target.startsWith(window.location.origin)) {
-          window.location.href = target;
-        } else {
-          router.replace(target);
-        }
-      } else if (currentUser.role === "tenant") {
+      if (currentUser.role === "tenant") {
         router.replace("/tenants/my-pg");
       } else if (currentUser.role === "owner" && !currentUser.isOnboarded) {
         router.replace("/complete-profile");

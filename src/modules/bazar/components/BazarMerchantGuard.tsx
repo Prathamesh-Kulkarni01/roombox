@@ -9,6 +9,8 @@ import { Store, Loader2, Lock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
+import { getMerchantStoreAction } from '../actions';
+
 export function BazarMerchantGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -16,10 +18,11 @@ export function BazarMerchantGuard({ children }: { children: React.ReactNode }) 
 
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [storeChecked, setStoreChecked] = useState(false);
 
   useEffect(() => {
     // Check Redux or Firebase direct auth
-    if (currentUser?.uid) {
+    if (currentUser?.uid || currentUser?.id) {
       setIsAuthenticated(true);
       setAuthChecked(true);
       return;
@@ -42,11 +45,47 @@ export function BazarMerchantGuard({ children }: { children: React.ReactNode }) 
     return () => unsubscribe();
   }, [currentUser]);
 
-  if (!authChecked) {
+  // Check if merchant has an active store; if not and not already on onboarding page, redirect
+  useEffect(() => {
+    if (!isAuthenticated || !authChecked) return;
+
+    if (pathname === '/bazar/onboarding') {
+      setStoreChecked(true);
+      return;
+    }
+
+    let isMounted = true;
+    async function verifyStore() {
+      try {
+        const ownerId = currentUser?.id || currentUser?.uid || auth?.currentUser?.uid;
+        if (!ownerId) {
+          if (isMounted) setStoreChecked(true);
+          return;
+        }
+
+        const store = await getMerchantStoreAction(ownerId);
+        if (!store && isMounted) {
+          router.replace('/bazar/onboarding');
+          return;
+        }
+      } catch (err) {
+        console.warn('[BazarMerchantGuard] Store check failed:', err);
+      } finally {
+        if (isMounted) setStoreChecked(true);
+      }
+    }
+
+    verifyStore();
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, authChecked, currentUser, pathname, router]);
+
+  if (!authChecked || (isAuthenticated && !storeChecked && pathname !== '/bazar/onboarding')) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-muted-foreground">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-        <p className="text-sm font-medium">Checking Merchant Credentials...</p>
+        <p className="text-sm font-medium">व्यापारी प्रोफाइल तपासत आहे (Verifying Merchant Profile)...</p>
       </div>
     );
   }

@@ -51,6 +51,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectValue, SelectTrigger } from '@/components/ui/select'
 import { useCreatePropertyMutation } from '@/lib/api/apiSlice'
 import { useConfetti } from '@/context/confetti-provider'
+import { getActiveAppMode } from '@/core/config/app-mode'
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
 import { ImageDropzone } from "@/components/ui/image-dropzone"
@@ -144,6 +145,19 @@ export default function CompleteProfilePage() {
     })
 
     const currentValues = form.watch();
+
+    // Guard complete-profile by App Mode
+    useEffect(() => {
+        const mode = getActiveAppMode();
+        if (mode === 'bazar') {
+            router.replace('/bazar/onboarding');
+            return;
+        }
+        if (mode === 'gym') {
+            router.replace('/gym/dashboard');
+            return;
+        }
+    }, [router]);
 
     // Sync state once user is loaded
     useEffect(() => {

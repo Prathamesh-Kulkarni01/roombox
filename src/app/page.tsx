@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import InstallPWA from '@/components/install-pwa';
 import type { User as UserType } from '@/lib/types';
 import { useTranslation } from '@/context/language-context';
+import { getActiveAppConfig, getActiveAppMode } from '@/core/config/app-mode';
+import { useEffect } from 'react';
 import { PRICING_CONFIG } from '@/lib/constants';
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { Sparkles } from 'lucide-react';
@@ -27,6 +29,16 @@ import {
 
 const Index = () => {
     const router = useRouter();
+
+    // Mode-based landing route redirect
+    useEffect(() => {
+        const mode = getActiveAppMode();
+        if (mode === 'bazar') {
+            router.replace('/bazar');
+        } else if (mode === 'gym') {
+            router.replace('/gym/dashboard');
+        }
+    }, [router]);
     const { t } = useTranslation();
     const { currentUser } = useAppSelector((state) => state.user);
   

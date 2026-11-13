@@ -62,6 +62,7 @@ import { initPushAndSaveToken, subscribeToTopic } from "@/lib/notifications";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { getCurrentPlan } from "@/lib/utils";
+import { getActiveAppMode } from "@/core/config/app-mode";
 
 function AuthHandler({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
@@ -265,13 +266,21 @@ function AuthHandler({ children }: { children: ReactNode }) {
       "/sentry-example-page",
       "/scan",
       "/bazar",
-      "/bazar/store",
+      "/gym",
     ];
 
     const isPublicPage = publicPages.some((p) => {
       if (p === "/") return pathname === "/";
       return pathname === p || pathname.startsWith(`${p}/`);
     });
+
+    const appMode = getActiveAppMode();
+    const isModuleRoute = pathname.startsWith('/bazar') || pathname.startsWith('/gym');
+
+    // If user is accessing Bazar or Gym modules, let their dedicated guards handle routing
+    if (isModuleRoute) {
+      return;
+    }
 
     if (currentUser) {
       console.log(
