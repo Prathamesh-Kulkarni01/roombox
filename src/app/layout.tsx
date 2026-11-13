@@ -8,6 +8,7 @@ import Script from "next/script";
 import { LanguageProvider } from "@/context/language-context";
 import ConfettiProvider from "@/context/confetti-provider";
 import PWAHandler from "@/components/PWAHandler";
+import { ThemeColorSync } from "@/components/ThemeColorSync";
 import { Analytics } from "@vercel/analytics/next";
 import FirebaseProviderWrapper from "@/components/FirebaseProviderWrapper";
 
@@ -138,6 +139,7 @@ export default function RootLayout({
               >
                 <ConfettiProvider>
                   <PWAHandler />
+                  <ThemeColorSync />
                   <div className="flex min-h-screen flex-col">
                     <Header />
                     <main className="flex-1">{children}</main>
