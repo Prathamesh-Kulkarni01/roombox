@@ -204,7 +204,7 @@ export default function MyOrdersPage() {
                 </div>
 
                 {/* Items Thumbnails Row */}
-                <div className="flex items-center gap-2 py-1 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-2 py-1 overflow-x-auto scrollbar-hide">
                   {order.items.map((item, idx) => (
                     <div 
                       key={idx} 

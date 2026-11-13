@@ -135,7 +135,7 @@ function CategoriesContent() {
         {/* ─────────────────────────────────────────────────────────────
             2. HORIZONTAL CATEGORIES QUICK REEL (Matching Row 2 Screen 2)
         ───────────────────────────────────────────────────────────── */}
-        <div className="py-2.5 px-3.5 border-b border-[#F2F4F3] bg-[#FAFBFB] overflow-x-auto no-scrollbar scroll-smooth flex gap-3">
+        <div className="py-2.5 px-3.5 border-b border-[#F2F4F3] bg-[#FAFBFB] overflow-x-auto scrollbar-hide scroll-smooth flex gap-3">
           {CATEGORY_ITEMS.map(cat => {
             const isSelected = selectedCategory === cat.id;
             const Icon = cat.icon;
@@ -168,7 +168,7 @@ function CategoriesContent() {
         {/* ─────────────────────────────────────────────────────────────
             3. SUBCATEGORY PILLS (All, Leafy, Tomato, Potato, Onion)
         ───────────────────────────────────────────────────────────── */}
-        <div className="px-3.5 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-[#F2F4F3]">
+        <div className="px-3.5 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-hide border-b border-[#F2F4F3]">
           {VEGETABLE_FILTERS.map(filter => {
             const isSelected = activeSubFilter === filter.id;
             return (

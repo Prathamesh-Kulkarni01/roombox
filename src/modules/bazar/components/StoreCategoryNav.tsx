@@ -36,7 +36,7 @@ export function StoreCategoryNav({
 }: StoreCategoryNavProps) {
   return (
     <div className="sticky top-[125px] z-20 bg-[#FFFFFF] py-2 border-b border-[#ECEFEC]/80">
-      <div className="flex gap-2 px-3.5 overflow-x-auto no-scrollbar scroll-smooth">
+      <div className="flex gap-2 px-3.5 overflow-x-auto scrollbar-hide scroll-smooth">
         {STORE_CATEGORIES.map((cat: any) => {
           const isSelected = activeCategory === cat.id;
           const Icon = CATEGORY_ICONS[cat.iconName || cat.iconUrl] || Sparkles;

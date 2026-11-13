@@ -273,7 +273,7 @@ function StorefrontScreen() {
             4. STICKY CATEGORY NAVIGATION TABS
         ───────────────────────────────────────────────────────────── */}
         <div className="sticky top-12 z-20 bg-white/95 backdrop-blur-md pt-2 pb-2 border-b border-slate-100 shadow-2xs">
-          <div className="flex gap-2 px-3.5 overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="flex gap-2 px-3.5 overflow-x-auto scrollbar-hide scroll-smooth">
             {BAZAR_CATEGORIES.map(cat => {
               const isSelected = activeCategory === cat.id;
               return (

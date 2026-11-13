@@ -6,7 +6,7 @@ import { Tag } from 'lucide-react';
 export function StorePromotionalOffers() {
   return (
     <div className="pt-2 pb-1">
-      <div className="flex gap-2.5 overflow-x-auto px-3.5 no-scrollbar scroll-smooth">
+      <div className="flex gap-2.5 overflow-x-auto px-3.5 scrollbar-hide scroll-smooth">
         {STORE_PROMOTIONAL_OFFERS.map((offer: any) => (
           <div
             key={offer.id}

@@ -117,7 +117,7 @@ export default function BazarDiscoveryPage() {
             3. INSTANT SHOP CATEGORIES REEL (Horizontal Carousel)
         ───────────────────────────────────────────────────────────── */}
         <div className="pt-2.5 pb-2">
-          <div className="flex gap-2.5 px-4 overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="flex gap-2.5 px-4 overflow-x-auto scrollbar-hide scroll-smooth">
             {POPULAR_SHOP_CATEGORIES.map((cat) => {
               const IconComp = 
                 cat.iconName === 'ShoppingBasket' ? ShoppingBasket :
@@ -194,7 +194,7 @@ export default function BazarDiscoveryPage() {
               </span>
             </div>
 
-            <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1">
               {favoriteStores.map((store) => (
                 <Link
                   key={store.id}
