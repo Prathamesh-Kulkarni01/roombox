@@ -38,6 +38,8 @@ import RoleSwitcher from './RoleSwitcher';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ThemePicker } from './theme-picker';
 import { useTheme } from 'next-themes';
+import { BazarLocationHeader } from '@/modules/bazar/components/BazarLocationHeader';
+import { Store as StoreIcon } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import {
   CommandDialog,
@@ -85,6 +87,7 @@ export default function Header() {
   const { setTheme } = useTheme();
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [open, setOpen] = useState(false);
+  const [bazarTown, setBazarTown] = useState('Palus');
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -222,8 +225,40 @@ export default function Header() {
   }
 
   // Don't show global header on subdomain PG pages — they have their own nav
-  if (isSitePage || isBazarRoute) {
+  if (isSitePage) {
     return null;
+  }
+
+  // Unified Platform Header: Adaptive Bazar Mode
+  if (isBazarRoute) {
+    return (
+      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-border/60 shadow-2xs transition-all">
+        <div className="w-full max-w-[430px] mx-auto px-3.5 py-2 flex items-center justify-between">
+          <BazarLocationHeader
+            currentTown={bazarTown}
+            onSelectTown={(t) => setBazarTown(t)}
+            language={language as 'mr' | 'en'}
+          />
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setLanguage(language === 'mr' ? 'en' : 'mr')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] border border-purple-200 active:scale-95 transition-all"
+              aria-label="Toggle language"
+            >
+              <Globe className="h-3 w-3 text-purple-700" />
+              <span>{language === 'mr' ? 'English' : 'मराठी'}</span>
+            </button>
+            <Link
+              href="/bazar/dashboard"
+              className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all active:scale-95"
+              title="Merchant Portal"
+            >
+              <StoreIcon className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </header>
+    );
   }
 
   return (

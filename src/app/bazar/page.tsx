@@ -89,36 +89,7 @@ export default function BazarDiscoveryPage() {
       {/* Mobile Shell (Fixed 430px max on Desktop) */}
       <div className="w-full max-w-[430px] bg-white min-h-screen flex flex-col shadow-lg relative border-x border-slate-200">
         
-        {/* ─────────────────────────────────────────────────────────────
-            1. COMPACT ZEPTO-STYLE TOP LOCATION & APP HEADER
-        ───────────────────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-3 pb-2.5 border-b border-slate-100 flex items-center justify-between shadow-2xs">
-          <BazarLocationHeader
-            currentTown={selectedTown}
-            onSelectTown={(town) => setSelectedTown(town)}
-            language={language}
-          />
-
-          {/* Right Actions: Language Switch & Merchant Portal Icon */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleToggleLanguage}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] border border-purple-200 active:scale-95 transition-all"
-              aria-label="Toggle language"
-            >
-              <Globe className="h-3 w-3 text-purple-700" />
-              <span>{language === 'mr' ? 'English' : 'मराठी'}</span>
-            </button>
-
-            <Link
-              href="/bazar/dashboard"
-              className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-all active:scale-95"
-              title="Merchant Portal"
-            >
-              <Store className="h-4 w-4" />
-            </Link>
-          </div>
-        </header>
+        {/* Top bar rendered uniformly by platform root <Header /> */}
 
         {/* ─────────────────────────────────────────────────────────────
             2. PROMINENT SEARCH BAR (Opens Full Search Overlay)
