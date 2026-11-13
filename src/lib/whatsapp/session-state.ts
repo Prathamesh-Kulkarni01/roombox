@@ -70,6 +70,26 @@ function sessionKey(phone: string): string {
     return `roombox:wa:session:${phone}`;
 }
 
+const memoryStore = new Map<string, { session: UserSession; expiresAt: number }>();
+
+function getMemorySession(phoneNumber: string): UserSession | null {
+    const entry = memoryStore.get(phoneNumber);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+        memoryStore.delete(phoneNumber);
+        return null;
+    }
+    entry.expiresAt = Date.now() + SESSION_TTL * 1000;
+    return entry.session;
+}
+
+function setMemorySession(phoneNumber: string, session: UserSession): void {
+    memoryStore.set(phoneNumber, {
+        session,
+        expiresAt: Date.now() + SESSION_TTL * 1000,
+    });
+}
+
 // ── Get session (returns default if not found) ────────────────────────────────
 export async function getSession(phoneNumber: string): Promise<UserSession> {
     try {
@@ -77,12 +97,20 @@ export async function getSession(phoneNumber: string): Promise<UserSession> {
         const session = await redis.get<UserSession>(sessionKey(phoneNumber));
         if (session) {
             await redis.expire(sessionKey(phoneNumber), SESSION_TTL);
+            setMemorySession(phoneNumber, session);
             return session;
         }
-    } catch (err) {
-        console.error('[Session] Read error:', err);
+    } catch (err: any) {
+        // Fallback gracefully to in-memory store if Redis host is unreachable / deleted
+        const mem = getMemorySession(phoneNumber);
+        if (mem) return mem;
+        if (process.env.NODE_ENV === 'development') {
+            console.warn('[Session] Redis offline, using in-memory session cache:', err?.code || err?.message);
+        } else {
+            console.error('[Session] Read error:', err);
+        }
     }
-    return freshSession();
+    return getMemorySession(phoneNumber) || freshSession();
 }
 
 // ── Update session ─────────────────────────────────────────────────────────────
@@ -91,24 +119,31 @@ export async function updateSession(
     newState: BotState,
     newData?: Partial<UserSession['data']>
 ): Promise<void> {
+    const current = await getSession(phoneNumber);
+    const updated: UserSession = {
+        state: newState,
+        data: { ...current.data, ...(newData || {}) },
+        lastUpdated: Date.now(),
+    };
+
+    // Always update memory store immediately so conversations don't break
+    setMemorySession(phoneNumber, updated);
+
     try {
         const redis = getRedisClient();
-        const current = await getSession(phoneNumber);
-
-        const updated: UserSession = {
-            state: newState,
-            data: { ...current.data, ...(newData || {}) },
-            lastUpdated: Date.now(),
-        };
-
         await redis.set(sessionKey(phoneNumber), updated, { ex: SESSION_TTL });
-    } catch (err) {
-        console.error('[Session] Write error:', err);
+    } catch (err: any) {
+        if (process.env.NODE_ENV === 'development') {
+            console.warn('[Session] Redis offline, persisted to in-memory session cache:', err?.code || err?.message);
+        } else {
+            console.error('[Session] Write error:', err);
+        }
     }
 }
 
 // ── Clear session ──────────────────────────────────────────────────────────────
 export async function clearSession(phoneNumber: string): Promise<void> {
+    memoryStore.delete(phoneNumber);
     try {
         const redis = getRedisClient();
         await redis.del(sessionKey(phoneNumber));
