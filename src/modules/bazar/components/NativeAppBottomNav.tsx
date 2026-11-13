@@ -18,13 +18,13 @@ export function NativeAppBottomNav() {
       <Link 
         href="/bazar" 
         className={`flex flex-col items-center gap-0.5 transition-colors ${
-          isHome ? 'text-[#0D7C4D]' : 'text-[#8A948D] hover:text-[#0D7C4D]'
+          isHome ? 'text-[#7B2CBF]' : 'text-slate-400 hover:text-slate-600'
         }`}
       >
         <div className="h-6 w-6 flex items-center justify-center">
-          <Home className={`h-5 w-5 ${isHome ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <Home className={`h-5 w-5 ${isHome ? 'stroke-[2.5] text-[#7B2CBF]' : 'stroke-[1.8]'}`} />
         </div>
-        <span className={`text-[10px] ${isHome ? 'font-black text-[#0D7C4D]' : 'font-medium'}`}>
+        <span className={`text-[10px] ${isHome ? 'font-black text-[#7B2CBF]' : 'font-medium'}`}>
           Home
         </span>
       </Link>
@@ -33,14 +33,14 @@ export function NativeAppBottomNav() {
       <Link 
         href="/bazar/categories" 
         className={`flex flex-col items-center gap-0.5 transition-colors ${
-          isExplore ? 'text-[#0D7C4D]' : 'text-[#8A948D] hover:text-[#0D7C4D]'
+          isExplore ? 'text-[#7B2CBF]' : 'text-slate-400 hover:text-slate-600'
         }`}
       >
         <div className="h-6 w-6 flex items-center justify-center">
-          <Compass className={`h-5 w-5 ${isExplore ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <Compass className={`h-5 w-5 ${isExplore ? 'stroke-[2.5] text-[#7B2CBF]' : 'stroke-[1.8]'}`} />
         </div>
-        <span className={`text-[10px] ${isExplore ? 'font-black text-[#0D7C4D]' : 'font-medium'}`}>
-          Explore
+        <span className={`text-[10px] ${isExplore ? 'font-black text-[#7B2CBF]' : 'font-medium'}`}>
+          Categories
         </span>
       </Link>
 
@@ -48,13 +48,13 @@ export function NativeAppBottomNav() {
       <Link 
         href="/bazar/orders" 
         className={`flex flex-col items-center gap-0.5 transition-colors ${
-          isOrders ? 'text-[#0D7C4D]' : 'text-[#8A948D] hover:text-[#0D7C4D]'
+          isOrders ? 'text-[#7B2CBF]' : 'text-slate-400 hover:text-slate-600'
         }`}
       >
         <div className="h-6 w-6 flex items-center justify-center">
-          <ClipboardList className={`h-5 w-5 ${isOrders ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <ClipboardList className={`h-5 w-5 ${isOrders ? 'stroke-[2.5] text-[#7B2CBF]' : 'stroke-[1.8]'}`} />
         </div>
-        <span className={`text-[10px] ${isOrders ? 'font-black text-[#0D7C4D]' : 'font-medium'}`}>
+        <span className={`text-[10px] ${isOrders ? 'font-black text-[#7B2CBF]' : 'font-medium'}`}>
           Orders
         </span>
       </Link>
@@ -63,13 +63,13 @@ export function NativeAppBottomNav() {
       <Link 
         href="/bazar/account" 
         className={`flex flex-col items-center gap-0.5 transition-colors ${
-          isAccount ? 'text-[#0D7C4D]' : 'text-[#8A948D] hover:text-[#0D7C4D]'
+          isAccount ? 'text-[#7B2CBF]' : 'text-slate-400 hover:text-slate-600'
         }`}
       >
         <div className="h-6 w-6 flex items-center justify-center">
-          <User className={`h-5 w-5 ${isAccount ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+          <User className={`h-5 w-5 ${isAccount ? 'stroke-[2.5] text-[#7B2CBF]' : 'stroke-[1.8]'}`} />
         </div>
-        <span className={`text-[10px] ${isAccount ? 'font-black text-[#0D7C4D]' : 'font-medium'}`}>
+        <span className={`text-[10px] ${isAccount ? 'font-black text-[#7B2CBF]' : 'font-medium'}`}>
           Account
         </span>
       </Link>

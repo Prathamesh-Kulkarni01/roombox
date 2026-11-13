@@ -85,12 +85,12 @@ export default function BazarDiscoveryPage() {
   const favoriteStores = BAZAR_TOWN_STORES.filter(s => favoriteStoreIds.includes(s.id));
 
   return (
-    <div className="w-full min-h-screen bg-[#F6F8F7] font-sans antialiased text-slate-900 flex justify-center pb-24 selection:bg-emerald-500/20">
+    <div className="w-full min-h-screen bg-[#F4F5F8] font-sans antialiased text-slate-900 flex justify-center pb-24 selection:bg-purple-500/20">
       {/* Mobile Shell (Fixed 430px max on Desktop) */}
       <div className="w-full max-w-[430px] bg-white min-h-screen flex flex-col shadow-lg relative border-x border-slate-200">
         
         {/* ─────────────────────────────────────────────────────────────
-            1. COMPACT BLINKIT-STYLE TOP LOCATION & APP HEADER
+            1. COMPACT ZEPTO-STYLE TOP LOCATION & APP HEADER
         ───────────────────────────────────────────────────────────── */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-4 pt-3 pb-2.5 border-b border-slate-100 flex items-center justify-between shadow-2xs">
           <BazarLocationHeader
@@ -103,10 +103,10 @@ export default function BazarDiscoveryPage() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleToggleLanguage}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px] border border-emerald-200 active:scale-95 transition-all"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-[11px] border border-purple-200 active:scale-95 transition-all"
               aria-label="Toggle language"
             >
-              <Globe className="h-3 w-3 text-emerald-600" />
+              <Globe className="h-3 w-3 text-purple-700" />
               <span>{language === 'mr' ? 'English' : 'मराठी'}</span>
             </button>
 
@@ -129,7 +129,7 @@ export default function BazarDiscoveryPage() {
             className="w-full h-11 px-3.5 rounded-2xl bg-slate-100 hover:bg-slate-100/80 border border-slate-200/80 flex items-center justify-between text-left text-xs text-slate-500 shadow-2xs active:scale-[0.99] transition-all"
           >
             <div className="flex items-center gap-2.5 overflow-hidden">
-              <Search className="h-4 w-4 text-emerald-600 shrink-0" />
+              <Search className="h-4 w-4 text-purple-600 shrink-0 stroke-[2.5]" />
               <span className="truncate">
                 {language === 'mr'
                   ? 'किराणा, दूध, तेल, भाजीपाला शोधा...'
@@ -176,20 +176,20 @@ export default function BazarDiscoveryPage() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            4. COMPACT HERO PROMOTIONAL BANNER
+            4. COMPACT HERO PROMOTIONAL BANNER (Zepto Fast Vibe)
         ───────────────────────────────────────────────────────────── */}
         <div className="px-4 py-1.5">
           <Link href="/bazar/store/fresh-mart">
-            <div className="relative rounded-2xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-700 p-3.5 overflow-hidden text-white shadow-xs active:scale-[0.99] transition-all">
+            <div className="relative rounded-2xl bg-gradient-to-r from-[#5800FF] via-[#7B2CBF] to-[#E11D48] p-3.5 overflow-hidden text-white shadow-md active:scale-[0.99] transition-all">
               <div className="relative z-10 max-w-[65%] space-y-1">
-                <div className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-xs text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full text-emerald-100">
-                  <Sparkles className="h-2.5 w-2.5 text-amber-300 fill-amber-300" />
-                  {language === 'mr' ? 'स्थानिक बाजार' : 'Super Fast Delivery'}
+                <div className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-xs text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full text-white">
+                  <span className="text-yellow-300">⚡</span>
+                  {language === 'mr' ? '१०-१५ मिनिटांत डिलिव्हरी' : '10-15 Min Superfast'}
                 </div>
                 <h2 className="font-extrabold text-[15px] leading-tight">
-                  {language === 'mr' ? '१५–२५ मिनिटांत थेट घरपोच' : 'Groceries to your door in 15–25 mins'}
+                  {language === 'mr' ? 'स्थानिक दुकानांतून थेट घरपोच' : 'Groceries to your door in 10–15 mins'}
                 </h2>
-                <p className="text-[11px] text-emerald-100/90 line-clamp-1">
+                <p className="text-[11px] text-purple-100/90 line-clamp-1">
                   {language === 'mr' ? 'पलूस व परिसरातील खात्रीशीर दुकाने' : 'Verified local shops in Palus & Sangli'}
                 </p>
               </div>
@@ -218,7 +218,7 @@ export default function BazarDiscoveryPage() {
                 <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
                 <span>{language === 'mr' ? 'माझे आवडते दुकाने' : 'Saved Kirana & Stores'}</span>
               </h3>
-              <span className="text-[11px] font-bold text-emerald-700">
+              <span className="text-[11px] font-bold text-purple-700">
                 {favoriteStores.length} {language === 'mr' ? 'दुकाने' : 'shops'}
               </span>
             </div>
@@ -228,7 +228,7 @@ export default function BazarDiscoveryPage() {
                 <Link
                   key={store.id}
                   href={`/bazar/store/${store.slug}`}
-                  className="shrink-0 w-[240px] bg-white rounded-2xl p-2.5 border border-slate-200/90 shadow-2xs hover:border-emerald-300 transition-all flex items-center justify-between gap-2"
+                  className="shrink-0 w-[240px] bg-white rounded-2xl p-2.5 border border-slate-200/90 shadow-2xs hover:border-purple-300 transition-all flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="relative h-11 w-11 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
@@ -243,8 +243,8 @@ export default function BazarDiscoveryPage() {
                       <h4 className="font-bold text-xs text-slate-900 leading-tight line-clamp-1">
                         {language === 'mr' ? store.nameMarathi : store.name}
                       </h4>
-                      <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">
-                        {store.deliveryTimeMins} · {store.distanceKm} km
+                      <p className="text-[10px] text-purple-700 font-semibold mt-0.5">
+                        ⚡ {store.deliveryTimeMins} · {store.distanceKm} km
                       </p>
                     </div>
                   </div>
@@ -268,7 +268,7 @@ export default function BazarDiscoveryPage() {
         <main className="px-4 pt-3 space-y-3 flex-1">
           <div className="flex items-center justify-between">
             <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Store className="h-3.5 w-3.5 text-emerald-600" />
+              <Store className="h-3.5 w-3.5 text-purple-700" />
               <span>{language === 'mr' ? 'परिसरातील दुकाने (Nearby Stores)' : 'Nearby Verified Stores'}</span>
             </h3>
             <span className="text-[11px] font-semibold text-slate-500">
@@ -283,7 +283,7 @@ export default function BazarDiscoveryPage() {
                 <Link
                   key={store.id}
                   href={`/bazar/store/${store.slug}`}
-                  className="block bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-emerald-300 overflow-hidden active:scale-[0.99] transition-all group"
+                  className="block bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-purple-300 overflow-hidden active:scale-[0.99] transition-all group"
                 >
                   <div className="p-3.5 space-y-2.5">
                     {/* Top Row: Logo/Photo + Name + Rating */}
@@ -296,18 +296,18 @@ export default function BazarDiscoveryPage() {
                             fill
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
                           />
-                          <div className="absolute top-1 left-1 bg-emerald-700 text-white text-[8px] font-black px-1 py-0.2 rounded">
+                          <div className="absolute top-1 left-1 bg-purple-700 text-white text-[8px] font-black px-1 py-0.2 rounded">
                             {store.shortCode}
                           </div>
                         </div>
 
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-1.5">
-                            <h4 className="font-extrabold text-sm text-slate-900 group-hover:text-emerald-700 transition-colors">
+                            <h4 className="font-extrabold text-sm text-slate-900 group-hover:text-purple-700 transition-colors">
                               {language === 'mr' ? store.nameMarathi : store.name}
                             </h4>
                             {store.verified && (
-                              <BadgeCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                              <BadgeCheck className="h-4 w-4 text-purple-600 shrink-0" />
                             )}
                           </div>
 
@@ -336,17 +336,17 @@ export default function BazarDiscoveryPage() {
                           <Heart className={`h-4 w-4 ${isFav ? 'fill-rose-500 text-rose-500' : ''}`} />
                         </button>
 
-                        <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
-                          <Star className="h-3 w-3 fill-emerald-600 text-emerald-600" />
-                          <span className="text-xs font-black text-emerald-900">{store.rating}</span>
+                        <div className="flex items-center gap-1 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-lg">
+                          <Star className="h-3 w-3 fill-purple-600 text-purple-600" />
+                          <span className="text-xs font-black text-purple-900">{store.rating}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Offer Pill / Banner if available */}
                     {store.offersText && (
-                      <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl px-2.5 py-1 flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
-                        <Tag className="h-3 w-3 text-emerald-600 shrink-0" />
+                      <div className="bg-rose-50/70 border border-rose-100 rounded-xl px-2.5 py-1 flex items-center gap-1.5 text-[11px] font-bold text-rose-800">
+                        <Tag className="h-3 w-3 text-rose-600 shrink-0" />
                         <span className="truncate">
                           {language === 'mr' ? store.offersTextMarathi : store.offersText}
                         </span>
@@ -356,15 +356,14 @@ export default function BazarDiscoveryPage() {
                     {/* Bottom Metadata Bar */}
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-3 font-semibold text-slate-600">
-                        <span className="flex items-center gap-1 text-emerald-700 font-bold">
-                          <Bike className="h-3.5 w-3.5" />
-                          {store.deliveryTimeMins}
+                        <span className="flex items-center gap-1 text-purple-800 font-extrabold">
+                          ⚡ {store.deliveryTimeMins}
                         </span>
                         <span className="text-slate-300">•</span>
                         <span>{language === 'mr' ? `किमान ₹${store.minOrder}` : `Min ₹${store.minOrder}`}</span>
                       </div>
 
-                      <span className="text-xs font-bold text-emerald-700 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                      <span className="text-xs font-bold text-purple-700 flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                         <span>{language === 'mr' ? 'दुकान पाहा' : 'Shop'}</span>
                         <ChevronRight className="h-3.5 w-3.5" />
                       </span>

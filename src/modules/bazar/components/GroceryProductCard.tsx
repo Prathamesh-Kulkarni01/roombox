@@ -43,12 +43,12 @@ export function GroceryProductCard({
   );
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 p-2.5 flex flex-col justify-between shadow-xs hover:border-emerald-300 transition-all relative group">
+    <div className="bg-white rounded-2xl border border-slate-200/90 p-2.5 flex flex-col justify-between shadow-2xs hover:shadow-md hover:border-purple-300 transition-all relative group">
       
       {/* Top Discount Badge & Heart */}
       <div className="relative w-full">
         {currentDiscount > 0 && (
-          <span className="absolute top-0 left-0 z-10 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-2xs">
+          <span className="absolute top-0 left-0 z-10 bg-gradient-to-r from-rose-600 to-[#E11D48] text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-2xs uppercase tracking-tight">
             {currentDiscount}% OFF
           </span>
         )}
@@ -87,10 +87,10 @@ export function GroceryProductCard({
         onClick={() => onOpenDetails && onOpenDetails(product)} 
         className="cursor-pointer space-y-0.5 pt-1"
       >
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+        <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
           {product.brand}
         </p>
-        <h4 className="font-bold text-xs text-slate-900 line-clamp-2 leading-snug min-h-[32px]">
+        <h4 className="font-extrabold text-xs text-slate-900 line-clamp-2 leading-snug min-h-[32px]">
           {product.name}
         </h4>
 
@@ -110,7 +110,7 @@ export function GroceryProductCard({
             </select>
           </div>
         ) : (
-          <p className="text-[11px] font-medium text-slate-500 pt-0.5">
+          <p className="text-[11px] font-semibold text-slate-500 pt-0.5">
             {currentUnit}
           </p>
         )}
@@ -131,7 +131,7 @@ export function GroceryProductCard({
           </div>
         </div>
 
-        {/* Action Button: ADD or Stepper (Zero Layout Shift) */}
+        {/* Action Button: Zepto-Style ADD or Stepper (Zero Layout Shift) */}
         <div className="h-8 min-w-[70px] flex items-center justify-end">
           {quantity === 0 ? (
             <button
@@ -140,19 +140,19 @@ export function GroceryProductCard({
                 addToCart(product, selectedVariantId, storeId, storeName);
               }}
               disabled={!product.inStock}
-              className="h-8 px-3.5 rounded-xl border-2 border-emerald-600 bg-emerald-50/50 text-emerald-700 hover:bg-emerald-600 hover:text-white active:scale-95 font-black text-xs flex items-center gap-1 transition-all shadow-2xs"
+              className="h-8 px-3.5 rounded-xl border border-rose-500 bg-rose-50/60 text-rose-600 hover:bg-rose-500 hover:text-white active:scale-95 font-black text-xs flex items-center gap-1 transition-all shadow-2xs"
             >
               <Plus className="h-3 w-3 stroke-[3]" />
               <span>ADD</span>
             </button>
           ) : (
-            <div className="h-8 flex items-center bg-emerald-600 text-white rounded-xl shadow-xs overflow-hidden">
+            <div className="h-8 flex items-center bg-gradient-to-r from-rose-600 to-[#E11D48] text-white rounded-xl shadow-xs overflow-hidden">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   updateQuantity(product.id, quantity - 1, selectedVariantId);
                 }}
-                className="h-8 w-7 flex items-center justify-center hover:bg-emerald-700 active:scale-90 transition-all"
+                className="h-8 w-7 flex items-center justify-center hover:bg-black/10 active:scale-90 transition-all"
                 aria-label="Decrease quantity"
               >
                 <Minus className="h-3 w-3 stroke-[2.5]" />
@@ -166,7 +166,7 @@ export function GroceryProductCard({
                   updateQuantity(product.id, quantity + 1, selectedVariantId);
                 }}
                 disabled={quantity >= product.maxStock}
-                className="h-8 w-7 flex items-center justify-center hover:bg-emerald-700 active:scale-90 transition-all"
+                className="h-8 w-7 flex items-center justify-center hover:bg-black/10 active:scale-90 transition-all"
                 aria-label="Increase quantity"
               >
                 <Plus className="h-3 w-3 stroke-[2.5]" />

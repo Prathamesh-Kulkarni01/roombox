@@ -79,27 +79,27 @@ export function BazarLocationHeader({
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
-          className="flex items-center gap-2 text-left group p-1 -ml-1 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all"
+          className="flex items-center gap-2 text-left group p-1 -ml-1 rounded-xl hover:bg-purple-50/50 active:scale-[0.98] transition-all"
           aria-label="Change delivery location"
         >
-          {/* Green Map Pin Badge with Pulse */}
-          <div className="h-9 w-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-emerald-600/30">
-            <MapPin className="h-5 w-5 fill-white stroke-emerald-600" />
+          {/* Zepto-style Lightning Speed Badge */}
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#5800FF] to-[#7B2CBF] text-white flex items-center justify-center shrink-0 shadow-xs shadow-purple-500/25">
+            <span className="text-base select-none">⚡</span>
           </div>
 
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                {language === 'mr' ? 'घरपोच डिलिव्हरी' : 'Delivery In'} {activeTownConfig.estDeliveryTime}
+              <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded-md border border-rose-200 flex items-center gap-0.5">
+                <span>{language === 'mr' ? '१०-१५ मिनिटांत' : '10-15 MINS'}</span>
               </span>
             </div>
 
             <div className="flex items-center gap-1 pt-0.5">
-              <span className="font-extrabold text-[13px] text-slate-900 leading-tight group-hover:text-emerald-700 transition-colors">
+              <span className="font-extrabold text-[13px] text-slate-900 leading-tight group-hover:text-purple-700 transition-colors">
                 {language === 'mr' ? activeTownConfig.townMarathi : activeTownConfig.town} ·{' '}
                 <span className="font-normal text-slate-500 text-xs">{selectedArea}</span>
               </span>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-emerald-700 transition-colors shrink-0" />
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-purple-700 transition-colors shrink-0" />
             </div>
           </div>
         </button>
@@ -111,8 +111,8 @@ export function BazarLocationHeader({
       >
         <SheetHeader className="text-left pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <MapPin className="h-4 w-4 fill-emerald-600" />
+            <div className="h-8 w-8 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center">
+              <MapPin className="h-4 w-4 fill-purple-600" />
             </div>
             <div>
               <SheetTitle className="text-base font-bold text-slate-900">
@@ -135,7 +135,7 @@ export function BazarLocationHeader({
                 key={t.town}
                 className={`p-3.5 rounded-2xl border transition-all ${
                   isTownSelected
-                    ? 'border-emerald-500 bg-emerald-50/50 shadow-xs'
+                    ? 'border-purple-600 bg-purple-50/50 shadow-xs'
                     : 'border-slate-200 hover:border-slate-300 bg-white'
                 }`}
               >
@@ -144,12 +144,12 @@ export function BazarLocationHeader({
                     <span className="font-bold text-sm text-slate-900">
                       {t.townMarathi} ({t.town})
                     </span>
-                    <Badge variant="outline" className="text-[10px] bg-white text-emerald-700 border-emerald-300">
-                      {t.estDeliveryTime}
+                    <Badge variant="outline" className="text-[10px] bg-white text-purple-700 border-purple-300 font-bold">
+                      ⚡ {t.estDeliveryTime}
                     </Badge>
                   </div>
                   {isTownSelected && (
-                    <span className="h-5 w-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">
+                    <span className="h-5 w-5 rounded-full bg-purple-700 text-white flex items-center justify-center text-xs">
                       <Check className="h-3 w-3 stroke-[3]" />
                     </span>
                   )}
@@ -164,7 +164,7 @@ export function BazarLocationHeader({
                         onClick={() => handleAreaPick(t.town, area)}
                         className={`text-xs px-2.5 py-1 rounded-xl font-medium transition-all ${
                           isAreaActive
-                            ? 'bg-emerald-600 text-white shadow-xs'
+                            ? 'bg-purple-700 text-white shadow-xs font-bold'
                             : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
