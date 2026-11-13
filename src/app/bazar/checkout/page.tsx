@@ -498,7 +498,7 @@ function CheckoutContent() {
                   <Input 
                     type="tel"
                     maxLength={10}
-                    placeholder="7498526035"
+                    placeholder="98765 43210"
                     value={customerPhone} 
                     onChange={(e) => {
                       setCustomerPhone(e.target.value.replace(/\D/g, ''));
