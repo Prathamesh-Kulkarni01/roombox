@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types';
+import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types.js';
 import { MigrationResult } from './runner';
 
 export const up = async (db: admin.firestore.Firestore, isDryRun: boolean): Promise<MigrationResult> => {

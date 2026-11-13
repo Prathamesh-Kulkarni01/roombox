@@ -2,7 +2,7 @@ import { readdirSync } from 'fs';
 import { join } from 'path';
 import * as admin from 'firebase-admin';
 import * as dotenv from 'dotenv';
-import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types'; // Target version from code
+import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types.js'; // Target version from code
 dotenv.config();
 
 // Ensure firebase admin is initialized
