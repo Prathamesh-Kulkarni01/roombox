@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   MapPin, 
-  Plus, 
   Clock, 
   Check, 
   Banknote, 
@@ -14,28 +13,70 @@ import {
   CreditCard, 
   ChevronRight, 
   ShieldCheck, 
-  Sparkles,
-  Bike,
-  Store,
-  ShoppingBag,
-  PackageCheck
+  Sparkles, 
+  Bike, 
+  Store, 
+  ShoppingBag, 
+  PackageCheck,
+  Edit2,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
-import { GroceryCartProvider, useGroceryCart } from '@/modules/bazar/context/GroceryCartContext';
+import { useGroceryCart } from '@/modules/bazar/context/GroceryCartContext';
+import { BAZAR_TOWN_STORES } from '@/modules/bazar/data/storeDirectory';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 
 function CheckoutContent() {
   const router = useRouter();
-  const { items, cartStoreId, cartStoreName, totalItems, subtotal, deliveryFee, finalTotal, totalSavings, clearCart } = useGroceryCart();
+  const { 
+    items, 
+    cartStoreId, 
+    cartStoreName, 
+    totalItems, 
+    subtotal, 
+    deliveryFee, 
+    finalTotal, 
+    totalSavings, 
+    clearCart 
+  } = useGroceryCart();
 
   // Fulfilment Mode: 'delivery' (Home Delivery) OR 'pickup' (Order & Pick from Bazar)
-  const [fulfilmentMode, setFulfilmentMode] = useState<'delivery' | 'pickup'>('pickup');
-  
-  // Payment: COD (or Pay at Store on Pickup) is pre-selected as the default
+  const [fulfilmentMode, setFulfilmentMode] = useState<'delivery' | 'pickup'>('delivery');
   const [selectedPayment, setSelectedPayment] = useState<'cod' | 'upi' | 'card'>('cod');
   const [deliveryInstruction, setDeliveryInstruction] = useState('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
+  // Address State
+  const [customerName, setCustomerName] = useState('Prathamesh Kulkarni');
+  const [customerPhone, setCustomerPhone] = useState('9876543210');
+  const [addressLine, setAddressLine] = useState('फ्लॅट नं. ४, समर्थ कृपा अपार्टमेंट, शिवाजी चौक');
+  const [town, setTown] = useState('Palus');
+  const [isAddressSheetOpen, setIsAddressSheetOpen] = useState(false);
+  const [language, setLanguage] = useState<'mr' | 'en'>('mr');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedLang = localStorage.getItem('bazar_lang') as 'mr' | 'en' | null;
+      if (savedLang) setLanguage(savedLang);
+
+      const savedTown = localStorage.getItem('bazar_selected_town');
+      if (savedTown) setTown(savedTown);
+    }
+  }, []);
+
   const displayTotal = totalItems === 0 ? 248 : finalTotal;
   const displayItemsCount = totalItems === 0 ? 3 : totalItems;
+
+  const currentStore = BAZAR_TOWN_STORES.find(s => s.id === cartStoreId || s.slug === cartStoreId) || BAZAR_TOWN_STORES[0];
 
   const handlePlaceOrder = async () => {
     setIsPlacingOrder(true);
@@ -53,11 +94,12 @@ function CheckoutContent() {
         ];
 
     const orderPayload = {
-      storeId: cartStoreId || 'fresh-mart',
-      storeName: cartStoreName || 'Fresh Mart Supermarket',
-      customerName: 'Prathamesh Kulkarni',
-      customerPhone: '+91 98765 43210',
+      storeId: currentStore.id,
+      storeName: currentStore.name,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
       deliveryType: fulfilmentMode === 'pickup' ? 'store_pickup' : 'home_delivery',
+      deliveryAddress: fulfilmentMode === 'delivery' ? `${addressLine}, ${town}, सांगली` : undefined,
       paymentMethod: selectedPayment,
       totalAmount: displayTotal,
       items: orderItems,
@@ -83,421 +125,349 @@ function CheckoutContent() {
     }
 
     clearCart();
-    window.location.href = `/bazar/order-tracking?id=${targetOrderId}`;
+    router.push(`/bazar/order-tracking?id=${targetOrderId}`);
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#F8FAF9] text-[#0F1713] flex justify-center pb-24 selection:bg-[#0D7C4D]/20">
-      {/* Mobile-First Frame (430px max width on desktop) */}
-      <div className="w-full max-w-[430px] bg-[#FFFFFF] min-h-screen shadow-md flex flex-col relative border-x border-[#E5E9E6]">
+    <div className="w-full min-h-screen bg-[#F6F8F7] text-slate-900 flex justify-center pb-24 selection:bg-emerald-500/20">
+      {/* Mobile-First Frame */}
+      <div className="w-full max-w-[430px] bg-white min-h-screen shadow-md flex flex-col relative border-x border-slate-200">
         
         {/* ─────────────────────────────────────────────────────────────
-            1. TOP HEADER (Row 1, Screen 4 matching)
+            1. TOP APP HEADER
         ───────────────────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-30 bg-[#FFFFFF] border-b border-[#E5E9E6] px-4 pt-3 pb-2.5 flex items-center justify-between">
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 pt-3 pb-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               onClick={() => router.back()}
-              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-[#F2F4F3] active:scale-90 transition-all text-[#0F1713]"
+              className="h-8 w-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-all text-slate-800"
             >
-              <ArrowLeft className="h-5 w-5 stroke-[2.2]" />
+              <ArrowLeft className="h-4 w-4 stroke-[2.5]" />
             </button>
-            <h1 className="font-black text-base text-[#0F1713]">
-              Checkout
+            <h1 className="font-extrabold text-base text-slate-900">
+              {language === 'mr' ? 'ऑर्डर चेकआऊट' : 'Order Checkout'}
             </h1>
           </div>
 
-          <span className="text-xs font-bold text-[#8A948D]">
-            {displayItemsCount} {displayItemsCount === 1 ? 'item' : 'items'}
+          <span className="text-xs font-bold text-slate-500">
+            {displayItemsCount} {language === 'mr' ? 'वस्तू' : 'items'}
           </span>
         </header>
 
         {/* ─────────────────────────────────────────────────────────────
-            2. STEP PROGRESS INDICATOR (1. Address/Pickup -> 2. Payment -> 3. Review)
+            2. FREE DELIVERY THRESHOLD BANNER
         ───────────────────────────────────────────────────────────── */}
-        <div className="px-6 py-3 border-b border-[#F2F4F3] bg-[#FAFBFB]">
-          <div className="flex items-center justify-between relative">
-            <div className="absolute left-6 right-6 top-3.5 h-[2px] bg-[#E5E9E6] -z-0" />
-            
-            {/* Step 1: Mode & Location (Done) */}
-            <div className="flex flex-col items-center gap-1 relative z-10">
-              <div className="h-7 w-7 rounded-full bg-[#0D7C4D] text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                <Check className="h-4 w-4 stroke-[3]" />
-              </div>
-              <span className="text-[10px] font-bold text-[#0D7C4D]">
-                {fulfilmentMode === 'pickup' ? 'Pickup' : 'Address'}
+        {subtotal > 0 && subtotal < 299 && fulfilmentMode === 'delivery' && (
+          <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between text-xs font-bold text-emerald-800">
+            <div className="flex items-center gap-2">
+              <Bike className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span>
+                {language === 'mr' 
+                  ? `आणखी ₹${299 - subtotal} ची खरेदी करा = मोफत डिलिव्हरी` 
+                  : `Add ₹${299 - subtotal} more for FREE delivery`}
               </span>
             </div>
-
-            {/* Step 2: Payment (Active) */}
-            <div className="flex flex-col items-center gap-1 relative z-10">
-              <div className="h-7 w-7 rounded-full bg-[#0D7C4D] text-white flex items-center justify-center font-black text-xs shadow-2xs">
-                2
-              </div>
-              <span className="text-[10px] font-black text-[#0D7C4D]">Payment</span>
-            </div>
-
-            {/* Step 3: Review */}
-            <div className="flex flex-col items-center gap-1 relative z-10">
-              <div className="h-7 w-7 rounded-full bg-[#FFFFFF] text-[#8A948D] border-2 border-[#E5E9E6] flex items-center justify-center font-bold text-xs">
-                3
-              </div>
-              <span className="text-[10px] font-bold text-[#8A948D]">Confirm</span>
-            </div>
+            <Link href={`/bazar/store/${currentStore.slug}`} className="text-emerald-700 underline text-[11px]">
+              {language === 'mr' ? '+ जोडा' : '+ Add'}
+            </Link>
           </div>
-        </div>
+        )}
 
         {/* ─────────────────────────────────────────────────────────────
-            MAIN FORM BODY
+            3. MAIN BODY
         ───────────────────────────────────────────────────────────── */}
         <main className="p-4 space-y-4 flex-1">
           
-          {/* ─────────────────────────────────────────────────────────
-              FULFILMENT MODE TOGGLE: [Home Delivery] vs [Order & Pick from Bazar]
-          ───────────────────────────────────────────────────────── */}
-          <div className="bg-[#FFFFFF] rounded-2xl border border-[#E5E9E6] p-3 shadow-2xs space-y-2.5">
+          {/* Fulfilment Mode Toggle */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-extrabold text-[#0F1713] uppercase tracking-wider">
-                निवडा (Choose Fulfilment Mode)
+              <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
+                {language === 'mr' ? 'डिलिव्हरी पद्धत निवडा' : 'Choose Fulfilment'}
               </span>
-              <span className="text-[10px] font-bold text-[#0D7C4D] bg-[#E8F5EE] px-2 py-0.5 rounded-full">
-                Zero Extra Charges
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                15–25 Mins
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              {/* Option A: ORDER & PICK FROM BAZAR (HIGHLIGHTED) */}
-              <button
-                type="button"
-                onClick={() => setFulfilmentMode('pickup')}
-                className={`p-3 rounded-xl border-2 text-left flex flex-col justify-between transition-all active:scale-[0.98] ${
-                  fulfilmentMode === 'pickup'
-                    ? 'border-[#0D7C4D] bg-[#E8F5EE] shadow-xs'
-                    : 'border-[#E5E9E6] bg-[#FFFFFF] hover:bg-[#FAFBFB]'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                    fulfilmentMode === 'pickup' ? 'bg-[#0D7C4D] text-white' : 'bg-[#F2F4F3] text-[#525C56]'
-                  }`}>
-                    <Store className="h-4 w-4" />
-                  </div>
-                  <span className="bg-[#0D7C4D] text-white text-[8px] font-black px-1.5 py-0.2 rounded">
-                    FASTEST
-                  </span>
-                </div>
-                <div className="mt-2">
-                  <p className="font-extrabold text-xs text-[#0F1713] leading-tight">
-                    Order & Pick from Bazar
-                  </p>
-                  <p className="text-[10px] text-[#525C56] mt-0.5">
-                    दुकानदाराकडून पॅक करून ठेवा, थेट घेऊन जा
-                  </p>
-                </div>
-              </button>
-
-              {/* Option B: HOME DELIVERY */}
+              {/* Home Delivery */}
               <button
                 type="button"
                 onClick={() => setFulfilmentMode('delivery')}
                 className={`p-3 rounded-xl border-2 text-left flex flex-col justify-between transition-all active:scale-[0.98] ${
                   fulfilmentMode === 'delivery'
-                    ? 'border-[#0D7C4D] bg-[#E8F5EE] shadow-xs'
-                    : 'border-[#E5E9E6] bg-[#FFFFFF] hover:bg-[#FAFBFB]'
+                    ? 'border-emerald-600 bg-emerald-50/60 shadow-xs'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                    fulfilmentMode === 'delivery' ? 'bg-[#0D7C4D] text-white' : 'bg-[#F2F4F3] text-[#525C56]'
+                    fulfilmentMode === 'delivery' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
                   }`}>
                     <Bike className="h-4 w-4" />
                   </div>
-                  <span className="text-[10px] font-bold text-[#0D7C4D]">
-                    15–25m
+                  <span className="text-[10px] font-bold text-emerald-700">
+                    घरपोच
                   </span>
                 </div>
                 <div className="mt-2">
-                  <p className="font-extrabold text-xs text-[#0F1713] leading-tight">
-                    Home Delivery
+                  <p className="font-extrabold text-xs text-slate-900 leading-tight">
+                    {language === 'mr' ? 'घरपोच डिलिव्हरी' : 'Home Delivery'}
                   </p>
-                  <p className="text-[10px] text-[#525C56] mt-0.5">
-                    घरपोच डिलिव्हरी
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    15–25 mins थेट दारात
+                  </p>
+                </div>
+              </button>
+
+              {/* Order & Pick */}
+              <button
+                type="button"
+                onClick={() => setFulfilmentMode('pickup')}
+                className={`p-3 rounded-xl border-2 text-left flex flex-col justify-between transition-all active:scale-[0.98] ${
+                  fulfilmentMode === 'pickup'
+                    ? 'border-emerald-600 bg-emerald-50/60 shadow-xs'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                    fulfilmentMode === 'pickup' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    <Store className="h-4 w-4" />
+                  </div>
+                  <span className="bg-emerald-600 text-white text-[8px] font-black px-1.5 py-0.2 rounded">
+                    FAST
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <p className="font-extrabold text-xs text-slate-900 leading-tight">
+                    {language === 'mr' ? 'दुकानातून पिकअप' : 'Store Pickup'}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    पॅक करून ठेवा, थेट घ्या
                   </p>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* ─────────────────────────────────────────────────────────
-              DYNAMIC DETAILS: PICKUP POINT vs DELIVERY ADDRESS
-          ───────────────────────────────────────────────────────── */}
-          {fulfilmentMode === 'pickup' ? (
-            /* PICKUP STORE DETAILS */
-            <div className="bg-[#FFFFFF] rounded-2xl border border-[#E5E9E6] p-3.5 space-y-2.5 shadow-2xs">
+          {/* Dynamic Address / Pickup Point */}
+          {fulfilmentMode === 'delivery' ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2 shadow-2xs">
               <div className="flex items-center justify-between">
-                <span className="font-extrabold text-xs text-[#0F1713] uppercase tracking-wider flex items-center gap-1.5">
-                  <PackageCheck className="h-3.5 w-3.5 text-[#0D7C4D]" />
-                  Pickup Point (दुकानाचा पत्ता)
+                <span className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                  {language === 'mr' ? 'डिलिव्हरी पत्ता (Address)' : 'Delivery Address'}
                 </span>
-                <span className="text-[10px] font-bold text-[#10B981] flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />
-                  Ready in 10-15 mins
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsAddressSheetOpen(true)}
+                  className="text-xs font-bold text-emerald-700 flex items-center gap-1 hover:underline"
+                >
+                  <Edit2 className="h-3 w-3" />
+                  {language === 'mr' ? 'बदला (Edit)' : 'Edit'}
+                </button>
               </div>
 
-              <div className="bg-[#FAFBFB] rounded-xl p-3 border border-[#F2F4F3] space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-xs text-[#0F1713]">Fresh Mart Supermarket</span>
-                  <span className="bg-[#0D7C4D] text-white text-[9px] font-black px-1.5 py-0.2 rounded">Open</span>
-                </div>
-                <p className="text-[11px] text-[#525C56]">
-                  एसटी स्टँडसमोर, मेन रोड, पलूस (Palus), जि. सांगली
-                </p>
-                <p className="text-[10px] text-[#8A948D] pt-0.5 font-medium">
-                  ऑर्डर पॅक झाल्यावर फोनवर SMS/WhatsApp मेसेज येईल. थेट काऊंटरवरून पार्सल उचला.
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="font-bold text-xs text-slate-900">{customerName} · {customerPhone}</p>
+                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                  {addressLine}, {town}, सांगली
                 </p>
               </div>
             </div>
           ) : (
-            /* DELIVERY ADDRESS CARD */
-            <div className="bg-[#FFFFFF] rounded-2xl border border-[#E5E9E6] p-3.5 space-y-2.5 shadow-2xs">
+            <div className="bg-white rounded-2xl border border-slate-200 p-3.5 space-y-2 shadow-2xs">
               <div className="flex items-center justify-between">
-                <span className="font-extrabold text-xs text-[#0F1713] uppercase tracking-wider flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-[#0D7C4D]" />
-                  Delivery Address
+                <span className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <PackageCheck className="h-3.5 w-3.5 text-emerald-600" />
+                  {language === 'mr' ? 'पिकअप दुकान (Store Pickup)' : 'Pickup Location'}
                 </span>
-                <button className="text-xs font-bold text-[#0D7C4D] hover:underline flex items-center gap-0.5">
-                  <span>Change</span>
-                  <ChevronRight className="h-3 w-3" />
-                </button>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  10 Mins Ready
+                </span>
               </div>
 
-              <div className="bg-[#FAFBFB] rounded-xl p-3 border border-[#F2F4F3] space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-xs text-[#0F1713]">Home – पलूस, सांगली</span>
-                  <span className="bg-[#E8F5EE] text-[#0D7C4D] text-[9px] font-black px-1.5 py-0.2 rounded">Default</span>
-                </div>
-                <p className="font-bold text-xs text-[#525C56]">Prathamesh Kulkarni</p>
-                <p className="text-[11px] text-[#8A948D] leading-relaxed">
-                  At. Rajapur, Post. Palus, Tal. Tasgaon, Dist. Sangli - 416310
-                </p>
-                <p className="text-[11px] text-[#525C56] font-semibold pt-0.5">
-                  +91 98765 43210
-                </p>
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                <p className="font-bold text-xs text-slate-900">{currentStore.nameMarathi}</p>
+                <p className="text-xs text-slate-600 mt-0.5">{currentStore.address}</p>
               </div>
-
-              <button className="w-full py-2 rounded-xl border border-dashed border-[#CDEBD8] bg-[#F0FDF4] text-[#0D7C4D] font-bold text-xs flex items-center justify-center gap-1 active:scale-95 transition-all">
-                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
-                <span>Add New Address</span>
-              </button>
             </div>
           )}
 
-          {/* 4. PACKING & PICKUP / DELIVERY INSTRUCTIONS */}
-          <div className="bg-[#FFFFFF] rounded-2xl border border-[#E5E9E6] p-3.5 space-y-2 shadow-2xs">
-            <span className="font-extrabold text-xs text-[#0F1713] flex items-center justify-between">
-              <span>{fulfilmentMode === 'pickup' ? 'पॅकिंग सूचना (Packing Note)' : 'डिलिव्हरी सूचना (Delivery Note)'}</span>
-              <span className="text-[10px] font-normal text-[#8A948D]">(Optional)</span>
+          {/* Payment Method Selector */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs space-y-3">
+            <span className="font-extrabold text-xs text-slate-900 uppercase tracking-wider">
+              {language === 'mr' ? 'पेमेंट पद्धत (Payment Method)' : 'Payment Method'}
             </span>
-            <input
-              type="text"
-              placeholder={fulfilmentMode === 'pickup' ? 'उदा. ताजे पॅकेट द्यावे, सुट्टे पैसे आणावे...' : 'उदा. गेटवर ठेवावे, फोन करावा...'}
-              value={deliveryInstruction}
-              onChange={(e) => setDeliveryInstruction(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl bg-[#F2F4F3] text-xs text-[#0F1713] placeholder:text-[#8A948D] font-medium border-transparent focus:bg-[#FFFFFF] focus:border-[#0D7C4D] focus:outline-hidden transition-all"
-            />
-          </div>
 
-          {/* 5. TIMING ESTIMATE */}
-          <div className="bg-[#FFFFFF] rounded-2xl border border-[#E5E9E6] p-3.5 flex items-center justify-between shadow-2xs">
-            <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-[#E8F5EE] text-[#0D7C4D] flex items-center justify-center">
-                <Clock className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="font-extrabold text-xs text-[#0F1713]">
-                  {fulfilmentMode === 'pickup' ? '१०-१५ मिनिटांत पॅक तयार' : '१५–२५ मिनिटे घरपोच'}
-                </p>
-                <p className="text-[11px] text-[#8A948D]">
-                  {fulfilmentMode === 'pickup' ? 'दुकानदार ताबडतोब पॅकिंग सुरू करतील' : 'Today, 10:00 AM – 10:30 AM'}
-                </p>
-              </div>
-            </div>
-            <span className="text-xs font-bold text-[#0D7C4D]">
-              {fulfilmentMode === 'pickup' ? 'Ready Soon' : 'Express'}
-            </span>
-          </div>
-
-          {/* 6. PAYMENT METHOD SELECTOR (COD / PAY ON PICKUP FIRST, ZERO GATEWAY FEES) */}
-          <div className="bg-[#FFFFFF] rounded-2xl border border-[#E5E9E6] p-3.5 space-y-3 shadow-2xs">
-            <div className="flex items-center justify-between">
-              <span className="font-extrabold text-xs text-[#0F1713] uppercase tracking-wider">
-                Payment Method
-              </span>
-              <span className="text-[10px] font-bold text-[#0D7C4D] bg-[#E8F5EE] px-2 py-0.5 rounded-full">
-                Zero Fees
-              </span>
-            </div>
-
-            {/* OPTION 1: CASH ON DELIVERY / PAY AT BAZAR COUNTER (PRIMARY) */}
+            {/* COD */}
             <div
               onClick={() => setSelectedPayment('cod')}
-              className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start justify-between gap-3 ${
+              className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${
                 selectedPayment === 'cod'
-                  ? 'border-[#0D7C4D] bg-[#E8F5EE]/40 shadow-xs'
-                  : 'border-[#E5E9E6] bg-[#FFFFFF] hover:bg-[#FAFBFB]'
+                  ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
               }`}
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-3">
                 <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  selectedPayment === 'cod' ? 'bg-[#0D7C4D] text-white' : 'bg-[#F2F4F3] text-[#525C56]'
+                  selectedPayment === 'cod' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
                 }`}>
                   <Banknote className="h-5 w-5" />
                 </div>
-
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <p className="font-black text-xs text-[#0F1713]">
-                      {fulfilmentMode === 'pickup' ? 'Pay at Counter on Pickup (दुकानी रोख द्या)' : 'Cash on Delivery (घरी रोख द्या)'}
-                    </p>
-                    <span className="bg-[#0D7C4D] text-white text-[9px] font-black px-1.5 py-0.2 rounded">
-                      RECOMMENDED
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#525C56] mt-0.5">
-                    {fulfilmentMode === 'pickup'
-                      ? 'माल पाहून घ्या आणि थेट काऊंटरवर रोख पैसे द्या.'
-                      : 'माल घरी आल्यावर तपासून रोख पैसे द्या.'}
+                  <p className="font-bold text-xs text-slate-900">
+                    {language === 'mr' ? 'कॅश ऑन डिलिव्हरी (Cash on Delivery)' : 'Cash on Delivery (COD)'}
                   </p>
-                  <p className="text-[10px] text-[#0D7C4D] font-bold mt-0.5">
-                    ✓ No Gateway Fee · No Online Transaction Risk
+                  <p className="text-[10px] text-slate-500">
+                    {language === 'mr' ? 'सामान मिळाल्यावर रोख पैसे द्या' : 'Pay in cash upon delivery'}
                   </p>
                 </div>
               </div>
-
-              {/* Radio Circle */}
-              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                selectedPayment === 'cod' ? 'border-[#0D7C4D] bg-[#0D7C4D]' : 'border-[#8A948D]'
+              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                selectedPayment === 'cod' ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300'
               }`}>
                 {selectedPayment === 'cod' && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
               </div>
             </div>
 
-            {/* OPTION 2: UPI (GPay, PhonePe, Paytm, QR) */}
+            {/* UPI QR */}
             <div
               onClick={() => setSelectedPayment('upi')}
-              className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start justify-between gap-3 ${
+              className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${
                 selectedPayment === 'upi'
-                  ? 'border-[#0D7C4D] bg-[#E8F5EE]/40 shadow-xs'
-                  : 'border-[#E5E9E6] bg-[#FFFFFF] hover:bg-[#FAFBFB]'
+                  ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
+                  : 'border-slate-200 bg-white hover:bg-slate-50'
               }`}
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-3">
                 <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  selectedPayment === 'upi' ? 'bg-[#0D7C4D] text-white' : 'bg-[#F2F4F3] text-[#525C56]'
+                  selectedPayment === 'upi' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
                 }`}>
                   <QrCode className="h-5 w-5" />
                 </div>
-
                 <div>
-                  <p className="font-bold text-xs text-[#0F1713]">
-                    UPI / Scan QR (GPay, PhonePe, Paytm)
+                  <p className="font-bold text-xs text-slate-900">
+                    UPI / QR Code (GPay, PhonePe, Paytm)
                   </p>
-                  <p className="text-[11px] text-[#8A948D] mt-0.5">
-                    दुकानात किंवा डिलिव्हरी बॉयला UPI ने पैसे द्या.
+                  <p className="text-[10px] text-slate-500">
+                    {language === 'mr' ? 'डिलिव्हरी बॉयचा QR स्कॅन करून द्या' : 'Scan delivery agent QR or Pay via App'}
                   </p>
                 </div>
               </div>
-
-              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                selectedPayment === 'upi' ? 'border-[#0D7C4D] bg-[#0D7C4D]' : 'border-[#8A948D]'
+              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                selectedPayment === 'upi' ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300'
               }`}>
                 {selectedPayment === 'upi' && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
               </div>
             </div>
+          </div>
 
-            {/* OPTION 3: Credit / Debit Card */}
-            <div
-              onClick={() => setSelectedPayment('card')}
-              className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start justify-between gap-3 ${
-                selectedPayment === 'card'
-                  ? 'border-[#0D7C4D] bg-[#E8F5EE]/40 shadow-xs'
-                  : 'border-[#E5E9E6] bg-[#FFFFFF] hover:bg-[#FAFBFB]'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  selectedPayment === 'card' ? 'bg-[#0D7C4D] text-white' : 'bg-[#F2F4F3] text-[#525C56]'
-                }`}>
-                  <CreditCard className="h-5 w-5" />
-                </div>
+          {/* Bill Summary */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs space-y-2">
+            <span className="font-extrabold text-xs text-slate-900 uppercase tracking-wider">
+              {language === 'mr' ? 'बिलाचा तपशील (Bill Details)' : 'Bill Details'}
+            </span>
 
-                <div>
-                  <p className="font-bold text-xs text-[#0F1713]">
-                    Credit / Debit Card
-                  </p>
-                  <p className="text-[11px] text-[#8A948D] mt-0.5">
-                    Visa, MasterCard, RuPay
-                  </p>
-                </div>
+            <div className="space-y-1.5 pt-1 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>{language === 'mr' ? 'वस्तूंची किंमत' : 'Item Total'}</span>
+                <span className="font-bold text-slate-900">₹{subtotal > 0 ? subtotal : 248}</span>
               </div>
-
-              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                selectedPayment === 'card' ? 'border-[#0D7C4D] bg-[#0D7C4D]' : 'border-[#8A948D]'
-              }`}>
-                {selectedPayment === 'card' && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+              <div className="flex justify-between text-slate-600">
+                <span>{language === 'mr' ? 'डिलिव्हरी शुल्क' : 'Delivery Charge'}</span>
+                <span>
+                  {fulfilmentMode === 'pickup' || deliveryFee === 0 ? (
+                    <strong className="text-emerald-600 uppercase font-black">मोफत (FREE)</strong>
+                  ) : (
+                    `₹${deliveryFee}`
+                  )}
+                </span>
+              </div>
+              <div className="border-t border-slate-100 pt-2 flex justify-between font-extrabold text-sm text-slate-900">
+                <span>{language === 'mr' ? 'एकूण देय रक्कम' : 'Grand Total'}</span>
+                <span className="text-emerald-700 text-base">₹{displayTotal}</span>
               </div>
             </div>
           </div>
 
-          {/* 7. ORDER SUMMARY BREAKDOWN */}
-          <div className="bg-[#FAFBFB] rounded-2xl p-3.5 border border-[#E5E9E6] space-y-2 text-xs">
-            <div className="flex justify-between text-[#525C56]">
-              <span>Item Total</span>
-              <span className="font-medium text-[#0F1713]">₹{displayTotal}</span>
-            </div>
-            <div className="flex justify-between text-[#525C56]">
-              <span>{fulfilmentMode === 'pickup' ? 'Bazar Pickup Fee' : 'Delivery Fee'}</span>
-              <span className="text-[#0D7C4D] font-bold">FREE</span>
-            </div>
-            <div className="flex justify-between text-[#525C56]">
-              <span>Payment Gateway / Convenience Fee</span>
-              <span className="text-[#0D7C4D] font-bold">₹0 (FREE)</span>
-            </div>
-            <div className="pt-2 border-t border-[#E5E9E6] flex justify-between font-black text-sm text-[#0F1713]">
-              <span>Amount to Pay</span>
-              <span>₹{displayTotal}</span>
-            </div>
-          </div>
-
-        </main>
-
-        {/* ─────────────────────────────────────────────────────────────
-            8. STICKY BOTTOM CONFIRM ACTION BUTTON
-        ───────────────────────────────────────────────────────────── */}
-        <div className="sticky bottom-0 left-0 right-0 bg-[#FFFFFF] border-t border-[#E5E9E6] p-3.5">
-          <button
+          {/* Place Order CTA */}
+          <Button
             onClick={handlePlaceOrder}
             disabled={isPlacingOrder}
-            className="w-full h-12 bg-[#0D7C4D] hover:bg-[#0A663F] disabled:opacity-75 text-white font-black text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-[#0D7C4D]/25 active:scale-[0.99] transition-all"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-6 rounded-2xl text-base shadow-md transition-all active:scale-[0.99]"
           >
             {isPlacingOrder ? (
-              <span>Placing Order with Fresh Mart...</span>
+              <>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                {language === 'mr' ? 'ऑर्डर नोंदवत आहे...' : 'Placing Order...'}
+              </>
             ) : (
-              <span>
-                {fulfilmentMode === 'pickup'
-                  ? `Order & Pick from Bazar · ₹${displayTotal}`
-                  : `Place Order · Pay ₹${displayTotal} on Delivery`}
-              </span>
+              <>
+                {language === 'mr' ? `ऑर्डर पूर्ण करा (₹${displayTotal})` : `Place Order · ₹${displayTotal}`}
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </>
             )}
-          </button>
-        </div>
+          </Button>
+        </main>
+
+        {/* Address Edit Sheet */}
+        <Sheet open={isAddressSheetOpen} onOpenChange={setIsAddressSheetOpen}>
+          <SheetContent side="bottom" className="rounded-t-[28px] max-h-[85vh] p-5 bg-white max-w-[430px] mx-auto border-t border-slate-200">
+            <SheetHeader className="text-left pb-3 border-b border-slate-100">
+              <SheetTitle className="text-base font-bold text-slate-900">
+                {language === 'mr' ? 'डिलिव्हरी पत्ता बदला' : 'Edit Delivery Details'}
+              </SheetTitle>
+              <SheetDescription className="text-xs text-slate-500">
+                {language === 'mr' ? 'आपले नाव, फोन नंबर आणि पत्ता अचूक भरा.' : 'Provide your contact and delivery address'}
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="space-y-4 pt-3">
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-bold text-slate-700">नाव (Full Name)</Label>
+                <Input 
+                  value={customerName} 
+                  onChange={(e) => setCustomerName(e.target.value)} 
+                  className="h-10 rounded-xl text-xs" 
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-bold text-slate-700">मोबाईल नंबर (Phone)</Label>
+                <Input 
+                  value={customerPhone} 
+                  onChange={(e) => setCustomerPhone(e.target.value)} 
+                  className="h-10 rounded-xl text-xs" 
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label className="text-xs font-bold text-slate-700">घर / फ्लॅट व परिसर (Address)</Label>
+                <Input 
+                  value={addressLine} 
+                  onChange={(e) => setAddressLine(e.target.value)} 
+                  className="h-10 rounded-xl text-xs" 
+                />
+              </div>
+
+              <Button
+                onClick={() => setIsAddressSheetOpen(false)}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-5 rounded-xl text-sm mt-2"
+              >
+                {language === 'mr' ? 'पत्ता सेव्ह करा' : 'Save Address'}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
 
       </div>
     </div>
   );
 }
 
-export default function BazarCheckoutPage() {
+export default function CheckoutPage() {
   return <CheckoutContent />;
 }
