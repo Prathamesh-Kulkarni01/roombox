@@ -165,7 +165,7 @@ export default function Header() {
   // Subdomain PG public pages have their own sticky nav — suppress global header
   const isSitePage = pathname.startsWith('/site/');
   // Bazar customer storefront & discovery have their own mobile-first public navigation — suppress global header
-  const isBazarPublic = pathname === '/bazar' || pathname.startsWith('/bazar/store');
+  const isBazarRoute = pathname.startsWith('/bazar');
 
   const handleValueChange = async (pgId: string) => {
     dispatch(setSelectedPgId(pgId === 'all' ? null : pgId));
@@ -222,7 +222,7 @@ export default function Header() {
   }
 
   // Don't show global header on subdomain PG pages — they have their own nav
-  if (isSitePage || isBazarPublic) {
+  if (isSitePage || isBazarRoute) {
     return null;
   }
 
