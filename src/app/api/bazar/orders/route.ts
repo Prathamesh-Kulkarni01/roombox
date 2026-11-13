@@ -52,6 +52,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, order });
     }
 
+    const customerPhone = searchParams.get('customerPhone') || searchParams.get('phone');
+    if (customerPhone) {
+      const orders = await bazarService.getOrdersByCustomerPhone(customerPhone);
+      return NextResponse.json({ success: true, orders });
+    }
+
     const storeId = searchParams.get('storeId') || 'default_store';
     const orders = await bazarService.getOrdersByStore(storeId);
     return NextResponse.json({ success: true, orders });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
@@ -12,17 +12,20 @@ import {
   RotateCw, 
   ShoppingBag, 
   Store,
-  ChevronDown
+  AlertCircle,
+  Loader2,
+  PackageSearch
 } from 'lucide-react';
 import { NativeAppBottomNav } from '@/modules/bazar/components/NativeAppBottomNav';
+import type { BazarOrder } from '@/modules/bazar/schemas';
 
 interface OrderItemSummary {
   name: string;
   qty: number;
-  imageUrl: string;
+  imageUrl?: string;
 }
 
-interface OrderRecord {
+interface DisplayOrder {
   id: string;
   orderNumber: string;
   storeName: string;
@@ -35,60 +38,99 @@ interface OrderRecord {
   items: OrderItemSummary[];
 }
 
-const DEMO_ORDERS: OrderRecord[] = [
-  {
-    id: 'ord_1',
-    orderNumber: '#BZ12456',
-    storeName: 'Fresh Mart Supermarket',
-    dateText: 'Today, 10:12 AM',
-    status: 'active',
-    statusTextMarathi: 'डिलिव्हरीसाठी बाहेर आहे',
-    statusTextEn: 'Out for Delivery',
-    itemsCount: 3,
-    totalAmount: 248,
-    items: [
-      { name: 'Amul Taaza Milk', qty: 1, imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200&auto=format&fit=crop&q=80' },
-      { name: 'Fresh Farm Eggs', qty: 1, imageUrl: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=200&auto=format&fit=crop&q=80' },
-      { name: 'Fortune Sunlite Oil', qty: 1, imageUrl: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&auto=format&fit=crop&q=80' },
-    ]
-  },
-  {
-    id: 'ord_2',
-    orderNumber: '#BZ12034',
-    storeName: 'Fresh Mart Supermarket',
-    dateText: '12 Oct 2024 · 2:35 PM',
-    status: 'delivered',
-    statusTextMarathi: 'डिलिव्हरी झाली',
-    statusTextEn: 'Delivered',
-    itemsCount: 5,
-    totalAmount: 412,
-    items: [
-      { name: 'Fortune Sunlite Oil', qty: 2, imageUrl: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=200&auto=format&fit=crop&q=80' },
-      { name: 'Amul Salted Butter', qty: 1, imageUrl: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=200&auto=format&fit=crop&q=80' },
-      { name: 'Fresh Red Tomatoes', qty: 2, imageUrl: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=200&auto=format&fit=crop&q=80' },
-    ]
-  },
-  {
-    id: 'ord_3',
-    orderNumber: '#BZ11876',
-    storeName: 'Shree Mahalaxmi Super Bazar',
-    dateText: '08 Oct 2024 · 11:20 AM',
-    status: 'delivered',
-    statusTextMarathi: 'डिलिव्हरी झाली',
-    statusTextEn: 'Delivered',
-    itemsCount: 2,
-    totalAmount: 180,
-    items: [
-      { name: 'Nashik Red Onions', qty: 2, imageUrl: 'https://images.unsplash.com/photo-1508747703725-719777637510?w=200&auto=format&fit=crop&q=80' },
-      { name: 'Fresh Potatoes', qty: 2, imageUrl: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=200&auto=format&fit=crop&q=80' },
-    ]
+function mapBazarOrderToDisplay(order: BazarOrder): DisplayOrder {
+  const isDelivered = order.orderStatus === 'delivered';
+  const isCancelled = order.orderStatus === 'cancelled';
+  const isActive = !isDelivered && !isCancelled;
+
+  let statusTextEn = 'Placed';
+  let statusTextMarathi = 'ऑर्डर दिली';
+
+  if (order.orderStatus === 'confirmed') {
+    statusTextEn = 'Confirmed';
+    statusTextMarathi = 'स्वीकारली';
+  } else if (order.orderStatus === 'preparing') {
+    statusTextEn = 'Packing';
+    statusTextMarathi = 'पॅक करत आहे';
+  } else if (order.orderStatus === 'dispatched') {
+    statusTextEn = 'Out for Delivery';
+    statusTextMarathi = 'डिलिव्हरीसाठी बाहेर आहे';
+  } else if (isDelivered) {
+    statusTextEn = 'Delivered';
+    statusTextMarathi = 'डिलिव्हरी झाली';
+  } else if (isCancelled) {
+    statusTextEn = 'Cancelled';
+    statusTextMarathi = 'रद्द केली';
   }
-];
+
+  let dateText = 'Recent';
+  if (order.createdAt) {
+    try {
+      const d = new Date(order.createdAt);
+      dateText = d.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    } catch {
+      dateText = 'Recently';
+    }
+  }
+
+  const items: OrderItemSummary[] = (order.items || []).map(it => ({
+    name: it.productName || 'Item',
+    qty: it.quantity || 1,
+    imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&auto=format&fit=crop&q=80'
+  }));
+
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber ? `#${order.orderNumber}` : `#${order.id.slice(-6).toUpperCase()}`,
+    storeName: order.storeName || 'Local Town Store',
+    dateText,
+    status: isDelivered ? 'delivered' : isCancelled ? 'cancelled' : 'active',
+    statusTextMarathi,
+    statusTextEn,
+    itemsCount: items.reduce((acc, curr) => acc + curr.qty, 0) || items.length || 1,
+    totalAmount: order.totalAmount || 0,
+    items
+  };
+}
 
 export default function MyOrdersPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'completed'>('all');
+  const [orders, setOrders] = useState<DisplayOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [customerPhone, setCustomerPhone] = useState<string | null>(null);
 
-  const filteredOrders = DEMO_ORDERS.filter(o => {
+  useEffect(() => {
+    const savedPhone = typeof window !== 'undefined' ? localStorage.getItem('bazar_customer_phone') : null;
+    setCustomerPhone(savedPhone);
+
+    async function fetchOrders() {
+      if (!savedPhone) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/bazar/orders?customerPhone=${encodeURIComponent(savedPhone)}`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.orders)) {
+          const mapped = json.orders.map(mapBazarOrderToDisplay);
+          setOrders(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch customer orders:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchOrders();
+  }, []);
+
+  const filteredOrders = orders.filter(o => {
     if (activeTab === 'all') return true;
     if (activeTab === 'active') return o.status === 'active';
     if (activeTab === 'completed') return o.status === 'delivered';
@@ -96,23 +138,23 @@ export default function MyOrdersPage() {
   });
 
   return (
-    <div className="w-full min-h-screen bg-[#F8FAF9] text-[#0F1713] flex justify-center pb-24 selection:bg-[#0D7C4D]/20">
+    <div className="w-full min-h-screen bg-background text-foreground flex justify-center pb-24">
       {/* Mobile-First Frame (430px max width on desktop) */}
-      <div className="w-full max-w-[430px] bg-[#FFFFFF] min-h-screen shadow-md flex flex-col relative border-x border-[#E5E9E6]">
+      <div className="w-full max-w-[430px] bg-card min-h-screen shadow-md flex flex-col relative border-x border-border">
         
         {/* ─────────────────────────────────────────────────────────────
-            1. TOP HEADER (Row 2, Screen 4 matching)
+            1. TOP HEADER
         ───────────────────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-30 bg-[#FFFFFF] border-b border-[#E5E9E6] px-4 pt-3 pb-2.5">
+        <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-4 pt-3 pb-2.5">
           <div className="flex items-center gap-2">
             <Link
               href="/bazar"
-              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-[#F2F4F3] active:scale-90 transition-all text-[#0F1713]"
+              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted active:scale-90 transition-all text-foreground"
             >
               <ArrowLeft className="h-5 w-5 stroke-[2.2]" />
             </Link>
-            <h1 className="font-black text-base text-[#0F1713]">
-              माझी ऑर्डर्स <span className="text-[#8A948D] font-normal text-xs">(My Orders)</span>
+            <h1 className="font-black text-base text-foreground">
+              माझी ऑर्डर्स <span className="text-muted-foreground font-normal text-xs">(My Orders)</span>
             </h1>
           </div>
         </header>
@@ -120,24 +162,24 @@ export default function MyOrdersPage() {
         {/* ─────────────────────────────────────────────────────────────
             2. TABS ROW: सर्व (All), चालू (Active), पूर्ण झाले (Completed)
         ───────────────────────────────────────────────────────────── */}
-        <div className="px-4 py-2.5 flex items-center gap-2 border-b border-[#F2F4F3] bg-[#FAFBFB]">
+        <div className="px-4 py-2.5 flex items-center gap-2 border-b border-border/60 bg-muted/30">
           <button
             onClick={() => setActiveTab('all')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
               activeTab === 'all'
-                ? 'bg-[#0D7C4D] text-white shadow-2xs'
-                : 'bg-[#FFFFFF] text-[#525C56] border border-[#E5E9E6] hover:bg-[#F2F4F3]'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'bg-card text-muted-foreground border border-border hover:bg-muted'
             }`}
           >
-            सर्व (All)
+            सर्व (All) {orders.length > 0 && `(${orders.length})`}
           </button>
 
           <button
             onClick={() => setActiveTab('active')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
               activeTab === 'active'
-                ? 'bg-[#0D7C4D] text-white shadow-2xs'
-                : 'bg-[#FFFFFF] text-[#525C56] border border-[#E5E9E6] hover:bg-[#F2F4F3]'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'bg-card text-muted-foreground border border-border hover:bg-muted'
             }`}
           >
             चालू (Active)
@@ -147,8 +189,8 @@ export default function MyOrdersPage() {
             onClick={() => setActiveTab('completed')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95 ${
               activeTab === 'completed'
-                ? 'bg-[#0D7C4D] text-white shadow-2xs'
-                : 'bg-[#FFFFFF] text-[#525C56] border border-[#E5E9E6] hover:bg-[#F2F4F3]'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'bg-card text-muted-foreground border border-border hover:bg-muted'
             }`}
           >
             पूर्ण झाले (Completed)
@@ -156,97 +198,131 @@ export default function MyOrdersPage() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            3. ORDERS LIST (Matches Row 2, Screen 4)
+            3. ORDERS LIST
         ───────────────────────────────────────────────────────────── */}
         <main className="px-4 pt-3.5 space-y-3.5 flex-1">
-          {filteredOrders.map(order => {
-            const isActive = order.status === 'active';
-
-            return (
-              <div 
-                key={order.id}
-                className="bg-[#FFFFFF] rounded-2xl border border-[#E5E9E6] p-3.5 shadow-2xs space-y-3 hover:border-[#0D7C4D]/40 transition-all"
+          {isLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center text-center space-y-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-xs font-medium text-muted-foreground">ऑर्डर्स लोड होत आहेत... (Loading orders)</p>
+            </div>
+          ) : !customerPhone || orders.length === 0 ? (
+            <div className="py-20 px-4 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="h-16 w-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center">
+                <ShoppingBag className="h-8 w-8 stroke-[1.8]" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-foreground">अद्याप कोणतीही ऑर्डर नाही</h3>
+                <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+                  तुम्ही अजून कोणतीही ऑर्डर दिलेली नाही. तुमच्या गावातील दुकानांतून खरेदी सुरू करा!
+                </p>
+              </div>
+              <Link
+                href="/bazar"
+                className="mt-2 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-xs shadow-sm hover:opacity-95 active:scale-95 transition-all"
               >
-                {/* Header: Order Number, Date, Status */}
-                <div className="flex items-start justify-between">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-xs text-[#0F1713]">
-                        Order {order.orderNumber}
-                      </span>
-                      <span className="text-[10px] text-[#8A948D]">
-                        {order.dateText}
-                      </span>
+                <Store className="h-4 w-4" />
+                <span>दुकान पहा (Explore Stores)</span>
+              </Link>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="py-16 text-center text-xs text-muted-foreground space-y-1">
+              <PackageSearch className="h-8 w-8 mx-auto text-muted-foreground/60 mb-2" />
+              <p>या श्रेणीमध्ये कोणतीही ऑर्डर आढळली नाही.</p>
+              <p className="text-[11px]">(No orders found in this filter)</p>
+            </div>
+          ) : (
+            filteredOrders.map(order => {
+              const isActive = order.status === 'active';
+
+              return (
+                <div 
+                  key={order.id}
+                  className="bg-card rounded-2xl border border-border p-3.5 shadow-2xs space-y-3 hover:border-primary/40 transition-all"
+                >
+                  {/* Header: Order Number, Date, Status */}
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-xs text-foreground">
+                          Order {order.orderNumber}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {order.dateText}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        {isActive ? (
+                          <>
+                            <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                              {order.statusTextEn}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              ({order.statusTextMarathi})
+                            </span>
+                          </>
+                        ) : order.status === 'cancelled' ? (
+                          <>
+                            <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                            <span className="text-xs font-bold text-destructive">
+                              {order.statusTextEn}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-xs font-bold text-primary">
+                              {order.statusTextEn}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 pt-0.5">
-                      {isActive ? (
-                        <>
-                          <div className="h-2 w-2 rounded-full bg-[#F59E0B] animate-pulse" />
-                          <span className="text-xs font-bold text-[#F59E0B]">
-                            {order.statusTextEn}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5 text-[#0D7C4D]" />
-                          <span className="text-xs font-bold text-[#0D7C4D]">
-                            {order.statusTextEn}
-                          </span>
-                        </>
-                      )}
-                    </div>
+                    <span className="font-black text-sm text-foreground">
+                      ₹{order.totalAmount}
+                    </span>
                   </div>
 
-                  <span className="font-black text-sm text-[#0F1713]">
-                    ₹{order.totalAmount}
-                  </span>
-                </div>
-
-                {/* Items Thumbnails Row */}
-                <div className="flex items-center gap-2 py-1 overflow-x-auto scrollbar-hide">
-                  {order.items.map((item, idx) => (
-                    <div 
-                      key={idx} 
-                      className="relative h-12 w-12 rounded-xl bg-[#F8FAF9] border border-[#E5E9E6] p-1 flex items-center justify-center shrink-0"
-                    >
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.name}
-                        fill
-                        className="object-contain p-1"
-                      />
+                  {/* Items Names & Count */}
+                  <div className="py-1 space-y-1">
+                    <div className="text-xs font-medium text-foreground line-clamp-1">
+                      {order.items.map(i => `${i.name} (x${i.qty})`).join(', ')}
                     </div>
-                  ))}
-                  <span className="text-xs text-[#8A948D] pl-1 font-medium shrink-0">
-                    {order.itemsCount} Items
-                  </span>
+                    <span className="text-[11px] text-muted-foreground font-medium block">
+                      {order.itemsCount} Total Items
+                    </span>
+                  </div>
+
+                  {/* Action Button Row */}
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {order.storeName}
+                    </span>
+
+                    {isActive ? (
+                      <Link href={`/bazar/order-tracking?id=${order.id}`}>
+                        <button className="h-8 px-3 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 font-extrabold text-xs flex items-center gap-1 active:scale-95 transition-all">
+                          <span>Track Order</span>
+                          <ChevronRight className="h-3.5 w-3.5 stroke-[2.5]" />
+                        </button>
+                      </Link>
+                    ) : (
+                      <Link href="/bazar">
+                        <button className="h-8 px-3 rounded-xl bg-muted text-foreground hover:bg-muted/80 font-extrabold text-xs flex items-center gap-1 active:scale-95 transition-all">
+                          <RotateCw className="h-3 w-3" />
+                          <span>Reorder</span>
+                        </button>
+                      </Link>
+                    )}
+                  </div>
+
                 </div>
-
-                {/* Action Button Row */}
-                <div className="pt-2 border-t border-[#F2F4F3] flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-[#525C56]">
-                    {order.storeName}
-                  </span>
-
-                  {isActive ? (
-                    <Link href={`/bazar/order-tracking?id=${order.id}`}>
-                      <button className="h-8 px-3 rounded-xl bg-[#E8F5EE] text-[#0D7C4D] font-extrabold text-xs flex items-center gap-1 active:scale-95 transition-all">
-                        <span>Track Order</span>
-                        <ChevronRight className="h-3.5 w-3.5 stroke-[2.5]" />
-                      </button>
-                    </Link>
-                  ) : (
-                    <button className="h-8 px-3 rounded-xl bg-[#F2F4F3] text-[#0F1713] hover:bg-[#E5E9E6] font-extrabold text-xs flex items-center gap-1 active:scale-95 transition-all">
-                      <RotateCw className="h-3 w-3" />
-                      <span>Reorder</span>
-                    </button>
-                  )}
-                </div>
-
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </main>
 
         {/* ─────────────────────────────────────────────────────────────
@@ -258,4 +334,3 @@ export default function MyOrdersPage() {
     </div>
   );
 }
-

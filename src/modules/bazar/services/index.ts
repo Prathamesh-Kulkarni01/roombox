@@ -380,6 +380,39 @@ export class BazarService {
       return memoryOrders;
     }
   }
+
+  /**
+   * Fetch orders placed by a specific customer phone number
+   */
+  async getOrdersByCustomerPhone(phone: string): Promise<BazarOrder[]> {
+    const cleanDigits = phone.replace(/\D/g, '').slice(-10);
+    const memoryOrders = inMemoryOrdersCache.filter(o => {
+      const orderPhone = (o.customerPhone || '').replace(/\D/g, '').slice(-10);
+      return orderPhone === cleanDigits;
+    });
+
+    if (!db) return memoryOrders;
+    try {
+      const q = query(collection(db, ORDERS_COLLECTION), where('customerPhone', '==', cleanDigits));
+      const readPromise = getDocs(q);
+      const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Firestore read timeout')), 1500));
+      const snap = await Promise.race([readPromise, timeoutPromise]);
+      const dbOrders = snap.docs.map(d => {
+        const data = d.data() as BazarOrder;
+        return {
+          ...data,
+          id: d.id,
+          schemaVersion: data.schemaVersion ?? BAZAR_SCHEMA_VERSION,
+        };
+      });
+
+      const seen = new Set(dbOrders.map(o => o.id));
+      return [...dbOrders, ...memoryOrders.filter(o => !seen.has(o.id))];
+    } catch (e) {
+      console.warn('[BazarService] getOrdersByCustomerPhone fallback to cache:', e);
+      return memoryOrders;
+    }
+  }
   /**
    * Fetch a single order by ID
    */
