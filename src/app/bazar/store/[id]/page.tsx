@@ -308,12 +308,12 @@ function StorefrontScreen() {
 
           {/* Active Store Offer Pill */}
           {store.offersText && (
-            <div className="mt-2.5 bg-black/20 backdrop-blur-xs border border-white/20 rounded-xl px-2.5 py-1.5 flex items-center justify-between text-[11px] font-bold text-white shadow-2xs">
+            <div className="mt-2.5 bg-black/25 backdrop-blur-xs border border-white/20 rounded-xl px-2.5 py-1.5 flex items-center justify-between text-[11px] font-bold text-white shadow-2xs">
               <div className="flex items-center gap-1.5">
                 <Tag className="h-3.5 w-3.5 text-yellow-300 shrink-0" />
                 <span className="truncate">{language === 'mr' ? store.offersTextMarathi : store.offersText}</span>
               </div>
-              <span className="text-[9px] bg-rose-500 text-white font-black px-1.5 py-0.2 rounded-md uppercase tracking-tight shrink-0">
+              <span className="text-[9px] bg-white/20 text-white border border-white/30 font-black px-1.5 py-0.2 rounded-md uppercase tracking-tight shrink-0">
                 ACTIVE
               </span>
             </div>
@@ -446,8 +446,8 @@ function StorefrontScreen() {
         ───────────────────────────────────────────────────────────── */}
         <Sheet open={isCartSheetOpen} onOpenChange={setIsCartSheetOpen}>
           <SheetContent side="bottom" className="rounded-t-[28px] max-h-[85vh] overflow-y-auto p-5 bg-card text-card-foreground max-w-[430px] mx-auto border-t border-border">
-            <SheetHeader className="text-left pb-3 border-b border-slate-100">
-              <SheetTitle className="text-base font-black text-slate-900 flex items-center gap-2">
+            <SheetHeader className="text-left pb-3 border-b border-border">
+              <SheetTitle className="text-base font-black text-foreground flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-primary" />
                 {language === 'mr' ? `माझी टोपली (${totalItems} वस्तू)` : `My Basket (${totalItems} items)`}
               </SheetTitle>
@@ -457,14 +457,14 @@ function StorefrontScreen() {
             </SheetHeader>
 
             <div className="space-y-4 pt-3">
-              <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto">
+              <div className="divide-y divide-border/60 max-h-56 overflow-y-auto">
                 {items.map(item => (
                   <div key={item.product.id + (item.selectedVariantId || '')} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
-                      <p className="font-bold text-slate-900">{item.product.name}</p>
+                      <p className="font-bold text-foreground">{item.product.name}</p>
                       <p className="text-[11px] text-muted-foreground">{item.unit} · Qty: {item.quantity}</p>
                     </div>
-                    <span className="font-black text-slate-900">
+                    <span className="font-black text-foreground">
                       ₹{item.price * item.quantity}
                     </span>
                   </div>
@@ -473,9 +473,9 @@ function StorefrontScreen() {
 
               {/* Free Delivery Bar Upsell */}
               {subtotal < 299 && (
-                <div className="p-3 bg-purple-50 rounded-2xl border border-purple-200 text-xs flex items-center gap-2 text-purple-900">
+                <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20 text-xs flex items-center gap-2 text-primary">
                   <Bike className="h-4 w-4 text-primary shrink-0" />
-                  <span>
+                  <span className="font-bold">
                     {language === 'mr' 
                       ? `आणखी ₹${299 - subtotal} ची खरेदी करा आणि मोफत डिलिव्हरी मिळवा!` 
                       : `Add items worth ₹${299 - subtotal} more to get FREE Delivery!`}
@@ -484,18 +484,18 @@ function StorefrontScreen() {
               )}
 
               {/* Bill Summary */}
-              <div className="bg-muted/50 p-3 rounded-2xl space-y-1 text-xs">
-                <div className="flex justify-between text-slate-600">
+              <div className="bg-muted/50 p-3 rounded-2xl space-y-1 text-xs border border-border/50">
+                <div className="flex justify-between text-muted-foreground">
                   <span>{language === 'mr' ? 'वस्तूंची किंमत' : 'Item Total'}</span>
-                  <span className="font-bold">₹{subtotal}</span>
+                  <span className="font-bold text-foreground">₹{subtotal}</span>
                 </div>
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-muted-foreground">
                   <span>{language === 'mr' ? 'डिलिव्हरी फी' : 'Delivery Charge'}</span>
-                  <span>{deliveryFee === 0 ? <strong className="text-emerald-600">FREE</strong> : `₹${deliveryFee}`}</span>
+                  <span>{deliveryFee === 0 ? <strong className="text-primary font-black">FREE</strong> : `₹${deliveryFee}`}</span>
                 </div>
-                <div className="border-t border-slate-200 pt-1.5 flex justify-between font-extrabold text-sm text-slate-900">
+                <div className="border-t border-border pt-1.5 flex justify-between font-extrabold text-sm text-foreground">
                   <span>{language === 'mr' ? 'एकूण रक्कम' : 'To Pay'}</span>
-                  <span>₹{finalTotal}</span>
+                  <span className="text-primary">₹{finalTotal}</span>
                 </div>
               </div>
 

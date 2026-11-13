@@ -100,17 +100,17 @@ export function GroceryProductCard({
             <select
               value={selectedVariantId}
               onChange={(e) => setSelectedVariantId(e.target.value)}
-              className="w-auto max-w-full text-[11px] font-bold text-slate-700 bg-slate-100 border border-slate-200 rounded-lg px-2 py-0.5 focus:outline-hidden cursor-pointer"
+              className="w-auto max-w-full text-[11px] font-bold text-foreground bg-muted border border-border rounded-lg px-2 py-0.5 focus:outline-hidden focus:ring-1 focus:ring-primary cursor-pointer transition-colors"
             >
               {product.variants.map(v => (
-                <option key={v.id} value={v.id}>
+                <option key={v.id} value={v.id} className="bg-card text-foreground">
                   {v.unit}
                 </option>
               ))}
             </select>
           </div>
         ) : (
-          <p className="text-[11px] font-semibold text-slate-500 pt-0.5">
+          <p className="text-[11px] font-semibold text-muted-foreground pt-0.5">
             {currentUnit}
           </p>
         )}

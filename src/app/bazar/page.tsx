@@ -229,10 +229,10 @@ export default function BazarDiscoveryPage() {
                   href={`/bazar/categories?cat=${cat.id}`}
                   className="flex flex-col items-center gap-1.5 shrink-0 group active:scale-95 transition-all"
                 >
-                  <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${cat.bgGradient} border border-slate-100 flex flex-col items-center justify-center shadow-2xs group-hover:shadow-xs group-hover:scale-105 transition-all`}>
+                  <div className="h-14 w-14 rounded-2xl bg-card border border-border/80 flex flex-col items-center justify-center shadow-2xs group-hover:shadow-xs group-hover:scale-105 transition-all">
                     <IconComp className={`h-6 w-6 ${cat.textColor}`} />
                   </div>
-                  <span className="text-[11px] font-bold text-slate-800 tracking-tight text-center max-w-[64px] leading-tight line-clamp-1">
+                  <span className="text-[11px] font-bold text-foreground tracking-tight text-center max-w-[64px] leading-tight line-clamp-1">
                     {language === 'mr' ? cat.nameMarathi : cat.name}
                   </span>
                 </Link>
@@ -414,8 +414,8 @@ export default function BazarDiscoveryPage() {
 
                     {/* Offer Pill / Banner if available */}
                     {store.offersText && (
-                      <div className="bg-rose-50/70 border border-rose-100 rounded-xl px-2.5 py-1 flex items-center gap-1.5 text-[11px] font-bold text-rose-800">
-                        <Tag className="h-3 w-3 text-rose-600 shrink-0" />
+                      <div className="bg-primary/10 border border-primary/25 rounded-xl px-2.5 py-1 flex items-center gap-1.5 text-[11px] font-bold text-primary">
+                        <Tag className="h-3 w-3 text-primary shrink-0" />
                         <span className="truncate">
                           {language === 'mr' ? store.offersTextMarathi : store.offersText}
                         </span>
