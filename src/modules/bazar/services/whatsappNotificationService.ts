@@ -1,6 +1,13 @@
 import { sendWhatsAppMessage } from '@/lib/whatsapp/send-message';
 import type { BazarOrder } from '../schemas';
 
+function formatPhoneNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  return digits;
+}
+
 /**
  * Regional Marathi WhatsApp Notification Service for Bazar
  * Designed for rural/semi-urban merchants and local customers across Maharashtra.
@@ -11,6 +18,7 @@ export class BazarWhatsAppNotificationService {
    */
   static async sendOrderPlacedCustomerNotification(order: BazarOrder, trackingUrl?: string) {
     if (!order.customerPhone) return { success: false, reason: 'No customer phone' };
+    const formattedPhone = formatPhoneNumber(order.customerPhone);
 
     const storeName = order.storeName || 'स्थानिक सुपर बझार';
     const totalAmount = order.totalAmount || 0;
@@ -42,7 +50,7 @@ ${trackingLink}
 
 _स्थानिक दुकानांना सहकार्य केल्याबद्दल धन्यवाद!_`;
 
-    return sendWhatsAppMessage(order.customerPhone, message);
+    return sendWhatsAppMessage(formattedPhone, message);
   }
 
   /**
@@ -50,6 +58,7 @@ _स्थानिक दुकानांना सहकार्य के�
    */
   static async sendNewOrderMerchantAlert(merchantPhone: string, order: BazarOrder) {
     if (!merchantPhone) return { success: false, reason: 'No merchant phone' };
+    const formattedPhone = formatPhoneNumber(merchantPhone);
 
     const totalAmount = order.totalAmount || 0;
     const itemCount = (order.items || []).reduce((acc, curr) => acc + (curr.quantity || 1), 0);
@@ -65,7 +74,7 @@ _स्थानिक दुकानांना सहकार्य के�
 पॅकिंग सुरू करण्यासाठी व ऑर्डर व्यवस्थापित करण्यासाठी आपला *Bazar Merchant Queue* तपासा:
 https://bazar.roombox.in/bazar/queue`;
 
-    return sendWhatsAppMessage(merchantPhone, message);
+    return sendWhatsAppMessage(formattedPhone, message);
   }
 
   /**
@@ -73,6 +82,7 @@ https://bazar.roombox.in/bazar/queue`;
    */
   static async sendOrderStatusUpdateNotification(order: BazarOrder, newStatus: string) {
     if (!order.customerPhone) return { success: false, reason: 'No customer phone' };
+    const formattedPhone = formatPhoneNumber(order.customerPhone);
 
     const storeName = order.storeName || 'सुपर बझार';
     const orderNo = order.id ? order.id.slice(-6).toUpperCase() : 'ORD';
@@ -114,7 +124,7 @@ https://bazar.roombox.in/bazar/queue`;
         return { success: false, reason: 'Ignored status' };
     }
 
-    return sendWhatsAppMessage(order.customerPhone, statusMessage);
+    return sendWhatsAppMessage(formattedPhone, statusMessage);
   }
 
   /**
@@ -122,6 +132,7 @@ https://bazar.roombox.in/bazar/queue`;
    */
   static async sendCustomerWelcomeNotification(customerPhone: string, customerName?: string) {
     if (!customerPhone) return { success: false };
+    const formattedPhone = formatPhoneNumber(customerPhone);
 
     const message = 
 `🌸 *स्वागतम! Roombox Bazar मध्ये आपले सहर्ष स्वागत आहे.* 🌸

@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
     };
 
     // Trigger Regional Marathi WhatsApp notification asynchronously (non-blocking)
-    BazarWhatsAppNotificationService.sendOrderPlacedCustomerNotification(fullOrder).catch((err) => {
+    BazarWhatsAppNotificationService.sendOrderPlacedCustomerNotification(fullOrder).then((res) => {
+      console.log('[Bazar WhatsApp] Order notification dispatch result:', res);
+    }).catch((err) => {
       console.warn('[Bazar WhatsApp] Customer notification error:', err?.message || err);
     });
 
