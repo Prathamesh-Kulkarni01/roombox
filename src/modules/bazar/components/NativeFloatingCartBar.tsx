@@ -14,7 +14,10 @@ export function NativeFloatingCartBar({ onOpenCart, language = 'mr' }: NativeFlo
   if (totalItems === 0) return null;
 
   return (
-    <div className="fixed bottom-14 left-0 right-0 z-40 px-3 pb-2 max-w-[430px] mx-auto animate-in slide-in-from-bottom duration-300 pointer-events-none">
+    <div 
+      className="fixed left-0 right-0 z-50 px-3 max-w-[430px] mx-auto pointer-events-none transition-all duration-300"
+      style={{ bottom: '16px' }}
+    >
       <div className="w-full h-12 bg-gradient-to-r from-[#5800FF] via-[#7B2CBF] to-[#E11D48] text-white rounded-2xl px-3.5 flex items-center justify-between shadow-xl shadow-purple-900/30 pointer-events-auto border border-white/20">
         
         {/* Left: Cart Icon with Badge + Items summary */}
