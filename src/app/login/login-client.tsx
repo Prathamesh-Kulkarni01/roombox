@@ -35,6 +35,7 @@ import {
 import { usePgBranding } from "@/context/branding-context";
 import { useFirebaseTenant } from "@/platform/auth";
 import { RoleContextSwitcher } from "@/components/auth/RoleContextSwitcher";
+import { getActiveAppConfig } from "@/core/config/app-mode";
 
 declare global {
   interface Window {
@@ -63,6 +64,8 @@ export default function LoginPageClient() {
   const appLoading = useAppSelector((state) => state.app.isLoading);
   const currentUser = useAppSelector((state) => state.user.currentUser);
   const branding = usePgBranding();
+  const appConfig = getActiveAppConfig();
+  const labels = appConfig.authLabels;
   
   // Use dynamically resolved tenant auth instead of global central auth
   const { auth } = useFirebaseTenant();
@@ -313,9 +316,9 @@ export default function LoginPageClient() {
       <div id="recaptcha-container"></div>
       <Card className="w-full max-w-sm shadow-none sm:shadow-xl border-0 sm:border bg-transparent sm:bg-card">
         <CardHeader className="text-center px-0 sm:px-6">
-          <CardTitle className="text-3xl font-extrabold pb-2 tracking-tight">{branding?.siteTitle ?? "RentSutra"}</CardTitle>
+          <CardTitle className="text-3xl font-extrabold pb-2 tracking-tight">{branding?.siteTitle ?? labels.title}</CardTitle>
           <CardDescription className="text-base">
-            {activeTab === "tenant" ? "Authenticate to continue" : (isSignUp ? "Create an owner account" : "Sign in to owner portal")}
+            {activeTab === "tenant" ? labels.description : (isSignUp ? labels.createAccountText : labels.managerPortalText)}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0 sm:px-6">
@@ -324,8 +327,8 @@ export default function LoginPageClient() {
           ) : (
              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                <TabsList className="grid w-full grid-cols-2 mb-6 h-12 sm:h-10">
-                 <TabsTrigger value="tenant" className="text-base sm:text-sm h-full">Tenant</TabsTrigger>
-                 <TabsTrigger value="owner" className="text-base sm:text-sm h-full">Owner</TabsTrigger>
+                 <TabsTrigger value="tenant" className="text-base sm:text-sm h-full">{labels.primaryTab}</TabsTrigger>
+                 <TabsTrigger value="owner" className="text-base sm:text-sm h-full">{labels.managerTab}</TabsTrigger>
                </TabsList>
 
                <TabsContent value="tenant" className="mt-0 space-y-4">

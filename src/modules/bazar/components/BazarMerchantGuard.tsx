@@ -67,9 +67,9 @@ export function BazarMerchantGuard({ children }: { children: React.ReactNode }) 
         <div className="flex flex-col w-full gap-3">
           <Button 
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-6 rounded-xl text-base shadow-sm"
-            onClick={() => router.push(`/bazar/login?redirect=${encodeURIComponent(pathname)}`)}
+            onClick={() => router.push(`/login?redirect=${encodeURIComponent(pathname)}`)}
           >
-            मोबाईल नंबरने लॉगिन करा (Sign In)
+            लॉगिन करा (Sign In)
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
 
@@ -83,3 +83,4 @@ export function BazarMerchantGuard({ children }: { children: React.ReactNode }) 
 
   return <>{children}</>;
 }
+

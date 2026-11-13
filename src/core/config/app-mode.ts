@@ -9,6 +9,14 @@ export interface AppModeConfig {
   scopeLabel: string; // e.g. "Property" vs "Store" vs "Gym"
   scopeSelectorPlaceholder: string;
   routesPrefix?: string;
+  authLabels: {
+    title: string;
+    description: string;
+    primaryTab: string; // e.g. "Tenant" vs "Customer" vs "Member"
+    managerTab: string; // e.g. "Owner" vs "Merchant" vs "Trainer / Admin"
+    managerPortalText: string;
+    createAccountText: string;
+  };
 }
 
 export const APP_MODE_CONFIGS: Record<AppMode, AppModeConfig> = {
@@ -21,6 +29,14 @@ export const APP_MODE_CONFIGS: Record<AppMode, AppModeConfig> = {
     scopeLabel: 'Property',
     scopeSelectorPlaceholder: 'Select Property',
     routesPrefix: '/dashboard',
+    authLabels: {
+      title: 'RentSutra',
+      description: 'Authenticate to continue',
+      primaryTab: 'Tenant',
+      managerTab: 'Owner',
+      managerPortalText: 'Sign in to owner portal',
+      createAccountText: 'Create an owner account',
+    },
   },
   bazar: {
     id: 'bazar',
@@ -31,6 +47,14 @@ export const APP_MODE_CONFIGS: Record<AppMode, AppModeConfig> = {
     scopeLabel: 'Store / Outlet',
     scopeSelectorPlaceholder: 'Select Store',
     routesPrefix: '/bazar',
+    authLabels: {
+      title: 'Palus Local Bazar',
+      description: 'स्थानिक बाजार आणि किराणा पोर्टल',
+      primaryTab: 'ग्राहक (Customer)',
+      managerTab: 'दुकानदार (Merchant)',
+      managerPortalText: 'दुकानदार पोर्टलमध्ये लॉगिन करा',
+      createAccountText: 'नवीन दुकान नोंदणी करा (Register Shop)',
+    },
   },
   gym: {
     id: 'gym',
@@ -41,6 +65,14 @@ export const APP_MODE_CONFIGS: Record<AppMode, AppModeConfig> = {
     scopeLabel: 'Branch',
     scopeSelectorPlaceholder: 'Select Branch',
     routesPrefix: '/gym',
+    authLabels: {
+      title: 'FitPulse Gym',
+      description: 'Gym memberships & fitness portal',
+      primaryTab: 'Member',
+      managerTab: 'Manager',
+      managerPortalText: 'Sign in to gym manager portal',
+      createAccountText: 'Create a gym manager account',
+    },
   },
   unified: {
     id: 'unified',
@@ -50,6 +82,14 @@ export const APP_MODE_CONFIGS: Record<AppMode, AppModeConfig> = {
     defaultRoute: '/dashboard',
     scopeLabel: 'Workspace',
     scopeSelectorPlaceholder: 'Select Workspace',
+    authLabels: {
+      title: 'Roombox Enterprise',
+      description: 'Unified multi-vertical access portal',
+      primaryTab: 'End User',
+      managerTab: 'Manager / Owner',
+      managerPortalText: 'Sign in to workspace manager portal',
+      createAccountText: 'Create a manager account',
+    },
   },
 };
 
