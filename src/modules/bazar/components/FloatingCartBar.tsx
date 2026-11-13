@@ -52,7 +52,11 @@ export function FloatingCartBar({ store }: FloatingCartBarProps) {
     ];
 
     const message = encodeURIComponent(lines.join('\n'));
-    const phone = store.phone || '919876543210';
+    const phone = store.phone || '';
+    if (!phone) {
+      alert('दुकानदाराचा मोबाईल क्रमांक उपलब्ध नाही');
+      return;
+    }
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
     clearCart();
     setIsOpen(false);
