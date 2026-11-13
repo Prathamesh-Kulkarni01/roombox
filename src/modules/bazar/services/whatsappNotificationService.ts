@@ -15,7 +15,10 @@ export class BazarWhatsAppNotificationService {
     const storeName = order.storeName || 'स्थानिक सुपर बझार';
     const totalAmount = order.totalAmount || 0;
     const itemsSummary = (order.items || [])
-      .map(item => `• ${item.name} (${item.quantity} ${item.unit || 'नग'}) - ₹${item.price * item.quantity}`)
+      .map(item => {
+        const title = item.productName || (item as any).name || 'वस्तू';
+        return `• ${title} (${item.quantity} ${item.unit || 'नग'}) - ₹${item.price * item.quantity}`;
+      })
       .join('\n');
 
     const paymentText = order.paymentMethod === 'cod' ? 'रोख / काउंटरवर देणे (Pay at Counter)' : 'ऑनलाइन भरले (Paid)';
