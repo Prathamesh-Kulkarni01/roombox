@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { 
   Search, 
   Mic, 
   Store, 
-  Navigation, 
+  Share2, 
   Zap, 
   Tag, 
   Heart, 
@@ -26,13 +26,21 @@ import {
   Home,
   CheckCircle2,
   Sparkles,
-  SlidersHorizontal,
-  BadgeCheck
+  BadgeCheck,
+  ShieldCheck,
+  Clock,
+  ArrowRight,
+  TrendingUp,
+  Percent,
+  Check
 } from 'lucide-react';
 import { NativeAppBottomNav } from '@/modules/bazar/components/NativeAppBottomNav';
-import { BazarLocationHeader } from '@/modules/bazar/components/BazarLocationHeader';
 import { BazarSearchOverlay } from '@/modules/bazar/components/BazarSearchOverlay';
+import { GroceryProductCard } from '@/modules/bazar/components/GroceryProductCard';
+import { NativeFloatingCartBar } from '@/modules/bazar/components/NativeFloatingCartBar';
+import { ProductDetailsSheet } from '@/modules/bazar/components/ProductDetailsSheet';
 import { BAZAR_TOWN_STORES, POPULAR_SHOP_CATEGORIES, type BazarTownStore } from '@/modules/bazar/data/storeDirectory';
+import { BAZAR_PRODUCT_CATALOG, type GroceryProduct } from '@/modules/bazar/data/groceryCatalog';
 import { Badge } from '@/components/ui/badge';
 
 export default function BazarDiscoveryPage() {
@@ -40,7 +48,8 @@ export default function BazarDiscoveryPage() {
   const [selectedTown, setSelectedTown] = useState('Palus');
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
   const [favoriteStoreIds, setFavoriteStoreIds] = useState<string[]>(['fresh-mart']);
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
+  const [selectedProduct, setSelectedProduct] = useState<GroceryProduct | null>(null);
+  const [copiedShare, setCopiedShare] = useState(false);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -60,14 +69,6 @@ export default function BazarDiscoveryPage() {
     }
   }, []);
 
-  const handleToggleLanguage = () => {
-    const nextLang = language === 'mr' ? 'en' : 'mr';
-    setLanguage(nextLang);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('bazar_lang', nextLang);
-    }
-  };
-
   const handleToggleFavorite = (storeId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -80,24 +81,118 @@ export default function BazarDiscoveryPage() {
     }
   };
 
-  // Town stores
+  const handleShareBazar = async () => {
+    const shareData = {
+      title: 'RentSutra Bazar | स्थानिक बाजार थेट घरपोच',
+      text: 'Order groceries, fresh milk, vegetables & daily essentials from local trusted shops in Palus & Sangli in 10-15 mins!',
+      url: typeof window !== 'undefined' ? window.location.href : 'https://rentsutra.in/bazar',
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (e) {
+        // user dismissed
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        setCopiedShare(true);
+        setTimeout(() => setCopiedShare(false), 2500);
+      } catch (e) {
+        // fallback
+      }
+    }
+  };
+
+  // Town stores & Bestsellers
   const townStores = BAZAR_TOWN_STORES;
   const favoriteStores = BAZAR_TOWN_STORES.filter(s => favoriteStoreIds.includes(s.id));
+  const trendingBestsellers = useMemo(() => {
+    return BAZAR_PRODUCT_CATALOG.slice(0, 6);
+  }, []);
 
   return (
-    <div className="w-full min-h-screen bg-[#F4F5F8] font-sans antialiased text-slate-900 flex justify-center pb-24 selection:bg-purple-500/20">
+    <div className="w-full min-h-screen bg-slate-50 font-sans antialiased text-slate-900 flex justify-center pb-24 selection:bg-purple-500/20">
       {/* Mobile Shell (Fixed 430px max on Desktop) */}
       <div className="w-full max-w-[430px] bg-white min-h-screen flex flex-col shadow-lg relative border-x border-slate-200">
         
         {/* Top bar rendered uniformly by platform root <Header /> */}
 
         {/* ─────────────────────────────────────────────────────────────
-            2. PROMINENT SEARCH BAR (Opens Full Search Overlay)
+            1. BRANDED HERO BANNER & CUSTOMER SHARE ACTION
         ───────────────────────────────────────────────────────────── */}
-        <div className="px-4 pt-2.5 pb-1">
+        <div className="px-3.5 pt-2.5 pb-1">
+          <div className="relative rounded-3xl bg-gradient-to-br from-[#5800FF] via-[#7B2CBF] to-[#E11D48] p-4 text-white shadow-xl shadow-purple-950/20 overflow-hidden">
+            {/* Background Glows & Speed Lines */}
+            <div className="absolute top-0 right-0 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-yellow-400/20 rounded-full blur-xl pointer-events-none" />
+
+            <div className="relative z-10 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase text-yellow-300 border border-white/20 shadow-xs">
+                  <span>⚡ 10-15 MINS</span>
+                  <span className="text-white/70">•</span>
+                  <span className="text-white">{language === 'mr' ? 'थेट घरपोच' : 'SUPERFAST'}</span>
+                </div>
+
+                {/* Share Button Pill */}
+                <button
+                  onClick={handleShareBazar}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white text-purple-950 font-extrabold text-[11px] hover:bg-yellow-300 hover:text-purple-950 active:scale-90 transition-all shadow-md"
+                  title="Share Bazar with friends & family"
+                >
+                  {copiedShare ? (
+                    <>
+                      <Check className="h-3 w-3 stroke-[3] text-emerald-600" />
+                      <span className="text-emerald-700">{language === 'mr' ? 'कॉपी झाले!' : 'Copied!'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-3 w-3 stroke-[2.5]" />
+                      <span>{language === 'mr' ? 'शेअर करा' : 'Share'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div>
+                <h1 className="text-xl font-black leading-tight tracking-tight">
+                  {language === 'mr' ? 'RentSutra बाजार' : 'RentSutra Bazar'}
+                </h1>
+                <p className="text-xs text-purple-100 font-medium leading-snug pt-0.5 max-w-[85%]">
+                  {language === 'mr' 
+                    ? 'तुमच्या शहरातील खात्रीशीर दुकाने आणि किराणा आता एकाच ठिकाणी.' 
+                    : 'Your town’s trusted kirana & daily essentials delivered fast.'}
+                </p>
+              </div>
+
+              {/* Trust Badges Bar */}
+              <div className="pt-1 flex items-center gap-3 text-[10px] font-bold text-white/95">
+                <div className="flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5 text-yellow-300" />
+                  <span>{language === 'mr' ? '१००% अस्सल माल' : '100% Genuine'}</span>
+                </div>
+                <span className="text-white/40">•</span>
+                <div className="flex items-center gap-1">
+                  <Bike className="h-3.5 w-3.5 text-emerald-300" />
+                  <span>{language === 'mr' ? 'स्थानिक डिलिव्हरी' : 'Local Delivery'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
+            2. PROMINENT SEARCH BAR (Interactive Trigger)
+        ───────────────────────────────────────────────────────────── */}
+        <div className="px-3.5 pt-2 pb-1">
           <button
             onClick={() => setSearchOverlayOpen(true)}
-            className="w-full h-11 px-3.5 rounded-2xl bg-slate-100 hover:bg-slate-100/80 border border-slate-200/80 flex items-center justify-between text-left text-xs text-slate-500 shadow-2xs active:scale-[0.99] transition-all"
+            className="w-full h-11 px-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200/80 flex items-center justify-between text-left text-xs text-slate-500 shadow-2xs active:scale-[0.99] transition-all"
           >
             <div className="flex items-center gap-2.5 overflow-hidden">
               <Search className="h-4 w-4 text-purple-600 shrink-0 stroke-[2.5]" />
@@ -116,8 +211,8 @@ export default function BazarDiscoveryPage() {
         {/* ─────────────────────────────────────────────────────────────
             3. INSTANT SHOP CATEGORIES REEL (Horizontal Carousel)
         ───────────────────────────────────────────────────────────── */}
-        <div className="pt-2.5 pb-2">
-          <div className="flex gap-2.5 px-4 overflow-x-auto scrollbar-hide scroll-smooth">
+        <div className="pt-2 pb-1">
+          <div className="flex gap-2.5 px-3.5 overflow-x-auto scrollbar-hide scroll-smooth">
             {POPULAR_SHOP_CATEGORIES.map((cat) => {
               const IconComp = 
                 cat.iconName === 'ShoppingBasket' ? ShoppingBasket :
@@ -147,43 +242,46 @@ export default function BazarDiscoveryPage() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            4. COMPACT HERO PROMOTIONAL BANNER (Zepto Fast Vibe)
+            4. TRENDING BESTSELLERS SHELF (Direct Add-to-Cart)
         ───────────────────────────────────────────────────────────── */}
-        <div className="px-4 py-1.5">
-          <Link href="/bazar/store/fresh-mart">
-            <div className="relative rounded-2xl bg-gradient-to-r from-[#5800FF] via-[#7B2CBF] to-[#E11D48] p-3.5 overflow-hidden text-white shadow-md active:scale-[0.99] transition-all">
-              <div className="relative z-10 max-w-[65%] space-y-1">
-                <div className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-xs text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-full text-white">
-                  <span className="text-yellow-300">⚡</span>
-                  {language === 'mr' ? '१०-१५ मिनिटांत डिलिव्हरी' : '10-15 Min Superfast'}
-                </div>
-                <h2 className="font-extrabold text-[15px] leading-tight">
-                  {language === 'mr' ? 'स्थानिक दुकानांतून थेट घरपोच' : 'Groceries to your door in 10–15 mins'}
-                </h2>
-                <p className="text-[11px] text-purple-100/90 line-clamp-1">
-                  {language === 'mr' ? 'पलूस व परिसरातील खात्रीशीर दुकाने' : 'Verified local shops in Palus & Sangli'}
-                </p>
+        <div className="px-3.5 pt-3 pb-1">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-1.5">
+              <div className="h-5 w-5 rounded-md bg-rose-500/10 flex items-center justify-center text-rose-600">
+                <Flame className="h-3.5 w-3.5 stroke-[2.5]" />
               </div>
-
-              {/* Decorative Accent Graphic */}
-              <div className="absolute -right-2 -bottom-3 w-32 h-28 pointer-events-none opacity-90">
-                <Image
-                  src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&auto=format&fit=crop&q=80"
-                  alt="Groceries"
-                  fill
-                  className="object-contain"
-                  loading="lazy"
-                />
-              </div>
+              <h2 className="font-extrabold text-sm text-slate-900 tracking-tight">
+                {language === 'mr' ? 'सर्वाधिक मागणी असलेले पदार्थ' : 'Trending Bestsellers'}
+              </h2>
             </div>
-          </Link>
+            <Link 
+              href="/bazar/categories?cat=dairy" 
+              className="text-xs font-bold text-purple-700 flex items-center gap-0.5 hover:underline"
+            >
+              <span>{language === 'mr' ? 'सर्व पाहा' : 'See All'}</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            {trendingBestsellers.map((product) => (
+              <GroceryProductCard
+                key={product.id}
+                product={product}
+                storeId="fresh-mart"
+                storeName="Fresh Mart Supermarket"
+                onOpenDetails={(p) => setSelectedProduct(p)}
+                language={language}
+              />
+            ))}
+          </div>
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
             5. "माझे आवडते दुकाने" (PINNED / FREQUENT STORES)
         ───────────────────────────────────────────────────────────── */}
         {favoriteStores.length > 0 && (
-          <div className="px-4 pt-3 pb-1">
+          <div className="px-3.5 pt-4 pb-1">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                 <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
@@ -236,11 +334,11 @@ export default function BazarDiscoveryPage() {
         {/* ─────────────────────────────────────────────────────────────
             6. NEARBY VERIFIED STORES (HIGH-CONVERSION MOBILE CARDS)
         ───────────────────────────────────────────────────────────── */}
-        <main className="px-4 pt-3 space-y-3 flex-1">
+        <main className="px-3.5 pt-4 space-y-3 flex-1">
           <div className="flex items-center justify-between">
             <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
               <Store className="h-3.5 w-3.5 text-purple-700" />
-              <span>{language === 'mr' ? 'परिसरातील दुकाने (Nearby Stores)' : 'Nearby Verified Stores'}</span>
+              <span>{language === 'mr' ? 'परिसरातील खात्रीशीर दुकाने' : 'Nearby Verified Stores'}</span>
             </h3>
             <span className="text-[11px] font-semibold text-slate-500">
               {townStores.length} {language === 'mr' ? 'उपलब्ध' : 'available'}
@@ -352,13 +450,39 @@ export default function BazarDiscoveryPage() {
         <NativeAppBottomNav />
 
         {/* ─────────────────────────────────────────────────────────────
-            8. INTERACTIVE SEARCH OVERLAY
+            8. FLOATING CART BAR (IF ITEMS IN CART)
+        ───────────────────────────────────────────────────────────── */}
+        <NativeFloatingCartBar
+          onOpenCart={() => {
+            if (typeof window !== 'undefined') {
+              window.location.href = '/bazar/checkout';
+            }
+          }}
+          language={language}
+        />
+
+        {/* ─────────────────────────────────────────────────────────────
+            9. INTERACTIVE SEARCH OVERLAY
         ───────────────────────────────────────────────────────────── */}
         <BazarSearchOverlay
           isOpen={searchOverlayOpen}
           onClose={() => setSearchOverlayOpen(false)}
           language={language}
         />
+
+        {/* ─────────────────────────────────────────────────────────────
+            10. PRODUCT DETAILS SHEET (ON PRODUCT TAP)
+        ───────────────────────────────────────────────────────────── */}
+        {selectedProduct && (
+          <ProductDetailsSheet
+            product={selectedProduct}
+            isOpen={!!selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            storeId="fresh-mart"
+            storeName="Fresh Mart Supermarket"
+            language={language}
+          />
+        )}
 
       </div>
     </div>
