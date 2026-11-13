@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import type { MigrationResult } from './runner';
 
-export const targetVersion = 2;
+export const targetVersion = 12;
 
 export async function up(db: admin.firestore.Firestore, isDryRun?: boolean): Promise<MigrationResult> {
     const result: MigrationResult = { scanned: 0, updated: 0, errors: 0 };
