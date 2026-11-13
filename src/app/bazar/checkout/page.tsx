@@ -55,11 +55,13 @@ function CheckoutContent() {
   const [deliveryInstruction, setDeliveryInstruction] = useState('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
-  // Address State
-  const [customerName, setCustomerName] = useState('Prathamesh Kulkarni');
-  const [customerPhone, setCustomerPhone] = useState('9876543210');
-  const [addressLine, setAddressLine] = useState('फ्लॅट नं. ४, समर्थ कृपा अपार्टमेंट, शिवाजी चौक');
+  // Customer & Address State (Empty by default for customer input)
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [addressLine, setAddressLine] = useState('');
   const [town, setTown] = useState('Palus');
+  const [phoneError, setPhoneError] = useState('');
+  const [addressError, setAddressError] = useState('');
   const [isAddressSheetOpen, setIsAddressSheetOpen] = useState(false);
   const [language, setLanguage] = useState<'mr' | 'en'>('mr');
 
@@ -70,6 +72,16 @@ function CheckoutContent() {
 
       const savedTown = localStorage.getItem('bazar_selected_town');
       if (savedTown) setTown(savedTown);
+
+      // Load user saved details from localStorage or currentUser
+      const savedName = localStorage.getItem('bazar_customer_name');
+      if (savedName) setCustomerName(savedName);
+
+      const savedPhone = localStorage.getItem('bazar_customer_phone');
+      if (savedPhone) setCustomerPhone(savedPhone);
+
+      const savedAddress = localStorage.getItem('bazar_customer_address');
+      if (savedAddress) setAddressLine(savedAddress);
     }
   }, []);
 
@@ -79,6 +91,27 @@ function CheckoutContent() {
   const currentStore = BAZAR_TOWN_STORES.find(s => s.id === cartStoreId || s.slug === cartStoreId) || BAZAR_TOWN_STORES[0];
 
   const handlePlaceOrder = async () => {
+    // 🛡️ STRICT VALIDATION: Phone number is mandatory for WhatsApp notification & delivery
+    const cleanPhoneDigits = customerPhone.replace(/\D/g, '');
+    if (cleanPhoneDigits.length !== 10) {
+      setPhoneError(language === 'mr' ? 'कृपया अचूक १० अंकी मोबाईल नंबर टाका' : 'Please enter a valid 10-digit mobile number');
+      setIsAddressSheetOpen(true);
+      return;
+    }
+
+    if (fulfilmentMode === 'delivery' && !addressLine.trim()) {
+      setAddressError(language === 'mr' ? 'कृपया डिलिव्हरी पत्ता टाका' : 'Please provide your delivery address');
+      setIsAddressSheetOpen(true);
+      return;
+    }
+
+    // Save to localStorage for future orders
+    if (typeof window !== 'undefined') {
+      if (customerName) localStorage.setItem('bazar_customer_name', customerName);
+      localStorage.setItem('bazar_customer_phone', cleanPhoneDigits);
+      if (addressLine) localStorage.setItem('bazar_customer_address', addressLine);
+    }
+
     setIsPlacingOrder(true);
     const orderItems = items.length > 0 
       ? items.map(item => ({
@@ -96,10 +129,10 @@ function CheckoutContent() {
     const orderPayload = {
       storeId: currentStore.id,
       storeName: currentStore.name,
-      customerName: customerName.trim(),
-      customerPhone: customerPhone.trim(),
+      customerName: (customerName || (language === 'mr' ? 'ग्राहक' : 'Customer')).trim(),
+      customerPhone: cleanPhoneDigits,
       deliveryType: fulfilmentMode === 'pickup' ? 'store_pickup' : 'home_delivery',
-      deliveryAddress: fulfilmentMode === 'delivery' ? `${addressLine}, ${town}, सांगली` : undefined,
+      deliveryAddress: fulfilmentMode === 'delivery' ? `${addressLine}, ${town}` : undefined,
       paymentMethod: selectedPayment,
       totalAmount: displayTotal,
       items: orderItems,
@@ -271,10 +304,26 @@ function CheckoutContent() {
               </div>
 
               <div className="bg-background rounded-xl p-3 border border-border/60">
-                <p className="font-bold text-xs text-foreground">{customerName} · {customerPhone}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  {addressLine}, {town}, सांगली
-                </p>
+                {customerPhone ? (
+                  <>
+                    <p className="font-bold text-xs text-foreground">
+                      {customerName || (language === 'mr' ? 'ग्राहक' : 'Customer')} · +91 {customerPhone}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      {addressLine || (language === 'mr' ? 'पत्ता जोडलेला नाही' : 'No address provided')}, {town}
+                    </p>
+                  </>
+                ) : (
+                  <div 
+                    onClick={() => setIsAddressSheetOpen(true)}
+                    className="cursor-pointer py-1 text-center"
+                  >
+                    <p className="text-xs font-bold text-primary flex items-center justify-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{language === 'mr' ? '+ मोबाईल नंबर आणि पत्ता जोडा (आवश्यक)' : '+ Add Phone & Address (Required)'}</span>
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -436,28 +485,67 @@ function CheckoutContent() {
               </div>
 
               <div className="grid gap-1.5">
-                <Label className="text-xs font-bold text-foreground">मोबाईल नंबर (Phone)</Label>
-                <Input 
-                  value={customerPhone} 
-                  onChange={(e) => setCustomerPhone(e.target.value)} 
-                  className="h-10 rounded-xl text-xs" 
-                />
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-foreground">
+                    {language === 'mr' ? 'मोबाईल नंबर (WhatsApp Number) *' : 'Mobile Number (WhatsApp) *'}
+                  </Label>
+                  <span className="text-[10px] font-bold text-primary">
+                    {language === 'mr' ? 'ऑर्डर अपडेटसाठी आवश्यक' : 'For Order Updates'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-muted-foreground">+91</span>
+                  <Input 
+                    type="tel"
+                    maxLength={10}
+                    placeholder="7498526035"
+                    value={customerPhone} 
+                    onChange={(e) => {
+                      setCustomerPhone(e.target.value.replace(/\D/g, ''));
+                      setPhoneError('');
+                    }} 
+                    className="h-10 pl-11 rounded-xl text-xs font-bold" 
+                  />
+                </div>
+                {phoneError && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-0.5">{phoneError}</p>
+                )}
               </div>
 
               <div className="grid gap-1.5">
-                <Label className="text-xs font-bold text-foreground">घर / फ्लॅट व परिसर (Address)</Label>
+                <Label className="text-xs font-bold text-foreground">
+                  {language === 'mr' ? 'घर / फ्लॅट व परिसर (Address) *' : 'Delivery Address *'}
+                </Label>
                 <Input 
+                  placeholder={language === 'mr' ? 'उदा. घर क्र. १२, शिवाजी चौक...' : 'e.g. Flat 4, समर्थ कृपा...'}
                   value={addressLine} 
-                  onChange={(e) => setAddressLine(e.target.value)} 
+                  onChange={(e) => {
+                    setAddressLine(e.target.value);
+                    setAddressError('');
+                  }} 
                   className="h-10 rounded-xl text-xs" 
                 />
+                {addressError && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-0.5">{addressError}</p>
+                )}
               </div>
 
               <Button
-                onClick={() => setIsAddressSheetOpen(false)}
+                onClick={() => {
+                  const digits = customerPhone.replace(/\D/g, '');
+                  if (digits.length !== 10) {
+                    setPhoneError(language === 'mr' ? 'कृपया १० अंकी मोबाईल नंबर टाका' : 'Please enter 10 digits');
+                    return;
+                  }
+                  if (fulfilmentMode === 'delivery' && !addressLine.trim()) {
+                    setAddressError(language === 'mr' ? 'कृपया पत्ता टाका' : 'Address required');
+                    return;
+                  }
+                  setIsAddressSheetOpen(false);
+                }}
                 className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-xl text-sm mt-2"
               >
-                {language === 'mr' ? 'पत्ता सेव्ह करा' : 'Save Address'}
+                {language === 'mr' ? 'माहिती सेव्ह करा' : 'Save Details'}
               </Button>
             </div>
           </SheetContent>
