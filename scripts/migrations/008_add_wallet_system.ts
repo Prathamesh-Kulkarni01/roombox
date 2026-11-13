@@ -1,5 +1,5 @@
-import { PRICING_CONFIG } from '../../src/lib/constants.js';
-import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types.js';
+import { PRICING_CONFIG } from '../../src/lib/constants';
+import { CURRENT_SCHEMA_VERSION } from '../../src/lib/types';
 import * as admin from 'firebase-admin';
 
 export const targetVersion = 8;

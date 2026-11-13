@@ -1,4 +1,4 @@
-import { PRICING_CONFIG } from '../../src/lib/constants.js';
+import { PRICING_CONFIG } from '../../src/lib/constants';
 import * as admin from 'firebase-admin';
 
 export const targetVersion = 10;
