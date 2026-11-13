@@ -84,29 +84,29 @@ function CategoriesContent() {
   const activeCategoryObj = CATEGORY_ITEMS.find(c => c.id === selectedCategory) || CATEGORY_ITEMS[0];
 
   return (
-    <div className="w-full min-h-screen bg-[#F8FAF9] text-[#0F1713] flex justify-center pb-24 selection:bg-[#0D7C4D]/20">
+    <div className="w-full min-h-screen bg-background text-foreground flex justify-center pb-24 selection:bg-primary/20">
       {/* Mobile-First Screen Shell (430px max width on desktop) */}
-      <div className="w-full max-w-[430px] bg-[#FFFFFF] min-h-screen shadow-md flex flex-col relative border-x border-[#E5E9E6]">
+      <div className="w-full max-w-[430px] bg-card min-h-screen shadow-md flex flex-col relative border-x border-border">
         
         {/* ─────────────────────────────────────────────────────────────
             1. TOP APP BAR (Back, Title & Search Bar)
         ───────────────────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-30 bg-[#FFFFFF] border-b border-[#E5E9E6] px-3.5 pt-3 pb-2.5 space-y-2">
+        <header className="sticky top-0 z-30 bg-card border-b border-border px-3.5 pt-3 pb-2.5 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Link
                 href="/bazar"
-                className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-[#F2F4F3] active:scale-90 transition-all text-[#0F1713]"
+                className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted active:scale-90 transition-all text-foreground"
               >
                 <ArrowLeft className="h-5 w-5 stroke-[2.2]" />
               </Link>
-              <h1 className="font-black text-base text-[#0F1713]">
+              <h1 className="font-black text-base text-foreground">
                 {activeCategoryObj.label} ({activeCategoryObj.labelEn})
               </h1>
             </div>
 
             <div className="flex items-center gap-1">
-              <span className="text-[11px] font-bold text-[#0D7C4D] bg-[#E8F5EE] px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                 {filteredProducts.length} items
               </span>
             </div>
@@ -114,20 +114,20 @@ function CategoriesContent() {
 
           {/* Search bar inside category */}
           <div className="relative flex items-center">
-            <Search className="absolute left-3.5 h-4 w-4 text-[#8A948D]" />
+            <Search className="absolute left-3.5 h-4 w-4 text-muted-foreground/80" />
             <input
               type="text"
               placeholder={`Search in ${activeCategoryObj.labelEn}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-9 pl-9 pr-9 rounded-xl bg-[#F2F4F3] text-xs text-[#0F1713] placeholder:text-[#8A948D] font-medium border-transparent focus:bg-[#FFFFFF] focus:border-[#0D7C4D] focus:outline-hidden transition-all"
+              className="w-full h-9 pl-9 pr-9 rounded-xl bg-muted text-xs text-foreground placeholder:text-muted-foreground/80 font-medium border-transparent focus:bg-card focus:border-primary focus:outline-hidden transition-all"
             />
             {searchQuery ? (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 text-[#8A948D]">
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 text-muted-foreground/80">
                 ×
               </button>
             ) : (
-              <Mic className="absolute right-3.5 h-4 w-4 text-[#8A948D]" />
+              <Mic className="absolute right-3.5 h-4 w-4 text-muted-foreground/80" />
             )}
           </div>
         </header>
@@ -135,7 +135,7 @@ function CategoriesContent() {
         {/* ─────────────────────────────────────────────────────────────
             2. HORIZONTAL CATEGORIES QUICK REEL (Matching Row 2 Screen 2)
         ───────────────────────────────────────────────────────────── */}
-        <div className="py-2.5 px-3.5 border-b border-[#F2F4F3] bg-[#FAFBFB] overflow-x-auto scrollbar-hide scroll-smooth flex gap-3">
+        <div className="py-2.5 px-3.5 border-b border-border/60 bg-muted/30 overflow-x-auto scrollbar-hide scroll-smooth flex gap-3">
           {CATEGORY_ITEMS.map(cat => {
             const isSelected = selectedCategory === cat.id;
             const Icon = cat.icon;
@@ -150,13 +150,13 @@ function CategoriesContent() {
               >
                 <div className={`h-11 w-11 rounded-2xl flex items-center justify-center border transition-all ${
                   isSelected
-                    ? 'bg-[#0D7C4D] text-white border-[#0D7C4D] shadow-sm shadow-[#0D7C4D]/30'
-                    : 'bg-[#FFFFFF] text-[#525C56] border-[#E5E9E6] hover:border-[#0D7C4D]/40'
+                    ? 'bg-primary text-white border-primary shadow-sm shadow-primary/25'
+                    : 'bg-card text-muted-foreground border-border hover:border-primary/40'
                 }`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <span className={`text-[10px] font-bold tracking-tight text-center ${
-                  isSelected ? 'text-[#0D7C4D]' : 'text-[#525C56]'
+                  isSelected ? 'text-primary' : 'text-muted-foreground'
                 }`}>
                   {cat.label}
                 </span>
@@ -168,7 +168,7 @@ function CategoriesContent() {
         {/* ─────────────────────────────────────────────────────────────
             3. SUBCATEGORY PILLS (All, Leafy, Tomato, Potato, Onion)
         ───────────────────────────────────────────────────────────── */}
-        <div className="px-3.5 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-hide border-b border-[#F2F4F3]">
+        <div className="px-3.5 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-hide border-b border-border/60">
           {VEGETABLE_FILTERS.map(filter => {
             const isSelected = activeSubFilter === filter.id;
             return (
@@ -177,8 +177,8 @@ function CategoriesContent() {
                 onClick={() => setActiveSubFilter(filter.id)}
                 className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
                   isSelected
-                    ? 'bg-[#0D7C4D] text-white shadow-2xs'
-                    : 'bg-[#F2F4F3] text-[#525C56] hover:bg-[#E5E9E6]'
+                    ? 'bg-primary text-white shadow-2xs'
+                    : 'bg-muted text-muted-foreground hover:bg-[#E5E9E6]'
                 }`}
               >
                 {filter.label}
@@ -191,9 +191,9 @@ function CategoriesContent() {
             4. PRODUCT DISCOVERY 2-COLUMN GRID (Matching Screen 2 Bottom)
         ───────────────────────────────────────────────────────────── */}
         <main className="px-3.5 pt-3 pb-6 flex-1 space-y-3">
-          <div className="flex items-center justify-between text-xs text-[#525C56]">
-            <span className="font-bold text-[#0F1713]">{filteredProducts.length} Items Available</span>
-            <span className="flex items-center gap-1 text-[#0D7C4D] font-bold cursor-pointer">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-bold text-foreground">{filteredProducts.length} Items Available</span>
+            <span className="flex items-center gap-1 text-primary font-bold cursor-pointer">
               <Filter className="h-3 w-3" />
               Filter & Sort
             </span>
@@ -227,13 +227,13 @@ function CategoriesContent() {
             7. CART SHEET
         ───────────────────────────────────────────────────────────── */}
         <Sheet open={isCartSheetOpen} onOpenChange={setIsCartSheetOpen}>
-          <SheetContent side="bottom" className="rounded-t-[28px] max-h-[85vh] overflow-y-auto p-5 bg-[#FFFFFF] max-w-[430px] mx-auto">
-            <SheetHeader className="text-left pb-3 border-b border-[#E5E9E6]">
-              <SheetTitle className="text-base font-black text-[#0F1713] flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-[#0D7C4D]" />
+          <SheetContent side="bottom" className="rounded-t-[28px] max-h-[85vh] overflow-y-auto p-5 bg-card max-w-[430px] mx-auto">
+            <SheetHeader className="text-left pb-3 border-b border-border">
+              <SheetTitle className="text-base font-black text-foreground flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5 text-primary" />
                 माझी टोपली (Cart - {totalItems} items)
               </SheetTitle>
-              <SheetDescription className="text-xs text-[#8A948D]">
+              <SheetDescription className="text-xs text-muted-foreground/80">
                 Fresh Mart Supermarket · 15-25 min delivery
               </SheetDescription>
             </SheetHeader>
@@ -243,30 +243,30 @@ function CategoriesContent() {
                 {items.map(item => (
                   <div key={item.product.id + (item.selectedVariantId || '')} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
-                      <p className="font-bold text-[#0F1713]">{item.product.name}</p>
-                      <p className="text-[11px] text-[#8A948D]">{item.unit} · Qty: {item.quantity}</p>
+                      <p className="font-bold text-foreground">{item.product.name}</p>
+                      <p className="text-[11px] text-muted-foreground/80">{item.unit} · Qty: {item.quantity}</p>
                     </div>
-                    <span className="font-black text-[#0F1713]">
+                    <span className="font-black text-foreground">
                       ₹{item.price * item.quantity}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="bg-[#F2F4F3] rounded-2xl p-3.5 space-y-2 text-xs">
-                <div className="flex justify-between text-[#525C56]">
+              <div className="bg-muted rounded-2xl p-3.5 space-y-2 text-xs">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Item Total</span>
-                  <span className="font-medium text-[#0F1713]">₹{subtotal}</span>
+                  <span className="font-medium text-foreground">₹{subtotal}</span>
                 </div>
-                <div className="flex justify-between text-[#525C56]">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Delivery Fee</span>
                   {deliveryFee === 0 ? (
-                    <span className="text-[#0D7C4D] font-bold">FREE</span>
+                    <span className="text-primary font-bold">FREE</span>
                   ) : (
-                    <span className="font-medium text-[#0F1713]">₹{deliveryFee}</span>
+                    <span className="font-medium text-foreground">₹{deliveryFee}</span>
                   )}
                 </div>
-                <div className="pt-2 border-t border-[#E5E9E6] flex justify-between font-black text-sm text-[#0F1713]">
+                <div className="pt-2 border-t border-border flex justify-between font-black text-sm text-foreground">
                   <span>To Pay</span>
                   <span>₹{finalTotal}</span>
                 </div>
@@ -275,7 +275,7 @@ function CategoriesContent() {
               <Link href="/bazar/checkout" className="block w-full" onClick={() => setIsCartSheetOpen(false)}>
                 <Button
                   type="button"
-                  className="w-full h-12 bg-[#0D7C4D] hover:bg-[#0A663F] text-white font-black rounded-xl text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-black rounded-xl text-sm shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Proceed to Checkout</span>
                   <span>(₹{finalTotal})</span>
