@@ -43,6 +43,7 @@ export default function DashboardBottomNav() {
   const dispatch = useAppDispatch();
   const {
     accessibleNavGroups,
+    bottomNavTabs,
     isItemAccessible,
     isTrialEnded,
     hasNoProperties,
@@ -58,7 +59,8 @@ export default function DashboardBottomNav() {
 
   const unreadComplaints = complaints.filter((c) => c.status === "open").length;
 
-  if (!currentUser) return null;
+  const isBazarRoute = pathname.startsWith('/bazar');
+  if (!currentUser && !isBazarRoute) return null;
 
   const getInsight = (href: string) => {
     if (!currentUser || isTrialEnded || hasNoProperties) return undefined;
@@ -126,37 +128,12 @@ export default function DashboardBottomNav() {
     return undefined;
   };
 
-  const mainNavItems = [
-    {
-      href: "/dashboard",
-      label: "nav_dashboard_short",
-      icon: LayoutDashboard,
-      feature: "core",
-    },
-    {
-      href: "/dashboard/pg-management/rooms",
-      label: "manage_rooms_short",
-      icon: BedDouble,
-      feature: "properties",
-    },
-    {
-      href: "/dashboard/rent-passbook",
-      label: "nav_rentbook_short",
-      icon: BookUser,
-      feature: "finances",
-    },
-    {
-      href: "/dashboard/complaints",
-      label: "nav_complaints_short",
-      icon: MessageSquareWarning,
-      feature: "complaints",
-    },
-  ];
-
-  const visibleItems = mainNavItems
+  // Derive visible quick tabs dynamically from active module's bottomNavTabs
+  const regularTabs = bottomNavTabs.filter(tab => !tab.isSheetTrigger);
+  const visibleItems = regularTabs
     .filter((item) => isItemAccessible(item as any))
     .map((item) => {
-      // Direct 'Rooms' link to selected property management page
+      // Direct 'Rooms' link to selected property management page if in Rent mode
       let resolvedHref = item.href;
       if (item.href === "/dashboard/pg-management/rooms") {
         const targetPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : null);
@@ -265,11 +242,11 @@ export default function DashboardBottomNav() {
               <div className="relative">
                 <Avatar className="h-14 w-14 border-2 border-background shadow-xl ring-1 ring-primary/10">
                   <AvatarImage
-                    src={currentUser.avatarUrl}
-                    alt={currentUser.name}
+                    src={currentUser?.avatarUrl}
+                    alt={currentUser?.name || "Guest"}
                   />
                   <AvatarFallback className="bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-black text-sm">
-                    {(currentUser.name || "U").slice(0, 2).toUpperCase()}
+                    {(currentUser?.name || "B").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-background rounded-full shadow-lg" />
@@ -277,19 +254,21 @@ export default function DashboardBottomNav() {
               <div className="flex-1 overflow-hidden">
                 <div className="flex items-center gap-2">
                   <h3 className="font-black text-xl tracking-tight truncate">
-                    {currentUser.name}
+                    {currentUser?.name || "Palus Bazar Guest"}
                   </h3>
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] font-black uppercase tracking-tighter h-4 px-1.5 bg-primary/5 text-primary border-primary/20"
-                  >
-                    {currentPlan.name}
-                  </Badge>
+                  {currentPlan && (
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] font-black uppercase tracking-tighter h-4 px-1.5 bg-primary/5 text-primary border-primary/20"
+                    >
+                      {currentPlan.name}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground font-bold mt-0.5 flex items-center gap-2">
-                  {t(currentUser.role as any)}
+                  {currentUser ? t(currentUser.role as any) : "Guest"}
                   <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-                  <span className="truncate">{currentUser.email}</span>
+                  <span className="truncate">{currentUser?.email || "Public Catalog"}</span>
                 </p>
               </div>
             </div>
@@ -340,21 +319,23 @@ export default function DashboardBottomNav() {
                 </div>
               ))}
 
-              <div className="mt-4 mb-8">
-                <Button
-                  variant="destructive"
-                  className="w-full justify-start gap-4 h-14 rounded-2xl shadow-lg shadow-destructive/10"
-                  onClick={() => {
-                    handleLinkClick();
-                    dispatch(logoutUser());
-                  }}
-                >
-                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-white/20">
-                    <LogOut className="h-5 w-5" />
-                  </div>
-                  <span className="font-bold">{t("logout")}</span>
-                </Button>
-              </div>
+              {currentUser && (
+                <div className="mt-4 mb-8">
+                  <Button
+                    variant="destructive"
+                    className="w-full justify-start gap-4 h-14 rounded-2xl shadow-lg shadow-destructive/10"
+                    onClick={() => {
+                      handleLinkClick();
+                      dispatch(logoutUser());
+                    }}
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-white/20">
+                      <LogOut className="h-5 w-5" />
+                    </div>
+                    <span className="font-bold">{t("logout")}</span>
+                  </Button>
+                </div>
+              )}
             </div>
           </SheetContent>
         </Sheet>

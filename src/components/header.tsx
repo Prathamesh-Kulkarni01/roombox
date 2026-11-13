@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -165,6 +164,8 @@ export default function Header() {
   const isLandingPage = pathname === '/';
   // Subdomain PG public pages have their own sticky nav — suppress global header
   const isSitePage = pathname.startsWith('/site/');
+  // Bazar customer storefront & discovery have their own mobile-first public navigation — suppress global header
+  const isBazarPublic = pathname === '/bazar' || pathname.startsWith('/bazar/store');
 
   const handleValueChange = async (pgId: string) => {
     dispatch(setSelectedPgId(pgId === 'all' ? null : pgId));
@@ -221,7 +222,7 @@ export default function Header() {
   }
 
   // Don't show global header on subdomain PG pages — they have their own nav
-  if (isSitePage) {
+  if (isSitePage || isBazarPublic) {
     return null;
   }
 

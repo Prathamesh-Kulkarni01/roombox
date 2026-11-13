@@ -1,15 +1,29 @@
-
 import { useAppSelector } from '@/lib/hooks';
 import { usePermissionsStore } from '@/lib/stores/configStores';
-import { allNavItems, type NavItem } from '@/lib/navigation';
+import { getNavGroupsForMode, getBottomTabsForMode, type NavItem, type NavGroup, type BottomNavTab } from '@/lib/navigation';
 import { canViewFeature } from '@/lib/permissions';
 import { getCurrentPlan } from '../utils';
+import { getActiveAppMode, getActiveAppConfig, type AppMode } from '@/core/config/app-mode';
 
 /**
- * Hook to manage navigation visibility based on user role, subscription state, and property status.
- * Standardizes access logic across Sidebar, Mobile Header, and Bottom Nav.
+ * Enterprise Multi-Module Accessible Navigation Hook.
+ * Dynamically resolves navigation groups and bottom tabs according to NEXT_PUBLIC_APP_MODE.
+ * Standardizes access logic across Sidebar, Mobile Header, and Bottom Nav with 100% Rentsutra backward compatibility.
  */
 export function useAccessibleNav() {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isBazarRoute = pathname.startsWith('/bazar');
+  const isGymRoute = pathname.startsWith('/gym');
+
+  // Auto-detect app mode from current route if in unified/ERP multi-app environment
+  let appMode: AppMode = getActiveAppMode();
+  if (isBazarRoute) {
+    appMode = 'bazar';
+  } else if (isGymRoute) {
+    appMode = 'gym';
+  }
+
+  const appConfig = getActiveAppConfig();
   const { currentUser } = useAppSelector((state) => state.user);
   const currentPlan = getCurrentPlan(currentUser);
   const { pgs } = useAppSelector((state) => state.pgs);
@@ -22,36 +36,36 @@ export function useAccessibleNav() {
   const hasNoProperties = isOwner && pgs.length === 0;
 
   const isItemAccessible = (item: NavItem) => {
+    // If on Bazar merchant routes or no auth guard requested for store owner
+    if (isBazarRoute) return true;
+
     if (!currentUser) return false;
     
     // Admin always sees everything
     if (currentUser.role === 'admin') return true;
     
-    // 1. Handle Restricted States
-    
-    // If subscription ended, allow Dashboard, Wallet (to pay), and Core (Settings/Profile)
-    if (isTrialEnded) {
-      return item.href === '/dashboard' || 
-             item.href === '/dashboard/wallet' || 
-             item.feature === 'core';
-    }
+    // 1. Handle Restricted States in Rent mode
+    if (appMode === 'rent') {
+      if (isTrialEnded) {
+        return item.href === '/dashboard' || 
+               item.href === '/dashboard/wallet' || 
+               item.feature === 'core';
+      }
 
-    // If owner has no properties, guide them to create one (Dashboard, PG Management, Core, Training)
-    if (hasNoProperties) {
-      return item.href === '/dashboard' || 
-             item.href.startsWith('/dashboard/pg-management') || 
-             item.feature === 'core' ||
-             item.href === '/dashboard/training';
+      if (hasNoProperties) {
+        return item.href === '/dashboard' || 
+               item.href.startsWith('/dashboard/pg-management') || 
+               item.feature === 'core' ||
+               item.href === '/dashboard/training';
+      }
     }
 
     // Unassigned users only see basic dashboard/profile
     if (currentUser.role === 'unassigned') {
-      return item.href === '/dashboard' || item.feature === 'core';
+      return item.href === appConfig.defaultRoute || item.feature === 'core';
     }
 
     // 2. Handle Role-Based Standard Access
-
-    // Owners see everything (if not restricted by state above)
     if (isOwner) return true;
 
     // Tenants restricted view
@@ -66,15 +80,16 @@ export function useAccessibleNav() {
   };
 
   const { selectedPgId } = useAppSelector((state) => state.app);
+  const rawNavGroups = getNavGroupsForMode(appMode);
   
-  const accessibleNavGroups = allNavItems
+  const accessibleNavGroups: NavGroup[] = rawNavGroups
     .map(group => ({
       ...group,
       items: group.items
         .filter(isItemAccessible)
         .map(item => {
-          // If we have a selected property, direct 'Rooms' link to that property's management page
-          if (item.href === '/dashboard/pg-management/rooms') {
+          // If we are in Rent mode and have a selected property, direct 'Rooms' link to that property's management page
+          if (appMode === 'rent' && item.href === '/dashboard/pg-management/rooms') {
             const targetPgId = selectedPgId || (pgs.length > 0 ? pgs[0].id : null);
             return {
               ...item,
@@ -86,8 +101,13 @@ export function useAccessibleNav() {
     }))
     .filter(group => group.items.length > 0);
 
+  const bottomNavTabs: BottomNavTab[] = getBottomTabsForMode(appMode);
+
   return {
+    appMode,
+    appConfig,
     accessibleNavGroups,
+    bottomNavTabs,
     isItemAccessible,
     isTrialEnded,
     hasNoProperties,

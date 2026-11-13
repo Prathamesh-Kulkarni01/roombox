@@ -1,0 +1,50 @@
+/* ==========================================================================
+   BAZAR UNIFIED BRAND DESIGN TOKENS
+   Overriding standard platform CSS variables inside .bazar-theme
+   so all standard Tailwind utilities (bg-primary, text-primary, bg-card,
+   border-border, etc.) automatically render Bazar Green and theme tokens.
+   ========================================================================== */
+.bazar-theme {
+  /* Override platform HSL variables with Bazar Zepto/Blinkit Green (#0D7C4D -> 154 81% 27%) */
+  --primary: 154 81% 27%;
+  --primary-foreground: 0 0% 100%;
+  --primary-container: 149 48% 94%;
+  --on-primary-container: 154 81% 15%;
+
+  --background: 140 14% 97%;
+  --foreground: 147 24% 7%;
+  --card: 0 0% 100%;
+  --card-foreground: 147 24% 7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 147 24% 7%;
+
+  --muted: 144 7% 93%;
+  --muted-foreground: 146 8% 54%;
+  --accent: 149 48% 94%;
+  --accent-foreground: 154 81% 27%;
+
+  --border: 143 8% 90%;
+  --input: 143 8% 90%;
+  --ring: 154 81% 27%;
+  --radius: 1rem;
+
+  /* Raw Hex Tokens for special inline / SVG elements */
+  --bazar-primary: #0D7C4D;
+  --bazar-primary-hover: #0A663F;
+  --bazar-primary-soft: #E8F5EE;
+  --bazar-primary-tint: #F0FDF4;
+
+  --bazar-accent-emerald: #10B981;
+  --bazar-accent-amber: #F59E0B;
+  --bazar-accent-red: #EF4444;
+
+  --bazar-bg: #F8FAF9;
+  --bazar-surface: #FFFFFF;
+  --bazar-surface-subtle: #F2F4F3;
+  --bazar-border: #E5E9E6;
+  --bazar-border-subtle: #EAEFEA;
+
+  --bazar-text-primary: #0F1713;
+  --bazar-text-secondary: #525C56;
+  --bazar-text-muted: #8A948D;
+}

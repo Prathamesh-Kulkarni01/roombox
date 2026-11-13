@@ -63,7 +63,9 @@ export default function DashboardSidebar() {
     }
   }, [currentUser]);
   
-  if (!currentUser) return null;
+  // In development/test mode or when visiting merchant/bazar routes, ensure sidebar remains accessible
+  const isMerchantBazar = pathname.startsWith('/bazar');
+  if (!currentUser && !isMerchantBazar) return null;
 
   return (
     <aside className="w-64 flex-col border-r bg-card hidden md:flex">
@@ -89,12 +91,12 @@ export default function DashboardSidebar() {
                        )}
                      >
                       <item.icon className="h-4 w-4" />
-                      {t(item.label as any)}
+                      {t(item.label as any) || item.label}
                     </Link>
                ))}
             </div>
           ))}
-          {currentUser.role === 'admin' && (
+          {currentUser?.role === 'admin' && (
              <Link
                 href="/admin/dashboard"
                 className={cn(
@@ -147,13 +149,13 @@ export default function DashboardSidebar() {
         <Separator className="my-4" />
          <div className="flex items-center gap-3">
             <Avatar className="h-9 w-9">
-                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                <AvatarFallback>{(currentUser.name || 'User').slice(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={currentUser?.avatarUrl} alt={currentUser?.name || 'User'} />
+                <AvatarFallback>{(currentUser?.name || 'User').slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className='flex-1 min-w-0'>
-                <p className="font-semibold text-sm truncate">{currentUser.name}</p>
+                <p className="font-semibold text-sm truncate">{currentUser?.name || 'Store Owner'}</p>
                 <p className="text-xs text-muted-foreground capitalize truncate">
-                  {currentUser.role} {currentPlan ? `(${currentPlan.name})` : ''}
+                  {currentUser?.role || 'merchant'} {currentPlan ? `(${currentPlan.name})` : ''}
                 </p>
             </div>
             <DropdownMenu>

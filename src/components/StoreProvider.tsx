@@ -264,6 +264,8 @@ function AuthHandler({ children }: { children: ReactNode }) {
       "/signup",
       "/sentry-example-page",
       "/scan",
+      "/bazar",
+      "/bazar/store",
     ];
 
     const isPublicPage = publicPages.some((p) => {
@@ -770,7 +772,9 @@ function AuthHandler({ children }: { children: ReactNode }) {
     authReady,
   ]);
 
-  if (!authReady) {
+  const isPublicStorefront = pathname?.startsWith('/bazar/store') || pathname === '/bazar';
+
+  if (!authReady && !isPublicStorefront) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
