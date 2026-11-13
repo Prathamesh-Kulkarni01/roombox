@@ -204,7 +204,7 @@ function StorefrontScreen() {
               <p className="text-[10px] text-primary font-extrabold flex items-center gap-1">
                 <span>⚡ {store.deliveryTimeMins}</span>
                 <span className="text-slate-300">•</span>
-                <span className="text-slate-500 font-medium">{store.distanceKm} km</span>
+                <span className="text-muted-foreground font-medium">{store.distanceKm} km</span>
               </p>
             </div>
           </div>
@@ -248,7 +248,7 @@ function StorefrontScreen() {
                 className="object-cover"
                 priority
               />
-              <div className="absolute top-0 left-0 right-0 bg-purple-950/80 backdrop-blur-xs text-[8px] font-black text-center text-white py-0.2 uppercase tracking-wider">
+              <div className="absolute top-0 left-0 right-0 bg-black/60 backdrop-blur-xs text-[8px] font-black text-center text-white py-0.2 uppercase tracking-wider">
                 {store.shortCode}
               </div>
             </div>
@@ -262,7 +262,7 @@ function StorefrontScreen() {
                 </span>
 
                 {/* Rating Badge */}
-                <div className="flex items-center gap-1 bg-white text-purple-950 px-2 py-0.5 rounded-lg shadow-2xs">
+                <div className="flex items-center gap-1 bg-white text-foreground px-2 py-0.5 rounded-lg shadow-2xs">
                   <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
                   <span className="text-xs font-black">{store.rating}</span>
                 </div>
@@ -299,9 +299,9 @@ function StorefrontScreen() {
 
             <button
               onClick={handleShare}
-              className="h-8 px-3 rounded-xl bg-white text-purple-900 hover:bg-purple-50 active:scale-95 flex items-center justify-center gap-1 text-xs font-extrabold shadow-sm transition-all"
+              className="h-8 px-3 rounded-xl bg-white text-foreground hover:bg-slate-100 active:scale-95 flex items-center justify-center gap-1 text-xs font-extrabold shadow-sm transition-all"
             >
-              <Copy className="h-3 w-3 text-purple-700" />
+              <Copy className="h-3 w-3 text-primary" />
               <span>{language === 'mr' ? 'दुकान लिंक' : 'Copy Link'}</span>
             </button>
           </div>
@@ -331,12 +331,12 @@ function StorefrontScreen() {
               placeholder={language === 'mr' ? `${store.nameMarathi} मध्ये शोधा (उदा. दूध, भाजी, डाळ)...` : `Search in ${store.name} (e.g. Milk, Onion, Atta)...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-10 pr-9 rounded-xl bg-slate-100 border border-slate-200/80 text-xs text-slate-900 placeholder:text-slate-400 font-medium focus:bg-white focus:ring-2 focus:ring-primary focus:outline-hidden transition-all shadow-2xs"
+              className="w-full h-10 pl-10 pr-9 rounded-xl bg-muted border border-border text-xs text-foreground placeholder:text-muted-foreground font-medium focus:bg-card focus:ring-2 focus:ring-primary focus:outline-hidden transition-all shadow-2xs"
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 p-1 rounded-full text-slate-400 hover:text-slate-600"
+                className="absolute right-3 p-1 rounded-full text-muted-foreground hover:text-slate-600"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -383,10 +383,10 @@ function StorefrontScreen() {
           {sections.length === 0 ? (
             <div className="py-20 text-center space-y-2">
               <PackageSearch className="h-10 w-10 mx-auto text-slate-300" />
-              <p className="font-bold text-sm text-slate-800">
+              <p className="font-bold text-sm text-foreground">
                 {language === 'mr' ? 'कोणतीही वस्तू सापडली नाही' : 'No products found'}
               </p>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 {language === 'mr' ? 'दुसरे नाव शोधून पहा' : 'Try searching for Milk, Butter, Oil or Eggs'}
               </p>
             </div>
@@ -394,7 +394,7 @@ function StorefrontScreen() {
             sections.map(section => (
               <section key={section.title} className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <h3 className="font-extrabold text-xs text-foreground uppercase tracking-wider flex items-center gap-1.5">
                     {section.title === 'Bestsellers' && (
                       <Flame className="h-3.5 w-3.5 fill-rose-600 text-rose-600" />
                     )}
@@ -448,10 +448,10 @@ function StorefrontScreen() {
           <SheetContent side="bottom" className="rounded-t-[28px] max-h-[85vh] overflow-y-auto p-5 bg-card text-card-foreground max-w-[430px] mx-auto border-t border-border">
             <SheetHeader className="text-left pb-3 border-b border-slate-100">
               <SheetTitle className="text-base font-black text-slate-900 flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-purple-700" />
+                <ShoppingBag className="h-5 w-5 text-primary" />
                 {language === 'mr' ? `माझी टोपली (${totalItems} वस्तू)` : `My Basket (${totalItems} items)`}
               </SheetTitle>
-              <SheetDescription className="text-xs text-slate-500">
+              <SheetDescription className="text-xs text-muted-foreground">
                 {store.name} · {store.deliveryTimeMins} delivery
               </SheetDescription>
             </SheetHeader>
@@ -462,7 +462,7 @@ function StorefrontScreen() {
                   <div key={item.product.id + (item.selectedVariantId || '')} className="py-2.5 flex items-center justify-between text-xs">
                     <div>
                       <p className="font-bold text-slate-900">{item.product.name}</p>
-                      <p className="text-[11px] text-slate-400">{item.unit} · Qty: {item.quantity}</p>
+                      <p className="text-[11px] text-muted-foreground">{item.unit} · Qty: {item.quantity}</p>
                     </div>
                     <span className="font-black text-slate-900">
                       ₹{item.price * item.quantity}
@@ -474,7 +474,7 @@ function StorefrontScreen() {
               {/* Free Delivery Bar Upsell */}
               {subtotal < 299 && (
                 <div className="p-3 bg-purple-50 rounded-2xl border border-purple-200 text-xs flex items-center gap-2 text-purple-900">
-                  <Bike className="h-4 w-4 text-purple-700 shrink-0" />
+                  <Bike className="h-4 w-4 text-primary shrink-0" />
                   <span>
                     {language === 'mr' 
                       ? `आणखी ₹${299 - subtotal} ची खरेदी करा आणि मोफत डिलिव्हरी मिळवा!` 
