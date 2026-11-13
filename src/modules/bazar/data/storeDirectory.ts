@@ -20,6 +20,7 @@ export interface BazarTownStore {
   offersText?: string;
   offersTextMarathi?: string;
   brandTheme?: 'violet' | 'green' | 'saffron' | 'rose' | 'blue';
+  phone?: string;
 }
 
 export interface StoreCategoryItem {
@@ -130,6 +131,7 @@ export const BAZAR_TOWN_STORES: BazarTownStore[] = [
     offersTextMarathi: '₹२९९ वर मोफत डिलिव्हरी',
     imageUrl: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=600&auto=format&fit=crop&q=80',
     brandTheme: 'green',
+    phone: '918067528791',
   },
   {
     id: 'shree-super-bazar',
@@ -153,6 +155,7 @@ export const BAZAR_TOWN_STORES: BazarTownStore[] = [
     offersTextMarathi: 'मासिक किराण्यावर १०% सूट',
     imageUrl: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=600&auto=format&fit=crop&q=80',
     brandTheme: 'violet',
+    phone: '918067528791',
   },
   {
     id: 'ganesh-dairy-palus',
@@ -176,6 +179,7 @@ export const BAZAR_TOWN_STORES: BazarTownStore[] = [
     offersTextMarathi: 'सकाळची दूध डिलिव्हरी सुरू',
     imageUrl: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=600&auto=format&fit=crop&q=80',
     brandTheme: 'saffron',
+    phone: '918067528791',
   },
   {
     id: 'tasgaon-krishi-bazar',
@@ -199,6 +203,7 @@ export const BAZAR_TOWN_STORES: BazarTownStore[] = [
     offersTextMarathi: 'सकाळी ६ वाजता आलेला ताजा माल',
     imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop&q=80',
     brandTheme: 'green',
+    phone: '918067528791',
   },
 ];
 

@@ -11,9 +11,10 @@ import {
   MessageSquare, 
   Store, 
   Bike, 
-  ChevronRight,
+  ChevronRight, 
 } from 'lucide-react';
 import type { BazarOrder } from '@/modules/bazar/schemas';
+import { BAZAR_TOWN_STORES } from '@/modules/bazar/data/storeDirectory';
 
 function OrderTrackingContent() {
   const router = useRouter();
@@ -70,6 +71,8 @@ function OrderTrackingContent() {
   ];
 
   const storeName = order?.storeName || 'Fresh Mart Supermarket';
+  const matchedStore = BAZAR_TOWN_STORES.find(s => s.id === order?.storeId || s.name === storeName) || BAZAR_TOWN_STORES[0];
+  const storePhone = matchedStore?.phone || '918067528791';
   const displayTotal = order?.totalAmount || 214;
   const items = order?.items && order.items.length > 0 ? order.items : [
     { productName: 'Amul Taaza Toned Milk (500 ml)', quantity: 1, price: 28 },
@@ -181,14 +184,14 @@ function OrderTrackingContent() {
 
             <div className="flex items-center gap-1.5">
               <a
-                href="tel:+919876543210"
+                href={`tel:+${storePhone}`}
                 className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-95"
                 aria-label="Call"
               >
                 <Phone className="h-4 w-4" />
               </a>
               <a
-                href="https://wa.me/919876543210"
+                href={`https://wa.me/${storePhone}?text=${encodeURIComponent(`Hi ${storeName}, regarding my Order #${order?.orderNumber || orderId}`)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="h-9 w-9 rounded-xl bg-[#25D366]/10 text-[#25D366] flex items-center justify-center hover:bg-[#25D366] hover:text-white transition-all active:scale-95"
