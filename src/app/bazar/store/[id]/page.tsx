@@ -37,6 +37,7 @@ import {
   Copy,
   Info
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useGroceryCart } from '@/modules/bazar/context/GroceryCartContext';
 import { 
   BAZAR_PRODUCT_CATALOG, 
@@ -79,6 +80,16 @@ function StorefrontScreen() {
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
   const [language, setLanguage] = useState<'mr' | 'en'>('mr');
   const [copiedLink, setCopiedLink] = useState(false);
+  const { setTheme } = useTheme();
+
+  // Automatic Store Brand Theme synchronization:
+  // If merchant has a preferred brand theme (e.g. green for Fresh Mart, violet for Super Bazar),
+  // automatically set it for the store page if user hasn't explicitly overridden it.
+  useEffect(() => {
+    if (store.brandTheme) {
+      setTheme(store.brandTheme);
+    }
+  }, [store.brandTheme, setTheme]);
 
   // Load language preference from localStorage
   useEffect(() => {
