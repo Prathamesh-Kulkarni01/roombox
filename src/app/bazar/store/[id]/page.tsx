@@ -71,6 +71,8 @@ function StorefrontScreen() {
     totalSavings, 
     deliveryFee, 
     finalTotal, 
+    updateQuantity,
+    removeFromCart,
     clearCart 
   } = useGroceryCart();
 
@@ -503,14 +505,39 @@ function StorefrontScreen() {
             <div className="space-y-4 pt-3">
               <div className="divide-y divide-border/60 max-h-56 overflow-y-auto">
                 {items.map(item => (
-                  <div key={item.product.id + (item.selectedVariantId || '')} className="py-2.5 flex items-center justify-between text-xs">
-                    <div>
-                      <p className="font-bold text-foreground">{item.product.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{item.unit} · Qty: {item.quantity}</p>
+                  <div key={item.product.id + (item.selectedVariantId || '')} className="py-2.5 flex items-center justify-between gap-2 text-xs">
+                    <div className="space-y-0.5 flex-1 min-w-0 pr-2">
+                      <p className="font-bold text-foreground truncate">{item.product.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{item.unit} · ₹{item.price}</p>
                     </div>
-                    <span className="font-black text-foreground">
-                      ₹{item.price * item.quantity}
-                    </span>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-black text-foreground min-w-[40px] text-right">
+                        ₹{item.price * item.quantity}
+                      </span>
+                      {/* Quantity Stepper in Basket Sheet */}
+                      <div className="h-7 flex items-center bg-muted rounded-lg border border-border overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.selectedVariantId)}
+                          className="h-7 w-6 flex items-center justify-center text-primary hover:bg-background active:scale-95 transition-all"
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="h-3 w-3 stroke-[2.5]" />
+                        </button>
+                        <span className="font-black text-xs px-1.5 min-w-[18px] text-center select-none">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.selectedVariantId)}
+                          className="h-7 w-6 flex items-center justify-center text-primary hover:bg-background active:scale-95 transition-all"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="h-3 w-3 stroke-[2.5]" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

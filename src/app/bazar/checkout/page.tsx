@@ -20,7 +20,10 @@ import {
   PackageCheck,
   Edit2,
   AlertCircle,
-  Loader2
+  Loader2,
+  Plus,
+  Minus,
+  Trash2
 } from 'lucide-react';
 import { useGroceryCart } from '@/modules/bazar/context/GroceryCartContext';
 import { BAZAR_TOWN_STORES } from '@/modules/bazar/data/storeDirectory';
@@ -46,6 +49,8 @@ function CheckoutContent() {
     deliveryFee, 
     finalTotal, 
     totalSavings, 
+    updateQuantity,
+    removeFromCart,
     clearCart 
   } = useGroceryCart();
 
@@ -344,6 +349,88 @@ function CheckoutContent() {
               </div>
             </div>
           )}
+
+          {/* Order Items Basket Card */}
+          <div className="bg-card rounded-2xl border border-border p-3.5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold text-xs text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <ShoppingBag className="h-3.5 w-3.5 text-primary" />
+                {language === 'mr' ? `टोपलीतील वस्तू (${totalItems})` : `Basket Items (${totalItems})`}
+              </span>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearCart}
+                  className="text-[11px] font-semibold text-rose-600 hover:underline flex items-center gap-1"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>{language === 'mr' ? 'सर्व काढा' : 'Clear All'}</span>
+                </button>
+              )}
+            </div>
+
+            {items.length === 0 ? (
+              <div className="py-6 text-center space-y-2">
+                <ShoppingBag className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+                <p className="text-xs font-bold text-muted-foreground">
+                  {language === 'mr' ? 'तुमची टोपली रिकामी आहे' : 'Your cart is empty'}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => router.push(`/bazar/store/${currentStore.slug}`)}
+                  className="rounded-xl text-xs"
+                >
+                  {language === 'mr' ? 'वस्तू खरेदी करा' : 'Explore Store'}
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/60">
+                {items.map((item) => (
+                  <div key={item.product.id + (item.selectedVariantId || '')} className="py-2.5 flex items-center justify-between gap-2">
+                    <div className="space-y-0.5 flex-1 min-w-0 pr-2">
+                      <p className="font-bold text-xs text-foreground truncate">{item.product.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {item.unit} • ₹{item.price}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-black text-xs text-foreground min-w-[45px] text-right">
+                        ₹{item.price * item.quantity}
+                      </span>
+                      {/* Quantity Stepper (Increase/Decrease/Remove) */}
+                      <div className="h-7 flex items-center bg-muted rounded-lg border border-border overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.selectedVariantId)}
+                          className="h-7 w-6 flex items-center justify-center text-primary hover:bg-background active:scale-95 transition-all"
+                          aria-label="Decrease quantity"
+                        >
+                          {item.quantity === 1 ? (
+                            <Trash2 className="h-3 w-3 text-rose-500" />
+                          ) : (
+                            <Minus className="h-3 w-3 stroke-[2.5]" />
+                          )}
+                        </button>
+                        <span className="font-black text-xs px-1.5 min-w-[20px] text-center select-none">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.selectedVariantId)}
+                          className="h-7 w-6 flex items-center justify-center text-primary hover:bg-background active:scale-95 transition-all"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="h-3 w-3 stroke-[2.5]" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Payment Method Selector */}
           <div className="bg-card rounded-2xl border border-border p-3.5 shadow-2xs space-y-3">

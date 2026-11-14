@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { 
   X, 
@@ -25,6 +25,15 @@ interface ProductDetailsSheetProps {
 export function ProductDetailsSheet({ product, storeId, storeName, onClose }: ProductDetailsSheetProps) {
   const { getItemQuantity, addToCart, updateQuantity } = useGroceryCart();
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined);
+
+  // Sync selected variant when product changes
+  useEffect(() => {
+    if (product?.variants && product.variants.length > 0) {
+      setSelectedVariantId(product.variants[0].id);
+    } else {
+      setSelectedVariantId(undefined);
+    }
+  }, [product]);
 
   if (!product) return null;
 
