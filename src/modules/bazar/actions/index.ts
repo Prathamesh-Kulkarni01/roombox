@@ -206,6 +206,30 @@ export async function getCsvTemplateAction(): Promise<string> {
 }
 
 /**
+ * Get all active registered stores in Bazar (Admin SDK)
+ */
+export async function getAllActiveStoresAction(): Promise<BazarStore[]> {
+  try {
+    const adminDb = await getAdminDb();
+    const snap = await adminDb.collection(STORES_COLLECTION).where('isActive', '==', true).get();
+    if (snap.empty) {
+      return [];
+    }
+    return snap.docs.map(doc => {
+      const data = doc.data() as BazarStore;
+      return {
+        ...data,
+        id: doc.id,
+        schemaVersion: data.schemaVersion ?? 1,
+      };
+    });
+  } catch (err) {
+    console.warn('[ServerAction] getAllActiveStoresAction failed:', err);
+    return [];
+  }
+}
+
+/**
  * Get Store Orders
  */
 export async function getStoreOrdersAction(storeId: string): Promise<BazarOrder[]> {

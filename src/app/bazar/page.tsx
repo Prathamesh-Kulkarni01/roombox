@@ -41,6 +41,7 @@ import { NativeFloatingCartBar } from '@/modules/bazar/components/NativeFloating
 import { ProductDetailsSheet } from '@/modules/bazar/components/ProductDetailsSheet';
 import { BAZAR_TOWN_STORES, POPULAR_SHOP_CATEGORIES, type BazarTownStore } from '@/modules/bazar/data/storeDirectory';
 import { BAZAR_PRODUCT_CATALOG, type GroceryProduct } from '@/modules/bazar/data/groceryCatalog';
+import { getAllActiveStoresAction } from '@/modules/bazar/actions';
 import { Badge } from '@/components/ui/badge';
 
 export default function BazarDiscoveryPage() {
@@ -50,6 +51,53 @@ export default function BazarDiscoveryPage() {
   const [favoriteStoreIds, setFavoriteStoreIds] = useState<string[]>(['fresh-mart']);
   const [selectedProduct, setSelectedProduct] = useState<GroceryProduct | null>(null);
   const [copiedShare, setCopiedShare] = useState(false);
+  const [liveStores, setLiveStores] = useState<BazarTownStore[]>([]);
+  const [loadingStores, setLoadingStores] = useState(true);
+
+  // Fetch real registered Bazar stores from Firestore Admin
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchStores() {
+      try {
+        const stores = await getAllActiveStoresAction();
+        if (isMounted && stores && stores.length > 0) {
+          const mapped: BazarTownStore[] = stores.map((s) => ({
+            id: s.id || s.slug,
+            name: s.name,
+            nameMarathi: s.nameMarathi || s.name,
+            slug: s.slug || s.id,
+            address: s.address || `${s.town || 'Palus'}, Sangli`,
+            category: s.category || 'grocery',
+            categoryMarathi: s.category === 'dairy' ? 'दूध व डेअरी' : 'किराणा व धान्य',
+            town: (s.town as any) || 'Palus',
+            isOpen: s.isActive !== false,
+            distanceKm: 0.8,
+            deliveryTimeMins: '10-20 min',
+            minOrder: s.minOrderValue || 50,
+            rating: 4.8,
+            ratingCount: 50,
+            ratingCountText: 'नवीन दुकान (New Store)',
+            imageUrl: s.branding?.bannerUrl || s.branding?.logoUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
+            shortCode: (s.name.slice(0, 2) || 'BZ').toUpperCase(),
+            verified: true,
+            offersText: 'स्थानिक खात्रीशीर दुकान',
+            offersTextMarathi: 'स्थानिक खात्रीशीर दुकान',
+            brandTheme: 'violet',
+            phone: s.phone,
+          }));
+          setLiveStores(mapped);
+        }
+      } catch (e) {
+        console.warn('Failed to load live stores, keeping regional directory:', e);
+      } finally {
+        if (isMounted) setLoadingStores(false);
+      }
+    }
+    fetchStores();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -108,9 +156,16 @@ export default function BazarDiscoveryPage() {
     }
   };
 
-  // Town stores & Bestsellers
-  const townStores = BAZAR_TOWN_STORES;
-  const favoriteStores = BAZAR_TOWN_STORES.filter(s => favoriteStoreIds.includes(s.id));
+  // Town stores & Bestsellers - Live stores first, then fallback directory
+  const townStores = useMemo(() => {
+    if (liveStores.length === 0) return BAZAR_TOWN_STORES;
+    // Merge live registered stores with regional directory, avoiding slug duplicates
+    const liveSlugs = new Set(liveStores.map(s => s.slug));
+    const nonDuplicatedRegional = BAZAR_TOWN_STORES.filter(s => !liveSlugs.has(s.slug));
+    return [...liveStores, ...nonDuplicatedRegional];
+  }, [liveStores]);
+
+  const favoriteStores = townStores.filter(s => favoriteStoreIds.includes(s.id) || favoriteStoreIds.includes(s.slug));
   const trendingBestsellers = useMemo(() => {
     return BAZAR_PRODUCT_CATALOG.slice(0, 6);
   }, []);

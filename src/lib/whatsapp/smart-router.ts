@@ -80,6 +80,23 @@ export async function handleIncomingMessage(data: {
 
     console.log(`[Router] From: ${from} | Type: ${messageType} | Msg: "${text}"`);
 
+howing   s    // ── TEMPORARY KILL-SWITCH / ACK-ONLY FLAG ─────────────────────────────────────
+    // When DISABLE_CUSTOMER_AUTORESPOND is set (or true by default during stabilization),
+    // do not trigger multi-step interactive workflows, menus, or tenant self-onboarding.
+    // Simply acknowledge receipt so customer/tenant does not get spammed.
+    const disableAutoRespond = process.env.DISABLE_CUSTOMER_AUTORESPOND !== 'false';
+    if (disableAutoRespond) {
+        console.log(`[Router] Auto-respond paused by flag (DISABLE_CUSTOMER_AUTORESPOND). Acknowledging from ${from}.`);
+        const lower = text.toLowerCase().trim();
+        if (lower === 'hi' || lower === 'hello' || lower === 'menu' || lower === 'start') {
+            await MessageManager.sendWhatsAppMessage(
+                from,
+                `🙏 *नमस्कार!*\n\nतुमचा संदेश आम्हाला प्राप्त झाला आहे (Message acknowledged).\nआमची टीम लवकरच आपल्याशी संपर्क करेल.\n\nRentSutra / बझार सेवा पाहण्यासाठी:\n👉 https://rentsutra.in`
+            );
+        }
+        return;
+    }
+
     // Load persisted session
     let session = await SessionManager.getSession(from);
 
