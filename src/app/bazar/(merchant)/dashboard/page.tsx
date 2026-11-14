@@ -328,10 +328,11 @@ export default function BazarMerchantDashboardPage() {
     }
   };
 
-  // Operational metrics answering the 4 questions
+  // Operational metrics answering the 4 questions (100% Dynamic from Firestore)
   const pendingOrders = orders.filter(o => o.orderStatus === 'placed' || o.orderStatus === 'preparing');
   const todayOrders = orders.length;
-  const todaySales = orders.reduce((acc, o) => acc + (o.totalAmount || 0), 0) || 12450; // Demo fallback if 0
+  // Calculate real sales sum from today's orders (0 when new store has no sales yet)
+  const todaySales = orders.reduce((acc, o) => acc + (Number(o.totalAmount) || 0), 0);
   const lowStockProducts = products.filter(p => !p.inStock || (p.stockQuantity !== undefined && p.stockQuantity < 5));
   const activeProducts = products.filter(p => p.inStock);
 
