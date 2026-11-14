@@ -26,8 +26,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { getStoreProductsAction } from '@/modules/bazar/actions';
-import type { BazarProduct } from '@/modules/bazar/schemas';
+import { useAppSelector } from '@/lib/hooks';
+import { getStoreProductsAction, getMerchantStoreAction } from '@/modules/bazar/actions';
+import type { BazarProduct, BazarStore } from '@/modules/bazar/schemas';
 import { resolveProductImage } from '@/modules/bazar/services/imageResolver';
 
 interface BillItem {
@@ -42,6 +43,8 @@ const FREQUENT_CATEGORIES = ['All', 'Grains & Flours', 'Cooking Oils & Ghee', 'D
 
 export default function BazarPosBillingPage() {
   const { toast } = useToast();
+  const { currentUser } = useAppSelector((state) => state.user);
+  const [store, setStore] = useState<BazarStore | null>(null);
   const [products, setProducts] = useState<BazarProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -68,14 +71,24 @@ export default function BazarPosBillingPage() {
   useEffect(() => {
     async function load() {
       try {
-        const prods = await getStoreProductsAction('default_store');
+        const ownerId = currentUser?.id || 'default_store';
+        let storeData = await getMerchantStoreAction(ownerId);
+        if (!storeData && ownerId !== 'default_store') {
+          storeData = await getMerchantStoreAction('default_store');
+        }
+        setStore(storeData);
+
+        const storeTargetId = storeData?.id || 'default_store';
+        const prods = await getStoreProductsAction(storeTargetId);
         setProducts(prods);
+      } catch (err) {
+        console.warn('Failed to load store products for POS:', err);
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, []);
+  }, [currentUser?.id]);
 
   // Filter products by search & category
   const filteredProducts = useMemo(() => {
@@ -163,18 +176,23 @@ export default function BazarPosBillingPage() {
   const handleShareWhatsApp = () => {
     if (!completedBill) return;
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in').replace(/\/+$/, '');
-    const storeOrderLink = `${appUrl}/bazar`;
+    
+    // White-labeled Store Name & Direct Store Link
+    const activeStoreName = store?.nameMarathi || store?.name || 'सुपर बझार';
+    const storeSlug = store?.slug || store?.id || '';
+    const storeOrderLink = storeSlug ? `${appUrl}/bazar/store/${storeSlug}` : `${appUrl}/bazar`;
 
-    const text = `*श्री महालक्ष्मी सुपर बझार (Palus)*%0A` +
-      `बिल नं: ${completedBill.billNo}%0A` +
-      `ग्राहक: ${completedBill.customerName || 'ग्राहक'}%0A` +
+    const text = `🏪 *${activeStoreName}*%0A` +
+      `🧾 बिल नं: ${completedBill.billNo}%0A` +
+      `👤 ग्राहक: ${completedBill.customerName || 'ग्राहक'}%0A` +
       `--------------------------------%0A` +
-      completedBill.items.map(i => `${i.name} x ${i.quantity} = ₹${i.price * i.quantity}`).join('%0A') +
+      completedBill.items.map(i => `• ${i.name} x ${i.quantity} = ₹${i.price * i.quantity}`).join('%0A') +
       `%0A--------------------------------%0A` +
-      `*एकूण रक्कम: ₹${completedBill.total}* (${completedBill.paymentMethod.toUpperCase()})%0A%0A` +
-      `🛍️ *पुढील वेळी घरबसल्या ऑर्डर करण्यासाठी:*%0A` +
-      `${storeOrderLink}%0A%0A` +
-      `धन्यवाद! पुन्हा भेट द्या.`;
+      `💰 *एकूण रक्कम: ₹${completedBill.total}* (${completedBill.paymentMethod.toUpperCase()})%0A%0A` +
+      `🛍️ *पुढील वेळी दुकानात न येता घरबसल्या थेट ऑर्डर करण्यासाठी खालील लिंकवर क्लिक करा:*%0A` +
+      `👉 ${storeOrderLink}%0A%0A` +
+      (store?.phone ? `📞 संपर्क: ${store.phone}%0A%0A` : '') +
+      `🙏 *आपल्या खरेदीबद्दल धन्यवाद! पुन्हा भेट द्या.*`;
     
     const waUrl = completedBill.customerPhone 
       ? `https://wa.me/91${completedBill.customerPhone.replace(/\D/g, '')}?text=${text}`
