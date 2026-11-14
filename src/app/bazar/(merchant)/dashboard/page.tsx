@@ -19,8 +19,23 @@ import {
   ExternalLink,
   Flame,
   PhoneCall,
-  QrCode
+  QrCode,
+  UserPlus,
+  Send,
+  Printer,
+  Copy,
+  Check
 } from 'lucide-react';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter 
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +60,188 @@ export default function BazarMerchantDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [storeOpen, setStoreOpen] = useState(true);
   const [importing, setImporting] = useState(false);
+
+  // Quick Customer WhatsApp Invite Modal State
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
+
+  // Counter QR Poster Modal State
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in').replace(/\/+$/, '');
+  const activeStoreSlug = store?.slug || store?.id || '';
+  const storeOrderUrl = activeStoreSlug ? `${appUrl}/bazar/store/${activeStoreSlug}` : `${appUrl}/bazar`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(storeOrderUrl)}`;
+
+  const handleSendInviteWhatsApp = () => {
+    if (!invitePhone.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'नंबर आवश्यक आहे',
+        description: 'कृपया ग्राहकाचा व्हॉट्सअ‍ॅप नंबर भरा.',
+      });
+      return;
+    }
+
+    const cleanPhone = invitePhone.replace(/\D/g, '').slice(-10);
+    const storeDisplayName = store?.nameMarathi || store?.name || 'सुपर बझार';
+    const custDisplayName = inviteName.trim() || 'ग्राहक';
+
+    const message = 
+`🏪 *${storeDisplayName}* कडून निमंत्रण:
+
+सस्नेह नमस्कार ${custDisplayName}, 
+आपले नाव *${storeDisplayName}* च्या डिजिटल ग्राहक नोंदवहीत जोडले गेले आहे!
+
+आता आमच्या दुकानातील सर्व किराणा, माल व ऑफर्स घरबसल्या मोबाईलवर पाहण्यासाठी आणि थेट ऑर्डर करण्यासाठी खालील लिंकवर क्लिक करा:
+👉 ${storeOrderUrl}
+
+✅ घरपोच डिलिव्हरी किंवा काउंटर पिकअप उपलब्ध!
+${store?.phone ? `📞 संपर्क: ${store.phone}\n` : ''}
+🙏 *स्थानिक दुकानाला सहकार्य केल्याबद्दल धन्यवाद!*`;
+
+    const waLink = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(waLink, '_blank');
+
+    toast({
+      title: 'निमंत्रण तयार झाले! 🚀',
+      description: `${custDisplayName} यांच्या व्हॉट्सअ‍ॅपवर संदेश पाठवला जात आहे.`,
+    });
+
+    setInviteName('');
+    setInvitePhone('');
+    setIsInviteOpen(false);
+  };
+
+  const handleCopyStoreLink = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(storeOrderUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      toast({
+        title: 'लिंक कॉपी केली! 📋',
+        description: storeOrderUrl,
+      });
+    }
+  };
+
+  const handlePrintPoster = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const storeDisplayName = store?.nameMarathi || store?.name || 'स्थानिक सुपर बझार';
+    const storeAddress = store?.address || 'Palus, Sangli';
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${storeDisplayName} - Order QR Standee</title>
+          <style>
+            @page { size: A4 portrait; margin: 15mm; }
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              text-align: center;
+              padding: 20px;
+              color: #0f172a;
+              background: #fff;
+            }
+            .poster-card {
+              border: 4px solid #16a34a;
+              border-radius: 28px;
+              padding: 36px 24px;
+              max-width: 500px;
+              margin: 0 auto;
+              box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            }
+            .badge {
+              display: inline-block;
+              background: #dcfce7;
+              color: #15803d;
+              font-weight: 800;
+              font-size: 14px;
+              padding: 6px 16px;
+              border-radius: 9999px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            h1 {
+              font-size: 28px;
+              font-weight: 900;
+              margin: 16px 0 4px;
+              color: #14532d;
+            }
+            .sub {
+              font-size: 13px;
+              color: #64748b;
+              margin-bottom: 24px;
+            }
+            .qr-wrap {
+              background: #f8fafc;
+              padding: 20px;
+              display: inline-block;
+              border-radius: 20px;
+              border: 2px dashed #86efac;
+              margin-bottom: 20px;
+            }
+            .qr-wrap img {
+              width: 240px;
+              height: 240px;
+              display: block;
+            }
+            .instruction {
+              font-size: 18px;
+              font-weight: 800;
+              color: #0f172a;
+              margin-bottom: 8px;
+            }
+            .desc {
+              font-size: 13px;
+              color: #475569;
+              line-height: 1.5;
+            }
+            .footer {
+              margin-top: 24px;
+              padding-top: 16px;
+              border-top: 1px solid #e2e8f0;
+              font-size: 11px;
+              color: #94a3b8;
+              font-weight: 600;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="poster-card">
+            <span class="badge">🚀 आता घरबसल्या ऑर्डर करा</span>
+            <h1>${storeDisplayName}</h1>
+            <div class="sub">📍 ${storeAddress}</div>
+
+            <div class="qr-wrap">
+              <img src="${qrImageUrl}" alt="Scan QR Code" />
+            </div>
+
+            <div class="instruction">📱 कॅमेराने QR कोड स्कॅन करा</div>
+            <div class="desc">
+              किराणा, दूध आणि सर्व दैनंदिन वस्तू थेट मोबाईलवरून ऑर्डर करा.<br>
+              <strong>काउंटर पिकअप किंवा घरपोच डिलिव्हरी उपलब्ध!</strong>
+            </div>
+
+            <div class="footer">
+              Powered by RentSutra Bazar • www.rentsutra.in
+            </div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -303,6 +500,74 @@ export default function BazarMerchantDashboardPage() {
         </div>
       </div>
 
+      {/* 3.5. WALK-IN CUSTOMER ACQUISITION TOOLS (No POS billing required) */}
+      <Card className="rounded-2xl border-primary/20 bg-primary/5 shadow-xs overflow-hidden">
+        <CardHeader className="p-4 pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground">
+                <UserPlus className="h-4 w-4 text-primary" />
+                ग्राहक जोडा व स्टोअर लिंक पाठवा (Walk-in Customer Acquisition)
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                काउंटरवर आलेल्या ग्राहकांना एका क्लिकवर तुमच्या दुकानाची थेट ऑर्डर लिंक व्हॉट्सअ‍ॅपवर पाठवा.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => setIsInviteOpen(true)}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span>व्हॉट्सअ‍ॅप निमंत्रण पाठवा</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsQrModalOpen(true)}
+                className="bg-background hover:bg-muted text-foreground font-bold text-xs rounded-xl border-border flex items-center gap-1.5"
+              >
+                <QrCode className="h-3.5 w-3.5 text-primary" />
+                <span>QR पोस्टर डाउनलोड</span>
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 pt-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-background/80 rounded-xl p-3 border border-border/60">
+            <div className="space-y-0.5">
+              <p className="text-[11px] font-bold text-muted-foreground uppercase">तुमच्या दुकानाची थेट लिंक (Direct Store Order Link)</p>
+              <p className="text-xs font-extrabold text-primary select-all truncate max-w-sm sm:max-w-md">
+                {storeOrderUrl}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyStoreLink}
+                className="flex-1 sm:flex-none text-xs rounded-lg border-border"
+              >
+                {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-600 mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+                <span>{copiedLink ? 'कॉपी झाली!' : 'लिंक कॉपी करा'}</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                asChild
+                className="text-xs rounded-lg text-primary hover:bg-primary/10"
+              >
+                <Link href={`/bazar/store/${activeStoreSlug}`} target="_blank">
+                  <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                  <span>दुकान उघडा</span>
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 4. REAL-TIME ACTIVITY STREAM & LOW STOCK ALERTS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Low Stock Warning Card */}
@@ -390,6 +655,131 @@ export default function BazarMerchantDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 5. CUSTOMER WHATSAPP INVITE MODAL */}
+      <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Send className="h-4 w-4 text-primary" />
+              ग्राहकाला व्हॉट्सअ‍ॅप निमंत्रण पाठवा
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              ग्राहकाचे नाव आणि व्हॉट्सअ‍ॅप नंबर टाका. त्यांना तुमच्या दुकानाची थेट ऑर्डर लिंक आणि स्वागत संदेश तात्काळ जाईल.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="custName" className="text-xs font-semibold">ग्राहकाचे नाव (Customer Name)</Label>
+              <Input
+                id="custName"
+                placeholder="उदा. राहुल कदम"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                className="rounded-xl text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="custPhone" className="text-xs font-semibold">व्हॉट्सअ‍ॅप नंबर (10 Digit Mobile No.) *</Label>
+              <Input
+                id="custPhone"
+                type="tel"
+                placeholder="उदा. 9876543210"
+                value={invitePhone}
+                onChange={(e) => setInvitePhone(e.target.value)}
+                className="rounded-xl text-sm font-mono"
+              />
+            </div>
+
+            <div className="bg-muted/50 rounded-xl p-3 border border-border/60 text-xs space-y-1">
+              <p className="font-bold text-foreground">मेसेज प्रिव्ह्यू (WhatsApp Preview):</p>
+              <p className="text-muted-foreground whitespace-pre-line text-[11px] leading-relaxed">
+                {`नमस्कार ${inviteName || 'ग्राहक मित्र'}, *${activeStoreName}* मध्ये आपले स्वागत आहे! ✨\nआता घरबसल्या थेट ऑर्डर करा:\n👉 ${storeOrderUrl}\nधन्यवाद! 🙏`}
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-row gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsInviteOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              रद्द करा
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSendInviteWhatsApp}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl text-xs flex items-center gap-1.5"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>व्हॉट्सअ‍ॅप पाठवा</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 6. COUNTER STAND / QR POSTER MODAL */}
+      <Dialog open={isQrModalOpen} onOpenChange={setIsQrModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <QrCode className="h-4 w-4 text-primary" />
+              दुकान काउंटर QR स्टॅन्डी / पोस्टर
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              हा QR कोड प्रिंट करून तुमच्या दुकानाच्या कॅश काउंटरवर लावा. ग्राहक मोबाईलने स्कॅन करून थेट ऑर्डर करू शकतील.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center justify-center py-4 space-y-4">
+            <div className="bg-white p-4 rounded-2xl border-2 border-primary/30 shadow-md flex flex-col items-center text-center">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground mb-1">
+                Scan to Order Online
+              </span>
+              <h3 className="font-black text-lg text-neutral-900 mb-2">
+                {activeStoreName}
+              </h3>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrImageUrl}
+                alt={`${activeStoreName} QR Code`}
+                width={220}
+                height={220}
+                className="rounded-xl border border-neutral-200"
+              />
+              <p className="text-[11px] font-semibold text-neutral-600 mt-2 font-mono">
+                {storeOrderUrl.replace(/^https?:\/\//, '')}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Powered by RentSutra Bazar
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCopyStoreLink}
+              className="rounded-xl text-xs flex items-center gap-1.5"
+            >
+              {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              <span>{copiedLink ? 'कॉपी झाली!' : 'लिंक कॉपी'}</span>
+            </Button>
+            <Button
+              type="button"
+              onClick={handlePrintPoster}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl text-xs flex items-center gap-1.5"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              <span>पोस्टर प्रिंट करा (Print Standee)</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
