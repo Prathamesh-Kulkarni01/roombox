@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAppSelector } from '@/lib/hooks';
+import { getMerchantStoreAction } from '@/modules/bazar/actions';
 import { 
   ArrowLeft, 
   Store, 
@@ -34,15 +36,38 @@ interface MerchantOrder {
 }
 
 export default function MerchantOrdersQueuePage() {
+  const { currentUser } = useAppSelector((state) => state.user);
   const [orders, setOrders] = useState<MerchantOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterMode, setFilterMode] = useState<'all' | 'pickup' | 'delivery'>('all');
+  const [activeStoreId, setActiveStoreId] = useState<string>('fresh-mart');
 
+  // 1. Resolve merchant's actual store ID
+  useEffect(() => {
+    let isMounted = true;
+    async function resolveStore() {
+      try {
+        const ownerId = currentUser?.id || 'default_store';
+        const storeData = await getMerchantStoreAction(ownerId);
+        if (isMounted && storeData?.id) {
+          setActiveStoreId(storeData.id);
+        }
+      } catch (err) {
+        console.warn('Could not resolve merchant store:', err);
+      }
+    }
+    resolveStore();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.id]);
+
+  // 2. Poll live orders for the active store
   useEffect(() => {
     let isMounted = true;
     const fetchLiveOrders = async () => {
       try {
-        const res = await fetch('/api/bazar/orders?storeId=fresh-mart');
+        const res = await fetch(`/api/bazar/orders?storeId=${encodeURIComponent(activeStoreId)}`);
         if (!res.ok) {
           if (isMounted) setIsLoading(false);
           return;
@@ -98,7 +123,7 @@ export default function MerchantOrdersQueuePage() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [activeStoreId]);
 
   const updateOrderStatus = async (orderId: string, newStatus: MerchantOrder['status']) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));

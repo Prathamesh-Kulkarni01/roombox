@@ -48,6 +48,26 @@ export class BazarService {
   }
 
   /**
+   * Fetch store by store ID
+   */
+  async getStoreById(storeId: string): Promise<BazarStore | null> {
+    if (!db || !storeId) return null;
+    try {
+      const snap = await getDoc(doc(db, STORES_COLLECTION, storeId));
+      if (!snap.exists()) return null;
+      const data = snap.data() as BazarStore;
+      return {
+        ...data,
+        id: snap.id,
+        schemaVersion: data.schemaVersion ?? BAZAR_SCHEMA_VERSION,
+      };
+    } catch (e) {
+      console.error('[BazarService] getStoreById error:', e);
+      return null;
+    }
+  }
+
+  /**
    * Fetch store by owner ID
    */
   async getStoreByOwner(ownerId: string): Promise<BazarStore | null> {

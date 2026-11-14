@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useGroceryCart } from '@/modules/bazar/context/GroceryCartContext';
+import { getStoreProductsAction } from '@/modules/bazar/actions';
 import { 
   BAZAR_PRODUCT_CATALOG, 
   BAZAR_CATEGORIES, 
@@ -80,7 +81,50 @@ function StorefrontScreen() {
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
   const [language, setLanguage] = useState<'mr' | 'en'>('mr');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<GroceryProduct[]>(BAZAR_PRODUCT_CATALOG);
   const { setTheme } = useTheme();
+
+  // Load real products from Firestore for this store (falling back to regional catalog if store is new/empty)
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchStoreCatalog() {
+      try {
+        const liveProducts = await getStoreProductsAction(rawId);
+        if (isMounted && liveProducts && liveProducts.length > 0) {
+          const mapped: GroceryProduct[] = liveProducts.map((p) => {
+            const disc = p.discountPrice && p.price > p.discountPrice
+              ? Math.round(((p.price - p.discountPrice) / p.price) * 100)
+              : 0;
+
+            return {
+              id: p.id,
+              name: p.name,
+              brand: p.nameMarathi || 'Bazar Fresh',
+              category: p.category || 'groceries',
+              section: p.inStock ? 'Bestsellers' : 'General',
+              price: p.discountPrice && p.discountPrice > 0 ? p.discountPrice : p.price,
+              mrp: p.price,
+              unit: p.unit || '1 unit',
+              discountPercent: disc,
+              imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
+              inStock: p.inStock !== false,
+              maxStock: p.stockQuantity || 50,
+              descriptionMarathi: p.nameMarathi || p.description,
+            };
+          });
+          setCatalogProducts(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to load store live catalog, using regional defaults:', err);
+      }
+    }
+    fetchStoreCatalog();
+    return () => {
+      isMounted = false;
+    };
+  }, [rawId]);
+
+  // Automatic Store Brand Theme synchronization:
 
   // Automatic Store Brand Theme synchronization:
   // If merchant has a preferred brand theme (e.g. green for Fresh Mart, violet for Super Bazar),
@@ -101,7 +145,7 @@ function StorefrontScreen() {
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
-    return BAZAR_PRODUCT_CATALOG.filter(p => {
+    return catalogProducts.filter(p => {
       const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
       if (!searchQuery.trim()) return matchesCategory;
       const q = searchQuery.toLowerCase().trim();
@@ -112,7 +156,7 @@ function StorefrontScreen() {
         (p.descriptionMarathi && p.descriptionMarathi.includes(q))
       );
     });
-  }, [searchQuery, activeCategory]);
+  }, [catalogProducts, searchQuery, activeCategory]);
 
   // Section Grouping
   const sections = useMemo(() => {

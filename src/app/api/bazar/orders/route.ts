@@ -25,12 +25,28 @@ export async function POST(req: NextRequest) {
       schemaVersion: 1
     };
 
-    // Trigger Regional Marathi WhatsApp notification asynchronously (non-blocking)
+    // 1. Trigger Customer WhatsApp notification asynchronously (non-blocking)
     BazarWhatsAppNotificationService.sendOrderPlacedCustomerNotification(fullOrder).then((res) => {
-      console.log('[Bazar WhatsApp] Order notification dispatch result:', res);
+      console.log('[Bazar WhatsApp] Customer order notification dispatch result:', res);
     }).catch((err) => {
       console.warn('[Bazar WhatsApp] Customer notification error:', err?.message || err);
     });
+
+    // 2. Trigger Merchant WhatsApp Alert asynchronously (non-blocking)
+    if (fullOrder.storeId) {
+      bazarService.getStoreById(fullOrder.storeId).then((store) => {
+        const merchantPhone = store?.phone || process.env.NEXT_PUBLIC_SUPPORT_PHONE;
+        if (merchantPhone) {
+          BazarWhatsAppNotificationService.sendNewOrderMerchantAlert(merchantPhone, fullOrder).then((res) => {
+            console.log('[Bazar WhatsApp] Merchant alert dispatch result:', res);
+          }).catch((err) => {
+            console.warn('[Bazar WhatsApp] Merchant alert error:', err?.message || err);
+          });
+        }
+      }).catch((e) => {
+        console.warn('[Bazar WhatsApp] Could not lookup store for merchant alert:', e?.message || e);
+      });
+    }
 
     return NextResponse.json({
       success: true,
