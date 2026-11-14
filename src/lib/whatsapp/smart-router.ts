@@ -80,7 +80,7 @@ export async function handleIncomingMessage(data: {
 
     console.log(`[Router] From: ${from} | Type: ${messageType} | Msg: "${text}"`);
 
-howing   s    // ── TEMPORARY KILL-SWITCH / ACK-ONLY FLAG ─────────────────────────────────────
+    // ── TEMPORARY KILL-SWITCH / ACK-ONLY FLAG ─────────────────────────────────────
     // When DISABLE_CUSTOMER_AUTORESPOND is set (or true by default during stabilization),
     // do not trigger multi-step interactive workflows, menus, or tenant self-onboarding.
     // Simply acknowledge receipt so customer/tenant does not get spammed.
