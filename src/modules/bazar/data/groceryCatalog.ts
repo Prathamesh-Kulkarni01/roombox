@@ -22,6 +22,7 @@ export interface GroceryProduct {
   rating?: number;
   totalRatings?: number;
   ratingCountText?: string;
+  nameMarathi?: string;
   descriptionMarathi?: string;
   variants?: ProductVariant[];
 }

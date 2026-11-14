@@ -72,6 +72,7 @@ export default function BazarMerchantDashboardPage() {
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in').replace(/\/+$/, '');
   const activeStoreSlug = store?.slug || store?.id || '';
+  const activeStoreName = store?.nameMarathi || store?.name || 'सुपर बझार';
   const storeOrderUrl = activeStoreSlug ? `${appUrl}/bazar/store/${activeStoreSlug}` : `${appUrl}/bazar`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(storeOrderUrl)}`;
 

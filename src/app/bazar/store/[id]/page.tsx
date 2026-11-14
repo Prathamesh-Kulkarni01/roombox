@@ -106,7 +106,7 @@ function StorefrontScreen() {
               mrp: p.price,
               unit: p.unit || '1 unit',
               discountPercent: disc,
-              imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
+              imageUrl: (p as unknown as { imageUrl?: string }).imageUrl || p.images?.[0] || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
               inStock: p.inStock !== false,
               maxStock: p.stockQuantity || 50,
               descriptionMarathi: p.nameMarathi || p.description,

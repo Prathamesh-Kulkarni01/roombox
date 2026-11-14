@@ -476,11 +476,9 @@ export default function BazarDiscoveryPage() {
         {selectedProduct && (
           <ProductDetailsSheet
             product={selectedProduct}
-            isOpen={!!selectedProduct}
             onClose={() => setSelectedProduct(null)}
             storeId="fresh-mart"
             storeName="Fresh Mart Supermarket"
-            language={language}
           />
         )}
 

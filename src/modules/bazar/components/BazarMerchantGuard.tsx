@@ -22,7 +22,7 @@ export function BazarMerchantGuard({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     // Check Redux or Firebase direct auth
-    if (currentUser?.uid || currentUser?.id) {
+    if ((currentUser as unknown as { uid?: string })?.uid || currentUser?.id) {
       setIsAuthenticated(true);
       setAuthChecked(true);
       return;
@@ -57,7 +57,7 @@ export function BazarMerchantGuard({ children }: { children: React.ReactNode }) 
     let isMounted = true;
     async function verifyStore() {
       try {
-        const ownerId = currentUser?.id || currentUser?.uid || auth?.currentUser?.uid;
+        const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid || auth?.currentUser?.uid;
         if (!ownerId) {
           if (isMounted) setStoreChecked(true);
           return;

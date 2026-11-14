@@ -57,7 +57,7 @@ export default function BazarMerchantOnboardingPage() {
 
     setLoading(true);
     try {
-      const ownerId = currentUser?.id || currentUser?.uid || `owner_${Date.now()}`;
+      const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid || `owner_${Date.now()}`;
       const slug = storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `store-${Date.now()}`;
       
       const saveRes = await saveStoreAction({

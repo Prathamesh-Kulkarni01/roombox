@@ -12,9 +12,10 @@ export const metadata = {
   description: 'View property details and inquire about availability.',
 };
 
-export default async function PublicListingPage({ params }: { params: { pgId: string } }) {
+export default async function PublicListingPage({ params }: { params: Promise<{ pgId: string }> }) {
+  const { pgId } = await params;
   const db = await getAdminDb();
-  const pgDoc = await db.collection('pgs').doc(params.pgId).get();
+  const pgDoc = await db.collection('pgs').doc(pgId).get();
 
   if (!pgDoc.exists) {
     return notFound();
