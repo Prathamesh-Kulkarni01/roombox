@@ -33,60 +33,9 @@ interface MerchantOrder {
   items: { name: string; qty: number; unitPrice: number }[];
 }
 
-const INITIAL_ORDERS: MerchantOrder[] = [
-  {
-    id: 'ord_1',
-    orderNumber: '#BZ12456',
-    customerName: 'Prathamesh Kulkarni',
-    customerPhone: '+91 98765 43210',
-    fulfilmentType: 'pickup',
-    paymentMode: 'cod',
-    status: 'received',
-    totalAmount: 214,
-    timeText: '10:12 AM (5 mins ago)',
-    items: [
-      { name: 'Amul Taaza Toned Milk (500 ml)', qty: 1, unitPrice: 28 },
-      { name: 'Fresh Farm White Eggs (6 pcs)', qty: 1, unitPrice: 48 },
-      { name: 'Fortune Sunlite Sunflower Oil (1 L)', qty: 1, unitPrice: 138 },
-    ]
-  },
-  {
-    id: 'ord_2',
-    orderNumber: '#BZ12457',
-    customerName: 'Sachin Patil',
-    customerPhone: '+91 98220 11223',
-    fulfilmentType: 'delivery',
-    paymentMode: 'cod',
-    status: 'packing',
-    totalAmount: 380,
-    timeText: '10:05 AM (12 mins ago)',
-    items: [
-      { name: 'Farm Fresh Red Hybrid Tomatoes (1 kg)', qty: 2, unitPrice: 28 },
-      { name: 'Nashik Premium Red Onions (1 kg)', qty: 2, unitPrice: 24 },
-      { name: 'Fresh Jyoti Potatoes (1 kg)', qty: 2, unitPrice: 22 },
-      { name: 'Amul Salted Butter (100 g)', qty: 4, unitPrice: 56 },
-    ]
-  },
-  {
-    id: 'ord_3',
-    orderNumber: '#BZ12450',
-    customerName: 'Anita Shinde',
-    customerPhone: '+91 94230 44556',
-    fulfilmentType: 'pickup',
-    paymentMode: 'cod',
-    status: 'ready',
-    totalAmount: 184,
-    timeText: '09:45 AM (32 mins ago)',
-    items: [
-      { name: 'Fresh Robusta Golden Bananas (1 kg)', qty: 2, unitPrice: 38 },
-      { name: 'Amul Taaza Toned Fresh Milk (500 ml)', qty: 2, unitPrice: 28 },
-      { name: 'Fortune Sunlite Oil Pouch (1 L)', qty: 1, unitPrice: 138 },
-    ]
-  }
-];
-
 export default function MerchantOrdersQueuePage() {
-  const [orders, setOrders] = useState<MerchantOrder[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<MerchantOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filterMode, setFilterMode] = useState<'all' | 'pickup' | 'delivery'>('all');
 
   useEffect(() => {
@@ -94,39 +43,52 @@ export default function MerchantOrdersQueuePage() {
     const fetchLiveOrders = async () => {
       try {
         const res = await fetch('/api/bazar/orders?storeId=fresh-mart');
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (isMounted) setIsLoading(false);
+          return;
+        }
         const data = await res.json();
-        if (data && data.success && Array.isArray(data.orders) && data.orders.length > 0) {
-          const liveOrders: MerchantOrder[] = data.orders.map((o: any, idx: number) => ({
-            id: o.id || `live_ord_${idx}`,
-            orderNumber: `#BZ${(o.id || String(idx)).slice(-5).toUpperCase()}`,
-            customerName: o.customerName || 'Customer',
-            customerPhone: o.customerPhone || '+91 98765 43210',
-            fulfilmentType: (o.deliveryType === 'store_pickup' ? 'pickup' : 'delivery') as 'pickup' | 'delivery',
-            paymentMode: (o.paymentMethod === 'cod' ? 'cod' : 'upi') as 'cod' | 'upi',
-            status: (o.orderStatus === 'placed' ? 'received' : (o.orderStatus || 'received')) as MerchantOrder['status'],
-            totalAmount: o.totalAmount || 0,
-            timeText: 'Just now',
-            items: Array.isArray(o.items)
-              ? o.items.map((item: any) => ({
-                  name: item.productName || item.name || 'Product',
-                  qty: item.quantity || item.qty || 1,
-                  unitPrice: item.price || item.unitPrice || 0,
-                }))
-              : [],
-          }));
+        if (data && data.success && Array.isArray(data.orders)) {
+          const liveOrders: MerchantOrder[] = data.orders.map((o: any, idx: number) => {
+            let timeText = 'Just now';
+            if (o.createdAt) {
+              try {
+                const diffMin = Math.round((Date.now() - new Date(o.createdAt).getTime()) / 60000);
+                timeText = diffMin <= 1 ? 'Just now' : `${diffMin} mins ago`;
+              } catch {
+                timeText = 'Recent';
+              }
+            }
+
+            return {
+              id: o.id || `live_ord_${idx}`,
+              orderNumber: o.orderNumber ? `#${o.orderNumber}` : `#BZ${(o.id || String(idx)).slice(-5).toUpperCase()}`,
+              customerName: o.customerName || 'Customer',
+              customerPhone: o.customerPhone ? `+91 ${o.customerPhone.replace(/\D/g, '').slice(-10)}` : 'No phone',
+              fulfilmentType: (o.deliveryType === 'store_pickup' ? 'pickup' : 'delivery') as 'pickup' | 'delivery',
+              paymentMode: (o.paymentMethod === 'cod' ? 'cod' : 'upi') as 'cod' | 'upi',
+              status: (o.orderStatus === 'placed' ? 'received' : (o.orderStatus || 'received')) as MerchantOrder['status'],
+              totalAmount: o.totalAmount || 0,
+              timeText,
+              items: Array.isArray(o.items)
+                ? o.items.map((item: any) => ({
+                    name: item.productName || item.name || 'Product',
+                    qty: item.quantity || item.qty || 1,
+                    unitPrice: item.price || item.unitPrice || 0,
+                  }))
+                : [],
+            };
+          });
 
           if (isMounted) {
-            setOrders(prev => {
-              // Combine live orders first, deduplicating against existing IDs
-              const existingIds = new Set(liveOrders.map(lo => lo.id));
-              const remaining = prev.filter(p => !existingIds.has(p.id));
-              return [...liveOrders, ...remaining];
-            });
+            setOrders(liveOrders);
+            setIsLoading(false);
           }
+        } else {
+          if (isMounted) setIsLoading(false);
         }
       } catch (err) {
-        // Safe silent fallback to initial state
+        if (isMounted) setIsLoading(false);
       }
     };
 
@@ -209,7 +171,24 @@ export default function MerchantOrdersQueuePage() {
 
       {/* Orders List */}
       <div className="space-y-4">
-        {filteredOrders.map(order => {
+        {isLoading && orders.length === 0 ? (
+          <Card className="rounded-2xl border-dashed border-border p-12 text-center">
+            <p className="text-sm font-semibold text-muted-foreground animate-pulse">
+              ऑर्डर्स लोड होत आहेत... (Checking for incoming orders...)
+            </p>
+          </Card>
+        ) : filteredOrders.length === 0 ? (
+          <Card className="rounded-2xl border-dashed border-border p-12 text-center space-y-2">
+            <Store className="h-8 w-8 text-muted-foreground mx-auto stroke-[1.5]" />
+            <p className="text-sm font-bold text-foreground">
+              कोणतीही ऑर्डर नाही (No orders in this queue)
+            </p>
+            <p className="text-xs text-muted-foreground">
+              नवीन ग्राहकांची ऑर्डर आल्यावर ती येथे आपोआप दिसेल.
+            </p>
+          </Card>
+        ) : (
+          filteredOrders.map(order => {
           return (
             <Card key={order.id} className="rounded-2xl border-border overflow-hidden">
               <CardHeader className="p-4 bg-muted/20 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -324,7 +303,7 @@ export default function MerchantOrdersQueuePage() {
               </CardContent>
             </Card>
           );
-        })}
+        }))}
       </div>
     </div>
   );

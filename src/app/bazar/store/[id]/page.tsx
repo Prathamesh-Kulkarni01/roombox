@@ -163,7 +163,7 @@ function StorefrontScreen() {
   };
 
   const handleWhatsAppOrder = () => {
-    const phone = store.phone || '919876543210';
+    const phone = store.phone || process.env.NEXT_PUBLIC_SUPPORT_PHONE || '918067528791';
     const text = encodeURIComponent(
       language === 'mr'
         ? `नमस्कार ${store.nameMarathi}, मला रेंटसूत्र बझारवरून ऑर्डर करायची आहे.`

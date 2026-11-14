@@ -177,7 +177,7 @@ export default function BazarMorePage() {
 
           {/* Help & WhatsApp Support */}
           <a
-            href="https://wa.me/919876543210?text=Hello%20Bazar%20Support%2C%20I%20need%20help%20with%20my%20store."
+            href={`https://wa.me/${(process.env.NEXT_PUBLIC_SUPPORT_PHONE || '918067528791').replace(/\D/g, '')}?text=Hello%20Bazar%20Support%2C%20I%20need%20help%20with%20my%20store.`}
             target="_blank"
             rel="noreferrer"
             className="p-3.5 flex items-center justify-between hover:bg-muted/40 transition-colors"

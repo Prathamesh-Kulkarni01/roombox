@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { 
   ArrowLeft, 
   User, 
@@ -16,8 +15,9 @@ import {
   ShieldCheck, 
   FileText, 
   ChevronRight,
-  LogOut,
-  Edit2
+  Edit2,
+  Check,
+  X
 } from 'lucide-react';
 import { NativeAppBottomNav } from '@/modules/bazar/components/NativeAppBottomNav';
 
@@ -32,21 +32,74 @@ interface AccountMenuItem {
 
 export default function MyAccountPage() {
   const [selectedLanguage, setSelectedLanguage] = useState<'mr' | 'en'>('mr');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedName = localStorage.getItem('bazar_customer_name') || '';
+      const savedPhone = localStorage.getItem('bazar_customer_phone') || '';
+      const savedAddr = localStorage.getItem('bazar_delivery_address') || '';
+      const savedLang = (localStorage.getItem('bazar_language') as 'mr' | 'en') || 'mr';
+
+      setCustomerName(savedName);
+      setCustomerPhone(savedPhone);
+      setDeliveryAddress(savedAddr);
+      setSelectedLanguage(savedLang);
+
+      setEditName(savedName);
+      setEditPhone(savedPhone);
+      setEditAddress(savedAddr);
+    }
+  }, []);
+
+  const handleSaveProfile = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bazar_customer_name', editName.trim());
+      localStorage.setItem('bazar_customer_phone', editPhone.trim());
+      localStorage.setItem('bazar_delivery_address', editAddress.trim());
+      setCustomerName(editName.trim());
+      setCustomerPhone(editPhone.trim());
+      setDeliveryAddress(editAddress.trim());
+      setIsEditing(false);
+    }
+  };
+
+  const displayName = customerName || 'ग्राहक (Guest Customer)';
+  const displayPhone = customerPhone ? `+91 ${customerPhone}` : 'No phone linked yet';
+  const initialLetter = (customerName || 'G').charAt(0).toUpperCase();
 
   const menuSections: { title?: string; items: AccountMenuItem[] }[] = [
     {
       items: [
         { id: 'profile', labelMarathi: 'माझी माहिती', labelEn: 'Personal Information', icon: User },
-        { id: 'addresses', labelMarathi: 'डिलिव्हरी पत्ते', labelEn: 'Saved Addresses', icon: MapPin, trailingText: '3' },
-        { id: 'favorites', labelMarathi: 'माझी आवडती उत्पादने', labelEn: 'My Favourites', icon: Heart, trailingText: '12' },
-        { id: 'payment', labelMarathi: 'पेमेंट पद्धती', labelEn: 'Payment Methods', icon: CreditCard },
+        { 
+          id: 'addresses', 
+          labelMarathi: 'डिलिव्हरी पत्ते', 
+          labelEn: 'Saved Delivery Address', 
+          icon: MapPin, 
+          trailingText: deliveryAddress ? '1' : '0' 
+        },
+        { id: 'favorites', labelMarathi: 'माझी आवडती उत्पादने', labelEn: 'My Favourites', icon: Heart, trailingText: '0' },
+        { id: 'payment', labelMarathi: 'पेमेंट पद्धती', labelEn: 'Payment Methods (UPI/Cash)', icon: CreditCard },
       ]
     },
     {
       items: [
-        { id: 'language', labelMarathi: 'भाषा / Language', labelEn: 'मराठी (Marathi)', icon: Globe, trailingText: 'मराठी' },
+        { 
+          id: 'language', 
+          labelMarathi: 'भाषा / Language', 
+          labelEn: selectedLanguage === 'mr' ? 'मराठी (Marathi)' : 'English', 
+          icon: Globe, 
+          trailingText: selectedLanguage === 'mr' ? 'मराठी' : 'English' 
+        },
         { id: 'notifications', labelMarathi: 'सूचना', labelEn: 'Notifications', icon: Bell },
-        { id: 'support', labelMarathi: 'मदत आणि संपर्क', labelEn: 'Help & Support', icon: Headphones },
+        { id: 'support', labelMarathi: 'मदत आणि संपर्क', labelEn: 'Help & Support', icon: Headphones, href: '/bazar/support' },
         { id: 'settings', labelMarathi: 'अॅप सेटिंग्स', labelEn: 'App Settings', icon: Settings },
       ]
     },
@@ -81,39 +134,111 @@ export default function MyAccountPage() {
         </header>
 
         {/* ─────────────────────────────────────────────────────────────
-            2. USER PROFILE HERO CARD (Matching Row 2, Screen 5)
+            2. USER PROFILE HERO CARD (Dynamic Profile)
         ───────────────────────────────────────────────────────────── */}
         <div className="p-4 border-b border-[#F2F4F3] bg-[#FAFBFB]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative h-14 w-14 rounded-full overflow-hidden bg-[#0D7C4D] text-white flex items-center justify-center font-black text-base shadow-xs border-2 border-white">
-                <Image
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
-                  alt="Profile"
-                  fill
-                  className="object-cover"
+          {!isEditing ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative h-14 w-14 rounded-full overflow-hidden bg-[#0D7C4D] text-white flex items-center justify-center font-black text-xl shadow-xs border-2 border-white">
+                  {initialLetter}
+                </div>
+
+                <div>
+                  <h2 className="font-black text-sm text-[#0F1713]">
+                    {displayName}
+                  </h2>
+                  <p className="text-xs text-[#8A948D] font-medium mt-0.5">
+                    {displayPhone}
+                  </p>
+                  <p className="text-[11px] text-[#0D7C4D] font-bold flex items-center gap-1 mt-0.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#0D7C4D]" />
+                    {customerPhone ? 'सत्यापित ग्राहक (Verified Customer)' : 'Guest User'}
+                  </p>
+                  {deliveryAddress && (
+                    <p className="text-[10px] text-muted-foreground truncate max-w-[200px] mt-0.5">
+                      📍 {deliveryAddress}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  setEditName(customerName);
+                  setEditPhone(customerPhone);
+                  setEditAddress(deliveryAddress);
+                  setIsEditing(true);
+                }}
+                className="text-xs font-bold text-[#0D7C4D] flex items-center gap-1 bg-[#E8F5EE] px-2.5 py-1 rounded-full active:scale-95 transition-all"
+              >
+                <Edit2 className="h-3 w-3" />
+                <span>बदला (Edit)</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between pb-1 border-b border-border/50">
+                <span className="text-xs font-bold text-[#0F1713]">माहिती संपादित करा (Edit Details)</span>
+                <button 
+                  onClick={() => setIsEditing(false)}
+                  className="p-1 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">नाव (Full Name)</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="उदा. राहुल पाटील"
+                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-[#0D7C4D]"
                 />
               </div>
 
               <div>
-                <h2 className="font-black text-sm text-[#0F1713]">
-                  Prathamesh Kulkarni
-                </h2>
-                <p className="text-xs text-[#8A948D] font-medium mt-0.5">
-                  +91 98765 43210
-                </p>
-                <p className="text-[11px] text-[#0D7C4D] font-bold flex items-center gap-1 mt-0.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#0D7C4D]" />
-                  Verified Customer (Palus)
-                </p>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">व्हॉट्सअ‍ॅप नंबर (WhatsApp Number)</label>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="उदा. 9876543210"
+                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-[#0D7C4D]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase">डिलिव्हरी पत्ता (Delivery Address)</label>
+                <textarea
+                  rows={2}
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="उदा. घर क्र. १२, शिवाजी चौक..."
+                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-[#0D7C4D]"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={handleSaveProfile}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-[#0D7C4D] text-white py-1.5 rounded-lg text-xs font-bold active:scale-95 transition-all shadow-xs"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  <span>जतन करा (Save)</span>
+                </button>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-muted-foreground active:scale-95 transition-all"
+                >
+                  रद्द (Cancel)
+                </button>
               </div>
             </div>
-
-            <button className="text-xs font-bold text-[#0D7C4D] flex items-center gap-1 bg-[#E8F5EE] px-2.5 py-1 rounded-full active:scale-95 transition-all">
-              <Edit2 className="h-3 w-3" />
-              <span>Edit</span>
-            </button>
-          </div>
+          )}
         </div>
 
         {/* ─────────────────────────────────────────────────────────────

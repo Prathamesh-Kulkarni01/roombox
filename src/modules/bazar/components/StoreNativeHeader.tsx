@@ -29,12 +29,17 @@ export function StoreNativeHeader({ storeName }: StoreNativeHeaderProps) {
   const router = useRouter();
   const { deliveryLocation, setDeliveryLocation } = useGroceryCart();
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [customAddress, setCustomAddress] = useState('');
+  const [savedUserAddress, setSavedUserAddress] = useState<string | null>(null);
 
-  const sampleAddresses = [
-    { label: 'Home', address: 'Flat 402, Green Valley Apartments, Main Road' },
-    { label: 'Work', address: 'Office 3B, Tech Park, Station Road' },
-    { label: 'Other', address: 'Plot 14, Shivaji Nagar, Behind Market' },
-  ];
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const addr = localStorage.getItem('bazar_delivery_address');
+      if (addr && addr.trim().length > 0) {
+        setSavedUserAddress(addr.trim());
+      }
+    }
+  }, [isLocationModalOpen]);
 
   const handleShare = async () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -125,36 +130,59 @@ export function StoreNativeHeader({ storeName }: StoreNativeHeaderProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2 mt-3">
-            {sampleAddresses.map((addr, idx) => {
-              const isSelected = deliveryLocation.startsWith(addr.label);
-              return (
-                <button
-                  key={idx}
+          <div className="space-y-3 mt-3">
+            {savedUserAddress && (
+              <button
+                onClick={() => {
+                  setDeliveryLocation(`Home · ${savedUserAddress}`);
+                  setIsLocationModalOpen(false);
+                }}
+                className="w-full p-3 rounded-2xl border border-[#16834A] bg-[#16834A]/5 text-left flex items-start justify-between transition-all"
+              >
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-[#16834A]" />
+                    <p className="font-bold text-xs text-[#171A18]">Saved Address</p>
+                  </div>
+                  <p className="text-[11px] text-[#777F79] leading-tight line-clamp-2">
+                    {savedUserAddress}
+                  </p>
+                </div>
+                <div className="h-5 w-5 rounded-full bg-[#16834A] text-white flex items-center justify-center shrink-0">
+                  <Check className="h-3 w-3" />
+                </div>
+              </button>
+            )}
+
+            <div className="space-y-2 pt-1 border-t border-border/50">
+              <label className="text-[11px] font-bold text-muted-foreground">
+                Enter delivery address or landmark:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customAddress}
+                  onChange={(e) => setCustomAddress(e.target.value)}
+                  placeholder="उदा. मेन रोड, बस स्थानकाजवळ, घर क्र. १२"
+                  className="flex-1 text-xs px-3 py-2 rounded-xl border border-border bg-background focus:outline-hidden focus:border-[#16834A]"
+                />
+                <Button
+                  size="sm"
+                  disabled={!customAddress.trim()}
                   onClick={() => {
-                    setDeliveryLocation(`${addr.label} · ${addr.address}`);
+                    const trimmed = customAddress.trim();
+                    setDeliveryLocation(`Delivery · ${trimmed}`);
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('bazar_delivery_address', trimmed);
+                    }
                     setIsLocationModalOpen(false);
                   }}
-                  className={`w-full p-3 rounded-2xl border text-left flex items-start justify-between transition-all ${
-                    isSelected 
-                      ? 'border-[#16834A] bg-[#16834A]/5' 
-                      : 'border-[#ECEFEC] hover:bg-[#F6F7F5]'
-                  }`}
+                  className="bg-[#16834A] hover:bg-[#16834A]/90 text-white text-xs font-bold rounded-xl"
                 >
-                  <div className="space-y-0.5">
-                    <p className="font-bold text-xs text-[#171A18]">{addr.label}</p>
-                    <p className="text-[11px] text-[#777F79] leading-tight line-clamp-1">
-                      {addr.address}
-                    </p>
-                  </div>
-                  {isSelected && (
-                    <div className="h-5 w-5 rounded-full bg-[#16834A] text-white flex items-center justify-center shrink-0">
-                      <Check className="h-3 w-3" />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+                  Set
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

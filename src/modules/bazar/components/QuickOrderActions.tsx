@@ -9,22 +9,24 @@ interface QuickOrderActionsProps {
 }
 
 export function QuickOrderActions({
-  storePhone = "919876543210",
+  storePhone,
   storeName = "Bazar",
   language,
 }: QuickOrderActionsProps) {
+  const activePhone = storePhone || (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_SUPPORT_PHONE : '') || '918067528791';
+
   const handleVoiceOrder = () => {
     const text = encodeURIComponent(
       `नमस्कार, मला ${storeName} मधून सामान ऑर्डर करायचे आहे. मी व्हॉइस नोट पाठवत आहे:`,
     );
-    window.open(`https://wa.me/${storePhone}?text=${text}`, "_blank");
+    window.open(`https://wa.me/${activePhone}?text=${text}`, "_blank");
   };
 
   const handlePhotoOrder = () => {
     const text = encodeURIComponent(
       `नमस्कार, ${storeName} साठी माझ्या किराणा यादीचा फोटो खालीलप्रमाणे आहे:`,
     );
-    window.open(`https://wa.me/${storePhone}?text=${text}`, "_blank");
+    window.open(`https://wa.me/${activePhone}?text=${text}`, "_blank");
   };
 
   return (
