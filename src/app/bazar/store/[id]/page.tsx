@@ -35,7 +35,9 @@ import {
   PhoneCall,
   MessageCircle,
   Copy,
-  Info
+  Info,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useGroceryCart } from '@/modules/bazar/context/GroceryCartContext';
