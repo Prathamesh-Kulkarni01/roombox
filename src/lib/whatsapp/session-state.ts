@@ -33,16 +33,31 @@ export interface UserSession {
 const SESSION_TTL = 900; // 15 minutes
 
 let redisClient: Redis | null = null;
+let redisDisabledUntil = 0; // Backoff cooldown when Redis host is unresolvable
 
-function getRedisClient(): Redis {
+function isRedisCircuitBroken(): boolean {
+    return Date.now() < redisDisabledUntil;
+}
+
+function tripRedisCircuit(err: any): void {
+    // If DNS host is not found (ENOTFOUND / fetch failed), disable network attempts for 2 minutes
+    // so we don't stall incoming webhooks and trigger Meta retry loops
+    if (err?.code === 'ENOTFOUND' || err?.message?.includes('ENOTFOUND') || err?.message?.includes('fetch failed')) {
+        redisDisabledUntil = Date.now() + 2 * 60 * 1000;
+        console.warn('[Session] Redis circuit breaker tripped due to ENOTFOUND. Using in-memory store for 2 minutes.');
+    }
+}
+
+function getRedisClient(): Redis | null {
+    if (isRedisCircuitBroken()) return null;
+
     if (!redisClient) {
         const url = getEnv('UPSTASH_REDIS_REST_URL');
         const token = getEnv('UPSTASH_REDIS_REST_TOKEN');
 
         if (!url || !token) {
             console.error('[Redis] CRITICAL: Missing UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN. WhatsApp sessions will fail.');
-            // Return a dummy client that throws on every call to avoid the library's internal logging spam
-            // but for now let's just create it and let it fail, but we'll log exactly what we found.
+            return null;
         } else {
             console.log(`[Redis] Initializing with URL: ${url.substring(0, 15)}... (Token length: ${token.length})`);
         }
@@ -60,7 +75,7 @@ function getRedisClient(): Redis {
             });
         } catch (err) {
             console.error('[Redis] Failed to instantiate Redis client:', err);
-            throw err;
+            return null;
         }
     }
     return redisClient;
@@ -90,24 +105,34 @@ function setMemorySession(phoneNumber: string, session: UserSession): void {
     });
 }
 
+// Helper to race Redis calls with a strict 1.5s timeout so webhooks never stall
+async function withTimeout<T>(promise: Promise<T>, ms = 1500): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), ms))
+    ]);
+}
+
 // ── Get session (returns default if not found) ────────────────────────────────
 export async function getSession(phoneNumber: string): Promise<UserSession> {
     try {
         const redis = getRedisClient();
-        const session = await redis.get<UserSession>(sessionKey(phoneNumber));
-        if (session) {
-            await redis.expire(sessionKey(phoneNumber), SESSION_TTL);
-            setMemorySession(phoneNumber, session);
-            return session;
+        if (redis) {
+            const session = await withTimeout(redis.get<UserSession>(sessionKey(phoneNumber)));
+            if (session) {
+                redis.expire(sessionKey(phoneNumber), SESSION_TTL).catch(() => {});
+                setMemorySession(phoneNumber, session);
+                return session;
+            }
         }
     } catch (err: any) {
-        // Fallback gracefully to in-memory store if Redis host is unreachable / deleted
+        tripRedisCircuit(err);
         const mem = getMemorySession(phoneNumber);
         if (mem) return mem;
         if (process.env.NODE_ENV === 'development') {
             console.warn('[Session] Redis offline, using in-memory session cache:', err?.code || err?.message);
         } else {
-            console.error('[Session] Read error:', err);
+            console.error('[Session] Read error:', err?.message || err);
         }
     }
     return getMemorySession(phoneNumber) || freshSession();
@@ -131,12 +156,15 @@ export async function updateSession(
 
     try {
         const redis = getRedisClient();
-        await redis.set(sessionKey(phoneNumber), updated, { ex: SESSION_TTL });
+        if (redis) {
+            await withTimeout(redis.set(sessionKey(phoneNumber), updated, { ex: SESSION_TTL }));
+        }
     } catch (err: any) {
+        tripRedisCircuit(err);
         if (process.env.NODE_ENV === 'development') {
             console.warn('[Session] Redis offline, persisted to in-memory session cache:', err?.code || err?.message);
         } else {
-            console.error('[Session] Write error:', err);
+            console.error('[Session] Write error:', err?.message || err);
         }
     }
 }
@@ -146,9 +174,12 @@ export async function clearSession(phoneNumber: string): Promise<void> {
     memoryStore.delete(phoneNumber);
     try {
         const redis = getRedisClient();
-        await redis.del(sessionKey(phoneNumber));
-    } catch (err) {
-        console.error('[Session] Clear error:', err);
+        if (redis) {
+            await withTimeout(redis.del(sessionKey(phoneNumber)));
+        }
+    } catch (err: any) {
+        tripRedisCircuit(err);
+        console.error('[Session] Clear error:', err?.message || err);
     }
 }
 

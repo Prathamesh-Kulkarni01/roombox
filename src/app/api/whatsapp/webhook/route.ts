@@ -6,6 +6,31 @@ import { createHmac, timingSafeEqual } from 'crypto';
 const WHATSAPP_VERIFY_TOKEN = getEnv('WHATSAPP_VERIFY_TOKEN', 'roombox_whatsapp_dev_token');
 const WHATSAPP_APP_SECRET = process.env.WHATSAPP_APP_SECRET;
 
+// Keep track of recently processed WhatsApp message IDs to prevent Meta webhook retries from looping
+const processedMessageIds = new Map<string, number>();
+const DEDUP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function isDuplicateMessage(messageId: string): boolean {
+    if (!messageId) return false;
+    const now = Date.now();
+    
+    // Clean up stale entries periodically
+    if (processedMessageIds.size > 2000) {
+        for (const [id, timestamp] of processedMessageIds.entries()) {
+            if (now - timestamp > DEDUP_TTL_MS) {
+                processedMessageIds.delete(id);
+            }
+        }
+    }
+
+    if (processedMessageIds.has(messageId)) {
+        return true;
+    }
+
+    processedMessageIds.set(messageId, now);
+    return false;
+}
+
 // ── GET: Webhook verification by Meta ────────────────────────────────────────
 export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
@@ -86,6 +111,15 @@ export async function POST(req: Request) {
         }
 
         const message = changes.value.messages[0];
+        const messageId = message.id;
+
+        // DEDUPLICATION GUARD: Meta retries unacknowledged or slow webhooks with the exact same message.id.
+        // If we already saw this message ID, acknowledge 200 immediately and stop to prevent infinite spam loops.
+        if (messageId && isDuplicateMessage(messageId)) {
+            console.log(`[Webhook] Duplicate message ID "${messageId}" detected from ${message.from}. Skipping to prevent loop.`);
+            return NextResponse.json({ status: 'duplicate_ignored' }, { status: 200 });
+        }
+
         const from = message.from;
         const msgBody = message.text?.body || '';
         const messageType = message.type;
