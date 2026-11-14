@@ -1390,7 +1390,7 @@ export class TenantService {
                     const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
 
                     const primaryCredit = newCredits[0];
-                    const appUrl = await getBrandedAppUrl(ownerId, 'https://roombox.in');
+                    const appUrl = await getBrandedAppUrl(ownerId, 'https://rentsutra.in');
                     const receiptUrl = `${appUrl}/ledger/${primaryCredit.id}`;
 
                     const messageAmount = amountType === 'symbolic' 
@@ -1767,7 +1767,7 @@ export class TenantService {
             const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 
             const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
-            const appUrl = await getBrandedAppUrl(ownerId, 'https://roombox.in');
+            const appUrl = await getBrandedAppUrl(ownerId, 'https://rentsutra.in');
             const statusUrl = `${appUrl}/complaints/${complaintId}`;
             const title = compData.description || compData.category;
             const updateMessage = status === 'resolved' ? 'Fixed! Contact landlord if issue persists.' : 'We are working on it!';

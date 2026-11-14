@@ -1,6 +1,11 @@
 import { sendWhatsAppMessage } from '@/lib/whatsapp/send-message';
 import type { BazarOrder } from '../schemas';
 
+const getBaseAppUrl = () => {
+  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://rentsutra.in';
+  return url.replace(/\/+$/, '');
+};
+
 function formatPhoneNumber(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.length === 10) return `91${digits}`;
@@ -30,7 +35,7 @@ export class BazarWhatsAppNotificationService {
       .join('\n');
 
     const paymentText = order.paymentMethod === 'cod' ? 'रोख / काउंटरवर देणे (Pay at Counter)' : 'ऑनलाइन भरले (Paid)';
-    const trackingLink = trackingUrl || `https://bazar.roombox.in/bazar/order-tracking?id=${order.id}`;
+    const trackingLink = trackingUrl || `${getBaseAppUrl()}/bazar/order-tracking?id=${order.id}`;
 
     const message = 
 `🙏 *सस्नेह नमस्कार, ${order.customerName || 'ग्राहक'}!*
@@ -72,7 +77,7 @@ _स्थानिक दुकानांना सहकार्य के�
 💵 *रक्कम:* ₹${totalAmount} (${order.paymentMethod === 'cod' ? 'काउंटरवर देणार' : 'ऑनलाइन प्राप्त'})
 
 पॅकिंग सुरू करण्यासाठी व ऑर्डर व्यवस्थापित करण्यासाठी आपला *Bazar Merchant Queue* तपासा:
-https://bazar.roombox.in/bazar/queue`;
+${getBaseAppUrl()}/bazar/queue`;
 
     return sendWhatsAppMessage(formattedPhone, message);
   }
@@ -135,7 +140,7 @@ https://bazar.roombox.in/bazar/queue`;
     const formattedPhone = formatPhoneNumber(customerPhone);
 
     const message = 
-`🌸 *स्वागतम! Roombox Bazar मध्ये आपले सहर्ष स्वागत आहे.* 🌸
+`🌸 *स्वागतम! RentSutra Bazar मध्ये आपले सहर्ष स्वागत आहे.* 🌸
 
 नमस्कार ${customerName || ''}! 
 आता आपल्या गावातील व परिसरातील स्थानिक किराणा, भाजीपाला आणि सुपर बझारमधून थेट घरातून खरेदी करा.
@@ -146,34 +151,39 @@ https://bazar.roombox.in/bazar/queue`;
 • काउंटर पिकअप व घरपोच डिलिव्हरी
 
 🛒 *जवळची दुकाने पाहण्यासाठी येथे क्लिक करा:*
-https://bazar.roombox.in/bazar`;
+${getBaseAppUrl()}/bazar`;
 
     return sendWhatsAppMessage(customerPhone, message);
   }
 
   /**
-   * 5. Merchant Customer Addition & Khata / Udhar Note (खाते / उधारी संदेश)
+   * 5. Merchant Customer Addition & Store Marketing Note (थेट दुकानातून पुढील ऑर्डरसाठी लिंक)
    */
   static async sendMerchantCustomerAddedNotification(
     customerPhone: string, 
     customerName: string, 
     storeName: string, 
-    storePhone?: string
+    storePhone?: string,
+    storeSlug?: string
   ) {
     if (!customerPhone) return { success: false };
+    const formattedPhone = formatPhoneNumber(customerPhone);
+
+    const storeLink = storeSlug 
+      ? `${getBaseAppUrl()}/bazar/store/${storeSlug}` 
+      : `${getBaseAppUrl()}/bazar`;
 
     const message = 
 `🏪 *${storeName}* कडून सुचना:
 
 सस्नेह नमस्कार ${customerName}, 
-आपले नाव *${storeName}* च्या डिजिटल ग्राहक नोंदवहीत यशस्वीरित्या जोडले गेले आहे. 
+आपले नाव *${storeName}* च्या डिजिटल ग्राहक नोंदवहीत जोडले गेले आहे. 
 
-आता आपण दुकानातील सर्व वस्तू थेट मोबाईलवरून पाहू शकता व ऑर्डर करू शकता:
-👉 https://bazar.roombox.in/bazar
+पुढील वेळी दुकानातील सर्व वस्तू घरबसल्या पाहण्यासाठी व ऑर्डर करण्यासाठी खालील लिंक वापरा:
+👉 ${storeLink}
 
-काही अडचण असल्यास संपर्क: ${storePhone || 'दुकानदार'}`;
+काही अडचण असल्यास थेट संपर्क: ${storePhone || 'दुकानदार'}`;
 
-    return sendWhatsAppMessage(customerPhone, message);
+    return sendWhatsAppMessage(formattedPhone, message);
   }
 }
-

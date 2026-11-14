@@ -140,7 +140,7 @@ export class PaymentSystemService {
 
                     const { sendWhatsAppTemplate } = await import('@/lib/whatsapp/send-message');
                     
-                    const appUrl = await getBrandedAppUrl(ownerId, 'https://roombox.in');
+                    const appUrl = await getBrandedAppUrl(ownerId, 'https://rentsutra.in');
                     const receiptUrl = `${appUrl}/ledger/${creditId}`;
 
                     // rent_receipt_simple_3: [name, amount, month, receiptUrl]

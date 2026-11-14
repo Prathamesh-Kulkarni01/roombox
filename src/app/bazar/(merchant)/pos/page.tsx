@@ -162,13 +162,18 @@ export default function BazarPosBillingPage() {
 
   const handleShareWhatsApp = () => {
     if (!completedBill) return;
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in').replace(/\/+$/, '');
+    const storeOrderLink = `${appUrl}/bazar`;
+
     const text = `*श्री महालक्ष्मी सुपर बझार (Palus)*%0A` +
       `बिल नं: ${completedBill.billNo}%0A` +
-      `ग्राहक: ${completedBill.customerName}%0A` +
+      `ग्राहक: ${completedBill.customerName || 'ग्राहक'}%0A` +
       `--------------------------------%0A` +
       completedBill.items.map(i => `${i.name} x ${i.quantity} = ₹${i.price * i.quantity}`).join('%0A') +
       `%0A--------------------------------%0A` +
-      `*एकूण रक्कम: ₹${completedBill.total}* (${completedBill.paymentMethod.toUpperCase()})%0A` +
+      `*एकूण रक्कम: ₹${completedBill.total}* (${completedBill.paymentMethod.toUpperCase()})%0A%0A` +
+      `🛍️ *पुढील वेळी घरबसल्या ऑर्डर करण्यासाठी:*%0A` +
+      `${storeOrderLink}%0A%0A` +
       `धन्यवाद! पुन्हा भेट द्या.`;
     
     const waUrl = completedBill.customerPhone 

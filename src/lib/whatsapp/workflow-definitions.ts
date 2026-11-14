@@ -147,7 +147,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
             id: 'reports',
             type: 'display',
             label: 'Reports',
-            messageBuilder: (ctx) => `📈 *Reports & Analytics*\n\nVisit your dashboard to view detailed financial reports and occupancy analytics.\n\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in'}/dashboard/analytics\n\nReply *Menu* to return.`,
+            messageBuilder: (ctx) => `📈 *Reports & Analytics*\n\nVisit your dashboard to view detailed financial reports and occupancy analytics.\n\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in'}/dashboard/analytics\n\nReply *Menu* to return.`,
             onEnter: async (ctx) => {
                 const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
                 ctx.data.appUrl = await getBrandedAppUrl(ctx.ownerId!);
@@ -159,7 +159,7 @@ export const mainMenuWorkflow: WorkflowDefinition = {
             id: 'dashboardLink',
             type: 'display',
             label: 'Dashboard Link',
-            messageBuilder: (ctx) => `🔗 *Your Secure Dashboard*\n\nManage everything from here:\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in'}/dashboard\n\nReply *Menu* to return.`,
+            messageBuilder: (ctx) => `🔗 *Your Secure Dashboard*\n\nManage everything from here:\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in'}/dashboard\n\nReply *Menu* to return.`,
             onEnter: async (ctx) => {
                 const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
                 ctx.data.appUrl = await getBrandedAppUrl(ctx.ownerId!);
@@ -1472,7 +1472,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                     `📋 Monthly Rent: ₹${rent}\n` +
                     `💳 Current Balance: ₹${Math.abs(balance)} ${balance > 0 ? '(Due)' : balance < 0 ? '(Advance)' : ''}\n` +
                     `📊 Status: ${status}\n\n` +
-                    `For full history, visit:\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in'}/login\n\nReply *Menu* to return.`
+                    `For full history, visit:\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in'}/login\n\nReply *Menu* to return.`
                 );
             },
             onEnter: async (ctx) => {
@@ -1492,7 +1492,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
                 return (
                     `💳 *Pay Your Rent*\n\n` +
                     `Amount due: *${amountDue}*\n\n` +
-                    `Use the secure payment link from your dashboard:\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in'}/login\n\nReply *Menu* to return.`
+                    `Use the secure payment link from your dashboard:\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in'}/login\n\nReply *Menu* to return.`
                 );
             },
             onEnter: async (ctx) => {
@@ -1506,7 +1506,7 @@ export const tenantPortalWorkflow: WorkflowDefinition = {
             id: 'paymentHistory',
             type: 'display',
             label: 'Payment History',
-            messageBuilder: (ctx) => `📜 *Payment History*\n\nView your full payment history securely at:\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://roombox.in'}/login\n\nReply *Menu* to return.`,
+            messageBuilder: (ctx) => `📜 *Payment History*\n\nView your full payment history securely at:\n${ctx.data.appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in'}/login\n\nReply *Menu* to return.`,
             onEnter: async (ctx) => {
                 const { getBrandedAppUrl } = await import('@/lib/actions/siteActions');
                 ctx.data.appUrl = await getBrandedAppUrl(ctx.ownerId!);
