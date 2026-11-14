@@ -93,3 +93,15 @@ export interface BazarOrder extends BaseEntity {
   notes?: string;
   schemaVersion: number;
 }
+
+export interface BazarCustomer extends BaseEntity {
+  storeId: string;
+  name: string;
+  phone: string;
+  addedBy: 'merchant_invite' | 'pos_walkin' | 'order';
+  lastInvitedAt?: string;
+  totalOrders?: number;
+  totalSpent?: number;
+  notes?: string;
+  schemaVersion: number;
+}

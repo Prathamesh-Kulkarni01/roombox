@@ -403,6 +403,11 @@ service cloud.firestore {
       allow read, update: if true;
     }
 
+    // Customers: Merchants can manage customer directory
+    match /bazar_customers/{customerId} {
+      allow read, write: if true;
+    }
+
     // ─── Default: deny all ───────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

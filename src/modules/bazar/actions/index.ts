@@ -1,14 +1,16 @@
 'use server';
 
 import { bazarService } from '../services';
-import type { BazarStore, BazarProduct, BazarOrder } from '../schemas';
+import type { BazarStore, BazarProduct, BazarOrder, BazarCustomer } from '../schemas';
 import type { SheetSyncResult } from '../services/googleSheetsSync';
 import { GoogleSheetsSyncBridge } from '../services/googleSheetsSync';
 import { getAdminDb } from '@/lib/firebaseAdmin';
+import { BazarWhatsAppNotificationService } from '../services/whatsappNotificationService';
 
 const STORES_COLLECTION = 'bazar_stores';
 const PRODUCTS_COLLECTION = 'bazar_products';
 const ORDERS_COLLECTION = 'bazar_orders';
+const CUSTOMERS_COLLECTION = 'bazar_customers';
 
 /**
  * Fetch or initialize merchant store profile (using Admin SDK on server)
@@ -234,4 +236,83 @@ export async function getAllActiveStoresAction(): Promise<BazarStore[]> {
  */
 export async function getStoreOrdersAction(storeId: string): Promise<BazarOrder[]> {
   return bazarService.getOrdersByStore(storeId);
+}
+
+/**
+ * Add Walk-in customer to store directory and send automated Welcome & Order link via WhatsApp API
+ */
+export async function addStoreCustomerAndSendInviteAction(params: {
+  storeId: string;
+  storeName: string;
+  storePhone?: string;
+  storeSlug?: string;
+  customerName: string;
+  customerPhone: string;
+}): Promise<{ success: boolean; customerId?: string; error?: string }> {
+  try {
+    const { storeId, storeName, storePhone, storeSlug, customerName, customerPhone } = params;
+    const cleanPhone = customerPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      return { success: false, error: 'अचूक १० अंकी मोबाईल नंबर आवश्यक आहे.' };
+    }
+
+    const adminDb = await getAdminDb();
+    const customerId = `cust_${storeId}_${cleanPhone}`;
+    const customerRef = adminDb.collection(CUSTOMERS_COLLECTION).doc(customerId);
+
+    const now = new Date().toISOString();
+    const customerRecord: Partial<BazarCustomer> = {
+      id: customerId,
+      storeId,
+      name: customerName.trim() || 'ग्राहक',
+      phone: cleanPhone,
+      addedBy: 'merchant_invite',
+      lastInvitedAt: now,
+      schemaVersion: 1,
+      updatedAt: now,
+    };
+
+    // Save or update customer record in Firestore
+    await customerRef.set(customerRecord, { merge: true });
+
+    // Send direct automated WhatsApp message via Cloud API
+    await BazarWhatsAppNotificationService.sendMerchantCustomerAddedNotification(
+      cleanPhone,
+      customerName.trim() || 'ग्राहक मित्र',
+      storeName,
+      storePhone,
+      storeSlug
+    );
+
+    return { success: true, customerId };
+  } catch (err: any) {
+    console.error('[ServerAction] addStoreCustomerAndSendInviteAction error:', err);
+    return { success: false, error: err.message || 'ग्राहक जोडताना किंवा मेसेज पाठवताना त्रुटी आली.' };
+  }
+}
+
+/**
+ * Get all registered walk-in customers for a store
+ */
+export async function getStoreCustomersAction(storeId: string): Promise<BazarCustomer[]> {
+  try {
+    const adminDb = await getAdminDb();
+    const snap = await adminDb.collection(CUSTOMERS_COLLECTION)
+      .where('storeId', '==', storeId)
+      .limit(200)
+      .get();
+
+    if (snap.empty) return [];
+    return snap.docs.map(d => {
+      const data = d.data() as BazarCustomer;
+      return {
+        ...data,
+        id: d.id,
+        schemaVersion: data.schemaVersion ?? 1,
+      };
+    });
+  } catch (err) {
+    console.warn('[ServerAction] getStoreCustomersAction error:', err);
+    return [];
+  }
 }

@@ -45,7 +45,8 @@ import {
   getMerchantStoreAction, 
   getStoreProductsAction, 
   getStoreOrdersAction,
-  importRegionalMasterCatalogAction 
+  importRegionalMasterCatalogAction,
+  addStoreCustomerAndSendInviteAction 
 } from '@/modules/bazar/actions';
 import type { BazarStore, BazarProduct, BazarOrder } from '@/modules/bazar/schemas';
 import { useToast } from '@/hooks/use-toast';
@@ -65,6 +66,7 @@ export default function BazarMerchantDashboardPage() {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [invitePhone, setInvitePhone] = useState('');
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   // Counter QR Poster Modal State
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -76,7 +78,7 @@ export default function BazarMerchantDashboardPage() {
   const storeOrderUrl = activeStoreSlug ? `${appUrl}/bazar/store/${activeStoreSlug}` : `${appUrl}/bazar`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(storeOrderUrl)}`;
 
-  const handleSendInviteWhatsApp = () => {
+  const handleSendInviteWhatsApp = async () => {
     if (!invitePhone.trim()) {
       toast({
         variant: 'destructive',
@@ -87,33 +89,50 @@ export default function BazarMerchantDashboardPage() {
     }
 
     const cleanPhone = invitePhone.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10) {
+      toast({
+        variant: 'destructive',
+        title: 'अवैध नंबर',
+        description: 'कृपया अचूक १० अंकी व्हॉट्सअ‍ॅप नंबर टाका.',
+      });
+      return;
+    }
+
     const storeDisplayName = store?.nameMarathi || store?.name || 'सुपर बझार';
     const custDisplayName = inviteName.trim() || 'ग्राहक';
 
-    const message = 
-`🏪 *${storeDisplayName}* कडून निमंत्रण:
+    setSendingInvite(true);
+    try {
+      const res = await addStoreCustomerAndSendInviteAction({
+        storeId: store?.id || 'fresh-mart',
+        storeName: storeDisplayName,
+        storePhone: store?.phone,
+        storeSlug: store?.slug || store?.id,
+        customerName: custDisplayName,
+        customerPhone: cleanPhone,
+      });
 
-सस्नेह नमस्कार ${custDisplayName}, 
-आपले नाव *${storeDisplayName}* च्या डिजिटल ग्राहक नोंदवहीत जोडले गेले आहे!
+      if (!res.success) {
+        throw new Error(res.error || 'मेसेज पाठवता आला नाही');
+      }
 
-आता आमच्या दुकानातील सर्व किराणा, माल व ऑफर्स घरबसल्या मोबाईलवर पाहण्यासाठी आणि थेट ऑर्डर करण्यासाठी खालील लिंकवर क्लिक करा:
-👉 ${storeOrderUrl}
+      toast({
+        title: 'ग्राहक जोडला व मेसेज पाठवला! 🚀',
+        description: `${custDisplayName} यांना थेट व्हॉट्सअ‍ॅपवर दुकानाची ऑर्डर लिंक आणि स्वागत संदेश गेला आहे.`,
+      });
 
-✅ घरपोच डिलिव्हरी किंवा काउंटर पिकअप उपलब्ध!
-${store?.phone ? `📞 संपर्क: ${store.phone}\n` : ''}
-🙏 *स्थानिक दुकानाला सहकार्य केल्याबद्दल धन्यवाद!*`;
-
-    const waLink = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(message)}`;
-    window.open(waLink, '_blank');
-
-    toast({
-      title: 'निमंत्रण तयार झाले! 🚀',
-      description: `${custDisplayName} यांच्या व्हॉट्सअ‍ॅपवर संदेश पाठवला जात आहे.`,
-    });
-
-    setInviteName('');
-    setInvitePhone('');
-    setIsInviteOpen(false);
+      setInviteName('');
+      setInvitePhone('');
+      setIsInviteOpen(false);
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'त्रुटी आली',
+        description: err.message || 'मेसेज पाठवण्यात अडचण आली.',
+      });
+    } finally {
+      setSendingInvite(false);
+    }
   };
 
   const handleCopyStoreLink = () => {
@@ -712,11 +731,21 @@ ${store?.phone ? `📞 संपर्क: ${store.phone}\n` : ''}
             </Button>
             <Button
               type="button"
+              disabled={sendingInvite}
               onClick={handleSendInviteWhatsApp}
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl text-xs flex items-center gap-1.5"
             >
-              <Send className="h-3.5 w-3.5" />
-              <span>व्हॉट्सअ‍ॅप पाठवा</span>
+              {sendingInvite ? (
+                <>
+                  <Clock className="h-3.5 w-3.5 animate-spin" />
+                  <span>पाठवत आहे...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-3.5 w-3.5" />
+                  <span>व्हॉट्सअ‍ॅप पाठवा</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
