@@ -37,7 +37,7 @@ export default function BazarMorePage() {
 
   useEffect(() => {
     async function loadStore() {
-      const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+      const ownerId = currentUser?.id || currentUser?.uid;
       if (ownerId) {
         try {
           const s = await getMerchantStoreAction(ownerId);
@@ -48,7 +48,7 @@ export default function BazarMorePage() {
       }
     }
     loadStore();
-  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
+  }, [currentUser?.id, currentUser?.uid]);
 
   const handleTogglePause = () => {
     const next = !onlinePaused;

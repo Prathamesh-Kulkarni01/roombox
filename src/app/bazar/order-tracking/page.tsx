@@ -22,7 +22,7 @@ function OrderTrackingContent() {
   const orderId = searchParams.get('id') || 'BZ12456';
 
   const [order, setOrder] = useState<Partial<BazarOrder> | null>(null);
-  const [fulfilmentMode, setFulfilmentMode] = useState<'pickup' | 'delivery'>('pickup');
+  const [fulfilmentMode, setFulfilmentMode] = useState<'pickup' | 'delivery'>('delivery');
   const [currentStatus, setCurrentStatus] = useState<string>('placed');
 
   useEffect(() => {
@@ -66,14 +66,20 @@ function OrderTrackingContent() {
   }, [orderId, currentStatus]);
 
   // Tracking Steps dynamic based on currentStatus
-  const isPackingOrAbove = currentStatus === 'packing' || currentStatus === 'ready' || currentStatus === 'delivered';
-  const isReadyOrAbove = currentStatus === 'ready' || currentStatus === 'delivered';
+  const isPackingOrAbove = currentStatus === 'packing' || currentStatus === 'ready' || currentStatus === 'dispatched' || currentStatus === 'delivered';
+  const isReadyOrDispatchedOrAbove = currentStatus === 'ready' || currentStatus === 'dispatched' || currentStatus === 'delivered';
+  const isDispatchedOrDelivered = currentStatus === 'dispatched' || currentStatus === 'delivered';
   const isDelivered = currentStatus === 'delivered';
 
   const steps = [
     { title: 'Order Placed', time: 'Received', completed: true },
     { title: 'Packing Bag', time: isPackingOrAbove ? 'In Progress' : 'Pending', completed: isPackingOrAbove, active: currentStatus === 'packing' },
-    { title: fulfilmentMode === 'pickup' ? 'Ready at Counter' : 'Out for Delivery', time: isReadyOrAbove ? 'Ready' : 'Pending', completed: isReadyOrAbove, active: currentStatus === 'ready' },
+    { 
+      title: fulfilmentMode === 'pickup' ? 'Ready at Counter' : 'Out for Delivery', 
+      time: isReadyOrDispatchedOrAbove ? (currentStatus === 'dispatched' ? 'On the way' : 'Ready') : 'Pending', 
+      completed: isReadyOrDispatchedOrAbove, 
+      active: currentStatus === 'ready' || currentStatus === 'dispatched' 
+    },
     { title: 'Completed', time: isDelivered ? 'Done' : 'Pending', completed: isDelivered, active: isDelivered },
   ];
 

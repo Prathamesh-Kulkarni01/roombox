@@ -758,6 +758,7 @@ export interface BusinessKycDetails {
 
 export interface User {
   id: string;
+  uid?: string; // Firebase Auth UID alias
   name: string;
   phone?: string;
   email?: string;

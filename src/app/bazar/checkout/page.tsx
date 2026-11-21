@@ -232,7 +232,13 @@ function CheckoutContent() {
         <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border/60 px-4 pt-3 pb-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => router.back()}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push('/bazar');
+                }
+              }}
               className="h-8 w-8 rounded-full bg-muted hover:bg-slate-200 flex items-center justify-center transition-all text-slate-800"
             >
               <ArrowLeft className="h-4 w-4 stroke-[2.5]" />

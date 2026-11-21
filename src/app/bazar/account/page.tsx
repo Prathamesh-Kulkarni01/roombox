@@ -137,23 +137,23 @@ export default function MyAccountPage() {
   ];
 
   return (
-    <div className="w-full min-h-screen bg-[#F8FAF9] text-[#0F1713] flex justify-center pb-24 selection:bg-[#0D7C4D]/20">
+    <div className="w-full min-h-screen bg-background text-foreground flex justify-center pb-24 selection:bg-primary/20">
       {/* Mobile-First Frame (430px max width on desktop) */}
-      <div className="w-full max-w-[430px] bg-[#FFFFFF] min-h-screen shadow-md flex flex-col relative border-x border-[#E5E9E6]">
+      <div className="w-full max-w-[430px] bg-card min-h-screen shadow-md flex flex-col relative border-x border-border">
         
         {/* ─────────────────────────────────────────────────────────────
             1. TOP APP BAR (Back & Title)
         ───────────────────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-30 bg-[#FFFFFF] border-b border-[#E5E9E6] px-4 pt-3 pb-2.5">
+        <header className="sticky top-0 z-30 bg-card/95 backdrop-blur-md border-b border-border px-4 pt-3 pb-2.5">
           <div className="flex items-center gap-2">
             <Link
               href="/bazar"
-              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-[#F2F4F3] active:scale-90 transition-all text-[#0F1713]"
+              className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted active:scale-90 transition-all text-foreground"
             >
               <ArrowLeft className="h-5 w-5 stroke-[2.2]" />
             </Link>
-            <h1 className="font-black text-base text-[#0F1713]">
-              माझे खाते <span className="text-[#8A948D] font-normal text-xs">(My Account)</span>
+            <h1 className="font-black text-base text-foreground">
+              माझे खाते <span className="text-muted-foreground font-normal text-xs">(My Account)</span>
             </h1>
           </div>
         </header>
@@ -161,23 +161,23 @@ export default function MyAccountPage() {
         {/* ─────────────────────────────────────────────────────────────
             2. USER PROFILE HERO CARD (Dynamic Profile)
         ───────────────────────────────────────────────────────────── */}
-        <div className="p-4 border-b border-[#F2F4F3] bg-[#FAFBFB]">
+        <div className="p-4 border-b border-border bg-muted/20">
           {!isEditing ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="relative h-14 w-14 rounded-full overflow-hidden bg-[#0D7C4D] text-white flex items-center justify-center font-black text-xl shadow-xs border-2 border-white">
+                <div className="relative h-14 w-14 rounded-full overflow-hidden bg-primary text-primary-foreground flex items-center justify-center font-black text-xl shadow-xs border-2 border-background">
                   {initialLetter}
                 </div>
 
                 <div>
-                  <h2 className="font-black text-sm text-[#0F1713]">
+                  <h2 className="font-black text-sm text-foreground">
                     {displayName}
                   </h2>
-                  <p className="text-xs text-[#8A948D] font-medium mt-0.5">
+                  <p className="text-xs text-muted-foreground font-medium mt-0.5">
                     {displayPhone}
                   </p>
-                  <p className="text-[11px] text-[#0D7C4D] font-bold flex items-center gap-1 mt-0.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#0D7C4D]" />
+                  <p className="text-[11px] text-primary font-bold flex items-center gap-1 mt-0.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                     {customerPhone ? 'सत्यापित ग्राहक (Verified Customer)' : 'Guest User'}
                   </p>
                   {deliveryAddress && (
@@ -195,7 +195,7 @@ export default function MyAccountPage() {
                   setEditAddress(deliveryAddress);
                   setIsEditing(true);
                 }}
-                className="text-xs font-bold text-[#0D7C4D] flex items-center gap-1 bg-[#E8F5EE] px-2.5 py-1 rounded-full active:scale-95 transition-all"
+                className="text-xs font-bold text-primary flex items-center gap-1 bg-primary/10 px-2.5 py-1 rounded-full active:scale-95 transition-all"
               >
                 <Edit2 className="h-3 w-3" />
                 <span>बदला (Edit)</span>
@@ -204,7 +204,7 @@ export default function MyAccountPage() {
           ) : (
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between pb-1 border-b border-border/50">
-                <span className="text-xs font-bold text-[#0F1713]">माहिती संपादित करा (Edit Details)</span>
+                <span className="text-xs font-bold text-foreground">माहिती संपादित करा (Edit Details)</span>
                 <button 
                   onClick={() => setIsEditing(false)}
                   className="p-1 text-muted-foreground hover:text-foreground"
@@ -220,7 +220,7 @@ export default function MyAccountPage() {
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="उदा. राहुल पाटील"
-                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-[#0D7C4D]"
+                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-primary text-foreground"
                 />
               </div>
 
@@ -232,7 +232,7 @@ export default function MyAccountPage() {
                   value={editPhone}
                   onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, ''))}
                   placeholder="उदा. 9876543210"
-                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-[#0D7C4D]"
+                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-primary text-foreground"
                 />
               </div>
 
@@ -243,14 +243,14 @@ export default function MyAccountPage() {
                   value={editAddress}
                   onChange={(e) => setEditAddress(e.target.value)}
                   placeholder="उदा. घर क्र. १२, शिवाजी चौक..."
-                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-[#0D7C4D]"
+                  className="w-full mt-1 text-xs px-2.5 py-1.5 rounded-lg border border-border bg-background focus:outline-hidden focus:border-primary text-foreground"
                 />
               </div>
 
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={handleSaveProfile}
-                  className="flex-1 flex items-center justify-center gap-1.5 bg-[#0D7C4D] text-white py-1.5 rounded-lg text-xs font-bold active:scale-95 transition-all shadow-xs"
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-primary-foreground py-1.5 rounded-lg text-xs font-bold active:scale-95 transition-all shadow-xs"
                 >
                   <Check className="h-3.5 w-3.5" />
                   <span>जतन करा (Save)</span>
@@ -273,7 +273,7 @@ export default function MyAccountPage() {
           {menuSections.map((sec, secIdx) => (
             <div 
               key={secIdx} 
-              className="bg-[#FFFFFF] rounded-2xl border border-[#E5E9E6] overflow-hidden divide-y divide-[#F2F4F3] shadow-2xs"
+              className="bg-card rounded-2xl border border-border overflow-hidden divide-y divide-border shadow-2xs"
             >
               {sec.items.map(item => {
                 const Icon = item.icon;
@@ -281,26 +281,26 @@ export default function MyAccountPage() {
                   <div
                     key={item.id}
                     onClick={() => handleItemClick(item)}
-                    className="p-3.5 flex items-center justify-between hover:bg-[#FAFBFB] active:bg-[#F2F4F3] cursor-pointer transition-colors"
+                    className="p-3.5 flex items-center justify-between hover:bg-muted/50 active:bg-muted cursor-pointer transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-xl bg-[#F2F4F3] text-[#525C56] flex items-center justify-center">
+                      <div className="h-8 w-8 rounded-xl bg-muted text-muted-foreground flex items-center justify-center">
                         <Icon className="h-4 w-4 stroke-[2]" />
                       </div>
 
                       <div>
-                        <p className="font-bold text-xs text-[#0F1713]">
+                        <p className="font-bold text-xs text-foreground">
                           {item.labelMarathi}
                         </p>
-                        <p className="text-[10px] text-[#8A948D]">
+                        <p className="text-[10px] text-muted-foreground">
                           {item.labelEn}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-xs text-[#8A948D]">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       {item.trailingText && (
-                        <span className="font-bold text-[#0D7C4D] bg-[#E8F5EE] px-2 py-0.5 rounded-full text-[11px]">
+                        <span className="font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full text-[11px]">
                           {item.trailingText}
                         </span>
                       )}
@@ -314,10 +314,10 @@ export default function MyAccountPage() {
 
           {/* App Version Info */}
           <div className="text-center pt-2 pb-6 space-y-1">
-            <p className="text-[11px] font-bold text-[#8A948D]">
+            <p className="text-[11px] font-bold text-muted-foreground">
               Bazar Instant Commerce · v1.2.0 (Stable)
             </p>
-            <p className="text-[10px] text-[#A0A7A2]">
+            <p className="text-[10px] text-muted-foreground/80">
               Designed with ❤️ for Rural & Town Commerce
             </p>
           </div>

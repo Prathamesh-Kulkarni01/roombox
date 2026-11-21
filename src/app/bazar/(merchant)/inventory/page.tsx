@@ -101,7 +101,7 @@ export default function BazarInventoryPage() {
   // Resolve Store ID
   useEffect(() => {
     async function initStore() {
-      const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+      const ownerId = currentUser?.id || currentUser?.uid;
       if (ownerId) {
         try {
           const s = await getMerchantStoreAction(ownerId);
@@ -115,7 +115,7 @@ export default function BazarInventoryPage() {
       }
     }
     initStore();
-  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
+  }, [currentUser?.id, currentUser?.uid]);
 
   // Load Products
   const loadProducts = async (targetStoreId = storeId) => {

@@ -71,7 +71,7 @@ export default function BazarPosBillingPage() {
   useEffect(() => {
     async function load() {
       try {
-        const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+        const ownerId = currentUser?.id || currentUser?.uid;
         let storeData: any = null;
         if (ownerId) {
           storeData = await getMerchantStoreAction(ownerId);
@@ -95,7 +95,7 @@ export default function BazarPosBillingPage() {
       }
     }
     load();
-  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
+  }, [currentUser?.id, currentUser?.uid]);
 
   // Filter products by search & category
   const filteredProducts = useMemo(() => {

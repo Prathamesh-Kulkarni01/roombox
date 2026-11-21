@@ -285,7 +285,7 @@ export default function BazarMerchantDashboardPage() {
     let isMounted = true;
     async function loadData() {
       try {
-        const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+        const ownerId = currentUser?.id || currentUser?.uid;
         let storeData: BazarStore | null = null;
         if (ownerId) {
           storeData = await getMerchantStoreAction(ownerId);
@@ -331,7 +331,7 @@ export default function BazarMerchantDashboardPage() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
+  }, [currentUser?.id, currentUser?.uid]);
 
   const handleToggleStoreStatus = async () => {
     const nextState = !storeOpen;
@@ -367,9 +367,20 @@ export default function BazarMerchantDashboardPage() {
 
   // Operational metrics answering the 4 questions (100% Dynamic from Firestore)
   const pendingOrders = orders.filter(o => o.orderStatus === 'placed' || o.orderStatus === 'preparing');
-  const todayOrders = orders.length;
-  // Calculate real sales sum from today's orders (0 when new store has no sales yet)
-  const todaySales = orders.reduce((acc, o) => acc + (Number(o.totalAmount) || 0), 0);
+  
+  // Calculate real sales sum specifically for today's calendar date
+  const todayDateString = new Date().toISOString().split('T')[0];
+  const todayOnlyOrders = orders.filter(o => {
+    if (!o.createdAt) return false;
+    try {
+      return o.createdAt.startsWith(todayDateString);
+    } catch {
+      return false;
+    }
+  });
+
+  const todayOrders = todayOnlyOrders.length;
+  const todaySales = todayOnlyOrders.reduce((acc, o) => acc + (Number(o.totalAmount) || 0), 0);
   const lowStockProducts = products.filter(p => !p.inStock || (p.stockQuantity !== undefined && p.stockQuantity < 5));
   const activeProducts = products.filter(p => p.inStock);
 

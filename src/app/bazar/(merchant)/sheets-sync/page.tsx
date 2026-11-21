@@ -35,7 +35,7 @@ export default function GoogleSheetsSyncPage() {
 
   useEffect(() => {
     async function loadStore() {
-      const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+      const ownerId = currentUser?.id || currentUser?.uid;
       if (ownerId) {
         try {
           const s = await getMerchantStoreAction(ownerId);
@@ -46,7 +46,7 @@ export default function GoogleSheetsSyncPage() {
       }
     }
     loadStore();
-  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
+  }, [currentUser?.id, currentUser?.uid]);
 
   const handleSync = async () => {
     if (!sheetUrl.trim()) {

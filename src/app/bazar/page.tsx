@@ -312,7 +312,7 @@ export default function BazarDiscoveryPage() {
               </h2>
             </div>
             <Link 
-              href="/bazar/categories?cat=dairy" 
+              href="/bazar/categories?cat=all" 
               className="text-xs font-bold text-primary flex items-center gap-0.5 hover:underline"
             >
               <span>{language === 'mr' ? 'सर्व पाहा' : 'See All'}</span>
@@ -447,12 +447,19 @@ export default function BazarDiscoveryPage() {
                           </p>
 
                           <div className="flex items-center gap-2 pt-0.5 text-[11px]">
-                            <span className="font-bold text-emerald-600 flex items-center gap-1">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                              {language === 'mr' ? 'उघडे आहे' : 'Open Now'}
-                            </span>
+                            {store.isOpen !== false ? (
+                              <span className="font-bold text-emerald-600 flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                {language === 'mr' ? 'उघडे आहे' : 'Open Now'}
+                              </span>
+                            ) : (
+                              <span className="font-bold text-amber-600 flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                {language === 'mr' ? 'सध्या बंद' : 'Currently Closed'}
+                              </span>
+                            )}
                             <span className="text-slate-300">•</span>
-                            <span className="text-slate-500 font-medium">{store.distanceKm} km</span>
+                            <span className="text-slate-500 font-medium">{store.distanceKm || '1-2'} km</span>
                           </div>
                         </div>
                       </div>

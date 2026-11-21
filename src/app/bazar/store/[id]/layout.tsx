@@ -1,15 +1,34 @@
 import type { Metadata, Viewport } from 'next';
+import { bazarService } from '@/modules/bazar/services';
 
-export const metadata: Metadata = {
-  title: 'Fresh Mart Supermarket | Bazar Quick Commerce',
-  description: '15-25 min grocery delivery from your favorite local bazar.',
-};
+interface Props {
+  params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  try {
+    const store = await bazarService.getStoreById(id) || await bazarService.getStoreBySlug(id);
+    if (store) {
+      const name = store.nameMarathi ? `${store.name} (${store.nameMarathi})` : store.name;
+      return {
+        title: `${name} | Bazar Quick Commerce`,
+        description: `Order groceries, daily essentials from ${store.name} in ${store.town || 'your area'}. 15-25 min delivery.`,
+      };
+    }
+  } catch {
+    // fallback
+  }
+
+  return {
+    title: 'Bazar Store | Quick Commerce Delivery',
+    description: '15-25 min grocery delivery from your favorite local bazar.',
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
   themeColor: '#16834A',
 };
