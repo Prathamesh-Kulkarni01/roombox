@@ -6,16 +6,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { type, phone, name, storeName, storePhone } = body;
 
-    if (!phone) {
-      return NextResponse.json({ success: false, error: 'Phone number is required' }, { status: 400 });
+    const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      return NextResponse.json({ success: false, error: 'A valid 10-digit phone number is required' }, { status: 400 });
     }
 
     let result;
     if (type === 'welcome') {
-      result = await BazarWhatsAppNotificationService.sendCustomerWelcomeNotification(phone, name);
+      result = await BazarWhatsAppNotificationService.sendCustomerWelcomeNotification(cleanPhone, name);
     } else if (type === 'customer_added') {
       result = await BazarWhatsAppNotificationService.sendMerchantCustomerAddedNotification(
-        phone, 
+        cleanPhone, 
         name || 'ग्राहक', 
         storeName || 'स्थानिक सुपर बझार', 
         storePhone

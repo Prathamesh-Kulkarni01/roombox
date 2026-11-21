@@ -153,12 +153,24 @@ export default function BazarMerchantDashboardPage() {
     }
   };
 
+  const escapeHtml = (str: string) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
   const handlePrintPoster = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const storeDisplayName = store?.nameMarathi || store?.name || 'स्थानिक सुपर बझार';
-    const storeAddress = store?.address || 'Palus, Sangli';
+    const rawStoreName = store?.nameMarathi || store?.name || 'स्थानिक सुपर बझार';
+    const rawStoreAddress = store?.address || 'Palus, Sangli';
+
+    const storeDisplayName = escapeHtml(rawStoreName);
+    const storeAddress = escapeHtml(rawStoreAddress);
 
     printWindow.document.write(`
       <!DOCTYPE html>

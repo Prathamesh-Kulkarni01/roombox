@@ -5,14 +5,27 @@ import { doc, writeBatch } from 'firebase/firestore';
 import type { BazarProduct } from '@/modules/bazar/schemas';
 import { BAZAR_SCHEMA_VERSION } from '@/modules/bazar/schemas';
 import { resolveProductImage } from '@/modules/bazar/services/imageResolver';
+import { getVerifiedOwnerId } from '@/lib/auth-server';
+import { bazarService } from '@/modules/bazar/services';
 
 const PRODUCTS_COLLECTION = 'bazar_products';
 
 export async function POST(req: NextRequest) {
   try {
+    const authResult = await getVerifiedOwnerId(req);
+    const { ownerId } = authResult;
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const storeId = (formData.get('storeId') as string) || 'default_store';
+
+    // Verify ownership of the store if owner is logged in
+    if (ownerId && storeId !== 'default_store') {
+      const store = await bazarService.getStoreById(storeId);
+      if (store && store.ownerId && store.ownerId !== ownerId) {
+        return NextResponse.json({ success: false, error: 'Unauthorized: Store ownership mismatch' }, { status: 403 });
+      }
+    }
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No CSV file provided' }, { status: 400 });
