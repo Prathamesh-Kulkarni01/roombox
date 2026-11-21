@@ -115,6 +115,23 @@ export class BazarService {
   /**
    * Fetch products by store
    */
+  async getProductById(productId: string): Promise<BazarProduct | null> {
+    if (!db || !productId) return null;
+    try {
+      const snap = await getDoc(doc(db, PRODUCTS_COLLECTION, productId));
+      if (!snap.exists()) return null;
+      const data = snap.data() as BazarProduct;
+      return {
+        ...data,
+        id: snap.id,
+        schemaVersion: data.schemaVersion ?? BAZAR_SCHEMA_VERSION,
+      };
+    } catch (e) {
+      console.warn('[BazarService] getProductById error:', e);
+      return null;
+    }
+  }
+
   async getProductsByStore(storeId: string): Promise<BazarProduct[]> {
     if (!db) return [];
     try {

@@ -44,8 +44,8 @@ export default function MyAccountPage() {
     if (typeof window !== 'undefined') {
       const savedName = localStorage.getItem('bazar_customer_name') || '';
       const savedPhone = localStorage.getItem('bazar_customer_phone') || '';
-      const savedAddr = localStorage.getItem('bazar_delivery_address') || '';
-      const savedLang = (localStorage.getItem('bazar_language') as 'mr' | 'en') || 'mr';
+      const savedAddr = localStorage.getItem('bazar_delivery_address') || localStorage.getItem('bazar_customer_address') || '';
+      const savedLang = ((localStorage.getItem('bazar_lang') || localStorage.getItem('bazar_language')) as 'mr' | 'en') || 'mr';
 
       setCustomerName(savedName);
       setCustomerPhone(savedPhone);
@@ -63,10 +63,35 @@ export default function MyAccountPage() {
       localStorage.setItem('bazar_customer_name', editName.trim());
       localStorage.setItem('bazar_customer_phone', editPhone.trim());
       localStorage.setItem('bazar_delivery_address', editAddress.trim());
+      localStorage.setItem('bazar_customer_address', editAddress.trim());
       setCustomerName(editName.trim());
       setCustomerPhone(editPhone.trim());
       setDeliveryAddress(editAddress.trim());
       setIsEditing(false);
+    }
+  };
+
+
+  const handleToggleLanguage = () => {
+    const nextLang = selectedLanguage === 'mr' ? 'en' : 'mr';
+    setSelectedLanguage(nextLang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bazar_lang', nextLang);
+      localStorage.setItem('bazar_language', nextLang);
+    }
+  };
+
+  const handleItemClick = (item: AccountMenuItem) => {
+    if (item.id === 'profile' || item.id === 'addresses') {
+      setEditName(customerName);
+      setEditPhone(customerPhone);
+      setEditAddress(deliveryAddress);
+      setIsEditing(true);
+    } else if (item.id === 'language') {
+      handleToggleLanguage();
+    } else if (item.id === 'support') {
+      const supportPhone = (process.env.NEXT_PUBLIC_SUPPORT_PHONE || '918067528791').replace(/\D/g, '');
+      window.open(`https://wa.me/${supportPhone}?text=Hello%20Bazar%20Support%2C%20I%20need%20help.`, '_blank');
     }
   };
 
@@ -255,6 +280,7 @@ export default function MyAccountPage() {
                 return (
                   <div
                     key={item.id}
+                    onClick={() => handleItemClick(item)}
                     className="p-3.5 flex items-center justify-between hover:bg-[#FAFBFB] active:bg-[#F2F4F3] cursor-pointer transition-colors"
                   >
                     <div className="flex items-center gap-3">

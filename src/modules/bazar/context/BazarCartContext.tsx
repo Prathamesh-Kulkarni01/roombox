@@ -33,11 +33,11 @@ export function BazarCartProvider({ children }: { children: React.ReactNode }) {
   // Load cart and favorites from localStorage
   useEffect(() => {
     try {
-      const savedFavorites = localStorage.getItem('bazar_favorites');
+      const savedFavorites = localStorage.getItem('bazar_favorites') || localStorage.getItem('bazar_fav_stores');
       if (savedFavorites) {
         setFavoriteStores(JSON.parse(savedFavorites));
       }
-      const savedLang = localStorage.getItem('bazar_lang') as 'mr' | 'en';
+      const savedLang = (localStorage.getItem('bazar_lang') || localStorage.getItem('bazar_language')) as 'mr' | 'en';
       if (savedLang) {
         setLanguage(savedLang);
       }
@@ -50,6 +50,7 @@ export function BazarCartProvider({ children }: { children: React.ReactNode }) {
     const nextLang = language === 'mr' ? 'en' : 'mr';
     setLanguage(nextLang);
     localStorage.setItem('bazar_lang', nextLang);
+    localStorage.setItem('bazar_language', nextLang);
   };
 
   const toggleFavoriteStore = (storeSlug: string) => {
@@ -58,6 +59,7 @@ export function BazarCartProvider({ children }: { children: React.ReactNode }) {
         ? prev.filter(s => s !== storeSlug)
         : [...prev, storeSlug];
       localStorage.setItem('bazar_favorites', JSON.stringify(next));
+      localStorage.setItem('bazar_fav_stores', JSON.stringify(next));
       return next;
     });
   };

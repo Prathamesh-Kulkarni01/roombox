@@ -46,7 +46,8 @@ import {
   getStoreProductsAction, 
   getStoreOrdersAction,
   importRegionalMasterCatalogAction,
-  addStoreCustomerAndSendInviteAction 
+  addStoreCustomerAndSendInviteAction,
+  toggleStoreStatusAction
 } from '@/modules/bazar/actions';
 import type { BazarStore, BazarProduct, BazarOrder } from '@/modules/bazar/schemas';
 import { useToast } from '@/hooks/use-toast';
@@ -283,7 +284,12 @@ export default function BazarMerchantDashboardPage() {
           storeData = await getMerchantStoreAction('default_store');
         }
 
-        if (isMounted) setStore(storeData);
+        if (isMounted) {
+          setStore(storeData);
+          if (storeData) {
+            setStoreOpen(storeData.isOpen ?? storeData.isActive ?? true);
+          }
+        }
         const activeStoreId = storeData?.id;
 
         if (activeStoreId) {
@@ -315,9 +321,12 @@ export default function BazarMerchantDashboardPage() {
     };
   }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
 
-  const handleToggleStoreStatus = () => {
+  const handleToggleStoreStatus = async () => {
     const nextState = !storeOpen;
     setStoreOpen(nextState);
+    if (store?.id) {
+      try { await toggleStoreStatusAction(store.id, nextState); } catch (e) { console.warn(e); }
+    }
     toast({
       title: nextState ? 'Shop is now OPEN' : 'Online Orders PAUSED',
       description: nextState 

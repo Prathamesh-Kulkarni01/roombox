@@ -51,12 +51,19 @@ function OrderTrackingContent() {
     };
 
     fetchOrder();
-    const interval = setInterval(fetchOrder, 3000);
+    // Poll order status until delivered or component unmounts
+    const interval = setInterval(() => {
+      if (currentStatus === 'delivered' || currentStatus === 'cancelled') {
+        clearInterval(interval);
+        return;
+      }
+      fetchOrder();
+    }, 4000);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [orderId]);
+  }, [orderId, currentStatus]);
 
   // Tracking Steps dynamic based on currentStatus
   const isPackingOrAbove = currentStatus === 'packing' || currentStatus === 'ready' || currentStatus === 'delivered';
@@ -74,11 +81,7 @@ function OrderTrackingContent() {
   const matchedStore = BAZAR_TOWN_STORES.find(s => s.id === order?.storeId || s.name === storeName);
   const storePhone = matchedStore?.phone || process.env.NEXT_PUBLIC_SUPPORT_PHONE || '918067528791';
   const displayTotal = order?.totalAmount || 0;
-  const items = order?.items && order.items.length > 0 ? order.items : [
-    { productName: 'Amul Taaza Toned Milk (500 ml)', quantity: 1, price: 28 },
-    { productName: 'Fresh Farm White Eggs (6 pcs)', quantity: 1, price: 48 },
-    { productName: 'Fortune Sunlite Sunflower Oil (1 L)', quantity: 1, price: 138 },
-  ];
+  const items = Array.isArray(order?.items) ? order.items : [];
 
   return (
     <div className="w-full min-h-screen bg-background text-foreground flex justify-center pb-12 selection:bg-primary/20">

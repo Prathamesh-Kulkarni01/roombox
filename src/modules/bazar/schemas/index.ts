@@ -16,6 +16,7 @@ export interface BazarStore extends BaseEntity {
     lng: number;
   };
   isActive: boolean;
+  isOpen?: boolean;
   googleSheetConfig?: {
     spreadsheetId: string;
     sheetName: string;

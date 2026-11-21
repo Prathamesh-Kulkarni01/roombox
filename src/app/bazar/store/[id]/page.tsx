@@ -86,13 +86,13 @@ function StorefrontScreen() {
             category: s.category || 'grocery',
             categoryMarathi: s.category === 'dairy' ? 'दूध व डेअरी' : 'किराणा व धान्य',
             town: (s.town as any) || 'Palus',
-            isOpen: s.isActive !== false,
-            distanceKm: 0.8,
-            deliveryTimeMins: '10-20 min',
+            isOpen: s.isOpen !== undefined ? s.isOpen : s.isActive !== false,
+            distanceKm: (s as any).distanceKm || undefined,
+            deliveryTimeMins: (s as any).deliveryTimeMins || '15-25 min',
             minOrder: s.minOrderValue || 50,
-            rating: 4.8,
-            ratingCount: 50,
-            ratingCountText: 'स्थानिक दुकान',
+            rating: (s as any).rating || 4.5,
+            ratingCount: (s as any).ratingCount || 1,
+            ratingCountText: (s as any).ratingCount ? `${(s as any).ratingCount} reviews` : 'स्थानिक दुकान',
             imageUrl: s.branding?.bannerUrl || s.branding?.logoUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
             shortCode: (s.name.slice(0, 2) || 'BZ').toUpperCase(),
             verified: true,
@@ -181,9 +181,15 @@ function StorefrontScreen() {
   // If merchant has a preferred brand theme (e.g. green for Fresh Mart, violet for Super Bazar),
   // automatically set it for the store page if user hasn't explicitly overridden it.
   useEffect(() => {
+    const originalTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') || 'system' : 'system';
     if (store.brandTheme) {
       setTheme(store.brandTheme);
     }
+    return () => {
+      if (store.brandTheme && originalTheme) {
+        setTheme(originalTheme);
+      }
+    };
   }, [store.brandTheme, setTheme]);
 
   // Load language preference from localStorage

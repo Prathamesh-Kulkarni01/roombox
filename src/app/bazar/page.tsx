@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { 
   Search, 
@@ -45,6 +46,7 @@ import { getAllActiveStoresAction } from '@/modules/bazar/actions';
 import { Badge } from '@/components/ui/badge';
 
 export default function BazarDiscoveryPage() {
+  const router = useRouter();
   const [language, setLanguage] = useState<'mr' | 'en'>('mr');
   const [selectedTown, setSelectedTown] = useState('Palus');
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
@@ -70,13 +72,13 @@ export default function BazarDiscoveryPage() {
             category: s.category || 'grocery',
             categoryMarathi: s.category === 'dairy' ? 'दूध व डेअरी' : 'किराणा व धान्य',
             town: (s.town as any) || 'Palus',
-            isOpen: s.isActive !== false,
-            distanceKm: 0.8,
-            deliveryTimeMins: '10-20 min',
+            isOpen: s.isOpen !== undefined ? s.isOpen : s.isActive !== false,
+            distanceKm: (s as any).distanceKm || undefined,
+            deliveryTimeMins: (s as any).deliveryTimeMins || '15-25 min',
             minOrder: s.minOrderValue || 50,
-            rating: 4.8,
-            ratingCount: 50,
-            ratingCountText: 'नवीन दुकान (New Store)',
+            rating: (s as any).rating || 4.5,
+            ratingCount: (s as any).ratingCount || 1,
+            ratingCountText: (s as any).ratingCount ? `${(s as any).ratingCount} reviews` : 'स्थानिक दुकान',
             imageUrl: s.branding?.bannerUrl || s.branding?.logoUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
             shortCode: (s.name.slice(0, 2) || 'BZ').toUpperCase(),
             verified: true,
@@ -514,9 +516,7 @@ export default function BazarDiscoveryPage() {
         ───────────────────────────────────────────────────────────── */}
         <NativeFloatingCartBar
           onOpenCart={() => {
-            if (typeof window !== 'undefined') {
-              window.location.href = '/bazar/checkout';
-            }
+            router.push('/bazar/checkout');
           }}
           language={language}
         />

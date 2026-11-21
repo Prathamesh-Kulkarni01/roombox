@@ -104,6 +104,31 @@ export async function saveStoreAction(store: Partial<BazarStore> & { ownerId: st
 }
 
 /**
+ * Update store open / closed status (Persisted to Firestore)
+ */
+export async function toggleStoreStatusAction(storeId: string, isOpen: boolean): Promise<{ success: boolean; error?: string }> {
+  try {
+    const adminDb = await getAdminDb();
+    await adminDb.collection(STORES_COLLECTION).doc(storeId).set({
+      isActive: isOpen,
+      isOpen: isOpen,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+    return { success: true };
+  } catch (e: any) {
+    console.warn('[ServerAction] toggleStoreStatusAction fallback:', e?.message || e);
+    try {
+      if (bazarService) {
+        await bazarService.saveStore({ id: storeId, ownerId: '', isActive: isOpen });
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+}
+
+/**
  * Fetch products for store
  */
 export async function getStoreProductsAction(storeId: string): Promise<BazarProduct[]> {
@@ -191,8 +216,14 @@ export async function syncGoogleSheetAction(storeId: string, sheetUrlOrId: strin
 /**
  * Toggle stock status
  */
-export async function toggleProductStockAction(productId: string, inStock: boolean): Promise<{ success: boolean; error?: string }> {
+export async function toggleProductStockAction(productId: string, inStock: boolean, expectedStoreId?: string): Promise<{ success: boolean; error?: string }> {
   try {
+    if (expectedStoreId) {
+      const prod = await bazarService.getProductById(productId);
+      if (prod && prod.storeId && prod.storeId !== expectedStoreId) {
+        return { success: false, error: 'Unauthorized: Product belongs to another store' };
+      }
+    }
     await bazarService.toggleStock(productId, inStock);
     return { success: true };
   } catch (e: any) {
@@ -203,8 +234,14 @@ export async function toggleProductStockAction(productId: string, inStock: boole
 /**
  * Update product price quickly
  */
-export async function updateProductPriceAction(productId: string, price: number, discountPrice?: number): Promise<{ success: boolean; error?: string }> {
+export async function updateProductPriceAction(productId: string, price: number, discountPrice?: number, expectedStoreId?: string): Promise<{ success: boolean; error?: string }> {
   try {
+    if (expectedStoreId) {
+      const prod = await bazarService.getProductById(productId);
+      if (prod && prod.storeId && prod.storeId !== expectedStoreId) {
+        return { success: false, error: 'Unauthorized: Product belongs to another store' };
+      }
+    }
     await bazarService.updateProductPrice(productId, price, discountPrice);
     return { success: true };
   } catch (e: any) {
@@ -227,8 +264,14 @@ export async function saveProductAction(product: Partial<BazarProduct> & { store
 /**
  * Delete product from store inventory
  */
-export async function deleteProductAction(productId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteProductAction(productId: string, expectedStoreId?: string): Promise<{ success: boolean; error?: string }> {
   try {
+    if (expectedStoreId) {
+      const prod = await bazarService.getProductById(productId);
+      if (prod && prod.storeId && prod.storeId !== expectedStoreId) {
+        return { success: false, error: 'Unauthorized: Product belongs to another store' };
+      }
+    }
     await bazarService.deleteProduct(productId);
     return { success: true };
   } catch (e: any) {

@@ -21,28 +21,27 @@ export function BazarMerchantGuard({ children }: { children: React.ReactNode }) 
   const [storeChecked, setStoreChecked] = useState(false);
 
   useEffect(() => {
-    // Check Redux or Firebase direct auth
+    // verify live auth state first to prevent stale Redux bypass
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user) {
+          setIsAuthenticated(true);
+        } else if ((currentUser as unknown as { uid?: string })?.uid || currentUser?.id) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+        setAuthChecked(true);
+      });
+      return () => unsubscribe();
+    }
+
     if ((currentUser as unknown as { uid?: string })?.uid || currentUser?.id) {
       setIsAuthenticated(true);
-      setAuthChecked(true);
-      return;
+    } else {
+      setIsAuthenticated(false);
     }
-
-    if (!auth) {
-      setAuthChecked(true);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-      }
-      setAuthChecked(true);
-    });
-
-    return () => unsubscribe();
+    setAuthChecked(true);
   }, [currentUser]);
 
   // Check if merchant has an active store; if not and not already on onboarding page, redirect

@@ -146,8 +146,7 @@ export function GroceryCartProvider({ children }: { children: React.ReactNode })
     if (existingIndex > -1) {
       const currentQty = items[existingIndex].quantity;
       if (currentQty >= product.maxStock) return { success: true };
-      const updated = [...items];
-      updated[existingIndex].quantity = currentQty + 1;
+      const updated = items.map((item, idx) => idx === existingIndex ? { ...item, quantity: currentQty + 1 } : item);
       persistCart(updated, targetStoreId, targetStoreName);
     } else {
       const updated = [
