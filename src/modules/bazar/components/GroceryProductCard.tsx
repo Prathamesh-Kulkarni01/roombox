@@ -28,6 +28,30 @@ export function GroceryProductCard({
   );
   const [isFavorited, setIsFavorited] = useState(false);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const favs: string[] = JSON.parse(localStorage.getItem('bazar_fav_products') || '[]');
+        if (favs.includes(product.id)) {
+          setIsFavorited(true);
+        }
+      } catch {}
+    }
+  }, [product.id]);
+
+  const toggleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !isFavorited;
+    setIsFavorited(next);
+    if (typeof window !== 'undefined') {
+      try {
+        const favs: string[] = JSON.parse(localStorage.getItem('bazar_fav_products') || '[]');
+        const updated = next ? [...new Set([...favs, product.id])] : favs.filter(id => id !== product.id);
+        localStorage.setItem('bazar_fav_products', JSON.stringify(updated));
+      } catch {}
+    }
+  };
+
   const activeVariant = product.variants?.find(v => v.id === selectedVariantId);
   const currentUnit = activeVariant ? activeVariant.unit : product.unit;
   const currentPrice = activeVariant ? activeVariant.price : product.price;
@@ -54,10 +78,7 @@ export function GroceryProductCard({
         )}
 
         <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsFavorited(!isFavorited);
-          }}
+          onClick={toggleFavorite}
           className="absolute top-0 right-0 z-10 p-1 rounded-full text-slate-300 hover:text-rose-500 transition-colors"
           aria-label="Save to favorites"
         >

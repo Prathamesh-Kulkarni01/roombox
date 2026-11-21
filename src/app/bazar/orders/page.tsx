@@ -28,6 +28,7 @@ interface OrderItemSummary {
 interface DisplayOrder {
   id: string;
   orderNumber: string;
+  storeId?: string;
   storeName: string;
   dateText: string;
   status: 'active' | 'delivered' | 'cancelled';
@@ -87,6 +88,7 @@ function mapBazarOrderToDisplay(order: BazarOrder): DisplayOrder {
   return {
     id: order.id,
     orderNumber: order.orderNumber ? `#${order.orderNumber}` : `#${order.id.slice(-6).toUpperCase()}`,
+    storeId: order.storeId,
     storeName: order.storeName || 'Local Town Store',
     dateText,
     status: isDelivered ? 'delivered' : isCancelled ? 'cancelled' : 'active',
@@ -323,7 +325,7 @@ export default function MyOrdersPage() {
                         </button>
                       </Link>
                     ) : (
-                      <Link href="/bazar">
+                      <Link href={order.storeId ? `/bazar/store/${order.storeId}` : '/bazar'}>
                         <button className="h-8 px-3 rounded-xl bg-muted text-foreground hover:bg-muted/80 font-extrabold text-xs flex items-center gap-1 active:scale-95 transition-all">
                           <RotateCw className="h-3 w-3" />
                           <span>Reorder</span>

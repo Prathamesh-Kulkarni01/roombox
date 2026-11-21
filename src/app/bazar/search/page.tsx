@@ -19,12 +19,54 @@ import { BAZAR_TOWN_STORES, type BazarTownStore } from '@/modules/bazar/data/sto
 import { GroceryProductCard } from '@/modules/bazar/components/GroceryProductCard';
 import { NativeFloatingCartBar } from '@/modules/bazar/components/NativeFloatingCartBar';
 import { ProductDetailsSheet } from '@/modules/bazar/components/ProductDetailsSheet';
+import { getAllActiveStoresAction } from '@/modules/bazar/actions';
+import type { BazarTownStore } from '@/modules/bazar/data/storeDirectory';
 
 function SearchContent() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'products' | 'stores'>('products');
   const [selectedProduct, setSelectedProduct] = useState<GroceryProduct | null>(null);
+  const [liveStores, setLiveStores] = useState<BazarTownStore[]>([]);
+
+  useEffect(() => {
+    getAllActiveStoresAction().then((stores) => {
+      if (stores && stores.length > 0) {
+        const mapped: BazarTownStore[] = stores.map((s) => ({
+          id: s.id || s.slug,
+          name: s.name,
+          nameMarathi: s.nameMarathi || s.name,
+          slug: s.slug || s.id,
+          address: s.address || `${s.town || 'Palus'}, Sangli`,
+          category: s.category || 'grocery',
+          categoryMarathi: s.category === 'dairy' ? 'दूध व डेअरी' : 'किराणा व धान्य',
+          town: (s.town as any) || 'Palus',
+          isOpen: s.isOpen !== undefined ? s.isOpen : s.isActive !== false,
+          distanceKm: (s as any).distanceKm || undefined,
+          deliveryTimeMins: (s as any).deliveryTimeMins || '15-25 min',
+          minOrder: s.minOrderValue || 50,
+          rating: (s as any).rating || 4.5,
+          ratingCount: (s as any).ratingCount || 1,
+          ratingCountText: 'स्थानिक दुकान',
+          imageUrl: s.branding?.bannerUrl || s.branding?.logoUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
+          shortCode: (s.name.slice(0, 2) || 'BZ').toUpperCase(),
+          verified: true,
+          offersText: 'स्थानिक खात्रीशीर दुकान',
+          offersTextMarathi: 'स्थानिक खात्रीशीर दुकान',
+          brandTheme: 'violet',
+          phone: s.phone,
+        }));
+        setLiveStores(mapped);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const allStores = useMemo(() => {
+    if (liveStores.length === 0) return BAZAR_TOWN_STORES;
+    const liveSlugs = new Set(liveStores.map(s => s.slug));
+    const nonDuplicated = BAZAR_TOWN_STORES.filter(s => !liveSlugs.has(s.slug));
+    return [...liveStores, ...nonDuplicated];
+  }, [liveStores]);
 
   // Search filter for products
   const matchingProducts = useMemo(() => {
@@ -40,16 +82,16 @@ function SearchContent() {
 
   // Search filter for stores
   const matchingStores = useMemo(() => {
-    if (!searchQuery.trim()) return BAZAR_TOWN_STORES;
+    if (!searchQuery.trim()) return allStores;
     const q = searchQuery.toLowerCase().trim();
-    return BAZAR_TOWN_STORES.filter(s => 
+    return allStores.filter(s => 
       s.name.toLowerCase().includes(q) ||
       (s.nameMarathi && s.nameMarathi.includes(q)) ||
       s.category.toLowerCase().includes(q) ||
       (s.categoryMarathi && s.categoryMarathi.includes(q)) ||
       (s.address && s.address.toLowerCase().includes(q))
     );
-  }, [searchQuery]);
+  }, [searchQuery, allStores]);
 
   return (
     <div className="w-full min-h-screen bg-background text-foreground flex justify-center pb-20">

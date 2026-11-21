@@ -56,13 +56,42 @@ const CATEGORY_ITEMS = [
   { id: 'pet', label: 'पाळीव प्राणी', labelEn: 'Pet Care', icon: Dog, color: 'text-amber-700', bg: 'bg-amber-50' },
 ];
 
-const VEGETABLE_FILTERS: SubcategoryFilter[] = [
-  { id: 'all', label: 'All' },
-  { id: 'leafy', label: 'Leafy' },
-  { id: 'tomato', label: 'Tomato' },
-  { id: 'potato', label: 'Potato' },
-  { id: 'onion', label: 'Onion' },
-];
+const CATEGORY_SUBFILTERS: Record<string, SubcategoryFilter[]> = {
+  vegetables: [
+    { id: 'all', label: 'All' },
+    { id: 'leafy', label: 'Leafy' },
+    { id: 'tomato', label: 'Tomato' },
+    { id: 'potato', label: 'Potato' },
+    { id: 'onion', label: 'Onion' },
+  ],
+  fruits: [
+    { id: 'all', label: 'All' },
+    { id: 'banana', label: 'Banana' },
+    { id: 'apple', label: 'Apple' },
+    { id: 'citrus', label: 'Citrus' },
+    { id: 'seasonal', label: 'Seasonal' },
+  ],
+  dairy: [
+    { id: 'all', label: 'All' },
+    { id: 'milk', label: 'Milk' },
+    { id: 'curd', label: 'Curd & Paneer' },
+    { id: 'butter', label: 'Butter & Ghee' },
+    { id: 'bread', label: 'Bread & Eggs' },
+  ],
+  staples: [
+    { id: 'all', label: 'All' },
+    { id: 'atta', label: 'Atta & Flours' },
+    { id: 'rice', label: 'Rice' },
+    { id: 'dal', label: 'Dals & Pulses' },
+    { id: 'oil', label: 'Edible Oils' },
+  ],
+  snacks: [
+    { id: 'all', label: 'All' },
+    { id: 'biscuit', label: 'Biscuits' },
+    { id: 'namkeen', label: 'Namkeen' },
+    { id: 'noodles', label: 'Instant Food' },
+  ],
+};
 
 function CategoriesContent() {
   const router = useRouter();
@@ -166,10 +195,10 @@ function CategoriesContent() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            3. SUBCATEGORY PILLS (All, Leafy, Tomato, Potato, Onion)
+            3. SUBCATEGORY PILLS (Dynamic per category)
         ───────────────────────────────────────────────────────────── */}
         <div className="px-3.5 py-2 flex items-center gap-1.5 overflow-x-auto scrollbar-hide border-b border-border/60">
-          {VEGETABLE_FILTERS.map(filter => {
+          {(CATEGORY_SUBFILTERS[selectedCategory] || [{ id: 'all', label: 'All' }]).map(filter => {
             const isSelected = activeSubFilter === filter.id;
             return (
               <button
@@ -177,8 +206,8 @@ function CategoriesContent() {
                 onClick={() => setActiveSubFilter(filter.id)}
                 className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 transition-all active:scale-95 ${
                   isSelected
-                    ? 'bg-primary text-white shadow-2xs'
-                    : 'bg-muted text-muted-foreground hover:bg-[#E5E9E6]'
+                    ? 'bg-primary text-primary-foreground shadow-2xs'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 }`}
               >
                 {filter.label}

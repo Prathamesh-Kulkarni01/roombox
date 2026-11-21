@@ -40,12 +40,19 @@ export default function MyAccountPage() {
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
 
+  const [favCount, setFavCount] = useState<number>(0);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedName = localStorage.getItem('bazar_customer_name') || '';
       const savedPhone = localStorage.getItem('bazar_customer_phone') || '';
       const savedAddr = localStorage.getItem('bazar_delivery_address') || localStorage.getItem('bazar_customer_address') || '';
       const savedLang = ((localStorage.getItem('bazar_lang') || localStorage.getItem('bazar_language')) as 'mr' | 'en') || 'mr';
+
+      try {
+        const favs: string[] = JSON.parse(localStorage.getItem('bazar_fav_products') || '[]');
+        setFavCount(favs.length);
+      } catch {}
 
       setCustomerName(savedName);
       setCustomerPhone(savedPhone);
@@ -110,7 +117,7 @@ export default function MyAccountPage() {
           icon: MapPin, 
           trailingText: deliveryAddress ? '1' : '0' 
         },
-        { id: 'favorites', labelMarathi: 'माझी आवडती उत्पादने', labelEn: 'My Favourites', icon: Heart, trailingText: '0' },
+        { id: 'favorites', labelMarathi: 'माझी आवडती उत्पादने', labelEn: 'My Favourites', icon: Heart, trailingText: favCount.toString() },
         { id: 'payment', labelMarathi: 'पेमेंट पद्धती', labelEn: 'Payment Methods (UPI/Cash)', icon: CreditCard },
       ]
     },

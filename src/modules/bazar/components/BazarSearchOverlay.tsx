@@ -202,7 +202,7 @@ export function BazarSearchOverlay({ isOpen, onClose, language = 'mr' }: BazarSe
               ) : (
                 <div className="divide-y divide-slate-100">
                   {matchingProducts.map((prod) => {
-                    const targetStoreSlug = matchingStores[0]?.slug || 'palus-bazar';
+                    const targetStoreSlug = (prod as any).storeSlug || (prod as any).storeId || matchingStores[0]?.slug || 'palus-bazar';
                     return (
                       <Link
                         key={prod.id}
