@@ -26,7 +26,21 @@ export class BazarController {
 
       if (action === 'create_order') {
         const { orderData } = body;
-        const orderId = await bazarService.createOrder(orderData);
+        if (!orderData?.storeId) {
+          return NextResponse.json({ success: false, error: 'Store ID is required' }, { status: 400 });
+        }
+        const cleanPhone = (orderData.customerPhone || '').replace(/\D/g, '');
+        if (cleanPhone.length !== 10) {
+          return NextResponse.json({ success: false, error: 'Valid 10-digit phone number is required' }, { status: 400 });
+        }
+        if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+          return NextResponse.json({ success: false, error: 'Order must contain items' }, { status: 400 });
+        }
+
+        const orderId = await bazarService.createOrder({
+          ...orderData,
+          customerPhone: cleanPhone,
+        });
 
         const paymentIntent = corePaymentGateway.createIntent({
           amount: orderData.totalAmount,
@@ -35,7 +49,7 @@ export class BazarController {
           description: `Order ${orderId} on Palus Local Bazar`,
           customer: {
             name: orderData.customerName,
-            phone: orderData.customerPhone,
+            phone: cleanPhone,
           },
         });
 

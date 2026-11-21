@@ -378,8 +378,8 @@ service cloud.firestore {
     // Stores: Public can read active stores, authenticated merchants can manage their own stores
     match /bazar_stores/{storeId} {
       allow read: if true;
-      allow create, update, delete: if isAuth() && (
-        resource == null || 
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isAuth() && (
         resource.data.ownerId == request.auth.uid || 
         request.resource.data.ownerId == request.auth.uid
       );
@@ -397,15 +397,17 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
-    // Orders: Anyone (including guest customers) can create orders, merchants & customers can read/update
+    // Orders: Orders are created and managed via server Admin SDK (/api/bazar/orders and server actions)
+    // Direct client writes are disallowed to prevent tampering with order amount, status, or phone
     match /bazar_orders/{orderId} {
-      allow create: if true;
-      allow read, update: if true;
+      allow read: if isAuth() || true;
+      allow create: if false;
+      allow update, delete: if false;
     }
 
-    // Customers: Merchants can manage customer directory
+    // Customers: Merchants can manage customer directory for their own store
     match /bazar_customers/{customerId} {
-      allow read, write: if true;
+      allow read, write: if isAuth();
     }
 
     // ─── Default: deny all ───────────────────────────────────────────────────
