@@ -201,38 +201,41 @@ export function BazarSearchOverlay({ isOpen, onClose, language = 'mr' }: BazarSe
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {matchingProducts.map((prod) => (
-                    <Link
-                      key={prod.id}
-                      href={`/bazar/store/fresh-mart`}
-                      onClick={onClose}
-                      className="py-2.5 flex items-center justify-between hover:bg-background px-1 rounded-xl transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="relative h-11 w-11 rounded-lg overflow-hidden bg-muted shrink-0 border border-border">
-                          <Image
-                            src={prod.imageUrl}
-                            alt={prod.name}
-                            fill
-                            className="object-cover"
-                          />
+                  {matchingProducts.map((prod) => {
+                    const targetStoreSlug = matchingStores[0]?.slug || 'palus-bazar';
+                    return (
+                      <Link
+                        key={prod.id}
+                        href={`/bazar/store/${targetStoreSlug}`}
+                        onClick={onClose}
+                        className="py-2.5 flex items-center justify-between hover:bg-background px-1 rounded-xl transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-11 w-11 rounded-lg overflow-hidden bg-muted shrink-0 border border-border">
+                            <Image
+                              src={prod.imageUrl}
+                              alt={prod.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div>
+                            <p className="font-bold text-xs text-foreground">{prod.name}</p>
+                            <p className="text-[10px] text-muted-foreground font-medium">{prod.unit} · {prod.brand}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-xs text-foreground">{prod.name}</p>
-                          <p className="text-[10px] text-muted-foreground font-medium">{prod.unit} · {prod.brand}</p>
-                        </div>
-                      </div>
 
-                      <div className="text-right">
-                        <span className="font-extrabold text-xs text-foreground">₹{prod.price}</span>
-                        {prod.discountPercent > 0 && (
-                          <p className="text-[9px] font-bold text-primary">
-                            {prod.discountPercent}% OFF
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  ))}
+                        <div className="text-right">
+                          <span className="font-extrabold text-xs text-foreground">₹{prod.price}</span>
+                          {prod.discountPercent > 0 && (
+                            <p className="text-[9px] font-bold text-primary">
+                              {prod.discountPercent}% OFF
+                            </p>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>

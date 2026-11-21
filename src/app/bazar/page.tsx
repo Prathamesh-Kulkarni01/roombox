@@ -48,7 +48,7 @@ export default function BazarDiscoveryPage() {
   const [language, setLanguage] = useState<'mr' | 'en'>('mr');
   const [selectedTown, setSelectedTown] = useState('Palus');
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
-  const [favoriteStoreIds, setFavoriteStoreIds] = useState<string[]>(['fresh-mart']);
+  const [favoriteStoreIds, setFavoriteStoreIds] = useState<string[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<GroceryProduct | null>(null);
   const [copiedShare, setCopiedShare] = useState(false);
   const [liveStores, setLiveStores] = useState<BazarTownStore[]>([]);
@@ -319,16 +319,21 @@ export default function BazarDiscoveryPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
-            {trendingBestsellers.map((product) => (
-              <GroceryProductCard
-                key={product.id}
-                product={product}
-                storeId="fresh-mart"
-                storeName="Fresh Mart Supermarket"
-                onOpenDetails={(p) => setSelectedProduct(p)}
-                language={language}
-              />
-            ))}
+            {trendingBestsellers.map((product) => {
+              const defaultStore = townStores[0];
+              const targetStoreId = defaultStore?.id || defaultStore?.slug || '';
+              const targetStoreName = defaultStore?.name || 'Local Store';
+              return (
+                <GroceryProductCard
+                  key={product.id}
+                  product={product}
+                  storeId={targetStoreId}
+                  storeName={targetStoreName}
+                  onOpenDetails={(p) => setSelectedProduct(p)}
+                  language={language}
+                />
+              );
+            })}
           </div>
         </div>
 
@@ -532,8 +537,8 @@ export default function BazarDiscoveryPage() {
           <ProductDetailsSheet
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
-            storeId="fresh-mart"
-            storeName="Fresh Mart Supermarket"
+            storeId={townStores[0]?.id || townStores[0]?.slug || ''}
+            storeName={townStores[0]?.name || 'Local Store'}
           />
         )}
 

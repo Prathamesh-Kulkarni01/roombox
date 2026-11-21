@@ -117,11 +117,12 @@ export function GroceryCartProvider({ children }: { children: React.ReactNode })
     incomingStoreId?: string, 
     incomingStoreName?: string
   ): { success: boolean; conflict?: StoreSwitchConflict } => {
-    const targetStoreId = incomingStoreId || 'fresh-mart';
-    const targetStoreName = incomingStoreName || (targetStoreId === 'fresh-mart' ? 'Fresh Mart Supermarket' : 'Selected Store');
+    // If incomingStoreId is not provided, adopt the existing cart store if available
+    const targetStoreId = incomingStoreId || cartStoreId || '';
+    const targetStoreName = incomingStoreName || cartStoreName || 'Selected Store';
 
     // Check if cart has items from another store
-    if (items.length > 0 && cartStoreId && cartStoreId !== targetStoreId) {
+    if (items.length > 0 && cartStoreId && targetStoreId && cartStoreId !== targetStoreId) {
       const conflict: StoreSwitchConflict = {
         currentStoreName: cartStoreName || 'Previous Store',
         newStoreName: targetStoreName,
