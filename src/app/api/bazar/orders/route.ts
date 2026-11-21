@@ -10,7 +10,6 @@ export async function POST(req: NextRequest) {
 
     const orderId = await bazarService.createOrder({
       ...orderData,
-      storeId: orderData.storeId || 'default_store',
       orderStatus: 'placed',
       paymentStatus: orderData.paymentMethod === 'cod' ? 'pending' : 'paid',
     });
@@ -18,7 +17,6 @@ export async function POST(req: NextRequest) {
     const fullOrder: BazarOrder = {
       ...(orderData as any),
       id: orderId,
-      storeId: orderData.storeId || 'default_store',
       orderStatus: 'placed',
       paymentStatus: orderData.paymentMethod === 'cod' ? 'pending' : 'paid',
       createdAt: new Date().toISOString(),

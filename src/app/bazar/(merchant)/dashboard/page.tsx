@@ -103,8 +103,13 @@ export default function BazarMerchantDashboardPage() {
 
     setSendingInvite(true);
     try {
+      const targetStoreId = store?.id || store?.slug;
+      if (!targetStoreId) {
+        throw new Error('दुकान सापडले नाही. कृपया आधी दुकानाचे तपशील भरा.');
+      }
+
       const res = await addStoreCustomerAndSendInviteAction({
-        storeId: store?.id || 'fresh-mart',
+        storeId: targetStoreId,
         storeName: storeDisplayName,
         storePhone: store?.phone,
         storeSlug: store?.slug || store?.id,

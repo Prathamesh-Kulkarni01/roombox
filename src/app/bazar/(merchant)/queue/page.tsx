@@ -40,7 +40,7 @@ export default function MerchantOrdersQueuePage() {
   const [orders, setOrders] = useState<MerchantOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterMode, setFilterMode] = useState<'all' | 'pickup' | 'delivery'>('all');
-  const [activeStoreId, setActiveStoreId] = useState<string>('fresh-mart');
+  const [activeStoreId, setActiveStoreId] = useState<string>('');
 
   // 1. Resolve merchant's actual store ID
   useEffect(() => {
@@ -72,6 +72,10 @@ export default function MerchantOrdersQueuePage() {
 
   // 2. Poll live orders for the active store
   useEffect(() => {
+    if (!activeStoreId) {
+      setIsLoading(false);
+      return;
+    }
     let isMounted = true;
     const fetchLiveOrders = async () => {
       try {

@@ -349,7 +349,7 @@ export class BazarService {
       orderNumber: orderData.orderNumber || `#${orderId}`,
       orderStatus: orderData.orderStatus || 'placed',
       paymentStatus: orderData.paymentStatus || 'pending',
-      storeId: orderData.storeId || 'fresh-mart',
+      storeId: orderData.storeId || '',
       totalAmount: orderData.totalAmount || 0,
       customerName: orderData.customerName || 'Customer',
       schemaVersion: BAZAR_SCHEMA_VERSION,
@@ -376,7 +376,7 @@ export class BazarService {
    * Fetch active orders for store
    */
   async getOrdersByStore(storeId: string): Promise<BazarOrder[]> {
-    const memoryOrders = inMemoryOrdersCache.filter(o => !storeId || o.storeId === storeId || storeId === 'default_store' || o.storeId === 'fresh-mart');
+    const memoryOrders = inMemoryOrdersCache.filter(o => storeId ? o.storeId === storeId : true);
     if (!db) return memoryOrders;
     try {
       const q = query(collection(db, ORDERS_COLLECTION), where('storeId', '==', storeId));

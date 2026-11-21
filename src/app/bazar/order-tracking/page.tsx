@@ -70,10 +70,10 @@ function OrderTrackingContent() {
     { title: 'Completed', time: isDelivered ? 'Done' : 'Pending', completed: isDelivered, active: isDelivered },
   ];
 
-  const storeName = order?.storeName || 'Fresh Mart Supermarket';
-  const matchedStore = BAZAR_TOWN_STORES.find(s => s.id === order?.storeId || s.name === storeName) || BAZAR_TOWN_STORES[0];
-  const storePhone = matchedStore?.phone || '918067528791';
-  const displayTotal = order?.totalAmount || 214;
+  const storeName = order?.storeName || 'स्थानिक सुपर बझार';
+  const matchedStore = BAZAR_TOWN_STORES.find(s => s.id === order?.storeId || s.name === storeName);
+  const storePhone = matchedStore?.phone || process.env.NEXT_PUBLIC_SUPPORT_PHONE || '918067528791';
+  const displayTotal = order?.totalAmount || 0;
   const items = order?.items && order.items.length > 0 ? order.items : [
     { productName: 'Amul Taaza Toned Milk (500 ml)', quantity: 1, price: 28 },
     { productName: 'Fresh Farm White Eggs (6 pcs)', quantity: 1, price: 48 },

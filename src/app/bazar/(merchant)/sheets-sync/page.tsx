@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAppSelector } from '@/lib/hooks';
+import { getMerchantStoreAction } from '@/modules/bazar/actions';
 import { 
   FileSpreadsheet, 
   RefreshCw, 
@@ -20,7 +22,9 @@ import { syncGoogleSheetAction, getCsvTemplateAction } from '@/modules/bazar/act
 import { useToast } from '@/hooks/use-toast';
 
 export default function GoogleSheetsSyncPage() {
+  const { currentUser } = useAppSelector((state) => state.user);
   const { toast } = useToast();
+  const [storeId, setStoreId] = useState<string>('');
   const [sheetUrl, setSheetUrl] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{
@@ -28,6 +32,21 @@ export default function GoogleSheetsSyncPage() {
     importedCount: number;
     errors: string[];
   } | null>(null);
+
+  useEffect(() => {
+    async function loadStore() {
+      const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+      if (ownerId) {
+        try {
+          const s = await getMerchantStoreAction(ownerId);
+          if (s?.id) setStoreId(s.id);
+        } catch (e) {
+          console.warn('Error loading store for sheets-sync:', e);
+        }
+      }
+    }
+    loadStore();
+  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
 
   const handleSync = async () => {
     if (!sheetUrl.trim()) {
@@ -38,11 +57,20 @@ export default function GoogleSheetsSyncPage() {
       return;
     }
 
+    if (!storeId) {
+      toast({
+        title: 'दुकान सापडले नाही',
+        description: 'कृपया आधी दुकानाची नोंदणी पूर्ण करा.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSyncing(true);
     setSyncResult(null);
 
     try {
-      const res = await syncGoogleSheetAction('default_store', sheetUrl.trim());
+      const res = await syncGoogleSheetAction(storeId, sheetUrl.trim());
       setSyncResult(res);
       if (res.success) {
         toast({

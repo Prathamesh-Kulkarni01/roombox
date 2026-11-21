@@ -1,6 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAppSelector } from '@/lib/hooks';
+import { getMerchantStoreAction } from '@/modules/bazar/actions';
+import type { BazarStore } from '@/modules/bazar/schemas';
 import { 
   Store, 
   Clock, 
@@ -26,9 +29,26 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 
 export default function BazarMorePage() {
+  const { currentUser } = useAppSelector((state) => state.user);
   const { toast } = useToast();
+  const [store, setStore] = useState<BazarStore | null>(null);
   const [onlinePaused, setOnlinePaused] = useState(false);
   const [lang, setLang] = useState<'mr' | 'en'>('mr');
+
+  useEffect(() => {
+    async function loadStore() {
+      const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+      if (ownerId) {
+        try {
+          const s = await getMerchantStoreAction(ownerId);
+          if (s) setStore(s);
+        } catch (e) {
+          console.warn('Error loading store in more page:', e);
+        }
+      }
+    }
+    loadStore();
+  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
 
   const handleTogglePause = () => {
     const next = !onlinePaused;
@@ -41,31 +61,37 @@ export default function BazarMorePage() {
     });
   };
 
+  const storeSlug = store?.slug || store?.id || '';
+
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
       {/* Profile & Shop Header */}
-      <div className="bg-white border border-border p-4 rounded-2xl flex items-center justify-between shadow-xs">
+      <div className="bg-card border border-border p-4 rounded-2xl flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-xl bg-emerald-50 text-[#0D7C4D] flex items-center justify-center font-bold">
+          <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
             <Store className="h-6 w-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-extrabold text-base text-foreground">श्री महालक्ष्मी सुपर बझार</h1>
-              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-[#0D7C4D] border-emerald-200">
+              <h1 className="font-extrabold text-base text-foreground">
+                {store?.nameMarathi || store?.name || 'माझे दुकान'}
+              </h1>
+              <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
                 Verified Store
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground">मेन रोड, बस स्टँड जवळ, पलूस (सांगली)</p>
+            <p className="text-xs text-muted-foreground">{store?.address || 'स्थानिक सुपर बझार'}</p>
           </div>
         </div>
 
-        <Button variant="outline" size="sm" asChild className="h-8 text-xs font-semibold">
-          <Link href="/bazar/store/fresh-mart" target="_blank">
-            <ExternalLink className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-            Preview
-          </Link>
-        </Button>
+        {storeSlug && (
+          <Button variant="outline" size="sm" asChild className="h-8 text-xs font-semibold">
+            <Link href={`/bazar/store/${storeSlug}`} target="_blank">
+              <ExternalLink className="h-3.5 w-3.5 mr-1 text-primary" />
+              Preview
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Emergency Action: Pause Online Orders */}
