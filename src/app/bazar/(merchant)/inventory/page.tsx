@@ -68,9 +68,9 @@ export default function BazarInventoryPage() {
   const { toast } = useToast();
   const { currentUser } = useAppSelector((state) => state.user);
   
-  // Store resolution: user's store or fallback default
-  const [storeId, setStoreId] = useState<string>('default_store');
-  const [storeName, setStoreName] = useState<string>('श्री महालक्ष्मी सुपर बझार (Palus)');
+  // Store resolution: user's store
+  const [storeId, setStoreId] = useState<string>('');
+  const [storeName, setStoreName] = useState<string>('');
   
   const [products, setProducts] = useState<BazarProduct[]>([]);
   const [search, setSearch] = useState('');

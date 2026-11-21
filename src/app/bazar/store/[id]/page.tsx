@@ -195,7 +195,7 @@ function StorefrontScreen() {
   // Load language preference from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('bazar_lang') as 'mr' | 'en' | null;
+      const saved = (localStorage.getItem('bazar_lang') || localStorage.getItem('bazar_language')) as 'mr' | 'en' | null;
       if (saved) setLanguage(saved);
     }
   }, []);

@@ -96,7 +96,7 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedLang = localStorage.getItem('bazar_lang') as 'mr' | 'en' | null;
+      const savedLang = (localStorage.getItem('bazar_lang') || localStorage.getItem('bazar_language')) as 'mr' | 'en' | null;
       if (savedLang) setLanguage(savedLang);
 
       const savedTown = localStorage.getItem('bazar_selected_town');

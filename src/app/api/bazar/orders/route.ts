@@ -141,13 +141,27 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ success: true, orders: fetchedOrders });
       }
 
-      // If user is authenticated, verify their phone matches
+      // If user is authenticated, allow full customer phone order history; otherwise require orderIds or matching session
       const authResult = await getVerifiedOwnerId(req);
+      if (!authResult.ownerId && !authResult.guestId && process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Authentication or order identification required to access order history.' 
+        }, { status: 401 });
+      }
+
       const orders = await bazarService.getOrdersByCustomerPhone(cleanPhone);
       return NextResponse.json({ success: true, orders });
     }
 
-    const storeId = searchParams.get('storeId') || 'default_store';
+    const storeId = searchParams.get('storeId');
+    if (!storeId) {
+      if (process.env.NODE_ENV !== 'production') {
+        const orders = await bazarService.getOrdersByStore('default_store');
+        return NextResponse.json({ success: true, orders });
+      }
+      return NextResponse.json({ success: false, error: 'Store ID required' }, { status: 400 });
+    }
     const orders = await bazarService.getOrdersByStore(storeId);
     return NextResponse.json({ success: true, orders });
   } catch (e: any) {

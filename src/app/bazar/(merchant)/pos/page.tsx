@@ -76,14 +76,18 @@ export default function BazarPosBillingPage() {
         if (ownerId) {
           storeData = await getMerchantStoreAction(ownerId);
         }
-        if (!storeData && !ownerId) {
+        if (!storeData && !ownerId && process.env.NODE_ENV !== 'production') {
           storeData = await getMerchantStoreAction('default_store');
         }
         setStore(storeData);
 
-        const storeTargetId = storeData?.id || 'default_store';
-        const prods = await getStoreProductsAction(storeTargetId);
-        setProducts(prods);
+        const storeTargetId = storeData?.id;
+        if (storeTargetId) {
+          const prods = await getStoreProductsAction(storeTargetId);
+          setProducts(prods);
+        } else {
+          setProducts([]);
+        }
       } catch (err) {
         console.warn('Failed to load store products for POS:', err);
       } finally {

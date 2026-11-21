@@ -291,8 +291,8 @@ export default function BazarMerchantDashboardPage() {
           storeData = await getMerchantStoreAction(ownerId);
         }
         
-        // Only fallback to default_store if this is a demo guest or no store registered yet
-        if (!storeData && !ownerId) {
+        // Only fallback to demo if unauthenticated in non-production preview
+        if (!storeData && !ownerId && process.env.NODE_ENV !== 'production') {
           storeData = await getMerchantStoreAction('default_store');
         }
 

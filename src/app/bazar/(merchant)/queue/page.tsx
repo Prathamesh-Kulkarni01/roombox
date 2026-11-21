@@ -55,10 +55,12 @@ export default function MerchantOrdersQueuePage() {
             return;
           }
         }
-        // Fallback for unauthenticated or demo
-        const fallback = await getMerchantStoreAction('default_store');
-        if (isMounted && fallback?.id) {
-          setActiveStoreId(fallback.id);
+        // Fallback for unauthenticated or demo in non-production
+        if (process.env.NODE_ENV !== 'production') {
+          const fallback = await getMerchantStoreAction('default_store');
+          if (isMounted && fallback?.id) {
+            setActiveStoreId(fallback.id);
+          }
         }
       } catch (err) {
         console.warn('Could not resolve merchant store:', err);
