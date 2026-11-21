@@ -266,145 +266,34 @@ export default function BazarDiscoveryPage() {
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            3. INSTANT SHOP CATEGORIES REEL (Horizontal Carousel)
+            3. NEARBY VERIFIED STORES (HIGH-CONVERSION MOBILE DIRECTORY)
         ───────────────────────────────────────────────────────────── */}
-        <div className="pt-2 pb-1">
-          <div className="flex gap-2.5 px-3.5 overflow-x-auto scrollbar-hide scroll-smooth">
-            {POPULAR_SHOP_CATEGORIES.map((cat) => {
-              const IconComp = 
-                cat.iconName === 'ShoppingBasket' ? ShoppingBasket :
-                cat.iconName === 'Milk' ? Milk :
-                cat.iconName === 'Carrot' ? Carrot :
-                cat.iconName === 'Apple' ? Apple :
-                cat.iconName === 'Cookie' ? Cookie :
-                cat.iconName === 'Flame' ? Flame :
-                cat.iconName === 'Coffee' ? Coffee : Home;
-
-              return (
-                <Link
-                  key={cat.id}
-                  href={`/bazar/categories?cat=${cat.id}`}
-                  className="flex flex-col items-center gap-1.5 shrink-0 group active:scale-95 transition-all"
-                >
-                  <div className="h-14 w-14 rounded-2xl bg-card border border-border/80 flex flex-col items-center justify-center shadow-2xs group-hover:shadow-xs group-hover:scale-105 transition-all">
-                    <IconComp className={`h-6 w-6 ${cat.textColor}`} />
-                  </div>
-                  <span className="text-[11px] font-bold text-foreground tracking-tight text-center max-w-[64px] leading-tight line-clamp-1">
-                    {language === 'mr' ? cat.nameMarathi : cat.name}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ─────────────────────────────────────────────────────────────
-            4. TRENDING BESTSELLERS SHELF (Direct Add-to-Cart)
-        ───────────────────────────────────────────────────────────── */}
-        <div className="px-3.5 pt-3 pb-1">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="flex items-center gap-1.5">
-              <div className="h-5 w-5 rounded-md bg-rose-500/10 flex items-center justify-center text-rose-600">
-                <Flame className="h-3.5 w-3.5 stroke-[2.5]" />
-              </div>
-              <h2 className="font-extrabold text-sm text-foreground tracking-tight">
-                {language === 'mr' ? 'सर्वाधिक मागणी असलेले पदार्थ' : 'Trending Bestsellers'}
-              </h2>
-            </div>
-            <Link 
-              href="/bazar/categories?cat=all" 
-              className="text-xs font-bold text-primary flex items-center gap-0.5 hover:underline"
-            >
-              <span>{language === 'mr' ? 'सर्व पाहा' : 'See All'}</span>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {trendingBestsellers.map((product) => {
-              const defaultStore = townStores[0];
-              const targetStoreId = defaultStore?.id || defaultStore?.slug || '';
-              const targetStoreName = defaultStore?.name || 'Local Store';
-              return (
-                <GroceryProductCard
-                  key={product.id}
-                  product={product}
-                  storeId={targetStoreId}
-                  storeName={targetStoreName}
-                  onOpenDetails={(p) => setSelectedProduct(p)}
-                  language={language}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ─────────────────────────────────────────────────────────────
-            5. "माझे आवडते दुकाने" (PINNED / FREQUENT STORES)
-        ───────────────────────────────────────────────────────────── */}
-        {favoriteStores.length > 0 && (
-          <div className="px-3.5 pt-4 pb-1">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
-                <span>{language === 'mr' ? 'माझे आवडते दुकाने' : 'Saved Kirana & Stores'}</span>
-              </h3>
-              <span className="text-[11px] font-bold text-primary">
-                {favoriteStores.length} {language === 'mr' ? 'दुकाने' : 'shops'}
-              </span>
-            </div>
-
-            <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1">
-              {favoriteStores.map((store) => (
-                <Link
-                  key={store.id}
-                  href={`/bazar/store/${store.slug}`}
-                  className="shrink-0 w-[240px] bg-card rounded-2xl p-2.5 border border-border shadow-2xs hover:border-primary/50 transition-all flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="relative h-11 w-11 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-                      <Image
-                        src={store.imageUrl}
-                        alt={store.name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-xs text-foreground leading-tight line-clamp-1">
-                        {language === 'mr' ? store.nameMarathi : store.name}
-                      </h4>
-                      <p className="text-[10px] text-primary font-semibold mt-0.5">
-                        ⚡ {store.deliveryTimeMins} · {store.distanceKm} km
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(e) => handleToggleFavorite(store.id, e)}
-                    className="p-1 rounded-full text-rose-500 hover:bg-rose-50 shrink-0"
-                    aria-label="Remove favorite"
-                  >
-                    <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" />
-                  </button>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ─────────────────────────────────────────────────────────────
-            6. NEARBY VERIFIED STORES (HIGH-CONVERSION MOBILE CARDS)
-        ───────────────────────────────────────────────────────────── */}
-        <main className="px-3.5 pt-4 space-y-3 flex-1">
+        <main className="px-3.5 pt-3 space-y-3 flex-1">
           <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-              <Store className="h-3.5 w-3.5 text-purple-700" />
+            <h3 className="font-extrabold text-xs text-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <Store className="h-3.5 w-3.5 text-primary" />
               <span>{language === 'mr' ? 'परिसरातील खात्रीशीर दुकाने' : 'Nearby Verified Stores'}</span>
             </h3>
-            <span className="text-[11px] font-semibold text-slate-500">
-              {townStores.length} {language === 'mr' ? 'उपलब्ध' : 'available'}
+            <span className="text-[11px] font-semibold text-muted-foreground">
+              {townStores.length} {language === 'mr' ? 'दुकाने उपलब्ध' : 'shops available'}
             </span>
+          </div>
+
+          {/* Quick Town Filter Pills */}
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+            {['Palus', 'Kundal', 'Kirloskarwadi', 'Tasgaon'].map((t) => (
+              <button
+                key={t}
+                onClick={() => setSelectedTown(t)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 ${
+                  selectedTown.toLowerCase() === t.toLowerCase()
+                    ? 'bg-primary text-primary-foreground shadow-2xs'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
           </div>
 
           <div className="space-y-3 pb-4">
