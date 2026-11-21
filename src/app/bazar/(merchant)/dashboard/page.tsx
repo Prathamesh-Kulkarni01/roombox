@@ -402,8 +402,12 @@ export default function BazarMerchantDashboardPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-base md:text-lg text-foreground">
-                  {store?.name || 'श्री महालक्ष्मी सुपर बझार (Palus)'}
+                <h1 className="font-extrabold text-base md:text-lg text-foreground flex items-center gap-2">
+                  {loading ? (
+                    <span className="inline-block h-6 w-44 bg-muted animate-pulse rounded-md" />
+                  ) : (
+                    store?.nameMarathi || store?.name || 'माझे सुपर बझार'
+                  )}
                 </h1>
                 <Badge className={`text-[10px] font-bold ${
                   storeOpen ? 'bg-primary text-primary-foreground' : 'bg-amber-600 text-white'
