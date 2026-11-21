@@ -5,6 +5,8 @@ import type { Metadata, ResolvingMetadata, Viewport } from 'next';
 import { getSiteData } from '@/lib/actions/siteActions';
 import SitePageClient from '@/components/site-page-client';
 import { StorefrontScreen } from '@/modules/bazar/components/StorefrontScreen';
+import { GroceryCartProvider } from '@/modules/bazar/context/GroceryCartContext';
+import { SingleStoreCartConflictModal } from '@/modules/bazar/components/SingleStoreCartConflictModal';
 
 type Props = {
   params: Promise<{ subdomain: string }>;
@@ -70,7 +72,12 @@ export default async function SitePage({ params, searchParams }: Props) {
 
   // If this subdomain is configured as a Bazar store (e.g. samarth.rentsutra.in)
   if (siteData.siteConfig.type === 'bazar') {
-    return <StorefrontScreen storeSlug={subdomain} />;
+    return (
+      <GroceryCartProvider>
+        <StorefrontScreen storeSlug={subdomain} />
+        <SingleStoreCartConflictModal />
+      </GroceryCartProvider>
+    );
   }
 
   // Pass the server-fetched data to the client component
