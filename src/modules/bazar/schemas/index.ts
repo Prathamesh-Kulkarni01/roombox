@@ -43,6 +43,7 @@ export interface BazarProduct extends BaseEntity {
   description?: string;
   price: number;
   discountPrice?: number;
+  mrp?: number;
   unit: string; // e.g. "1 kg", "500 g", "1 Litre", "1 Packet"
   category: string;
   categoryMarathi?: string;

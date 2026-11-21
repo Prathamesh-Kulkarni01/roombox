@@ -169,9 +169,21 @@ ${getBaseAppUrl()}/bazar`;
     if (!customerPhone) return { success: false };
     const formattedPhone = formatPhoneNumber(customerPhone);
 
-    const storeLink = storeSlug 
-      ? `${getBaseAppUrl()}/bazar/store/${storeSlug}` 
-      : `${getBaseAppUrl()}/bazar`;
+    let storeLink = `${getBaseAppUrl()}/bazar`;
+    if (storeSlug) {
+      try {
+        const urlObj = new URL(getBaseAppUrl());
+        let host = urlObj.hostname;
+        if (host.startsWith('www.')) host = host.substring(4);
+        if (host === 'localhost' || host === '127.0.0.1' || host.includes(':')) {
+          storeLink = `${getBaseAppUrl()}/bazar/store/${storeSlug}`;
+        } else {
+          storeLink = `${urlObj.protocol}//${storeSlug}.${host}`;
+        }
+      } catch {
+        storeLink = `${getBaseAppUrl()}/bazar/store/${storeSlug}`;
+      }
+    }
 
     const message = 
 `🏪 *${storeName}* कडून सुचना:

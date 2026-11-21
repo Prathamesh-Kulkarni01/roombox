@@ -843,6 +843,8 @@ export interface SiteConfig {
   subdomain: string;
   ownerId: string;
   siteTitle: string;
+  type?: 'pg' | 'bazar';
+  storeId?: string;
   contactPhone?: string;
   contactEmail?: string;
   logoUrl?: string;

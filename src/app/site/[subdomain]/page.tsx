@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata, ResolvingMetadata, Viewport } from 'next';
 import { getSiteData } from '@/lib/actions/siteActions';
 import SitePageClient from '@/components/site-page-client';
+import { StorefrontScreen } from '@/modules/bazar/components/StorefrontScreen';
 
 type Props = {
   params: Promise<{ subdomain: string }>;
@@ -65,6 +66,11 @@ export default async function SitePage({ params, searchParams }: Props) {
 
   if (!siteData || !siteData.siteConfig) {
     notFound();
+  }
+
+  // If this subdomain is configured as a Bazar store (e.g. samarth.rentsutra.in)
+  if (siteData.siteConfig.type === 'bazar') {
+    return <StorefrontScreen storeSlug={subdomain} />;
   }
 
   // Pass the server-fetched data to the client component

@@ -178,6 +178,7 @@ export async function importRegionalMasterCatalogAction(storeId: string): Promis
         price: item.defaultPrice,
         discountPrice: item.mrp > item.defaultPrice ? item.defaultPrice : undefined, // discount/sale price is the lower selling price
         mrp: item.mrp,
+        unit: item.unit || '1 unit',
         category: item.category,
         categoryMarathi: item.categoryMarathi,
         inStock: true,

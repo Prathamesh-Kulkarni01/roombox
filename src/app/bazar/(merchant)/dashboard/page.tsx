@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppSelector } from '@/lib/hooks';
 import { 
   Store, 
@@ -76,7 +76,25 @@ export default function BazarMerchantDashboardPage() {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in').replace(/\/+$/, '');
   const activeStoreSlug = store?.slug || store?.id || '';
   const activeStoreName = store?.nameMarathi || store?.name || 'सुपर बझार';
-  const storeOrderUrl = activeStoreSlug ? `${appUrl}/bazar/store/${activeStoreSlug}` : `${appUrl}/bazar`;
+
+  // Format subdomain URL (e.g. samarth.rentsutra.in)
+  const storeSubdomainUrl = useMemo(() => {
+    if (!activeStoreSlug) return `${appUrl}/bazar`;
+    try {
+      const urlObj = new URL(appUrl);
+      let host = urlObj.hostname;
+      if (host.startsWith('www.')) host = host.substring(4);
+      // If localhost or IP, fallback to /bazar/store/[slug]
+      if (host === 'localhost' || host === '127.0.0.1' || host.includes(':')) {
+        return `${appUrl}/bazar/store/${activeStoreSlug}`;
+      }
+      return `${urlObj.protocol}//${activeStoreSlug}.${host}`;
+    } catch {
+      return `${appUrl}/bazar/store/${activeStoreSlug}`;
+    }
+  }, [appUrl, activeStoreSlug]);
+
+  const storeOrderUrl = storeSubdomainUrl;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(storeOrderUrl)}`;
 
   const handleSendInviteWhatsApp = async () => {

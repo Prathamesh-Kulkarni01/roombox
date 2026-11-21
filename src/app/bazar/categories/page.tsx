@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -247,7 +247,7 @@ function CategoriesContent() {
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
-            {filteredProducts.map(product => (
+            {filteredProducts.map((product: GroceryProduct) => (
               <GroceryProductCard
                 key={product.id}
                 product={product}

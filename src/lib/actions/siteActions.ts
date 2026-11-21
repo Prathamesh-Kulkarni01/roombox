@@ -27,13 +27,15 @@ const testimonialSchema = z.object({
 const websiteConfigSchema = z.object({
     subdomain: z.string().min(3).regex(/^[a-z0-9-]+$/),
     ownerId: z.string(),
-    siteTitle: z.string().min(5),
+    siteTitle: z.string().min(3),
+    type: z.enum(['pg', 'bazar']).optional(),
+    storeId: z.string().optional(),
     contactPhone: z.string().optional(),
     contactEmail: z.string().email().optional(),
     logoUrl: z.string().url().optional(),
     faviconUrl: z.string().url().optional(),
     themeColor: z.string().optional(),
-    listedPgs: z.array(z.string()).min(1),
+    listedPgs: z.array(z.string()).optional().default([]),
     status: z.enum(['published', 'draft', 'suspended']).optional(),
     heroHeadline: z.string().optional(),
     heroSubtext: z.string().optional(),
@@ -155,12 +157,38 @@ export async function getSiteData(subdomain: string, isPreview: boolean = false)
         const siteDoc = await adminDb.collection('sites').doc(subdomain).get();
 
         if (!siteDoc.exists) {
+            // Also check if this subdomain belongs directly to a Bazar store
+            const storeSnap = await adminDb.collection('bazar_stores')
+                .where('slug', '==', subdomain)
+                .limit(1)
+                .get();
+
+            if (!storeSnap.empty) {
+                const storeData = storeSnap.docs[0].data();
+                const bazarSiteConfig: SiteConfig = {
+                    subdomain,
+                    ownerId: storeData.ownerId || '',
+                    siteTitle: storeData.nameMarathi || storeData.name || 'सुपर बझार',
+                    type: 'bazar',
+                    storeId: storeSnap.docs[0].id,
+                    contactPhone: storeData.phone,
+                    status: 'published',
+                    listedPgs: [],
+                    themeColor: '#16834A',
+                };
+                return { pgs: [], siteConfig: bazarSiteConfig, owner: null, status: 'published', bazarStore: { ...storeData, id: storeSnap.docs[0].id } };
+            }
+
             return null;
         }
         const siteConfig = siteDoc.data() as SiteConfig;
 
         if (siteConfig.status !== 'published' && !isPreview) {
             return { status: siteConfig.status, pgs: [], siteConfig: siteConfig, owner: null };
+        }
+
+        if (siteConfig.type === 'bazar') {
+            return { pgs: [], siteConfig, owner: null, status: siteConfig.status };
         }
 
         const ownerDoc = await adminDb.collection('users').doc(siteConfig.ownerId).get();
@@ -207,7 +235,24 @@ export async function getBrandingForSubdomain(subdomain: string): Promise<{
     try {
         const adminDb = await getAdminDb();
         const siteDoc = await adminDb.collection('sites').doc(subdomain).get();
-        if (!siteDoc.exists) return null;
+        if (!siteDoc.exists) {
+            const storeSnap = await adminDb.collection('bazar_stores')
+                .where('slug', '==', subdomain)
+                .limit(1)
+                .get();
+            if (!storeSnap.empty) {
+                const storeData = storeSnap.docs[0].data();
+                return {
+                    subdomain,
+                    siteTitle: storeData.nameMarathi || storeData.name || 'सुपर बझार',
+                    logoUrl: storeData.branding?.logoUrl || storeData.imageUrl,
+                    faviconUrl: storeData.branding?.logoUrl,
+                    themeColor: '#16834A',
+                    contactPhone: storeData.phone,
+                };
+            }
+            return null;
+        }
         const data = siteDoc.data() as SiteConfig;
         return {
             subdomain,

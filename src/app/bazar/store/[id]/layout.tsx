@@ -8,7 +8,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   try {
-    const store = await bazarService.getStoreById(id) || await bazarService.getStoreBySlug(id);
+    const store = await bazarService.getStoreById(id);
     if (store) {
       const name = store.nameMarathi ? `${store.name} (${store.nameMarathi})` : store.name;
       return {

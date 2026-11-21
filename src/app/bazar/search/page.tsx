@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -20,7 +20,6 @@ import { GroceryProductCard } from '@/modules/bazar/components/GroceryProductCar
 import { NativeFloatingCartBar } from '@/modules/bazar/components/NativeFloatingCartBar';
 import { ProductDetailsSheet } from '@/modules/bazar/components/ProductDetailsSheet';
 import { getAllActiveStoresAction } from '@/modules/bazar/actions';
-import type { BazarTownStore } from '@/modules/bazar/data/storeDirectory';
 
 function SearchContent() {
   const router = useRouter();
