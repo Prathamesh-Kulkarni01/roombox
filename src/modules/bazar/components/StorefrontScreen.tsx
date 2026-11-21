@@ -55,20 +55,52 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-export function StorefrontScreen({ storeSlug }: { storeSlug?: string }) {
+export function StorefrontScreen({ 
+  storeSlug, 
+  initialStoreData 
+}: { 
+  storeSlug?: string;
+  initialStoreData?: BazarTownStore;
+}) {
   const router = useRouter();
   const params = useParams();
-  const rawId = storeSlug || (params?.id as string) || 'fresh-mart';
+  const rawId = storeSlug || (params?.id as string) || '';
 
   // State for dynamically loaded store metadata from Firestore
-  const [liveStoreData, setLiveStoreData] = useState<BazarTownStore | null>(null);
+  const [liveStoreData, setLiveStoreData] = useState<BazarTownStore | null>(initialStoreData || null);
 
   // Load harmonized store metadata: check live Firestore store first, then fallback to directory
   const store: BazarTownStore = useMemo(() => {
     if (liveStoreData) return liveStoreData;
-    const found = BAZAR_TOWN_STORES.find(s => s.slug === rawId || s.id === rawId);
-    return found || BAZAR_TOWN_STORES[0];
-  }, [liveStoreData, rawId]);
+    if (initialStoreData) return initialStoreData;
+    if (rawId) {
+      const found = BAZAR_TOWN_STORES.find(s => s.slug === rawId || s.id === rawId);
+      if (found) return found;
+    }
+    return {
+      id: rawId || 'store',
+      name: 'सुपर बझार',
+      nameMarathi: 'सुपर बझार',
+      slug: rawId || 'store',
+      address: 'Palus, Sangli',
+      category: 'grocery',
+      categoryMarathi: 'किराणा व दैनंदिन गरजा',
+      town: 'Palus',
+      isOpen: true,
+      distanceKm: 0.8,
+      deliveryTimeMins: '15-25 min',
+      minOrder: 50,
+      rating: 4.8,
+      ratingCount: 1,
+      ratingCountText: 'स्थानिक दुकान',
+      imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
+      shortCode: 'BZ',
+      verified: true,
+      offersText: 'स्थानिक खात्रीशीर दुकान',
+      offersTextMarathi: 'स्थानिक खात्रीशीर दुकान',
+      brandTheme: 'green',
+    };
+  }, [liveStoreData, initialStoreData, rawId]);
 
   // Fetch real store metadata from Firestore (handles newly created stores like Samarth Bazar)
   useEffect(() => {

@@ -72,9 +72,34 @@ export default async function SitePage({ params, searchParams }: Props) {
 
   // If this subdomain is configured as a Bazar store (e.g. samarth.rentsutra.in)
   if (siteData.siteConfig.type === 'bazar') {
+    const initialStore = (siteData as any).bazarStore ? {
+      id: (siteData as any).bazarStore.id,
+      name: (siteData as any).bazarStore.name,
+      nameMarathi: (siteData as any).bazarStore.nameMarathi || (siteData as any).bazarStore.name,
+      slug: (siteData as any).bazarStore.slug || subdomain,
+      address: (siteData as any).bazarStore.address || 'Palus, Sangli',
+      category: (siteData as any).bazarStore.category || 'grocery',
+      categoryMarathi: (siteData as any).bazarStore.category === 'dairy' ? 'दूध व डेअरी' : 'किराणा व धान्य',
+      town: (siteData as any).bazarStore.town || 'Palus',
+      isOpen: (siteData as any).bazarStore.isOpen !== undefined ? (siteData as any).bazarStore.isOpen : true,
+      distanceKm: (siteData as any).bazarStore.distanceKm || 0.8,
+      deliveryTimeMins: (siteData as any).bazarStore.deliveryTimeMins || '15-25 min',
+      minOrder: (siteData as any).bazarStore.minOrderValue || 50,
+      rating: 4.8,
+      ratingCount: 120,
+      ratingCountText: '120+ ratings',
+      imageUrl: (siteData as any).bazarStore.branding?.bannerUrl || (siteData as any).bazarStore.branding?.logoUrl || (siteData as any).bazarStore.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
+      shortCode: ((siteData as any).bazarStore.name?.slice(0, 2) || 'BZ').toUpperCase(),
+      verified: true,
+      offersText: 'स्थानिक खात्रीशीर दुकान',
+      offersTextMarathi: 'स्थानिक खात्रीशीर दुकान',
+      brandTheme: 'green' as const,
+      phone: (siteData as any).bazarStore.phone,
+    } : undefined;
+
     return (
       <GroceryCartProvider>
-        <StorefrontScreen storeSlug={subdomain} />
+        <StorefrontScreen storeSlug={subdomain} initialStoreData={initialStore} />
         <SingleStoreCartConflictModal />
       </GroceryCartProvider>
     );
