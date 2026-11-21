@@ -650,10 +650,10 @@ export default function BazarMerchantDashboardPage() {
                 asChild
                 className="text-xs rounded-lg text-primary hover:bg-primary/10"
               >
-                <Link href={`/bazar/store/${activeStoreSlug}`} target="_blank">
+                <a href={storeOrderUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-3.5 w-3.5 mr-1" />
                   <span>दुकान उघडा</span>
-                </Link>
+                </a>
               </Button>
             </div>
           </div>

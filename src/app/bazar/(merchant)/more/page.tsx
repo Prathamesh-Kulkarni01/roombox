@@ -62,6 +62,18 @@ export default function BazarMorePage() {
   };
 
   const storeSlug = store?.slug || store?.id || '';
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://rentsutra.in').replace(/\/+$/, '');
+  let brandedStoreUrl = `${appUrl}/bazar/store/${storeSlug}`;
+  if (storeSlug) {
+    try {
+      const urlObj = new URL(appUrl);
+      let host = urlObj.hostname;
+      if (host.startsWith('www.')) host = host.substring(4);
+      if (host !== 'localhost' && host !== '127.0.0.1' && !host.includes(':')) {
+        brandedStoreUrl = `${urlObj.protocol}//${storeSlug}.${host}`;
+      }
+    } catch {}
+  }
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
@@ -86,10 +98,10 @@ export default function BazarMorePage() {
 
         {storeSlug && (
           <Button variant="outline" size="sm" asChild className="h-8 text-xs font-semibold">
-            <Link href={`/bazar/store/${storeSlug}`} target="_blank">
+            <a href={brandedStoreUrl} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-3.5 w-3.5 mr-1 text-primary" />
               Preview
-            </Link>
+            </a>
           </Button>
         )}
       </div>

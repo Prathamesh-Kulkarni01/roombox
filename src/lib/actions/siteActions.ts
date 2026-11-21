@@ -106,10 +106,29 @@ export async function getSiteConfigForOwner(ownerId: string): Promise<SiteConfig
     try {
         const adminDb = await getAdminDb();
         const snapshot = await adminDb.collection('sites').where('ownerId', '==', ownerId).get();
-        if (snapshot.empty) {
-            return null;
+        if (!snapshot.empty) {
+            return snapshot.docs[0].data() as SiteConfig;
         }
-        return snapshot.docs[0].data() as SiteConfig;
+
+        // Also check if owner is a Bazar store merchant
+        const storeSnap = await adminDb.collection('bazar_stores').where('ownerId', '==', ownerId).limit(1).get();
+        if (!storeSnap.empty) {
+            const storeData = storeSnap.docs[0].data();
+            const slug = storeData.slug || storeSnap.docs[0].id;
+            return {
+                subdomain: slug,
+                ownerId,
+                siteTitle: storeData.nameMarathi || storeData.name || 'सुपर बझार',
+                type: 'bazar',
+                storeId: storeSnap.docs[0].id,
+                contactPhone: storeData.phone,
+                status: 'published',
+                listedPgs: [],
+                themeColor: '#16834A',
+            };
+        }
+
+        return null;
     } catch (error) {
         console.error("Error getting site config:", error);
         return null;
