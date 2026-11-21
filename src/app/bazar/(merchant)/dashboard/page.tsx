@@ -267,23 +267,34 @@ export default function BazarMerchantDashboardPage() {
     let isMounted = true;
     async function loadData() {
       try {
-        const ownerId = currentUser?.id || 'default_store';
-        let storeData = await getMerchantStoreAction(ownerId);
+        const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+        let storeData: BazarStore | null = null;
+        if (ownerId) {
+          storeData = await getMerchantStoreAction(ownerId);
+        }
         
-        if (!storeData && ownerId !== 'default_store') {
+        // Only fallback to default_store if this is a demo guest or no store registered yet
+        if (!storeData && !ownerId) {
           storeData = await getMerchantStoreAction('default_store');
         }
 
-        const activeStoreId = storeData?.id || 'fresh-mart';
         if (isMounted) setStore(storeData);
+        const activeStoreId = storeData?.id;
 
-        const [prods, ords] = await Promise.all([
-          getStoreProductsAction(activeStoreId),
-          getStoreOrdersAction(activeStoreId),
-        ]);
-        if (isMounted) {
-          setProducts(prods);
-          setOrders(ords);
+        if (activeStoreId) {
+          const [prods, ords] = await Promise.all([
+            getStoreProductsAction(activeStoreId),
+            getStoreOrdersAction(activeStoreId),
+          ]);
+          if (isMounted) {
+            setProducts(prods);
+            setOrders(ords);
+          }
+        } else {
+          if (isMounted) {
+            setProducts([]);
+            setOrders([]);
+          }
         }
       } catch (e) {
         console.error('Failed to load bazar dashboard:', e);
@@ -297,7 +308,7 @@ export default function BazarMerchantDashboardPage() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
 
   const handleToggleStoreStatus = () => {
     const nextState = !storeOpen;

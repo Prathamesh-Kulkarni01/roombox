@@ -47,10 +47,18 @@ export default function MerchantOrdersQueuePage() {
     let isMounted = true;
     async function resolveStore() {
       try {
-        const ownerId = currentUser?.id || 'default_store';
-        const storeData = await getMerchantStoreAction(ownerId);
-        if (isMounted && storeData?.id) {
-          setActiveStoreId(storeData.id);
+        const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+        if (ownerId) {
+          const storeData = await getMerchantStoreAction(ownerId);
+          if (isMounted && storeData?.id) {
+            setActiveStoreId(storeData.id);
+            return;
+          }
+        }
+        // Fallback for unauthenticated or demo
+        const fallback = await getMerchantStoreAction('default_store');
+        if (isMounted && fallback?.id) {
+          setActiveStoreId(fallback.id);
         }
       } catch (err) {
         console.warn('Could not resolve merchant store:', err);
@@ -60,7 +68,7 @@ export default function MerchantOrdersQueuePage() {
     return () => {
       isMounted = false;
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
 
   // 2. Poll live orders for the active store
   useEffect(() => {

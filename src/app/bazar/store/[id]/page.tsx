@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useGroceryCart } from '@/modules/bazar/context/GroceryCartContext';
-import { getStoreProductsAction } from '@/modules/bazar/actions';
+import { getStoreProductsAction, getStoreBySlugOrIdAction } from '@/modules/bazar/actions';
 import { 
   BAZAR_PRODUCT_CATALOG, 
   BAZAR_CATEGORIES, 
@@ -60,10 +60,56 @@ function StorefrontScreen() {
   const params = useParams();
   const rawId = (params?.id as string) || 'fresh-mart';
 
-  // Load harmonized store metadata from single source of truth
+  // State for dynamically loaded store metadata from Firestore
+  const [liveStoreData, setLiveStoreData] = useState<BazarTownStore | null>(null);
+
+  // Load harmonized store metadata: check live Firestore store first, then fallback to directory
   const store: BazarTownStore = useMemo(() => {
+    if (liveStoreData) return liveStoreData;
     const found = BAZAR_TOWN_STORES.find(s => s.slug === rawId || s.id === rawId);
     return found || BAZAR_TOWN_STORES[0];
+  }, [liveStoreData, rawId]);
+
+  // Fetch real store metadata from Firestore (handles newly created stores like Samarth Bazar)
+  useEffect(() => {
+    let isMounted = true;
+    async function loadStore() {
+      try {
+        const s = await getStoreBySlugOrIdAction(rawId);
+        if (isMounted && s) {
+          setLiveStoreData({
+            id: s.id!,
+            name: s.name,
+            nameMarathi: s.nameMarathi || s.name,
+            slug: s.slug,
+            address: s.address,
+            category: s.category || 'grocery',
+            categoryMarathi: s.category === 'dairy' ? 'दूध व डेअरी' : 'किराणा व धान्य',
+            town: (s.town as any) || 'Palus',
+            isOpen: s.isActive !== false,
+            distanceKm: 0.8,
+            deliveryTimeMins: '10-20 min',
+            minOrder: s.minOrderValue || 50,
+            rating: 4.8,
+            ratingCount: 50,
+            ratingCountText: 'स्थानिक दुकान',
+            imageUrl: s.branding?.bannerUrl || s.branding?.logoUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=80',
+            shortCode: (s.name.slice(0, 2) || 'BZ').toUpperCase(),
+            verified: true,
+            offersText: 'स्थानिक खात्रीशीर दुकान',
+            offersTextMarathi: 'स्थानिक खात्रीशीर दुकान',
+            brandTheme: 'violet',
+            phone: s.phone,
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load live store metadata:', err);
+      }
+    }
+    loadStore();
+    return () => {
+      isMounted = false;
+    };
   }, [rawId]);
 
   const { 
@@ -93,7 +139,8 @@ function StorefrontScreen() {
     let isMounted = true;
     async function fetchStoreCatalog() {
       try {
-        const liveProducts = await getStoreProductsAction(rawId);
+        const targetStoreId = liveStoreData?.id || rawId;
+        const liveProducts = await getStoreProductsAction(targetStoreId);
         if (isMounted && liveProducts && liveProducts.length > 0) {
           const mapped: GroceryProduct[] = liveProducts.map((p) => {
             const disc = p.discountPrice && p.price > p.discountPrice
@@ -126,7 +173,7 @@ function StorefrontScreen() {
     return () => {
       isMounted = false;
     };
-  }, [rawId]);
+  }, [rawId, liveStoreData?.id]);
 
   // Automatic Store Brand Theme synchronization:
 

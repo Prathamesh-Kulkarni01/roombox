@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useGroceryCart } from '@/modules/bazar/context/GroceryCartContext';
 import { BAZAR_TOWN_STORES } from '@/modules/bazar/data/storeDirectory';
+import { getStoreBySlugOrIdAction } from '@/modules/bazar/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,6 +70,28 @@ function CheckoutContent() {
   const [addressError, setAddressError] = useState('');
   const [isAddressSheetOpen, setIsAddressSheetOpen] = useState(false);
   const [language, setLanguage] = useState<'mr' | 'en'>('mr');
+  const [liveStoreMeta, setLiveStoreMeta] = useState<any>(null);
+
+  // Fetch live store details if cartStoreId belongs to a dynamic store (e.g. Samarth Bazar)
+  useEffect(() => {
+    let isMounted = true;
+    async function resolveLiveStore() {
+      if (cartStoreId) {
+        try {
+          const s = await getStoreBySlugOrIdAction(cartStoreId);
+          if (isMounted && s) {
+            setLiveStoreMeta(s);
+          }
+        } catch (err) {
+          console.warn('Could not load live store in checkout:', err);
+        }
+      }
+    }
+    resolveLiveStore();
+    return () => {
+      isMounted = false;
+    };
+  }, [cartStoreId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -93,7 +116,15 @@ function CheckoutContent() {
   const displayTotal = totalItems === 0 ? 248 : finalTotal;
   const displayItemsCount = totalItems === 0 ? 3 : totalItems;
 
-  const currentStore = BAZAR_TOWN_STORES.find(s => s.id === cartStoreId || s.slug === cartStoreId) || BAZAR_TOWN_STORES[0];
+  const currentStore = liveStoreMeta 
+    ? {
+        id: liveStoreMeta.id,
+        name: liveStoreMeta.name,
+        nameMarathi: liveStoreMeta.nameMarathi || liveStoreMeta.name,
+        slug: liveStoreMeta.slug,
+        address: liveStoreMeta.address,
+      }
+    : (BAZAR_TOWN_STORES.find(s => s.id === cartStoreId || s.slug === cartStoreId) || BAZAR_TOWN_STORES[0]);
 
   const handlePlaceOrder = async () => {
     // 🛡️ STRICT VALIDATION: Phone number is mandatory for WhatsApp notification & delivery

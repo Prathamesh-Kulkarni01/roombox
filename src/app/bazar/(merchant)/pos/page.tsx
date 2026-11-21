@@ -71,9 +71,12 @@ export default function BazarPosBillingPage() {
   useEffect(() => {
     async function load() {
       try {
-        const ownerId = currentUser?.id || 'default_store';
-        let storeData = await getMerchantStoreAction(ownerId);
-        if (!storeData && ownerId !== 'default_store') {
+        const ownerId = currentUser?.id || (currentUser as unknown as { uid?: string })?.uid;
+        let storeData: any = null;
+        if (ownerId) {
+          storeData = await getMerchantStoreAction(ownerId);
+        }
+        if (!storeData && !ownerId) {
           storeData = await getMerchantStoreAction('default_store');
         }
         setStore(storeData);
@@ -88,7 +91,7 @@ export default function BazarPosBillingPage() {
       }
     }
     load();
-  }, [currentUser?.id]);
+  }, [currentUser?.id, (currentUser as unknown as { uid?: string })?.uid]);
 
   // Filter products by search & category
   const filteredProducts = useMemo(() => {

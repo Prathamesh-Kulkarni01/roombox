@@ -18,9 +18,19 @@ const CUSTOMERS_COLLECTION = 'bazar_customers';
 export async function getMerchantStoreAction(ownerId: string): Promise<BazarStore | null> {
   try {
     const adminDb = await getAdminDb();
-    const snap = await adminDb.collection(STORES_COLLECTION).where('ownerId', '==', ownerId).limit(1).get();
+    let snap = await adminDb.collection(STORES_COLLECTION).where('ownerId', '==', ownerId).limit(1).get();
     if (snap.empty) {
-      // Fallback: check by ID or client service
+      // Check if store document ID directly matches ownerId
+      const directDoc = await adminDb.collection(STORES_COLLECTION).doc(ownerId).get();
+      if (directDoc.exists) {
+        const data = directDoc.data() as BazarStore;
+        return {
+          ...data,
+          id: directDoc.id,
+          schemaVersion: data.schemaVersion ?? 1,
+        };
+      }
+      // Fallback: check by client service
       return bazarService.getStoreByOwner(ownerId);
     }
     const d = snap.docs[0];
@@ -33,6 +43,32 @@ export async function getMerchantStoreAction(ownerId: string): Promise<BazarStor
   } catch (err) {
     console.warn('[ServerAction] getMerchantStoreAction fallback to client service:', err);
     return bazarService.getStoreByOwner(ownerId);
+  }
+}
+
+/**
+ * Fetch a store by its unique slug or document ID (Admin SDK)
+ */
+export async function getStoreBySlugOrIdAction(slugOrId: string): Promise<BazarStore | null> {
+  try {
+    const adminDb = await getAdminDb();
+    // 1. Direct document lookup by ID
+    const directDoc = await adminDb.collection(STORES_COLLECTION).doc(slugOrId).get();
+    if (directDoc.exists) {
+      const data = directDoc.data() as BazarStore;
+      return { ...data, id: directDoc.id, schemaVersion: data.schemaVersion ?? 1 };
+    }
+    // 2. Query by slug
+    const snap = await adminDb.collection(STORES_COLLECTION).where('slug', '==', slugOrId).limit(1).get();
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      const data = d.data() as BazarStore;
+      return { ...data, id: d.id, schemaVersion: data.schemaVersion ?? 1 };
+    }
+    return null;
+  } catch (err) {
+    console.warn('[ServerAction] getStoreBySlugOrIdAction error:', err);
+    return null;
   }
 }
 
@@ -232,10 +268,27 @@ export async function getAllActiveStoresAction(): Promise<BazarStore[]> {
 }
 
 /**
- * Get Store Orders
+ * Get Store Orders (using Admin SDK to reliably fetch real orders for any store ID)
  */
 export async function getStoreOrdersAction(storeId: string): Promise<BazarOrder[]> {
-  return bazarService.getOrdersByStore(storeId);
+  try {
+    const adminDb = await getAdminDb();
+    const snap = await adminDb.collection(ORDERS_COLLECTION).where('storeId', '==', storeId).get();
+    if (!snap.empty) {
+      return snap.docs.map(doc => {
+        const data = doc.data() as BazarOrder;
+        return {
+          ...data,
+          id: doc.id,
+          schemaVersion: data.schemaVersion ?? 1,
+        };
+      });
+    }
+    return bazarService.getOrdersByStore(storeId);
+  } catch (err) {
+    console.warn('[ServerAction] getStoreOrdersAction fallback to bazarService:', err);
+    return bazarService.getOrdersByStore(storeId);
+  }
 }
 
 /**
