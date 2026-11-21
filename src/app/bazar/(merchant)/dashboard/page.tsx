@@ -326,7 +326,8 @@ export default function BazarMerchantDashboardPage() {
       }
     }
     loadData();
-    const interval = setInterval(loadData, 5000);
+    // Refresh live orders and inventory updates periodically (15s to conserve Firestore reads and battery)
+    const interval = setInterval(loadData, 15000);
     return () => {
       isMounted = false;
       clearInterval(interval);

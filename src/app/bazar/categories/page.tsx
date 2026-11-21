@@ -101,14 +101,25 @@ function CategoriesContent() {
   const [selectedProduct, setSelectedProduct] = useState<GroceryProduct | null>(null);
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
 
+  const [sortBy, setSortBy] = useState<'default' | 'price_asc' | 'price_desc'>('default');
+
   const { items, totalItems, subtotal, deliveryFee, totalSavings, finalTotal, clearCart } = useGroceryCart();
 
   // Products for the active category
-  const filteredProducts = BAZAR_PRODUCT_CATALOG.filter(p => {
-    const matchesCat = p.category === selectedCategory || selectedCategory === 'all';
-    if (activeSubFilter === 'all') return matchesCat;
-    return matchesCat && p.name.toLowerCase().includes(activeSubFilter);
-  });
+  const filteredProducts = useMemo(() => {
+    let prods = BAZAR_PRODUCT_CATALOG.filter(p => {
+      const matchesCat = p.category === selectedCategory || selectedCategory === 'all';
+      if (activeSubFilter === 'all') return matchesCat;
+      return matchesCat && p.name.toLowerCase().includes(activeSubFilter);
+    });
+
+    if (sortBy === 'price_asc') {
+      prods = [...prods].sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'price_desc') {
+      prods = [...prods].sort((a, b) => b.price - a.price);
+    }
+    return prods;
+  }, [selectedCategory, activeSubFilter, sortBy]);
 
   const activeCategoryObj = CATEGORY_ITEMS.find(c => c.id === selectedCategory) || CATEGORY_ITEMS[0];
 
@@ -222,10 +233,17 @@ function CategoriesContent() {
         <main className="px-3.5 pt-3 pb-6 flex-1 space-y-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="font-bold text-foreground">{filteredProducts.length} Items Available</span>
-            <span className="flex items-center gap-1 text-primary font-bold cursor-pointer">
+            <button 
+              onClick={() => {
+                setSortBy(prev => prev === 'default' ? 'price_asc' : prev === 'price_asc' ? 'price_desc' : 'default');
+              }}
+              className="flex items-center gap-1 text-primary font-bold hover:underline"
+            >
               <Filter className="h-3 w-3" />
-              Filter & Sort
-            </span>
+              <span>
+                {sortBy === 'default' ? 'Filter & Sort' : sortBy === 'price_asc' ? 'Price: Low to High' : 'Price: High to Low'}
+              </span>
+            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
