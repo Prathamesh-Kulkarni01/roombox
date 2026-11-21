@@ -60,6 +60,7 @@ function CheckoutContent() {
   const [selectedPayment, setSelectedPayment] = useState<'cod' | 'upi' | 'card'>('cod');
   const [deliveryInstruction, setDeliveryInstruction] = useState('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   // Customer & Address State (Empty by default for customer input)
   const [customerName, setCustomerName] = useState('');
@@ -113,8 +114,8 @@ function CheckoutContent() {
     }
   }, []);
 
-  const displayTotal = totalItems === 0 ? 248 : finalTotal;
-  const displayItemsCount = totalItems === 0 ? 3 : totalItems;
+  const displayTotal = finalTotal;
+  const displayItemsCount = totalItems;
 
   const currentStore = liveStoreMeta 
     ? {
@@ -127,6 +128,12 @@ function CheckoutContent() {
     : (BAZAR_TOWN_STORES.find(s => s.id === cartStoreId || s.slug === cartStoreId) || BAZAR_TOWN_STORES[0]);
 
   const handlePlaceOrder = async () => {
+    // 🛡️ B-01 Guard: Disallow placing order with an empty cart
+    if (items.length === 0 || totalItems === 0) {
+      setOrderError(language === 'mr' ? 'तुमची कार्ट रिकामी आहे. कृपया आधी वस्तू निवडा.' : 'Your cart is empty. Please add items first.');
+      return;
+    }
+
     // 🛡️ STRICT VALIDATION: Phone number is mandatory for WhatsApp notification & delivery
     const cleanPhoneDigits = customerPhone.replace(/\D/g, '');
     if (cleanPhoneDigits.length !== 10) {
@@ -149,18 +156,15 @@ function CheckoutContent() {
     }
 
     setIsPlacingOrder(true);
-    const orderItems = items.length > 0 
-      ? items.map(item => ({
-          productId: item.product.id,
-          productName: item.product.name,
-          quantity: item.quantity,
-          price: item.price,
-          unit: item.unit
-        }))
-      : [
-          { productId: 'p1', productName: 'Chakki Fresh Atta', quantity: 1, price: 235 },
-          { productId: 'p2', productName: 'Amul Milk 500ml', quantity: 2, price: 28 },
-        ];
+    setOrderError(null);
+
+    const orderItems = items.map(item => ({
+      productId: item.product.id,
+      productName: item.product.name,
+      quantity: item.quantity,
+      price: item.price,
+      unit: item.unit
+    }));
 
     const orderPayload = {
       storeId: currentStore.id,
@@ -176,21 +180,41 @@ function CheckoutContent() {
       schemaVersion: 1
     };
 
-    let targetOrderId = 'ord_1';
+    let targetOrderId: string | null = null;
     try {
       const response = await fetch('/api/bazar/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload),
       });
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.orderId) {
-          targetOrderId = data.orderId;
-        }
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || (language === 'mr' ? 'ऑर्डर नोंदवताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.' : 'Failed to place order. Please try again.'));
       }
-    } catch (e) {
-      console.warn('Order sync fallback:', e);
+
+      if (data && data.orderId) {
+        targetOrderId = data.orderId;
+      }
+    } catch (e: any) {
+      console.error('Order placement error:', e);
+      setOrderError(e.message || (language === 'mr' ? 'ऑर्डर नोंदवता आली नाही. कृपया पुन्हा प्रयत्न करा.' : 'Could not place order. Please try again.'));
+      setIsPlacingOrder(false);
+      return; // Do NOT clear cart or navigate on error
+    }
+
+    // Save order ID to local placed orders list for secure tracking
+    if (typeof window !== 'undefined' && targetOrderId) {
+      try {
+        const storedOrders = JSON.parse(localStorage.getItem('bazar_placed_orders') || '[]');
+        if (!storedOrders.includes(targetOrderId)) {
+          storedOrders.unshift(targetOrderId);
+          localStorage.setItem('bazar_placed_orders', JSON.stringify(storedOrders.slice(0, 50)));
+        }
+      } catch (err) {
+        console.warn('Could not update placed orders cache:', err);
+      }
     }
 
     clearCart();
@@ -541,7 +565,7 @@ function CheckoutContent() {
             <div className="space-y-1.5 pt-1 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>{language === 'mr' ? 'वस्तूंची किंमत' : 'Item Total'}</span>
-                <span className="font-bold text-foreground">₹{subtotal > 0 ? subtotal : 248}</span>
+                <span className="font-bold text-foreground">₹{subtotal}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>{language === 'mr' ? 'डिलिव्हरी शुल्क' : 'Delivery Charge'}</span>
@@ -560,11 +584,19 @@ function CheckoutContent() {
             </div>
           </div>
 
+          {/* Order Error Alert */}
+          {orderError && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl flex items-center gap-2 text-xs font-semibold">
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+              <span>{orderError}</span>
+            </div>
+          )}
+
           {/* Place Order CTA */}
           <Button
             onClick={handlePlaceOrder}
-            disabled={isPlacingOrder}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 rounded-2xl text-base shadow-md transition-all active:scale-[0.99]"
+            disabled={isPlacingOrder || items.length === 0}
+            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 rounded-2xl text-base shadow-md transition-all active:scale-[0.99] disabled:opacity-50"
           >
             {isPlacingOrder ? (
               <>

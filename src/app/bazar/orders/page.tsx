@@ -114,7 +114,20 @@ export default function MyOrdersPage() {
         return;
       }
       try {
-        const res = await fetch(`/api/bazar/orders?customerPhone=${encodeURIComponent(savedPhone)}`);
+        // Read client-verified placed orders to avoid unrestricted phone number enumeration
+        let placedOrderIdsQuery = '';
+        if (typeof window !== 'undefined') {
+          try {
+            const placedIds: string[] = JSON.parse(localStorage.getItem('bazar_placed_orders') || '[]');
+            if (Array.isArray(placedIds) && placedIds.length > 0) {
+              placedOrderIdsQuery = `&orderIds=${encodeURIComponent(placedIds.join(','))}`;
+            }
+          } catch {
+            // ignore JSON parse error
+          }
+        }
+
+        const res = await fetch(`/api/bazar/orders?customerPhone=${encodeURIComponent(savedPhone)}${placedOrderIdsQuery}`);
         const json = await res.json();
         if (json.success && Array.isArray(json.orders)) {
           const mapped = json.orders.map(mapBazarOrderToDisplay);
